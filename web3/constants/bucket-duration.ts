@@ -1,0 +1,1 @@
+export const BUCKET_DURATION = 604800

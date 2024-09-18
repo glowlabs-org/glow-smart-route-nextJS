@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 20 14.3% 4.1%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 20 14.3% 4.1%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 14.3% 4.1%;
+
+    --primary: 48, 60%, 95%;
+    --primary-foreground: 48, 60%, 95%;
+
+    --secondary: 207, 42%, 17%;
+    --secondary-foreground: 207, 42%, 17%;
+
+    --muted: 60 4.8% 95.9%;
+    --muted-foreground: 25 5.3% 44.7%;
+
+    --accent: 60 4.8% 95.9%;
+    --accent-foreground: 24 9.8% 10%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 60 9.1% 97.8%;
+
+    --border: 20 5.9% 90%;
+    --input: 20 5.9% 90%;
+    --ring: 20 14.3% 4.1%;
+
+    --radius: 0.5rem;
+  }
+  html,
+  body,
+  #root {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  #hero,
+  #hero video {
+    height: 700px;
+    max-height: 100vh;
+  }
+  @media (min-width: 576px) and (max-width: 1023.98px) {
+    #hero,
+    #hero video {
+      height: calc(630px + ((100vw - 576px) / ((768 - 576) / (824 - 590))));
+    }
+  }
+
+  @media (min-width: 768px) and (max-width: 1279.98px) {
+    #hero,
+    #hero video {
+      height: 900px;
+    }
+  }
+
+  @media (min-width: 1280px) and (max-width: 1919.98px) {
+    #hero,
+    #hero video {
+      height: calc(720px + ((100vw - 1280px) / ((1920 - 1280) / (956 - 620))));
+    }
+  }
+
+  @media (min-width: 1920px) {
+    #hero,
+    #hero video {
+      height: 956px;
+    }
+  }
+
+  /* organization page */
+  #organization {
+    min-height: 100vh;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
