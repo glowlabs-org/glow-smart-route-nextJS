@@ -1,5 +1,5 @@
 import { MinerPoolAndGCAABI } from '@glowlabs-org/guarded-launch-abis'
-import { publicClient } from '@/web3/clients/publicClient'
+import { publicClient } from '@/web3/web3/clients/publicClient'
 import { addresses } from '@glowlabs-org/guarded-launch-abis'
 
 export const getRewardInBucket = async (bucket: number) => {
