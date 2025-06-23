@@ -6,7 +6,7 @@ import { formatUnits } from "viem";
 import { useContracts } from "./useContracts";
 import { useEffect, useState } from "react";
 
-// Hardcoded USDGRedemption contract address (replace with actual address when deployed)
+// USDGRedemption contract address
 export const USDG_REDEMPTION_ADDRESS =
   "0x1c2cA537757e1823400F857EdBe72B55bbAe0F08" as `0x${string}`;
 
@@ -39,20 +39,6 @@ export function useUSDGRedemption() {
       USDG_REDEMPTION_ABI,
       signer
     );
-  }
-
-  /**
-   * Get USDG balance for the connected signer (for testing)
-   */
-  async function getUSDGBalanceForSigner(): Promise<BigNumber | null> {
-    try {
-      if (!usdg || !signer) return null;
-      const address = await signer.getAddress();
-      const balance: BigNumber = await usdg.balanceOf(address);
-      return balance;
-    } catch {
-      return null;
-    }
   }
 
   /**
@@ -90,8 +76,7 @@ export function useUSDGRedemption() {
         owner,
         USDG_REDEMPTION_ADDRESS
       );
-      console.log("allowance", formatUnits(allowance.toBigInt(), 6));
-      console.log("amountUSDG", formatUnits(amountUSDG.toBigInt(), 6));
+
       if (allowance.lt(amountUSDG)) {
         // Approve MaxUint256 for gas efficiency
         try {
@@ -104,7 +89,7 @@ export function useUSDGRedemption() {
           return new Err(e?.reason || e?.message || "USDG approval failed");
         }
       }
-      console.log("redeeming", formatUnits(amountUSDG.toBigInt(), 6));
+
       const tx = await contract.exchange(amountUSDG);
       await tx.wait();
       return new Ok(true);
@@ -152,7 +137,6 @@ export function useUSDGRedemption() {
   return {
     redeemUSDGForUSDC,
     estimateGasForRedeemUSDG,
-    getUSDGBalanceForSigner,
     getUSDCBalanceOfRedemptionContract,
     usdcInRedemption,
   };
