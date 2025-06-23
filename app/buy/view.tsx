@@ -37,6 +37,10 @@ import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { TabsList } from "@radix-ui/react-tabs";
 import { useERC20 } from "@/hooks/useERC20";
+import {
+  USDG_REDEMPTION_ADDRESS,
+  useUSDGRedemption,
+} from "@/hooks/useUSDGRedemption";
 
 const tokens = {
   USDG: {
@@ -99,8 +103,8 @@ export default function View({
   usdcRewardPool,
   impactPowerPrice,
   gccCirculatingSupply,
-  // totalProtocolFeesLast30days,
-}: {
+}: // totalProtocolFeesLast30days,
+{
   gccCirculatingSupply: string;
   glowPrice: string;
   earlyLiquidityCurrentPrice: string;
@@ -140,6 +144,12 @@ export default function View({
       estimatedTotalGasInUSD: string;
     }
   >();
+  const [usdgWithdrawAmount, setUsdgWithdrawAmount] = useState<string>("0");
+  const [isWithdrawing, setIsWithdrawing] = useState<boolean>(false);
+  const [estimatedWithdrawGas, setEstimatedWithdrawGas] = useState<string>("");
+
+  const [isUsdcInRedemptionLoading, setIsUsdcInRedemptionLoading] =
+    useState(false);
 
   const {
     purchaseGlowEarlyLiquidity,
@@ -153,6 +163,12 @@ export default function View({
     usePurchaseImpactPower();
   const signer = useEthersSigner();
   const { sendTokens, isReady: isSendTokensReady } = useERC20({ signer });
+  const {
+    usdcInRedemption,
+    redeemUSDGForUSDC,
+    estimateGasForRedeemUSDG,
+    getUSDCBalanceOfRedemptionContract,
+  } = useUSDGRedemption();
 
   const {
     getBalance,
@@ -358,11 +374,6 @@ export default function View({
   };
 
   const getSendButtonProps = () => {
-    console.log({
-      amountToSendN: Number(amountToSend),
-      sendToAddress,
-      getTokenToSendBalance: getTokenToSendBalance(),
-    });
     if (Number(amountToSend) === 0) {
       return {
         label: `Enter an amount`,
@@ -825,6 +836,45 @@ export default function View({
   const isEstimateLoading =
     estimateQueueAmount !== 0 && amountToSell ? true : false;
 
+  useEffect(() => {
+    async function estimate() {
+      if (!usdgWithdrawAmount || Number(usdgWithdrawAmount) <= 0) {
+        setEstimatedWithdrawGas("");
+        return;
+      }
+      try {
+        const res = await estimateGasForRedeemUSDG(
+          ethers.utils.parseUnits(usdgWithdrawAmount, 6),
+          ethPriceInUSD
+        );
+        if (res.ok) setEstimatedWithdrawGas(res.val);
+        else setEstimatedWithdrawGas("");
+      } catch {
+        setEstimatedWithdrawGas("");
+      }
+    }
+    estimate();
+  }, [usdgWithdrawAmount, ethPriceInUSD, estimateGasForRedeemUSDG]);
+
+  async function handleUSDGWithdraw() {
+    setIsWithdrawing(true);
+    try {
+      const amount = ethers.utils.parseUnits(usdgWithdrawAmount, 6);
+      const res = await redeemUSDGForUSDC(amount);
+      if (res.ok) {
+        toast.success("USDG successfully redeemed for USDC");
+        setUsdgWithdrawAmount("0");
+        await getUSDCBalanceOfRedemptionContract(); // Refresh USDC in contract after redeem
+      } else {
+        toast.error(res.val);
+      }
+    } catch (error: any) {
+      toast.error(error?.message || "Redemption failed");
+    } finally {
+      setIsWithdrawing(false);
+    }
+  }
+
   return (
     <div
       id="organization"
@@ -971,6 +1021,12 @@ export default function View({
                       className="text-xl text-secondary font-mono font-semibold uppercase"
                     >
                       Send
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="withdraw"
+                      className="text-xl text-secondary font-mono font-semibold uppercase"
+                    >
+                      USDG Redemption
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="buy">
@@ -1299,6 +1355,161 @@ export default function View({
                           here
                         </Button>
                       </InstructionsDialog>
+                    </p>
+                  </TabsContent>
+                  <TabsContent value="withdraw">
+                    {/* USDC in Redemption Contract */}
+                    <div className="flex items-center justify-between mb-2 border border-[#E2E2E2] bg-white rounded-md px-4 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-secondary text-base font-medium">
+                          Available in contract
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-secondary text-xl font-bold font-mono min-w-[80px] text-right">
+                          {isUsdcInRedemptionLoading ? (
+                            <Loader2 className="inline w-5 h-5 animate-spin align-middle" />
+                          ) : (
+                            usdcInRedemption
+                          )}
+                        </span>
+                        <span className="text-secondary text-base font-medium ml-1">
+                          USDC
+                        </span>
+                      </div>
+                    </div>
+                    <div className="grid border border-[#E2E2E2] gap-2 md:gap-4 my-4">
+                      <div className="p-6 py-4 w-full">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-[#0000095] text-lg">
+                            USDG to Redeem
+                          </h3>
+                          {isConnected && (
+                            <span className="text-secondary text-sm">
+                              Balance:{" "}
+                              {usdgBalance
+                                ? ethers.utils
+                                    .formatUnits(usdgBalance, 6)
+                                    .replace(/\.0+$/, "")
+                                : "-"}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="text"
+                            placeholder="0"
+                            className={`px-0 text-xl md:text-4xl border-transparent focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                              usdgWithdrawAmount &&
+                              usdgBalance &&
+                              !usdgBalance.isZero() &&
+                              Number(usdgWithdrawAmount) >
+                                Number(ethers.utils.formatUnits(usdgBalance, 6))
+                                ? "text-red-500"
+                                : "text-secondary"
+                            }`}
+                            pattern="[0-9]*"
+                            value={usdgWithdrawAmount}
+                            disabled={!isConnected || isWithdrawing}
+                            onChange={(e) => {
+                              if (Number(e.target.value) < 0) {
+                                setUsdgWithdrawAmount("0");
+                                return;
+                              }
+                              setUsdgWithdrawAmount(e.target.value);
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="ml-2"
+                            disabled={
+                              !usdgBalance ||
+                              usdgBalance.isZero() ||
+                              isWithdrawing
+                            }
+                            onClick={() => {
+                              if (usdgBalance && !usdgBalance.isZero()) {
+                                setUsdgWithdrawAmount(
+                                  ethers.utils
+                                    .formatUnits(usdgBalance, 6)
+                                    .replace(/\.0+$/, "")
+                                );
+                              }
+                            }}
+                          >
+                            Max
+                          </Button>
+                        </div>
+                        {/* USDC output */}
+                        <div className="flex flex-col mt-4">
+                          <label className="text-[#0000095] text-lg mb-1">
+                            You Receive (USDC)
+                          </label>
+                          <Input
+                            type="text"
+                            readOnly
+                            className="px-0 text-xl md:text-4xl text-secondary border-transparent focus-visible:ring-0 bg-gray-transparent"
+                            value={
+                              usdgWithdrawAmount &&
+                              !isNaN(Number(usdgWithdrawAmount)) &&
+                              Number(usdgWithdrawAmount) > 0
+                                ? Number(usdgWithdrawAmount).toLocaleString(
+                                    undefined,
+                                    {
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 6,
+                                    }
+                                  )
+                                : "0"
+                            }
+                          />
+                        </div>
+                        {estimatedWithdrawGas && (
+                          <div className="mt-2 text-sm text-gray-500">
+                            Estimated network fee: ~${estimatedWithdrawGas}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="my-4">
+                      {isConnected ? (
+                        <Button
+                          disabled={
+                            isWithdrawing ||
+                            !usdgWithdrawAmount ||
+                            Number(usdgWithdrawAmount) <= 0
+                          }
+                          variant={"default"}
+                          onClick={async () => {
+                            await handleUSDGWithdraw();
+                            setUsdgBalanceForSigner(); // Refresh balance after redeem
+                          }}
+                          className="w-full text-wrap"
+                        >
+                          <Loader2
+                            className={`w-6 h-6 animate-spin mr-2 ${
+                              isWithdrawing ? "block" : "hidden"
+                            }`}
+                          />
+                          {isWithdrawing ? "Withdrawing..." : "Withdraw"}
+                        </Button>
+                      ) : (
+                        <ConnectButton variant="default" className="w-full" />
+                      )}
+                    </div>
+                    <p className="text-secondary text-md font-light text-center flex flex-col">
+                      Redeem your USDG for USDC 1:1 using the{" "}
+                      <a
+                        href={`https://etherscan.io/address/${USDG_REDEMPTION_ADDRESS}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-secondary"
+                      >
+                        USDG Redemption contract
+                      </a>
                     </p>
                   </TabsContent>
                 </Tabs>
