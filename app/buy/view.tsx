@@ -875,6 +875,15 @@ export default function View({
     }
   }
 
+  // Utility function to format token balances consistently
+  const formatTokenBalance = (
+    balance: BigNumber | null,
+    decimals: number = 6
+  ): string => {
+    if (!balance) return "-";
+    return ethers.utils.formatUnits(balance, decimals).replace(/\.0+$/, "");
+  };
+
   return (
     <div
       id="organization"
@@ -1366,11 +1375,16 @@ export default function View({
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="text-secondary text-xl font-bold font-mono min-w-[80px] text-right">
+                        <span className="text-secondary text-xl font-bold min-w-[80px] text-right">
                           {isUsdcInRedemptionLoading ? (
                             <Loader2 className="inline w-5 h-5 animate-spin align-middle" />
+                          ) : usdcInRedemption === "-" ? (
+                            "-"
                           ) : (
-                            usdcInRedemption
+                            Number(usdcInRedemption).toLocaleString(undefined, {
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0,
+                            })
                           )}
                         </span>
                         <span className="text-secondary text-base font-medium ml-1">
@@ -1386,12 +1400,7 @@ export default function View({
                           </h3>
                           {isConnected && (
                             <span className="text-secondary text-sm">
-                              Balance:{" "}
-                              {usdgBalance
-                                ? ethers.utils
-                                    .formatUnits(usdgBalance, 6)
-                                    .replace(/\.0+$/, "")
-                                : "-"}
+                              Balance: {formatTokenBalance(usdgBalance)}
                             </span>
                           )}
                         </div>
@@ -1433,9 +1442,7 @@ export default function View({
                             onClick={() => {
                               if (usdgBalance && !usdgBalance.isZero()) {
                                 setUsdgWithdrawAmount(
-                                  ethers.utils
-                                    .formatUnits(usdgBalance, 6)
-                                    .replace(/\.0+$/, "")
+                                  formatTokenBalance(usdgBalance)
                                 );
                               }
                             }}
@@ -1506,7 +1513,7 @@ export default function View({
                         href={`https://etherscan.io/address/${USDG_REDEMPTION_ADDRESS}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-secondary"
+                        className="text-secondary underline"
                       >
                         USDG Redemption contract
                       </a>
