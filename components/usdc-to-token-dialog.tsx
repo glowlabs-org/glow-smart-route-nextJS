@@ -267,7 +267,7 @@ export const UsdcToTokenDialog: FC<{
           return { ...state, pending: false, validated: true };
         })
       );
-      toast.success("Successfully purchased GLOW");
+      toast.success("Transaction Successfull");
 
       setIsPending(false);
     } catch (error) {

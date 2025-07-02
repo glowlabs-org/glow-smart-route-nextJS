@@ -26,7 +26,7 @@ export enum USDGRedemptionError {
 
 export function useUSDGRedemption() {
   const signer = useEthersSigner();
-  const { usdg, usdc } = useContracts(signer);
+  const { usdg } = useContracts(signer);
   const [usdcInRedemption, setUsdcInRedemption] = useState<string>("-");
 
   useEffect(() => {

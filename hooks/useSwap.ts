@@ -243,6 +243,132 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     return new Ok(amountOut.val);
   }
 
+  async function estimateGlowToUSDG({
+    amountIn,
+  }: {
+    amountIn: BigNumber;
+  }): Promise<Result<BigNumber, SwapError>> {
+    if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
+    if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
+
+    const factory = new Contract(
+      UNISWAP_V2_FACTORY_ADDRESS,
+      UNISWAP_V2_FACTORY_ABI,
+      signer
+    );
+    const pairAddress = await factory.getPair(addresses.glow, addresses.usdg);
+
+    const getReservesResult = await getReserves({
+      tokenA: addresses.glow,
+      tokenB: addresses.usdg,
+      pairAddress: pairAddress,
+      signer,
+    });
+
+    if (!getReservesResult.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
+    const { reserveTokenA, reserveTokenB } = getReservesResult.val;
+    const amountOut = getAmountOut({
+      amountIn,
+      reserveIn: reserveTokenA,
+      reserveOut: reserveTokenB,
+    });
+    if (!amountOut.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
+
+    return new Ok(amountOut.val);
+  }
+
+  async function swapGlowToUSDG({
+    amount,
+    slippagePercentTenThousandDenominator = SLIPPAGE_NUMERATOR_DEFAULT,
+  }: {
+    amount: BigNumber;
+    slippagePercentTenThousandDenominator?: BigNumber;
+  }): Promise<Result<boolean, SwapError>> {
+    if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
+    if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
+
+    // Create token instances for GLOW and USDG
+    const glowToken = ERC20__factory.connect(addresses.glow, signer);
+    const usdgToken = ERC20__factory.connect(addresses.usdg, signer);
+
+    // Get pair for GLOW/USDG
+    const factory = new Contract(
+      UNISWAP_V2_FACTORY_ADDRESS,
+      UNISWAP_V2_FACTORY_ABI,
+      signer
+    );
+    const pairAddress = await factory.getPair(addresses.glow, addresses.usdg);
+
+    const getReservesResult = await getReserves({
+      tokenA: addresses.glow,
+      tokenB: addresses.usdg,
+      pairAddress: pairAddress,
+      signer,
+    });
+
+    const signerAddress = await signer.getAddress();
+    const balanceGlow = await glowToken.balanceOf(signerAddress);
+
+    if (balanceGlow.lt(amount))
+      return new Err(SwapError.INSUFFICIENT_TOKEN_A_BALANCE);
+
+    const allowanceGlow = await glowToken.allowance(
+      signerAddress,
+      uniswapRouter.address
+    );
+
+    if (allowanceGlow.lt(amount)) {
+      try {
+        setUniswapPurchaseState("REQUESTING_TOKEN_APPROVAL");
+        const approveTx = await glowToken.approve(
+          uniswapRouter.address,
+          amount
+        );
+        setUniswapPurchaseState("APPROVING_TOKEN");
+        await approveTx.wait();
+      } catch (err) {
+        setUniswapPurchaseState("ERROR");
+        return new Err(SwapError.FAILED_TO_APPROVE_TOKEN_A);
+      }
+    }
+
+    if (!getReservesResult.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
+    const { reserveTokenA, reserveTokenB } = getReservesResult.val;
+    const amountOut = getAmountOut({
+      amountIn: amount,
+      reserveIn: reserveTokenA,
+      reserveOut: reserveTokenB,
+    });
+    if (!amountOut.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
+
+    const amountOutMin = amountOut.val.sub(
+      amountOut.val
+        .mul(slippagePercentTenThousandDenominator)
+        .div(SLIPPAGE_DENOMINATOR_DEFAULT)
+    );
+
+    const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
+    const path = [addresses.glow, addresses.usdg];
+
+    try {
+      setUniswapPurchaseState("PURCHASING_TOKEN");
+
+      const tx = await uniswapRouter.swapExactTokensForTokens(
+        amount,
+        amountOutMin,
+        path,
+        signerAddress,
+        deadline
+      );
+      await tx.wait();
+      setUniswapPurchaseState("DONE");
+    } catch (err) {
+      setUniswapPurchaseState("ERROR");
+      return new Err(SwapError.FAILED_TO_SWAP);
+    }
+    return new Ok(true);
+  }
+
   async function deployFixture() {
     if (signer) {
       const router = UnifapV2Router__factory.connect(
@@ -294,6 +420,8 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     swap,
     estimateOutputAmount,
     estimateGasForUniswap,
+    estimateGlowToUSDG,
+    swapGlowToUSDG,
     resetUniswapPurchaseState,
     uniswapPurchaseState,
   };
