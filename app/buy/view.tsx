@@ -29,6 +29,7 @@ import {
 import { formatPrice } from "@/utils/formatPrice";
 import { InstructionsDialog } from "@/components/instructions-dialog";
 import { UsdcToTokenDialog } from "@/components/usdc-to-token-dialog";
+import { GlowToUsdcDialog } from "@/components/glow-to-usdc-dialog";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
 import { useDebouncedCallback } from "use-debounce";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -47,14 +48,14 @@ const tokens = {
     label: "USDG",
     address: addresses.usdg,
     decimals: 6,
-    allowedPairs: ["GLOW", "GCC", "IMPACT POWER POINTS"],
+    allowedPairs: ["GLOW", "IMPACT POWER POINTS", "USDC"],
     toFixed: 6,
   },
   GLOW: {
     label: "GLOW",
     address: addresses.glow,
     decimals: 18,
-    allowedPairs: ["USDG"],
+    allowedPairs: ["USDG", "USDC"],
     toFixed: 2,
   },
   USDC: {
@@ -62,13 +63,6 @@ const tokens = {
     address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" as `0x${string}`,
     decimals: 6,
     allowedPairs: ["GLOW", "USDG", "IMPACT POWER POINTS"],
-    toFixed: 6,
-  },
-  GCC: {
-    label: "GCC",
-    address: addresses.gcc,
-    decimals: 18,
-    allowedPairs: ["USDG"],
     toFixed: 6,
   },
   ["IMPACT POWER POINTS"]: {
@@ -86,7 +80,6 @@ const tokens = {
 const defaultTokensEstimate = {
   GLOW: "0",
   USDG: "0",
-  GCC: "0",
   USDC: "0",
   "IMPACT POWER POINTS": "0",
 };
@@ -99,19 +92,15 @@ export default function View({
   earlyLiquidityCurrentPrice,
   marketCap,
   ethPriceInUSD,
-  gccPrice,
   usdcRewardPool,
   impactPowerPrice,
-  gccCirculatingSupply,
 }: // totalProtocolFeesLast30days,
 {
-  gccCirculatingSupply: string;
   glowPrice: string;
   earlyLiquidityCurrentPrice: string;
   marketCap: string;
   ethPriceInUSD: number | null;
   usdcRewardPool: string;
-  gccPrice: string;
   impactPowerPrice: string;
   // totalProtocolFeesLast30days: string;
 }) {
@@ -122,6 +111,8 @@ export default function View({
   const [estimateQueueAmount, setEstimateQueueAmount] = useState<number>(0);
   const router = useRouter();
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+  const [isGlowToUsdcDialogOpen, setIsGlowToUsdcDialogOpen] =
+    useState<boolean>(false);
   const [amountToSell, setAmountToSell] = React.useState<string>("0");
   const [amountToSend, setAmountToSend] = React.useState<string>("0");
   const [selectedTokenSell, setSelectedTokenSell] = useState<Token>(
@@ -179,7 +170,6 @@ export default function View({
     setUsdgBalanceForSigner,
     refreshBalances,
     glowBalance,
-    gccBalance,
   } = useER20Balances({
     symbol: selectedTokenSell.label as SYMBOLS,
     signer,
@@ -206,7 +196,12 @@ export default function View({
     return res;
   }
 
-  const { swap, estimateOutputAmount, estimateGasForUniswap } = useSwap({
+  const {
+    swap,
+    estimateOutputAmount,
+    estimateGlowToUSDG,
+    estimateGasForUniswap,
+  } = useSwap({
     tokenA_address: selectedTokenSell.address,
     tokenB_address: selectedTokenBuy.address,
   });
@@ -244,19 +239,23 @@ export default function View({
             label: `BUY`,
             disabled: false,
             callback: () => {
-              toast("Insufficient USDC", {
+              toast("You have sufficient USDG", {
                 description: "Would you like to use USDG instead?",
                 duration: Infinity,
                 action: {
                   label: "Yes",
                   onClick: () => {
                     handleSelectTokenToSell("USDG");
+                    if (selectedTokenBuy.label === "IMPACT POWER POINTS") {
+                      handleSelectTokenToBuy("IMPACT POWER POINTS");
+                    }
                     setAmountToSell(amountToSell);
                   },
                 },
                 cancel: {
                   label: "No",
                   onClick: () => {
+                    setIsDialogOpen(true);
                     toast.dismiss();
                   },
                 },
@@ -296,27 +295,22 @@ export default function View({
             Number(amountToSell)
         ) {
           return {
-            label: `BUY`,
+            label: `SWAP`,
             disabled: false,
             callback: () => {
-              toast("You have sufficient USDG", {
+              toast("Insufficient USDC", {
                 description: "Would you like to use USDG instead?",
                 duration: Infinity,
                 action: {
                   label: "Yes",
                   onClick: () => {
                     handleSelectTokenToSell("USDG");
-                    if (selectedTokenBuy.label === "IMPACT POWER POINTS") {
-                      handleSelectTokenToBuy("IMPACT POWER POINTS");
-                    }
-
                     setAmountToSell(amountToSell);
                   },
                 },
                 cancel: {
                   label: "No",
                   onClick: () => {
-                    setIsDialogOpen(true);
                     toast.dismiss();
                   },
                 },
@@ -326,7 +320,7 @@ export default function View({
           };
         }
         return {
-          label: `BUY`,
+          label: `SWAP`,
           disabled: false,
           callback: () => {
             setIsDialogOpen(true);
@@ -337,15 +331,26 @@ export default function View({
         selectedTokenBuy.label === "GLOW"
       ) {
         return {
-          label: `BUY`,
+          label: `SWAP`,
           disabled: false,
           callback: () => {
             setIsDialogOpen(true);
           },
         };
+      } else if (
+        selectedTokenSell.label === "GLOW" &&
+        selectedTokenBuy.label === "USDC"
+      ) {
+        return {
+          label: `SWAP`,
+          disabled: false,
+          callback: () => {
+            handleBuy();
+          },
+        };
       } else {
         return {
-          label: `BUY`,
+          label: `SWAP`,
           disabled: false,
           callback: () => {
             handleBuy();
@@ -360,10 +365,6 @@ export default function View({
       selectedTokenSend.label === "GLOW"
         ? glowBalance
           ? ethers.utils.formatUnits(glowBalance, selectedTokenSend.decimals)
-          : "0"
-        : selectedTokenSend.label === "GCC"
-        ? gccBalance
-          ? ethers.utils.formatUnits(gccBalance, selectedTokenSend.decimals)
           : "0"
         : selectedTokenSend.label === "USDG"
         ? usdgBalance
@@ -449,6 +450,20 @@ export default function View({
       ) {
         const swapUSDCToUSDGRes = await swapUSDCToUSDG(amountIn);
         handleResponseMessage(swapUSDCToUSDGRes);
+      } else if (
+        selectedTokenBuy.label === "USDC" &&
+        selectedTokenSell.label === "USDG"
+      ) {
+        const redeemRes = await redeemUSDGForUSDC(amountIn);
+        handleResponseMessage(redeemRes);
+      } else if (
+        selectedTokenBuy.label === "USDC" &&
+        selectedTokenSell.label === "GLOW"
+      ) {
+        // Open the GLOW to USDC dialog instead of executing directly
+        setIsGlowToUsdcDialogOpen(true);
+        setPendingTx(false);
+        return;
       } else if (
         //@ts-ignore
         selectedTokenBuy.label === "IMPACT POWER POINTS" &&
@@ -692,6 +707,40 @@ export default function View({
       return;
     }
     if (
+      selectedTokenBuy.label === "USDC" &&
+      selectedTokenSell.label === "USDG"
+    ) {
+      setEstimatedOutputAmount({
+        ...defaultTokensEstimate,
+        [selectedTokenBuy.label]: amountToSell,
+      });
+      return;
+    }
+    if (
+      selectedTokenBuy.label === "USDC" &&
+      selectedTokenSell.label === "GLOW"
+    ) {
+      // For GLOW -> USDC, we need to estimate GLOW -> USDG first
+      const estimateRes = await estimateGlowToUSDG({
+        amountIn: ethers.utils.parseUnits(
+          amountToSell,
+          selectedTokenSell.decimals
+        ),
+      });
+
+      if (estimateRes.ok) {
+        // USDG to USDC is 1:1, so the USDG amount equals USDC amount
+        setEstimatedOutputAmount({
+          ...defaultTokensEstimate,
+          [selectedTokenBuy.label]: ethers.utils.formatUnits(
+            estimateRes.val.toString(),
+            "6"
+          ),
+        });
+      }
+      return;
+    }
+    if (
       //@ts-ignore
       selectedTokenBuy.label === "IMPACT POWER POINTS" &&
       (selectedTokenSell.label === "USDG" || selectedTokenSell.label === "USDC")
@@ -864,7 +913,9 @@ export default function View({
       if (res.ok) {
         toast.success("USDG successfully redeemed for USDC");
         setUsdgWithdrawAmount("0");
+        setIsUsdcInRedemptionLoading(true);
         await getUSDCBalanceOfRedemptionContract(); // Refresh USDC in contract after redeem
+        setIsUsdcInRedemptionLoading(false);
       } else {
         toast.error(res.val);
       }
@@ -874,6 +925,15 @@ export default function View({
       setIsWithdrawing(false);
     }
   }
+
+  // Utility function to format token balances consistently
+  const formatTokenBalance = (
+    balance: BigNumber | null,
+    decimals: number = 6
+  ): string => {
+    if (!balance) return "-";
+    return ethers.utils.formatUnits(balance, decimals).replace(/\.0+$/, "");
+  };
 
   return (
     <div
@@ -900,6 +960,20 @@ export default function View({
         slippagePointsTenThousandths={BigNumber.from(
           Number(slippageTolerance) * 100
         )}
+      />
+      <GlowToUsdcDialog
+        isOpen={isGlowToUsdcDialogOpen}
+        amountToSell={amountToSell}
+        estimatedOutputAmount={currentTokenEstimatedOutputAmount}
+        slippageTolerance={slippageTolerance}
+        onOpenChange={(open) => {
+          setIsGlowToUsdcDialogOpen(open);
+          if (!open) {
+            if (selectedTokenSell && selectedTokenBuy && signer && isReady) {
+              getTokenSellBalance();
+            }
+          }
+        }}
       />
       <div className="lg:p-8 flex items-center min-h-screen mx-auto container">
         <div className="flex w-full h-full flex-col justify-center space-y-6 ">
@@ -951,48 +1025,28 @@ export default function View({
                       2
                     )}`}</p>
                   </div>
+
                   <div className="flex justify-between w-full">
                     <div className="flex items-center justify-between">
                       <h3 className="text-secondary text-xl md:text-2xl md:mb-2">
-                        Carbon Credit Price
+                        USDC in redemption contract
                       </h3>
                     </div>
 
-                    <p className="font-sans text-right text-2xl">{`$${parseInt(
-                      gccPrice
-                    ).toLocaleString()}`}</p>
+                    <p className="font-sans text-right text-2xl">
+                      {" "}
+                      {isUsdcInRedemptionLoading ? (
+                        <Loader2 className="inline w-5 h-5 animate-spin align-middle" />
+                      ) : usdcInRedemption === "-" ? (
+                        "-"
+                      ) : (
+                        Number(usdcInRedemption).toLocaleString(undefined, {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0,
+                        })
+                      )}
+                    </p>
                   </div>
-                  <div className="flex justify-between w-full">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-secondary text-xl md:text-2xl md:mb-2">
-                        Impact Power Price
-                      </h3>
-                    </div>
-
-                    <p className="font-sans text-right text-2xl">{`$${parseInt(
-                      impactPowerPrice
-                    ).toLocaleString()}`}</p>
-                  </div>
-                  <div className="flex justify-between w-full">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-secondary text-xl md:text-2xl md:mb-2">
-                        Carbon Credit Supply
-                      </h3>
-                    </div>
-
-                    <p className="font-sans text-right text-2xl">{`${Math.round(
-                      Number(gccCirculatingSupply)
-                    )}`}</p>
-                  </div>
-                  {/* <div className="flex justify-between w-full">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-secondary text-xl md:text-2xl md:mb-2">
-                        Active solar farms
-                      </h3>
-                    </div>
-
-                    <p className="font-sans text-right text-2xl">{`${currentWeekActiveFarms}`}</p>
-                  </div> */}
                   {/* <div className="flex justify-between w-full">
                     <div className="flex items-center justify-between">
                       <h3 className="text-secondary text-xl md:text-2xl md:mb-2">
@@ -1014,7 +1068,7 @@ export default function View({
                       value="buy"
                       className="text-xl text-secondary font-mono font-semibold uppercase"
                     >
-                      Buy
+                      Swap
                     </TabsTrigger>
                     <TabsTrigger
                       value="send"
@@ -1070,7 +1124,6 @@ export default function View({
                             <SelectContent>
                               <SelectItem value="USDC">USDC</SelectItem>
                               <SelectItem value="GLOW">GLOW</SelectItem>
-                              <SelectItem value="GCC">GCC</SelectItem>
                               <SelectItem value="USDG">USDG</SelectItem>
                             </SelectContent>
                           </Select>
@@ -1187,30 +1240,6 @@ export default function View({
                                 )}
                               </p>
                             </div>
-                            {/* <div className="flex items-center justify-between">
-                          <p className="text-secondary font-regular">
-                            Max. slippage
-                          </p>
-                          <AfterLabelInput
-                            type="number"
-                            placeholder="0"
-                            className="px-0 max-w-12 text-xl text-secondary caret-secondary focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            value={slippageTolerance.toString()}
-                            label="%"
-                            onChange={(e) => {
-                              if (Number(e.target.value) < 0) {
-                                setSlippageTolerance("0");
-                                return;
-                              }
-                              // max 50% slippage
-                              if (Number(e.target.value) > 50) {
-                                setSlippageTolerance("50");
-                                return;
-                              }
-                              setSlippageTolerance(e.target.value);
-                            }}
-                          />
-                        </div> */}
                           </div>
                           {Number(slippageTolerance) === 0 ? (
                             <p className=" text-[#eeb517] text-center">
@@ -1218,6 +1247,39 @@ export default function View({
                             </p>
                           ) : null}
                         </>
+                      ) : null}
+                      {/* Show network fees for non-GLOW swaps */}
+                      {(smartBalancingAmounts &&
+                        selectedTokenBuy.label !== "GLOW" &&
+                        smartBalancingAmounts.estimatedTotalGasInUSD !== "0") ||
+                      (isEstimateLoading &&
+                        selectedTokenBuy.label !== "GLOW") ? (
+                        <div className=" p-6 py-4 w-full flex flex-col mb-4 space-y-2 border border-[#E2E2E2]">
+                          <div className="flex items-center justify-between">
+                            <p className="text-secondary font-regular">
+                              Estimated Network Fee
+                            </p>
+                            <p className="text-secondary font-regular text-right">
+                              {isEstimateLoading ? (
+                                <Skeleton className="w-[50px] h-[20px]" />
+                              ) : smartBalancingAmounts &&
+                                smartBalancingAmounts.estimatedTotalGasInUSD ? (
+                                Number.isNaN(
+                                  Number(
+                                    smartBalancingAmounts.estimatedTotalGasInUSD
+                                  )
+                                ) ? (
+                                  "-"
+                                ) : (
+                                  "〜$" +
+                                  smartBalancingAmounts.estimatedTotalGasInUSD
+                                )
+                              ) : (
+                                "-"
+                              )}
+                            </p>
+                          </div>
+                        </div>
                       ) : null}
                       {isConnected ? (
                         <Button
@@ -1294,7 +1356,7 @@ export default function View({
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="GLOW">GLOW</SelectItem>
-                              <SelectItem value="GCC">GCC</SelectItem>
+
                               <SelectItem value="USDG">USDG</SelectItem>
                             </SelectContent>
                           </Select>
@@ -1358,26 +1420,6 @@ export default function View({
                     </p>
                   </TabsContent>
                   <TabsContent value="withdraw">
-                    {/* USDC in Redemption Contract */}
-                    <div className="flex items-center justify-between mb-2 border border-[#E2E2E2] bg-white rounded-md px-4 py-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-secondary text-base font-medium">
-                          Available in contract
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-secondary text-xl font-bold font-mono min-w-[80px] text-right">
-                          {isUsdcInRedemptionLoading ? (
-                            <Loader2 className="inline w-5 h-5 animate-spin align-middle" />
-                          ) : (
-                            usdcInRedemption
-                          )}
-                        </span>
-                        <span className="text-secondary text-base font-medium ml-1">
-                          USDC
-                        </span>
-                      </div>
-                    </div>
                     <div className="grid border border-[#E2E2E2] gap-2 md:gap-4 my-4">
                       <div className="p-6 py-4 w-full">
                         <div className="flex items-center justify-between mb-2">
@@ -1386,12 +1428,7 @@ export default function View({
                           </h3>
                           {isConnected && (
                             <span className="text-secondary text-sm">
-                              Balance:{" "}
-                              {usdgBalance
-                                ? ethers.utils
-                                    .formatUnits(usdgBalance, 6)
-                                    .replace(/\.0+$/, "")
-                                : "-"}
+                              Balance: {formatTokenBalance(usdgBalance)}
                             </span>
                           )}
                         </div>
@@ -1433,9 +1470,7 @@ export default function View({
                             onClick={() => {
                               if (usdgBalance && !usdgBalance.isZero()) {
                                 setUsdgWithdrawAmount(
-                                  ethers.utils
-                                    .formatUnits(usdgBalance, 6)
-                                    .replace(/\.0+$/, "")
+                                  formatTokenBalance(usdgBalance)
                                 );
                               }
                             }}
@@ -1506,7 +1541,7 @@ export default function View({
                         href={`https://etherscan.io/address/${USDG_REDEMPTION_ADDRESS}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-secondary"
+                        className="text-secondary underline"
                       >
                         USDG Redemption contract
                       </a>

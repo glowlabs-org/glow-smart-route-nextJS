@@ -2,13 +2,18 @@ import { useEthersSigner } from "./useEthersSigner";
 import { BigNumber, ethers } from "ethers";
 import { Result, Ok, Err } from "ts-results";
 
-import { formatUnits } from "viem";
+import { formatUnits, erc20Abi } from "viem";
 import { useContracts } from "./useContracts";
 import { useEffect, useState } from "react";
+import { publicClient } from "@/web3/web3/clients/publicClient";
 
 // USDGRedemption contract address
 export const USDG_REDEMPTION_ADDRESS =
   "0x1c2cA537757e1823400F857EdBe72B55bbAe0F08" as `0x${string}`;
+
+// USDC contract address
+const USDC_ADDRESS =
+  "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as `0x${string}`;
 
 // Minimal ABI for the exchange function
 const USDG_REDEMPTION_ABI = ["function exchange(uint256 amountUSDG) external"];
@@ -21,7 +26,7 @@ export enum USDGRedemptionError {
 
 export function useUSDGRedemption() {
   const signer = useEthersSigner();
-  const { usdg, usdc } = useContracts(signer);
+  const { usdg } = useContracts(signer);
   const [usdcInRedemption, setUsdcInRedemption] = useState<string>("-");
 
   useEffect(() => {
@@ -29,7 +34,7 @@ export function useUSDGRedemption() {
       await getUSDCBalanceOfRedemptionContract();
     }
     fetchUsdcInRedemption();
-  }, [usdc]);
+  }, []);
 
   // Returns a contract instance for USDGRedemption
   function getContract() {
@@ -43,16 +48,25 @@ export function useUSDGRedemption() {
 
   /**
    * Get USDC balance of the USDG Redemption contract
+   * Uses publicClient so no wallet connection is required
    */
   async function getUSDCBalanceOfRedemptionContract(): Promise<BigNumber | null> {
     try {
-      console.log("usdc", usdc);
-      if (!usdc) return null;
-      console.log("usdc", usdc);
-      const balance: BigNumber = await usdc.balanceOf(USDG_REDEMPTION_ADDRESS);
-      setUsdcInRedemption(balance ? ethers.utils.formatUnits(balance, 6) : "-");
-      return balance;
-    } catch {
+      const balance = (await publicClient.readContract({
+        address: USDC_ADDRESS,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [USDG_REDEMPTION_ADDRESS],
+      })) as bigint;
+
+      const formattedBalance = formatUnits(balance, 6);
+      setUsdcInRedemption(formattedBalance);
+
+      // Convert to BigNumber for compatibility with existing code
+      return BigNumber.from(balance.toString());
+    } catch (error) {
+      console.error("Error fetching USDC balance:", error);
+      setUsdcInRedemption("-");
       return null;
     }
   }
