@@ -553,7 +553,6 @@ export default function View({
     try {
       if (selectedTokenBuy.label === "GLOW") {
         if (!amountToSell || amountToSell === "0") {
-          console.log("amountToSellFirst", amountToSell);
           setSmartBalancingAmounts(undefined);
           return;
         }
@@ -645,7 +644,7 @@ export default function View({
             Number(estimatedGasForswapUSDCToUSDG),
           6
         );
-        console.log("amountsWithFees", { amountToSell, amountsWithFees });
+
         setSmartBalancingAmounts({
           amount_in_glow_bonding_curve: toFixedTruncate(
             amountsWithFees.amount_usdg_in_bonding_curve,
@@ -703,14 +702,6 @@ export default function View({
             "18"
           )
         );
-        console.log(
-          "estimatedUniswapOutputAmount",
-          estimatedUniswapOutputAmount
-        );
-        console.log(
-          "estimatedOutputAmountFormated",
-          estimatedOutputAmountFormated
-        );
 
         // If we have smart balancing amounts, use the total from both routes
         let finalOutput;
@@ -720,14 +711,12 @@ export default function View({
             smartBalancingAmounts.amount_out_glow
           );
           finalOutput = uniswapOutput + bondingCurveOutput;
-          console.log("finalOutput", finalOutput);
         } else {
           // Fallback to max output for non-smart balancing scenarios
           finalOutput = Math.max(
             estimatedUniswapOutputAmount,
             estimatedOutputAmountFormated
           );
-          console.log("finalOutputnon", finalOutput);
         }
 
         setEstimatedOutputAmount({

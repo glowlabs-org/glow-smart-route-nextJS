@@ -93,7 +93,7 @@ export function usePurchaseGlow() {
     if (!glow) return new Err("Glow not available");
     if (!earlyLiquidity)
       return new Err("Early Liquidity or USDC not available");
-    console.log("usdgAmount", usdgAmount);
+
     const firstTermBN = await earlyLiquidity.getPrice(1);
     const firstTermNumber = firstTermBN.toNumber();
     const amountGlowEstimated =

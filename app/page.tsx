@@ -1,6 +1,5 @@
 import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
 import View from "./buy/view";
-import { Footer } from "./components/footer";
 import { getHeadlineStats } from "@/web3/web3/queries/getHeadlineStats";
 import { Error } from "@/components/loading";
 import { PageWrapper } from "./components/page-wrapper";
@@ -100,7 +99,6 @@ function PageContent(props: PageContentProps) {
         usdcRewardPool={props.usdcRewardPool}
         impactPowerPrice={props.impactPowerPrice}
       />
-      {/* <Footer /> */}
     </div>
   );
 }
