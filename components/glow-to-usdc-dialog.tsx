@@ -4,7 +4,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeftRight, Check, Loader2 } from "lucide-react";
+import { ArrowLeftRight, Check, Loader2, Info } from "lucide-react";
 import { waitingToSuccessVariants } from "@/animations/variants";
 import { motion } from "framer-motion";
 import React, { FC, useEffect } from "react";
@@ -256,48 +256,63 @@ export const GlowToUsdcDialog: FC<{
         onInteractOutside={(e) => {
           if (isPending) e.preventDefault();
         }}
-        className="sm:max-w-[420px]"
+        className="sm:max-w-[480px]"
       >
-        <DialogHeader>
-          <DialogTitle>Review Swap</DialogTitle>
+        <DialogHeader className="pb-4">
+          <DialogTitle className="text-xl lg:text-2xl font-semibold">
+            Review Swap
+          </DialogTitle>
         </DialogHeader>
-        <div className="grid gap-2">
+        <div className="grid gap-4">
           {/* TOKEN TO SELL */}
-          <div className="grid gap-2 md:gap-4">
-            <div className="border border-[#E2E2E2] bg-[#FFFFFF] p-6 py-4 w-full">
-              <div className="flex items-center justify-between">
-                <h3 className="text-secondary text-lg mb-2">You Pay</h3>
+          <div className="grid gap-2">
+            <div className="group relative bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30 hover:border-border/60 transition-all duration-300">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                  You pay
+                </span>
               </div>
-              <div className="flex items-center text-xl md:text-4xl">
-                <Input
-                  type="number"
-                  placeholder="0"
-                  className="px-0 text-xl md:text-4xl text-secondary caret-secondary border-transparent focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  pattern="[0-9]*"
-                  value={amountToSell}
-                  readOnly
-                />
-                GLOW
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  <Input
+                    type="number"
+                    placeholder="0.00"
+                    className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    value={amountToSell}
+                    readOnly
+                  />
+                  <span className="text-lg sm:text-xl lg:text-2xl font-medium text-foreground">
+                    GLOW
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
           {/* TOKEN TO RECEIVE */}
-          <div className="grid gap-4 mt-2 md:mt-4">
-            <div className="border border-[#E2E2E2] bg-[#FFFFFF] p-6 py-4 w-full">
-              <h3 className="text-secondary text-lg mb-2">You Receive</h3>
-              <div className="flex items-center text-xl md:text-4xl">
-                <Input
-                  placeholder="0"
-                  className="px-0 text-xl md:text-4xl text-secondary caret-secondary border-transparent focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  value={
-                    Number(estimatedOutputAmount)
-                      ? formatPrice(estimatedOutputAmount, 6)
-                      : "0"
-                  }
-                  readOnly
-                />
-                USDC
+          <div className="grid gap-2">
+            <div className="group relative bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30 hover:border-border/60 transition-all duration-300">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                  You receive
+                </span>
+              </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  <Input
+                    placeholder="0.00"
+                    className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    value={
+                      Number(estimatedOutputAmount)
+                        ? formatPrice(estimatedOutputAmount, 6)
+                        : "0.00"
+                    }
+                    readOnly
+                  />
+                  <span className="text-lg sm:text-xl lg:text-2xl font-medium text-foreground">
+                    USDC
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -305,38 +320,44 @@ export const GlowToUsdcDialog: FC<{
 
         {currentState === "DONE" ? (
           <div className="grid gap-4">
-            <div className="flex flex-col items-center gap-3 py-4">
-              <div className="bg-green-100 rounded-full p-3">
-                <Check className="w-8 h-8 text-green-600" />
+            <div className="flex flex-col items-center gap-3 py-6">
+              <div className="bg-green-100 rounded-full p-4">
+                <Check className="w-10 h-10 text-green-600" />
               </div>
-              <h3 className="text-lg font-semibold text-secondary">
+              <h3 className="text-xl lg:text-2xl font-semibold text-foreground">
                 Swap Successful!
               </h3>
-              <p className="text-sm text-gray-600 text-center">
+              <p className="text-sm lg:text-base text-muted-foreground text-center">
                 Your GLOW has been successfully swapped to USDC
               </p>
             </div>
 
             <div className="grid gap-3">
-              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                <span className="text-sm text-gray-600">Sent</span>
-                <span className="font-mono font-medium">
+              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-muted/10 to-muted/5 rounded-md border border-border/20">
+                <span className="text-sm lg:text-base text-muted-foreground">
+                  Sent
+                </span>
+                <span className="font-mono font-medium text-sm lg:text-base">
                   {toFixedTruncate(Number(amountToSell), 2)} GLOW
                 </span>
               </div>
 
               {intermediateUsdgAmount && (
-                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <span className="text-sm text-gray-600">Via</span>
-                  <span className="font-mono font-medium">
+                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-muted/10 to-muted/5 rounded-md border border-border/20">
+                  <span className="text-sm lg:text-base text-muted-foreground">
+                    Via
+                  </span>
+                  <span className="font-mono font-medium text-sm lg:text-base">
                     {toFixedTruncate(Number(intermediateUsdgAmount), 6)} USDG
                   </span>
                 </div>
               )}
 
-              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                <span className="text-sm text-gray-600">Received</span>
-                <span className="font-mono font-medium text-green-600">
+              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-muted/10 to-muted/5 rounded-md border border-border/20">
+                <span className="text-sm lg:text-base text-muted-foreground">
+                  Received
+                </span>
+                <span className="font-mono font-medium text-green-600 text-sm lg:text-base">
                   {formatPrice(estimatedOutputAmount, 6)} USDC
                 </span>
               </div>
@@ -345,51 +366,61 @@ export const GlowToUsdcDialog: FC<{
             <Button
               variant="default"
               onClick={() => onOpenChange(false)}
-              className="w-full"
+              className="w-full h-12 lg:h-14 rounded-md text-base lg:text-lg font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 transition-all duration-300 shadow-lg hover:shadow-xl"
             >
               Close
             </Button>
           </div>
         ) : currentState !== "NONE" ? (
           <div className="grid grid-cols-1 gap-4">
-            <Card>
-              <div className="flex items-center justify-between">
-                <h3 className="text-secondary text-lg mb-2">
+            <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-md p-4 lg:p-5 space-y-4 border border-border/20">
+              <div className="flex items-center gap-2 mb-3">
+                <Info className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm lg:text-base font-medium text-muted-foreground">
                   Transaction Status
-                </h3>
+                </span>
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-3">
                 {visibleStates.map((state, index) => (
                   <motion.div
                     key={state.code}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-3"
                     initial={{ opacity: 0.5 }}
                     animate={
                       state.validated || state.pending ? "show" : "hidden"
                     }
                     variants={waitingToSuccessVariants}
                   >
-                    <div className="flex items-center gap-2">
-                      <div className="bg-[#FFFFFF40] p-2 flex items-center justify-center h-10 w-10 flex-shrink-0">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-white/80 dark:bg-muted/50 rounded-md p-2.5 flex items-center justify-center h-10 w-10 shrink-0 border border-border/20">
                         {state.validated && !state.pending ? (
                           <Check
-                            className={clsx("w-4 h-4", "text-secondary")}
+                            className={clsx("w-5 h-5", "text-green-600")}
                           />
                         ) : state.pending ? (
                           <Loader2
                             className={clsx(
-                              "w-4 h-4 animate-spin",
-                              "text-secondary"
+                              "w-5 h-5 animate-spin",
+                              "text-primary"
                             )}
                           />
                         ) : (
                           <ArrowLeftRight
-                            className={clsx("w-4 h-4", "text-secondary")}
+                            className={clsx("w-5 h-5", "text-muted-foreground")}
                           />
                         )}
                       </div>
                       <div>
-                        <h3 className={clsx("text-secondary text-sm")}>
+                        <h3
+                          className={clsx(
+                            "text-sm lg:text-base font-medium",
+                            state.validated && !state.pending
+                              ? "text-foreground"
+                              : state.pending
+                              ? "text-foreground"
+                              : "text-muted-foreground"
+                          )}
+                        >
                           {state.message}
                         </h3>
                       </div>
@@ -397,27 +428,34 @@ export const GlowToUsdcDialog: FC<{
                   </motion.div>
                 ))}
               </div>
-            </Card>
+            </div>
           </div>
         ) : (
           <Button
-            variant={"glass-outline"}
+            variant="default"
             onClick={handleSwapGlowToUsdc}
             disabled={isPending}
+            className="w-full h-12 lg:h-14 rounded-md text-base lg:text-lg font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
           >
+            {isPending && (
+              <div className="mr-3">
+                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              </div>
+            )}
             Approve and Swap
           </Button>
         )}
 
         {currentState === "ERROR" && (
           <Button
-            variant={"glass-outline"}
+            variant="outline"
             onClick={() => {
               setPendingStates(defaultPendingStates);
               setCurrentState("NONE");
               resetUniswapPurchaseState();
               handleSwapGlowToUsdc();
             }}
+            className="w-full h-12 lg:h-14 rounded-md text-base lg:text-lg font-semibold transition-all duration-300"
           >
             Try Again
           </Button>

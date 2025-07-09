@@ -1,0 +1,51 @@
+import React from "react";
+
+export interface GlowSymbolProps {
+  className?: string;
+}
+
+export function GlowSymbol({ className }: GlowSymbolProps) {
+  return (
+    <svg
+      width="237"
+      height="239"
+      viewBox="0 0 237 239"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={`text-black dark:text-white ${className ?? ""}`}
+    >
+      <path
+        d="M75.3805 0L63.6266 59.9862L102.965 86.2833L114.719 26.2971L75.3805 0Z"
+        fill="currentColor"
+      />
+      <path
+        d="M172.625 6.85553L121.898 40.9609L130.935 86.4428L181.663 52.3399L172.625 6.85553Z"
+        fill="currentColor"
+      />
+      <path
+        d="M236.181 80.1185L176.197 68.3622L150.952 106.128L210.935 117.882L236.181 80.1185Z"
+        fill="currentColor"
+      />
+      <path
+        d="M228.455 176.248L194.35 125.521L150.722 134.189L184.828 184.916L228.455 176.248Z"
+        fill="currentColor"
+      />
+      <path
+        d="M131.043 153.862L119.29 213.849L155.481 238.043L167.235 178.056L131.043 153.862Z"
+        fill="currentColor"
+      />
+      <path
+        d="M102.84 154.032L52.1126 188.138L60.4102 229.908L111.14 195.803L102.84 154.032Z"
+        fill="currentColor"
+      />
+      <path
+        d="M83.1263 134.28L23.1426 122.524L0 157.142L59.9862 168.896L83.1263 134.28Z"
+        fill="currentColor"
+      />
+      <path
+        d="M9.2948 63.4374L43.4002 114.165L83.3131 106.235L49.2101 55.5074L9.2948 63.4374Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}

@@ -153,17 +153,17 @@ export function getOptimalUSDGAmountsWithFees({
 }): GetOptimalUSDGAmountsWithFeesResult {
   //First handle the NaN or zero cases for usdg_in_uniswap and usdg_in_bonding_curve
   //Log input args
-  console.log({
-    amount_glow_out_uniswap,
-    amount_glow_out_bonding_curve,
-    fees,
-    amount_usdg_in_uniswap,
-    amount_usdg_in_bonding_curve,
-    uniswapUSDGReserves,
-    uniswapGlowReserves,
-    earlyLiquidityCurrentPrice,
-    usdgToSpend,
-  });
+  // console.log({
+  //   amount_glow_out_uniswap,
+  //   amount_glow_out_bonding_curve,
+  //   fees,
+  //   amount_usdg_in_uniswap,
+  //   amount_usdg_in_bonding_curve,
+  //   uniswapUSDGReserves,
+  //   uniswapGlowReserves,
+  //   earlyLiquidityCurrentPrice,
+  //   usdgToSpend,
+  // });
   if (amount_glow_out_uniswap == 0 || !amount_glow_out_uniswap) {
     return {
       amount_usdg_in_uniswap: 0,

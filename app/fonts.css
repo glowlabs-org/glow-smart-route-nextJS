@@ -1,0 +1,176 @@
+/*───────────────────────────────────────────────────────────
+  Glow ­Brand – Master Typeface Sheet
+  • Söhne  (Grotesk)
+  • Duplicate Slab (Serif accent)
+  -----------------------------------------------------------
+  Note on Söhne weights:
+  – The foundry flags both *Leicht* (Light) and *Buch* (Regular)
+    with an internal usWeightClass of 400.  
+  – We forcibly register **Leicht** at weight 300 so that code
+    can unambiguously target “Light = 300 / Regular = 400”.
+───────────────────────────────────────────────────────────*/
+
+/* ─── SÖHNE (Grotesk) ───────────────────────────────────── */
+@font-face {
+  /* 200 – Extraleicht / Extra-Light */
+  font-family: "Söhne";
+  src: url("/fonts/Söhne-Extraleicht.otf") format("opentype");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  /* 300 – Leicht (a.k.a. Mager) / Light */
+  font-family: "Söhne";
+  src: url("/fonts/Söhne-Leicht.otf") format("opentype");
+  font-weight: 300; /* override metadata */
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  /* 400 – Buch / Regular */
+  font-family: "Söhne";
+  src: url("/fonts/Söhne-Buch.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  /* 500 – Kräftig / Medium */
+  font-family: "Söhne";
+  src: url("/fonts/Söhne-Kräftig.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  /* 600 – Halbfett / Semi-Bold */
+  font-family: "Söhne";
+  src: url("/fonts/Söhne-Halbfett.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  /* 700 – Dreiviertelfett / Bold */
+  font-family: "Söhne";
+  src: url("/fonts/Söhne-Kräftig.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  /* 800 – Fett / Extra-Bold */
+  font-family: "Söhne";
+  src: url("/fonts/Söhne-Fett.otf") format("opentype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  /* 900 – Extrafett / Black */
+  font-family: "Söhne";
+  src: url("/fonts/Söhne-Extrafett.otf") format("opentype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ─── DUPLICATE SLAB (Serif accent) ─────────────────────── */
+@font-face {
+  font-family: "Duplicate Slab";
+  src: url("/fonts/DuplicateSlab-Thin.otf") format("opentype");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Duplicate Slab";
+  src: url("/fonts/DuplicateSlab-Light.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Duplicate Slab";
+  src: url("/fonts/DuplicateSlab-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Duplicate Slab";
+  src: url("/fonts/DuplicateSlab-Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Duplicate Slab";
+  src: url("/fonts/DuplicateSlab-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Duplicate Slab";
+  src: url("/fonts/DuplicateSlab-Black.otf") format("opentype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*───────────────────────────────────────────────────────────
+  Utility classes (1-to-1 with Glow brand guidelines + Figma)
+───────────────────────────────────────────────────────────*/
+
+/* EYEBROW – uppercase, Semi-Bold, 5 % tracking */
+.glow-eyebrow {
+  font-family: "Söhne", sans-serif;
+  font-weight: 600; /* Halbfett */
+  text-transform: uppercase;
+  letter-spacing: 0.05em; /* 5 % */
+  font-size: 0.875rem; /* 14 px */
+}
+
+/* HEADLINE – 110 px Light (Leicht/Mager), 90 % line-height */
+.glow-headline {
+  font-family: "Söhne", sans-serif;
+  font-weight: 300; /* maps to Leicht (Light) */
+  line-height: 1.2; /* 90 % */
+  letter-spacing: -0.02em; /* –2 % */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* SUBHEAD – 50 px Duplicate Slab Regular, 100 % LH */
+.glow-subhead {
+  font-family: "Duplicate Slab", serif;
+  font-weight: 400;
+  line-height: 1; /* 100 % */
+  letter-spacing: -0.02em; /* –2 % */
+}
+
+/* BODY – 24 px Söhne Buch, 130 % LH */
+.glow-body {
+  font-family: "Söhne", sans-serif;
+  font-weight: 400; /* Buch / Regular */
+  line-height: 1.3; /* 130 % */
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* CTA – Regular 16-18 px, tweak size in component */
+.glow-cta {
+  font-family: "Söhne", sans-serif;
+  font-weight: 400;
+  font-size: 1rem; /* 16 px base */
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+}

@@ -7,17 +7,8 @@ import { estimateGlowFromUSDG } from "@/utils/math/estimateGlowFromUSDG";
 import { formatUnits } from "viem";
 import { getOptimalUSDGAmounts } from "@/utils/glowSmartBalancing";
 import { getReserves } from "@/utils/uniswapv2/getReserves";
-import {
-  UnifapV2Router,
-  UnifapV2Router__factory,
-  ERC20,
-  ERC20__factory,
-  addresses,
-} from "@glowlabs-org/guarded-launch-ethers-sdk";
-import {
-  UnifapV2Pair,
-  UnifapV2Pair__factory,
-} from "@glowlabs-org/guarded-launch-ethers-sdk";
+import { addresses } from "@glowlabs-org/guarded-launch-ethers-sdk";
+import { UnifapV2Pair__factory } from "@glowlabs-org/guarded-launch-ethers-sdk";
 import { Contract } from "ethers";
 import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
 
@@ -102,6 +93,7 @@ export function usePurchaseGlow() {
     if (!glow) return new Err("Glow not available");
     if (!earlyLiquidity)
       return new Err("Early Liquidity or USDC not available");
+
     const firstTermBN = await earlyLiquidity.getPrice(1);
     const firstTermNumber = firstTermBN.toNumber();
     const amountGlowEstimated =
@@ -109,7 +101,12 @@ export function usePurchaseGlow() {
         firstTermNumber / 1e6,
         Number(formatUnits(BigInt(usdgAmount.toString()), 6))
       ) / 100;
-    return new Ok(ethers.utils.parseUnits(amountGlowEstimated.toString(), 18));
+
+    // Ensure the number is properly formatted to avoid fractional component errors
+    // Convert to fixed decimal string with max 18 decimals (GLOW decimals)
+    const formattedAmount = amountGlowEstimated.toFixed(18);
+
+    return new Ok(ethers.utils.parseUnits(formattedAmount, 18));
   }
 
   /**
@@ -336,8 +333,8 @@ export function usePurchaseGlow() {
     return new Ok({
       amount_in_uni: amountUSDGToSpendInUniswap,
       amount_in_glow_bonding_curve: amountUSDGToSpendInEarlyLiquidity,
-      amount_out_uni: expectedOutFromUniswap.toFixed(2),
-      amount_out_glow: expectedOutFromEarlyLiquidity.toFixed(2),
+      amount_out_uni: expectedOutFromUniswap.toFixed(4),
+      amount_out_glow: expectedOutFromEarlyLiquidity.toFixed(4),
       uniswapUSDGReserves: reservesUsdg,
       uniswapGlowReserves: reservesGlow,
       expectedEndingPriceEarlyLiquidity: expectedEndingPriceEarlyLiquidity,

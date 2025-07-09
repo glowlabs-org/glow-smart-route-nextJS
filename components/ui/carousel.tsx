@@ -197,63 +197,53 @@ CarouselItem.displayName = "CarouselItem";
 const CarouselPrevious = React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<typeof Button>
->(
-  (
-    { className, variant = "glass-outline", size = "default", ...props },
-    ref
-  ) => {
-    const { orientation, scrollPrev, canScrollPrev } = useCarousel();
+>(({ className, variant = "outline", size = "default", ...props }, ref) => {
+  const { orientation, scrollPrev, canScrollPrev } = useCarousel();
 
-    return (
-      <Button
-        ref={ref}
-        variant={variant}
-        size={size}
-        className={cn(
-          "",
-          orientation === "horizontal" ? "" : "rotate-90",
-          className
-        )}
-        disabled={!canScrollPrev}
-        onClick={scrollPrev}
-        {...props}
-      >
-        <span>Previous</span>
-      </Button>
-    );
-  }
-);
+  return (
+    <Button
+      ref={ref}
+      variant={variant}
+      size={size}
+      className={cn(
+        "",
+        orientation === "horizontal" ? "" : "rotate-90",
+        className
+      )}
+      disabled={!canScrollPrev}
+      onClick={scrollPrev}
+      {...props}
+    >
+      <span>Previous</span>
+    </Button>
+  );
+});
 CarouselPrevious.displayName = "CarouselPrevious";
 
 const CarouselNext = React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<typeof Button>
->(
-  (
-    { className, variant = "glass-outline", size = "default", ...props },
-    ref
-  ) => {
-    const { orientation, scrollNext, canScrollNext } = useCarousel();
+>(({ className, variant = "outline", size = "default", ...props }, ref) => {
+  const { orientation, scrollNext, canScrollNext } = useCarousel();
 
-    return (
-      <Button
-        ref={ref}
-        variant={variant}
-        size={size}
-        className={cn(
-          "",
-          orientation === "horizontal" ? "" : " rotate-90",
-          className
-        )}
-        disabled={!canScrollNext}
-        onClick={scrollNext}
-        {...props}
-      >
-        <span>Next</span>
-      </Button>
-    );
-  }
-);
+  return (
+    <Button
+      ref={ref}
+      variant={variant}
+      size={size}
+      className={cn(
+        "",
+        orientation === "horizontal" ? "" : " rotate-90",
+        className
+      )}
+      disabled={!canScrollNext}
+      onClick={scrollNext}
+      {...props}
+    >
+      <span>Next</span>
+    </Button>
+  );
+});
 CarouselNext.displayName = "CarouselNext";
 
 export {

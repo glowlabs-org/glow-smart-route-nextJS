@@ -27,7 +27,7 @@ export enum USDGRedemptionError {
 export function useUSDGRedemption() {
   const signer = useEthersSigner();
   const { usdg } = useContracts(signer);
-  const [usdcInRedemption, setUsdcInRedemption] = useState<string>("-");
+  const [usdcInRedemption, setUsdcInRedemption] = useState<number>(0);
 
   useEffect(() => {
     async function fetchUsdcInRedemption() {
@@ -60,13 +60,13 @@ export function useUSDGRedemption() {
       })) as bigint;
 
       const formattedBalance = formatUnits(balance, 6);
-      setUsdcInRedemption(formattedBalance);
+      setUsdcInRedemption(Number(formattedBalance));
 
       // Convert to BigNumber for compatibility with existing code
       return BigNumber.from(balance.toString());
     } catch (error) {
       console.error("Error fetching USDC balance:", error);
-      setUsdcInRedemption("-");
+      setUsdcInRedemption(0);
       return null;
     }
   }
