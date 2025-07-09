@@ -48,7 +48,7 @@ export const ImageInput = (props: {
           {...rootRest}
         >
           <input
-            className="bg-transparent outline-none"
+            className="bg-transparent outline-hidden"
             {...props.inputProps}
           />
         </button>

@@ -17,7 +17,7 @@ import { addresses } from "@glowlabs-org/guarded-launch-ethers-sdk";
 import { usePurchaseImpactPower } from "@/hooks/usePurchaseImpactPower";
 import { Input } from "@/components/ui/input";
 import { useAccount } from "wagmi";
-import { Loader2 } from "lucide-react";
+import { Loader2, Settings, ArrowDownUp, Info } from "lucide-react";
 import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
 import { SYMBOLS, useER20Balances } from "@/hooks/useERC20Balances";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
@@ -35,13 +35,16 @@ import { useDebouncedCallback } from "use-debounce";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getOptimalUSDGAmountsWithFees } from "@/utils/glowSmartBalancing";
 import { useRouter } from "next/navigation";
-import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
-import { TabsList } from "@radix-ui/react-tabs";
 import { useERC20 } from "@/hooks/useERC20";
 import {
   USDG_REDEMPTION_ADDRESS,
   useUSDGRedemption,
 } from "@/hooks/useUSDGRedemption";
+import { NumberTicker } from "@/components/ui/number-ticker";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import Image from "next/image";
+import { BackgroundBeams } from "@/components/ui/background-beams";
+import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
 
 const tokens = {
   USDG: {
@@ -56,7 +59,7 @@ const tokens = {
     address: addresses.glow,
     decimals: 18,
     allowedPairs: ["USDG", "USDC"],
-    toFixed: 2,
+    toFixed: 6,
   },
   USDC: {
     label: "USDC",
@@ -127,6 +130,10 @@ export default function View({
   const [tokenSendBalance, setTokenSendBalance] = useState<string>("0");
   const [selectedTokenBuy, setSelectedTokenBuy] = useState<Token>(tokens.GLOW);
   const { isConnected, isConnecting, isReconnecting } = useAccount();
+
+  // Add a general loading state check
+  const isWalletLoading = isConnecting || isReconnecting;
+
   const [sendToAddress, setSendToAddress] = useState<string>("");
   const [smartBalancingAmounts, setSmartBalancingAmounts] = useState<
     SmartBalancingAmounts & {
@@ -141,6 +148,9 @@ export default function View({
 
   const [isUsdcInRedemptionLoading, setIsUsdcInRedemptionLoading] =
     useState(false);
+
+  const [balancesLoading, setBalancesLoading] = useState<boolean>(true);
+  const [statsLoading, setStatsLoading] = useState<boolean>(true);
 
   const {
     purchaseGlowEarlyLiquidity,
@@ -174,15 +184,18 @@ export default function View({
     symbol: selectedTokenSell.label as SYMBOLS,
     signer,
   });
-  const debouncedEstimate = useDebouncedCallback(async (amountToSell) => {
-    try {
-      setEstimateQueueAmount((prev) => prev + 1);
-      await estimateAmount();
-      setEstimateQueueAmount((prev) => prev - 1);
-    } catch (error) {
-      setEstimateQueueAmount((prev) => prev - 1);
-    }
-  }, 500);
+  const debouncedEstimate = useDebouncedCallback(
+    async (amountToSell: string) => {
+      try {
+        setEstimateQueueAmount((prev) => prev + 1);
+        await estimateAmount();
+        setEstimateQueueAmount((prev) => prev - 1);
+      } catch (error) {
+        setEstimateQueueAmount((prev) => prev - 1);
+      }
+    },
+    500
+  );
 
   async function purchaseImpactPower(
     amountToBuy: string,
@@ -290,9 +303,8 @@ export default function View({
     } else {
       if (selectedTokenSell.label === "USDC") {
         if (
-          usdgBalance &&
-          Number(ethers.utils.formatUnits(usdgBalance.toString(), 6)) >=
-            Number(amountToSell)
+          usdgBalance?.lt(0) &&
+          usdgBalance?.lt(ethers.utils.parseUnits(amountToSell, 6))
         ) {
           return {
             label: `SWAP`,
@@ -310,7 +322,7 @@ export default function View({
                 },
                 cancel: {
                   label: "No",
-                  onClick: () => {
+                  onClick: (e) => {
                     toast.dismiss();
                   },
                 },
@@ -386,7 +398,7 @@ export default function View({
         disabled: true,
       };
     } else if (
-      Number(amountToSend) > Number(toFixedTruncate(getTokenToSendBalance(), 2))
+      Number(amountToSend) > Number(toFixedTruncate(getTokenToSendBalance(), 6))
     ) {
       return {
         label: `Insufficient ${selectedTokenSend.label} balance`,
@@ -538,190 +550,263 @@ export default function View({
   };
 
   const estimateAmount = async () => {
-    if (selectedTokenBuy.label === "GLOW") {
-      if (!amountToSell || amountToSell === "0") {
-        setSmartBalancingAmounts(undefined);
-        return;
-      }
-      const uniswapEstimate = await estimateOutputAmount({
-        amountIn: ethers.utils.parseUnits(amountToSell, "6"),
-      });
-      const smartBalancingAmountsRes = await getSmartBalancingAmounts({
-        amountUsdgIn: Number(amountToSell),
-        earlyLiquidityCurrentPrice: Number(earlyLiquidityCurrentPrice),
-      });
-      if (!smartBalancingAmountsRes.ok) {
-        toast.error(smartBalancingAmountsRes.val);
-
-        return;
-      }
-
-      // early liquidity fees
-      let estimatedCostInUSDForEarlyLiquidityAmount = "0";
-      estimatedCostInUSDForEarlyLiquidityAmount =
-        await getGlowEarlyLiquidityFees(
-          Number(smartBalancingAmountsRes.val.amount_out_glow)
-        );
-
-      //uniswap fees
-      let estimatedCostInUSDForUniswap = "0";
-      estimatedCostInUSDForUniswap = await getUniswapFees(
-        Number(smartBalancingAmountsRes.val.amount_in_uni)
-      );
-
-      let estimatedGasForswapUSDCToUSDG = "0";
-      if (selectedTokenSell.label === "USDC") {
-        const estimatedGasForswapUSDCToUSDGRes =
-          await estimateGasForswapUSDCToUSDG(
-            ethers.utils.parseUnits(amountToSell, "6"),
-            ethPriceInUSD
-          );
-        if (estimatedGasForswapUSDCToUSDGRes.ok) {
-          estimatedGasForswapUSDCToUSDG = estimatedGasForswapUSDCToUSDGRes.val;
+    try {
+      if (selectedTokenBuy.label === "GLOW") {
+        if (!amountToSell || amountToSell === "0") {
+          console.log("amountToSellFirst", amountToSell);
+          setSmartBalancingAmounts(undefined);
+          return;
         }
-      }
+        const uniswapEstimate = await estimateOutputAmount({
+          amountIn: ethers.utils.parseUnits(amountToSell, "6"),
+        });
+        const smartBalancingAmountsRes = await getSmartBalancingAmounts({
+          amountUsdgIn: Number(amountToSell),
+          earlyLiquidityCurrentPrice: Number(earlyLiquidityCurrentPrice),
+        });
+        if (!smartBalancingAmountsRes.ok) {
+          console.error(smartBalancingAmountsRes.val);
+          toast.error(smartBalancingAmountsRes.val);
+          return;
+        }
 
-      const amountsWithFees = getOptimalUSDGAmountsWithFees({
-        amount_glow_out_uniswap: Number(
-          smartBalancingAmountsRes.val.amount_out_uni
-        ),
-        amount_glow_out_bonding_curve: Number(
-          smartBalancingAmountsRes.val.amount_out_glow
-        ),
-        fees: {
-          uniswapFees: Number(estimatedCostInUSDForUniswap),
-          bondingCurveFees: Number(estimatedCostInUSDForEarlyLiquidityAmount),
-        },
-        //If we use both they'll be the same so we can use either
-        endingPriceIfBoth: Number(
-          smartBalancingAmountsRes.val.earlyLiquidityCurrentPrice
-        ),
+        // early liquidity fees
+        let estimatedCostInUSDForEarlyLiquidityAmount = "0";
+        estimatedCostInUSDForEarlyLiquidityAmount =
+          await getGlowEarlyLiquidityFees(
+            Number(smartBalancingAmountsRes.val.amount_out_glow)
+          );
 
-        amount_usdg_in_uniswap: Number(
-          smartBalancingAmountsRes.val.amount_in_uni
-        ),
-        amount_usdg_in_bonding_curve: Number(
-          smartBalancingAmountsRes.val.amount_in_glow_bonding_curve
-        ),
-        uniswapUSDGReserves: Number(
-          smartBalancingAmountsRes.val.uniswapUSDGReserves
-        ),
-        uniswapGlowReserves: Number(
-          smartBalancingAmountsRes.val.uniswapGlowReserves
-        ),
-        earlyLiquidityCurrentPrice: Number(glowPrice),
-        usdgToSpend: Number(amountToSell),
-      });
-
-      //uniswap fees
-      estimatedCostInUSDForUniswap = await getUniswapFees(
-        amountsWithFees.amount_usdg_in_uniswap
-      );
-
-      // early liquidity fees
-      estimatedCostInUSDForEarlyLiquidityAmount =
-        await getGlowEarlyLiquidityFees(
-          amountsWithFees.amount_out_glow_bonding_curve
+        //uniswap fees
+        let estimatedCostInUSDForUniswap = "0";
+        estimatedCostInUSDForUniswap = await getUniswapFees(
+          Number(smartBalancingAmountsRes.val.amount_in_uni)
         );
 
-      const estimatedTotalGasInUSD = toFixedTruncate(
-        Number(estimatedCostInUSDForUniswap) +
-          Number(estimatedCostInUSDForEarlyLiquidityAmount) +
-          Number(estimatedGasForswapUSDCToUSDG),
-        2
-      );
+        let estimatedGasForswapUSDCToUSDG = "0";
+        if (selectedTokenSell.label === "USDC") {
+          const estimatedGasForswapUSDCToUSDGRes =
+            await estimateGasForswapUSDCToUSDG(
+              ethers.utils.parseUnits(amountToSell, "6"),
+              ethPriceInUSD
+            );
+          if (estimatedGasForswapUSDCToUSDGRes.ok) {
+            estimatedGasForswapUSDCToUSDG =
+              estimatedGasForswapUSDCToUSDGRes.val;
+          }
+        }
 
-      setSmartBalancingAmounts({
-        amount_in_glow_bonding_curve: toFixedTruncate(
-          amountsWithFees.amount_usdg_in_bonding_curve,
-          6
-        ),
-        amount_out_glow: toFixedTruncate(
-          amountsWithFees.amount_out_glow_bonding_curve,
-          18
-        ),
-        amount_in_uni: toFixedTruncate(
-          amountsWithFees.amount_usdg_in_uniswap,
-          6
-        ),
-        amount_out_uni: toFixedTruncate(
-          amountsWithFees.amount_out_glow_uniswap,
-          18
-        ),
-        uniswapGlowReserves: smartBalancingAmountsRes.val.uniswapGlowReserves,
-        uniswapUSDGReserves: smartBalancingAmountsRes.val.uniswapUSDGReserves,
-        earlyLiquidityCurrentPrice:
-          smartBalancingAmountsRes.val.earlyLiquidityCurrentPrice,
-        usdgToSpend: smartBalancingAmountsRes.val.usdgToSpend,
-        estimatedCostInUSDForEarlyLiquidity:
-          estimatedCostInUSDForEarlyLiquidityAmount,
-        estimatedCostInUSDForUniswap: estimatedCostInUSDForUniswap,
-        estimatedTotalGasInUSD: estimatedTotalGasInUSD,
-      });
+        const amountsWithFees = getOptimalUSDGAmountsWithFees({
+          amount_glow_out_uniswap: Number(
+            smartBalancingAmountsRes.val.amount_out_uni
+          ),
+          amount_glow_out_bonding_curve: Number(
+            smartBalancingAmountsRes.val.amount_out_glow
+          ),
+          fees: {
+            uniswapFees: Number(estimatedCostInUSDForUniswap),
+            bondingCurveFees: Number(estimatedCostInUSDForEarlyLiquidityAmount),
+          },
+          //If we use both they'll be the same so we can use either
+          endingPriceIfBoth: Number(
+            smartBalancingAmountsRes.val.earlyLiquidityCurrentPrice
+          ),
 
-      const findAmountGlowFromUSDGAmountRes =
-        await findAmountGlowFromUSDGAmount(
-          ethers.utils.parseUnits(amountToSell, "6")
+          amount_usdg_in_uniswap: Number(
+            smartBalancingAmountsRes.val.amount_in_uni
+          ),
+          amount_usdg_in_bonding_curve: Number(
+            smartBalancingAmountsRes.val.amount_in_glow_bonding_curve
+          ),
+          uniswapUSDGReserves: Number(
+            smartBalancingAmountsRes.val.uniswapUSDGReserves
+          ),
+          uniswapGlowReserves: Number(
+            smartBalancingAmountsRes.val.uniswapGlowReserves
+          ),
+          earlyLiquidityCurrentPrice: Number(glowPrice),
+          usdgToSpend: Number(amountToSell),
+        });
+
+        //uniswap fees
+        estimatedCostInUSDForUniswap = await getUniswapFees(
+          amountsWithFees.amount_usdg_in_uniswap
         );
 
-      if (!uniswapEstimate.ok) {
-        toast.error(uniswapEstimate.val);
+        // early liquidity fees
+        estimatedCostInUSDForEarlyLiquidityAmount =
+          await getGlowEarlyLiquidityFees(
+            amountsWithFees.amount_out_glow_bonding_curve
+          );
+
+        const estimatedTotalGasInUSD = toFixedTruncate(
+          Number(estimatedCostInUSDForUniswap) +
+            Number(estimatedCostInUSDForEarlyLiquidityAmount) +
+            Number(estimatedGasForswapUSDCToUSDG),
+          6
+        );
+        console.log("amountsWithFees", { amountToSell, amountsWithFees });
+        setSmartBalancingAmounts({
+          amount_in_glow_bonding_curve: toFixedTruncate(
+            amountsWithFees.amount_usdg_in_bonding_curve,
+            6
+          ),
+          amount_out_glow: toFixedTruncate(
+            amountsWithFees.amount_out_glow_bonding_curve,
+            18
+          ),
+          amount_in_uni: toFixedTruncate(
+            amountsWithFees.amount_usdg_in_uniswap,
+            6
+          ),
+          amount_out_uni: toFixedTruncate(
+            amountsWithFees.amount_out_glow_uniswap,
+            18
+          ),
+          uniswapGlowReserves: smartBalancingAmountsRes.val.uniswapGlowReserves,
+          uniswapUSDGReserves: smartBalancingAmountsRes.val.uniswapUSDGReserves,
+          earlyLiquidityCurrentPrice:
+            smartBalancingAmountsRes.val.earlyLiquidityCurrentPrice,
+          usdgToSpend: smartBalancingAmountsRes.val.usdgToSpend,
+          estimatedCostInUSDForEarlyLiquidity:
+            estimatedCostInUSDForEarlyLiquidityAmount,
+          estimatedCostInUSDForUniswap: estimatedCostInUSDForUniswap,
+          estimatedTotalGasInUSD: estimatedTotalGasInUSD,
+        });
+
+        const findAmountGlowFromUSDGAmountRes =
+          await findAmountGlowFromUSDGAmount(
+            ethers.utils.parseUnits(amountToSell, "6")
+          );
+
+        if (!uniswapEstimate.ok) {
+          console.error("!uniswapEstimate.ok", uniswapEstimate.val);
+          toast.error(uniswapEstimate.val);
+          return;
+        }
+
+        if (!findAmountGlowFromUSDGAmountRes.ok) {
+          console.error(
+            "!findAmountGlowFromUSDGAmountRes.ok)",
+            findAmountGlowFromUSDGAmountRes.val
+          );
+          toast.error(findAmountGlowFromUSDGAmountRes.val);
+          return;
+        }
+
+        const estimatedUniswapOutputAmount = Number(
+          ethers.utils.formatUnits(uniswapEstimate.val.toString(), "18")
+        );
+        const estimatedOutputAmountFormated = Number(
+          ethers.utils.formatUnits(
+            findAmountGlowFromUSDGAmountRes.val.toString(),
+            "18"
+          )
+        );
+        console.log(
+          "estimatedUniswapOutputAmount",
+          estimatedUniswapOutputAmount
+        );
+        console.log(
+          "estimatedOutputAmountFormated",
+          estimatedOutputAmountFormated
+        );
+
+        // If we have smart balancing amounts, use the total from both routes
+        let finalOutput;
+        if (smartBalancingAmounts) {
+          const uniswapOutput = Number(smartBalancingAmounts.amount_out_uni);
+          const bondingCurveOutput = Number(
+            smartBalancingAmounts.amount_out_glow
+          );
+          finalOutput = uniswapOutput + bondingCurveOutput;
+          console.log("finalOutput", finalOutput);
+        } else {
+          // Fallback to max output for non-smart balancing scenarios
+          finalOutput = Math.max(
+            estimatedUniswapOutputAmount,
+            estimatedOutputAmountFormated
+          );
+          console.log("finalOutputnon", finalOutput);
+        }
+
+        setEstimatedOutputAmount({
+          ...defaultTokensEstimate,
+          [selectedTokenBuy.label]: finalOutput.toString(),
+        });
+
         return;
       }
-
-      if (!findAmountGlowFromUSDGAmountRes.ok) {
-        toast.error(findAmountGlowFromUSDGAmountRes.val);
+      if (
+        selectedTokenBuy.label === "USDG" &&
+        selectedTokenSell.label === "USDC"
+      ) {
+        setEstimatedOutputAmount({
+          ...defaultTokensEstimate,
+          [selectedTokenBuy.label]: amountToSell,
+        });
         return;
       }
+      if (
+        selectedTokenBuy.label === "USDC" &&
+        selectedTokenSell.label === "USDG"
+      ) {
+        setEstimatedOutputAmount({
+          ...defaultTokensEstimate,
+          [selectedTokenBuy.label]: amountToSell,
+        });
+        return;
+      }
+      if (
+        selectedTokenBuy.label === "USDC" &&
+        selectedTokenSell.label === "GLOW"
+      ) {
+        // For GLOW -> USDC, we need to estimate GLOW -> USDG first
+        const estimateRes = await estimateGlowToUSDG({
+          amountIn: ethers.utils.parseUnits(
+            amountToSell,
+            selectedTokenSell.decimals
+          ),
+        });
 
-      const estimatedUniswapOutputAmount = Number(
-        ethers.utils.formatUnits(uniswapEstimate.val.toString(), "18")
-      );
-      const estimatedOutputAmountFormated = Number(
-        ethers.utils.formatUnits(
-          findAmountGlowFromUSDGAmountRes.val.toString(),
-          "18"
-        )
-      );
+        if (estimateRes.ok) {
+          // USDG to USDC is 1:1, so the USDG amount equals USDC amount
+          setEstimatedOutputAmount({
+            ...defaultTokensEstimate,
+            [selectedTokenBuy.label]: ethers.utils.formatUnits(
+              estimateRes.val.toString(),
+              "6"
+            ),
+          });
+        }
+        return;
+      }
+      if (
+        //@ts-ignore
+        selectedTokenBuy.label === "IMPACT POWER POINTS" &&
+        (selectedTokenSell.label === "USDG" ||
+          selectedTokenSell.label === "USDC")
+      ) {
+        const estimateRes = await estimateUSDGToImpactPoints({
+          amountUSDGToSpend: ethers.utils.parseUnits(
+            amountToSell,
+            selectedTokenSell.decimals
+          ),
+        });
 
-      const maxOutput = Math.max(
-        estimatedUniswapOutputAmount,
-        estimatedOutputAmountFormated
-      );
+        if (estimateRes.ok) {
+          setEstimatedOutputAmount({
+            ...defaultTokensEstimate,
+            [selectedTokenBuy.label]: ethers.utils.formatUnits(
+              estimateRes.val.toString(),
+              "12"
+            ),
+          });
+        }
 
-      setEstimatedOutputAmount({
-        ...defaultTokensEstimate,
-        [selectedTokenBuy.label]: maxOutput.toString(),
-      });
-
-      return;
-    }
-    if (
-      selectedTokenBuy.label === "USDG" &&
-      selectedTokenSell.label === "USDC"
-    ) {
-      setEstimatedOutputAmount({
-        ...defaultTokensEstimate,
-        [selectedTokenBuy.label]: amountToSell,
-      });
-      return;
-    }
-    if (
-      selectedTokenBuy.label === "USDC" &&
-      selectedTokenSell.label === "USDG"
-    ) {
-      setEstimatedOutputAmount({
-        ...defaultTokensEstimate,
-        [selectedTokenBuy.label]: amountToSell,
-      });
-      return;
-    }
-    if (
-      selectedTokenBuy.label === "USDC" &&
-      selectedTokenSell.label === "GLOW"
-    ) {
-      // For GLOW -> USDC, we need to estimate GLOW -> USDG first
-      const estimateRes = await estimateGlowToUSDG({
+        return;
+      }
+      const estimateRes = await estimateOutputAmount({
         amountIn: ethers.utils.parseUnits(
           amountToSell,
           selectedTokenSell.decimals
@@ -729,60 +814,24 @@ export default function View({
       });
 
       if (estimateRes.ok) {
-        // USDG to USDC is 1:1, so the USDG amount equals USDC amount
         setEstimatedOutputAmount({
           ...defaultTokensEstimate,
           [selectedTokenBuy.label]: ethers.utils.formatUnits(
             estimateRes.val.toString(),
-            "6"
+            selectedTokenBuy.decimals
           ),
         });
       }
-      return;
-    }
-    if (
-      //@ts-ignore
-      selectedTokenBuy.label === "IMPACT POWER POINTS" &&
-      (selectedTokenSell.label === "USDG" || selectedTokenSell.label === "USDC")
-    ) {
-      const estimateRes = await estimateUSDGToImpactPoints({
-        amountUSDGToSpend: ethers.utils.parseUnits(
-          amountToSell,
-          selectedTokenSell.decimals
-        ),
-      });
-
-      if (estimateRes.ok) {
-        setEstimatedOutputAmount({
-          ...defaultTokensEstimate,
-          [selectedTokenBuy.label]: ethers.utils.formatUnits(
-            estimateRes.val.toString(),
-            "12"
-          ),
-        });
-      }
-
-      return;
-    }
-    const estimateRes = await estimateOutputAmount({
-      amountIn: ethers.utils.parseUnits(
-        amountToSell,
-        selectedTokenSell.decimals
-      ),
-    });
-
-    if (estimateRes.ok) {
-      setEstimatedOutputAmount({
-        ...defaultTokensEstimate,
-        [selectedTokenBuy.label]: ethers.utils.formatUnits(
-          estimateRes.val.toString(),
-          selectedTokenBuy.decimals
-        ),
-      });
+    } catch (error: any) {
+      console.error("Error in estimateAmount:", error);
+      toast.error(error?.message || "Failed to estimate swap amount");
+      setSmartBalancingAmounts(undefined);
+      setEstimatedOutputAmount(defaultTokensEstimate);
     }
   };
 
   const getTokenSellBalance = async () => {
+    setBalancesLoading(true);
     const balance = await getBalance();
     await refreshBalances();
     if (balance.ok) {
@@ -790,6 +839,7 @@ export default function View({
         ethers.utils.formatUnits(balance.val, selectedTokenSell.decimals)
       );
     }
+    setBalancesLoading(false);
   };
 
   const handleSelectTokenToSell = (value: TOKENS_ENUM) => {
@@ -882,6 +932,25 @@ export default function View({
     }
   }, [selectedTokenSell, selectedTokenBuy, amountToSell, signer, isReady]);
 
+  // Add effect to handle stats loading
+  useEffect(() => {
+    if (marketCap && glowPrice && usdcRewardPool) {
+      setStatsLoading(false);
+    }
+  }, [marketCap, glowPrice, usdcRewardPool]);
+
+  // Add effect to fetch USDC balance when wallet connects
+  useEffect(() => {
+    const fetchUsdcInRedemption = async () => {
+      if (isConnected && !isWalletLoading) {
+        setIsUsdcInRedemptionLoading(true);
+        await getUSDCBalanceOfRedemptionContract();
+        setIsUsdcInRedemptionLoading(false);
+      }
+    };
+    fetchUsdcInRedemption();
+  }, [isConnected, isWalletLoading]);
+
   const isEstimateLoading =
     estimateQueueAmount !== 0 && amountToSell ? true : false;
 
@@ -936,10 +1005,647 @@ export default function View({
   };
 
   return (
-    <div
-      id="organization"
-      className="container relative flex-col items-center justify-center lg:max-w-none p-0 bg-[#FFFEFA] py-8 md:py-0"
-    >
+    <div className="min-h-screen glow-gradient-a">
+      {/* Hero Section with Enhanced Gradient */}
+      <div className="relative overflow-hidden min-h-screen">
+        <div className="absolute inset-0">
+          <BackgroundBeams />
+        </div>
+        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-6 lg:px-12 xl:px-16 relative z-10 min-h-screen flex items-center justify-center">
+          {/* Hero Content */}
+          <div className="flex flex-col items-center justify-center lg:flex-row gap-6 lg:gap-8 w-full">
+            {/* Stats Sidebar */}
+            <div className="w-full lg:max-w-64 xl:max-w-72 flex-shrink-0">
+              <div className="bg-white rounded-md border border-border p-4 lg:p-6 space-y-4">
+                {/* Sidebar Header */}
+                <div className="pb-4 border-b border-border/30">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                    Market Overview
+                  </h3>
+                </div>
+
+                {/* Stats Items */}
+                <div className="flex flex-row lg:flex-col justify-between gap-4">
+                  <div className="group hover:bg-muted/20 rounded-md p-3 transition-all duration-200 cursor-default hidden lg:block">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-xs text-muted-foreground">
+                        Market Cap
+                      </div>
+                    </div>
+                    <div className="text-lg lg:text-xl font-bold">
+                      ${" "}
+                      {statsLoading ? (
+                        <Skeleton className="w-24 h-6 inline-block" />
+                      ) : (
+                        <NumberTicker value={Number(marketCap)} />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="group hover:bg-muted/20 rounded-md p-3 transition-all duration-200 cursor-default">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-xs text-muted-foreground">
+                        GLOW Price
+                      </div>
+                    </div>
+                    <div className="text-lg lg:text-xl font-bold">
+                      ${" "}
+                      {statsLoading ? (
+                        <Skeleton className="w-20 h-6 inline-block" />
+                      ) : (
+                        Number(glowPrice).toFixed(6)
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="group hover:bg-muted/20 rounded-md p-3 transition-all duration-200 cursor-default">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-xs text-muted-foreground">
+                        Reward Pool
+                      </div>
+                    </div>
+                    <div className="text-lg lg:text-xl font-bold">
+                      ${" "}
+                      {statsLoading ? (
+                        <Skeleton className="w-24 h-6 inline-block" />
+                      ) : (
+                        <NumberTicker value={Number(usdcRewardPool)} />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="group hover:bg-muted/20 rounded-md p-3 transition-all duration-200 cursor-default hidden lg:block">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-xs text-muted-foreground">
+                        USDC Available
+                      </div>
+                    </div>
+                    <div className="text-lg lg:text-xl font-bold">
+                      ${" "}
+                      {isUsdcInRedemptionLoading || isWalletLoading ? (
+                        <Skeleton className="w-24 h-6 inline-block" />
+                      ) : (
+                        <NumberTicker value={usdcInRedemption} />
+                      )}
+                    </div>
+                    {isUsdcInRedemptionLoading && !isWalletLoading && (
+                      <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                        Updating...
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Additional Info Section */}
+                <div className="pt-4 border-t border-border/30 hidden lg:block">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">ETH Price</span>
+                      <span className="font-medium">
+                        ${ethPriceInUSD ? ethPriceInUSD.toFixed(0) : "-"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Content Area */}
+            <div className="flex-1 flex w-full justify-center">
+              <div className="bg-card rounded-md border border-border overflow-hidden w-full max-w-sm">
+                {/* Enhanced Tabs Navigation */}
+                <Tabs defaultValue="swap" className="w-full">
+                  <div className="p-4 lg:p-6 pb-0 lg:pb-0 border-b border-border/30">
+                    <TabsList className="w-full justify-center">
+                      <TabsTrigger value="swap">Swap</TabsTrigger>
+                      <TabsTrigger value="send">Send</TabsTrigger>
+                    </TabsList>
+                  </div>
+
+                  {/* Tab Content */}
+                  <div className="p-4 lg:p-6 py-0">
+                    {/* Swap Content */}
+                    <TabsContent value="swap">
+                      <div>
+                        {/* Enhanced Header */}
+                        <div className="flex items-center justify-between mb-6">
+                          <div>
+                            <h3 className="text-lg lg:text-xl font-semibold">
+                              Swap Tokens
+                            </h3>
+                            <p className="text-xs lg:text-sm text-muted-foreground">
+                              Exchange tokens at the best available rates
+                            </p>
+                          </div>
+                          {/* <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-full hover:bg-muted/50 transition-colors"
+                            >
+                              <Settings className="w-5 h-5" />
+                            </Button> */}
+                        </div>
+
+                        {/* Enhanced From Token */}
+                        <div className="group relative bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30 hover:border-border/60 transition-all duration-300">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                              You pay
+                            </span>
+                            {isConnected && (
+                              <span className="text-xs lg:text-sm text-muted-foreground">
+                                Balance:{" "}
+                                <span className="font-medium">
+                                  {isWalletLoading || balancesLoading ? (
+                                    <Skeleton className="w-16 h-4 inline-block" />
+                                  ) : (
+                                    toFixedTruncate(Number(tokenSellBalance), 6)
+                                  )}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                            <div className="flex-1 min-w-0">
+                              <Input
+                                type="text"
+                                placeholder="0.00"
+                                className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
+                                value={amountToSell}
+                                disabled={!isConnected || isWalletLoading}
+                                onChange={(e) => {
+                                  if (Number(e.target.value) < 0) {
+                                    setAmountToSell("0");
+                                    return;
+                                  }
+                                  setAmountToSell(e.target.value);
+                                }}
+                              />
+                            </div>
+                            <Select
+                              disabled={!isConnected || isWalletLoading}
+                              value={selectedTokenSell.label}
+                              onValueChange={handleSelectTokenToSell}
+                            >
+                              <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-md border-border bg-white font-medium">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="USDC">USDC</SelectItem>
+                                <SelectItem value="GLOW">GLOW</SelectItem>
+                                <SelectItem value="USDG">USDG</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        {/* Enhanced Swap Direction */}
+                        <div className="relative py-2">
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <button className="bg-white border-4 border-glow-light-grey rounded-full p-2 lg:p-3 hover:bg-glow-medium-grey transition-all duration-200 z-50">
+                              <ArrowDownUp className="w-4 h-4 lg:w-5 lg:h-5 text-muted-foreground" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Enhanced To Token */}
+                        <div className="group relative  bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30 hover:border-border/60 transition-all duration-300">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                              You receive
+                            </span>
+                            {isEstimateLoading && (
+                              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                                Calculating...
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                            <div className="flex-1 min-w-0">
+                              {isEstimateLoading ? (
+                                <Skeleton className="h-10 lg:h-14 w-full bg-muted/50" />
+                              ) : (
+                                <Input
+                                  placeholder="0.00"
+                                  className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
+                                  value={
+                                    Number(currentTokenEstimatedOutputAmount)
+                                      ? formatPrice(
+                                          currentTokenEstimatedOutputAmount,
+                                          selectedTokenBuy.toFixed
+                                        )
+                                      : "0.00"
+                                  }
+                                  disabled={!isConnected || isWalletLoading}
+                                  readOnly
+                                />
+                              )}
+                            </div>
+                            <Select
+                              disabled={!isConnected || isWalletLoading}
+                              value={selectedTokenBuy.label}
+                              onValueChange={handleSelectTokenToBuy}
+                            >
+                              <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-md border-border bg-white font-medium">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {selectedTokenSell.allowedPairs.map((token) => (
+                                  <SelectItem key={token} value={token}>
+                                    {token === "IMPACT POWER POINTS"
+                                      ? "Impact Power"
+                                      : token}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        {/* Enhanced Transaction Details */}
+                        {smartBalancingAmounts &&
+                          selectedTokenBuy.label === "GLOW" && (
+                            <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-md p-4 lg:p-5 space-y-4 border border-border/20">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Info className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                                  Transaction Details
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <div className="text-xs text-muted-foreground">
+                                    Uniswap Route
+                                  </div>
+                                  <div className="text-sm font-medium">
+                                    {isEstimateLoading ? (
+                                      <Skeleton className="w-16 h-4" />
+                                    ) : (
+                                      `${Number(
+                                        smartBalancingAmounts?.amount_out_uni
+                                      ).toFixed(6)} GLOW`
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="text-xs text-muted-foreground">
+                                    Bonding Curve
+                                  </div>
+                                  <div className="text-sm font-medium">
+                                    {isEstimateLoading ? (
+                                      <Skeleton className="w-16 h-4" />
+                                    ) : (
+                                      `${Number(
+                                        smartBalancingAmounts?.amount_out_glow
+                                      ).toFixed(6)} GLOW`
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="pt-3 border-t border-border/20">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs lg:text-sm text-muted-foreground">
+                                    Estimated Network Fee
+                                  </span>
+                                  <span className="text-xs lg:text-sm font-medium">
+                                    {isEstimateLoading ? (
+                                      <Skeleton className="w-16 h-4" />
+                                    ) : (
+                                      `~$${Number(
+                                        smartBalancingAmounts.estimatedTotalGasInUSD
+                                      ).toFixed(2)}`
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Enhanced Swap Button */}
+                        <div className="pt-4">
+                          {!isConnected && !isWalletLoading ? (
+                            <ConnectButton variant="default" />
+                          ) : isWalletLoading ? (
+                            <ConnectButton variant="default" />
+                          ) : (
+                            <Button
+                              disabled={
+                                buttonProps.disabled ||
+                                pendingTx ||
+                                isEstimateLoading ||
+                                balancesLoading
+                              }
+                              onClick={buttonProps.callback}
+                              className="w-full h-12 lg:h-16"
+                            >
+                              {pendingTx && (
+                                <div className="mr-3">
+                                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                </div>
+                              )}
+                              {pendingTx ? "Processing..." : buttonProps.label}
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Enhanced Info Link */}
+                        <div className="text-center pt-4">
+                          <InstructionsDialog>
+                            <Button
+                              variant="link"
+                              className="text-xs lg:text-sm text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <Info className="w-4 h-4 mr-1" />
+                              Learn about Glow&apos;s guarded launch
+                            </Button>
+                          </InstructionsDialog>
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    {/* Send Content */}
+                    <TabsContent value="send">
+                      <div className="space-y-4">
+                        <div className="mb-6">
+                          <h3 className="text-lg lg:text-xl font-semibold mb-2">
+                            Send Tokens
+                          </h3>
+                          <p className="text-xs lg:text-sm text-muted-foreground">
+                            Transfer tokens to any wallet address
+                          </p>
+                        </div>
+
+                        {/* Enhanced Amount Input */}
+                        <div className="bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                              Amount
+                            </span>
+                            {isConnected && (
+                              <span className="text-xs lg:text-sm text-muted-foreground">
+                                Balance:{" "}
+                                <span className="font-medium">
+                                  {isWalletLoading || balancesLoading ? (
+                                    <Skeleton className="w-16 h-4 inline-block" />
+                                  ) : (
+                                    toFixedTruncate(getTokenToSendBalance(), 6)
+                                  )}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                            <div className="flex-1 min-w-0">
+                              <Input
+                                type="text"
+                                placeholder="0.00"
+                                className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
+                                value={amountToSend}
+                                disabled={!isConnected || isWalletLoading}
+                                onChange={(e) => {
+                                  if (Number(e.target.value) < 0) {
+                                    setAmountToSend("0");
+                                    return;
+                                  }
+                                  setAmountToSend(e.target.value);
+                                }}
+                              />
+                            </div>
+                            <Select
+                              disabled={!isConnected || isWalletLoading}
+                              value={selectedTokenSend.label}
+                              onValueChange={handleSelectTokenToSend}
+                            >
+                              <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-md border-border bg-white font-medium">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="GLOW">GLOW</SelectItem>
+                                <SelectItem value="USDG">USDG</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        {/* Enhanced Recipient Input */}
+                        <div className="bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                              Recipient Address
+                            </span>
+                          </div>
+                          <Input
+                            type="text"
+                            placeholder="0x..."
+                            className="w-full bg-transparent border-0 p-0 h-auto text-sm lg:text-lg font-mono focus-visible:ring-0 placeholder:text-muted-foreground/40 break-all"
+                            value={sendToAddress}
+                            disabled={!isConnected || isWalletLoading}
+                            onChange={(e) => setSendToAddress(e.target.value)}
+                          />
+                        </div>
+
+                        {/* Enhanced Send Button */}
+                        <div className="pt-4">
+                          {isConnected ? (
+                            <Button
+                              disabled={
+                                getSendButtonProps().disabled ||
+                                pendingTx ||
+                                isEstimateLoading
+                              }
+                              onClick={handleSendToken}
+                              className="w-full h-12 lg:h-16"
+                            >
+                              {pendingTx && (
+                                <div className="mr-3">
+                                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                </div>
+                              )}
+                              {pendingTx
+                                ? "Sending..."
+                                : getSendButtonProps().label}
+                            </Button>
+                          ) : (
+                            <ConnectButton variant="default" />
+                          )}
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    {/* Redeem Content */}
+                    <TabsContent value="redeem">
+                      <div className="space-y-4">
+                        <div className="mb-6">
+                          <h3 className="text-lg lg:text-xl font-semibold mb-2">
+                            USDG Redemption
+                          </h3>
+                          <p className="text-xs lg:text-sm text-muted-foreground">
+                            Redeem USDG tokens for USDC at a 1:1 ratio
+                          </p>
+                        </div>
+
+                        {/* Enhanced USDG Amount Input */}
+                        <div className="bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                              USDG to Redeem
+                            </span>
+                            {isConnected && (
+                              <span className="text-xs lg:text-sm text-muted-foreground">
+                                Balance:{" "}
+                                <span className="font-medium">
+                                  {formatTokenBalance(usdgBalance)}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                            <div className="flex-1 min-w-0">
+                              <Input
+                                type="text"
+                                placeholder="0.00"
+                                className={`text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full ${
+                                  usdgWithdrawAmount &&
+                                  usdgBalance &&
+                                  !usdgBalance.isZero() &&
+                                  Number(usdgWithdrawAmount) >
+                                    Number(
+                                      ethers.utils.formatUnits(usdgBalance, 6)
+                                    )
+                                    ? "text-destructive"
+                                    : ""
+                                }`}
+                                value={usdgWithdrawAmount}
+                                disabled={!isConnected || isWithdrawing}
+                                onChange={(e) => {
+                                  if (Number(e.target.value) < 0) {
+                                    setUsdgWithdrawAmount("0");
+                                    return;
+                                  }
+                                  setUsdgWithdrawAmount(e.target.value);
+                                }}
+                              />
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={
+                                !usdgBalance ||
+                                usdgBalance.isZero() ||
+                                isWithdrawing
+                              }
+                              onClick={() => {
+                                if (usdgBalance && !usdgBalance.isZero()) {
+                                  setUsdgWithdrawAmount(
+                                    formatTokenBalance(usdgBalance)
+                                  );
+                                }
+                              }}
+                              className="shrink-0"
+                            >
+                              Max
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Enhanced USDC Output Display */}
+                        <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-md p-4 lg:p-6 border border-border/20">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                              You receive (USDC)
+                            </span>
+                            <span className="text-lg lg:text-2xl font-bold break-all">
+                              {usdgWithdrawAmount &&
+                              !isNaN(Number(usdgWithdrawAmount)) &&
+                              Number(usdgWithdrawAmount) > 0
+                                ? Number(usdgWithdrawAmount).toLocaleString(
+                                    undefined,
+                                    {
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 6,
+                                    }
+                                  )
+                                : "0.00"}
+                            </span>
+                          </div>
+                          {estimatedWithdrawGas && (
+                            <div className="mt-3 pt-3 border-t border-border/20">
+                              <div className="flex items-center justify-between text-xs lg:text-sm">
+                                <span className="text-muted-foreground">
+                                  Network fee
+                                </span>
+                                <span className="font-medium">
+                                  ~${estimatedWithdrawGas}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Enhanced Redeem Button */}
+                        <div className="pt-4">
+                          {isConnected ? (
+                            <Button
+                              disabled={
+                                isWithdrawing ||
+                                !usdgWithdrawAmount ||
+                                Number(usdgWithdrawAmount) <= 0
+                              }
+                              onClick={async () => {
+                                await handleUSDGWithdraw();
+                                setUsdgBalanceForSigner();
+                              }}
+                              className="w-full h-12 lg:h-16"
+                            >
+                              {isWithdrawing && (
+                                <div className="mr-3">
+                                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                </div>
+                              )}
+                              {isWithdrawing ? "Redeeming..." : "Redeem USDG"}
+                            </Button>
+                          ) : (
+                            <ConnectButton variant="default" />
+                          )}
+                        </div>
+
+                        {/* Enhanced Contract Link */}
+                        <div className="text-center pt-4">
+                          <a
+                            href={`https://etherscan.io/address/${USDG_REDEMPTION_ADDRESS}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs lg:text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline transition-colors inline-flex items-center gap-1"
+                          >
+                            View redemption contract
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                              />
+                            </svg>
+                          </a>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </div>
+                </Tabs>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Dialogs */}
       <UsdcToTokenDialog
         isOpen={isDialogOpen}
         amount={currentTokenEstimatedOutputAmount}
@@ -952,9 +1658,23 @@ export default function View({
         onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) {
+            // Reset input states
+            setAmountToSell("0");
+            setEstimatedOutputAmount(defaultTokensEstimate);
+            setSmartBalancingAmounts(undefined);
+
+            // Refresh all balances
             if (selectedTokenSell && selectedTokenBuy && signer && isReady) {
-              getTokenSellBalance();
+              Promise.all([
+                setUsdcBalanceForSigner(),
+                setUsdgBalanceForSigner(),
+                getTokenSellBalance(),
+                refreshBalances(),
+              ]);
             }
+
+            // Refresh the page data
+            startTransition(router.refresh);
           }
         }}
         slippagePointsTenThousandths={BigNumber.from(
@@ -969,590 +1689,26 @@ export default function View({
         onOpenChange={(open) => {
           setIsGlowToUsdcDialogOpen(open);
           if (!open) {
+            // Reset input states
+            setAmountToSell("0");
+            setEstimatedOutputAmount(defaultTokensEstimate);
+            setSmartBalancingAmounts(undefined);
+
+            // Refresh all balances
             if (selectedTokenSell && selectedTokenBuy && signer && isReady) {
-              getTokenSellBalance();
+              Promise.all([
+                setUsdcBalanceForSigner(),
+                setUsdgBalanceForSigner(),
+                getTokenSellBalance(),
+                refreshBalances(),
+              ]);
             }
+
+            // Refresh the page data
+            startTransition(router.refresh);
           }
         }}
       />
-      <div className="lg:p-8 flex items-center min-h-screen mx-auto container">
-        <div className="flex w-full h-full flex-col justify-center space-y-6 ">
-          {isConnecting || isReconnecting ? (
-            <Loader2 className="w-[100px] h-[100px] mx-auto animate-spin text-secondary" />
-          ) : (
-            <div className="!mt-24  grid md:grid-cols-2 md:px-8 gap-8">
-              <div className="font-mono md:px-4 md:p-0">
-                <h1 className=" text-center md:text-left text-4xl md:text-6xl font-bold mb-8 uppercase ">
-                  Glow Token App
-                </h1>
-                <div className="border border-[E2E2E2] bg-[#FFFFFF] p-4">
-                  <h1 className="font-mono text-3xl font-bold mb-3">
-                    Glow Stats
-                  </h1>
-                  <div className="flex justify-between w-full">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-secondary text-xl md:text-2xl md:mb-2">
-                        Glow Market Cap
-                      </h3>
-                    </div>
-
-                    <p className=" font-sans text-right text-2xl">{`$${toFixedTruncate(
-                      Number(marketCap),
-                      0,
-                      true
-                    )}`}</p>
-                  </div>
-                  <div className="flex justify-between w-full">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-secondary text-xl md:text-2xl md:mb-2">
-                        USDC Reward Pool
-                      </h3>
-                    </div>
-
-                    <p className="font-sans text-right text-2xl">{`$${parseInt(
-                      usdcRewardPool
-                    ).toLocaleString()}`}</p>
-                  </div>
-                  <div className="flex justify-between w-full">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-secondary text-xl md:text-2xl md:mb-2">
-                        Glow Price
-                      </h3>
-                    </div>
-
-                    <p className="font-sans text-right text-2xl">{`$${toFixedTruncate(
-                      Number(glowPrice),
-                      2
-                    )}`}</p>
-                  </div>
-
-                  <div className="flex justify-between w-full">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-secondary text-xl md:text-2xl md:mb-2">
-                        USDC in redemption contract
-                      </h3>
-                    </div>
-
-                    <p className="font-sans text-right text-2xl">
-                      {" "}
-                      {isUsdcInRedemptionLoading ? (
-                        <Loader2 className="inline w-5 h-5 animate-spin align-middle" />
-                      ) : usdcInRedemption === "-" ? (
-                        "-"
-                      ) : (
-                        Number(usdcInRedemption).toLocaleString(undefined, {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 0,
-                        })
-                      )}
-                    </p>
-                  </div>
-                  {/* <div className="flex justify-between w-full">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-secondary text-xl md:text-2xl md:mb-2">
-                        Protocol Fees Paid (30 days)
-                      </h3>
-                    </div>
-
-                    <p className="font-sans text-right text-2xl">{`$${parseInt(
-                      totalProtocolFeesLast30days
-                    ).toLocaleString()}`}</p>
-                  </div> */}
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:gap-6 px-4 py-10 md:py-4 md:px-8 z-10 sm:max-w-[600px] bg-white border border-[#E2E2E2] mx-auto">
-                <Tabs defaultValue="buy">
-                  <TabsList className="text-xl font-mono capitalize text-secondary font-light mb-10">
-                    <TabsTrigger
-                      value="buy"
-                      className="text-xl text-secondary font-mono font-semibold uppercase"
-                    >
-                      Swap
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="send"
-                      className="text-xl text-secondary font-mono font-semibold uppercase"
-                    >
-                      Send
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="withdraw"
-                      className="text-xl text-secondary font-mono font-semibold uppercase"
-                    >
-                      USDG Redemption
-                    </TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="buy">
-                    {/* TOKEN TO SELL  */}
-                    <div className="grid border border-[#E2E2E2] gap-2 md:gap-4 my-4">
-                      <div className=" p-6 py-4 w-full">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-[#0000095] text-lg">You Pay</h3>
-                          {isConnected ? (
-                            <span className="text-secondary text-sm">
-                              Balance :{" "}
-                              {toFixedTruncate(Number(tokenSellBalance), 2)}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="flex items-center">
-                          {/* handle negative value */}
-                          <Input
-                            type="text"
-                            placeholder="0"
-                            className="px-0 text-xl md:text-4xl text-secondary caret-secondary border-transparent focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            pattern="[0-9]*"
-                            value={amountToSell}
-                            disabled={!isConnected}
-                            onChange={(e) => {
-                              if (Number(e.target.value) < 0) {
-                                setAmountToSell("0");
-                                return;
-                              }
-                              setAmountToSell(e.target.value);
-                            }}
-                          />
-                          <Select
-                            disabled={!isConnected}
-                            value={selectedTokenSell.label}
-                            onValueChange={handleSelectTokenToSell}
-                          >
-                            <SelectTrigger className="w-[150px]">
-                              <SelectValue placeholder="USDG" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="USDC">USDC</SelectItem>
-                              <SelectItem value="GLOW">GLOW</SelectItem>
-                              <SelectItem value="USDG">USDG</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                    {/* END TOKEN TO SELL  */}
-
-                    {/* TOKEN TO BUY  */}
-                    <div className="grid border border-[#E2E2E2] gap-2">
-                      <div className=" p-6 py-4 w-full">
-                        <h3 className="text-[#0000095] text-lg">You Receive</h3>
-                        <div className="flex items-center">
-                          {isEstimateLoading ? (
-                            <Skeleton className="w-[50px] md:w-[200px] h-[50px] mr-auto" />
-                          ) : (
-                            <Input
-                              placeholder="0"
-                              className="px-0 text-xl md:text-4xl text-secondary caret-secondary border-transparent focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              value={
-                                Number(currentTokenEstimatedOutputAmount)
-                                  ? formatPrice(
-                                      currentTokenEstimatedOutputAmount,
-                                      selectedTokenBuy.toFixed
-                                    )
-                                  : "0"
-                              }
-                              disabled={!isConnected}
-                              readOnly
-                            />
-                          )}
-                          <Select
-                            disabled={!isConnected}
-                            value={selectedTokenBuy.label}
-                            onValueChange={handleSelectTokenToBuy}
-                          >
-                            <SelectTrigger className="w-[200px]">
-                              <SelectValue
-                                placeholder="USDG"
-                                defaultValue="USDG"
-                                className="text-right"
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {selectedTokenSell.allowedPairs.map((token) => (
-                                <SelectItem key={token} value={token}>
-                                  {token === "IMPACT POWER POINTS"
-                                    ? "Impact Power"
-                                    : token}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                    {/* END TOKEN TO BUY  */}
-
-                    <div className="my-4">
-                      {(smartBalancingAmounts &&
-                        selectedTokenBuy.label === "GLOW") ||
-                      (isEstimateLoading &&
-                        selectedTokenBuy.label === "GLOW") ? (
-                        <>
-                          <div className=" p-6 py-4 w-full flex flex-col mb-4 space-y-2 border border-[#E2E2E2]">
-                            <div className="flex items-center justify-between">
-                              <p className="text-secondary font-regular">
-                                Uniswap Glow Amount
-                              </p>
-                              <p className="text-secondary font-regular text-right">
-                                {isEstimateLoading ? (
-                                  <Skeleton className="w-[50px] h-[20px]" />
-                                ) : (
-                                  Number(
-                                    smartBalancingAmounts?.amount_out_uni
-                                  ).toFixed(2)
-                                )}
-                              </p>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <p className="text-secondary font-regular">
-                                Bonding Curve Glow Amount
-                              </p>
-                              <p className="text-secondary font-regular text-right">
-                                {isEstimateLoading ? (
-                                  <Skeleton className="w-[50px] h-[20px]" />
-                                ) : (
-                                  Number(
-                                    smartBalancingAmounts?.amount_out_glow
-                                  ).toFixed(2)
-                                )}
-                              </p>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <p className="text-secondary font-regular">
-                                Estimated Network Fee(s)
-                              </p>
-                              <p className="text-secondary font-regular text-right">
-                                {isEstimateLoading ? (
-                                  <Skeleton className="w-[50px] h-[20px]" />
-                                ) : smartBalancingAmounts ? (
-                                  Number.isNaN(
-                                    Number(
-                                      smartBalancingAmounts.estimatedTotalGasInUSD
-                                    )
-                                  ) ? (
-                                    "-"
-                                  ) : (
-                                    "〜$" +
-                                    smartBalancingAmounts.estimatedTotalGasInUSD
-                                  )
-                                ) : (
-                                  "0"
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                          {Number(slippageTolerance) === 0 ? (
-                            <p className=" text-[#eeb517] text-center">
-                              Slippage 0% may result in a failed transaction
-                            </p>
-                          ) : null}
-                        </>
-                      ) : null}
-                      {/* Show network fees for non-GLOW swaps */}
-                      {(smartBalancingAmounts &&
-                        selectedTokenBuy.label !== "GLOW" &&
-                        smartBalancingAmounts.estimatedTotalGasInUSD !== "0") ||
-                      (isEstimateLoading &&
-                        selectedTokenBuy.label !== "GLOW") ? (
-                        <div className=" p-6 py-4 w-full flex flex-col mb-4 space-y-2 border border-[#E2E2E2]">
-                          <div className="flex items-center justify-between">
-                            <p className="text-secondary font-regular">
-                              Estimated Network Fee
-                            </p>
-                            <p className="text-secondary font-regular text-right">
-                              {isEstimateLoading ? (
-                                <Skeleton className="w-[50px] h-[20px]" />
-                              ) : smartBalancingAmounts &&
-                                smartBalancingAmounts.estimatedTotalGasInUSD ? (
-                                Number.isNaN(
-                                  Number(
-                                    smartBalancingAmounts.estimatedTotalGasInUSD
-                                  )
-                                ) ? (
-                                  "-"
-                                ) : (
-                                  "〜$" +
-                                  smartBalancingAmounts.estimatedTotalGasInUSD
-                                )
-                              ) : (
-                                "-"
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                      ) : null}
-                      {isConnected ? (
-                        <Button
-                          disabled={
-                            buttonProps.disabled ||
-                            pendingTx ||
-                            isEstimateLoading
-                          }
-                          variant={"default"}
-                          onClick={buttonProps.callback}
-                          className="w-full text-wrap"
-                        >
-                          <Loader2
-                            className={`w-6 h-6 animate-spin mr-2 ${
-                              pendingTx ? "block" : "hidden"
-                            }`}
-                          />{" "}
-                          {buttonProps.label}
-                        </Button>
-                      ) : (
-                        <ConnectButton variant="default" className="w-full" />
-                      )}
-                    </div>
-
-                    <p className="text-secondary text-md font-light text-center flex flex-col">
-                      Glow uses a guarded launch. You can read about the full
-                      mechanics
-                      <InstructionsDialog>
-                        <Button
-                          variant={"link"}
-                          className="text-secondary !p-0 !m-0 h-auto !text-md capitalize"
-                        >
-                          here
-                        </Button>
-                      </InstructionsDialog>
-                    </p>
-                  </TabsContent>
-                  <TabsContent value="send">
-                    <div className="grid border border-[#E2E2E2] gap-2 md:gap-4 my-4">
-                      <div className=" p-6 py-4 w-full">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-[#0000095] text-lg">You Send</h3>
-                          {isConnected ? (
-                            <span className="text-secondary text-sm">
-                              Balance :{" "}
-                              {toFixedTruncate(getTokenToSendBalance(), 2)}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="flex items-center">
-                          {/* handle negative value */}
-                          <Input
-                            type="text"
-                            placeholder="0"
-                            className="px-0 text-xl md:text-4xl text-secondary caret-secondary border-transparent focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            pattern="[0-9]*"
-                            value={amountToSend}
-                            disabled={!isConnected}
-                            onChange={(e) => {
-                              if (Number(e.target.value) < 0) {
-                                setAmountToSend("0");
-                                return;
-                              }
-                              setAmountToSend(e.target.value);
-                            }}
-                          />
-                          <Select
-                            disabled={!isConnected}
-                            value={selectedTokenSend.label}
-                            onValueChange={handleSelectTokenToSend}
-                          >
-                            <SelectTrigger className="w-[150px]">
-                              <SelectValue placeholder="GLOW" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="GLOW">GLOW</SelectItem>
-
-                              <SelectItem value="USDG">USDG</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="grid border border-[#E2E2E2] gap-2 h-[124px]">
-                      <div className=" p-6 py-4 w-full">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-[#0000095] text-lg">Send To</h3>
-                        </div>
-                        <div className="flex items-center">
-                          <Input
-                            type="text"
-                            placeholder="0x..."
-                            className=" placeholder:text-gray-500 px-0 text-lg  text-secondary caret-secondary border-transparent focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            value={sendToAddress}
-                            disabled={!isConnected}
-                            onChange={(e) => {
-                              setSendToAddress(e.target.value);
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="my-4">
-                      {isConnected ? (
-                        <Button
-                          disabled={
-                            getSendButtonProps().disabled ||
-                            pendingTx ||
-                            isEstimateLoading
-                          }
-                          variant={"default"}
-                          onClick={handleSendToken}
-                          className="w-full text-wrap"
-                        >
-                          <Loader2
-                            className={`w-6 h-6 animate-spin mr-2 ${
-                              pendingTx ? "block" : "hidden"
-                            }`}
-                          />
-                          {getSendButtonProps().label}
-                        </Button>
-                      ) : (
-                        <ConnectButton variant="default" className="w-full" />
-                      )}
-                    </div>
-
-                    <p className="text-secondary text-md font-light text-center flex flex-col">
-                      Glow uses a guarded launch. You can read about the full
-                      mechanics
-                      <InstructionsDialog>
-                        <Button
-                          variant={"link"}
-                          className="text-secondary !p-0 !m-0 h-auto !text-md capitalize"
-                        >
-                          here
-                        </Button>
-                      </InstructionsDialog>
-                    </p>
-                  </TabsContent>
-                  <TabsContent value="withdraw">
-                    <div className="grid border border-[#E2E2E2] gap-2 md:gap-4 my-4">
-                      <div className="p-6 py-4 w-full">
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="text-[#0000095] text-lg">
-                            USDG to Redeem
-                          </h3>
-                          {isConnected && (
-                            <span className="text-secondary text-sm">
-                              Balance: {formatTokenBalance(usdgBalance)}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="text"
-                            placeholder="0"
-                            className={`px-0 text-xl md:text-4xl border-transparent focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                              usdgWithdrawAmount &&
-                              usdgBalance &&
-                              !usdgBalance.isZero() &&
-                              Number(usdgWithdrawAmount) >
-                                Number(ethers.utils.formatUnits(usdgBalance, 6))
-                                ? "text-red-500"
-                                : "text-secondary"
-                            }`}
-                            pattern="[0-9]*"
-                            value={usdgWithdrawAmount}
-                            disabled={!isConnected || isWithdrawing}
-                            onChange={(e) => {
-                              if (Number(e.target.value) < 0) {
-                                setUsdgWithdrawAmount("0");
-                                return;
-                              }
-                              setUsdgWithdrawAmount(e.target.value);
-                            }}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="ml-2"
-                            disabled={
-                              !usdgBalance ||
-                              usdgBalance.isZero() ||
-                              isWithdrawing
-                            }
-                            onClick={() => {
-                              if (usdgBalance && !usdgBalance.isZero()) {
-                                setUsdgWithdrawAmount(
-                                  formatTokenBalance(usdgBalance)
-                                );
-                              }
-                            }}
-                          >
-                            Max
-                          </Button>
-                        </div>
-                        {/* USDC output */}
-                        <div className="flex flex-col mt-4">
-                          <label className="text-[#0000095] text-lg mb-1">
-                            You Receive (USDC)
-                          </label>
-                          <Input
-                            type="text"
-                            readOnly
-                            className="px-0 text-xl md:text-4xl text-secondary border-transparent focus-visible:ring-0 bg-gray-transparent"
-                            value={
-                              usdgWithdrawAmount &&
-                              !isNaN(Number(usdgWithdrawAmount)) &&
-                              Number(usdgWithdrawAmount) > 0
-                                ? Number(usdgWithdrawAmount).toLocaleString(
-                                    undefined,
-                                    {
-                                      minimumFractionDigits: 0,
-                                      maximumFractionDigits: 6,
-                                    }
-                                  )
-                                : "0"
-                            }
-                          />
-                        </div>
-                        {estimatedWithdrawGas && (
-                          <div className="mt-2 text-sm text-gray-500">
-                            Estimated network fee: ~${estimatedWithdrawGas}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="my-4">
-                      {isConnected ? (
-                        <Button
-                          disabled={
-                            isWithdrawing ||
-                            !usdgWithdrawAmount ||
-                            Number(usdgWithdrawAmount) <= 0
-                          }
-                          variant={"default"}
-                          onClick={async () => {
-                            await handleUSDGWithdraw();
-                            setUsdgBalanceForSigner(); // Refresh balance after redeem
-                          }}
-                          className="w-full text-wrap"
-                        >
-                          <Loader2
-                            className={`w-6 h-6 animate-spin mr-2 ${
-                              isWithdrawing ? "block" : "hidden"
-                            }`}
-                          />
-                          {isWithdrawing ? "Withdrawing..." : "Withdraw"}
-                        </Button>
-                      ) : (
-                        <ConnectButton variant="default" className="w-full" />
-                      )}
-                    </div>
-                    <p className="text-secondary text-md font-light text-center flex flex-col">
-                      Redeem your USDG for USDC 1:1 using the{" "}
-                      <a
-                        href={`https://etherscan.io/address/${USDG_REDEMPTION_ADDRESS}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-secondary underline"
-                      >
-                        USDG Redemption contract
-                      </a>
-                    </p>
-                  </TabsContent>
-                </Tabs>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

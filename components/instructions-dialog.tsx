@@ -56,41 +56,27 @@ export const InstructionsDialog: FC<{ children: React.ReactNode }> = ({
               </CarouselItem>
               <CarouselItem>
                 <p className="text-center font-light p-4">
-                  USDG will be redeemable 1:1 for USDC after the guarded launch
-                  has ended.USDG is not redeemable for USDC during the guarded
-                  launch. <br />
-                  Read more about the guarded launch{" "}
+                  USDG is a wrapper token for USDC - think of it like a digital
+                  receipt for your USDC. Each USDG represents exactly 1 USDC
+                  held safely by the Glow foundation. You can redeem USDG back
+                  to USDC at a 1:1 rate, but only when certain safety conditions
+                  are met (like security systems being active). <br />
                   <a
-                    href="https://glowlabs.org/blog/glow-guarded-launch"
+                    href="https://glow.org/blog/usdg-redemption"
                     target="_blank"
-                    className="underline text-white"
+                    className="underline text-glow-black"
                   >
-                    here
+                    Learn more about USDG redemptions
                   </a>
                 </p>
               </CarouselItem>
               <CarouselItem>
                 <p className="text-center font-light p-4">
-                  Any USDC you move into the Glow ecosystem will need to remain
-                  in the Glow ecosystem until the guarded launch ends. You will
-                  be able to sell GLOW for USDG, but you will not be able to
-                  convert USDG back to USDC.
-                </p>
-              </CarouselItem>
-              <CarouselItem>
-                <p className="text-center font-light p-4">
-                  Impact Points are Glow&apos;s version of carbon credits.
-                  Buying impact points directly contributes to helping the
-                  environment by incentivizing new solar farms. Impact points
-                  cannot be transferred or sold. <br />
-                  Read more about the glow impact platform{" "}
-                  <a
-                    href="https://glowlabs.org/blog/glow-impact-platform"
-                    target="_blank"
-                    className="underline text-white"
-                  >
-                    here
-                  </a>
+                  While USDG redemptions are now available, they depend on the
+                  protocol&apos;s safety systems being operational. If these
+                  systems detect any issues, redemptions may be temporarily
+                  paused to protect users. This ensures your funds remain secure
+                  even during unexpected situations.
                 </p>
               </CarouselItem>
             </CarouselContent>
@@ -98,7 +84,7 @@ export const InstructionsDialog: FC<{ children: React.ReactNode }> = ({
               <CarouselPrevious />
               {current === count ? (
                 <DialogClose>
-                  <Button variant={"glass-outline"}>Close</Button>
+                  <Button variant={"outline"}>Close</Button>
                 </DialogClose>
               ) : (
                 <CarouselNext />

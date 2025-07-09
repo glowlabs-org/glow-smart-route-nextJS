@@ -4,7 +4,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeftRight, Check, Loader2 } from "lucide-react";
+import { ArrowLeftRight, Check, Loader2, Info } from "lucide-react";
 import { waitingToSuccessVariants } from "@/animations/variants";
 import { motion } from "framer-motion";
 import React, { FC, useEffect } from "react";
@@ -169,7 +169,7 @@ export const UsdcToTokenDialog: FC<{
   selectedTokenSell,
   slippagePointsTenThousandths,
 }) => {
-  const [isPending, setIsPending] = React.useState(true);
+  const [isPending, setIsPending] = React.useState(false);
   const [isImpactPowerPointsBuySuccess, setIsImpactPowerPointsBuySuccess] =
     React.useState(false);
   const [swapUSDCToUSDGState, setSwapUSDCToUSDGState] = React.useState<
@@ -267,7 +267,8 @@ export const UsdcToTokenDialog: FC<{
           return { ...state, pending: false, validated: true };
         })
       );
-      toast.success("Transaction Successfull");
+      // Remove toast.success since we'll show success screen instead
+      // toast.success("Transaction Successfull");
 
       setIsPending(false);
     } catch (error) {
@@ -320,7 +321,8 @@ export const UsdcToTokenDialog: FC<{
           })
         );
         setIsImpactPowerPointsBuySuccess(true);
-        toast.success("Successfully purchased Impact Power Points");
+        // Remove toast.success since we'll show success screen instead
+        // toast.success("Successfully purchased Impact Power Points");
         setIsPending(false);
       } else {
         setIsPending(false);
@@ -419,7 +421,11 @@ export const UsdcToTokenDialog: FC<{
       updateStateBasedOnPurchase(uniswapPurchaseState);
     }
 
-    if (glowPurchaseState === "DONE" && uniswapPurchaseState === "DONE") {
+    // Mark all as validated when both are done or when only one was needed
+    if (
+      (glowPurchaseState === "DONE" || uniswapPurchaseState === "DONE") &&
+      !pendingStates.some((state) => state.pending)
+    ) {
       setPendingStates((prev) =>
         prev.map((state) => {
           return { ...state, pending: false, validated: true };
@@ -448,152 +454,261 @@ export const UsdcToTokenDialog: FC<{
           .slice(-2)
       : pendingStates;
 
+  const isTransactionSuccessful =
+    isImpactPowerPointsBuySuccess ||
+    glowPurchaseState === "DONE" ||
+    uniswapPurchaseState === "DONE";
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent
         onInteractOutside={(e) => {
-          e.preventDefault();
+          if (isPending) e.preventDefault();
         }}
-        className="sm:max-w-[420px]"
+        className="sm:max-w-[480px]"
       >
-        <DialogHeader>
-          <DialogTitle>Review Buy</DialogTitle>
+        <DialogHeader className="pb-4">
+          <DialogTitle className="text-xl lg:text-2xl font-semibold">
+            Review Buy
+          </DialogTitle>
         </DialogHeader>
-        <div className="grid gap-2">
-          {/* TOKEN TO SELL  */}
-          <div className="grid gap-2 md:gap-4">
-            <div className="border border-[#E2E2E2] bg-[#FFFFFF] p-6 py-4 w-full">
-              <div className="flex items-center justify-between">
-                <h3 className="text-secondary text-lg mb-2">You Pay</h3>
-              </div>
-              <div className="flex items-center text-xl md:text-4xl">
-                {/* handle negative value */}
-                <Input
-                  type="number"
-                  placeholder="0"
-                  className="px-0 text-xl md:text-4xl text-secondary caret-secondary border-transparent focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  pattern="[0-9]*"
-                  value={amountToSell}
-                  readOnly
-                />
-                {selectedTokenSell.label}
-              </div>
-            </div>
-          </div>
-          {/* END TOKEN TO SELL  */}
 
-          {/* TOKEN TO BUY  */}
-          <div className="grid gap-4 mt-2 md:mt-4">
-            <div className="border border-[#E2E2E2] bg-[#FFFFFF] p-6 py-4 w-full">
-              <h3 className="text-secondary text-lg mb-2">You Receive</h3>
-              <div className="flex items-center text-xl md:text-4xl">
-                <Input
-                  placeholder="0"
-                  className="px-0 text-xl md:text-4xl text-secondary caret-secondary border-transparent focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  value={Number(amount) ? formatPrice(amount, 2) : "0"}
-                  readOnly
-                />
+        {isTransactionSuccessful ? (
+          <div className="grid gap-4">
+            <div className="flex flex-col items-center gap-3 py-6">
+              <div className="bg-green-100 rounded-full p-4">
+                <Check className="w-10 h-10 text-green-600" />
+              </div>
+              <h3 className="text-xl lg:text-2xl font-semibold text-foreground">
+                Purchase Successful!
+              </h3>
+              <p className="text-sm lg:text-base text-muted-foreground text-center">
+                Your{" "}
                 {selectedTokenBuy.label === "IMPACT POWER POINTS"
-                  ? "IPP"
-                  : selectedTokenBuy.label}
+                  ? "Impact Power Points"
+                  : selectedTokenBuy.label}{" "}
+                purchase has been completed successfully
+              </p>
+            </div>
+
+            <div className="grid gap-3">
+              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-muted/10 to-muted/5 rounded-md border border-border/20">
+                <span className="text-sm lg:text-base text-muted-foreground">
+                  Sent
+                </span>
+                <span className="font-mono font-medium text-sm lg:text-base">
+                  {toFixedTruncate(Number(amountToSell), 6)}{" "}
+                  {selectedTokenSell.label}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-muted/10 to-muted/5 rounded-md border border-border/20">
+                <span className="text-sm lg:text-base text-muted-foreground">
+                  Received
+                </span>
+                <span className="font-mono font-medium text-green-600 text-sm lg:text-base">
+                  {formatPrice(
+                    amount,
+                    selectedTokenBuy.label === "IMPACT POWER POINTS" ? 4 : 4
+                  )}{" "}
+                  {selectedTokenBuy.label === "IMPACT POWER POINTS"
+                    ? "IPP"
+                    : selectedTokenBuy.label}
+                </span>
               </div>
             </div>
-          </div>
-          {/* END TOKEN TO BUY  */}
-        </div>
-        {glowPurchaseState !== "NONE" ||
-        uniswapPurchaseState !== "NONE" ||
-        swapUSDCToUSDGState ? (
-          <div className="grid grid-cols-1 gap-4">
-            <Card>
-              <div className="flex items-center justify-between">
-                <h3 className="text-secondary text-lg mb-2">
-                  Transaction Status
-                </h3>
-              </div>
-              <div className="grid gap-2">
-                {lastTwoRelevantStates.map((state, index) => (
-                  <motion.div
-                    key={index}
-                    className="flex items-center gap-2"
-                    initial={{ opacity: 0.5 }}
-                    animate={
-                      state.validated || state.pending ? "show" : "hidden"
-                    }
-                    variants={waitingToSuccessVariants}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="bg-[#FFFFFF40] p-2 flex items-center justify-center h-10 w-10 flex-shrink-0">
-                        {state.validated ? (
-                          <Check
-                            className={clsx("w-4 h-4", "text-secondary")}
-                          />
-                        ) : state.pending ? (
-                          <Loader2
-                            className={clsx(
-                              "w-4 h-4 animate-spin",
-                              "text-secondary"
-                            )}
-                          />
-                        ) : (
-                          <ArrowLeftRight
-                            className={clsx("w-4 h-4", "text-secondary")}
-                          />
-                        )}
-                      </div>
-                      <div>
-                        <h3 className={clsx("text-secondary text-sm")}>
-                          {state.message}
-                        </h3>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-                {isImpactPowerPointsBuySuccess ? (
-                  <motion.div
-                    className="flex items-center gap-2"
-                    initial={{ opacity: 0.5 }}
-                    animate={"show"}
-                    variants={waitingToSuccessVariants}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="bg-[#FFFFFF40] p-2 flex items-center justify-center h-10 w-10 flex-shrink-0">
-                        <Check className={clsx("w-4 h-4", "text-secondary")} />
-                      </div>
-                      <div>
-                        <h3 className={clsx("text-secondary text-sm")}>
-                          Successfully purchased Impact Power Points
-                        </h3>
-                      </div>
-                    </div>
-                  </motion.div>
-                ) : null}
-              </div>
-            </Card>
+
+            <Button
+              variant="default"
+              onClick={() => onOpenChange(false)}
+              className="w-full h-12 lg:h-14 rounded-md text-base lg:text-lg font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              Close
+            </Button>
           </div>
         ) : (
-          <Button variant={"glass-outline"} onClick={handleDispatchBuy}>
-            Approve and Buy
-          </Button>
+          <>
+            <div className="grid gap-4">
+              {/* TOKEN TO SELL  */}
+              <div className="grid gap-2">
+                <div className="group relative bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30 hover:border-border/60 transition-all duration-300">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                      You pay
+                    </span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      <Input
+                        type="number"
+                        placeholder="0.00"
+                        className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        pattern="[0-9]*"
+                        value={amountToSell}
+                        readOnly
+                      />
+                      <span className="text-lg sm:text-xl lg:text-2xl font-medium text-foreground">
+                        {selectedTokenSell.label}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* END TOKEN TO SELL  */}
+
+              {/* TOKEN TO BUY  */}
+              <div className="grid gap-2">
+                <div className="group relative bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30 hover:border-border/60 transition-all duration-300">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                      You receive
+                    </span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      <Input
+                        placeholder="0.00"
+                        className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        value={Number(amount) ? formatPrice(amount, 4) : "0.00"}
+                        readOnly
+                      />
+                      <span className="text-lg sm:text-xl lg:text-2xl font-medium text-foreground">
+                        {selectedTokenBuy.label === "IMPACT POWER POINTS"
+                          ? "IPP"
+                          : selectedTokenBuy.label}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* END TOKEN TO BUY  */}
+            </div>
+            {glowPurchaseState !== "NONE" ||
+            uniswapPurchaseState !== "NONE" ||
+            swapUSDCToUSDGState ? (
+              <div className="grid grid-cols-1 gap-4">
+                <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-md p-4 lg:p-5 space-y-4 border border-border/20">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Info className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm lg:text-base font-medium text-muted-foreground">
+                      Transaction Status
+                    </span>
+                  </div>
+                  <div className="grid gap-3">
+                    {lastTwoRelevantStates.map((state, index) => (
+                      <motion.div
+                        key={index}
+                        className="flex items-center gap-3"
+                        initial={{ opacity: 0.5 }}
+                        animate={
+                          state.validated || state.pending ? "show" : "hidden"
+                        }
+                        variants={waitingToSuccessVariants}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="bg-white/80 dark:bg-muted/50 rounded-md p-2.5 flex items-center justify-center h-10 w-10 shrink-0 border border-border/20">
+                            {state.validated ? (
+                              <Check
+                                className={clsx("w-5 h-5", "text-green-600")}
+                              />
+                            ) : state.pending ? (
+                              <Loader2
+                                className={clsx(
+                                  "w-5 h-5 animate-spin",
+                                  "text-primary"
+                                )}
+                              />
+                            ) : (
+                              <ArrowLeftRight
+                                className={clsx(
+                                  "w-5 h-5",
+                                  "text-muted-foreground"
+                                )}
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <h3
+                              className={clsx(
+                                "text-sm lg:text-base font-medium",
+                                state.validated && !state.pending
+                                  ? "text-foreground"
+                                  : state.pending
+                                  ? "text-foreground"
+                                  : "text-muted-foreground"
+                              )}
+                            >
+                              {state.message}
+                            </h3>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                    {isImpactPowerPointsBuySuccess ? (
+                      <motion.div
+                        className="flex items-center gap-3"
+                        initial={{ opacity: 0.5 }}
+                        animate={"show"}
+                        variants={waitingToSuccessVariants}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="bg-white/80 dark:bg-muted/50 rounded-md p-2.5 flex items-center justify-center h-10 w-10 shrink-0 border border-border/20">
+                            <Check
+                              className={clsx("w-5 h-5", "text-green-600")}
+                            />
+                          </div>
+                          <div>
+                            <h3
+                              className={clsx(
+                                "text-sm lg:text-base font-medium text-foreground"
+                              )}
+                            >
+                              Successfully purchased Impact Power Points
+                            </h3>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Button
+                variant="default"
+                onClick={handleDispatchBuy}
+                className="w-full h-12 lg:h-14 rounded-md text-base lg:text-lg font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
+              >
+                {isPending && (
+                  <div className="mr-3">
+                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  </div>
+                )}
+                Approve and Buy
+              </Button>
+            )}
+            {glowPurchaseState === "ERROR" ||
+            uniswapPurchaseState === "ERROR" ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const initialPendingStates =
+                    selectedTokenSell.label === "USDC"
+                      ? usdcDefaultPendingStates
+                      : [];
+                  resetGlowPurchaseState();
+                  resetUniswapPurchaseState();
+                  setSwapUSDCToUSDGState(undefined);
+                  setPendingStates(initialPendingStates);
+                  setIsImpactPowerPointsBuySuccess(false);
+                  handleDispatchBuy();
+                }}
+                className="w-full h-12 lg:h-14 rounded-md text-base lg:text-lg font-semibold transition-all duration-300"
+              >
+                Try Again
+              </Button>
+            ) : null}
+          </>
         )}
-        {glowPurchaseState === "ERROR" || uniswapPurchaseState === "ERROR" ? (
-          <Button
-            variant={"glass-outline"}
-            onClick={() => {
-              const initialPendingStates =
-                selectedTokenSell.label === "USDC"
-                  ? usdcDefaultPendingStates
-                  : [];
-              resetGlowPurchaseState();
-              resetUniswapPurchaseState();
-              setSwapUSDCToUSDGState(undefined);
-              setPendingStates(initialPendingStates);
-              handlePurchaseGlow();
-            }}
-          >
-            Try Again
-          </Button>
-        ) : null}
       </DialogContent>
     </Dialog>
   );
