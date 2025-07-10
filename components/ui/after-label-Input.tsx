@@ -21,7 +21,7 @@ export const AfterLabelInput: React.FC<AfterLabelInput> = ({
         onChange={onChange}
         className="text-white rounded-r-none w-12 focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
-      <span className="bg-[#FFFFFF40] text-white text-sm px-3 select-none border-input border-[1px] border-l-0 flex items-center">
+      <span className="bg-[#FFFFFF40] text-white text-sm px-3 select-none border-input border border-l-0 flex items-center">
         {label}
       </span>
     </div>

@@ -1,44 +1,137 @@
 import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
 import View from "./buy/view";
-import { Footer } from "./components/footer";
 import { getHeadlineStats } from "@/web3/web3/queries/getHeadlineStats";
+import { Error } from "@/components/loading";
+import { PageWrapper } from "./components/page-wrapper";
+import { Metadata } from "next";
+import { Navbar } from "./components/navbar";
 
 export const revalidate = 36;
 
-export default async function Page() {
-  let gccCirculatingSupply = "";
-  let glowPrice = "";
-  let earlyLiquidityCurrentPrice = "";
-  let marketCap = "";
-  let usdcRewardPool = "";
-  let gccPrice = "";
-  let impactPowerPrice = "";
-  // let totalProtocolFeesLast30days = "";
+export const metadata: Metadata = {
+  title: "BuyGlow.xyz - Swap GLOW, USDG, USDC",
+  description:
+    "Trade and swap Glow tokens. Buy GLOW with USDG or USDC and participate in the Glow ecosystem's guarded launch.",
+  keywords: [
+    "Glow token",
+    "GLOW",
+    "USDG",
+    "USDC",
+    "DeFi",
+    "token swap",
+    "decentralized exchange",
+    "Ethereum",
+    "blockchain",
+    "cryptocurrency",
+    "Uniswap",
+    "guarded launch",
+  ],
+  authors: [{ name: "Nero" }],
+  creator: "Nero",
+  publisher: "Nero",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  metadataBase: new URL("https://glow.app"),
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "BuyGlow.xyz - Swap GLOW, USDG, USDC",
+    description:
+      "Trade and swap Glow tokens. Buy GLOW with USDG or USDC and participate in the Glow ecosystem's guarded launch.",
+    url: "https://buyglow.xyz",
+    siteName: "BuyGlow.xyz",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "BuyGlow.xyz - Decentralized Token Exchange",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Glow Token App - Swap GLOW, USDG, USDC",
+    description:
+      "Trade and swap Glow tokens on the decentralized exchange. Buy GLOW with USDG or USDC and participate in the Glow ecosystem's guarded launch.",
+    images: [],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  verification: {
+    google: "google-site-verification-code",
+  },
+};
 
-  const glowStats = await getHeadlineStats();
-  gccCirculatingSupply = glowStats.gccCirculatingSupply.toString();
-  glowPrice = glowStats.glowPrice.toString();
-  earlyLiquidityCurrentPrice = glowStats.earlyLiquidityPrice.toString();
-  marketCap = glowStats.marketCap.toString();
-  usdcRewardPool = glowStats.usdcRewardPool;
-  gccPrice = glowStats.gccPrice.toString();
-  impactPowerPrice = glowStats.impactPowerPointsPrice.toString();
-  // totalProtocolFeesLast30days = glowStats.totalProtocolFeesLast30days.toString()
+interface PageContentProps {
+  glowPrice: string;
+  earlyLiquidityCurrentPrice: string;
+  marketCap: string;
+  ethPriceInUSD: number | null;
+  usdcRewardPool: string;
+  impactPowerPrice: string;
+}
 
-  const ethPriceInUSD = await getEthPriceInUSD();
-
+function PageContent(props: PageContentProps) {
   return (
-    <div>
+    <div className="min-h-screen bg-background">
+      <Navbar />
       <View
-        glowPrice={glowPrice}
-        earlyLiquidityCurrentPrice={earlyLiquidityCurrentPrice}
-        marketCap={marketCap}
-        ethPriceInUSD={ethPriceInUSD}
-        usdcRewardPool={usdcRewardPool}
-        impactPowerPrice={impactPowerPrice}
-        // totalProtocolFeesLast30days={totalProtocolFeesLast30days}
+        glowPrice={props.glowPrice}
+        earlyLiquidityCurrentPrice={props.earlyLiquidityCurrentPrice}
+        marketCap={props.marketCap}
+        ethPriceInUSD={props.ethPriceInUSD}
+        usdcRewardPool={props.usdcRewardPool}
+        impactPowerPrice={props.impactPowerPrice}
       />
-      <Footer />
     </div>
   );
+}
+
+export default async function Page() {
+  try {
+    const [glowStats, ethPriceInUSD] = await Promise.all([
+      getHeadlineStats(),
+      getEthPriceInUSD(),
+    ]);
+
+    const glowPrice = glowStats.glowPrice.toString();
+    const earlyLiquidityCurrentPrice = glowStats.earlyLiquidityPrice.toString();
+    const marketCap = glowStats.marketCap.toString();
+    const usdcRewardPool = glowStats.usdcRewardPool;
+    const impactPowerPrice = glowStats.impactPowerPointsPrice.toString();
+
+    return (
+      <PageWrapper>
+        <PageContent
+          glowPrice={glowPrice}
+          earlyLiquidityCurrentPrice={earlyLiquidityCurrentPrice}
+          marketCap={marketCap}
+          ethPriceInUSD={ethPriceInUSD}
+          usdcRewardPool={usdcRewardPool}
+          impactPowerPrice={impactPowerPrice}
+        />
+      </PageWrapper>
+    );
+  } catch (error) {
+    console.error("Error fetching data:", error);
+    return (
+      <Error message="Failed to load market data. Please check your connection and try again." />
+    );
+  }
 }
