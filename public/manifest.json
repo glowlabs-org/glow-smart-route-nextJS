@@ -1,0 +1,50 @@
+{
+  "name": "Glow - Solar Energy Protocol",
+  "short_name": "Glow",
+  "description": "Glow uses game theory and crypto mechanisms to build millions of solar farms more efficiently than traditional subsidies.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "categories": [
+    "business",
+    "finance",
+    "utilities",
+    "crypto",
+    "energy",
+    "blockchain"
+  ],
+  "lang": "en-US",
+  "dir": "ltr",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/Chrome_192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/Chrome_512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/Apple_Touch_180x180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    }
+  ]
+}
