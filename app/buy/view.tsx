@@ -987,7 +987,7 @@ export default function View({
   // Utility function to format token balances consistently
   const formatTokenBalance = (
     balance: BigNumber | null,
-    decimals: number = 6
+    decimals: number = 2
   ): string => {
     if (!balance) return "-";
     return ethers.utils.formatUnits(balance, decimals).replace(/\.0+$/, "");
@@ -1149,7 +1149,7 @@ export default function View({
                                   {isWalletLoading || balancesLoading ? (
                                     <Skeleton className="w-16 h-4 inline-block" />
                                   ) : (
-                                    toFixedTruncate(Number(tokenSellBalance), 6)
+                                    toFixedTruncate(Number(tokenSellBalance), 2)
                                   )}
                                 </span>
                               </span>
@@ -1343,7 +1343,7 @@ export default function View({
                         <div className="text-center pt-4">
                           <InstructionsDialog>
                             <Button
-                              variant="link"
+                              variant="ghost"
                               className="text-xs lg:text-sm text-muted-foreground hover:text-foreground transition-colors"
                             >
                               <Info className="w-4 h-4 mr-1" />
@@ -1379,7 +1379,7 @@ export default function View({
                                   {isWalletLoading || balancesLoading ? (
                                     <Skeleton className="w-16 h-4 inline-block" />
                                   ) : (
-                                    toFixedTruncate(getTokenToSendBalance(), 6)
+                                    toFixedTruncate(getTokenToSendBalance(), 2)
                                   )}
                                 </span>
                               </span>
