@@ -46,9 +46,9 @@ export const metadata: Metadata = {
     siteName: "BuyGlow.xyz",
     images: [
       {
-        url: "/og-image.jpg",
-        width: 1200,
-        height: 630,
+        url: "/Chrome_512x512.png",
+        width: 512,
+        height: 512,
         alt: "BuyGlow.xyz - Decentralized Token Exchange",
       },
     ],
