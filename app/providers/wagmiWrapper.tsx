@@ -3,14 +3,24 @@
 import "@rainbow-me/rainbowkit/styles.css";
 import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
-import { mainnet } from "wagmi/chains";
+import { mainnet, sepolia } from "wagmi/chains";
+import { http } from "wagmi";
 import React from "react";
 
 const config = getDefaultConfig({
   appName: "My RainbowKit App",
   projectId: "YOUR_PROJECT_ID",
-  chains: [mainnet],
+  chains: [ mainnet,sepolia],
+  transports: {
+    [mainnet.id]: http(),
+    [sepolia.id]: http(process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || "https://sepolia.drpc.org"),
+  },
   ssr: true, // If your dApp uses server side rendering (SSR)
+  batch: {
+    multicall: {
+      wait: 32,
+    },
+  },
 });
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
