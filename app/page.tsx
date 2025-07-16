@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL("https://glow.app"),
+  metadataBase: new URL("https://buyglow.xyz"),
   alternates: {
     canonical: "/",
   },
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
     title: "Glow Token App - Swap GLOW, USDG, USDC",
     description:
       "Trade and swap Glow tokens on the decentralized exchange. Buy GLOW with USDG or USDC and participate in the Glow ecosystem's guarded launch.",
-    images: [],
+    images: ["/Chrome_512x512.png"],
   },
   robots: {
     index: true,

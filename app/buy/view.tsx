@@ -997,9 +997,6 @@ export default function View({
     <div className="min-h-screen glow-gradient-a">
       {/* Hero Section with Enhanced Gradient */}
       <div className="relative overflow-hidden min-h-screen">
-        <div className="absolute inset-0">
-          <BackgroundBeams />
-        </div>
         <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-6 lg:px-12 xl:px-16 relative z-10 min-h-screen flex items-center justify-center">
           {/* Hero Content */}
           <div className="flex flex-col items-center justify-center lg:flex-row gap-6 lg:gap-8 w-full">
