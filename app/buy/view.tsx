@@ -45,6 +45,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import Image from "next/image";
 import { BackgroundBeams } from "@/components/ui/background-beams";
 import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
+import { publicClient } from "@/web3/web3/clients/publicClient";
 
 const tokens = {
   USDG: {
@@ -112,6 +113,7 @@ export default function View({
   >(defaultTokensEstimate);
   const [isTransitionStarted, startTransition] = React.useTransition();
   const [estimateQueueAmount, setEstimateQueueAmount] = useState<number>(0);
+  const [isRpcAvailable, setIsRpcAvailable] = useState<boolean>(true);
   const router = useRouter();
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
   const [isGlowToUsdcDialogOpen, setIsGlowToUsdcDialogOpen] =
@@ -984,6 +986,20 @@ export default function View({
     }
   }
 
+  useEffect(() => {
+    async function checkRpc() {
+      try {
+        await publicClient.getBlockNumber();
+        setIsRpcAvailable(true);
+      } catch (error) {
+        console.error("RPC connectivity error:", error);
+        setIsRpcAvailable(false);
+      }
+    }
+
+    checkRpc();
+  }, []);
+
   // Utility function to format token balances consistently
   const formatTokenBalance = (
     balance: BigNumber | null,
@@ -992,6 +1008,26 @@ export default function View({
     if (!balance) return "-";
     return ethers.utils.formatUnits(balance, decimals).replace(/\.0+$/, "");
   };
+
+  if (!isRpcAvailable) {
+    return (
+      <div className="min-h-screen flex items-center justify-center glow-gradient-a">
+        <div className="bg-card rounded-md border border-border p-8 text-center space-y-4 max-w-sm">
+          <h2 className="text-xl font-semibold">Service Unavailable</h2>
+          <p className="text-sm text-muted-foreground">
+            We&rsquo;re having trouble connecting to the blockchain. Please
+            reload the page or try again later.
+          </p>
+          <Button
+            onClick={() => window.location.reload()}
+            className="w-full h-12"
+          >
+            Reload Page
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen glow-gradient-a">
