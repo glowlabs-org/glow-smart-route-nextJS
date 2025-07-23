@@ -45,6 +45,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import Image from "next/image";
 import { BackgroundBeams } from "@/components/ui/background-beams";
 import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
+import { publicClient } from "@/web3/web3/clients/publicClient";
 
 const tokens = {
   USDG: {
@@ -112,6 +113,7 @@ export default function View({
   >(defaultTokensEstimate);
   const [isTransitionStarted, startTransition] = React.useTransition();
   const [estimateQueueAmount, setEstimateQueueAmount] = useState<number>(0);
+  const [isRpcAvailable, setIsRpcAvailable] = useState<boolean>(true);
   const router = useRouter();
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
   const [isGlowToUsdcDialogOpen, setIsGlowToUsdcDialogOpen] =
@@ -984,37 +986,68 @@ export default function View({
     }
   }
 
+  useEffect(() => {
+    async function checkRpc() {
+      try {
+        await publicClient.getBlockNumber();
+        setIsRpcAvailable(true);
+      } catch (error) {
+        console.error("RPC connectivity error:", error);
+        setIsRpcAvailable(false);
+      }
+    }
+
+    checkRpc();
+  }, []);
+
   // Utility function to format token balances consistently
   const formatTokenBalance = (
     balance: BigNumber | null,
-    decimals: number = 6
+    decimals: number = 2
   ): string => {
     if (!balance) return "-";
     return ethers.utils.formatUnits(balance, decimals).replace(/\.0+$/, "");
   };
 
+  if (!isRpcAvailable) {
+    return (
+      <div className="min-h-screen flex items-center justify-center glow-gradient-a">
+        <div className="bg-card rounded-md border border-border p-8 text-center space-y-4 max-w-sm">
+          <h2 className="text-xl font-semibold">Service Unavailable</h2>
+          <p className="text-sm text-muted-foreground">
+            We&rsquo;re having trouble connecting to the blockchain. Please
+            reload the page or try again later.
+          </p>
+          <Button
+            onClick={() => window.location.reload()}
+            className="w-full h-12"
+          >
+            Reload Page
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen glow-gradient-a">
       {/* Hero Section with Enhanced Gradient */}
       <div className="relative overflow-hidden min-h-screen">
-        <div className="absolute inset-0">
-          <BackgroundBeams />
-        </div>
-        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-6 lg:px-12 xl:px-16 relative z-10 min-h-screen flex items-center justify-center">
+        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-2 md:px-6 lg:px-12 xl:px-16 relative z-10 min-h-screen flex items-center justify-center pt-20 lg:pt-0">
           {/* Hero Content */}
-          <div className="flex flex-col items-center justify-center lg:flex-row gap-6 lg:gap-8 w-full">
+          <div className="flex flex-col items-center justify-center lg:flex-row gap-2 md:gap-6 lg:gap-8 w-full">
             {/* Stats Sidebar */}
             <div className="w-full lg:max-w-64 xl:max-w-72 flex-shrink-0">
-              <div className="bg-white rounded-md border border-border p-4 lg:p-6 space-y-4">
+              <div className="bg-white rounded-md border border-border p-4 lg:p-6 md:space-y-4">
                 {/* Sidebar Header */}
-                <div className="pb-4 border-b border-border/30">
+                <div className="pb-4 border-b border-border/30 hidden lg:block">
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                     Market Overview
                   </h3>
                 </div>
 
                 {/* Stats Items */}
-                <div className="flex flex-row lg:flex-col justify-between gap-4">
+                <div className="flex flex-col justify-between gap-0 md:gap-4">
                   <div className="group hover:bg-muted/20 rounded-md p-3 transition-all duration-200 cursor-default hidden lg:block">
                     <div className="flex items-center justify-between mb-1">
                       <div className="text-xs text-muted-foreground">
@@ -1042,12 +1075,12 @@ export default function View({
                       {statsLoading ? (
                         <Skeleton className="w-20 h-6 inline-block" />
                       ) : (
-                        Number(glowPrice).toFixed(6)
+                        Number(glowPrice).toFixed(2)
                       )}
                     </div>
                   </div>
 
-                  <div className="group hover:bg-muted/20 rounded-md p-3 transition-all duration-200 cursor-default">
+                  <div className="group hover:bg-muted/20 rounded-md p-3 transition-all duration-200 cursor-default hidden lg:block">
                     <div className="flex items-center justify-between mb-1">
                       <div className="text-xs text-muted-foreground">
                         Reward Pool
@@ -1063,7 +1096,7 @@ export default function View({
                     </div>
                   </div>
 
-                  <div className="group hover:bg-muted/20 rounded-md p-3 transition-all duration-200 cursor-default hidden lg:block">
+                  <div className="group hover:bg-muted/20 rounded-md p-3 transition-all duration-200 cursor-default">
                     <div className="flex items-center justify-between mb-1">
                       <div className="text-xs text-muted-foreground">
                         USDC Available
@@ -1149,7 +1182,7 @@ export default function View({
                                   {isWalletLoading || balancesLoading ? (
                                     <Skeleton className="w-16 h-4 inline-block" />
                                   ) : (
-                                    toFixedTruncate(Number(tokenSellBalance), 6)
+                                    toFixedTruncate(Number(tokenSellBalance), 2)
                                   )}
                                 </span>
                               </span>
@@ -1343,7 +1376,7 @@ export default function View({
                         <div className="text-center pt-4">
                           <InstructionsDialog>
                             <Button
-                              variant="link"
+                              variant="ghost"
                               className="text-xs lg:text-sm text-muted-foreground hover:text-foreground transition-colors"
                             >
                               <Info className="w-4 h-4 mr-1" />
@@ -1379,7 +1412,7 @@ export default function View({
                                   {isWalletLoading || balancesLoading ? (
                                     <Skeleton className="w-16 h-4 inline-block" />
                                   ) : (
-                                    toFixedTruncate(getTokenToSendBalance(), 6)
+                                    toFixedTruncate(getTokenToSendBalance(), 2)
                                   )}
                                 </span>
                               </span>

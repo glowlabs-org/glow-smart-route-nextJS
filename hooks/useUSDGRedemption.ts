@@ -24,6 +24,34 @@ export enum USDGRedemptionError {
   UNKNOWN_ERROR = "Unknown error",
 }
 
+// Utility to extract the most useful revert reason from an ethers error object
+function parseEthersError(error: unknown): string {
+  if (!error) return "Unknown error";
+  // Ethers v6 nests the original error under `error` property while v5 keeps it directly on the object
+  // We try to exhaust the most common locations for a revert reason
+  const possibleError: any = error;
+
+  // If the error originates from a callStatic it will often be found at `error?.error?.body`
+  if (possibleError?.error?.body) {
+    try {
+      const body = JSON.parse(possibleError.error.body);
+      // Hardhat style errors
+      if (body?.error?.message) return body.error.message as string;
+    } catch {}
+  }
+
+  // Found on MetaMask/Alchemy shape errors
+  if (possibleError?.data?.message) return possibleError.data.message as string;
+  if (possibleError?.error?.message)
+    return possibleError.error.message as string;
+
+  // Standard ethers v5 message
+  if (possibleError?.reason) return possibleError.reason as string;
+  if (possibleError?.message) return possibleError.message as string;
+
+  return USDGRedemptionError.UNKNOWN_ERROR;
+}
+
 export function useUSDGRedemption() {
   const signer = useEthersSigner();
   const { usdg } = useContracts(signer);
@@ -85,6 +113,7 @@ export function useUSDGRedemption() {
       if (!signer) return new Err(USDGRedemptionError.SIGNER_NOT_AVAILABLE);
 
       if (!usdg) return new Err("USDG contract not available");
+
       const owner = await signer.getAddress();
       const allowance: BigNumber = await usdg.allowance(
         owner,
@@ -92,25 +121,32 @@ export function useUSDGRedemption() {
       );
 
       if (allowance.lt(amountUSDG)) {
-        // Approve MaxUint256 for gas efficiency
         try {
           const approveTx = await usdg.approve(
             USDG_REDEMPTION_ADDRESS,
             ethers.constants.MaxUint256
           );
           await approveTx.wait();
-        } catch (e: any) {
-          return new Err(e?.reason || e?.message || "USDG approval failed");
+        } catch (approveError) {
+          return new Err(
+            parseEthersError(approveError) || "USDG approval failed"
+          );
         }
+      }
+
+      // Run a static call first so that we can surface any revert reason to the UI
+      try {
+        await contract.callStatic.exchange(amountUSDG, { from: owner });
+      } catch (staticError) {
+        return new Err(parseEthersError(staticError));
       }
 
       const tx = await contract.exchange(amountUSDG);
       await tx.wait();
+
       return new Ok(true);
-    } catch (error: any) {
-      return new Err(
-        error?.reason || error?.message || USDGRedemptionError.UNKNOWN_ERROR
-      );
+    } catch (txError: any) {
+      return new Err(parseEthersError(txError));
     }
   }
 
@@ -142,9 +178,7 @@ export function useUSDGRedemption() {
         );
       }
     } catch (error: any) {
-      return new Err(
-        error?.reason || error?.message || USDGRedemptionError.UNKNOWN_ERROR
-      );
+      return new Err(parseEthersError(error));
     }
   }
 
