@@ -1,0 +1,280 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Glow v1.5 Backend Specification (MVP Scope)
+
+## 1. Overview
+
+Glow v1.5 introduces a minimum-viable implementation of its competitive infrastructure token protocol across four initial regions. This spec defines the core database schema, data flows, and execution logic required to support:
+
+- Foundation supporterd `GCTL` purchase and acquisition with `USDC`
+- `GCTL` Staking and `GLW` inflation routing to regions 
+- Solar farm deployment and accounting
+-`USDC`-based and `GCTL` based Protocol Deposit handling
+- Solar Farm Purchase 
+- Impact Accreditation - searching and viewing impact participants' 
+- Regional activation logic (supporting unbuilt regions)
+- Weekly accounting and state tracking 
+
+Future "expansion" packs/add-ons to this MVP version of v1.5 will introduce logic surrounding 
+- Supernodes
+- Community Nodes
+- Underwriting 
+- GCTL Yield (both Cash and Impact Credit Farming )
+- Marketplace to purchases Glow Miners 
+- Supporting protocol desposits paid in `GLW`
+
+## 2. Core Features
+
+### 2.1 Control Token Purchase (GCTL)
+- Users buy `GCTL` with `USDC`; funds sent to Foundation owned wallet
+- `Price of GCTL ~= √(GLW token price)`, The Foundation will set each weeks `GCTL` price for the following week. 
+    - The initial `GCTL` price will be ~$0.65 
+- Only the Foundation may set/adjust the price
+- Note, `GCTL` is **not** transferable in v1.5
+
+**Schema Requirements**
+- `control_purchase_events (wallet, amount_usdc, GCTL_minted, epoch)`
+- `GCTL_balances (wallet, amount)`
+
+### 2.2 Control Staking to Zones
+- Users stake GCTL to individual zones (e.g. Global, Utah, Wisconsin, Missouri)
+- Stake determines weekly GLW distribution across regions
+- `GCTL` holders are required to lock in their stake for atleast 100 epochs (weeks)
+
+**Schema Requirements**
+- `GCTL_stakes (wallet, region, amount, epoch)`
+- `GCTL_stake_events (wallet, region, amount, direction, epoch)`  
+  - `direction ∈ {stake, unstake}`
+    - `unstake iff unstake_epoch >= stake_epoch + T_0` where `T_0  = 100 epochs` 
+
+### 2.3 Regional Activation Criteria
+Each region must satisfy:
+- `GCTL stake ≥ threshold`, where `threshold` is determined by the Glow Foundation
+  - Initially, `threshold = 20,000 GCTL` for regions within the United States and `threshold = 200,000 GCTL` for non-US regions. 
+- ≥ 3 solar farms registered
+  - These criteria are guidelines and the Foundation, may, at its discretion approve or deny a region based on its expressed `GCTL` and Solar Farm commitment levels
+
+#### 2.3.1 Region Support Before Launch
+- Users may stake GCTL to not-yet-live regions
+- Staked control accrues no GLW distribution but contributes toward activation
+
+**Execution Note**
+- Staking logic does not distinguish between active and inactive regions
+- Regions transition to active status once criteria (see 2.3) are satisfied
+
+**Schema Requirements**
+- `region_status (region, active_flag, current_GCTL_stake, solar_farm_count)`
+- `region_activation_events (region, epoch, criteria_satisfied)`
+
+### 2.4 Solar Farm Construction and Impact Sale
+- Farms are constructed with an audited expected lifetime carbon-credit or impact credit production value 
+- Users can purchase the impact of entire farms, at an initial rate of $10/CC
+    - For example, a farm that is expected to produce 100 lifetime carbon-credits will sell for $1000
+- Foundation can update CC price based on supply/demand
+- Note, Purchasers are buying the **impact** of entire farms: they are not purchasing a share of the farms `GLW` rewards. Farms cannot be purchased "fractionally" 
+
+**Schema Requirements**
+- `solar_farms (id, region, installer_id, owner_id, mw_capacity, protocol_deposit, total_carbon_credit_produced, is_active?, is_purchased?)`
+- `solar_farm_purchases (owner_id, farm_id, total_usdc_paid, epoch)`
+
+After purchase:
+`solar_farms.is_purchased = true` and `buyer_id` set.
+
+`GLW` rewards continue to accrue to the installer / owner, not the impact credit buyer.
+
+### 2.5 Protocol Deposits Paid in GCTL
+- Onboarding farms on to the Glow Protocol requirements posting a protocol deposit 
+- In Glow v1.5, these protocol deposits can be paid in either `USDC` or `GCTL`
+
+**Schema Requirements**
+- `protocol_deposit_events (wallet, action_type, amount_GCTL, usd_equivalent, timestamp)`
+- `foundation_wallet_ledger (source_type, amount_usdc, timestamp)`
+
+## 3. Accounting/State Tracking, Relational Schema (SQL‑style)
+
+### 3.1 Epoch‑level Metadata
+```sql
+CREATE TABLE epoch_totals (
+  epoch                INT PRIMARY KEY,
+  gctl_price_usd       NUMERIC(18,6) NOT NULL,
+  gctl_minted          NUMERIC(38,0) NOT NULL,
+  total_gctl_staked    NUMERIC(38,0) NOT NULL,
+  region_count         INT           NOT NULL,
+  created_at           TIMESTAMP     DEFAULT now()
+);
+```
+
+### 3.2 Control Purchase
+```sql
+CREATE TABLE control_purchase_events (
+  tx_id        TEXT PRIMARY KEY,
+  epoch        INT            NOT NULL,
+  wallet       TEXT           NOT NULL,
+  amount_usdc  NUMERIC(38,2)  NOT NULL,
+  GCTL_minted  NUMERIC(38,0)  NOT NULL,
+  ts           TIMESTAMP      DEFAULT now()
+);
+CREATE INDEX cp_epoch_idx ON control_purchase_events(epoch);
+
+CREATE VIEW GCTL_balances AS
+SELECT wallet,
+       SUM(GCTL_minted) AS amount
+FROM   control_purchase_events
+GROUP  BY wallet;
+```
+*Note: View assumes that tokrnes are never transferred or burned*
+
+### 3.3 Staking
+```sql
+CREATE TABLE GCTL_stake_events (
+  tx_id     TEXT PRIMARY KEY,
+  epoch     INT     NOT NULL,
+  wallet    TEXT    NOT NULL,
+  region    TEXT    NOT NULL,
+  amount    NUMERIC(38,0) NOT NULL,
+  direction CHAR(6) CHECK (direction IN ('stake','unstake')),
+  ts        TIMESTAMP DEFAULT now()
+);
+CREATE INDEX stake_epoch_idx ON GCTL_stake_events(epoch);
+
+CREATE VIEW GCTL_stakes AS
+SELECT epoch,
+       region,
+       wallet,
+       SUM(CASE WHEN direction='stake' THEN amount ELSE -amount END) AS amount
+FROM   GCTL_stake_events
+GROUP  BY epoch, region, wallet;
+```
+
+### 3.4 Region Status, Activation, & Inflation
+```sql
+CREATE TABLE region_epoch (
+  epoch           INT NOT NULL,
+  region          TEXT NOT NULL,
+  gctl_staked     NUMERIC(38,0) NOT NULL,
+  stake_share     NUMERIC(28,12) NOT NULL,
+  glw_allocated   NUMERIC(38,0) NOT NULL,
+  PRIMARY KEY(epoch, region)
+);
+
+CREATE TABLE region_status (
+  region           TEXT PRIMARY KEY,
+  active_flag      BOOLEAN DEFAULT false,
+  current_gctl_stake NUMERIC(38,0) DEFAULT 0,
+  solar_farm_count INT DEFAULT 0
+);
+
+CREATE TABLE region_activation_events (
+  region   TEXT PRIMARY KEY,
+  epoch    INT NOT NULL,
+  stake_threshold_met BOOLEAN NOT NULL,
+  solar_farm_requirement_met BOOLEAN NOT NULL,
+  activated BOOLEAN GENERATED ALWAYS AS (stake_threshold_met AND solar_farm_requirement_met) STORED,
+  ts       TIMESTAMP DEFAULT now()
+);
+```
+
+### 3.5 Solar Farms & Ownership
+```sql
+CREATE TABLE solar_farms (
+  farm_id                   TEXT PRIMARY KEY,
+  region                    TEXT NOT NULL,
+  installer_id              TEXT NOT NULL,
+  owner_id                  TEXT NOT NULL,
+  mw_capacity               NUMERIC(18,4) NOT NULL,
+  -- Protocol Deposit can be paid in USDC or GCTL; record both amount and currency
+  protocol_deposit_amount       NUMERIC(38,2) NOT NULL,
+  protocol_deposit_currency     TEXT NOT NULL CHECK (protocol_deposit_currency IN ('USDC','GCTL')),
+  expected_credits          NUMERIC(38,4) NOT NULL,
+  inflation_rewards_to_date NUMERIC(38,0) DEFAULT 0,
+  built_epoch               INT           NOT NULL,
+  is_purchased              BOOLEAN       DEFAULT false
+);
+
+CREATE TABLE solar_farm_purchases (
+  farm_id         TEXT PRIMARY KEY REFERENCES solar_farms(farm_id),
+  buyer_id        TEXT NOT NULL,
+  total_usdc_paid NUMERIC(38,2) NOT NULL,
+  epoch           INT NOT NULL,
+  ts              TIMESTAMP DEFAULT now()
+);
+```
+
+### 3.6 Protocol Deposits & Foundation Ledger
+```sql
+CREATE TABLE protocol_deposit_events (
+  event_id         TEXT PRIMARY KEY,
+  wallet           TEXT       NOT NULL,
+  action_type      TEXT       NOT NULL,
+  amount_GCTL      NUMERIC(38,0) NOT NULL,
+  usd_equivalent   NUMERIC(38,2) NOT NULL,
+  ts               TIMESTAMP  DEFAULT now()
+);
+
+CREATE TABLE foundation_wallet_ledger (
+  entry_id   SERIAL PRIMARY KEY,
+  source     TEXT       NOT NULL, -- e.g. 'control_sale','protocol_deposit'
+  amount_usdc NUMERIC(38,2) NOT NULL,
+  ts         TIMESTAMP DEFAULT now()
+);
+```
+
+
+## 4. Admin and Monitoring
+
+The front-end dashboard surfaces real-time protocol metrics from the database schema defined above. Key metrics include:
+
+- **Supply & Stake Overview**
+  - Total GCTL minted
+  - Total GCTL staked and where it is staked (across all regions)
+  - Number of unique GCTL holders
+
+- **Capital Flows**
+  - Total USDC received from:
+    - GCTL purchases
+    - Impact credit sales (solar farm purchases)
+
+- **Region Tracking**
+  - Activation status of all regions
+  - Per-region GCTL stake and GLW allocation (from `region_epoch`)
+
+- **Solar Deployment**
+  - Total number of solar farms built
+  - Per-region inventory of active and unpurchased farms
+  - Total megawatts of solar deployed (sum of `mw_capacity`)
+
+- **Impact Credits & Ownership**
+  - Total carbon credits created across all farms
+  - Number of unique impact credit owners (buyers)
+  - Total number of solar farms sold (via `solar_farm_purchases`)
+  - Total USDC value of impact credit sales
+
+- **Public Displays**
+  - Impact leaderboard (credits owned per wallet)
+  - Impact flaunting visualizations (e.g. user profiles)
+
+Standard website analytics (@Julian I will defer to what analytics you usually use or prefer) 
+
+
+## 5. Initial Region IDs
+- `0: Global`
+- `1: Utah`
+- `2: Wisconsin`
+- `3: Missouri`
+
+
+## 6. Constants (v1.5 defaults)
+
+```sql
+-- Constants used in early logic:
+GCTL_INITIAL_PRICE_USDC = 0.75
+CARBON_CREDIT_PRICE_USDC = 10.00
+REGION_ACTIVATION_MIN_FARMS = 3
+REGION_ACTIVATION_GCTL_THRESHOLD = [to be set by Foundation], 
+  // Initially this will be as below
+  if REGION_IN_US: REGION_ACTIVATION_GCTL_THRESHOLD = 20,000
+  else: REGION_ACTIVATION_GCTL_THRESHOLD = 200,000
+```

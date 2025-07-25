@@ -1,0 +1,238 @@
+import { useEthersSigner } from "./useEthersSigner";
+import { BigNumber, ethers } from "ethers";
+import { Result, Ok, Err } from "ts-results";
+import { useState } from "react";
+import { FORWARDER_ABI } from "@/web3/web3/abis/forwarder.abi";
+import { ERC20_ABI } from "@/web3/web3/abis/erc20.abi";
+
+// Addresses - for sepolia
+const ADDRESSES = {
+  USDC: "0x93c898be98cd2618ba84a6dccf5003d3bbe40356" as `0x${string}`,
+  FORWARDER: "0x9c1d61303D46BFAb1eC5F25c12A1Bf4cB3d06416" as `0x${string}`,
+  FOUNDATION_WALLET:
+    "0x5e230FED487c86B90f6508104149F087d9B1B0A7" as `0x${string}`,
+};
+
+// Addresses - for mainnet
+// TODO: update addresses
+
+export enum ForwarderError {
+  CONTRACT_NOT_AVAILABLE = "Contract not available",
+  SIGNER_NOT_AVAILABLE = "Signer not available",
+  UNKNOWN_ERROR = "Unknown error",
+}
+
+// Utility to extract the most useful revert reason from an ethers error object
+function parseEthersError(error: unknown): string {
+  if (!error) return "Unknown error";
+  const possibleError: any = error;
+
+  // If the error originates from a callStatic it will often be found at `error?.error?.body`
+  if (possibleError?.error?.body) {
+    try {
+      const body = JSON.parse(possibleError.error.body);
+      // Hardhat style errors
+      if (body?.error?.message) return body.error.message as string;
+    } catch {}
+  }
+
+  // Found on MetaMask/Alchemy shape errors
+  if (possibleError?.data?.message) return possibleError.data.message as string;
+  if (possibleError?.error?.message)
+    return possibleError.error.message as string;
+
+  // Standard ethers v5 message
+  if (possibleError?.reason) return possibleError.reason as string;
+  if (possibleError?.message) return possibleError.message as string;
+
+  return ForwarderError.UNKNOWN_ERROR;
+}
+
+export function useForwarder() {
+  const signer = useEthersSigner();
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Returns a contract instance for Forwarder
+  function getForwarderContract() {
+    if (!signer) return undefined;
+    return new ethers.Contract(ADDRESSES.FORWARDER, FORWARDER_ABI, signer);
+  }
+
+  // Returns a contract instance for USDC
+  function getUSDCContract() {
+    if (!signer) return undefined;
+    return new ethers.Contract(ADDRESSES.USDC, ERC20_ABI, signer);
+  }
+
+  /**
+   * Check current USDC allowance for the forwarder contract
+   * @param owner The wallet address to check allowance for
+   */
+  async function checkAllowance(
+    owner: string
+  ): Promise<Result<BigNumber, ForwarderError | string>> {
+    try {
+      const usdcContract = getUSDCContract();
+      if (!usdcContract) return new Err(ForwarderError.CONTRACT_NOT_AVAILABLE);
+
+      const allowance: BigNumber = await usdcContract.allowance(
+        owner,
+        ADDRESSES.FORWARDER
+      );
+      return new Ok(allowance);
+    } catch (error) {
+      return new Err(parseEthersError(error));
+    }
+  }
+
+  /**
+   * Approve USDC for the forwarder contract
+   * @param amount Amount to approve (BigNumber, 6 decimals)
+   */
+  async function approveUSDC(
+    amount: BigNumber
+  ): Promise<Result<boolean, ForwarderError | string>> {
+    try {
+      const usdcContract = getUSDCContract();
+      if (!usdcContract) return new Err(ForwarderError.CONTRACT_NOT_AVAILABLE);
+      if (!signer) return new Err(ForwarderError.SIGNER_NOT_AVAILABLE);
+
+      setIsProcessing(true);
+
+      // Use MaxUint256 for unlimited approval
+      const approveTx = await usdcContract.approve(
+        ADDRESSES.FORWARDER,
+        ethers.constants.MaxUint256
+      );
+      await approveTx.wait();
+
+      return new Ok(true);
+    } catch (error) {
+      return new Err(parseEthersError(error));
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  /**
+   * Forward USDC through the forwarder contract
+   * Handles allowance: if insufficient, approve MaxUint256 first
+   * @param amount Amount of USDC to forward (BigNumber, 6 decimals)
+   * @param userAddress User's wallet address for the message
+   */
+  async function forwardUSDC(
+    amount: BigNumber,
+    userAddress: string
+  ): Promise<Result<string, ForwarderError | string>> {
+    try {
+      const forwarderContract = getForwarderContract();
+      const usdcContract = getUSDCContract();
+      if (!forwarderContract || !usdcContract)
+        return new Err(ForwarderError.CONTRACT_NOT_AVAILABLE);
+      if (!signer) return new Err(ForwarderError.SIGNER_NOT_AVAILABLE);
+
+      setIsProcessing(true);
+
+      const owner = await signer.getAddress();
+
+      // Check allowance and approve if necessary
+      const allowance: BigNumber = await usdcContract.allowance(
+        owner,
+        ADDRESSES.FORWARDER
+      );
+
+      if (allowance.lt(amount)) {
+        try {
+          const approveTx = await usdcContract.approve(
+            ADDRESSES.FORWARDER,
+            ethers.constants.MaxUint256
+          );
+          await approveTx.wait();
+        } catch (approveError) {
+          return new Err(
+            parseEthersError(approveError) || "USDC approval failed"
+          );
+        }
+      }
+
+      // Run a static call first to surface any revert reason
+      try {
+        await forwarderContract.callStatic.forward(
+          ADDRESSES.USDC,
+          ADDRESSES.FOUNDATION_WALLET,
+          amount,
+          `MintGCTL::${userAddress}`,
+          { from: owner }
+        );
+      } catch (staticError) {
+        return new Err(parseEthersError(staticError));
+      }
+
+      // Execute the forward transaction
+      const tx = await forwarderContract.forward(
+        ADDRESSES.USDC,
+        ADDRESSES.FOUNDATION_WALLET,
+        amount,
+        `MintGCTL::${userAddress}`
+      );
+      await tx.wait();
+
+      return new Ok(tx.hash);
+    } catch (txError: any) {
+      return new Err(parseEthersError(txError));
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  /**
+   * Estimate gas for forwarding USDC
+   * @param amount Amount of USDC to forward (BigNumber, 6 decimals)
+   * @param userAddress User's wallet address for the message
+   * @param ethPriceInUSD Current ETH price in USD (for cost estimation)
+   */
+  async function estimateGasForForward(
+    amount: BigNumber,
+    userAddress: string,
+    ethPriceInUSD: number | null
+  ): Promise<Result<string, ForwarderError | string>> {
+    try {
+      const forwarderContract = getForwarderContract();
+      if (!forwarderContract)
+        return new Err(ForwarderError.CONTRACT_NOT_AVAILABLE);
+      if (!signer) return new Err(ForwarderError.SIGNER_NOT_AVAILABLE);
+
+      const gasPrice = await signer.getGasPrice();
+      const estimatedGas = await forwarderContract.estimateGas.forward(
+        ADDRESSES.USDC,
+        ADDRESSES.FOUNDATION_WALLET,
+        amount,
+        `MintGCTL::${userAddress}`
+      );
+      const estimatedCost = estimatedGas.mul(gasPrice);
+
+      if (ethPriceInUSD) {
+        const estimatedCostInEth = ethers.utils.formatEther(estimatedCost);
+        const estimatedCostInUSD = (
+          parseFloat(estimatedCostInEth) * ethPriceInUSD
+        ).toFixed(2);
+        return new Ok(estimatedCostInUSD);
+      } else {
+        return new Err(
+          "Could not fetch the ETH price to calculate cost in USD."
+        );
+      }
+    } catch (error: any) {
+      return new Err(parseEthersError(error));
+    }
+  }
+
+  return {
+    forwardUSDC,
+    approveUSDC,
+    checkAllowance,
+    estimateGasForForward,
+    isProcessing,
+    addresses: ADDRESSES,
+  };
+}
