@@ -2,26 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 
 const BASE_URL = "https://glow-impact-backend-staging.up.railway.app";
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { regionId: string } }
+) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const page = searchParams.get("page") || "1";
-    const limit = searchParams.get("limit") || "50";
+    const { regionId } = params;
 
-    const response = await fetch(
-      `${BASE_URL}/transfers/pending?page=${page}&limit=${limit}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        cache: "no-store", // Disable caching for dynamic data
-      }
-    );
+    const response = await fetch(`${BASE_URL}/region/${regionId}/stake`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store", // Disable caching for dynamic data
+    });
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: "Failed to fetch pending transfers" },
+        { error: "Failed to fetch region stake" },
         { status: response.status }
       );
     }
@@ -36,7 +34,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Pending transfers API error:", error);
+    console.error("Region stake API error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -44,4 +42,5 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Force dynamic rendering
 export const dynamic = "force-dynamic";

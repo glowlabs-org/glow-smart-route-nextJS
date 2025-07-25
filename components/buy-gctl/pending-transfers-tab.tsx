@@ -9,7 +9,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Loader2, Clock, Copy, Check, ArrowUpRight, Timer } from "lucide-react";
+import {
+  Loader2,
+  Clock,
+  Copy,
+  Check,
+  ArrowUpRight,
+  Timer,
+  RefreshCw,
+} from "lucide-react";
 import { formatUnits } from "viem";
 import { toast } from "sonner";
 
@@ -30,6 +38,7 @@ interface PendingTransfersTabProps {
   pendingTransfers: PendingTransfer[];
   dataLoading: boolean;
   usdcDecimals: number;
+  onRefresh?: () => Promise<void>; // New prop for manual refresh
 }
 
 function CopyableAddress({
@@ -94,6 +103,74 @@ function CopyableAddress({
   );
 }
 
+// Countdown component for auto-refresh
+const RefreshCountdown = ({
+  onRefresh,
+  isRefreshing,
+}: {
+  onRefresh?: () => Promise<void>;
+  isRefreshing: boolean;
+}) => {
+  const [countdown, setCountdown] = useState<number>(30);
+  const [isManualRefreshing, setIsManualRefreshing] = useState<boolean>(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          return 30; // Reset to 30 seconds
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleManualRefresh = async () => {
+    if (!onRefresh || isManualRefreshing) return;
+
+    setIsManualRefreshing(true);
+    try {
+      await onRefresh();
+      setCountdown(30); // Reset countdown after manual refresh
+      toast.success("Data refreshed successfully");
+    } catch (error) {
+      toast.error("Failed to refresh data");
+    } finally {
+      setIsManualRefreshing(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+        <Clock className="w-4 h-4" />
+        <span>Auto-refresh in {countdown}s</span>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleManualRefresh}
+        disabled={isManualRefreshing || isRefreshing}
+        className="h-8 px-3 text-xs hover:bg-primary/10 hover:border-primary/50"
+      >
+        {isManualRefreshing || isRefreshing ? (
+          <>
+            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+            Refreshing...
+          </>
+        ) : (
+          <>
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Refresh
+          </>
+        )}
+      </Button>
+    </div>
+  );
+};
+
 // Countdown component for pending transfers
 const PendingTimer = ({ queuedAt }: { queuedAt: string }) => {
   const [elapsed, setElapsed] = useState<string>("");
@@ -137,19 +214,20 @@ export function PendingTransfersTab({
   pendingTransfers,
   dataLoading,
   usdcDecimals,
+  onRefresh,
 }: PendingTransfersTabProps) {
   return (
     <Card className="border border-border bg-card/90 backdrop-blur-sm">
       <CardHeader className="border-b">
-        <CardTitle className="text-xl font-bold text-foreground flex items-center">
-          <div className="w-6 h-6 bg-accent rounded-md mr-3 flex items-center justify-center">
-            <Timer className="w-3 h-3 text-accent-foreground animate-pulse" />
-          </div>
-          Pending Transfers
-          <span className="ml-auto text-sm font-normal text-muted-foreground bg-card px-3 py-1 rounded-full border border-border">
-            {pendingTransfers.length} pending
-          </span>
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-xl font-bold text-foreground flex items-center">
+            Transfer Events
+            <span className="ml-3 text-sm font-normal text-muted-foreground bg-card px-3 py-1 rounded-full border border-border">
+              {pendingTransfers.length} events
+            </span>
+          </CardTitle>
+          <RefreshCountdown onRefresh={onRefresh} isRefreshing={dataLoading} />
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         {dataLoading ? (
@@ -157,7 +235,7 @@ export function PendingTransfersTab({
             <div className="text-center">
               <Loader2 className="h-8 w-8 animate-spin text-chart-3 mx-auto mb-4" />
               <p className="text-muted-foreground">
-                Loading pending transfers...
+                Loading transfer events...
               </p>
             </div>
           </div>
@@ -179,7 +257,7 @@ export function PendingTransfersTab({
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-foreground mb-2">
-              No pending transfers
+              No transfer events
             </h3>
             <p className="text-muted-foreground max-w-md mx-auto">
               Your processing transactions will appear here with live status

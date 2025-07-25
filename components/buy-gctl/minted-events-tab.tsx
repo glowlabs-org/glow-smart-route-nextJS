@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -9,7 +9,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, Copy, Check, ArrowUpRight } from "lucide-react";
+import {
+  Loader2,
+  ExternalLink,
+  Copy,
+  Check,
+  ArrowUpRight,
+  Clock,
+  RefreshCw,
+} from "lucide-react";
 import { formatUnits } from "viem";
 import { toast } from "sonner";
 
@@ -27,6 +35,7 @@ interface MintedEventsTabProps {
   mintedEvents: MintedEvent[];
   dataLoading: boolean;
   usdcDecimals: number;
+  onRefresh?: () => Promise<void>; // New prop for manual refresh
 }
 
 function CopyableAddress({
@@ -91,33 +100,92 @@ function CopyableAddress({
   );
 }
 
+// Countdown component for auto-refresh
+const RefreshCountdown = ({
+  onRefresh,
+  isRefreshing,
+}: {
+  onRefresh?: () => Promise<void>;
+  isRefreshing: boolean;
+}) => {
+  const [countdown, setCountdown] = useState<number>(30);
+  const [isManualRefreshing, setIsManualRefreshing] = useState<boolean>(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          return 30; // Reset to 30 seconds
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleManualRefresh = async () => {
+    if (!onRefresh || isManualRefreshing) return;
+
+    setIsManualRefreshing(true);
+    try {
+      await onRefresh();
+      setCountdown(30); // Reset countdown after manual refresh
+      toast.success("Data refreshed successfully");
+    } catch (error) {
+      toast.error("Failed to refresh data");
+    } finally {
+      setIsManualRefreshing(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+        <Clock className="w-4 h-4" />
+        <span>Auto-refresh in {countdown}s</span>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleManualRefresh}
+        disabled={isManualRefreshing || isRefreshing}
+        className="h-8 px-3 text-xs hover:bg-primary/10 hover:border-primary/50"
+      >
+        {isManualRefreshing || isRefreshing ? (
+          <>
+            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+            Refreshing...
+          </>
+        ) : (
+          <>
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Refresh
+          </>
+        )}
+      </Button>
+    </div>
+  );
+};
+
 export function MintedEventsTab({
   mintedEvents,
   dataLoading,
   usdcDecimals,
+  onRefresh,
 }: MintedEventsTabProps) {
   return (
     <Card className="border border-border bg-card/90 backdrop-blur-sm">
       <CardHeader className="border-b">
-        <CardTitle className="text-xl font-bold text-foreground flex items-center">
-          <div className="w-6 h-6 bg-chart-4 rounded-md mr-3 flex items-center justify-center">
-            <svg
-              className="w-3 h-3 text-white"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
-          Recent Minted Events
-          <span className="ml-auto text-sm font-normal text-muted-foreground bg-card px-3 py-1 rounded-full border border-border">
-            {mintedEvents.length} events
-          </span>
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-xl font-bold text-foreground flex items-center">
+            Recent Minted Events
+            <span className="ml-3 text-sm font-normal text-muted-foreground bg-card px-3 py-1 rounded-full border border-border">
+              {mintedEvents.length} events
+            </span>
+          </CardTitle>
+          <RefreshCountdown onRefresh={onRefresh} isRefreshing={dataLoading} />
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         {dataLoading ? (

@@ -9,34 +9,26 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get("limit") || "50";
 
     const response = await fetch(
-      `${BASE_URL}/transfers/pending?page=${page}&limit=${limit}`,
+      `${BASE_URL}/events/staked?page=${page}&limit=${limit}`,
       {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
-        cache: "no-store", // Disable caching for dynamic data
       }
     );
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: "Failed to fetch pending transfers" },
+        { error: "Failed to fetch staked events" },
         { status: response.status }
       );
     }
 
     const data = await response.json();
-    return NextResponse.json(data, {
-      headers: {
-        "Cache-Control":
-          "no-store, no-cache, must-revalidate, proxy-revalidate",
-        Pragma: "no-cache",
-        Expires: "0",
-      },
-    });
+    return NextResponse.json(data);
   } catch (error) {
-    console.error("Pending transfers API error:", error);
+    console.error("Staked events API error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

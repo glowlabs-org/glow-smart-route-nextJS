@@ -115,9 +115,6 @@ export function FailedOperationsTab({
     <Card className="border border-border bg-card/90 backdrop-blur-sm">
       <CardHeader className="border-b">
         <CardTitle className="text-xl font-bold text-foreground flex items-center">
-          <div className="w-6 h-6 bg-destructive rounded-md mr-3 flex items-center justify-center">
-            <AlertTriangle className="w-3 h-3 text-white" />
-          </div>
           Failed Operations
           <span className="ml-auto text-sm font-normal text-muted-foreground bg-card px-3 py-1 rounded-full border border-border">
             {failedOperations.length} failed

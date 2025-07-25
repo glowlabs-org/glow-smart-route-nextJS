@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get("limit") || "50";
 
     const response = await fetch(
-      `${BASE_URL}/transfers/pending?page=${page}&limit=${limit}`,
+      `${BASE_URL}/events/stake?page=${page}&limit=${limit}`,
       {
         method: "GET",
         headers: {
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: "Failed to fetch pending transfers" },
+        { error: "Failed to fetch stake events" },
         { status: response.status }
       );
     }
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Pending transfers API error:", error);
+    console.error("Stake events API error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

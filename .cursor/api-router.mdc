@@ -14,10 +14,12 @@ This directory implements the API for purchasing GCTL with USDC off-chain, integ
   - `GET /balance/:wallet` – current minted GCTL balance (via `wallet_gctl_balance` view).
   - `GET /price` – current GCTL price in USDC effective at the current time.
   - `POST /stake` / `POST /unstake` – record GCTL stake & unstake events.
+  - `GET /regions` – list all regions with their status information and current GCTL stake totals.
   - `GET /region/:regionId/stake` – current GCTL stake for a region (via `region_current_stake` view).
   - `GET /wallet/:wallet/region/:regionId/stake` – wallet-specific stake in a region.
   - `GET /wallet/:wallet/region/:regionId/unlocked` – unlocked stake amount (respecting lock-up).
   - `GET /events/minted` – paginated list of finalized USDC → GCTL purchase events.
+  - `GET /events/stake` – paginated list of GCTL stake events.
   - `GET /transfers/pending` – paginated list of detected but unconfirmed USDC transfers.
   - `GET /operations/failed` – paginated list of failed processing operations.
 
@@ -27,7 +29,7 @@ This directory implements the API for purchasing GCTL with USDC off-chain, integ
 
   - Event tables: `control_minted_events`, `control_stake_events`.
   - Support tables: `transfers`, `failed_operations`, `processed_blocks`, `wallets`, `regions`.
-  - Derived views: `wallet_gctl_balance`, `region_current_stake`, `wallet_region_stake`, `wallet_region_unlocked`.
+  - Derived views: `wallet_gctl_balance`, `region_current_stake`, `wallet_region_stake`.
 
 - **getters.ts**: DB query functions:
 
@@ -71,6 +73,7 @@ This directory implements the API for purchasing GCTL with USDC off-chain, integ
 6. **Data Listing**: Paginated endpoints for operational monitoring:
 
    - `GET /events/minted?page=1&limit=50` – View finalized purchase events with bigint/date fields converted to strings.
+   - `GET /events/stake?page=1&limit=50` – View GCTL stake events with comprehensive transaction history.
    - `GET /transfers/pending?page=1&limit=50` – Monitor unconfirmed transfers awaiting processing.
    - `GET /operations/failed?page=1&limit=50` – Review failed operations for debugging and retry analysis.
 
@@ -118,6 +121,7 @@ Use Swagger or `curl` to inspect `/submit-transfers-batch` responses in real-tim
 
 ### Region & Wallet Queries
 
+- `GET /regions` – Get all regions with status information and current GCTL stake totals
 - `GET /region/:regionId/stake` – Total GCTL staked in region
 - `GET /wallet/:wallet/region/:regionId/stake` – Wallet's stake in specific region
 - `GET /wallet/:wallet/region/:regionId/unlocked` – Unlocked stake available for unstaking
@@ -125,6 +129,7 @@ Use Swagger or `curl` to inspect `/submit-transfers-batch` responses in real-tim
 ### Data Listing (Paginated)
 
 - `GET /events/minted?page=1&limit=50` – Finalized purchase events
+- `GET /events/stake?page=1&limit=50` – GCTL stake events
 - `GET /transfers/pending?page=1&limit=50` – Pending USDC transfers
 - `GET /operations/failed?page=1&limit=50` – Failed processing operations
 
@@ -187,6 +192,25 @@ All paginated endpoints support optional `page` (1-indexed) and `limit` (max 100
 
 ### Region & Wallet Queries
 
+#### `GET /regions`
+
+```typescript
+// Success
+{
+  regions: Array<{
+    id: number;
+    name: string;
+    isUs: boolean;
+    isActive: boolean;
+    currentGctlStake: string;
+  }>;
+}
+// Error
+{
+  error: string;
+}
+```
+
 #### `GET /region/:regionId/stake`
 
 ```typescript
@@ -241,6 +265,27 @@ All paginated endpoints support optional `page` (1-indexed) and `limit` (max 100
     amountWei: string,
     currency: string,
     gctlMinted: string,
+    ts: string  // ISO date string
+  }>
+}
+// Error
+{ error: string }
+```
+
+#### `GET /events/stake`
+
+```typescript
+// Success
+{
+  page: number,
+  limit: number,
+  events: Array<{
+    id: string,
+    epoch: number,
+    wallet: string,
+    regionId: number,
+    amount: string,
+    direction: string,  // 'stake' | 'unstake'
     ts: string  // ISO date string
   }>
 }

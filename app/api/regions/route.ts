@@ -1,15 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 const BASE_URL = "https://glow-impact-backend-staging.up.railway.app";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { wallet: string } }
-) {
+export async function GET() {
   try {
-    const { wallet } = params;
-
-    const response = await fetch(`${BASE_URL}/balance/${wallet}`, {
+    const response = await fetch(`${BASE_URL}/regions`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -19,7 +14,7 @@ export async function GET(
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: "Failed to fetch balance" },
+        { error: "Failed to fetch regions" },
         { status: response.status }
       );
     }
@@ -34,7 +29,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Balance API error:", error);
+    console.error("Regions API error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

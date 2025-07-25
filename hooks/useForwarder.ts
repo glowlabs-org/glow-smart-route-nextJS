@@ -227,11 +227,45 @@ export function useForwarder() {
     }
   }
 
+  /**
+   * Mint test USDC (only works on testnets with mintable USDC contracts)
+   * @param amount Amount of USDC to mint (BigNumber, 6 decimals)
+   * @param recipient Address to mint USDC to
+   */
+  async function mintTestUSDC(
+    amount: BigNumber,
+    recipient: string
+  ): Promise<Result<string, ForwarderError | string>> {
+    try {
+      const usdcContract = getUSDCContract();
+      if (!usdcContract) return new Err(ForwarderError.CONTRACT_NOT_AVAILABLE);
+      if (!signer) return new Err(ForwarderError.SIGNER_NOT_AVAILABLE);
+
+      setIsProcessing(true);
+
+      // Try to call mint function (common for test tokens)
+      const tx = await usdcContract.mint(recipient, amount);
+      await tx.wait();
+
+      return new Ok(tx.hash);
+    } catch (error: any) {
+      // If mint function doesn't exist or fails, provide helpful error
+      const errorMessage = parseEthersError(error);
+      if (errorMessage.includes("mint")) {
+        return new Err("This USDC contract doesn't support minting");
+      }
+      return new Err(errorMessage);
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
   return {
     forwardUSDC,
     approveUSDC,
     checkAllowance,
     estimateGasForForward,
+    mintTestUSDC,
     isProcessing,
     addresses: ADDRESSES,
   };
