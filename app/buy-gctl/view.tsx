@@ -116,8 +116,8 @@ export default function BuyGctlView() {
     const txTime = new Date(transactionTimestamp).getTime();
     const now = Date.now();
     const elapsed = now - txTime;
-    const twentyMinutes = 20 * 60 * 1000; // 20 minutes in ms
-    const remaining = Math.max(0, twentyMinutes - elapsed);
+    const fortyFiveSeconds = 45 * 1000; // 45 seconds in ms
+    const remaining = Math.max(0, fortyFiveSeconds - elapsed);
     return remaining;
   };
 
@@ -149,7 +149,7 @@ export default function BuyGctlView() {
     setTxId(txHash); // Add to query params
     setIsProcessingTransaction(true);
     setProcessingStartTime(Date.now());
-    setTimeRemaining(20 * 60 * 1000); // 20 minutes
+    setTimeRemaining(45 * 1000); // 45 seconds
 
     // Initial fetch to check if transaction appears quickly
     setTimeout(() => {
@@ -223,7 +223,7 @@ export default function BuyGctlView() {
 
       // Fallback to elapsed time calculation if no pending transfer found
       const elapsed = Date.now() - processingStartTime;
-      const remaining = Math.max(0, 20 * 60 * 1000 - elapsed); // 20 minutes in ms
+      const remaining = Math.max(0, 45 * 1000 - elapsed); // 45 seconds in ms
       setTimeRemaining(remaining);
 
       if (remaining === 0) {
@@ -247,7 +247,7 @@ export default function BuyGctlView() {
     const interval = setInterval(async () => {
       await fetchPendingTransfers();
       await fetchMintedEvents();
-    }, 30000); // Check every 30 seconds
+    }, 10000); // Check every 10 seconds
 
     return () => clearInterval(interval);
   }, [
@@ -316,8 +316,8 @@ export default function BuyGctlView() {
         const remainingTime = calculateRemainingTime(pendingTransfer.ts);
         setTimeRemaining(remainingTime);
       } else {
-        // Fallback to 20 minutes if transfer not found yet
-        setTimeRemaining(20 * 60 * 1000); // 20 minutes
+        // Fallback to 45 seconds if transfer not found yet
+        setTimeRemaining(45 * 1000); // 45 seconds
       }
 
       // Fetch latest data to check transaction status

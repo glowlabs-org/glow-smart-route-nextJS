@@ -39,7 +39,7 @@ export function ProcessingModal({
 
   const progressPercentage = Math.max(
     0,
-    Math.min(100, ((20 * 60 * 1000 - timeRemaining) / (20 * 60 * 1000)) * 100)
+    Math.min(100, ((45 * 1000 - timeRemaining) / (45 * 1000)) * 100)
   );
 
   return (
@@ -86,7 +86,7 @@ export function ProcessingModal({
             </div>
             <div className="text-xs text-muted-foreground">
               {Math.round(progressPercentage)}% complete • Checking status every
-              30s
+              10s
             </div>
           </div>
 

@@ -13,6 +13,7 @@ import { Loader2, ArrowUpDown, Info, HelpCircle } from "lucide-react";
 import { ERC20_ABI } from "@/web3/web3/abis/erc20.abi";
 import { useForwarder } from "@/hooks/useForwarder";
 import { BigNumber } from "ethers";
+import { ConnectButton } from "@/components/connect-button";
 
 interface PurchaseGctlTabProps {
   gctlBalance: string;
@@ -194,7 +195,7 @@ export function PurchaseGctlTab({
       if (result.ok) {
         const txHash = result.val;
         const expectedGctl = parseFloat(outputAmount);
-        const eta = new Date(Date.now() + 20 * 60 * 1000); // 20 minutes from now
+        const eta = new Date(Date.now() + 45 * 1000); // 45 seconds from now
 
         // Notify parent component about transaction start
         onTransactionStart(txHash);
@@ -582,47 +583,52 @@ export function PurchaseGctlTab({
         )}
 
         {/* Buy Button */}
-        <Button
-          className="w-full h-14 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
-          onClick={handleBuy}
-          disabled={
-            !isConnected ||
-            !isOnSepolia ||
-            !inputAmount ||
-            !!inputError ||
-            loading ||
-            isProcessing ||
-            gctlDataLoading ||
-            gctlPrice <= 0
-          }
-        >
-          {loading || isProcessing ? (
-            <>
-              <Loader2 className="mr-3 h-5 w-5 animate-spin" />
-              {needsApproval ? "Approving & Purchasing..." : "Purchasing..."}
-            </>
-          ) : !isConnected ? (
-            "Connect Wallet"
-          ) : !isOnSepolia ? (
-            "Switch to Sepolia"
-          ) : gctlDataLoading ? (
-            <>
-              <Loader2 className="mr-3 h-5 w-5 animate-spin" />
-              Loading Data...
-            </>
-          ) : gctlPrice <= 0 ? (
-            <>
-              <Loader2 className="mr-3 h-5 w-5 animate-spin" />
-              Loading Price...
-            </>
-          ) : inputError ? (
-            "Fix Errors Above"
-          ) : !inputAmount ? (
-            "Enter Amount to Buy GCTL"
-          ) : (
-            dynamicButtonText
-          )}
-        </Button>
+        {!isConnected ? (
+          <ConnectButton
+            variant="default"
+            size="large"
+            className="w-full rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
+          />
+        ) : (
+          <Button
+            className="w-full h-14 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
+            onClick={handleBuy}
+            disabled={
+              !isOnSepolia ||
+              !inputAmount ||
+              !!inputError ||
+              loading ||
+              isProcessing ||
+              gctlDataLoading ||
+              gctlPrice <= 0
+            }
+          >
+            {loading || isProcessing ? (
+              <>
+                <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+                {needsApproval ? "Approving & Purchasing..." : "Purchasing..."}
+              </>
+            ) : !isOnSepolia ? (
+              "Switch to Sepolia"
+            ) : gctlDataLoading ? (
+              <>
+                <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+                Loading Data...
+              </>
+            ) : gctlPrice <= 0 ? (
+              <>
+                <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+                Loading Price...
+              </>
+            ) : inputError ? (
+              "Fix Errors Above"
+            ) : !inputAmount ? (
+              "Enter Amount to Buy GCTL"
+            ) : (
+              dynamicButtonText
+            )}
+          </Button>
+        )}
 
         {/* Network Warning */}
         {!isOnSepolia && (
@@ -683,7 +689,7 @@ export function PurchaseGctlTab({
                     Processing Time
                   </p>
                   <p className="text-blue-700">
-                    GCTL is credited within ~20 minutes of your USDC transaction
+                    GCTL is credited within ~1 minute of your USDC transaction
                   </p>
                 </div>
               </div>

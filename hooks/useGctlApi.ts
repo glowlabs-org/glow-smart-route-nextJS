@@ -474,6 +474,49 @@ export function useGctlApi(walletAddress?: string) {
     },
   });
 
+  // Retry Failed Operation Mutation
+  const retryFailedOperationMutation = useMutation({
+    mutationFn: async (operationId: string) => {
+      const res = await fetch(
+        `${BASE_URL}/operations/failed/${operationId}/retry`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData?.error || "Failed to retry operation");
+      }
+
+      return await res.json();
+    },
+    onSuccess: () => {
+      // Invalidate failed operations to refresh the list
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.failedOperations(),
+      });
+      // Also invalidate other relevant queries as the retry might affect them
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.pendingTransfers(),
+      });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.mintedEvents() });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.gctlBalance(walletAddress),
+      });
+    },
+    onError: (error) => {
+      console.error("Retry failed operation error:", error);
+      // Still invalidate to refresh the state
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.failedOperations(),
+      });
+    },
+  });
+
   // ----------------------- Legacy API functions (for compatibility) ------
 
   const fetchGctlBalance = useCallback(async (): Promise<
@@ -624,6 +667,18 @@ export function useGctlApi(walletAddress?: string) {
     [unstakeMutation]
   );
 
+  const retryFailedOperation = useCallback(
+    async (operationId: string): Promise<Result<boolean, string>> => {
+      try {
+        await retryFailedOperationMutation.mutateAsync(operationId);
+        return new Ok(true);
+      } catch (error) {
+        return new Err(parseApiError(error));
+      }
+    },
+    [retryFailedOperationMutation]
+  );
+
   // --------------------------- Exports -----------------------------------
   return {
     // Data
@@ -657,6 +712,7 @@ export function useGctlApi(walletAddress?: string) {
     fetchWalletRegionUnlocked,
     stakeGctl,
     unstakeGctl,
+    retryFailedOperation,
 
     // New React Query hooks for conditional usage
     useRegionStake,
@@ -666,5 +722,6 @@ export function useGctlApi(walletAddress?: string) {
     // Mutation states
     isStaking: stakeMutation.isPending,
     isUnstaking: unstakeMutation.isPending,
+    isRetryingFailedOperation: retryFailedOperationMutation.isPending,
   } as const;
 }

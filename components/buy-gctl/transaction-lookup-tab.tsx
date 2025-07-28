@@ -43,8 +43,8 @@ export function TransactionLookupTab({
     const txTime = new Date(transactionTimestamp).getTime();
     const now = Date.now();
     const elapsed = now - txTime;
-    const twentyMinutes = 20 * 60 * 1000; // 20 minutes in ms
-    const remaining = Math.max(0, twentyMinutes - elapsed);
+    const fortyFiveSeconds = 45 * 1000; // 45 seconds in ms
+    const remaining = Math.max(0, fortyFiveSeconds - elapsed);
     return remaining;
   };
 
@@ -128,7 +128,7 @@ export function TransactionLookupTab({
 
       // Transaction not found in any category
       toast.error(
-        "Transaction not found. Transactions can take up to 60 seconds to appear in our system. Please wait and try again."
+        "Transaction not found. Transactions can take up to 45 seconds to appear in our system. Please wait and try again."
       );
     } catch (error) {
       console.error("Error looking up transaction:", error);
@@ -228,7 +228,7 @@ export function TransactionLookupTab({
                 completed, pending, or failed.
               </p>
               <p className="text-blue-600 font-medium">
-                ⏱️ New transactions can take up to 60 seconds to appear in our
+                ⏱️ New transactions can take up to 45 seconds to appear in our
                 system.
               </p>
             </div>

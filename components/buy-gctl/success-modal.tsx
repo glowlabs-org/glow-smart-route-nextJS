@@ -45,7 +45,7 @@ export function SuccessModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent className="bg-card rounded-3xl p-0 md:max-w-md w-full border-border shadow-2xl overflow-hidden">
+      <DialogContent className="bg-card rounded-3xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden">
         <div className="px-8 py-12 text-center">
           {/* Amount Display */}
           <div className="mb-6">

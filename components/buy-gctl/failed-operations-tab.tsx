@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { formatUnits } from "viem";
 import { toast } from "sonner";
+import { useGctlApi } from "@/hooks/useGctlApi";
 
 interface FailedOperation {
   id: string;
@@ -111,6 +112,27 @@ export function FailedOperationsTab({
   dataLoading,
   usdcDecimals,
 }: FailedOperationsTabProps) {
+  const { retryFailedOperation, isRetryingFailedOperation } = useGctlApi();
+  const [retryingOperationId, setRetryingOperationId] = useState<string | null>(
+    null
+  );
+
+  const handleRetry = async (operationId: string) => {
+    setRetryingOperationId(operationId);
+    try {
+      const result = await retryFailedOperation(operationId);
+      if (result.ok) {
+        toast.success("Operation retry initiated successfully");
+      } else {
+        toast.error(`Failed to retry operation: ${result.val}`);
+      }
+    } catch (error) {
+      toast.error("Failed to retry operation");
+    } finally {
+      setRetryingOperationId(null);
+    }
+  };
+
   return (
     <Card className="border border-border bg-card/90 backdrop-blur-sm">
       <CardHeader className="border-b">
@@ -187,6 +209,9 @@ export function FailedOperationsTab({
                   </TableHead>
                   <TableHead className="font-semibold text-foreground whitespace-nowrap">
                     Error & Transaction
+                  </TableHead>
+                  <TableHead className="font-semibold text-foreground whitespace-nowrap">
+                    Actions
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -313,6 +338,32 @@ export function FailedOperationsTab({
                           <CopyableAddress address={operation.txId} type="tx" />
                         </div>
                       </div>
+                    </TableCell>
+                    <TableCell className="py-4">
+                      {operation.isRetryable === "true" ? (
+                        <Button
+                          size="sm"
+                          onClick={() => handleRetry(operation.id)}
+                          disabled={
+                            retryingOperationId === operation.id ||
+                            isRetryingFailedOperation
+                          }
+                          title="Retry failed operation"
+                        >
+                          {retryingOperationId === operation.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                          ) : (
+                            <RefreshCw className="w-3 h-3 mr-1" />
+                          )}
+                          {retryingOperationId === operation.id
+                            ? "Retrying..."
+                            : "Retry"}
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          Not retryable
+                        </span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
