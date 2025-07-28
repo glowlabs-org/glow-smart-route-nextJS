@@ -1,5 +1,6 @@
 import { useEthersSigner } from "./useEthersSigner";
 import { BigNumber, ethers } from "ethers";
+import type { BigNumberish } from "ethers";
 import { Result, Ok, Err } from "ts-results";
 
 import { formatUnits, erc20Abi } from "viem";
@@ -104,9 +105,12 @@ export function useUSDGRedemption() {
    * Handles allowance: if insufficient, approve MaxUint256 first
    * @param amountUSDG Amount of USDG to redeem (BigNumber, 6 decimals)
    */
+  // Accept any BigNumberish (BigNumber, bigint, string, etc.) and convert
   async function redeemUSDGForUSDC(
-    amountUSDG: BigNumber
+    amountUSDG: BigNumberish
   ): Promise<Result<boolean, USDGRedemptionError | string>> {
+    // Normalize to BigNumber early to avoid mixing bigint & BigNumber later
+    const amountBN = BigNumber.from(amountUSDG.toString());
     try {
       const contract = getContract();
       if (!contract) return new Err(USDGRedemptionError.CONTRACT_NOT_AVAILABLE);
@@ -120,11 +124,15 @@ export function useUSDGRedemption() {
         USDG_REDEMPTION_ADDRESS
       );
 
-      if (allowance.lt(amountUSDG)) {
+      // Always force EIP-1559 (type 2) transactions
+      const eip1559Overrides = { type: 2 } as const;
+
+      if (allowance.lt(amountBN)) {
         try {
           const approveTx = await usdg.approve(
             USDG_REDEMPTION_ADDRESS,
-            ethers.constants.MaxUint256
+            ethers.constants.MaxUint256,
+            eip1559Overrides
           );
           await approveTx.wait();
         } catch (approveError) {
@@ -136,12 +144,15 @@ export function useUSDGRedemption() {
 
       // Run a static call first so that we can surface any revert reason to the UI
       try {
-        await contract.callStatic.exchange(amountUSDG, { from: owner });
+        await contract.callStatic.exchange(amountBN, {
+          from: owner,
+          ...eip1559Overrides,
+        });
       } catch (staticError) {
         return new Err(parseEthersError(staticError));
       }
 
-      const tx = await contract.exchange(amountUSDG);
+      const tx = await contract.exchange(amountBN, eip1559Overrides);
       await tx.wait();
 
       return new Ok(true);
@@ -156,15 +167,18 @@ export function useUSDGRedemption() {
    * @param ethPriceInUSD Current ETH price in USD (for cost estimation)
    */
   async function estimateGasForRedeemUSDG(
-    amountUSDG: BigNumber,
+    amountUSDG: BigNumberish,
     ethPriceInUSD: number | null
   ): Promise<Result<string, USDGRedemptionError | string>> {
     try {
+      const amountBN = BigNumber.from(amountUSDG.toString());
       const contract = getContract();
       if (!contract) return new Err(USDGRedemptionError.CONTRACT_NOT_AVAILABLE);
       if (!signer) return new Err(USDGRedemptionError.SIGNER_NOT_AVAILABLE);
       const gasPrice = await signer.getGasPrice();
-      const estimatedGas = await contract.estimateGas.exchange(amountUSDG);
+      const estimatedGas = await contract.estimateGas.exchange(amountBN, {
+        type: 2,
+      });
       const estimatedCost = estimatedGas.mul(gasPrice);
       if (ethPriceInUSD) {
         const estimatedCostInEth = ethers.utils.formatEther(estimatedCost);
