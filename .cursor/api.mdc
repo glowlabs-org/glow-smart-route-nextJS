@@ -7,10 +7,7 @@ alwaysApply: false
 
 ## 📖 README Index
 
-- [Main Repository Overview](README.md)
-- [Ponder Indexer](ponder/README.md)
-- [BullMQ Jobs](src/jobs/README.md)
-- [Control Router API](src/routers/control/README.md)
+- ](RndeondllMs/Rter API](src/routers/control/README.md)
 - [Helper Scripts](scripts/README.md)
 - [Weekly Report Generator](src/reports/README.md)
 
@@ -26,7 +23,7 @@ End-to-end infrastructure for off-chain purchasing of GCTL tokens with on-chain 
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `src/index.ts`        | Elysia HTTP server (port 3000) – registers the purchase router and exposes Swagger docs.                                   |
 | `src/routers/control` | Core control logic: transfer validation, balance endpoint, staking functionality _(see docs)_.                             |
-| `src/jobs`            | BullMQ queue+worker that confirms transactions and finalises purchases _(see README inside)_.                              |
+| `src/jobs`            | BullMQ queues + workers (purchase confirmation **and** block-finality checks) _(see README inside)_.                       |
 | `ponder/`             | Ponder blockchain indexer **and** `src/poller.ts` which bridges on-chain events to the purchase API _(see README inside)_. |
 | `src/db`              | Drizzle schema shared by all components.                                                                                   |
 | `src/utils`           | Decimal-safe helpers for BigInt ↔︎ human conversions.                                                                      |
@@ -47,7 +44,7 @@ flowchart TD
     A[User Wallet] -->|Forwarder.forward| B[Foundation Wallet]
     B -->|USDC Transfer Event| C[Ponder Indexer]
     C -->|Insert into forward_event| D[Postgres]
-    D -->|Poll every 60 s| E[Poller src/poller.ts]
+    D -->|Poll every 5 s| E[Poller src/poller.ts]
     E -->|submit-transfers-batch service| F[src/routers/control/submit-transfers-batch.ts]
     F -->|Validate & Queue| G[transfers / BullMQ]
     G --> H[Confirm-Purchase Worker]
@@ -56,21 +53,22 @@ flowchart TD
     J -->|GET /balance| K[Balance Endpoint]
 ```
 
-1. **Forwarder Transfer** – A user calls `Forwarder.forward(amount, message)` sending USDC from their wallet to the **foundation wallet**.
-2. **Indexing** – [Ponder](ponder/README.md) watches `Forward` events on-chain and inserts them into the `forward_event` table (same Postgres instance used by the API).
-3. **Polling** – [`src/poller.ts`](src/poller.ts) runs every 60 s. It retrieves forward events with `blockNumber > processed_blocks.lastProcessedBlock` while leaving a two-block **confirmation depth** safety margin.
-4. **Batch Submission** – The poller POSTs the events to `/submit-transfers-batch` (Elysia). The payload distinguishes different transfer types (`PayProtocolFee`, `MintGCTL`, `BuySolarFarm`) based on the `message` format.
+1. **Forwarder Transfer** – A lls `Forwarder.forward(amount, message)` sending USDC from their wallet to the **foundation wallet**.
+2. **Indexing** – [Ponder](ponder/READMErward` events on-chain and inserts them into the `forward_event` table (same Postgres instance used by the API).
+3. **Polling** – [`src/poller.ts`](src/poller.ts) runs every 5s. It retrieves forward events with `blockNumber > processed_blocks.lastProcessedBlock` while leaving a two-block **confirmation depth** safety margin.
+4. **Batch Submission** – The poller POSTs the events to `/submit-transfers-batch` (Elysia).ifferent transfer types (`PayProtocolFee`, `MintGCTL`, `MintGCTLAndStake`, `PayProtocolFeeAndMintGCTLAndStake`, `BuySolarFarm`) based on the `message` format.
 5. **Validation & Queuing** – [`submit-transfers-batch.ts`](src/routers/control/submit-transfers-batch.ts)
    • **Input validation**: Format checks for txHash, wallet, amount, timestamp, and type-specific requirements.
    • **Duplicate detection**: Against minted & pending tables.  
    • **Application validation**: For PayProtocolFee transfers, validates `applicationId` against HUB API.
    • **On-chain validation**: Verifies transaction calls `forwarder.forward()` with correct parameters.
-   • **Message validation**: Ensures message follows `Type::Data` format and matches transfer metadata.
+   • **Message validation**: Ensures message follows `Type::Data` format and ata.
    • Stores valid rows in **transfers** table.  
    • Transfers older than 15 min attempt **immediate confirmation**; newer ones are added to the **`confirm-purchase`** BullMQ queue (1 retry, 5 min back-off).
-6. **Confirmation Worker** – [`confirm-purchase.ts`](src/jobs/confirm-purchase.ts) performs comprehensive validation including finality checks, Forward event validation, HUB re-validation, computes `gctl_minted` from historical price, updates the DB inside a single transaction, and (if `applicationId`) calls HUB `/finalize-payment` and stakes GCTL.
-7. **Persistence & Audit** – On success the worker writes **control_minted_events** and cleans up any previous failures. All errors—transient or permanent—are captured in **failed_operations** with retry metadata.
-8. **Balance API** – `GET /balance/:wallet` derives GCTL owed from `wallet_gctl_balance` view (no additional writes).
+6. **Confirmation Worker** – [`confirm-purchase.ts`](src/jobs/confirm-purchase.ts) waits for ≥3 confirmations, validates the Forward event, re-validates with HUB, computes `gctl_minted`, updates the DB in a single transaction and, on success, en-queues a delayed job in **`check-finalization`** queue.
+7. **Finalization Worker** – [`finalization-worker.ts`](src/jobs/finalization-worker.ts) runs ~15 min later; it verifies the block is `finalized`. One miss triggers a retryable failure, a second consecutive miss assumes a chain re-org, marks the transfer _failed_ and logs the event.
+8. **Persistence & Audit** – Both workers write to **failed_operations** (retry metadata) and, on success, clean up previous failure rows. `finalization-worker` updates the transfer status to **finalized**.
+9. **Balance API** – `GET /balance/:wallet` derives GCTL owed from `wallet_gctl_balance` view (no additional writes).
 
 The result: from on-chain transfer to minted GCTL with full auditability, retry semantics, and zero silent failures.
 
@@ -160,7 +158,7 @@ bun run dev           # concurrently runs dev:api, dev:worker, dev:ponder
 
 #    — or — start them individually in separate terminals
 bun run dev:api       # Elysia HTTP API (Swagger: http://localhost:3000/swagger)
-bun run dev:worker    # BullMQ confirmation worker
+bun run dev:worker    # BullMQ confirmation & finalization workers (concurrently)
 bun run dev:ponder    # Ponder blockchain indexer (GraphQL: http://localhost:42069/graphql)
 
 # 3. Start the poller that bridges indexed events to the API (needs CHAIN_ID & PONDER_URL)
@@ -195,7 +193,7 @@ The system implements comprehensive security through multiple validation layers:
 
 ### **Transfer Type Safety**
 
-- Validates transfer types against allowed values: `PayProtocolFee`, `MintGCTL`, `BuySolarFarm`
+- Validates transfer types against allowed values: `PayProtocolFee`, `PayProtocolFeeAndMintGCTLAndStake`, `MintGCTL`, `MintGCTLAndStake`, `BuySolarFarm`
 - Enforces message format consistency: `Type::Data` where Type matches the transfer type
 - Prevents type confusion attacks through strict validation
 
@@ -235,12 +233,11 @@ bun run scripts/generate-wallets.ts
    • Get ETH from any Sepolia faucet.
    • For USDC you can use Circle's faucet or send from an existing balance.
 
-3. **Send transfers** – broadcasts one `transfer` TX per wallet to the foundation wallet.
+3. **Send transfers** – broadcasts one `transfer` Toundation wallet.
 
 ```bash
-SEPOLIA_RPC_URL=<https://sepolia.infura.io/v3/…> \
-USDC_ADDRESS_SEPOLIA=<0x…USDC> \
- bun run scripts/simulate-usdc-transfers.ts
+Sinfura.io/v3/…> \
+USDC_ADDRESS_SEbun run scripts/simulate-usdc-transfers.ts
 ```
 
 4. Once the transfers are mined they flow through **indexer → poller → purchase router → job queue → worker** exactly like mainnet.

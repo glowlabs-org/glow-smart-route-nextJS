@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,11 +14,13 @@ import {
   ArrowUpRight,
   Users,
   MapPin,
+  AlertCircle,
 } from "lucide-react";
 import { parseUnits, formatUnits } from "viem";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
 import { useGctlApi } from "@/hooks/useGctlApi";
+import { ConnectButton } from "@/components/connect-button";
 
 export function StakeGctlTab() {
   const { address, isConnected } = useAccount();
@@ -167,6 +169,10 @@ export function StakeGctlTab() {
         <CardTitle className="text-2xl font-bold text-foreground flex items-center">
           Stake GCTL
         </CardTitle>
+        <div className="text-muted-foreground">
+          Stake your GCTL tokens to support renewable energy projects and earn
+          rewards
+        </div>
       </CardHeader>
 
       <CardContent className="p-6 space-y-8">
@@ -599,6 +605,14 @@ export function StakeGctlTab() {
                     <p>
                       Staking supports renewable energy projects in your
                       selected region
+                    </p>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <p>
+                      Need GCTL tokens? Use the{" "}
+                      <span className="font-semibold">Buy GCTL</span> tab to
+                      purchase and optionally stake in one transaction
                     </p>
                   </div>
                 </div>

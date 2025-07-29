@@ -392,10 +392,16 @@ This provides operators a simple, idempotent way to trigger re-processing withou
   txHash: string,        // 0x-prefixed 64-char hex
   wallet: string,        // 0x-prefixed 40-char hex
   amountWei: string,     // Amount in wei as string
-  type: "PayProtocolFee" | "MintGCTL" | "BuySolarFarm",
+  type:
+    | "PayProtocolFeeAndMintGCTLAndStake"
+    | "PayProtocolFee"
+    | "MintGCTLAndStake"
+    | "MintGCTL"
+    | "BuySolarFarm",
   currency: "USDC" | "USDG" | "GLW" | "0x...",
-  applicationId?: string, // Required for PayProtocolFee
-  farmId?: string        // Required for BuySolarFarm
+  applicationId?: string, // Required for PayProtocolFee* variants
+  farmId?: string,        // Required for BuySolarFarm
+  regionId?: number       // Required for *AndStake variants when not tied to application
 }
 ```
 

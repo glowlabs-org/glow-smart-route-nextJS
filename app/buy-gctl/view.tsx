@@ -31,21 +31,13 @@ import { StakeGctlTab } from "@/components/buy-gctl/stake-gctl-tab";
 import { PurchaseGctlTab } from "@/components/buy-gctl/purchase-gctl-tab";
 import { TransactionLookupTab } from "@/components/buy-gctl/transaction-lookup-tab";
 import { DashboardTab } from "@/components/buy-gctl/dashboard-tab";
+import { ProtocolFeeTab } from "@/components/buy-gctl/protocol-fee-tab";
 
 export default function BuyGctlView() {
   // =================================================================
   // HOOKS & WALLET STATE
   // =================================================================
-  const { address, isConnected } = useAccount();
-  const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
-  const chainId = useChainId();
-  const isOnSepolia = chainId === 11155111;
-
-  // Forwarder hook for USDC transactions
-  const { forwardUSDC, checkAllowance, isProcessing, addresses } =
-    useForwarder();
-
+  const { address } = useAccount();
   // =================================================================
   // URL STATE MANAGEMENT
   // =================================================================
@@ -373,6 +365,12 @@ export default function BuyGctlView() {
         trackingTxHash={trackingTxHash}
         gctlPrice={gctlPrice}
         usdcAmount=""
+        onRefreshData={async () => {
+          await fetchPendingTransfers();
+          await fetchMintedEvents();
+          await fetchFailedOperations();
+          await fetchStakedEvents();
+        }}
       />
 
       {/* Processing Modal */}
@@ -398,7 +396,7 @@ export default function BuyGctlView() {
               className="space-y-6"
             >
               <div className="bg-card rounded-lg p-2 border border-border">
-                <TabsList className="grid w-full grid-cols-4 bg-transparent gap-1">
+                <TabsList className="grid w-full grid-cols-5 bg-transparent gap-1">
                   <TabsTrigger
                     value="dashboard"
                     className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -422,6 +420,12 @@ export default function BuyGctlView() {
                     className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                   >
                     Track Transaction
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="protocol-fee"
+                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  >
+                    Protocol Fee
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -457,6 +461,10 @@ export default function BuyGctlView() {
                   fetchFailedOperations={fetchFailedOperations}
                   onTransactionFound={handleTransactionFound}
                 />
+              </TabsContent>
+
+              <TabsContent value="protocol-fee">
+                <ProtocolFeeTab />
               </TabsContent>
             </Tabs>
           </div>

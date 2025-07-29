@@ -273,6 +273,8 @@ export function useGctlApi(walletAddress?: string) {
     refetchOnMount: true,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchIntervalInBackground: true, // Continue refetching even when window is not focused
     retry: 2,
   });
 

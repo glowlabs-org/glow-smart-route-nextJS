@@ -20,6 +20,30 @@ export enum ForwarderError {
   CONTRACT_NOT_AVAILABLE = "Contract not available",
   SIGNER_NOT_AVAILABLE = "Signer not available",
   UNKNOWN_ERROR = "Unknown error",
+  INVALID_FORWARD_TYPE = "Invalid forward type",
+  MISSING_REQUIRED_PARAMS = "Missing required parameters",
+}
+
+// Forward types based on API router documentation
+export type ForwardType =
+  | "PayProtocolFeeAndMintGCTLAndStake"
+  | "PayProtocolFee"
+  | "MintGCTLAndStake"
+  | "MintGCTL"
+  | "BuySolarFarm";
+
+// Currency types
+export type Currency = "USDC";
+
+// Forward parameters interface
+export interface ForwardParams {
+  amount: BigNumber;
+  userAddress: string;
+  type: ForwardType;
+  currency?: Currency;
+  applicationId?: string;
+  farmId?: string;
+  regionId?: number;
 }
 
 // Utility to extract the most useful revert reason from an ethers error object
@@ -58,24 +82,85 @@ export function useForwarder() {
     return new ethers.Contract(ADDRESSES.FORWARDER, FORWARDER_ABI, signer);
   }
 
-  // Returns a contract instance for USDC
-  function getUSDCContract() {
-    if (!signer) return undefined;
-    return new ethers.Contract(ADDRESSES.USDC, ERC20_ABI, signer);
+  /**
+   * Construct the message for the forward call based on type and parameters
+   */
+  function constructForwardMessage(
+    params: ForwardParams
+  ): Result<string, ForwarderError> {
+    const { type, applicationId, farmId, regionId, userAddress } = params;
+
+    switch (type) {
+      case "PayProtocolFeeAndMintGCTLAndStake":
+        if (!applicationId) {
+          return new Err(ForwarderError.MISSING_REQUIRED_PARAMS);
+        }
+        return new Ok(`PayProtocolFeeAndMintGCTLAndStake::${applicationId}`);
+
+      case "PayProtocolFee":
+        if (!applicationId) {
+          return new Err(ForwarderError.MISSING_REQUIRED_PARAMS);
+        }
+        return new Ok(`PayProtocolFee::${applicationId}`);
+
+      case "MintGCTLAndStake":
+        if (!regionId) {
+          return new Err(ForwarderError.MISSING_REQUIRED_PARAMS);
+        }
+        return new Ok(`MintGCTLAndStake::${regionId}`);
+
+      case "MintGCTL":
+        if (!userAddress) {
+          return new Err(ForwarderError.MISSING_REQUIRED_PARAMS);
+        }
+        return new Ok(`MintGCTL::${userAddress}`);
+
+      case "BuySolarFarm":
+        if (!farmId) {
+          return new Err(ForwarderError.MISSING_REQUIRED_PARAMS);
+        }
+        return new Ok(`BuySolarFarm::${farmId}`);
+
+      default:
+        return new Err(ForwarderError.INVALID_FORWARD_TYPE);
+    }
   }
 
   /**
-   * Check current USDC allowance for the forwarder contract
-   * @param owner The wallet address to check allowance for
+   * Get the appropriate token contract based on currency
    */
-  async function checkAllowance(
-    owner: string
+  function getTokenContract(currency: Currency = "USDC") {
+    if (!signer) return undefined;
+
+    // For now, only USDC is supported
+    let tokenAddress: string;
+    switch (currency) {
+      case "USDC":
+        tokenAddress = ADDRESSES.USDC;
+        break;
+      default:
+        throw new Error(
+          `Currency ${currency} not yet supported. Only USDC is currently supported.`
+        );
+    }
+
+    return new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+  }
+
+  /**
+   * Check current token allowance for the forwarder contract
+   * @param owner The wallet address to check allowance for
+   * @param currency The currency to check allowance for
+   */
+  async function checkTokenAllowance(
+    owner: string,
+    currency: Currency = "USDC"
   ): Promise<Result<BigNumber, ForwarderError | string>> {
     try {
-      const usdcContract = getUSDCContract();
-      if (!usdcContract) return new Err(ForwarderError.CONTRACT_NOT_AVAILABLE);
+      const tokenContract = getTokenContract(currency);
+      if (!tokenContract) return new Err(ForwarderError.CONTRACT_NOT_AVAILABLE);
 
-      const allowance: BigNumber = await usdcContract.allowance(
+      const allowance: BigNumber = await tokenContract.allowance(
         owner,
         ADDRESSES.FORWARDER
       );
@@ -86,21 +171,23 @@ export function useForwarder() {
   }
 
   /**
-   * Approve USDC for the forwarder contract
-   * @param amount Amount to approve (BigNumber, 6 decimals)
+   * Approve tokens for the forwarder contract
+   * @param amount Amount to approve (BigNumber)
+   * @param currency The currency to approve
    */
-  async function approveUSDC(
-    amount: BigNumber
+  async function approveToken(
+    amount: BigNumber,
+    currency: Currency = "USDC"
   ): Promise<Result<boolean, ForwarderError | string>> {
     try {
-      const usdcContract = getUSDCContract();
-      if (!usdcContract) return new Err(ForwarderError.CONTRACT_NOT_AVAILABLE);
+      const tokenContract = getTokenContract(currency);
+      if (!tokenContract) return new Err(ForwarderError.CONTRACT_NOT_AVAILABLE);
       if (!signer) return new Err(ForwarderError.SIGNER_NOT_AVAILABLE);
 
       setIsProcessing(true);
 
       // Use MaxUint256 for unlimited approval
-      const approveTx = await usdcContract.approve(
+      const approveTx = await tokenContract.approve(
         ADDRESSES.FORWARDER,
         ethers.constants.MaxUint256
       );
@@ -115,53 +202,63 @@ export function useForwarder() {
   }
 
   /**
-   * Forward USDC through the forwarder contract
-   * Handles allowance: if insufficient, approve MaxUint256 first
-   * @param amount Amount of USDC to forward (BigNumber, 6 decimals)
-   * @param userAddress User's wallet address for the message
+   * Forward tokens through the forwarder contract with type-specific handling
+   * @param params Forward parameters including type, amount, and required fields
    */
-  async function forwardUSDC(
-    amount: BigNumber,
-    userAddress: string
+  async function forwardTokens(
+    params: ForwardParams
   ): Promise<Result<string, ForwarderError | string>> {
     try {
       const forwarderContract = getForwarderContract();
-      const usdcContract = getUSDCContract();
-      if (!forwarderContract || !usdcContract)
+      if (!forwarderContract)
         return new Err(ForwarderError.CONTRACT_NOT_AVAILABLE);
       if (!signer) return new Err(ForwarderError.SIGNER_NOT_AVAILABLE);
 
       setIsProcessing(true);
 
+      const { amount, currency = "USDC" } = params;
+      const tokenContract = getTokenContract(currency);
+      if (!tokenContract) return new Err(ForwarderError.CONTRACT_NOT_AVAILABLE);
+
       const owner = await signer.getAddress();
 
+      // Construct the appropriate message for this forward type
+      const messageResult = constructForwardMessage(params);
+      if (messageResult.err) {
+        return new Err(messageResult.val);
+      }
+      const message = messageResult.val;
+
       // Check allowance and approve if necessary
-      const allowance: BigNumber = await usdcContract.allowance(
+      const allowance: BigNumber = await tokenContract.allowance(
         owner,
         ADDRESSES.FORWARDER
       );
 
       if (allowance.lt(amount)) {
         try {
-          const approveTx = await usdcContract.approve(
+          const approveTx = await tokenContract.approve(
             ADDRESSES.FORWARDER,
             ethers.constants.MaxUint256
           );
           await approveTx.wait();
         } catch (approveError) {
           return new Err(
-            parseEthersError(approveError) || "USDC approval failed"
+            parseEthersError(approveError) || "Token approval failed"
           );
         }
       }
 
+      // only usdc is supported for now
+      const tokenAddress = ADDRESSES.USDC;
+
       // Run a static call first to surface any revert reason
       try {
         await forwarderContract.callStatic.forward(
-          ADDRESSES.USDC,
+          tokenAddress,
           ADDRESSES.FOUNDATION_WALLET,
           amount,
-          `MintGCTL::${userAddress}`,
+          message,
           { from: owner }
         );
       } catch (staticError) {
@@ -170,10 +267,10 @@ export function useForwarder() {
 
       // Execute the forward transaction
       const tx = await forwarderContract.forward(
-        ADDRESSES.USDC,
+        tokenAddress,
         ADDRESSES.FOUNDATION_WALLET,
         amount,
-        `MintGCTL::${userAddress}`
+        message
       );
       await tx.wait();
 
@@ -186,14 +283,98 @@ export function useForwarder() {
   }
 
   /**
-   * Estimate gas for forwarding USDC
-   * @param amount Amount of USDC to forward (BigNumber, 6 decimals)
-   * @param userAddress User's wallet address for the message
+   * Forward USDC for protocol fee payment and GCTL minting with staking
+   */
+  async function payProtocolFeeAndMintGCTLAndStake(
+    amount: BigNumber,
+    userAddress: string,
+    applicationId: string,
+    regionId?: number
+  ): Promise<Result<string, ForwarderError | string>> {
+    return forwardTokens({
+      amount,
+      userAddress,
+      type: "PayProtocolFeeAndMintGCTLAndStake",
+      currency: "USDC",
+      applicationId,
+      regionId,
+    });
+  }
+
+  /**
+   * Forward USDC for protocol fee payment only
+   */
+  async function payProtocolFee(
+    amount: BigNumber,
+    userAddress: string,
+    applicationId: string
+  ): Promise<Result<string, ForwarderError | string>> {
+    return forwardTokens({
+      amount,
+      userAddress,
+      type: "PayProtocolFee",
+      currency: "USDC",
+      applicationId,
+    });
+  }
+
+  /**
+   * Forward USDC to mint GCTL and stake to a region
+   */
+  async function mintGCTLAndStake(
+    amount: BigNumber,
+    userAddress: string,
+    regionId?: number
+  ): Promise<Result<string, ForwarderError | string>> {
+    return forwardTokens({
+      amount,
+      userAddress,
+      type: "MintGCTLAndStake",
+      currency: "USDC",
+      regionId,
+    });
+  }
+
+  /**
+   * Forward USDC to mint GCTL (existing functionality, keeping for compatibility)
+   */
+  async function mintGCTL(
+    amount: BigNumber,
+    userAddress: string
+  ): Promise<Result<string, ForwarderError | string>> {
+    return forwardTokens({
+      amount,
+      userAddress,
+      type: "MintGCTL",
+      currency: "USDC",
+    });
+  }
+
+  /**
+   * Forward tokens to buy a solar farm
+   */
+  async function buySolarFarm(
+    amount: BigNumber,
+    userAddress: string,
+    farmId: string,
+    currency: Currency = "USDC"
+  ): Promise<Result<string, ForwarderError | string>> {
+    return forwardTokens({
+      amount,
+      userAddress,
+      type: "BuySolarFarm",
+      currency,
+      farmId,
+    });
+  }
+
+  /**
+   * Estimate gas for forwarding with type-specific handling
+   * @param params Forward parameters
    * @param ethPriceInUSD Current ETH price in USD (for cost estimation)
    */
   async function estimateGasForForward(
-    amount: BigNumber,
-    userAddress: string,
+    params: ForwardParams,
     ethPriceInUSD: number | null
   ): Promise<Result<string, ForwarderError | string>> {
     try {
@@ -202,12 +383,24 @@ export function useForwarder() {
         return new Err(ForwarderError.CONTRACT_NOT_AVAILABLE);
       if (!signer) return new Err(ForwarderError.SIGNER_NOT_AVAILABLE);
 
+      const { amount, currency = "USDC" } = params;
+
+      // Construct the appropriate message for this forward type
+      const messageResult = constructForwardMessage(params);
+      if (messageResult.err) {
+        return new Err(messageResult.val);
+      }
+      const message = messageResult.val;
+
+      // Get token address
+      const tokenAddress = currency === "USDC" ? ADDRESSES.USDC : currency;
+
       const gasPrice = await signer.getGasPrice();
       const estimatedGas = await forwarderContract.estimateGas.forward(
-        ADDRESSES.USDC,
+        tokenAddress,
         ADDRESSES.FOUNDATION_WALLET,
         amount,
-        `MintGCTL::${userAddress}`
+        message
       );
       const estimatedCost = estimatedGas.mul(gasPrice);
 
@@ -237,7 +430,7 @@ export function useForwarder() {
     recipient: string
   ): Promise<Result<string, ForwarderError | string>> {
     try {
-      const usdcContract = getUSDCContract();
+      const usdcContract = getTokenContract("USDC"); // Use getTokenContract for consistency
       if (!usdcContract) return new Err(ForwarderError.CONTRACT_NOT_AVAILABLE);
       if (!signer) return new Err(ForwarderError.SIGNER_NOT_AVAILABLE);
 
@@ -261,11 +454,24 @@ export function useForwarder() {
   }
 
   return {
-    forwardUSDC,
-    approveUSDC,
-    checkAllowance,
+    // New methods for different forward types
+    forwardTokens,
+    payProtocolFeeAndMintGCTLAndStake,
+    payProtocolFee,
+    mintGCTLAndStake,
+    mintGCTL,
+    buySolarFarm,
+
+    // Token operations
+    approveToken,
+    checkTokenAllowance,
+
+    // Utility methods
     estimateGasForForward,
     mintTestUSDC,
+    constructForwardMessage,
+
+    // State
     isProcessing,
     addresses: ADDRESSES,
   };

@@ -22,13 +22,14 @@ This directory implements the API for purchasing GCTL with USDC off-chain, integ
   - `GET /events/stake` – paginated list of GCTL stake events.
   - `GET /transfers/pending` – paginated list of detected but unconfirmed USDC transfers.
   - `GET /operations/failed` – paginated list of failed processing operations.
+  - `POST /operations/failed/:id/retry` – manually retry a failed purchase confirmation when `isRetryable` is true.
 
 - **submit-transfers-batch.ts**: Framework-agnostic service that validates an array of USDC transfers, inserts any new pending purchases, queues confirmation jobs, and returns per-transfer status. Used by the poller and (optionally) future HTTP endpoints.
 
 - **db/schema.ts**: Drizzle schema with:
 
   - Event tables: `control_minted_events`, `control_stake_events`.
-  - Support tables: `transfers`, `failed_operations`, `processed_blocks`, `wallets`, `regions`.
+  - Support tables: `transfers`, `failed_operations`, `processed_blocks`, `wallets`, `regions`, `reorg_events`.
   - Derived views: `wallet_gctl_balance`, `region_current_stake`, `wallet_region_stake`.
 
 - **getters.ts**: DB query functions:
@@ -77,11 +78,13 @@ This directory implements the API for purchasing GCTL with USDC off-chain, integ
    - `GET /transfers/pending?page=1&limit=50` – Monitor unconfirmed transfers awaiting processing.
    - `GET /operations/failed?page=1&limit=50` – Review failed operations for debugging and retry analysis.
 
-7. **Staking**:
+7. **Staking & Circuit-breaker**:
 
-   - `POST /stake` creates a `control_stake_events` row (`direction='stake'`) with balance validation.
+   - `POST /stake` creates a `control_stake_events` row (`direction='stake'`) with balance validation **unless staking is frozen by the circuit-breaker**.
    - `POST /unstake` creates a row with `direction='unstake'` subject to 100-epoch lock-up check.
    - Current totals are always accurate because views derive aggregates directly from the immutable event log.
+
+   **Circuit-breaker**: When a chain re-organisation is detected during purchase confirmation, a row is inserted into `reorg_events` and `staking_frozen = true`. While at least one such row exists, the `/stake` endpoint rejects new stakes with a descriptive error.
 
 8. **Wallet Auto-provisioning**: During purchase confirmation the worker inserts the wallet address into `wallets` (`ON CONFLICT DO NOTHING`) so the address registry is always complete.
 
@@ -346,6 +349,40 @@ All paginated endpoints support optional `page` (1-indexed) and `limit` (max 100
 { error: string }
 ```
 
+### Retry Failed Operation
+
+#### `POST /operations/failed/:id/retry`
+
+```typescript
+// Success – confirmation succeeded immediately
+{
+  success: true;
+}
+
+// Success – transaction not yet finalised; re-queued for worker processing
+{
+  queued: true;
+}
+
+// Error examples
+{
+  error: "Failed operation not found";
+}
+{
+  error: "This operation is not marked as retryable";
+}
+{
+  error: "Retry failed";
+}
+```
+
+Call this endpoint with the `id` column from `failed_operations`. If the row is still retryable, the server will:
+
+1. Attempt `confirmPurchase` immediately.
+2. If the transaction still isn’t finalised it re-queues the job with the standard 15-minute back-off.
+
+This provides operators a simple, idempotent way to trigger re-processing without touching Redis.
+
 ## Schema Validation
 
 ### Transfer Request Schema
@@ -355,10 +392,16 @@ All paginated endpoints support optional `page` (1-indexed) and `limit` (max 100
   txHash: string,        // 0x-prefixed 64-char hex
   wallet: string,        // 0x-prefixed 40-char hex
   amountWei: string,     // Amount in wei as string
-  type: "PayProtocolFee" | "MintGCTL" | "BuySolarFarm",
+  type:
+    | "PayProtocolFeeAndMintGCTLAndStake"
+    | "PayProtocolFee"
+    | "MintGCTLAndStake"
+    | "MintGCTL"
+    | "BuySolarFarm",
   currency: "USDC" | "USDG" | "GLW" | "0x...",
-  applicationId?: string, // Required for PayProtocolFee
-  farmId?: string        // Required for BuySolarFarm
+  applicationId?: string, // Required for PayProtocolFee* variants
+  farmId?: string,        // Required for BuySolarFarm
+  regionId?: number       // Required for *AndStake variants when not tied to application
 }
 ```
 

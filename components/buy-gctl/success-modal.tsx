@@ -11,6 +11,7 @@ interface SuccessModalProps {
   trackingTxHash?: string | null;
   gctlPrice?: number;
   usdcAmount?: string;
+  onRefreshData?: () => void;
 }
 
 export function SuccessModal({
@@ -20,7 +21,15 @@ export function SuccessModal({
   trackingTxHash,
   gctlPrice,
   usdcAmount,
+  onRefreshData,
 }: SuccessModalProps) {
+  const handleClose = () => {
+    if (onRefreshData) {
+      onRefreshData();
+    }
+    onClose();
+  };
+
   const copyTxHash = () => {
     if (trackingTxHash) {
       navigator.clipboard.writeText(trackingTxHash);
@@ -44,7 +53,12 @@ export function SuccessModal({
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) handleClose();
+      }}
+    >
       <DialogContent className="bg-card rounded-3xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden">
         <div className="px-8 py-12 text-center">
           {/* Amount Display */}
@@ -125,7 +139,7 @@ export function SuccessModal({
 
           {/* Close Button */}
           <Button
-            onClick={onClose}
+            onClick={handleClose}
             className="w-full h-12 text-base font-medium bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground rounded-xl border-0"
           >
             Close
