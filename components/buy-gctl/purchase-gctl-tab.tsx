@@ -69,6 +69,7 @@ export function PurchaseGctlTab({
     mintGCTL,
     mintGCTLAndStake,
     checkTokenAllowance,
+    approveToken,
     mintTestUSDC,
     isProcessing,
     addresses,
@@ -347,11 +348,11 @@ export function PurchaseGctlTab({
 
     try {
       // Mint 1000 USDC for testing
-      const amount = BigNumber.from(parseUnits("1000", 6).toString());
+      const amount = BigNumber.from(parseUnits("10000", 6).toString());
       const result = await mintTestUSDC(amount, address);
 
       if (result.ok) {
-        toast.success("Successfully minted 1000 test USDC!");
+        toast.success("Successfully minted 10000 test USDC!");
 
         // Refresh USDC balance
         if (publicClient) {
@@ -663,7 +664,7 @@ export function PurchaseGctlTab({
                   size="sm"
                   className="text-amber-700 border-amber-300 hover:bg-amber-100"
                 >
-                  Add USDC to Wallet
+                  Add Test USDC to Wallet
                 </Button>
                 {isOnSepolia && (
                   <Button
@@ -679,7 +680,7 @@ export function PurchaseGctlTab({
                         Minting...
                       </>
                     ) : (
-                      "Mint 1000 Test USDC"
+                      "Mint 10000 Test USDC"
                     )}
                   </Button>
                 )}

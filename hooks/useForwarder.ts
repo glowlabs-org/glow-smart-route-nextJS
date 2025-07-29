@@ -189,7 +189,7 @@ export function useForwarder() {
       // Use MaxUint256 for unlimited approval
       const approveTx = await tokenContract.approve(
         ADDRESSES.FORWARDER,
-        ethers.constants.MaxUint256
+        amount
       );
       await approveTx.wait();
 
@@ -230,22 +230,18 @@ export function useForwarder() {
       const message = messageResult.val;
 
       // Check allowance and approve if necessary
-      const allowance: BigNumber = await tokenContract.allowance(
-        owner,
-        ADDRESSES.FORWARDER
-      );
+      const allowanceResult = await checkTokenAllowance(owner, currency);
+      if (!allowanceResult.ok) {
+        return new Err(allowanceResult.val);
+      }
 
-      if (allowance.lt(amount)) {
-        try {
-          const approveTx = await tokenContract.approve(
-            ADDRESSES.FORWARDER,
-            ethers.constants.MaxUint256
-          );
-          await approveTx.wait();
-        } catch (approveError) {
-          return new Err(
-            parseEthersError(approveError) || "Token approval failed"
-          );
+      if (allowanceResult.val.lt(amount)) {
+        const approvalResult = await approveToken(
+          ethers.constants.MaxUint256,
+          currency
+        );
+        if (!approvalResult.ok) {
+          return new Err(approvalResult.val);
         }
       }
 
