@@ -1,4 +1,5 @@
 export const CURRENCY_DECIMALS: Record<string, number> = {
+  USDG: 6,
   USDC: 6,
   GLW: 18,
   GCTL: 6,
@@ -7,6 +8,7 @@ export const CURRENCY_DECIMALS: Record<string, number> = {
 
 export const DISPLAY_DECIMALS: Record<string, number> = {
   USDC: 2,
+  USDG: 2,
   GLW: 6,
   GCTL: 6,
   ETH: 6,
