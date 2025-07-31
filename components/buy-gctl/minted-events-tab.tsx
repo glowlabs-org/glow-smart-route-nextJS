@@ -20,12 +20,13 @@ import {
 } from "lucide-react";
 import { formatUnits } from "viem";
 import { toast } from "sonner";
+import { getCurrencyDecimals, getDisplayDecimals } from "@/lib/currency";
 
 interface MintedEvent {
   txId: string;
   epoch: number;
   wallet: string;
-  amountWei: string; // Updated from amountUsdcWei
+  amountRaw: string;
   currency: string; // New field
   gctlMinted: string;
   ts: string; // ISO date string
@@ -34,7 +35,6 @@ interface MintedEvent {
 interface MintedEventsTabProps {
   mintedEvents: MintedEvent[];
   dataLoading: boolean;
-  usdcDecimals: number;
   onRefresh?: () => Promise<void>; // New prop for manual refresh
 }
 
@@ -171,7 +171,6 @@ const RefreshCountdown = ({
 export function MintedEventsTab({
   mintedEvents,
   dataLoading,
-  usdcDecimals,
   onRefresh,
 }: MintedEventsTabProps) {
   return (
@@ -274,13 +273,14 @@ export function MintedEventsTab({
                       <div className="text-base font-medium text-foreground">
                         {parseFloat(
                           formatUnits(
-                            BigInt(event.amountWei),
-                            event.currency === "USDC" ? usdcDecimals : 18
+                            BigInt(event.amountRaw),
+                            getCurrencyDecimals(event.currency)
                           )
                         ).toLocaleString(undefined, {
                           minimumFractionDigits: 0,
-                          maximumFractionDigits:
-                            event.currency === "USDC" ? 2 : 6,
+                          maximumFractionDigits: getDisplayDecimals(
+                            event.currency
+                          ),
                         })}
                       </div>
                     </TableCell>

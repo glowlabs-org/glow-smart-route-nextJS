@@ -53,14 +53,14 @@ export function DashboardTab({ walletAddress }: DashboardTabProps) {
     const totalUsdcReceived = mintedEvents
       .filter((event) => event.currency === "USDC")
       .reduce((sum, event) => {
-        return sum + parseFloat(formatUnits(BigInt(event.amountWei), 6));
+        return sum + parseFloat(formatUnits(BigInt(event.amountRaw), 6));
       }, 0);
 
     // Protocol Fees Paid
     const totalProtocolFeesPaid = pendingTransfers
       .filter((transfer) => transfer.type === "PayProtocolFee")
       .reduce((sum, transfer) => {
-        return sum + parseFloat(formatUnits(BigInt(transfer.amountWei), 6));
+        return sum + parseFloat(formatUnits(BigInt(transfer.amountRaw), 6));
       }, 0);
 
     // Region breakdown

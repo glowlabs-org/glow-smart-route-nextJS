@@ -704,7 +704,7 @@ export function PurchaseGctlTab({
                     Minting...
                   </>
                 ) : (
-                  "Mint 1000 Test USDC"
+                  "Mint 10000 Test USDC"
                 )}
               </Button>
             </div>

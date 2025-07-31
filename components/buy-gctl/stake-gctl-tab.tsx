@@ -77,10 +77,10 @@ export function StakeGctlTab() {
     if (!stakeAmount || !address) return;
 
     try {
-      const amountWei = parseUnits(stakeAmount, 6).toString();
-      console.log("amountWei", amountWei);
+      const amountRaw = parseUnits(stakeAmount, 6).toString();
+      console.log("amountRaw", amountRaw);
       console.log("selectedRegion", selectedRegion);
-      const result = await stakeGctl(selectedRegion, amountWei);
+      const result = await stakeGctl(selectedRegion, amountRaw);
 
       if (result.ok) {
         const selectedRegionName = regions.find(
@@ -104,8 +104,8 @@ export function StakeGctlTab() {
     if (!unstakeAmount || !address) return;
 
     try {
-      const amountWei = parseUnits(unstakeAmount, 6).toString();
-      const result = await unstakeGctl(selectedRegion, amountWei);
+      const amountRaw = parseUnits(unstakeAmount, 6).toString();
+      const result = await unstakeGctl(selectedRegion, amountRaw);
 
       if (result.ok) {
         const selectedRegionName = regions.find(

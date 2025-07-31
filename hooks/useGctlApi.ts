@@ -8,8 +8,8 @@ export interface MintedEvent {
   txId: string;
   epoch: number;
   wallet: string;
-  amountWei: string; // Updated from amountUsdcWei
-  currency: string; // New field
+  amountRaw: string;
+  currency: string;
   gctlMinted: string;
   ts: string; // ISO date string
 }
@@ -27,13 +27,13 @@ export interface StakedEvent {
 export interface PendingTransfer {
   txId: string;
   wallet: string;
-  amountWei: string; // Updated from amountUsdcWei
-  type: string; // New field
-  currency: string; // New field
+  amountRaw: string;
+  type: string;
+  currency: string;
   status: string;
   ts: string; // ISO date string
   applicationId?: string;
-  farmId?: string; // New field
+  farmId?: string;
   regionId?: number;
 }
 
@@ -49,7 +49,7 @@ export interface FailedOperation {
   lastRetryAt?: string; // ISO date string
   resolvedAt?: string; // ISO date string
   wallet?: string;
-  amountWei?: string; // Updated from amountUsdcWei
+  amountRaw?: string;
   currency?: string; // New field
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string

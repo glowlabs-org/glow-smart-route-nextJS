@@ -495,7 +495,6 @@ export default function BuyGctlView() {
                 <PendingTransfersTab
                   pendingTransfers={pendingTransfers}
                   dataLoading={dataLoading}
-                  usdcDecimals={6}
                   onRefresh={async () => {
                     await fetchPendingTransfers();
                   }}
@@ -505,7 +504,6 @@ export default function BuyGctlView() {
                 <MintedEventsTab
                   mintedEvents={mintedEvents}
                   dataLoading={dataLoading}
-                  usdcDecimals={6}
                 />
               </TabsContent>
 
@@ -521,7 +519,6 @@ export default function BuyGctlView() {
                 <FailedOperationsTab
                   failedOperations={failedOperations}
                   dataLoading={dataLoading}
-                  usdcDecimals={6}
                 />
               </TabsContent>
             </Tabs>

@@ -20,11 +20,12 @@ import {
 } from "lucide-react";
 import { formatUnits } from "viem";
 import { toast } from "sonner";
+import { getCurrencyDecimals, getDisplayDecimals } from "@/lib/currency";
 
 interface PendingTransfer {
   txId: string;
   wallet: string;
-  amountWei: string; // Updated from amountUsdcWei
+  amountRaw: string;
   type: string; // New field
   currency: string; // New field
   status: string;
@@ -37,7 +38,6 @@ interface PendingTransfer {
 interface PendingTransfersTabProps {
   pendingTransfers: PendingTransfer[];
   dataLoading: boolean;
-  usdcDecimals: number;
   onRefresh?: () => Promise<void>; // New prop for manual refresh
 }
 
@@ -213,7 +213,6 @@ const PendingTimer = ({ queuedAt }: { queuedAt: string }) => {
 export function PendingTransfersTab({
   pendingTransfers,
   dataLoading,
-  usdcDecimals,
   onRefresh,
 }: PendingTransfersTabProps) {
   return (
@@ -317,13 +316,14 @@ export function PendingTransfersTab({
                       <div className="text-base font-semibold text-foreground">
                         {parseFloat(
                           formatUnits(
-                            BigInt(transfer.amountWei),
-                            transfer.currency === "USDC" ? usdcDecimals : 18
+                            BigInt(transfer.amountRaw),
+                            getCurrencyDecimals(transfer.currency)
                           )
                         ).toLocaleString(undefined, {
                           minimumFractionDigits: 0,
-                          maximumFractionDigits:
-                            transfer.currency === "USDC" ? 2 : 6,
+                          maximumFractionDigits: getDisplayDecimals(
+                            transfer.currency
+                          ),
                         })}
                       </div>
                     </TableCell>

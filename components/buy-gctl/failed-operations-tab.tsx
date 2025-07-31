@@ -20,6 +20,7 @@ import {
 import { formatUnits } from "viem";
 import { toast } from "sonner";
 import { useGctlApi } from "@/hooks/useGctlApi";
+import { getCurrencyDecimals, getDisplayDecimals } from "@/lib/currency";
 
 interface FailedOperation {
   id: string;
@@ -33,7 +34,7 @@ interface FailedOperation {
   lastRetryAt?: string; // ISO date string
   resolvedAt?: string; // ISO date string
   wallet?: string;
-  amountWei?: string; // Updated from amountUsdcWei
+  amountRaw?: string;
   currency?: string; // New field
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
@@ -42,7 +43,6 @@ interface FailedOperation {
 interface FailedOperationsTabProps {
   failedOperations: FailedOperation[];
   dataLoading: boolean;
-  usdcDecimals: number;
 }
 
 function CopyableAddress({
@@ -110,7 +110,6 @@ function CopyableAddress({
 export function FailedOperationsTab({
   failedOperations,
   dataLoading,
-  usdcDecimals,
 }: FailedOperationsTabProps) {
   const { retryFailedOperation, isRetryingFailedOperation } = useGctlApi();
   const [retryingOperationId, setRetryingOperationId] = useState<string | null>(
@@ -237,17 +236,18 @@ export function FailedOperationsTab({
                       )}
                     </TableCell>
                     <TableCell className="py-4">
-                      {operation.amountWei ? (
+                      {operation.amountRaw ? (
                         <div className="text-base font-semibold text-foreground">
                           {parseFloat(
                             formatUnits(
-                              BigInt(operation.amountWei),
-                              operation.currency === "USDC" ? usdcDecimals : 18
+                              BigInt(operation.amountRaw),
+                              getCurrencyDecimals(operation.currency ?? "USDC")
                             )
                           ).toLocaleString(undefined, {
                             minimumFractionDigits: 0,
-                            maximumFractionDigits:
-                              operation.currency === "USDC" ? 2 : 6,
+                            maximumFractionDigits: getDisplayDecimals(
+                              operation.currency ?? "USDC"
+                            ),
                           })}
                         </div>
                       ) : (
