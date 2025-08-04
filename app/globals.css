@@ -248,17 +248,28 @@
       transform: translateY(calc(-100% - var(--gap)));
     }
   }
+  @keyframes rainbow {
+  0% {
+    background-position: 0%;
+    }
+  100% {
+    background-position: 200%;
+    }
+  }
 }
 
 :root {
   --radius: 0.5rem;
 
   /* Glow Brand Colors */
-  --glow-black: #050505;
-  --glow-white: #ffffff;
-  --glow-light-grey: #fafafa;
-  --glow-medium-grey: #f3f3f3;
-  --glow-orange: #ffb472;
+  --color-glow-black: #050505;
+  --color-glow-white: #ffffff;
+  --color-glow-light-grey: #fafafa;
+  --color-glow-medium-grey: #f3f3f3;
+  --color-glow-orange: #ffb472;
+  --color-glow-yellow: #f7fcc4;
+  --color-glow-green: #ccffd4;
+  --color-glow-purple: #dcc4ff;
 
   /* Ultrawide Responsive Design System */
   --container-sm: 640px;
@@ -290,37 +301,38 @@
   --content-width: clamp(300px, 85vw, 1200px);
 
   /* Light mode - Using Glow brand colors */
-  --background: #ffffff;
-  --foreground: #050505;
-  --card: #ffffff;
-  --card-foreground: #050505;
-  --popover: #ffffff;
-  --popover-foreground: #050505;
-  --primary: #050505;
-  --primary-foreground: #fafafa;
-  --secondary: #f3f3f3;
-  --secondary-foreground: #050505;
-  --muted: #fafafa;
+  --background: var(--color-glow-white);
+  --foreground: var(--color-glow-black);
+  --card: var(--color-glow-white);
+  --card-foreground: var(--color-glow-black);
+  --popover: var(--color-glow-white);
+  --popover-foreground: var(--color-glow-black);
+  --primary: var(--color-glow-black);
+  --primary-foreground: var(--color-glow-light-grey);
+  --secondary: var(--color-glow-medium-grey);
+  --secondary-foreground: var(--color-glow-black);
+  --muted: var(--color-glow-light-grey);
   --muted-foreground: #71717a;
-  --accent: #ffb472;
-  --accent-foreground: #050505;
+  --accent: var(--color-glow-orange);
+  --accent-foreground: var(--color-glow-black);
   --destructive: #ef4444;
-  --border: #f3f3f3;
-  --input: #f3f3f3;
-  --ring: #050505;
+  --destructive-foreground: var(--color-glow-white);
+  --border: var(--color-glow-medium-grey);
+  --input: var(--color-glow-medium-grey);
+  --ring: var(--color-glow-black);
   --chart-1: #646cff;
   --chart-2: #8b5cf6;
   --chart-3: #0ea5e9;
   --chart-4: #10b981;
   --chart-5: #f59e0b;
-  --sidebar: #fafafa;
-  --sidebar-foreground: #050505;
-  --sidebar-primary: #050505;
-  --sidebar-primary-foreground: #fafafa;
-  --sidebar-accent: #f3f3f3;
-  --sidebar-accent-foreground: #050505;
-  --sidebar-border: #f3f3f3;
-  --sidebar-ring: #050505;
+  --sidebar: var(--color-glow-light-grey);
+  --sidebar-foreground: var(--color-glow-black);
+  --sidebar-primary: var(--color-glow-black);
+  --sidebar-primary-foreground: var(--color-glow-light-grey);
+  --sidebar-accent: var(--color-glow-medium-grey);
+  --sidebar-accent-foreground: var(--color-glow-black);
+  --sidebar-border: var(--color-glow-medium-grey);
+  --sidebar-ring: var(--color-glow-black);
   --color-1: #ff6b35;
   --color-2: #9d4edd;
   --color-3: #4361ee;
@@ -329,22 +341,33 @@
 }
 
 .dark {
-  /* Dark mode - Inverted Glow brand colors */
-  --background: #050505;
-  --foreground: #fafafa;
-  --card: #050505;
-  --card-foreground: #fafafa;
-  --popover: #050505;
-  --popover-foreground: #fafafa;
-  --primary: #fafafa;
-  --primary-foreground: #050505;
+  /* Glow Brand Colors remain consistent in dark mode */
+  --color-glow-black: #050505;
+  --color-glow-white: #ffffff;
+  --color-glow-light-grey: #fafafa;
+  --color-glow-medium-grey: #f3f3f3;
+  --color-glow-orange: #ffb472;
+  --color-glow-yellow: #f7fcc4;
+  --color-glow-green: #ccffd4;
+  --color-glow-purple: #dcc4ff;
+
+  /* Dark mode - Inverted theme colors */
+  --background: var(--color-glow-black);
+  --foreground: var(--color-glow-light-grey);
+  --card: #0a0a0a;
+  --card-foreground: var(--color-glow-light-grey);
+  --popover: #0a0a0a;
+  --popover-foreground: var(--color-glow-light-grey);
+  --primary: var(--color-glow-light-grey);
+  --primary-foreground: var(--color-glow-black);
   --secondary: #27272a;
-  --secondary-foreground: #fafafa;
+  --secondary-foreground: var(--color-glow-light-grey);
   --muted: #27272a;
   --muted-foreground: #a1a1aa;
-  --accent: #ffb472;
-  --accent-foreground: #050505;
-  --destructive: #7f1d1d;
+  --accent: var(--color-glow-orange);
+  --accent-foreground: var(--color-glow-black);
+  --destructive: #dc2626;
+  --destructive-foreground: var(--color-glow-light-grey);
   --border: #27272a;
   --input: #27272a;
   --ring: #d4d4d8;
@@ -353,12 +376,12 @@
   --chart-3: #16a34a;
   --chart-4: #ca8a04;
   --chart-5: #dc2626;
-  --sidebar: #050505;
-  --sidebar-foreground: #fafafa;
-  --sidebar-primary: #fafafa;
-  --sidebar-primary-foreground: #050505;
+  --sidebar: #0a0a0a;
+  --sidebar-foreground: var(--color-glow-light-grey);
+  --sidebar-primary: var(--color-glow-light-grey);
+  --sidebar-primary-foreground: var(--color-glow-black);
   --sidebar-accent: #27272a;
-  --sidebar-accent-foreground: #fafafa;
+  --sidebar-accent-foreground: var(--color-glow-light-grey);
   --sidebar-border: #27272a;
   --sidebar-ring: #d4d4d8;
   --color-1: #ff6b35;
@@ -569,8 +592,6 @@
   }
 }
 .glow-button {
-  background-color: var(--color-glow-black);
-  color: var(--color-glow-white);
   font-weight: 600;
   letter-spacing: 0.025em;
   border: 0;
@@ -579,9 +600,6 @@
 
 .glow-button:hover {
   transform: translateY(-2px);
-  background: var(--color-glow-white);
-  color: var(--color-glow-black);
-  border: 1px solid var(--color-glow-black);
 }
 
 /* Glow Grid Pattern */
@@ -658,10 +676,35 @@
   }
 }
 
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  25% {
+    transform: translateY(-20px) translateX(10px);
+  }
+  50% {
+    transform: translateY(-10px) translateX(-5px);
+  }
+  75% {
+    transform: translateY(-15px) translateX(5px);
+  }
+}
+
 .float-animation {
   animation: float 6s ease-in-out infinite;
 }
 
 .float-animation-delayed {
   animation: float-delayed 8s ease-in-out infinite;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

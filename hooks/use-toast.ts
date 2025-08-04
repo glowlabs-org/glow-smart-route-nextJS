@@ -12,7 +12,7 @@ type Toast = {
   onOpenChange?: (open: boolean) => void;
 };
 
-type ToastActionElement = React.ReactElement;
+type ToastActionElement = React.ReactElement<any>;
 
 const TOAST_LIMIT = 1;
 const TOAST_REMOVE_DELAY = 1000000;

@@ -20,12 +20,12 @@ import {
 } from "lucide-react";
 import { formatUnits } from "viem";
 import { toast } from "sonner";
-import { StakedEvent } from "@/hooks/useGctlApi";
+import { Region, StakedEvent } from "@glowlabs-org/utils/browser";
 
 interface StakedEventsTabProps {
   stakedEvents: StakedEvent[];
   dataLoading: boolean;
-  regions: Array<{ id: number; name: string; flag: string }>;
+  regions: Region[];
 }
 
 function CopyableAddress({

@@ -10,6 +10,7 @@ import {
   Coins,
   BarChart3,
   PieChart,
+  Activity,
 } from "lucide-react";
 import { formatUnits } from "viem";
 import { useGctlApi } from "@/hooks/useGctlApi";
@@ -109,17 +110,20 @@ export function DashboardTab({ walletAddress }: DashboardTabProps) {
   };
 
   return (
-    <Card className="border border-border bg-white/95 backdrop-blur-sm w-full">
-      <CardHeader className="pb-6 border-b border-border/50">
-        <CardTitle className="text-2xl font-bold text-foreground flex items-center">
-          Network Dashboard
-          <span className="ml-auto text-sm font-normal text-muted-foreground">
-            Real-time GCTL network metrics
+    <div className="bg-card/60 backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full">
+      <div className="p-6 pb-4 border-b border-border/20">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            Network Dashboard
+          </h2>
+          <span className="text-sm text-muted-foreground flex items-center gap-2">
+            <Activity className="w-3 h-3" />
+            Real-time metrics
           </span>
-        </CardTitle>
-      </CardHeader>
+        </div>
+      </div>
 
-      <CardContent className="p-6 space-y-8">
+      <div className="p-6 space-y-8">
         {/* Supply & Stake Overview */}
         <div className="space-y-6">
           <div className="flex items-center space-x-2">
@@ -131,72 +135,76 @@ export function DashboardTab({ walletAddress }: DashboardTabProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total GCTL Minted */}
-            <Card className="bg-gradient-to-br from-green-50 to-emerald-100 border-green-200">
-              <CardContent className="p-4 text-center">
-                <div className="text-sm font-medium text-green-700 mb-2">
+            <div className="group relative bg-gradient-to-br from-green-500/10 to-emerald-500/5 rounded-2xl p-4 border border-green-500/20 hover:border-green-500/30 transition-all duration-300">
+              <div className="text-center">
+                <div className="text-sm font-medium text-muted-foreground mb-2">
                   Total GCTL Minted
                 </div>
                 {isLoading ? (
-                  <Skeleton className="h-8 w-32 mx-auto" />
+                  <Skeleton className="h-8 w-32 mx-auto bg-muted/50" />
                 ) : (
-                  <div className="text-2xl font-bold text-green-900">
+                  <div className="text-2xl font-bold text-foreground">
                     {formatLargeNumber(metrics.totalGctlMinted)}
                   </div>
                 )}
-                <div className="text-xs text-green-600 mt-1">GCTL</div>
-              </CardContent>
-            </Card>
+                <div className="text-xs text-muted-foreground mt-1">GCTL</div>
+              </div>
+            </div>
 
             {/* Total GCTL Staked */}
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-              <CardContent className="p-4 text-center">
-                <div className="text-sm font-medium text-blue-700 mb-2">
+            <div className="group relative bg-gradient-to-br from-blue-500/10 to-blue-500/5 rounded-2xl p-4 border border-blue-500/20 hover:border-blue-500/30 transition-all duration-300">
+              <div className="text-center">
+                <div className="text-sm font-medium text-muted-foreground mb-2">
                   Total GCTL Staked
                 </div>
                 {isLoading ? (
-                  <Skeleton className="h-8 w-32 mx-auto" />
+                  <Skeleton className="h-8 w-32 mx-auto bg-muted/50" />
                 ) : (
-                  <div className="text-2xl font-bold text-blue-900">
+                  <div className="text-2xl font-bold text-foreground">
                     {formatLargeNumber(metrics.totalGctlStaked)}
                   </div>
                 )}
-                <div className="text-xs text-blue-600 mt-1">GCTL</div>
-              </CardContent>
-            </Card>
+                <div className="text-xs text-muted-foreground mt-1">GCTL</div>
+              </div>
+            </div>
 
             {/* Staking Rate */}
-            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-              <CardContent className="p-4 text-center">
-                <div className="text-sm font-medium text-purple-700 mb-2">
+            <div className="group relative bg-gradient-to-br from-purple-500/10 to-purple-500/5 rounded-2xl p-4 border border-purple-500/20 hover:border-purple-500/30 transition-all duration-300">
+              <div className="text-center">
+                <div className="text-sm font-medium text-muted-foreground mb-2">
                   Staking Rate
                 </div>
                 {isLoading ? (
-                  <Skeleton className="h-8 w-32 mx-auto" />
+                  <Skeleton className="h-8 w-32 mx-auto bg-muted/50" />
                 ) : (
-                  <div className="text-2xl font-bold text-purple-900">
+                  <div className="text-2xl font-bold text-foreground">
                     {metrics.stakingRate.toFixed(2)}%
                   </div>
                 )}
-                <div className="text-xs text-purple-600 mt-1">of supply</div>
-              </CardContent>
-            </Card>
+                <div className="text-xs text-muted-foreground mt-1">
+                  of supply
+                </div>
+              </div>
+            </div>
 
             {/* Unique Holders */}
-            <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
-              <CardContent className="p-4 text-center">
-                <div className="text-sm font-medium text-orange-700 mb-2">
+            <div className="group relative bg-gradient-to-br from-orange-500/10 to-orange-500/5 rounded-2xl p-4 border border-orange-500/20 hover:border-orange-500/30 transition-all duration-300">
+              <div className="text-center">
+                <div className="text-sm font-medium text-muted-foreground mb-2">
                   Unique Holders
                 </div>
                 {isLoading ? (
-                  <Skeleton className="h-8 w-32 mx-auto" />
+                  <Skeleton className="h-8 w-32 mx-auto bg-muted/50" />
                 ) : (
-                  <div className="text-2xl font-bold text-orange-900">
+                  <div className="text-2xl font-bold text-foreground">
                     {metrics.uniqueHolders.toLocaleString()}
                   </div>
                 )}
-                <div className="text-xs text-orange-600 mt-1">addresses</div>
-              </CardContent>
-            </Card>
+                <div className="text-xs text-muted-foreground mt-1">
+                  addresses
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -212,42 +220,43 @@ export function DashboardTab({ walletAddress }: DashboardTabProps) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {metrics.regionBreakdown.slice(0, 6).map((region) => (
-                <Card key={region.id} className="border-muted">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-2xl">{region.flag}</span>
-                        <div>
-                          <div className="font-semibold text-foreground">
-                            {region.name}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {region.stakePercentage.toFixed(1)}% of total stake
-                          </div>
+                <div
+                  key={region.id}
+                  className="group bg-muted/30 rounded-2xl p-4 border border-border hover:border-border/60 transition-all duration-300"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-2xl">{region.flag}</span>
+                      <div>
+                        <div className="font-semibold text-foreground">
+                          {region.name}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {region.stakePercentage.toFixed(1)}% of total stake
                         </div>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          Staked Amount
-                        </span>
-                        <span className="font-semibold">
-                          {formatLargeNumber(region.stakeAmount)} GCTL
-                        </span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div
-                          className="bg-primary rounded-full h-2 transition-all duration-300"
-                          style={{
-                            width: `${Math.min(region.stakePercentage, 100)}%`,
-                          }}
-                        />
-                      </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Staked Amount
+                      </span>
+                      <span className="font-semibold">
+                        {formatLargeNumber(region.stakeAmount)} GCTL
+                      </span>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="w-full bg-muted/50 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-primary to-primary/70 rounded-full h-2 transition-all duration-300"
+                        style={{
+                          width: `${Math.min(region.stakePercentage, 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -264,119 +273,101 @@ export function DashboardTab({ walletAddress }: DashboardTabProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Total USDC Received */}
-            <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="text-sm font-medium text-indigo-700">
-                    USDC from GCTL Purchases
-                  </div>
-                  <TrendingUp className="w-5 h-5 text-indigo-600" />
+            <div className="group bg-gradient-to-br from-indigo-500/10 to-indigo-500/5 rounded-2xl p-6 border border-indigo-500/20 hover:border-indigo-500/30 transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-sm font-medium text-muted-foreground">
+                  USDC from GCTL Purchases
                 </div>
-                {isLoading ? (
-                  <Skeleton className="h-10 w-40" />
-                ) : (
-                  <div className="text-3xl font-bold text-indigo-900">
-                    ${formatLargeNumber(metrics.totalUsdcReceived)}
-                  </div>
-                )}
-                <div className="text-sm text-indigo-600 mt-2">
-                  From{" "}
-                  {mintedEvents.filter((e) => e.currency === "USDC").length}{" "}
-                  transactions
+                <TrendingUp className="w-5 h-5 text-indigo-500" />
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-10 w-40 bg-muted/50" />
+              ) : (
+                <div className="text-3xl font-bold text-foreground">
+                  ${formatLargeNumber(metrics.totalUsdcReceived)}
                 </div>
-              </CardContent>
-            </Card>
+              )}
+              <div className="text-sm text-muted-foreground mt-2">
+                From {mintedEvents.filter((e) => e.currency === "USDC").length}{" "}
+                transactions
+              </div>
+            </div>
 
             {/* Transaction Volume */}
-            <Card className="bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="text-sm font-medium text-teal-700">
-                    Total Transactions
-                  </div>
-                  <PieChart className="w-5 h-5 text-teal-600" />
+            <div className="group bg-gradient-to-br from-teal-500/10 to-teal-500/5 rounded-2xl p-6 border border-teal-500/20 hover:border-teal-500/30 transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-sm font-medium text-muted-foreground">
+                  Total Transactions
                 </div>
-                {isLoading ? (
-                  <Skeleton className="h-10 w-40" />
-                ) : (
-                  <div className="text-3xl font-bold text-teal-900">
-                    {mintedEvents.length.toLocaleString()}
-                  </div>
-                )}
-                <div className="text-sm text-teal-600 mt-2">
-                  GCTL minting events
+                <PieChart className="w-5 h-5 text-teal-500" />
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-10 w-40 bg-muted/50" />
+              ) : (
+                <div className="text-3xl font-bold text-foreground">
+                  {mintedEvents.length.toLocaleString()}
                 </div>
-              </CardContent>
-            </Card>
+              )}
+              <div className="text-sm text-muted-foreground mt-2">
+                GCTL minting events
+              </div>
+            </div>
           </div>
 
           {/* Protocol Fees Section */}
           <div className="grid grid-cols-1 gap-4">
             {/* Protocol Fees Paid */}
-            <Card className="bg-gradient-to-br from-violet-50 to-violet-100 border-violet-200">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="text-sm font-medium text-violet-700">
-                    Protocol Deposits Paid
-                  </div>
-                  <Coins className="w-5 h-5 text-violet-600" />
+            <div className="group bg-gradient-to-br from-violet-500/10 to-violet-500/5 rounded-2xl p-6 border border-violet-500/20 hover:border-violet-500/30 transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-sm font-medium text-muted-foreground">
+                  Protocol Deposits Paid
                 </div>
-                {isLoading ? (
-                  <Skeleton className="h-10 w-40" />
-                ) : (
-                  <div className="text-3xl font-bold text-violet-900">
-                    ${formatLargeNumber(metrics.totalProtocolFeesPaid)}
-                  </div>
-                )}
-                <div className="text-sm text-violet-600 mt-2">
-                  From{" "}
-                  {
-                    pendingTransfers.filter((t) => t.type === "PayProtocolFee")
-                      .length
-                  }{" "}
-                  protocol fee payments
+                <Coins className="w-5 h-5 text-violet-500" />
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-10 w-40 bg-muted/50" />
+              ) : (
+                <div className="text-3xl font-bold text-foreground">
+                  ${formatLargeNumber(metrics.totalProtocolFeesPaid)}
                 </div>
-              </CardContent>
-            </Card>
+              )}
+              <div className="text-sm text-muted-foreground mt-2">
+                From{" "}
+                {
+                  pendingTransfers.filter((t) => t.type === "PayProtocolFee")
+                    .length
+                }{" "}
+                protocol fee payments
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Network Health Indicators */}
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-          <CardContent className="p-6">
+        <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-2xl border border-primary/20">
+          <div className="p-6">
             <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mt-1 flex-shrink-0">
-                <BarChart3 className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center mt-1 flex-shrink-0">
+                <BarChart3 className="w-5 h-5 text-primary-foreground" />
               </div>
-              <div className="space-y-3">
-                <h4 className="font-bold text-blue-900 text-lg">
+              <div className="space-y-3 flex-1">
+                <h4 className="font-bold text-foreground text-lg">
                   Network Health
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-blue-800">
-                  <div className="text-center p-3 bg-white/50 rounded-lg">
-                    <div className="text-xs text-blue-600 mb-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="text-center p-3 bg-background/40 backdrop-blur-sm rounded-xl border border-border/50">
+                    <div className="text-xs text-muted-foreground mb-1">
                       Active Regions
                     </div>
-                    <div className="text-xl font-bold">
+                    <div className="text-xl font-bold text-foreground">
                       {regions.filter((r) => r.isActive).length}
                     </div>
                   </div>
-                  {/* <div className="text-center p-3 bg-white/50 rounded-lg">
-                    <div className="text-xs text-blue-600 mb-1">
-                      Total Solar Farms
-                    </div>
-                    <div className="text-xl font-bold">
-                      {regions.reduce(
-                        (sum, r) => sum + (r.solarFarmCount || 0),
-                        0
-                      )}
-                    </div>
-                  </div> */}
-                  <div className="text-center p-3 bg-white/50 rounded-lg">
-                    <div className="text-xs text-blue-600 mb-1">
+                  <div className="text-center p-3 bg-background/40 backdrop-blur-sm rounded-xl border border-border/50">
+                    <div className="text-xs text-muted-foreground mb-1">
                       Avg. Stake per Region
                     </div>
-                    <div className="text-xl font-bold">
+                    <div className="text-xl font-bold text-foreground">
                       {regions.length > 0
                         ? formatLargeNumber(
                             metrics.totalGctlStaked / regions.length
@@ -387,9 +378,9 @@ export function DashboardTab({ walletAddress }: DashboardTabProps) {
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </CardContent>
-    </Card>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

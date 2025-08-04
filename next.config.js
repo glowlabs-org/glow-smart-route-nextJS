@@ -47,10 +47,6 @@ const nextConfig = {
   },
   // Disable strict mode for better compatibility with dependencies
   reactStrictMode: false,
-  // Experimental features for better worker support
-  experimental: {
-    esmExternals: "loose",
-  },
 };
 
 module.exports = nextConfig;

@@ -21,24 +21,7 @@ import { formatUnits } from "viem";
 import { toast } from "sonner";
 import { useGctlApi } from "@/hooks/useGctlApi";
 import { getCurrencyDecimals, getDisplayDecimals } from "@/lib/currency";
-
-interface FailedOperation {
-  id: string;
-  txId: string;
-  operation: string;
-  failureType: string;
-  errorMessage: string;
-  errorDetails?: string;
-  isRetryable: string;
-  retryCount: number;
-  lastRetryAt?: string; // ISO date string
-  resolvedAt?: string; // ISO date string
-  wallet?: string;
-  amountRaw?: string;
-  currency?: string; // New field
-  createdAt: string; // ISO date string
-  updatedAt: string; // ISO date string
-}
+import { FailedOperation } from "@glowlabs-org/utils/browser";
 
 interface FailedOperationsTabProps {
   failedOperations: FailedOperation[];

@@ -3,17 +3,34 @@
 import "@rainbow-me/rainbowkit/styles.css";
 import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
-import { mainnet, sepolia } from "wagmi/chains";
+import { Chain, mainnet, sepolia } from "wagmi/chains";
 import { http } from "wagmi";
 import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/sonner";
+
+if (!process.env.NEXT_PUBLIC_WALLET_CONNECT_ID) {
+  throw new Error("NEXT_PUBLIC_WALLET_CONNECT_ID is not set");
+}
+
+if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
+  throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
+}
+
+let chain: Chain;
+if (process.env.NEXT_PUBLIC_CHAIN_ID === "1") {
+  chain = mainnet;
+} else process.env.NEXT_PUBLIC_CHAIN_ID === "11155111";
+{
+  chain = sepolia;
+}
 
 const config = getDefaultConfig({
-  appName: "My RainbowKit App",
-  projectId: "YOUR_PROJECT_ID",
-  chains: [ mainnet,sepolia],
+  appName: "BuyGlow.xyz",
+  projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_ID,
+  chains: [chain],
   transports: {
-    [mainnet.id]: http(),
-    [sepolia.id]: http(process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || "https://sepolia.drpc.org"),
+    [chain.id]: http(),
   },
   ssr: true, // If your dApp uses server side rendering (SSR)
   batch: {
@@ -22,9 +39,6 @@ const config = getDefaultConfig({
     },
   },
 });
-
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/sonner";
 
 export const WagmiWrapper = ({ children }: { children: React.ReactNode }) => {
   const [queryClient] = React.useState(

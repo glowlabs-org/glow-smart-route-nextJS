@@ -6,14 +6,19 @@ import { formatUnits, erc20Abi } from "viem";
 import { useContracts } from "./useContracts";
 import { useEffect, useState } from "react";
 import { publicClient } from "@/web3/web3/clients/publicClient";
+import { getAddresses } from "@glowlabs-org/utils/browser";
+
+if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
+  throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
+}
+
+const SDKAddresses = getAddresses(parseInt(process.env.NEXT_PUBLIC_CHAIN_ID));
 
 // USDGRedemption contract address
-export const USDG_REDEMPTION_ADDRESS =
-  "0x1c2cA537757e1823400F857EdBe72B55bbAe0F08" as `0x${string}`;
+export const USDG_REDEMPTION_ADDRESS = SDKAddresses.USDG_REDEMPTION;
 
 // USDC contract address
-const USDC_ADDRESS =
-  "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as `0x${string}`;
+const USDC_ADDRESS = SDKAddresses.USDC;
 
 // Minimal ABI for the exchange function
 const USDG_REDEMPTION_ABI = ["function exchange(uint256 amountUSDG) external"];
@@ -79,6 +84,9 @@ export function useUSDGRedemption() {
    * Uses publicClient so no wallet connection is required
    */
   async function getUSDCBalanceOfRedemptionContract(): Promise<BigNumber | null> {
+    if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
+      return BigNumber.from(0);
+    }
     try {
       const balance = (await publicClient.readContract({
         address: USDC_ADDRESS,
@@ -88,6 +96,7 @@ export function useUSDGRedemption() {
       })) as bigint;
 
       const formattedBalance = formatUnits(balance, 6);
+
       setUsdcInRedemption(Number(formattedBalance));
 
       // Convert to BigNumber for compatibility with existing code

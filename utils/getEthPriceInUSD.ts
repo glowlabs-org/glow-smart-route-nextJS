@@ -4,6 +4,7 @@ export async function getEthPriceInUSD(): Promise<number | null> {
       "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
     );
     const data = await response.json();
+    console.log("getEthPriceInUSD", data);
     const ethPriceInUSD = data.ethereum.usd;
     return ethPriceInUSD;
   } catch (error) {

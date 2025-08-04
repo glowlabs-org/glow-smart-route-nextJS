@@ -17,7 +17,7 @@ export const useERC20 = ({
 }: {
   signer: ethers.providers.JsonRpcSigner | undefined | null;
 }) => {
-  const { usdg, glow, gcc, usdc, isReady } = useContracts(signer);
+  const { usdg, glow, isReady } = useContracts(signer);
 
   /**
    * @param sendTokens ~ send tokens to the desired address
@@ -36,16 +36,12 @@ export const useERC20 = ({
       case "GLOW":
         if (!glow) return new Err(SendTokensError.CONTRACTS_NOT_AVAILABLE);
         tx = await glow.transfer(to, amount);
-
-      case "GCC":
-        if (!gcc) return new Err(SendTokensError.CONTRACTS_NOT_AVAILABLE);
-
-        tx = await gcc.transfer(to, amount);
+        break;
 
       case "USDG":
         if (!usdg) return new Err(SendTokensError.CONTRACTS_NOT_AVAILABLE);
-
         tx = await usdg.transfer(to, amount);
+        break;
     }
 
     if (!tx) return new Err(SendTokensError.UNKNOW_ERROR);

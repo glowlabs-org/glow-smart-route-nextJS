@@ -13,6 +13,7 @@ This directory implements the API for purchasing GCTL with on-chain stable-coins
 
   - `GET /balance/:wallet` – current minted GCTL balance (via `wallet_gctl_balance` view).
   - `GET /price` – current GCTL price in USDC effective at the current time (price conversions for other currencies rely on their 1:1 USD peg).
+  - `GET /price/glw` – current **GLW** price in USDC (fixed 0.1 today; will be fetched from a Uniswap TWAP oracle in the future).
   - `POST /stake` / `POST /unstake` – record GCTL stake & unstake events.
   - `GET /regions` – list all regions with their status information and current GCTL stake totals.
   - `GET /region/:regionId/stake` – current GCTL stake for a region (via `region_current_stake` view).
@@ -120,6 +121,7 @@ Use Swagger or `curl` to inspect `/submit-transfers-batch` responses in real-tim
 
 - `GET /balance/:wallet` – Get GCTL balance for wallet
 - `GET /price` – Get current GCTL price in USDC
+- `GET /price/glw` – Get current GLW price in USDC
 - `POST /stake` – Stake GCTL to a region
 - `POST /unstake` – Unstake GCTL from a region (respects 100-epoch lockup)
 
@@ -157,6 +159,19 @@ All paginated endpoints support optional `page` (1-indexed) and `limit` (max 100
 ```
 
 #### `GET /price`
+
+```typescript
+// Success
+{
+  currentPriceUsdc: number;
+}
+// Error
+{
+  error: string;
+}
+```
+
+#### `GET /price/glw`
 
 ```typescript
 // Success

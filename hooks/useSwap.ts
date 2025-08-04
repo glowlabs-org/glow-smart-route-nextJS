@@ -32,9 +32,6 @@ const UNISWAP_V2_ROUTER_ADDRESS: `0x${string}` =
 const UNISWAP_V2_FACTORY_ADDRESS: `0x${string}` =
   "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f" as `0x${string}`;
 
-const USDG_GCC_PAIR_ADDRESS =
-  "0xeed0974404f635aa5e5f6e4793d1a417798f164e" as `0x${string}`;
-
 export type UniswapPurchaseState =
   | "NONE"
   | "REQUESTING_TOKEN_APPROVAL"
@@ -63,7 +60,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
   const [isUsdcSelected, setIsUsdcSelected] = useState<boolean>(false);
   const [tokenA, setTokenA] = useState<ERC20 | null>();
   const [tokenB, setTokenB] = useState<ERC20 | null>();
-  const [gccPrice, setGCCPrice] = useState<string>();
+
   // const[swapState, setSwapState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [uniswapRouter, setUniswapRouter] = useState<UnifapV2Router | null>(
     null
@@ -86,6 +83,9 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
 
     ethPriceInUSD: number | null;
   }): Promise<Result<string, string>> {
+    if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
+      return new Ok("0");
+    }
     if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!pair) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!tokenA) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
@@ -139,6 +139,9 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     amount: BigNumber;
     slippagePercentTenThousandDenominator?: BigNumber;
   }): Promise<Result<boolean, SwapError>> {
+    if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
+      return new Ok(false);
+    }
     if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!pair) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!tokenA) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
@@ -213,6 +216,9 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
   }: {
     amountIn: BigNumber;
   }): Promise<Result<BigNumber, SwapError>> {
+    if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
+      return new Ok(BigNumber.from(0));
+    }
     if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!pair) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
@@ -248,6 +254,9 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
   }: {
     amountIn: BigNumber;
   }): Promise<Result<BigNumber, SwapError>> {
+    if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
+      return new Ok(BigNumber.from(0));
+    }
     if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
 
@@ -284,6 +293,9 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     amount: BigNumber;
     slippagePercentTenThousandDenominator?: BigNumber;
   }): Promise<Result<boolean, SwapError>> {
+    if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
+      return new Ok(false);
+    }
     if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
 
@@ -371,6 +383,9 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
 
   async function deployFixture() {
     if (signer) {
+      if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
+        return;
+      }
       const router = UnifapV2Router__factory.connect(
         UNISWAP_V2_ROUTER_ADDRESS,
         signer

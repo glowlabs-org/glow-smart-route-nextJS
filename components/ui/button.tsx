@@ -9,21 +9,22 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "glow-button",
+        default:
+          "bg-glow-light-grey text-foreground backdrop-blur-xl border border-foreground/20 dark:bg-transparent hover:shadow-sm hover:bg-foreground hover:text-background dark:hover:bg-foreground dark:hover:text-background",
         orange:
-          "text-black font-semibold tracking-wide hover:scale-105 hover:-translate-y-0.5",
-        success: "bg-green-600 text-white hover:bg-green-700",
+          "bg-[var(--color-glow-orange)] text-foreground font-semibold tracking-wide hover:scale-105 hover:-translate-y-0.5",
+        success: "bg-[#16a34a] text-white hover:bg-[#15803d]",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
-          "bg-background text-black border-2 border-glow-medium-grey hover:bg-foreground hover:text-background",
+          "bg-background text-foreground border-2 border-border hover:bg-accent hover:text-accent-foreground",
         "outline-white":
-          "bg-transparent text-white border border-input hover:bg-white hover:text-black",
+          "bg-transparent text-primary-foreground border border-primary-foreground hover:bg-primary-foreground hover:text-primary",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         "secondary-primary":
           "bg-foreground text-background hover:bg-foreground/90",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
+        ghost: "hover:bg-foreground/10 hover:text-foreground",
         link: "text-primary underline-offset-4 hover:underline hover:text-primary/80",
       },
       size: {
@@ -64,14 +65,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ) => {
     const Comp = asChild ? Slot : "button";
 
-    // Apply orange background for orange variant using exact brand color
-    const orangeStyle =
-      variant === "orange"
-        ? {
-            backgroundColor: "var(--color-glow-orange)",
-          }
-        : {};
-
     const buttonContent = (
       <>
         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -83,7 +76,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       return (
         <Comp
           className={cn(buttonVariants({ variant, size, className }))}
-          style={orangeStyle}
           ref={ref}
           disabled={isLoading || disabled}
           {...props}
@@ -96,7 +88,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
-        style={orangeStyle}
         ref={ref}
         disabled={isLoading || disabled}
         {...props}

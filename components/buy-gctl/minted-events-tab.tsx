@@ -21,21 +21,12 @@ import {
 import { formatUnits } from "viem";
 import { toast } from "sonner";
 import { getCurrencyDecimals, getDisplayDecimals } from "@/lib/currency";
-
-interface MintedEvent {
-  txId: string;
-  epoch: number;
-  wallet: string;
-  amountRaw: string;
-  currency: string; // New field
-  gctlMinted: string;
-  ts: string; // ISO date string
-}
+import { MintedEvent } from "@glowlabs-org/utils/browser";
 
 interface MintedEventsTabProps {
   mintedEvents: MintedEvent[];
   dataLoading: boolean;
-  onRefresh?: () => Promise<void>; // New prop for manual refresh
+  onRefresh?: () => Promise<void>;
 }
 
 function CopyableAddress({

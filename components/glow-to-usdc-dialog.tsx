@@ -392,7 +392,7 @@ export const GlowToUsdcDialog: FC<{
                     variants={waitingToSuccessVariants}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="bg-white/80 dark:bg-muted/50 rounded-md p-2.5 flex items-center justify-center h-10 w-10 shrink-0 border border-border/20">
+                      <div className="bg-background/80 backdrop-blur-sm dark:bg-muted/50 rounded-md p-2.5 flex items-center justify-center h-10 w-10 shrink-0 border border-border/20">
                         {state.validated && !state.pending ? (
                           <Check
                             className={clsx("w-5 h-5", "text-green-600")}

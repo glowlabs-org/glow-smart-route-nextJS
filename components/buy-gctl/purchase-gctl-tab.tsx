@@ -11,11 +11,14 @@ import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Loader2, ArrowUpDown, Info, HelpCircle } from "lucide-react";
 import { ERC20_ABI } from "@/web3/web3/abis/erc20.abi";
-import { useForwarder } from "@/hooks/useForwarder";
+import { useForwarder } from "@glowlabs-org/utils/browser";
+
 import { useGctlApi } from "@/hooks/useGctlApi";
 import { BigNumber } from "ethers";
 import { ConnectButton } from "@/components/connect-button";
 import { RegionSelectionModal } from "@/components/buy-gctl/region-selection-modal";
+import { useEthersSigner } from "@/hooks/useEthersSigner";
+import { CHAIN_ID } from "@/web3/constants";
 
 interface PurchaseGctlTabProps {
   gctlBalance: string;
@@ -59,9 +62,10 @@ export function PurchaseGctlTab({
   fetchPendingTransfers,
   fetchMintedEvents,
 }: PurchaseGctlTabProps) {
+  const signer = useEthersSigner();
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
-  const chainId = useChainId();
+  const chainId = parseInt(CHAIN_ID);
   const isOnSepolia = chainId === 11155111;
 
   // Use the forwarder hook
@@ -73,7 +77,7 @@ export function PurchaseGctlTab({
     mintTestUSDC,
     isProcessing,
     addresses,
-  } = useForwarder();
+  } = useForwarder(signer ?? undefined, chainId);
 
   // Use GCTL API hook for regions
   const { regions, isRegionsLoading } = useGctlApi(address);
@@ -130,11 +134,10 @@ export function PurchaseGctlTab({
       if (!address || !inputAmount) return;
       try {
         const amount = BigNumber.from(parseUnits(inputAmount, 6).toString());
-        const allowanceResult = await checkTokenAllowance(address);
+        const allowance = await checkTokenAllowance(address);
 
-        if (allowanceResult.ok) {
-          setNeedsApproval(allowanceResult.val.lt(amount));
-        }
+        // If current allowance is lower than the required amount we need to ask for approval
+        setNeedsApproval(allowance.lt(amount));
       } catch (error) {
         console.error("Error checking approval:", error);
       }
@@ -229,48 +232,45 @@ export function PurchaseGctlTab({
       const amount = BigNumber.from(
         parseUnits(pendingPurchase.usdcAmount, 6).toString()
       );
-      const result = await mintGCTLAndStake(amount, address, regionId);
 
-      if (result.ok) {
-        const txHash = result.val;
-        const selectedRegionName = regions.find((r) => r.id === regionId)?.name;
+      const txHash = await mintGCTLAndStake(amount, address, regionId, "USDC");
 
-        // Notify parent component about transaction start
-        onTransactionStart(txHash);
+      // Notify parent component about transaction start
+      onTransactionStart(txHash);
 
-        // Clear form and state after a delay to allow processing modal to show
-        setTimeout(() => {
-          setInputAmount("");
-          setOutputAmount("");
-          setInputError("");
-          setPendingPurchase(null);
-          setShowRegionModal(false);
-          setIsProcessingTransaction(false);
-        }, 1000);
-
-        // Refresh balance
-        if (publicClient) {
-          const bal = (await publicClient.readContract({
-            address: addresses.USDC,
-            abi: ERC20_ABI,
-            functionName: "balanceOf",
-            args: [address],
-          })) as bigint;
-          setUsdcBalance(bal);
-        }
-
-        // Initial fetch to check if transaction appears quickly
-        setTimeout(() => {
-          fetchPendingTransfers();
-          fetchMintedEvents();
-        }, 5000);
-      } else {
-        toast.error(`Mint and stake failed: ${result.val}`);
+      // Clear form and state after a delay to allow processing modal to show
+      setTimeout(() => {
+        setInputAmount("");
+        setOutputAmount("");
+        setInputError("");
+        setPendingPurchase(null);
+        setShowRegionModal(false);
         setIsProcessingTransaction(false);
+      }, 1000);
+
+      // Refresh USDC balance after successful mint
+      if (publicClient) {
+        const bal = (await publicClient.readContract({
+          address: addresses.USDC,
+          abi: ERC20_ABI,
+          functionName: "balanceOf",
+          args: [address],
+        })) as bigint;
+        setUsdcBalance(bal);
       }
+
+      // Initial fetch to update pending transfers and minted events
+      setTimeout(() => {
+        fetchPendingTransfers();
+        fetchMintedEvents();
+      }, 5000);
     } catch (error) {
       console.error("Mint and stake error:", error);
-      toast.error("Mint and stake failed");
+      toast.error(
+        `Mint and stake failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
       setIsProcessingTransaction(false);
     } finally {
       setLoading(false);
@@ -288,46 +288,43 @@ export function PurchaseGctlTab({
       const amount = BigNumber.from(
         parseUnits(pendingPurchase.usdcAmount, 6).toString()
       );
-      const result = await mintGCTL(amount, address);
+      const txHash = await mintGCTL(amount, address, "USDC");
 
-      if (result.ok) {
-        const txHash = result.val;
+      // Notify parent component about transaction start
+      onTransactionStart(txHash);
 
-        // Notify parent component about transaction start
-        onTransactionStart(txHash);
-
-        // Clear form and state after a delay to allow processing modal to show
-        setTimeout(() => {
-          setInputAmount("");
-          setOutputAmount("");
-          setInputError("");
-          setPendingPurchase(null);
-          setShowRegionModal(false);
-          setIsProcessingTransaction(false);
-        }, 1000);
-
-        // Refresh balance
-        if (publicClient) {
-          const bal = (await publicClient.readContract({
-            address: addresses.USDC,
-            abi: ERC20_ABI,
-            functionName: "balanceOf",
-            args: [address],
-          })) as bigint;
-          setUsdcBalance(bal);
-        }
-
-        // Initial fetch to check if transaction appears quickly
-        setTimeout(() => {
-          fetchPendingTransfers();
-          fetchMintedEvents();
-        }, 5000);
-      } else {
-        toast.error(`Transaction failed: ${result.val}`);
+      // Clear form and state after a delay to allow processing modal to show
+      setTimeout(() => {
+        setInputAmount("");
+        setOutputAmount("");
+        setInputError("");
+        setPendingPurchase(null);
+        setShowRegionModal(false);
         setIsProcessingTransaction(false);
+      }, 1000);
+
+      // Refresh balance
+      if (publicClient) {
+        const bal = (await publicClient.readContract({
+          address: addresses.USDC,
+          abi: ERC20_ABI,
+          functionName: "balanceOf",
+          args: [address],
+        })) as bigint;
+        setUsdcBalance(bal);
       }
+
+      // Initial fetch to check if transaction appears quickly
+      setTimeout(() => {
+        fetchPendingTransfers();
+        fetchMintedEvents();
+      }, 5000);
     } catch (error) {
-      toast.error("Transaction failed");
+      toast.error(
+        `Transaction failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
       setIsProcessingTransaction(false);
     } finally {
       setLoading(false);
@@ -347,28 +344,29 @@ export function PurchaseGctlTab({
     if (!address) return;
 
     try {
-      // Mint 1000 USDC for testing
+      // Mint 10000 USDC for testing
       const amount = BigNumber.from(parseUnits("10000", 6).toString());
-      const result = await mintTestUSDC(amount, address);
+      await mintTestUSDC(amount, address);
 
-      if (result.ok) {
-        toast.success("Successfully minted 10000 test USDC!");
+      toast.success("Successfully minted 10000 test USDC!");
 
-        // Refresh USDC balance
-        if (publicClient) {
-          const bal = (await publicClient.readContract({
-            address: addresses.USDC,
-            abi: ERC20_ABI,
-            functionName: "balanceOf",
-            args: [address],
-          })) as bigint;
-          setUsdcBalance(bal);
-        }
-      } else {
-        toast.error(`Failed to mint test USDC: ${result.val}`);
+      // Refresh USDC balance
+      if (publicClient) {
+        const bal = (await publicClient.readContract({
+          address: addresses.USDC,
+          abi: ERC20_ABI,
+          functionName: "balanceOf",
+          args: [address],
+        })) as bigint;
+        setUsdcBalance(bal);
       }
     } catch (error) {
-      toast.error("Failed to mint test USDC");
+      console.error("Failed to mint test USDC:", error);
+      toast.error(
+        `Failed to mint test USDC: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
   };
 

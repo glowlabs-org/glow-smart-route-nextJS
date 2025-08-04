@@ -81,6 +81,9 @@ export function usePurchaseGlow() {
   async function getGlowQuoteEarlyLiquidity(
     incrementsToPurchase: number
   ): Promise<Result<BigNumber, string>> {
+    if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
+      return new Ok(BigNumber.from(0));
+    }
     if (!earlyLiquidity) return new Err("Early Liquidity not available");
     const price = await earlyLiquidity.getPrice(incrementsToPurchase);
     return new Ok(price);
@@ -89,6 +92,9 @@ export function usePurchaseGlow() {
   async function findAmountGlowFromUSDGAmount(
     usdgAmount: BigNumberish
   ): Promise<Result<BigNumber, string>> {
+    if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
+      return new Ok(BigNumber.from(0));
+    }
     if (!usdg) return new Err("USDG not available");
     if (!glow) return new Err("Glow not available");
     if (!earlyLiquidity)
@@ -122,6 +128,9 @@ export function usePurchaseGlow() {
     incrementsToPurchase: number;
     slippagePointsTenThousandths: BigNumber;
   }): Promise<Result<boolean, string>> {
+    if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
+      return new Ok(false);
+    }
     if (!earlyLiquidity) return new Err("Early Liquidity not available");
     if (!usdc) return new Err("USDC not available");
     if (!usdg) return new Err("USDG not available");
@@ -229,6 +238,9 @@ export function usePurchaseGlow() {
     slippagePointsTenThousandths: BigNumber;
     ethPriceInUSD: number | null;
   }): Promise<Result<string, string>> {
+    if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
+      return new Ok("0");
+    }
     if (!earlyLiquidity) return new Err("Early Liquidity not available");
     if (!usdc) return new Err("USDC not available");
     if (!usdg) return new Err("USDG not available");
@@ -291,6 +303,20 @@ export function usePurchaseGlow() {
     earlyLiquidityCurrentPrice: number;
   }): Promise<Result<SmartBalancingAmounts, string>> {
     if (!signer) return new Err("Signer not available");
+    if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
+      return new Ok({
+        amount_in_uni: BigNumber.from(0),
+        amount_in_glow_bonding_curve: 0,
+        amount_out_uni: "0",
+        amount_out_glow: "0",
+        uniswapUSDGReserves: 0,
+        uniswapGlowReserves: 0,
+        expectedEndingPriceEarlyLiquidity: 0,
+        expectedEndingPriceUniswap: 0,
+        earlyLiquidityCurrentPrice: earlyLiquidityCurrentPrice,
+        usdgToSpend: amountUsdgIn,
+      });
+    }
     const factory = new Contract(
       UNISWAP_V2_FACTORY_ADDRESS,
       UNISWAP_V2_FACTORY_ABI,

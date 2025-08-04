@@ -22,15 +22,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { formatUnits } from "viem";
-
-interface Region {
-  id: number;
-  name: string;
-  flag: string;
-  currentGctlStake: string;
-  isActive: boolean;
-  solarFarmCount: number;
-}
+import { Region } from "@glowlabs-org/utils/browser";
 
 interface RegionSelectionModalProps {
   isOpen: boolean;

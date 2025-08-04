@@ -4,7 +4,7 @@ import { Result, Ok, Err } from "ts-results";
 import { useEthersSigner } from "./useEthersSigner";
 import { useEffect, useState } from "react";
 
-export type SYMBOLS = "GLOW" | "GCC" | "IMPACT POWER POINTS" | "USDG" | "USDC";
+export type SYMBOLS = "GLOW" | "IMPACT POWER POINTS" | "USDG" | "USDC";
 
 export enum GetBalanceError {
   CONTRACTS_NOT_AVAILABLE = "Contracts not available",
@@ -18,11 +18,11 @@ export const useER20Balances = ({
   symbol: SYMBOLS;
   signer: ethers.providers.JsonRpcSigner | undefined | null;
 }) => {
-  const { usdg, glow, gcc, usdc, isReady } = useContracts(signer);
+  const { usdg, glow, usdc, isReady } = useContracts(signer);
   const [usdcBalance, setUsdcBalance] = useState<BigNumber | null>(null);
   const [usdgBalance, setUsdgBalance] = useState<BigNumber | null>(null);
   const [glowBalance, setGlowBalance] = useState<BigNumber | null>(null);
-  const [gccBalance, setGccBalance] = useState<BigNumber | null>(null);
+
   /**
    * @param getBalance ~ Returns the balance for the desired token
    * @return Result<BigNumber, GetBalanceError> ~ Returns the balance for the desired token
@@ -36,14 +36,6 @@ export const useER20Balances = ({
         if (!glow) return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
         return new Ok(await glow.balanceOf(address));
 
-      case "GCC":
-        if (!gcc) return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
-        return new Ok(await gcc.balanceOf(address));
-
-      case "IMPACT POWER POINTS":
-        if (!gcc) return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
-        return new Ok(await gcc.totalImpactPowerEarned(address));
-
       case "USDG":
         if (!usdg) return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
         return new Ok(await usdg.balanceOf(address));
@@ -52,6 +44,9 @@ export const useER20Balances = ({
         if (!usdc) return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
         // return new Ok(await BigNumber.from(700000000000000));
         return new Ok(await usdc.balanceOf(address));
+
+      default:
+        return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
     }
   }
 
@@ -82,22 +77,12 @@ export const useER20Balances = ({
     setGlowBalance(balance);
   };
 
-  const setGccBalanceForSigner = async () => {
-    if (!signer) return new Err(GetBalanceError.SIGNER_NOT_AVAILABLE);
-    if (!gcc) return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
-
-    const address = await signer.getAddress();
-    const balance = await gcc.balanceOf(address);
-    setGccBalance(balance);
-  };
-
   const refreshBalances = async () => {
     if (isReady) {
       getBalance();
       setUsdcBalanceForSigner();
       setUsdgBalanceForSigner();
       setGlowBalanceForSigner();
-      setGccBalanceForSigner();
     }
   };
 
@@ -119,12 +104,6 @@ export const useER20Balances = ({
     }
   }, [isReady, glow]);
 
-  useEffect(() => {
-    if (isReady) {
-      setGccBalanceForSigner();
-    }
-  }, [isReady, gcc]);
-
   return {
     getBalance,
     isReady,
@@ -135,7 +114,5 @@ export const useER20Balances = ({
     refreshBalances,
     glowBalance,
     setGlowBalanceForSigner,
-    gccBalance,
-    setGccBalanceForSigner,
   };
 };

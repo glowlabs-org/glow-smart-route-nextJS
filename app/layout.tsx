@@ -1,7 +1,8 @@
 import "./globals.css";
-
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Toaster } from "sonner";
 import { WagmiWrapper } from "./providers/wagmiWrapper";
+import { ThemeProvider } from "./providers/theme-provider";
 
 export default function RootLayout({
   children,
@@ -52,10 +53,12 @@ export default function RootLayout({
         />
       </head>
       <body className={`antialiased`}>
-        <WagmiWrapper>
-          {children}
-          <Toaster position="bottom-right" />
-        </WagmiWrapper>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <WagmiWrapper>
+            <NuqsAdapter>{children}</NuqsAdapter>
+            <Toaster position="bottom-right" />
+          </WagmiWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );

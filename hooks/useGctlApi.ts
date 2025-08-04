@@ -2,99 +2,25 @@
 import { useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Result, Ok, Err } from "ts-results";
+import {
+  type MintedEvent,
+  type StakedEvent,
+  type PendingTransfer,
+  type FailedOperation,
+  type Region,
+  type RegionStake,
+  type WalletRegionStake,
+  type WalletRegionUnlocked,
+  ControlRouter,
+  TransferDetails,
+} from "@glowlabs-org/utils/browser";
 
-// ---- Types ---------------------------------------------------------------
-export interface MintedEvent {
-  txId: string;
-  epoch: number;
-  wallet: string;
-  amountRaw: string;
-  currency: string;
-  gctlMinted: string;
-  ts: string; // ISO date string
+if (!process.env.NEXT_PUBLIC_GCTL_API) {
+  throw new Error("NEXT_PUBLIC_GCTL_API is not set");
 }
 
-export interface StakedEvent {
-  id: string;
-  epoch: number;
-  wallet: string;
-  regionId: number;
-  amount: string;
-  direction: "stake" | "unstake";
-  ts: string; // ISO date string
-}
-
-export interface PendingTransfer {
-  txId: string;
-  wallet: string;
-  amountRaw: string;
-  type: string;
-  currency: string;
-  status: string;
-  ts: string; // ISO date string
-  applicationId?: string;
-  farmId?: string;
-  regionId?: number;
-}
-
-export interface FailedOperation {
-  id: string;
-  txId: string;
-  operation: string;
-  failureType: string;
-  errorMessage: string;
-  errorDetails?: string;
-  isRetryable: string;
-  retryCount: number;
-  lastRetryAt?: string; // ISO date string
-  resolvedAt?: string; // ISO date string
-  wallet?: string;
-  amountRaw?: string;
-  currency?: string; // New field
-  createdAt: string; // ISO date string
-  updatedAt: string; // ISO date string
-}
-
-export interface GctlPrice {
-  currentPriceUsdc: number;
-}
-
-// New staking-related types
-export interface StakeRequest {
-  wallet: string;
-  regionId: number;
-  amount: string; // Amount in atomic units (10^6 = 1 GCTL)
-}
-
-export interface RegionStake {
-  regionId: number;
-  currentGctlStake: string;
-}
-
-export interface WalletRegionStake {
-  wallet: string;
-  regionId: number;
-  currentGctlStake: string;
-}
-
-export interface WalletRegionUnlocked {
-  wallet: string;
-  regionId: number;
-  unlocked: string;
-}
-
-// New region type
-export interface Region {
-  id: number;
-  name: string;
-  flag: string;
-  currentGctlStake: string;
-  isActive: boolean;
-  solarFarmCount: number;
-}
-
-// --------------------------------------------------------------------------
-const BASE_URL = "/api"; // Use local API routes instead of external API
+// Initialize Glow Control API client
+const control = ControlRouter(process.env.NEXT_PUBLIC_GCTL_API);
 
 /**
  * Extract a useful error message from an unknown error value.
@@ -115,6 +41,7 @@ const QUERY_KEYS = {
   pendingTransfers: () => ["pending-transfers"],
   failedOperations: () => ["failed-operations"],
   regions: () => ["regions"],
+  transferDetails: (txId: string) => ["transfer-details", txId],
   regionStake: (regionId: number) => ["region-stake", regionId],
   walletRegionStake: (wallet?: string, regionId?: number) => [
     "wallet-region-stake",
@@ -131,90 +58,10 @@ const QUERY_KEYS = {
 export function useGctlApi(walletAddress?: string) {
   const queryClient = useQueryClient();
 
-  // ----------------------- API helpers -----------------------------------
-  const fetchGctlBalanceApi = async (wallet: string): Promise<string> => {
-    const res = await fetch(`${BASE_URL}/balance/${wallet}`);
-    if (!res.ok) throw new Error("Failed to fetch GCTL balance");
-    const data = await res.json();
-    return (data?.gctl_balance ?? "0").toString();
-  };
-
-  const fetchGctlPriceApi = async (): Promise<number> => {
-    const res = await fetch(`${BASE_URL}/price`);
-    if (!res.ok) throw new Error("Failed to fetch GCTL price");
-    const data: GctlPrice = await res.json();
-    return data.currentPriceUsdc;
-  };
-
-  const fetchMintedEventsApi = async (): Promise<MintedEvent[]> => {
-    const res = await fetch(`${BASE_URL}/events/minted?page=1&limit=50`);
-    if (!res.ok) throw new Error("Failed to fetch minted events");
-    const data = await res.json();
-    return data.events ?? [];
-  };
-
-  const fetchStakeEventsApi = async (): Promise<StakedEvent[]> => {
-    const res = await fetch(`${BASE_URL}/events/stake?page=1&limit=50`); // Updated endpoint
-    if (!res.ok) throw new Error("Failed to fetch stake events");
-    const data = await res.json();
-    return data.events ?? [];
-  };
-
-  const fetchPendingTransfersApi = async (): Promise<PendingTransfer[]> => {
-    const res = await fetch(`${BASE_URL}/transfers/pending?page=1&limit=50`);
-    if (!res.ok) throw new Error("Failed to fetch pending transfers");
-    const data = await res.json();
-    return data.transfers ?? [];
-  };
-
-  const fetchFailedOperationsApi = async (): Promise<FailedOperation[]> => {
-    const res = await fetch(`${BASE_URL}/operations/failed?page=1&limit=50`);
-    if (!res.ok) throw new Error("Failed to fetch failed operations");
-    const data = await res.json();
-    return data.operations ?? [];
-  };
-
   const fetchRegionsApi = async (): Promise<Region[]> => {
-    const res = await fetch(`${BASE_URL}/regions`);
-    if (!res.ok) throw new Error("Failed to fetch regions");
-    const data = await res.json();
-
-    // Filter out test regions
-    return (
-      data.regions.filter((r: Region) => r.id !== 998 && r.id !== 999) ?? []
-    );
+    const data = await control.fetchRegions();
+    return data.filter((r) => r.id !== 998 && r.id !== 999);
   };
-
-  const fetchRegionStakeApi = async (
-    regionId: number
-  ): Promise<RegionStake> => {
-    const res = await fetch(`${BASE_URL}/region/${regionId}/stake`);
-    if (!res.ok) throw new Error("Failed to fetch region stake");
-    return await res.json();
-  };
-
-  const fetchWalletRegionStakeApi = async (
-    wallet: string,
-    regionId: number
-  ): Promise<WalletRegionStake> => {
-    const res = await fetch(
-      `${BASE_URL}/wallet/${wallet}/region/${regionId}/stake`
-    );
-    if (!res.ok) throw new Error("Failed to fetch wallet region stake");
-    return await res.json();
-  };
-
-  const fetchWalletRegionUnlockedApi = async (
-    wallet: string,
-    regionId: number
-  ): Promise<WalletRegionUnlocked> => {
-    const res = await fetch(
-      `${BASE_URL}/wallet/${wallet}/region/${regionId}/unlocked`
-    );
-    if (!res.ok) throw new Error("Failed to fetch wallet region unlocked");
-    return await res.json();
-  };
-
   // ----------------------- React Query hooks -----------------------------
 
   // GCTL Balance Query
@@ -224,7 +71,7 @@ export function useGctlApi(walletAddress?: string) {
     isLoading: isGctlBalanceLoading,
   } = useQuery({
     queryKey: QUERY_KEYS.gctlBalance(walletAddress),
-    queryFn: () => fetchGctlBalanceApi(walletAddress!),
+    queryFn: () => control.fetchGctlBalance(walletAddress!),
     enabled: !!walletAddress,
     staleTime: 10 * 1000, // 10 seconds
     retry: 2,
@@ -237,7 +84,7 @@ export function useGctlApi(walletAddress?: string) {
     isLoading: isGctlPriceLoading,
   } = useQuery({
     queryKey: QUERY_KEYS.gctlPrice(),
-    queryFn: fetchGctlPriceApi,
+    queryFn: () => control.fetchGctlPrice(),
     staleTime: 30 * 1000, // 30 seconds
     retry: 2,
   });
@@ -249,7 +96,7 @@ export function useGctlApi(walletAddress?: string) {
     isLoading: isMintedEventsLoading,
   } = useQuery({
     queryKey: QUERY_KEYS.mintedEvents(),
-    queryFn: fetchMintedEventsApi,
+    queryFn: () => control.fetchMintedEvents(),
     staleTime: 0, // No caching - always fetch fresh data
     gcTime: 0, // Don't cache results
     refetchOnMount: true,
@@ -267,7 +114,7 @@ export function useGctlApi(walletAddress?: string) {
     isLoading: isStakedEventsLoading,
   } = useQuery({
     queryKey: QUERY_KEYS.stakeEvents(), // Updated query key
-    queryFn: fetchStakeEventsApi, // Updated function name
+    queryFn: () => control.fetchStakeEvents(), // Updated function name
     staleTime: 0, // No caching - always fetch fresh data
     gcTime: 0, // Don't cache results
     refetchOnMount: true,
@@ -285,7 +132,7 @@ export function useGctlApi(walletAddress?: string) {
     isLoading: isPendingTransfersLoading,
   } = useQuery({
     queryKey: QUERY_KEYS.pendingTransfers(),
-    queryFn: fetchPendingTransfersApi,
+    queryFn: () => control.fetchPendingTransfers(),
     staleTime: 0, // No caching - always fetch fresh data
     gcTime: 0, // Don't cache results
     refetchOnMount: true,
@@ -303,7 +150,7 @@ export function useGctlApi(walletAddress?: string) {
     isLoading: isFailedOperationsLoading,
   } = useQuery({
     queryKey: QUERY_KEYS.failedOperations(),
-    queryFn: fetchFailedOperationsApi,
+    queryFn: () => control.fetchFailedOperations(),
     staleTime: 0, // No caching - always fetch fresh data
     gcTime: 0, // Don't cache results
     refetchOnMount: true,
@@ -325,10 +172,22 @@ export function useGctlApi(walletAddress?: string) {
   });
 
   // Hooks for staking data - these can be called conditionally
+
+  // Hook for transfer details - can be called conditionally
+  const useTransferDetails = (txId: string) =>
+    useQuery({
+      queryKey: QUERY_KEYS.transferDetails(txId),
+      queryFn: () => control.fetchTransferDetails(txId),
+      enabled: !!txId,
+      staleTime: 0, // No caching - always fetch fresh data
+      gcTime: 0, // Don't cache results
+      retry: 2,
+    });
+
   const useRegionStake = (regionId: number) => {
     return useQuery({
       queryKey: QUERY_KEYS.regionStake(regionId),
-      queryFn: () => fetchRegionStakeApi(regionId),
+      queryFn: () => control.fetchRegionStake(regionId),
       staleTime: 30 * 1000, // 30 seconds
       retry: 2,
     });
@@ -337,7 +196,7 @@ export function useGctlApi(walletAddress?: string) {
   const useWalletRegionStake = (regionId: number) => {
     return useQuery({
       queryKey: QUERY_KEYS.walletRegionStake(walletAddress, regionId),
-      queryFn: () => fetchWalletRegionStakeApi(walletAddress!, regionId),
+      queryFn: () => control.fetchWalletRegionStake(walletAddress!, regionId),
       enabled: !!walletAddress,
       staleTime: 15 * 1000, // 15 seconds
       retry: 2,
@@ -347,7 +206,8 @@ export function useGctlApi(walletAddress?: string) {
   const useWalletRegionUnlocked = (regionId: number) => {
     return useQuery({
       queryKey: QUERY_KEYS.walletRegionUnlocked(walletAddress, regionId),
-      queryFn: () => fetchWalletRegionUnlockedApi(walletAddress!, regionId),
+      queryFn: () =>
+        control.fetchWalletRegionUnlocked(walletAddress!, regionId),
       enabled: !!walletAddress,
       staleTime: 15 * 1000, // 15 seconds
       retry: 2,
@@ -367,26 +227,7 @@ export function useGctlApi(walletAddress?: string) {
     }) => {
       if (!walletAddress) throw new Error("Wallet address not provided");
 
-      const stakeRequest: StakeRequest = {
-        wallet: walletAddress,
-        regionId,
-        amount,
-      };
-
-      const res = await fetch(`${BASE_URL}/stake`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(stakeRequest),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData?.error || "Failed to stake GCTL");
-      }
-
-      return await res.json();
+      return await control.stakeGctl(walletAddress, regionId, amount);
     },
     onSuccess: (_, { regionId }) => {
       // Invalidate all relevant queries - will auto-refetch if actively observed
@@ -427,26 +268,7 @@ export function useGctlApi(walletAddress?: string) {
     }) => {
       if (!walletAddress) throw new Error("Wallet address not provided");
 
-      const unstakeRequest: StakeRequest = {
-        wallet: walletAddress,
-        regionId,
-        amount,
-      };
-
-      const res = await fetch(`${BASE_URL}/unstake`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(unstakeRequest),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData?.error || "Failed to unstake GCTL");
-      }
-
-      return await res.json();
+      return await control.unstakeGctl(walletAddress, regionId, amount);
     },
     onSuccess: (_, { regionId }) => {
       // Invalidate all relevant queries - will auto-refetch if actively observed
@@ -478,24 +300,8 @@ export function useGctlApi(walletAddress?: string) {
 
   // Retry Failed Operation Mutation
   const retryFailedOperationMutation = useMutation({
-    mutationFn: async (operationId: string) => {
-      const res = await fetch(
-        `${BASE_URL}/operations/failed/${operationId}/retry`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData?.error || "Failed to retry operation");
-      }
-
-      return await res.json();
-    },
+    mutationFn: async (operationId: string) =>
+      control.retryFailedOperation(operationId),
     onSuccess: () => {
       // Invalidate failed operations to refresh the list
       queryClient.invalidateQueries({
@@ -601,7 +407,7 @@ export function useGctlApi(walletAddress?: string) {
   const fetchRegionStake = useCallback(
     async (regionId: number): Promise<Result<RegionStake, string>> => {
       try {
-        const data = await fetchRegionStakeApi(regionId);
+        const data = await control.fetchRegionStake(regionId);
         return new Ok(data);
       } catch (error) {
         return new Err(parseApiError(error));
@@ -614,7 +420,10 @@ export function useGctlApi(walletAddress?: string) {
     async (regionId: number): Promise<Result<WalletRegionStake, string>> => {
       if (!walletAddress) return new Err("Wallet address not provided");
       try {
-        const data = await fetchWalletRegionStakeApi(walletAddress, regionId);
+        const data = await control.fetchWalletRegionStake(
+          walletAddress,
+          regionId
+        );
         return new Ok(data);
       } catch (error) {
         return new Err(parseApiError(error));
@@ -627,7 +436,7 @@ export function useGctlApi(walletAddress?: string) {
     async (regionId: number): Promise<Result<WalletRegionUnlocked, string>> => {
       if (!walletAddress) return new Err("Wallet address not provided");
       try {
-        const data = await fetchWalletRegionUnlockedApi(
+        const data = await control.fetchWalletRegionUnlocked(
           walletAddress,
           regionId
         );
@@ -681,6 +490,18 @@ export function useGctlApi(walletAddress?: string) {
     [retryFailedOperationMutation]
   );
 
+  const fetchTransferDetails = useCallback(
+    async (txId: string): Promise<Result<TransferDetails, string>> => {
+      try {
+        const data = await control.fetchTransferDetails(txId);
+        return new Ok(data);
+      } catch (error) {
+        return new Err(parseApiError(error));
+      }
+    },
+    []
+  );
+
   // --------------------------- Exports -----------------------------------
   return {
     // Data
@@ -712,6 +533,7 @@ export function useGctlApi(walletAddress?: string) {
     fetchRegionStake,
     fetchWalletRegionStake,
     fetchWalletRegionUnlocked,
+    fetchTransferDetails,
     stakeGctl,
     unstakeGctl,
     retryFailedOperation,
@@ -720,6 +542,7 @@ export function useGctlApi(walletAddress?: string) {
     useRegionStake,
     useWalletRegionStake,
     useWalletRegionUnlocked,
+    useTransferDetails,
 
     // Mutation states
     isStaking: stakeMutation.isPending,

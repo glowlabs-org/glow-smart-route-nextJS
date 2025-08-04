@@ -14,15 +14,18 @@ import {
 } from "lucide-react";
 import { useAccount, usePublicClient, useChainId } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
-import { useForwarder } from "@/hooks/useForwarder";
+import { DECIMALS_BY_TOKEN, useForwarder } from "@glowlabs-org/utils/browser";
+
 import { BigNumber } from "ethers";
 import { ConnectButton } from "@/components/connect-button";
 import { ERC20_ABI } from "@/web3/web3/abis/erc20.abi";
+import { useEthersSigner } from "@/hooks/useEthersSigner";
+import { CHAIN_ID } from "@/web3/constants";
 
 // Constants
 const HUB_URL = "https://gca-crm-backend-staging.up.railway.app";
-const SEPOLIA_CHAIN_ID = 11155111;
-const USDC_DECIMALS = 6;
+
+const USDC_DECIMALS = DECIMALS_BY_TOKEN.USDC;
 const VALIDATION_DEBOUNCE_MS = 500;
 
 // Types
@@ -519,8 +522,9 @@ function NetworkWarning({ isOnSepolia }: NetworkWarningProps) {
 // Main component
 export function ProtocolFeeTab({}: ProtocolFeeTabProps) {
   const { address, isConnected } = useAccount();
-  const chainId = useChainId();
-  const isOnSepolia = chainId === SEPOLIA_CHAIN_ID;
+  const signer = useEthersSigner();
+  const chainId = parseInt(CHAIN_ID);
+  const isOnSepolia = chainId === 11155111;
 
   const {
     payProtocolFee,
@@ -528,7 +532,7 @@ export function ProtocolFeeTab({}: ProtocolFeeTabProps) {
     checkTokenAllowance,
     isProcessing,
     addresses,
-  } = useForwarder();
+  } = useForwarder(signer ?? undefined, chainId);
 
   // Form state
   const [formState, setFormState] = useState<FormState>({
@@ -624,11 +628,10 @@ export function ProtocolFeeTab({}: ProtocolFeeTabProps) {
         const amountBN = BigNumber.from(
           parseUnits(formState.amount, USDC_DECIMALS).toString()
         );
-        const allowanceResult = await checkTokenAllowance(address);
+        const allowance = await checkTokenAllowance(address);
 
-        if (allowanceResult.ok) {
-          setNeedsApproval(allowanceResult.val.lt(amountBN));
-        }
+        // If allowance is less than required payment amount we need to ask for approval
+        setNeedsApproval(allowance.lt(amountBN));
       } catch (error) {
         console.error("Error checking approval:", error);
       }
@@ -688,41 +691,36 @@ export function ProtocolFeeTab({}: ProtocolFeeTabProps) {
       const amountBN = BigNumber.from(
         parseUnits(formState.amount, USDC_DECIMALS).toString()
       );
-      let result;
 
       if (formState.mintAndStake) {
         const regionIdNum = formState.regionId
           ? parseInt(formState.regionId)
           : undefined;
-        result = await payProtocolFeeAndMintGCTLAndStake(
+        await payProtocolFeeAndMintGCTLAndStake(
           amountBN,
           address,
           formState.applicationId,
           regionIdNum
         );
       } else {
-        result = await payProtocolFee(
-          amountBN,
-          address,
-          formState.applicationId
-        );
+        await payProtocolFee(amountBN, address, formState.applicationId);
       }
 
-      if (result.ok) {
-        toast.success(
-          `Protocol fee payment ${
-            formState.mintAndStake ? "with GCTL minting and staking" : ""
-          } initiated!`
-        );
+      toast.success(
+        `Protocol fee payment ${
+          formState.mintAndStake ? "with GCTL minting and staking " : ""
+        }initiated!`
+      );
 
-        clearForm();
-        await fetchBalance();
-      } else {
-        toast.error(`Payment failed: ${result.val}`);
-      }
+      clearForm();
+      await fetchBalance();
     } catch (error) {
       console.error("Payment error:", error);
-      toast.error("Payment failed");
+      toast.error(
+        `Payment failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
   };
 

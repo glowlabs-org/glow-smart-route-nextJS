@@ -84,20 +84,24 @@ interface PageContentProps {
   marketCap: string;
   ethPriceInUSD: number | null;
   usdcRewardPool: string;
-  impactPowerPrice: string;
 }
 
 function PageContent(props: PageContentProps) {
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+      <Navbar
+        glowPrice={props.glowPrice}
+        earlyLiquidityCurrentPrice={props.earlyLiquidityCurrentPrice}
+        marketCap={props.marketCap}
+        ethPriceInUSD={props.ethPriceInUSD}
+        usdcRewardPool={props.usdcRewardPool}
+      />
       <View
         glowPrice={props.glowPrice}
         earlyLiquidityCurrentPrice={props.earlyLiquidityCurrentPrice}
         marketCap={props.marketCap}
         ethPriceInUSD={props.ethPriceInUSD}
         usdcRewardPool={props.usdcRewardPool}
-        impactPowerPrice={props.impactPowerPrice}
       />
     </div>
   );
@@ -109,12 +113,11 @@ export default async function Page() {
       getHeadlineStats(),
       getEthPriceInUSD(),
     ]);
-
+    console.log(glowStats, ethPriceInUSD);
     const glowPrice = glowStats.glowPrice.toString();
     const earlyLiquidityCurrentPrice = glowStats.earlyLiquidityPrice.toString();
     const marketCap = glowStats.marketCap.toString();
     const usdcRewardPool = glowStats.usdcRewardPool;
-    const impactPowerPrice = glowStats.impactPowerPointsPrice.toString();
 
     return (
       <PageWrapper>
@@ -124,7 +127,6 @@ export default async function Page() {
           marketCap={marketCap}
           ethPriceInUSD={ethPriceInUSD}
           usdcRewardPool={usdcRewardPool}
-          impactPowerPrice={impactPowerPrice}
         />
       </PageWrapper>
     );

@@ -92,29 +92,3 @@ export async function calculateGlowPrice(
     blockNumber: blockNumber.toString(),
   };
 }
-
-export async function getMostRecentGlowPrice() {
-  const reserves = await getReserves("latest");
-  if (!reserves) throw new Error("No reserves found");
-  const glowReserve = BigInt(reserves.reserve1);
-  const usdgReserve = BigInt(reserves.reserve0);
-  const blockNumber = BigInt(reserves.blockNumber);
-  const uniswapPrice = await calculateGlowPrice(
-    glowReserve,
-    usdgReserve,
-    blockNumber
-  );
-
-  const glowPriceFromEarlyLiquidity = await getPriceFromEarlyLiquidity();
-  const uniswapPriceFloat = Number(uniswapPrice.price);
-  //Return the lower of the two prices
-  if (glowPriceFromEarlyLiquidity < uniswapPriceFloat) {
-    return {
-      price: glowPriceFromEarlyLiquidity.toString(),
-      timestamp: uniswapPrice.timestamp,
-      blockNumber: uniswapPrice.blockNumber,
-    };
-  } else {
-    return uniswapPrice;
-  }
-}

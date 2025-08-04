@@ -14,10 +14,14 @@ import { toast } from "sonner";
 import { Result } from "ts-results";
 import { useSwap } from "@/hooks/useSwap";
 import { addresses } from "@glowlabs-org/guarded-launch-ethers-sdk";
-import { usePurchaseImpactPower } from "@/hooks/usePurchaseImpactPower";
 import { Input } from "@/components/ui/input";
 import { useAccount } from "wagmi";
-import { Loader2, Settings, ArrowDownUp, Info } from "lucide-react";
+import { formatUnits, parseUnits } from "viem";
+import { useForwarder } from "@glowlabs-org/utils/browser";
+import { CHAIN_ID } from "@/web3/constants";
+import { useGctlApi } from "@/hooks/useGctlApi";
+import { ProcessingModal } from "@/components/buy-gctl/processing-modal";
+import { ArrowDownUp, Info } from "lucide-react";
 import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
 import { SYMBOLS, useER20Balances } from "@/hooks/useERC20Balances";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
@@ -30,29 +34,25 @@ import { formatPrice } from "@/utils/formatPrice";
 import { InstructionsDialog } from "@/components/instructions-dialog";
 import { UsdcToTokenDialog } from "@/components/usdc-to-token-dialog";
 import { GlowToUsdcDialog } from "@/components/glow-to-usdc-dialog";
+import { UsdgToUsdcRedemptionDialog } from "@/components/usdg-to-usdc-redemption-dialog";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
 import { useDebouncedCallback } from "use-debounce";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getOptimalUSDGAmountsWithFees } from "@/utils/glowSmartBalancing";
 import { useRouter } from "next/navigation";
-import { useERC20 } from "@/hooks/useERC20";
-import {
-  USDG_REDEMPTION_ADDRESS,
-  useUSDGRedemption,
-} from "@/hooks/useUSDGRedemption";
-import { NumberTicker } from "@/components/ui/number-ticker";
+import { useUSDGRedemption } from "@/hooks/useUSDGRedemption";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import Image from "next/image";
-import { BackgroundBeams } from "@/components/ui/background-beams";
-import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
-import { publicClient } from "@/web3/web3/clients/publicClient";
+import { SendTab } from "./send-tab";
+import { useQueryState } from "nuqs";
+
+import { BeamsBackground } from "@/components/ui/beam-background";
 
 const tokens = {
   USDG: {
     label: "USDG",
     address: addresses.usdg,
     decimals: 6,
-    allowedPairs: ["GLOW", "IMPACT POWER POINTS", "USDC"],
+    allowedPairs: ["GLOW", "USDC", "GCTL"],
     toFixed: 6,
   },
   GLOW: {
@@ -66,17 +66,14 @@ const tokens = {
     label: "USDC",
     address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" as `0x${string}`,
     decimals: 6,
-    allowedPairs: ["GLOW", "USDG", "IMPACT POWER POINTS"],
+    allowedPairs: ["GLOW", "USDG", "GCTL"],
     toFixed: 6,
   },
-  ["IMPACT POWER POINTS"]: {
-    //@ts-ignore
-    label: "IMPACT POWER POINTS",
-    address: addresses.impactCatalyst,
-    //@ts-ignore
-    decimals: 12,
-    //@ts-ignore
-    allowedPairs: [],
+  GCTL: {
+    label: "GCTL",
+    address: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+    decimals: 6,
+    allowedPairs: [], // GCTL cannot be selected as sell token
     toFixed: 6,
   },
 } as const;
@@ -85,7 +82,7 @@ const defaultTokensEstimate = {
   GLOW: "0",
   USDG: "0",
   USDC: "0",
-  "IMPACT POWER POINTS": "0",
+  GCTL: "0",
 };
 
 type TOKENS_ENUM = keyof typeof tokens;
@@ -97,7 +94,6 @@ export default function View({
   marketCap,
   ethPriceInUSD,
   usdcRewardPool,
-  impactPowerPrice,
 }: // totalProtocolFeesLast30days,
 {
   glowPrice: string;
@@ -105,38 +101,33 @@ export default function View({
   marketCap: string;
   ethPriceInUSD: number | null;
   usdcRewardPool: string;
-  impactPowerPrice: string;
-  // totalProtocolFeesLast30days: string;
 }) {
   const [estimatedOutputAmount, setEstimatedOutputAmount] = useState<
     typeof defaultTokensEstimate
   >(defaultTokensEstimate);
   const [isTransitionStarted, startTransition] = React.useTransition();
   const [estimateQueueAmount, setEstimateQueueAmount] = useState<number>(0);
-  const [isRpcAvailable, setIsRpcAvailable] = useState<boolean>(true);
   const router = useRouter();
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
   const [isGlowToUsdcDialogOpen, setIsGlowToUsdcDialogOpen] =
     useState<boolean>(false);
+  const [
+    isUsdgToUsdcRedemptionDialogOpen,
+    setIsUsdgToUsdcRedemptionDialogOpen,
+  ] = useState<boolean>(false);
   const [amountToSell, setAmountToSell] = React.useState<string>("0");
-  const [amountToSend, setAmountToSend] = React.useState<string>("0");
   const [selectedTokenSell, setSelectedTokenSell] = useState<Token>(
     tokens.USDC
   );
-  const [selectedTokenSend, setSelectedTokenSend] = useState<Token>(
-    tokens.USDG
-  );
+  const [selectedTokenBuy, setSelectedTokenBuy] = useState<Token>(tokens.GLOW);
   const [slippageTolerance, setSlippageTolerance] = useState("1");
   const [pendingTx, setPendingTx] = useState<boolean>(false);
   const [tokenSellBalance, setTokenSellBalance] = useState<string>("0");
-  const [tokenSendBalance, setTokenSendBalance] = useState<string>("0");
-  const [selectedTokenBuy, setSelectedTokenBuy] = useState<Token>(tokens.GLOW);
-  const { isConnected, isConnecting, isReconnecting } = useAccount();
+  const { address, isConnected, isConnecting, isReconnecting } = useAccount();
 
   // Add a general loading state check
   const isWalletLoading = isConnecting || isReconnecting;
 
-  const [sendToAddress, setSendToAddress] = useState<string>("");
   const [smartBalancingAmounts, setSmartBalancingAmounts] = useState<
     SmartBalancingAmounts & {
       estimatedCostInUSDForEarlyLiquidity: string;
@@ -152,20 +143,49 @@ export default function View({
     useState(false);
 
   const [balancesLoading, setBalancesLoading] = useState<boolean>(true);
+  // GCTL swap & modal state
+  const [isProcessingTransaction, setIsProcessingTransaction] =
+    useState<boolean>(false);
+  const [trackingTxHash, setTrackingTxHash] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState<boolean>(false);
+  const [processedGctlAmount, setProcessedGctlAmount] = useState<string>("0");
+
+  // -------------------------------------------------------------------
+  // URL PARAM STATE (txId)
+  // -------------------------------------------------------------------
+  const [txIdParam, setTxIdParam] = useQueryState("txId", {
+    defaultValue: "",
+    clearOnDefault: true,
+  });
+
+  // Restore processing modal from query param on initial load / refresh
+  useEffect(() => {
+    if (txIdParam && !isProcessingTransaction) {
+      setTrackingTxHash(txIdParam);
+      setIsProcessingTransaction(true);
+    }
+  }, [txIdParam]);
+
+  const signer = useEthersSigner();
+  // Forwarder & GCTL helpers
+  const chainIdNum = parseInt(CHAIN_ID.toString());
+  const { mintGCTL, checkTokenAllowance, approveToken } = useForwarder(
+    signer ?? undefined,
+    chainIdNum
+  );
+
+  const { gctlPrice, isGctlPriceLoading } = useGctlApi(address);
+
   const [statsLoading, setStatsLoading] = useState<boolean>(true);
 
   const {
     purchaseGlowEarlyLiquidity,
-    glowPurchaseState,
     findAmountGlowFromUSDGAmount,
     getSmartBalancingAmounts,
     estimateGasForPurchaseGlowEarlyLiquidity,
   } = usePurchaseGlow();
   const { swapUSDCToUSDG, estimateGasForswapUSDCToUSDG } = useSwapUSDCToUSDG();
-  const { purchaseImpactPoints, estimateUSDGToImpactPoints } =
-    usePurchaseImpactPower();
-  const signer = useEthersSigner();
-  const { sendTokens, isReady: isSendTokensReady } = useERC20({ signer });
+
   const {
     usdcInRedemption,
     redeemUSDGForUSDC,
@@ -198,18 +218,6 @@ export default function View({
     },
     500
   );
-
-  async function purchaseImpactPower(
-    amountToBuy: string,
-    amountUSDGToSpend: BigNumber
-  ) {
-    const amountImpactPointsDesired = BigNumber.from(amountToBuy);
-    const res = await purchaseImpactPoints({
-      amountUSDGToSpend: amountUSDGToSpend,
-      minimumImpactPowerToBuy: amountImpactPointsDesired.mul(98).div(100), //allow for a 2% deviation
-    });
-    return res;
-  }
 
   const {
     swap,
@@ -261,9 +269,6 @@ export default function View({
                   label: "Yes",
                   onClick: () => {
                     handleSelectTokenToSell("USDG");
-                    if (selectedTokenBuy.label === "IMPACT POWER POINTS") {
-                      handleSelectTokenToBuy("IMPACT POWER POINTS");
-                    }
                     setAmountToSell(amountToSell);
                   },
                 },
@@ -337,7 +342,11 @@ export default function View({
           label: `SWAP`,
           disabled: false,
           callback: () => {
-            setIsDialogOpen(true);
+            if (selectedTokenBuy.label === "GCTL") {
+              handleBuy();
+            } else {
+              setIsDialogOpen(true);
+            }
           },
         };
       } else if (
@@ -373,46 +382,6 @@ export default function View({
       }
     }
   }
-
-  const getTokenToSendBalance = () => {
-    return Number(
-      selectedTokenSend.label === "GLOW"
-        ? glowBalance
-          ? ethers.utils.formatUnits(glowBalance, selectedTokenSend.decimals)
-          : "0"
-        : selectedTokenSend.label === "USDG"
-        ? usdgBalance
-          ? ethers.utils.formatUnits(usdgBalance, selectedTokenSend.decimals)
-          : "0"
-        : "0"
-    );
-  };
-
-  const getSendButtonProps = () => {
-    if (Number(amountToSend) === 0) {
-      return {
-        label: `Enter an amount`,
-        disabled: true,
-      };
-    } else if (!sendToAddress) {
-      return {
-        label: `Enter an address`,
-        disabled: true,
-      };
-    } else if (
-      Number(amountToSend) > Number(toFixedTruncate(getTokenToSendBalance(), 6))
-    ) {
-      return {
-        label: `Insufficient ${selectedTokenSend.label} balance`,
-        disabled: true,
-      };
-    } else {
-      return {
-        label: `Send`,
-        disabled: false,
-      };
-    }
-  };
 
   const handleBuy = async () => {
     const amountIn = ethers.utils.parseUnits(
@@ -468,8 +437,10 @@ export default function View({
         selectedTokenBuy.label === "USDC" &&
         selectedTokenSell.label === "USDG"
       ) {
-        const redeemRes = await redeemUSDGForUSDC(amountIn);
-        handleResponseMessage(redeemRes);
+        // Open the USDG to USDC redemption dialog instead of executing directly
+        setIsUsdgToUsdcRedemptionDialogOpen(true);
+        setPendingTx(false);
+        return;
       } else if (
         selectedTokenBuy.label === "USDC" &&
         selectedTokenSell.label === "GLOW"
@@ -479,21 +450,71 @@ export default function View({
         setPendingTx(false);
         return;
       } else if (
-        //@ts-ignore
-        selectedTokenBuy.label === "IMPACT POWER POINTS" &&
-        selectedTokenSell.label === "USDG"
+        selectedTokenBuy.label === "GCTL" &&
+        (selectedTokenSell.label === "USDC" ||
+          selectedTokenSell.label === "USDG")
       ) {
-        //TODO: check if buy works ?
-        const amountToBuy = ethers.utils.parseUnits(
-          currentTokenEstimatedOutputAmount,
-          12
-        );
+        try {
+          const amountToSpend = BigNumber.from(
+            parseUnits(amountToSell, selectedTokenSell.decimals).toString()
+          );
 
-        const purchaseImpactPowerRes = await purchaseImpactPower(
-          amountToBuy.toString(),
-          amountIn
-        );
-        handleResponseMessage(purchaseImpactPowerRes);
+          // 1. Ensure the forwarder is allowed to spend the required USDC/USDG
+          try {
+            const currentAllowance = await checkTokenAllowance(
+              address as `0x${string}`,
+              selectedTokenSell.label === "USDC" ? "USDC" : "USDG"
+            );
+
+            if (currentAllowance.lt(amountToSpend)) {
+              await approveToken(
+                ethers.constants.MaxUint256,
+                selectedTokenSell.label === "USDC" ? "USDC" : "USDG"
+              );
+            }
+          } catch (approveError) {
+            console.error("Approval failed:", approveError);
+            toast.error(
+              approveError instanceof Error
+                ? approveError.message
+                : "Failed to approve token spending"
+            );
+            setIsProcessingTransaction(false);
+            setPendingTx(false);
+            return;
+          }
+
+          // 2. Mint GCTL
+          const txHash = await mintGCTL(
+            amountToSpend,
+            address as `0x${string}`,
+            selectedTokenSell.label === "USDC" ? "USDC" : "USDG"
+          );
+
+          setTrackingTxHash(txHash);
+          setTxIdParam(txHash); // persist txId to URL
+          setProcessedGctlAmount(estimatedOutputAmount[selectedTokenBuy.label]);
+
+          // Start processing modal
+          setIsProcessingTransaction(true);
+
+          await Promise.all([
+            setUsdcBalanceForSigner(),
+            setUsdgBalanceForSigner(),
+            getTokenSellBalance(),
+          ]);
+
+          startTransition(router.refresh);
+
+          setPendingTx(false);
+          return;
+        } catch (error: any) {
+          console.error("Failed to mint GCTL:", error);
+          toast.error(error?.message || "Failed to purchase GCTL");
+          setIsProcessingTransaction(false);
+          setPendingTx(false);
+          return;
+        }
       } else {
         const swapRes = await swap({ amount: amountIn });
         handleResponseMessage(swapRes);
@@ -773,28 +794,24 @@ export default function View({
         return;
       }
       if (
-        //@ts-ignore
-        selectedTokenBuy.label === "IMPACT POWER POINTS" &&
-        (selectedTokenSell.label === "USDG" ||
-          selectedTokenSell.label === "USDC")
+        selectedTokenBuy.label === "GCTL" &&
+        (selectedTokenSell.label === "USDC" ||
+          selectedTokenSell.label === "USDG")
       ) {
-        const estimateRes = await estimateUSDGToImpactPoints({
-          amountUSDGToSpend: ethers.utils.parseUnits(
-            amountToSell,
-            selectedTokenSell.decimals
-          ),
-        });
-
-        if (estimateRes.ok) {
-          setEstimatedOutputAmount({
-            ...defaultTokensEstimate,
-            [selectedTokenBuy.label]: ethers.utils.formatUnits(
-              estimateRes.val.toString(),
-              "12"
-            ),
-          });
+        if (
+          !amountToSell ||
+          Number(amountToSell) <= 0 ||
+          isGctlPriceLoading ||
+          Number(gctlPrice) === 0
+        ) {
+          setEstimatedOutputAmount(defaultTokensEstimate);
+          return;
         }
-
+        const estimatedGctl = Number(amountToSell) / Number(gctlPrice);
+        setEstimatedOutputAmount({
+          ...defaultTokensEstimate,
+          [selectedTokenBuy.label]: toFixedTruncate(estimatedGctl, 6),
+        });
         return;
       }
       const estimateRes = await estimateOutputAmount({
@@ -847,60 +864,15 @@ export default function View({
 
   const handleSelectTokenToBuy = (value: TOKENS_ENUM) => {
     // TODO: handle this better
-    //@ts-ignore
-    if (value === "IMPACT POWER POINTS") {
-      setSelectedTokenBuy(tokens["IMPACT POWER POINTS"]);
-    } else {
-      const token = Object.values(tokens).find((t) => t.label === value)!;
 
-      setSelectedTokenBuy(token);
-    }
+    const token = Object.values(tokens).find((t) => t.label === value)!;
+
+    setSelectedTokenBuy(token);
+
     setSmartBalancingAmounts(undefined);
 
     setAmountToSell("0");
     setEstimatedOutputAmount(defaultTokensEstimate);
-  };
-
-  const handleSendToken = async () => {
-    if (!isSendTokensReady) {
-      toast.error("send tokens hook not ready");
-      return;
-    }
-    // verif if amountToSend is positive and valid number
-    if (Number.isNaN(Number(amountToSend)) || Number(amountToSend) <= 0) {
-      toast.error("Invalid amount");
-      return;
-    }
-    if (ethers.utils.isAddress(sendToAddress)) {
-      setPendingTx(true);
-      try {
-        const amountToSendFormated = ethers.utils.parseUnits(
-          amountToSend,
-          selectedTokenSend.decimals
-        );
-
-        await sendTokens(
-          selectedTokenSend.label as SYMBOLS,
-          sendToAddress as `0x${string}`,
-          amountToSendFormated
-        );
-
-        await getTokenSellBalance();
-        setPendingTx(false);
-        toast.success("Transaction successful");
-      } catch (error) {
-        console.log(error);
-        toast.error("Transaction failed");
-        setPendingTx(false);
-      }
-    } else {
-      toast.error("Invalid address");
-    }
-  };
-
-  const handleSelectTokenToSend = (value: TOKENS_ENUM) => {
-    const token = Object.values(tokens).find((t) => t.label === value)!;
-    setSelectedTokenSend(token);
   };
 
   const buttonProps = computeButtonProps();
@@ -965,701 +937,256 @@ export default function View({
     estimate();
   }, [usdgWithdrawAmount, ethPriceInUSD, estimateGasForRedeemUSDG]);
 
-  async function handleUSDGWithdraw() {
-    setIsWithdrawing(true);
-    try {
-      const amount = ethers.utils.parseUnits(usdgWithdrawAmount, 6);
-      const res = await redeemUSDGForUSDC(amount);
-      if (res.ok) {
-        toast.success("USDG successfully redeemed for USDC");
-        setUsdgWithdrawAmount("0");
-        setIsUsdcInRedemptionLoading(true);
-        await getUSDCBalanceOfRedemptionContract(); // Refresh USDC in contract after redeem
-        setIsUsdcInRedemptionLoading(false);
-      } else {
-        toast.error(res.val);
-      }
-    } catch (error: any) {
-      toast.error(error?.message || "Redemption failed");
-    } finally {
-      setIsWithdrawing(false);
-    }
-  }
-
-  useEffect(() => {
-    async function checkRpc() {
-      try {
-        await publicClient.getBlockNumber();
-        setIsRpcAvailable(true);
-      } catch (error) {
-        console.error("RPC connectivity error:", error);
-        setIsRpcAvailable(false);
-      }
-    }
-
-    checkRpc();
-  }, []);
-
-  // Utility function to format token balances consistently
-  const formatTokenBalance = (
-    balance: BigNumber | null,
-    decimals: number = 2
-  ): string => {
-    if (!balance) return "-";
-    return ethers.utils.formatUnits(balance, decimals).replace(/\.0+$/, "");
-  };
-
-  if (!isRpcAvailable) {
-    return (
-      <div className="min-h-screen flex items-center justify-center glow-gradient-a">
-        <div className="bg-card rounded-md border border-border p-8 text-center space-y-4 max-w-sm">
-          <h2 className="text-xl font-semibold">Service Unavailable</h2>
-          <p className="text-sm text-muted-foreground">
-            We&rsquo;re having trouble connecting to the blockchain. Please
-            reload the page or try again later.
-          </p>
-          <Button
-            onClick={() => window.location.reload()}
-            className="w-full h-12"
-          >
-            Reload Page
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  console.log({ isProcessingTransaction });
 
   return (
-    <div className="min-h-screen glow-gradient-a">
+    <BeamsBackground className="min-h-screen bg-background">
       {/* Hero Section with Enhanced Gradient */}
+
       <div className="relative overflow-hidden min-h-screen">
         <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-2 md:px-6 lg:px-12 xl:px-16 relative z-10 min-h-screen flex items-center justify-center pt-20 lg:pt-0">
           {/* Hero Content */}
           <div className="flex flex-col items-center justify-center lg:flex-row gap-2 md:gap-6 lg:gap-8 w-full">
-            {/* Stats Sidebar */}
-            <div className="w-full lg:max-w-64 xl:max-w-72 flex-shrink-0">
-              <div className="bg-white rounded-md border border-border p-4 lg:p-6 md:space-y-4">
-                {/* Sidebar Header */}
-                <div className="pb-4 border-b border-border/30 hidden lg:block">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                    Market Overview
-                  </h3>
-                </div>
-
-                {/* Stats Items */}
-                <div className="flex flex-col justify-between gap-0 md:gap-4">
-                  <div className="group hover:bg-muted/20 rounded-md p-3 transition-all duration-200 cursor-default hidden lg:block">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-xs text-muted-foreground">
-                        Market Cap
-                      </div>
-                    </div>
-                    <div className="text-lg lg:text-xl font-bold">
-                      ${" "}
-                      {statsLoading ? (
-                        <Skeleton className="w-24 h-6 inline-block" />
-                      ) : (
-                        <NumberTicker value={Number(marketCap)} />
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="group hover:bg-muted/20 rounded-md p-3 transition-all duration-200 cursor-default">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-xs text-muted-foreground">
-                        GLOW Price
-                      </div>
-                    </div>
-                    <div className="text-lg lg:text-xl font-bold">
-                      ${" "}
-                      {statsLoading ? (
-                        <Skeleton className="w-20 h-6 inline-block" />
-                      ) : (
-                        Number(glowPrice).toFixed(2)
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="group hover:bg-muted/20 rounded-md p-3 transition-all duration-200 cursor-default hidden lg:block">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-xs text-muted-foreground">
-                        Reward Pool
-                      </div>
-                    </div>
-                    <div className="text-lg lg:text-xl font-bold">
-                      ${" "}
-                      {statsLoading ? (
-                        <Skeleton className="w-24 h-6 inline-block" />
-                      ) : (
-                        <NumberTicker value={Number(usdcRewardPool)} />
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="group hover:bg-muted/20 rounded-md p-3 transition-all duration-200 cursor-default">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-xs text-muted-foreground">
-                        USDC Available
-                      </div>
-                    </div>
-                    <div className="text-lg lg:text-xl font-bold">
-                      ${" "}
-                      {isUsdcInRedemptionLoading || isWalletLoading ? (
-                        <Skeleton className="w-24 h-6 inline-block" />
-                      ) : (
-                        <NumberTicker value={usdcInRedemption} />
-                      )}
-                    </div>
-                    {isUsdcInRedemptionLoading && !isWalletLoading && (
-                      <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                        Updating...
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Additional Info Section */}
-                <div className="pt-4 border-t border-border/30 hidden lg:block">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">ETH Price</span>
-                      <span className="font-medium">
-                        ${ethPriceInUSD ? ethPriceInUSD.toFixed(0) : "-"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Main Content Area */}
             <div className="flex-1 flex w-full justify-center">
-              <div className="bg-card rounded-md border border-border overflow-hidden w-full max-w-sm">
+              <div className="bg-card/60 backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full max-w-[600px] p-6">
                 {/* Enhanced Tabs Navigation */}
-                <Tabs defaultValue="swap" className="w-full">
-                  <div className="p-4 lg:p-6 pb-0 lg:pb-0 border-b border-border/30">
-                    <TabsList className="w-full justify-center">
-                      <TabsTrigger value="swap">Swap</TabsTrigger>
-                      <TabsTrigger value="send">Send</TabsTrigger>
-                    </TabsList>
-                  </div>
+                <Tabs defaultValue="swap">
+                  <TabsList>
+                    <TabsTrigger value="swap">Swap</TabsTrigger>
+                    <TabsTrigger value="send">Send</TabsTrigger>
+                  </TabsList>
 
-                  {/* Tab Content */}
-                  <div className="p-4 lg:p-6 py-0">
-                    {/* Swap Content */}
-                    <TabsContent value="swap">
-                      <div>
-                        {/* Enhanced Header */}
-                        <div className="flex items-center justify-between mb-6">
-                          <div>
-                            <h3 className="text-lg lg:text-xl font-semibold">
-                              Swap Tokens
-                            </h3>
-                            <p className="text-xs lg:text-sm text-muted-foreground">
-                              Exchange tokens at the best available rates
-                            </p>
-                          </div>
-                          {/* <Button
-                              variant="ghost"
-                              size="icon"
-                              className="rounded-full hover:bg-muted/50 transition-colors"
-                            >
-                              <Settings className="w-5 h-5" />
-                            </Button> */}
-                        </div>
-
-                        {/* Enhanced From Token */}
-                        <div className="group relative bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30 hover:border-border/60 transition-all duration-300">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-                              You pay
-                            </span>
-                            {isConnected && (
-                              <span className="text-xs lg:text-sm text-muted-foreground">
-                                Balance:{" "}
-                                <span className="font-medium">
-                                  {isWalletLoading || balancesLoading ? (
-                                    <Skeleton className="w-16 h-4 inline-block" />
-                                  ) : (
-                                    toFixedTruncate(Number(tokenSellBalance), 2)
-                                  )}
-                                </span>
+                  {/* Swap Content */}
+                  <TabsContent value="swap">
+                    <div>
+                      {/* Enhanced From Token */}
+                      <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                            You pay
+                          </span>
+                          {isConnected && (
+                            <span className="text-xs lg:text-sm text-muted-foreground">
+                              Balance:{" "}
+                              <span className="font-medium">
+                                {isWalletLoading || balancesLoading ? (
+                                  <Skeleton className="w-16 h-4 inline-block" />
+                                ) : (
+                                  toFixedTruncate(Number(tokenSellBalance), 2)
+                                )}
                               </span>
-                            )}
-                          </div>
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-                            <div className="flex-1 min-w-0">
-                              <Input
-                                type="text"
-                                placeholder="0.00"
-                                className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
-                                value={amountToSell}
-                                disabled={!isConnected || isWalletLoading}
-                                onChange={(e) => {
-                                  if (Number(e.target.value) < 0) {
-                                    setAmountToSell("0");
-                                    return;
-                                  }
-                                  setAmountToSell(e.target.value);
-                                }}
-                              />
-                            </div>
-                            <Select
-                              disabled={!isConnected || isWalletLoading}
-                              value={selectedTokenSell.label}
-                              onValueChange={handleSelectTokenToSell}
-                            >
-                              <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-md border-border bg-white font-medium">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="USDC">USDC</SelectItem>
-                                <SelectItem value="GLOW">GLOW</SelectItem>
-                                <SelectItem value="USDG">USDG</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-
-                        {/* Enhanced Swap Direction */}
-                        <div className="relative py-2">
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <button className="bg-white border-4 border-glow-light-grey rounded-full p-2 lg:p-3 hover:bg-glow-medium-grey transition-all duration-200 z-50">
-                              <ArrowDownUp className="w-4 h-4 lg:w-5 lg:h-5 text-muted-foreground" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Enhanced To Token */}
-                        <div className="group relative  bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30 hover:border-border/60 transition-all duration-300">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-                              You receive
                             </span>
-                            {isEstimateLoading && (
-                              <div className="text-xs text-muted-foreground flex items-center gap-1">
-                                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                                Calculating...
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-                            <div className="flex-1 min-w-0">
-                              {isEstimateLoading ? (
-                                <Skeleton className="h-10 lg:h-14 w-full bg-muted/50" />
-                              ) : (
-                                <Input
-                                  placeholder="0.00"
-                                  className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
-                                  value={
-                                    Number(currentTokenEstimatedOutputAmount)
-                                      ? formatPrice(
-                                          currentTokenEstimatedOutputAmount,
-                                          selectedTokenBuy.toFixed
-                                        )
-                                      : "0.00"
-                                  }
-                                  disabled={!isConnected || isWalletLoading}
-                                  readOnly
-                                />
-                              )}
-                            </div>
-                            <Select
+                          )}
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                          <div className="flex-1 min-w-0">
+                            <Input
+                              type="text"
+                              placeholder="0.00"
+                              className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
+                              value={amountToSell}
                               disabled={!isConnected || isWalletLoading}
-                              value={selectedTokenBuy.label}
-                              onValueChange={handleSelectTokenToBuy}
-                            >
-                              <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-md border-border bg-white font-medium">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {selectedTokenSell.allowedPairs.map((token) => (
-                                  <SelectItem key={token} value={token}>
-                                    {token === "IMPACT POWER POINTS"
-                                      ? "Impact Power"
-                                      : token}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              onChange={(e) => {
+                                if (Number(e.target.value) < 0) {
+                                  setAmountToSell("0");
+                                  return;
+                                }
+                                setAmountToSell(e.target.value);
+                              }}
+                            />
                           </div>
-                        </div>
-
-                        {/* Enhanced Transaction Details */}
-                        {smartBalancingAmounts &&
-                          selectedTokenBuy.label === "GLOW" && (
-                            <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-md p-4 lg:p-5 space-y-4 border border-border/20">
-                              <div className="flex items-center gap-2 mb-3">
-                                <Info className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-                                  Transaction Details
-                                </span>
-                              </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                  <div className="text-xs text-muted-foreground">
-                                    Uniswap Route
-                                  </div>
-                                  <div className="text-sm font-medium">
-                                    {isEstimateLoading ? (
-                                      <Skeleton className="w-16 h-4" />
-                                    ) : (
-                                      `${Number(
-                                        smartBalancingAmounts?.amount_out_uni
-                                      ).toFixed(6)} GLOW`
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <div className="text-xs text-muted-foreground">
-                                    Bonding Curve
-                                  </div>
-                                  <div className="text-sm font-medium">
-                                    {isEstimateLoading ? (
-                                      <Skeleton className="w-16 h-4" />
-                                    ) : (
-                                      `${Number(
-                                        smartBalancingAmounts?.amount_out_glow
-                                      ).toFixed(6)} GLOW`
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="pt-3 border-t border-border/20">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs lg:text-sm text-muted-foreground">
-                                    Estimated Network Fee
-                                  </span>
-                                  <span className="text-xs lg:text-sm font-medium">
-                                    {isEstimateLoading ? (
-                                      <Skeleton className="w-16 h-4" />
-                                    ) : (
-                                      `~$${Number(
-                                        smartBalancingAmounts.estimatedTotalGasInUSD
-                                      ).toFixed(2)}`
-                                    )}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                        {/* Enhanced Swap Button */}
-                        <div className="pt-4">
-                          {!isConnected && !isWalletLoading ? (
-                            <ConnectButton variant="default" />
-                          ) : isWalletLoading ? (
-                            <ConnectButton variant="default" />
-                          ) : (
-                            <Button
-                              disabled={
-                                buttonProps.disabled ||
-                                pendingTx ||
-                                isEstimateLoading ||
-                                balancesLoading
-                              }
-                              onClick={buttonProps.callback}
-                              className="w-full h-12 lg:h-16"
-                            >
-                              {pendingTx && (
-                                <div className="mr-3">
-                                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                </div>
-                              )}
-                              {pendingTx ? "Processing..." : buttonProps.label}
-                            </Button>
-                          )}
-                        </div>
-
-                        {/* Enhanced Info Link */}
-                        <div className="text-center pt-4">
-                          <InstructionsDialog>
-                            <Button
-                              variant="ghost"
-                              className="text-xs lg:text-sm text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                              <Info className="w-4 h-4 mr-1" />
-                              Learn about Glow&apos;s guarded launch
-                            </Button>
-                          </InstructionsDialog>
+                          <Select
+                            disabled={!isConnected || isWalletLoading}
+                            value={selectedTokenSell.label}
+                            onValueChange={handleSelectTokenToSell}
+                          >
+                            <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-md border-border bg-background font-medium">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="USDC">USDC</SelectItem>
+                              <SelectItem value="GLOW">GLOW</SelectItem>
+                              <SelectItem value="USDG">USDG</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
-                    </TabsContent>
 
-                    {/* Send Content */}
-                    <TabsContent value="send">
-                      <div className="space-y-4">
-                        <div className="mb-6">
-                          <h3 className="text-lg lg:text-xl font-semibold mb-2">
-                            Send Tokens
-                          </h3>
-                          <p className="text-xs lg:text-sm text-muted-foreground">
-                            Transfer tokens to any wallet address
-                          </p>
+                      {/* Enhanced Swap Direction */}
+                      <div className="relative py-2">
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <button className="bg-background border-4 border-border rounded-full p-2 lg:p-3 hover:bg-muted/30 transition-all duration-200 z-50">
+                            <ArrowDownUp className="w-4 h-4 lg:w-5 lg:h-5 text-muted-foreground" />
+                          </button>
                         </div>
+                      </div>
 
-                        {/* Enhanced Amount Input */}
-                        <div className="bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-                              Amount
-                            </span>
-                            {isConnected && (
-                              <span className="text-xs lg:text-sm text-muted-foreground">
-                                Balance:{" "}
-                                <span className="font-medium">
-                                  {isWalletLoading || balancesLoading ? (
-                                    <Skeleton className="w-16 h-4 inline-block" />
-                                  ) : (
-                                    toFixedTruncate(getTokenToSendBalance(), 2)
-                                  )}
-                                </span>
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-                            <div className="flex-1 min-w-0">
+                      {/* Enhanced To Token */}
+                      <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                            You receive
+                          </span>
+                          {isEstimateLoading && (
+                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                              <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                              Calculating...
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                          <div className="flex-1 min-w-0">
+                            {isEstimateLoading ? (
+                              <Skeleton className="h-10 lg:h-14 w-full bg-muted/50" />
+                            ) : (
                               <Input
-                                type="text"
                                 placeholder="0.00"
                                 className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
-                                value={amountToSend}
+                                value={
+                                  Number(currentTokenEstimatedOutputAmount)
+                                    ? formatPrice(
+                                        currentTokenEstimatedOutputAmount,
+                                        selectedTokenBuy.toFixed
+                                      )
+                                    : "0.00"
+                                }
                                 disabled={!isConnected || isWalletLoading}
-                                onChange={(e) => {
-                                  if (Number(e.target.value) < 0) {
-                                    setAmountToSend("0");
-                                    return;
-                                  }
-                                  setAmountToSend(e.target.value);
-                                }}
+                                readOnly
                               />
-                            </div>
-                            <Select
-                              disabled={!isConnected || isWalletLoading}
-                              value={selectedTokenSend.label}
-                              onValueChange={handleSelectTokenToSend}
-                            >
-                              <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-md border-border bg-white font-medium">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="GLOW">GLOW</SelectItem>
-                                <SelectItem value="USDG">USDG</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-
-                        {/* Enhanced Recipient Input */}
-                        <div className="bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-                              Recipient Address
-                            </span>
-                          </div>
-                          <Input
-                            type="text"
-                            placeholder="0x..."
-                            className="w-full bg-transparent border-0 p-0 h-auto text-sm lg:text-lg font-mono focus-visible:ring-0 placeholder:text-muted-foreground/40 break-all"
-                            value={sendToAddress}
-                            disabled={!isConnected || isWalletLoading}
-                            onChange={(e) => setSendToAddress(e.target.value)}
-                          />
-                        </div>
-
-                        {/* Enhanced Send Button */}
-                        <div className="pt-4">
-                          {isConnected ? (
-                            <Button
-                              disabled={
-                                getSendButtonProps().disabled ||
-                                pendingTx ||
-                                isEstimateLoading
-                              }
-                              onClick={handleSendToken}
-                              className="w-full h-12 lg:h-16"
-                            >
-                              {pendingTx && (
-                                <div className="mr-3">
-                                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                </div>
-                              )}
-                              {pendingTx
-                                ? "Sending..."
-                                : getSendButtonProps().label}
-                            </Button>
-                          ) : (
-                            <ConnectButton variant="default" />
-                          )}
-                        </div>
-                      </div>
-                    </TabsContent>
-
-                    {/* Redeem Content */}
-                    <TabsContent value="redeem">
-                      <div className="space-y-4">
-                        <div className="mb-6">
-                          <h3 className="text-lg lg:text-xl font-semibold mb-2">
-                            USDG Redemption
-                          </h3>
-                          <p className="text-xs lg:text-sm text-muted-foreground">
-                            Redeem USDG tokens for USDC at a 1:1 ratio
-                          </p>
-                        </div>
-
-                        {/* Enhanced USDG Amount Input */}
-                        <div className="bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-                              USDG to Redeem
-                            </span>
-                            {isConnected && (
-                              <span className="text-xs lg:text-sm text-muted-foreground">
-                                Balance:{" "}
-                                <span className="font-medium">
-                                  {formatTokenBalance(usdgBalance)}
-                                </span>
-                              </span>
                             )}
                           </div>
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-                            <div className="flex-1 min-w-0">
-                              <Input
-                                type="text"
-                                placeholder="0.00"
-                                className={`text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full ${
-                                  usdgWithdrawAmount &&
-                                  usdgBalance &&
-                                  !usdgBalance.isZero() &&
-                                  Number(usdgWithdrawAmount) >
-                                    Number(
-                                      ethers.utils.formatUnits(usdgBalance, 6)
-                                    )
-                                    ? "text-destructive"
-                                    : ""
-                                }`}
-                                value={usdgWithdrawAmount}
-                                disabled={!isConnected || isWithdrawing}
-                                onChange={(e) => {
-                                  if (Number(e.target.value) < 0) {
-                                    setUsdgWithdrawAmount("0");
-                                    return;
-                                  }
-                                  setUsdgWithdrawAmount(e.target.value);
-                                }}
-                              />
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={
-                                !usdgBalance ||
-                                usdgBalance.isZero() ||
-                                isWithdrawing
-                              }
-                              onClick={() => {
-                                if (usdgBalance && !usdgBalance.isZero()) {
-                                  setUsdgWithdrawAmount(
-                                    formatTokenBalance(usdgBalance)
-                                  );
-                                }
-                              }}
-                              className="shrink-0"
-                            >
-                              Max
-                            </Button>
-                          </div>
+                          <Select
+                            disabled={!isConnected || isWalletLoading}
+                            value={selectedTokenBuy.label}
+                            onValueChange={handleSelectTokenToBuy}
+                          >
+                            <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-md border-border bg-background font-medium">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {selectedTokenSell.allowedPairs.map((token) => (
+                                <SelectItem key={token} value={token}>
+                                  {token}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
+                      </div>
 
-                        {/* Enhanced USDC Output Display */}
-                        <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-md p-4 lg:p-6 border border-border/20">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-                              You receive (USDC)
-                            </span>
-                            <span className="text-lg lg:text-2xl font-bold break-all">
-                              {usdgWithdrawAmount &&
-                              !isNaN(Number(usdgWithdrawAmount)) &&
-                              Number(usdgWithdrawAmount) > 0
-                                ? Number(usdgWithdrawAmount).toLocaleString(
-                                    undefined,
-                                    {
-                                      minimumFractionDigits: 0,
-                                      maximumFractionDigits: 6,
-                                    }
-                                  )
-                                : "0.00"}
-                            </span>
-                          </div>
-                          {estimatedWithdrawGas && (
-                            <div className="mt-3 pt-3 border-t border-border/20">
-                              <div className="flex items-center justify-between text-xs lg:text-sm">
-                                <span className="text-muted-foreground">
-                                  Network fee
+                      {/* Enhanced Transaction Details */}
+                      {smartBalancingAmounts &&
+                        selectedTokenBuy.label === "GLOW" && (
+                          <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-md p-4 lg:p-5 space-y-4 border border-border/20">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Info className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                                Transaction Details
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <div className="text-xs text-muted-foreground">
+                                  Uniswap Route
+                                </div>
+                                <div className="text-sm font-medium">
+                                  {isEstimateLoading ? (
+                                    <Skeleton className="w-16 h-4" />
+                                  ) : (
+                                    `${Number(
+                                      smartBalancingAmounts?.amount_out_uni
+                                    ).toFixed(6)} GLOW`
+                                  )}
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="text-xs text-muted-foreground">
+                                  Bonding Curve
+                                </div>
+                                <div className="text-sm font-medium">
+                                  {isEstimateLoading ? (
+                                    <Skeleton className="w-16 h-4" />
+                                  ) : (
+                                    `${Number(
+                                      smartBalancingAmounts?.amount_out_glow
+                                    ).toFixed(6)} GLOW`
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="pt-3 border-t border-border/20">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs lg:text-sm text-muted-foreground">
+                                  Estimated Network Fee
                                 </span>
-                                <span className="font-medium">
-                                  ~${estimatedWithdrawGas}
+                                <span className="text-xs lg:text-sm font-medium">
+                                  {isEstimateLoading ? (
+                                    <Skeleton className="w-16 h-4" />
+                                  ) : (
+                                    `~$${Number(
+                                      smartBalancingAmounts.estimatedTotalGasInUSD
+                                    ).toFixed(2)}`
+                                  )}
                                 </span>
                               </div>
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
 
-                        {/* Enhanced Redeem Button */}
-                        <div className="pt-4">
-                          {isConnected ? (
-                            <Button
-                              disabled={
-                                isWithdrawing ||
-                                !usdgWithdrawAmount ||
-                                Number(usdgWithdrawAmount) <= 0
-                              }
-                              onClick={async () => {
-                                await handleUSDGWithdraw();
-                                setUsdgBalanceForSigner();
-                              }}
-                              className="w-full h-12 lg:h-16"
-                            >
-                              {isWithdrawing && (
-                                <div className="mr-3">
-                                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                </div>
-                              )}
-                              {isWithdrawing ? "Redeeming..." : "Redeem USDG"}
-                            </Button>
-                          ) : (
-                            <ConnectButton variant="default" />
-                          )}
-                        </div>
-
-                        {/* Enhanced Contract Link */}
-                        <div className="text-center pt-4">
-                          <a
-                            href={`https://etherscan.io/address/${USDG_REDEMPTION_ADDRESS}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs lg:text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline transition-colors inline-flex items-center gap-1"
+                      {/* Enhanced Swap Button */}
+                      <div className="pt-8">
+                        {!isConnected && !isWalletLoading ? (
+                          <ConnectButton variant="default" />
+                        ) : isWalletLoading ? (
+                          <ConnectButton variant="default" />
+                        ) : (
+                          <Button
+                            disabled={
+                              buttonProps.disabled ||
+                              pendingTx ||
+                              isEstimateLoading ||
+                              balancesLoading
+                            }
+                            onClick={buttonProps.callback}
+                            className="w-full h-12 lg:h-16"
                           >
-                            View redemption contract
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                              />
-                            </svg>
-                          </a>
-                        </div>
+                            {pendingTx && (
+                              <div className="mr-3">
+                                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                              </div>
+                            )}
+                            {pendingTx ? "Processing..." : buttonProps.label}
+                          </Button>
+                        )}
                       </div>
-                    </TabsContent>
-                  </div>
+
+                      {/* Enhanced Info Link */}
+                      <div className="text-center pt-4">
+                        <InstructionsDialog>
+                          <Button variant="ghost">
+                            <Info className="w-4 h-4 mr-1" />
+                            Learn about Glow&apos;s guarded launch
+                          </Button>
+                        </InstructionsDialog>
+                      </div>
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="send">
+                    <SendTab
+                      isConnected={isConnected}
+                      isWalletLoading={isWalletLoading}
+                      balancesLoading={balancesLoading}
+                      glowBalance={glowBalance}
+                      usdgBalance={usdgBalance}
+                      signer={signer}
+                      refreshBalances={refreshBalances}
+                      tokens={{
+                        GLOW: tokens.GLOW,
+                        USDG: tokens.USDG,
+                      }}
+                    />
+                  </TabsContent>
                 </Tabs>
               </div>
             </div>
@@ -1676,7 +1203,6 @@ export default function View({
         selectedTokenBuy={selectedTokenBuy}
         smartBalancingAmounts={smartBalancingAmounts}
         swapUSDCToUSDG={swapUSDCToUSDG}
-        purchaseImpactPower={purchaseImpactPower}
         onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) {
@@ -1731,6 +1257,42 @@ export default function View({
           }
         }}
       />
-    </div>
+      <UsdgToUsdcRedemptionDialog
+        isOpen={isUsdgToUsdcRedemptionDialogOpen}
+        amountToRedeem={amountToSell}
+        onOpenChange={(open) => {
+          setIsUsdgToUsdcRedemptionDialogOpen(open);
+          if (!open) {
+            // Reset input states
+            setAmountToSell("0");
+            setEstimatedOutputAmount(defaultTokensEstimate);
+            setSmartBalancingAmounts(undefined);
+
+            // Refresh all balances
+            if (selectedTokenSell && selectedTokenBuy && signer && isReady) {
+              Promise.all([
+                setUsdcBalanceForSigner(),
+                setUsdgBalanceForSigner(),
+                getTokenSellBalance(),
+                refreshBalances(),
+              ]);
+            }
+
+            // Refresh the page data
+            startTransition(router.refresh);
+          }
+        }}
+      />
+      {/* GCTL Processing & Success Modals */}
+      <ProcessingModal
+        isOpen={isProcessingTransaction}
+        trackingTxHash={trackingTxHash}
+        onClose={() => {
+          setIsProcessingTransaction(false);
+          setShowSuccess(false);
+          setTrackingTxHash(null);
+        }}
+      />
+    </BeamsBackground>
   );
 }
