@@ -22,6 +22,7 @@ import { StakedEventsTab } from "@/components/buy-gctl/staked-events-tab";
 import { FailedOperationsTab } from "@/components/buy-gctl/failed-operations-tab";
 import { ProcessingModal } from "@/components/buy-gctl/processing-modal";
 import { DashboardTab } from "@/components/buy-gctl/dashboard-tab";
+import { PurchaseGctlTab } from "@/components/buy-gctl/purchase-gctl-tab";
 
 export default function BuyGctlView() {
   // =================================================================
@@ -376,8 +377,26 @@ export default function BuyGctlView() {
                 onValueChange={setMainActiveTab}
                 className="space-y-6"
               >
+                <TabsList>
+                  <TabsTrigger value="dashboard" className="rounded-lg">
+                    Dashboard
+                  </TabsTrigger>
+                  <TabsTrigger value="mint" className="rounded-lg">
+                    GCTL Purchase
+                  </TabsTrigger>
+                </TabsList>
                 <TabsContent value="dashboard" className="mt-0">
                   <DashboardTab walletAddress={address} />
+                </TabsContent>
+                <TabsContent value="mint" className="mt-0">
+                  <PurchaseGctlTab
+                    gctlBalance={gctlBalance}
+                    gctlPrice={gctlPrice}
+                    gctlDataLoading={gctlDataLoading}
+                    onTransactionStart={handleTransactionStart}
+                    fetchPendingTransfers={fetchPendingTransfers}
+                    fetchMintedEvents={fetchMintedEvents}
+                  />
                 </TabsContent>
               </Tabs>
             </div>

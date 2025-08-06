@@ -9,9 +9,20 @@ import { useAccount, usePublicClient, useChainId } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
-import { Loader2, ArrowUpDown, Info, HelpCircle } from "lucide-react";
+import {
+  Loader2,
+  ArrowDownUp,
+  Info,
+  HelpCircle,
+  Sparkles,
+  Plus,
+} from "lucide-react";
 import { ERC20_ABI } from "@/web3/web3/abis/erc20.abi";
-import { useForwarder } from "@glowlabs-org/utils/browser";
+import {
+  DECIMALS_BY_TOKEN,
+  getAddresses,
+  useForwarder,
+} from "@glowlabs-org/utils/browser";
 
 import { useGctlApi } from "@/hooks/useGctlApi";
 import { BigNumber } from "ethers";
@@ -73,7 +84,7 @@ export function PurchaseGctlTab({
     mintGCTL,
     mintGCTLAndStake,
     checkTokenAllowance,
-    approveToken,
+    checkTokenBalance,
     mintTestUSDC,
     isProcessing,
     addresses,
@@ -105,20 +116,17 @@ export function PurchaseGctlTab({
   // Fetch USDC balance
   useEffect(() => {
     const fetchBalance = async () => {
-      if (!address || !publicClient) {
+      if (!address || !signer) {
         setUsdcBalanceLoading(false);
         return;
       }
       setUsdcBalanceLoading(true);
       try {
-        const bal = (await publicClient.readContract({
-          address: addresses.USDC,
-          abi: ERC20_ABI,
-          functionName: "balanceOf",
-          args: [address],
-        })) as bigint;
-        setUsdcBalance(bal);
+        const bal = await checkTokenBalance(address, "USDC");
+
+        setUsdcBalance(bal.toBigInt());
       } catch (error) {
+        console.error("Error fetching USDC balance:", error);
         toast.error("Failed to fetch USDC balance");
       } finally {
         setUsdcBalanceLoading(false);
@@ -126,7 +134,7 @@ export function PurchaseGctlTab({
     };
     if (isConnected) fetchBalance();
     else setUsdcBalanceLoading(false);
-  }, [address, isConnected, publicClient, addresses.USDC]);
+  }, [address, isConnected, signer]);
 
   // Check approval status
   useEffect(() => {
@@ -352,13 +360,8 @@ export function PurchaseGctlTab({
 
       // Refresh USDC balance
       if (publicClient) {
-        const bal = (await publicClient.readContract({
-          address: addresses.USDC,
-          abi: ERC20_ABI,
-          functionName: "balanceOf",
-          args: [address],
-        })) as bigint;
-        setUsdcBalance(bal);
+        const bal = await checkTokenBalance(address, "USDC");
+        setUsdcBalance(bal.toBigInt());
       }
     } catch (error) {
       console.error("Failed to mint test USDC:", error);
@@ -370,8 +373,12 @@ export function PurchaseGctlTab({
     }
   };
 
-  const usdcBalanceFormatted = parseFloat(formatUnits(usdcBalance, 6));
-  const gctlBalanceFormatted = parseFloat(formatUnits(BigInt(gctlBalance), 6));
+  const usdcBalanceFormatted = parseFloat(
+    formatUnits(usdcBalance, DECIMALS_BY_TOKEN.USDC)
+  );
+  const gctlBalanceFormatted = parseFloat(
+    formatUnits(BigInt(gctlBalance), DECIMALS_BY_TOKEN.GCTL)
+  );
   const dynamicButtonText = inputAmount
     ? `Buy ${outputAmount || "0"} GCTL for ${inputAmount} USDC`
     : "Enter Amount to Buy GCTL";
@@ -391,286 +398,272 @@ export function PurchaseGctlTab({
         isProcessing={isProcessingTransaction}
       />
 
-      <Card className="border border-border bg-white/95 backdrop-blur-sm w-full">
-        <CardHeader className="pb-4 border-b border-border/50">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-xl font-semibold text-foreground flex items-center">
-              Buy GCTL
-            </CardTitle>
-
-            {/* Price Display */}
-            <div className="text-right">
-              {gctlDataLoading ? (
-                <Skeleton className="h-6 w-32" />
-              ) : gctlPrice > 0 ? (
-                <div className="text-sm font-medium">
-                  1 USDC → {(1 / gctlPrice).toFixed(4)} GCTL
+      <div className="bg-card/60 backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full">
+        <div className="p-6 sm:p-8">
+          {/* Header Section */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">Buy GCTL</h2>
+                <div className="text-sm text-muted-foreground">
+                  {gctlDataLoading ? (
+                    <Skeleton className="h-4 w-32 mt-1" />
+                  ) : gctlPrice > 0 ? (
+                    <span>1 USDC = {(1 / gctlPrice).toFixed(4)} GCTL</span>
+                  ) : null}
                 </div>
-              ) : null}
+              </div>
             </div>
           </div>
-        </CardHeader>
 
-        <CardContent className="p-6 space-y-5">
-          {/* User GCTL Balance Display */}
-          {isConnected && (
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">G</span>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-green-700 mb-1">
-                      Your GCTL Balance
+          <div className="space-y-5">
+            {/* User GCTL Balance Display */}
+            {isConnected && (
+              <div className="bg-gradient-to-r from-muted/30 to-muted/20 rounded-2xl p-5 border border-border/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center shadow-lg">
+                      <span className="text-white font-bold text-lg">G</span>
                     </div>
-                    {gctlDataLoading ? (
-                      <Skeleton className="h-6 w-32" />
-                    ) : (
-                      <div className="text-xl font-bold text-green-900">
-                        {gctlBalanceFormatted > 999999
-                          ? formatLargeNumber(gctlBalanceFormatted)
-                          : gctlBalanceFormatted.toLocaleString(undefined, {
-                              maximumFractionDigits: 2,
-                            })}{" "}
-                        GCTL
+                    <div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                        Your Balance
                       </div>
-                    )}
-                  </div>
-                </div>
-                {!gctlDataLoading && gctlBalanceFormatted > 0 && (
-                  <div className="text-right">
-                    <div className="text-xs text-green-600 mb-1">USD Value</div>
-                    <div className="text-sm font-semibold text-green-800">
-                      $
-                      {(gctlBalanceFormatted * gctlPrice).toLocaleString(
-                        undefined,
-                        {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        }
+                      {gctlDataLoading ? (
+                        <Skeleton className="h-7 w-32" />
+                      ) : (
+                        <div className="text-2xl font-bold text-foreground">
+                          {gctlBalanceFormatted > 999999
+                            ? formatLargeNumber(gctlBalanceFormatted)
+                            : gctlBalanceFormatted.toLocaleString(undefined, {
+                                maximumFractionDigits: 2,
+                              })}{" "}
+                          <span className="text-sm font-medium text-muted-foreground">
+                            GCTL
+                          </span>
+                        </div>
                       )}
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Input Sections Container with relative positioning for absolute swap icon */}
-          <div className="relative gap-4 flex flex-col">
-            {/* From Section - USDC */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <Label className="text-sm font-medium text-muted-foreground">
-                  From
-                </Label>
-                {isConnected && (
-                  <div className="text-sm text-muted-foreground">
-                    {usdcBalanceLoading ? (
-                      <div className="flex items-center space-x-1">
-                        <span>Balance:</span>
-                        <Skeleton className="h-4 w-16" />
+                  {!gctlDataLoading && gctlBalanceFormatted > 0 && (
+                    <div className="text-right">
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                        Value
                       </div>
-                    ) : (
-                      <button
-                        onClick={handleBalanceClick}
-                        className="hover:text-foreground transition-colors cursor-pointer"
-                        disabled={usdcBalance === BigInt(0)}
-                        title={`Full balance: ${usdcBalanceFormatted.toLocaleString(
+                      <div className="text-lg font-semibold text-foreground">
+                        $
+                        {(gctlBalanceFormatted * gctlPrice).toLocaleString(
                           undefined,
-                          { maximumFractionDigits: 6 }
-                        )} USDC`}
-                      >
-                        Balance:{" "}
-                        {usdcBalanceFormatted > 999999
-                          ? formatLargeNumber(usdcBalanceFormatted)
-                          : usdcBalanceFormatted.toLocaleString(undefined, {
-                              maximumFractionDigits: 6,
-                            })}{" "}
-                        USDC
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="relative">
-                <Input
-                  ref={inputRef}
-                  type="text"
-                  placeholder="0.00"
-                  value={inputAmount}
-                  onChange={(e) => handleInputChange(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className={`h-16 text-2xl font-medium pr-32 border-2 focus:border-primary transition-all duration-200 bg-background/50 ${
-                    inputError ? "border-red-500 focus:border-red-500" : ""
-                  }`}
-                  disabled={gctlDataLoading || gctlPrice <= 0}
-                  aria-label="USDC amount to spend"
-                />
-
-                <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                  <div className="flex items-center space-x-2 bg-blue-50 px-3 py-2 rounded-full border border-blue-200">
-                    <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-xs font-bold text-white">$</span>
+                          {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }
+                        )}
+                      </div>
                     </div>
-                    <span className="text-sm font-semibold text-blue-700">
-                      USDC
-                    </span>
-                  </div>
+                  )}
                 </div>
               </div>
+            )}
 
-              {/* Percentage Buttons */}
-              {isConnected &&
-                usdcBalance > BigInt(0) &&
-                !usdcBalanceLoading && (
-                  <div className="flex space-x-2">
-                    {[25, 50, 75].map((percentage) => (
+            {/* Input Sections Container */}
+            <div className="relative gap-2 flex flex-col">
+              {/* From Section - USDC */}
+              <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                    You pay
+                  </span>
+                  {isConnected && (
+                    <span className="text-xs lg:text-sm text-muted-foreground">
+                      Balance:{" "}
+                      {usdcBalanceLoading ? (
+                        <Skeleton className="w-16 h-4 inline-block" />
+                      ) : (
+                        <button
+                          onClick={handleBalanceClick}
+                          className="font-medium hover:text-foreground transition-colors"
+                          disabled={usdcBalance === BigInt(0)}
+                        >
+                          {usdcBalanceFormatted > 999999
+                            ? formatLargeNumber(usdcBalanceFormatted)
+                            : usdcBalanceFormatted.toLocaleString(undefined, {
+                                maximumFractionDigits: 2,
+                              })}
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                  <div className="flex-1 min-w-0">
+                    <Input
+                      ref={inputRef}
+                      type="text"
+                      placeholder="0.00"
+                      value={inputAmount}
+                      onChange={(e) => handleInputChange(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      className={`text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full ${
+                        inputError ? "text-red-500" : ""
+                      }`}
+                      disabled={gctlDataLoading || gctlPrice <= 0}
+                      aria-label="USDC amount to spend"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-center sm:justify-end">
+                    <div className="flex items-center gap-2 bg-background px-4 py-2.5 rounded-xl border border-border">
+                      <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-bold text-white">$</span>
+                      </div>
+                      <span className="text-sm font-semibold">USDC</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Percentage Buttons */}
+                {isConnected &&
+                  usdcBalance > BigInt(0) &&
+                  !usdcBalanceLoading && (
+                    <div className="flex gap-2 mt-3">
+                      {[25, 50, 75].map((percentage) => (
+                        <Button
+                          key={percentage}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handlePercentage(percentage)}
+                          className="h-8 px-3 text-xs hover:bg-muted/50 hover:border-primary transition-all"
+                          disabled={gctlDataLoading || gctlPrice <= 0}
+                        >
+                          {percentage}%
+                        </Button>
+                      ))}
                       <Button
-                        key={percentage}
                         variant="outline"
                         size="sm"
-                        onClick={() => handlePercentage(percentage)}
-                        className="h-8 px-3 text-xs hover:bg-primary/10 hover:border-primary/50"
+                        onClick={() => handlePercentage(100)}
+                        className="h-8 px-3 text-xs font-medium hover:bg-muted/50 hover:border-primary transition-all"
                         disabled={gctlDataLoading || gctlPrice <= 0}
                       >
-                        {percentage}%
+                        MAX
                       </Button>
-                    ))}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePercentage(100)}
-                      className="h-8 px-3 text-xs font-medium hover:bg-primary/10 hover:border-primary/50"
-                      disabled={gctlDataLoading || gctlPrice <= 0}
-                    >
-                      MAX
-                    </Button>
+                    </div>
+                  )}
+
+                {/* Input Error */}
+                {inputError && (
+                  <div
+                    className="mt-3 text-sm text-red-600 flex items-center gap-2 bg-red-50/50 border border-red-200/50 rounded-xl p-3"
+                    role="alert"
+                  >
+                    <span className="text-red-500">⚠</span>
+                    <span>{inputError}</span>
                   </div>
                 )}
-
-              {/* Input Error */}
-              {inputError && (
-                <div
-                  className="text-sm text-red-600 flex items-center space-x-2 bg-red-50 border border-red-200 rounded-md p-2"
-                  role="alert"
-                >
-                  <span className="text-red-500">⚠</span>
-                  <span>{inputError}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Swap Icon - Absolutely positioned between inputs */}
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-              <div
-                className="w-10 h-10 bg-background rounded-full flex items-center justify-center border border-border hover:bg-muted/80 transition-colors opacity-50 cursor-not-allowed shadow-sm"
-                title="GCTL redemptions disabled in v1.5"
-              >
-                <ArrowUpDown className="w-5 h-5 text-muted-foreground" />
               </div>
-            </div>
 
-            {/* To Section - GCTL */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <Label className="text-sm font-medium text-muted-foreground">
-                  To
-                </Label>
-                {isConnected && (
-                  <div className="text-sm text-muted-foreground">
-                    {gctlDataLoading ? (
-                      <div className="flex items-center space-x-1">
-                        <span>Balance:</span>
-                        <Skeleton className="h-4 w-20" />
+              {/* Enhanced Swap Direction */}
+              <div className="relative py-2">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <button
+                    className="bg-background border-4 border-border rounded-full p-2 lg:p-3 hover:bg-muted/30 transition-all duration-200 z-50 opacity-50 cursor-not-allowed"
+                    title="GCTL redemptions disabled in v1.5"
+                    disabled
+                  >
+                    <ArrowDownUp className="w-4 h-4 lg:w-5 lg:h-5 text-muted-foreground" />
+                  </button>
+                </div>
+              </div>
+
+              {/* To Section - GCTL */}
+              <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                    You receive
+                  </span>
+                  {outputAmount && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                      Calculating...
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                  <div className="flex-1 min-w-0">
+                    <Input
+                      type="text"
+                      value={outputAmount || "0.00"}
+                      readOnly
+                      placeholder="0.00"
+                      className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
+                      aria-label="GCTL amount you'll receive"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-center sm:justify-end">
+                    <div className="flex items-center gap-2 bg-gradient-to-r from-green-50 to-emerald-50 px-4 py-2.5 rounded-xl border border-green-200/50">
+                      <div className="w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-bold text-white">G</span>
                       </div>
-                    ) : (
-                      <span
-                        title={`Full balance: ${gctlBalanceFormatted.toLocaleString(
-                          undefined,
-                          { maximumFractionDigits: 6 }
-                        )} GCTL`}
-                      >
-                        Balance:{" "}
-                        {gctlBalanceFormatted > 999999
-                          ? formatLargeNumber(gctlBalanceFormatted)
-                          : gctlBalanceFormatted.toLocaleString(undefined, {
-                              maximumFractionDigits: 6,
-                            })}{" "}
+                      <span className="text-sm font-semibold text-green-700">
                         GCTL
                       </span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="relative">
-                <Input
-                  type="text"
-                  value={outputAmount}
-                  readOnly
-                  className="h-16 text-2xl font-medium pr-32 bg-muted/30 border-2 border-border cursor-not-allowed"
-                  aria-label="GCTL amount you'll receive"
-                />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                  <div className="flex items-center space-x-2 bg-gradient-to-r from-green-50 to-blue-50 px-3 py-2 rounded-full border border-green-200">
-                    <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-xs font-bold text-white">G</span>
                     </div>
-                    <span className="text-sm font-semibold text-green-700">
-                      GCTL
-                    </span>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Exchange Rate Summary */}
-          {inputAmount && outputAmount && !gctlDataLoading && (
-            <div className="bg-muted/30 border border-border rounded-lg p-4">
-              <div className="text-sm text-muted-foreground">
-                You&apos;ll receive{" "}
-                <span
-                  className="text-foreground font-medium"
-                  title="Rounded to 6 decimals; final mint amount shown on receipt"
-                >
-                  ~
-                  {parseFloat(outputAmount).toLocaleString(undefined, {
-                    maximumFractionDigits: 6,
-                  })}{" "}
-                  GCTL
-                </span>
+            {/* Exchange Rate Summary */}
+            {inputAmount && outputAmount && !gctlDataLoading && (
+              <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-2xl p-4 lg:p-5 border border-border/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                    Transaction Details
+                  </span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  You'll receive approximately{" "}
+                  <span className="text-foreground font-semibold">
+                    {parseFloat(outputAmount).toLocaleString(undefined, {
+                      maximumFractionDigits: 6,
+                    })}{" "}
+                    GCTL
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Zero Balance State */}
-          {isConnected && usdcBalance === BigInt(0) && !usdcBalanceLoading && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
-              <div className="text-amber-800 mb-2 font-medium">
-                No USDC Balance Found
-              </div>
-              <div className="text-amber-700 text-sm mb-3">
-                You need USDC to purchase GCTL
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-amber-700 border-amber-300 hover:bg-amber-100"
-                >
-                  Add Test USDC to Wallet
-                </Button>
-                {isOnSepolia && (
+            {/* Always visible Test USDC Section on Sepolia */}
+            {isConnected && isOnSepolia && (
+              <div className="bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-2xl p-5 border border-border/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                      <Plus className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-foreground">
+                        Test USDC Faucet
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Get free test USDC for testing
+                      </div>
+                    </div>
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleMintTestUSDC}
                     disabled={isProcessing}
-                    className="text-blue-700 border-blue-300 hover:bg-blue-100"
+                    className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-blue-200 hover:from-blue-500/20 hover:to-purple-500/20 transition-all"
                   >
                     {isProcessing ? (
                       <>
@@ -678,179 +671,185 @@ export function PurchaseGctlTab({
                         Minting...
                       </>
                     ) : (
-                      "Mint 10000 Test USDC"
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Mint 10,000 USDC
+                      </>
                     )}
                   </Button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Test USDC Mint Button for users with balance on Sepolia */}
-          {isConnected && isOnSepolia && usdcBalance > BigInt(0) && (
-            <div className="flex justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleMintTestUSDC}
-                disabled={isProcessing}
-                className="text-blue-700 border-blue-300 hover:bg-blue-100"
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Minting...
-                  </>
-                ) : (
-                  "Mint 10000 Test USDC"
-                )}
-              </Button>
-            </div>
-          )}
-
-          {/* Buy Button */}
-          {!isConnected ? (
-            <ConnectButton
-              variant="default"
-              size="large"
-              className="w-full rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
-            />
-          ) : (
-            <Button
-              className="w-full h-14 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
-              onClick={handleBuy}
-              disabled={
-                !isOnSepolia ||
-                !inputAmount ||
-                !!inputError ||
-                loading ||
-                isProcessing ||
-                gctlDataLoading ||
-                gctlPrice <= 0
-              }
-            >
-              {loading || isProcessing ? (
-                <>
-                  <Loader2 className="mr-3 h-5 w-5 animate-spin" />
-                  {needsApproval
-                    ? "Approving & Purchasing..."
-                    : "Purchasing..."}
-                </>
-              ) : !isOnSepolia ? (
-                "Switch to Sepolia"
-              ) : gctlDataLoading ? (
-                <>
-                  <Loader2 className="mr-3 h-5 w-5 animate-spin" />
-                  Loading Data...
-                </>
-              ) : gctlPrice <= 0 ? (
-                <>
-                  <Loader2 className="mr-3 h-5 w-5 animate-spin" />
-                  Loading Price...
-                </>
-              ) : inputError ? (
-                "Fix Errors Above"
-              ) : !inputAmount ? (
-                "Enter Amount to Buy GCTL"
-              ) : (
-                dynamicButtonText
-              )}
-            </Button>
-          )}
-
-          {/* Network Warning */}
-          {!isOnSepolia && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2 text-red-700 font-medium text-sm">
-                <span className="text-red-500">⚠</span>
-                <span>Please switch to Sepolia Testnet to purchase GCTL</span>
-              </div>
-            </div>
-          )}
-
-          {/* Details Toggle */}
-          <div className="border-t border-border pt-4">
-            <button
-              onClick={() => setShowDetails(!showDetails)}
-              className="w-full flex items-center justify-between text-sm text-muted-foreground hover:text-foreground transition-colors p-3 rounded-lg hover:bg-muted/50"
-            >
-              <div className="flex items-center space-x-2">
-                <Info className="w-4 h-4" />
-                <span>How It Works</span>
-              </div>
-              <svg
-                className={`w-4 h-4 transition-transform ${
-                  showDetails ? "rotate-180" : ""
-                }`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-
-            {showDetails && (
-              <div className="mt-3 bg-blue-50/50 border border-blue-200 rounded-lg p-4 space-y-3 text-sm">
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
-                  <div>
-                    <p className="font-medium text-blue-900 mb-1">
-                      Choose Your Purchase Type
-                    </p>
-                    <p className="text-blue-700">
-                      Mint GCTL only, or mint and stake to a region for rewards
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
-                  <div>
-                    <p className="font-medium text-blue-900 mb-1">
-                      Off-chain Purchase
-                    </p>
-                    <p className="text-blue-700">
-                      No gas fees required. GCTL is credited to your account
-                      database, not minted on-chain yet.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
-                  <div>
-                    <p className="font-medium text-blue-900 mb-1">
-                      Processing Time
-                    </p>
-                    <p className="text-blue-700">
-                      GCTL is credited within ~1 minute of your USDC transaction
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
-                  <div>
-                    <p className="font-medium text-blue-900 mb-1">
-                      Flexible Staking
-                    </p>
-                    <p className="text-blue-700">
-                      Stakes are locked for ~2 years but can be staked to any
-                      region
-                    </p>
-                  </div>
                 </div>
               </div>
             )}
+
+            {/* Zero Balance State */}
+            {isConnected &&
+              usdcBalance === BigInt(0) &&
+              !usdcBalanceLoading &&
+              !isOnSepolia && (
+                <div className="bg-amber-50/50 border border-amber-200/50 rounded-2xl p-5 text-center">
+                  <div className="text-amber-800 mb-2 font-semibold">
+                    No USDC Balance Found
+                  </div>
+                  <div className="text-amber-700 text-sm mb-4">
+                    You need USDC to purchase GCTL. Switch to Sepolia testnet to
+                    get test USDC.
+                  </div>
+                </div>
+              )}
+
+            {/* Buy Button */}
+            <div className="pt-4">
+              {!isConnected ? (
+                <ConnectButton
+                  variant="default"
+                  className="w-full h-12 lg:h-16"
+                />
+              ) : (
+                <Button
+                  className="w-full h-12 lg:h-16 text-lg font-semibold"
+                  onClick={handleBuy}
+                  disabled={
+                    !isOnSepolia ||
+                    !inputAmount ||
+                    !!inputError ||
+                    loading ||
+                    isProcessing ||
+                    gctlDataLoading ||
+                    gctlPrice <= 0
+                  }
+                >
+                  {loading || isProcessing ? (
+                    <>
+                      <div className="mr-3">
+                        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      </div>
+                      {needsApproval
+                        ? "Approving & Purchasing..."
+                        : "Processing..."}
+                    </>
+                  ) : !isOnSepolia ? (
+                    "Switch to Sepolia"
+                  ) : gctlDataLoading ? (
+                    <>
+                      <div className="mr-3">
+                        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      </div>
+                      Loading Data...
+                    </>
+                  ) : gctlPrice <= 0 ? (
+                    <>
+                      <div className="mr-3">
+                        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      </div>
+                      Loading Price...
+                    </>
+                  ) : inputError ? (
+                    "Fix Errors Above"
+                  ) : !inputAmount ? (
+                    "Enter Amount"
+                  ) : (
+                    dynamicButtonText
+                  )}
+                </Button>
+              )}
+            </div>
+
+            {/* Network Warning */}
+            {isConnected && !isOnSepolia && (
+              <div className="bg-red-50/50 border border-red-200/50 rounded-2xl p-4">
+                <div className="flex items-center gap-2 text-red-700 font-medium text-sm">
+                  <span className="text-red-500">⚠</span>
+                  <span>Please switch to Sepolia Testnet to purchase GCTL</span>
+                </div>
+              </div>
+            )}
+
+            {/* Enhanced Info Section */}
+            <div className="border-t border-border/50 pt-6">
+              <button
+                onClick={() => setShowDetails(!showDetails)}
+                className="w-full flex items-center justify-between text-sm text-muted-foreground hover:text-foreground transition-colors p-4 rounded-2xl hover:bg-muted/30"
+              >
+                <div className="flex items-center gap-2">
+                  <Info className="w-4 h-4" />
+                  <span className="font-medium">How GCTL Works</span>
+                </div>
+                <svg
+                  className={`w-4 h-4 transition-transform ${
+                    showDetails ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+
+              {showDetails && (
+                <div className="mt-4 bg-gradient-to-r from-muted/10 to-muted/5 rounded-2xl p-5 space-y-4 text-sm border border-border/20">
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-foreground mb-1">
+                        Flexible Purchase Options
+                      </p>
+                      <p className="text-muted-foreground">
+                        Choose to mint GCTL only, or mint and stake to a region
+                        for rewards
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-foreground mb-1">
+                        Off-chain Processing
+                      </p>
+                      <p className="text-muted-foreground">
+                        No gas fees required. GCTL is credited to your account
+                        database instantly
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-foreground mb-1">
+                        Fast Processing
+                      </p>
+                      <p className="text-muted-foreground">
+                        GCTL is credited within ~1 minute of your transaction
+                        confirmation
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-foreground mb-1">
+                        Staking Rewards
+                      </p>
+                      <p className="text-muted-foreground">
+                        Stakes are locked for ~2 years but earn rewards based on
+                        your selected region
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </>
   );
 }
