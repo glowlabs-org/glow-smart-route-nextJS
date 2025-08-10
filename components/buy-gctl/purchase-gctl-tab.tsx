@@ -352,11 +352,11 @@ export function PurchaseGctlTab({
     if (!address) return;
 
     try {
-      // Mint 10000 USDC for testing
-      const amount = BigNumber.from(parseUnits("10000", 6).toString());
+      // Mint 100000 USDC for testing
+      const amount = BigNumber.from(parseUnits("100000", 6).toString());
       await mintTestUSDC(amount, address);
 
-      toast.success("Successfully minted 10000 test USDC!");
+      toast.success("Successfully minted 100000 test USDC!");
 
       // Refresh USDC balance
       if (publicClient) {
