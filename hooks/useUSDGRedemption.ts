@@ -1,12 +1,11 @@
-import { useEthersSigner } from "./useEthersSigner";
-import { BigNumber, ethers } from "ethers";
 import { Result, Ok, Err } from "ts-results";
 
-import { formatUnits, erc20Abi } from "viem";
+import { formatUnits, erc20Abi, maxUint256, formatEther, parseAbi } from "viem";
 import { useContracts } from "./useContracts";
 import { useEffect, useState } from "react";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { getAddresses } from "@glowlabs-org/utils/browser";
+import { useWalletClient } from "wagmi";
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
   throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
@@ -21,7 +20,9 @@ export const USDG_REDEMPTION_ADDRESS = SDKAddresses.USDG_REDEMPTION;
 const USDC_ADDRESS = SDKAddresses.USDC;
 
 // Minimal ABI for the exchange function
-const USDG_REDEMPTION_ABI = ["function exchange(uint256 amountUSDG) external"];
+const USDG_REDEMPTION_ABI = parseAbi([
+  "function exchange(uint256 amountUSDG) external",
+]);
 
 export enum USDGRedemptionError {
   CONTRACT_NOT_AVAILABLE = "Contract not available",
@@ -58,8 +59,8 @@ function parseEthersError(error: unknown): string {
 }
 
 export function useUSDGRedemption() {
-  const signer = useEthersSigner();
-  const { usdg } = useContracts(signer);
+  const { data: walletClient } = useWalletClient();
+  const { usdg } = useContracts(undefined);
   const [usdcInRedemption, setUsdcInRedemption] = useState<number>(0);
 
   useEffect(() => {
@@ -69,23 +70,13 @@ export function useUSDGRedemption() {
     fetchUsdcInRedemption();
   }, []);
 
-  // Returns a contract instance for USDGRedemption
-  function getContract() {
-    if (!signer) return undefined;
-    return new ethers.Contract(
-      USDG_REDEMPTION_ADDRESS,
-      USDG_REDEMPTION_ABI,
-      signer
-    );
-  }
-
   /**
    * Get USDC balance of the USDG Redemption contract
    * Uses publicClient so no wallet connection is required
    */
-  async function getUSDCBalanceOfRedemptionContract(): Promise<BigNumber | null> {
+  async function getUSDCBalanceOfRedemptionContract(): Promise<bigint | null> {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
-      return BigNumber.from(0);
+      return BigInt(0);
     }
     try {
       const balance = (await publicClient.readContract({
@@ -96,11 +87,8 @@ export function useUSDGRedemption() {
       })) as bigint;
 
       const formattedBalance = formatUnits(balance, 6);
-
       setUsdcInRedemption(Number(formattedBalance));
-
-      // Convert to BigNumber for compatibility with existing code
-      return BigNumber.from(balance.toString());
+      return balance;
     } catch (error) {
       console.error("Error fetching USDC balance:", error);
       setUsdcInRedemption(0);
@@ -114,26 +102,26 @@ export function useUSDGRedemption() {
    * @param amountUSDG Amount of USDG to redeem (BigNumber, 6 decimals)
    */
   async function redeemUSDGForUSDC(
-    amountUSDG: BigNumber
+    amountUSDG: bigint
   ): Promise<Result<boolean, USDGRedemptionError | string>> {
     try {
-      const contract = getContract();
-      if (!contract) return new Err(USDGRedemptionError.CONTRACT_NOT_AVAILABLE);
-      if (!signer) return new Err(USDGRedemptionError.SIGNER_NOT_AVAILABLE);
+      if (!walletClient)
+        return new Err(USDGRedemptionError.SIGNER_NOT_AVAILABLE);
 
       if (!usdg) return new Err("USDG contract not available");
 
-      const owner = await signer.getAddress();
-      const allowance: BigNumber = await usdg.allowance(
+      const owner = walletClient.account?.address as `0x${string}` | undefined;
+      if (!owner) return new Err(USDGRedemptionError.SIGNER_NOT_AVAILABLE);
+      const allowance: bigint = await usdg.allowance(
         owner,
         USDG_REDEMPTION_ADDRESS
       );
 
-      if (allowance.lt(amountUSDG)) {
+      if (allowance < amountUSDG) {
         try {
           const approveTx = await usdg.approve(
             USDG_REDEMPTION_ADDRESS,
-            ethers.constants.MaxUint256
+            maxUint256
           );
           await approveTx.wait();
         } catch (approveError) {
@@ -143,15 +131,26 @@ export function useUSDGRedemption() {
         }
       }
 
-      // Run a static call first so that we can surface any revert reason to the UI
+      // Simulate to surface any revert reason to the UI
       try {
-        await contract.callStatic.exchange(amountUSDG, { from: owner });
+        await publicClient.simulateContract({
+          account: owner,
+          address: USDG_REDEMPTION_ADDRESS,
+          abi: USDG_REDEMPTION_ABI,
+          functionName: "exchange",
+          args: [amountUSDG],
+        });
       } catch (staticError) {
         return new Err(parseEthersError(staticError));
       }
 
-      const tx = await contract.exchange(amountUSDG);
-      await tx.wait();
+      const hash = await walletClient.writeContract({
+        address: USDG_REDEMPTION_ADDRESS,
+        abi: USDG_REDEMPTION_ABI,
+        functionName: "exchange",
+        args: [amountUSDG],
+      });
+      await publicClient.waitForTransactionReceipt({ hash });
 
       return new Ok(true);
     } catch (txError: any) {
@@ -165,18 +164,25 @@ export function useUSDGRedemption() {
    * @param ethPriceInUSD Current ETH price in USD (for cost estimation)
    */
   async function estimateGasForRedeemUSDG(
-    amountUSDG: BigNumber,
+    amountUSDG: bigint,
     ethPriceInUSD: number | null
   ): Promise<Result<string, USDGRedemptionError | string>> {
     try {
-      const contract = getContract();
-      if (!contract) return new Err(USDGRedemptionError.CONTRACT_NOT_AVAILABLE);
-      if (!signer) return new Err(USDGRedemptionError.SIGNER_NOT_AVAILABLE);
-      const gasPrice = await signer.getGasPrice();
-      const estimatedGas = await contract.estimateGas.exchange(amountUSDG);
-      const estimatedCost = estimatedGas.mul(gasPrice);
+      if (!walletClient)
+        return new Err(USDGRedemptionError.SIGNER_NOT_AVAILABLE);
+      const owner = walletClient.account?.address as `0x${string}` | undefined;
+      if (!owner) return new Err(USDGRedemptionError.SIGNER_NOT_AVAILABLE);
+      const gasPrice = await publicClient.getGasPrice();
+      const estimatedGas = await publicClient.estimateContractGas({
+        account: owner,
+        address: USDG_REDEMPTION_ADDRESS,
+        abi: USDG_REDEMPTION_ABI,
+        functionName: "exchange",
+        args: [amountUSDG],
+      });
+      const estimatedCost = estimatedGas * gasPrice;
       if (ethPriceInUSD) {
-        const estimatedCostInEth = ethers.utils.formatEther(estimatedCost);
+        const estimatedCostInEth = formatEther(estimatedCost);
         const estimatedCostInUSD = (
           parseFloat(estimatedCostInEth) * ethPriceInUSD
         ).toFixed(2);

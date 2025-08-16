@@ -1,5 +1,3 @@
-import { BigNumberish } from "ethers";
-
 // Constants
 const ratio: number = 1.0000006931474208;
 

@@ -14,7 +14,7 @@ import {
   purchaseGlowStateMessages,
   usePurchaseGlow,
 } from "@/hooks/usePurchaseGlow";
-import { BigNumber, ethers } from "ethers";
+
 import { Input } from "./ui/input";
 import { formatPrice } from "@/utils/formatPrice";
 import clsx from "clsx";
@@ -25,7 +25,9 @@ import { Result } from "ts-results";
 import { SwapUSDCToUSDGError } from "@/hooks/useSwapUSDCToUSDG";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
 import { Token } from "@/app/buy/view";
-import { addresses } from "@glowlabs-org/guarded-launch-ethers-sdk";
+
+import { parseUnits } from "viem";
+import { addresses } from "@/web3/constants/addresses";
 
 type PendingState = {
   code: string;
@@ -147,9 +149,9 @@ export const UsdcToTokenDialog: FC<{
   smartBalancingAmounts: SmartBalancingAmounts | undefined;
   selectedTokenSell: Token;
   selectedTokenBuy: Token;
-  slippagePointsTenThousandths: BigNumber;
+  slippagePointsTenThousandths: bigint;
   swapUSDCToUSDG: (
-    amount: BigNumber
+    amount: bigint
   ) => Promise<Result<boolean, SwapUSDCToUSDGError>>;
   onOpenChange: (open: boolean) => void;
 }> = ({
@@ -190,7 +192,7 @@ export const UsdcToTokenDialog: FC<{
         updatePendingStates(0);
 
         const swapUSDCtoUSDGRes = await swapUSDCToUSDG(
-          ethers.utils.parseUnits(amountToSell, "6")
+          parseUnits(amountToSell, 6)
         );
 
         if (!swapUSDCtoUSDGRes.ok) {
@@ -220,9 +222,9 @@ export const UsdcToTokenDialog: FC<{
           defaultPendingStates("uniswap", selectedTokenSell.label)
         );
         const purchaseGlowFromUniswap = await swap({
-          amount: ethers.utils.parseUnits(
+          amount: parseUnits(
             toFixedTruncate(Number(smartBalancingAmounts.amount_in_uni), 6),
-            "6"
+            6
           ),
           slippagePercentTenThousandDenominator: slippagePointsTenThousandths,
         });

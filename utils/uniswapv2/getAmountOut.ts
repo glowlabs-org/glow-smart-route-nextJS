@@ -1,19 +1,18 @@
-import { BigNumber } from "ethers";
 import { Result, Ok, Err } from "ts-results";
 export function getAmountOut({
   amountIn,
   reserveIn,
   reserveOut,
 }: {
-  amountIn: BigNumber;
-  reserveIn: BigNumber;
-  reserveOut: BigNumber;
-}): Result<BigNumber, string> {
-  if (amountIn.eq(BigNumber.from(0))) return new Err("amountIn is 0");
-  if (reserveIn.eq(BigNumber.from(0))) return new Err("reserveIn is 0");
-  if (reserveOut.eq(BigNumber.from(0))) return new Err("reserveOut is 0");
-  const amountInWithFee = amountIn.mul(997);
-  const numerator = amountInWithFee.mul(reserveOut);
-  const denominator = reserveIn.mul(1000).add(amountInWithFee);
-  return new Ok(numerator.div(denominator));
+  amountIn: bigint;
+  reserveIn: bigint;
+  reserveOut: bigint;
+}): Result<bigint, string> {
+  if (amountIn === BigInt(0)) return new Err("amountIn is 0");
+  if (reserveIn === BigInt(0)) return new Err("reserveIn is 0");
+  if (reserveOut === BigInt(0)) return new Err("reserveOut is 0");
+  const amountInWithFee = amountIn * BigInt(997);
+  const numerator = amountInWithFee * reserveOut;
+  const denominator = reserveIn * BigInt(1000) + amountInWithFee;
+  return new Ok(numerator / denominator);
 }

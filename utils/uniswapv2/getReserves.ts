@@ -1,14 +1,10 @@
-import { BigNumber } from "ethers";
 import { Result, Ok, Err } from "ts-results";
-import { type Signer } from "ethers";
-import {
-  UnifapV2Pair__factory,
-  UnifapV2Pair,
-} from "@glowlabs-org/guarded-launch-ethers-sdk";
+import { publicClient } from "@/web3/web3/clients/publicClient";
+import { parseAbi } from "viem";
 
 export type Reserves = {
-  reserveTokenA: BigNumber;
-  reserveTokenB: BigNumber;
+  reserveTokenA: bigint;
+  reserveTokenB: bigint;
 };
 export async function getReserves({
   tokenA,
@@ -19,16 +15,21 @@ export async function getReserves({
   tokenA: string;
   tokenB: string;
   pairAddress: string;
-  signer: Signer;
+  signer?: any; // not used; kept for backward compatibility
 }): Promise<Result<Reserves, string>> {
   try {
-    const pair: UnifapV2Pair = UnifapV2Pair__factory.connect(
-      pairAddress,
-      signer
-    );
-    const [reserve0, reserve1] = await pair.getReserves();
-    const reserveTokenA = BigInt(tokenA) > BigInt(tokenB) ? reserve1 : reserve0;
-    const reserveTokenB = BigInt(tokenA) > BigInt(tokenB) ? reserve0 : reserve1;
+    const UNISWAP_V2_PAIR_ABI = parseAbi([
+      "function getReserves() view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)",
+    ]);
+    const [reserve0, reserve1] = (await publicClient.readContract({
+      address: pairAddress as `0x${string}`,
+      abi: UNISWAP_V2_PAIR_ABI,
+      functionName: "getReserves",
+    })) as readonly [bigint, bigint, number];
+
+    const tokenAIsToken0 = tokenA.toLowerCase() < tokenB.toLowerCase();
+    const reserveTokenA = tokenAIsToken0 ? reserve0 : reserve1;
+    const reserveTokenB = tokenAIsToken0 ? reserve1 : reserve0;
     const returnObj = {
       reserveTokenA,
       reserveTokenB,

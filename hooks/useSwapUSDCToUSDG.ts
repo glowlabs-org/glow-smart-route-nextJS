@@ -1,8 +1,7 @@
-import { BigNumber, ethers } from "ethers";
+import { formatEther } from "viem";
 import { useContracts } from "./useContracts";
 import { useEthersSigner } from "./useEthersSigner";
 import { Result, Ok, Err } from "ts-results";
-import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
 
 export enum SwapUSDCToUSDGError {
   CONTRACTS_NOT_AVAILABLE = "Contracts not available",
@@ -11,11 +10,11 @@ export enum SwapUSDCToUSDGError {
   INSUFFICIENT_USDC_BALANCE = "Insufficient USDC balance",
 }
 export const useSwapUSDCToUSDG = () => {
-  const signer = useEthersSigner();
+  const { signer } = useEthersSigner();
   const { usdc, usdg } = useContracts(signer);
 
   const estimateGasForswapUSDCToUSDG = async (
-    amount: BigNumber,
+    amount: bigint,
     ethPriceInUSD: number | null
   ): Promise<Result<string, string>> => {
     try {
@@ -26,24 +25,24 @@ export const useSwapUSDCToUSDG = () => {
       const usdcGasPrice = await usdc.provider.getGasPrice();
 
       const allowance = await usdc.allowance(signerAddress, usdg.address);
-      let totalEstimatedGas = BigNumber.from(0);
-      if (allowance.lt(amount)) {
+      let totalEstimatedGas = BigInt(0);
+      if (allowance < amount) {
         const estimatedGas = await usdc.estimateGas.approve(
           usdg.address,
           amount
         );
 
-        const estimatedCost = estimatedGas.mul(usdcGasPrice);
-        totalEstimatedGas = totalEstimatedGas.add(estimatedCost);
+        const estimatedCost = estimatedGas * BigInt(usdcGasPrice);
+        totalEstimatedGas = totalEstimatedGas + estimatedCost;
       }
 
-      const estimatedGas = BigNumber.from(100000);
+      const estimatedGas = BigInt(100000);
 
-      const estimatedCost = estimatedGas.mul(usdcGasPrice);
-      totalEstimatedGas = totalEstimatedGas.add(estimatedCost);
+      const estimatedCost = estimatedGas * BigInt(usdcGasPrice);
+      totalEstimatedGas = totalEstimatedGas + estimatedCost;
 
       if (ethPriceInUSD) {
-        const estimatedCostInEth = ethers.utils.formatEther(totalEstimatedGas);
+        const estimatedCostInEth = formatEther(totalEstimatedGas);
         const estimatedCostInUSD = (
           parseFloat(estimatedCostInEth) * ethPriceInUSD
         ).toFixed(2);
@@ -59,7 +58,7 @@ export const useSwapUSDCToUSDG = () => {
   };
 
   const swapUSDCToUSDG = async (
-    amount: BigNumber
+    amount: bigint
   ): Promise<Result<boolean, SwapUSDCToUSDGError>> => {
     try {
       if (!usdc || !usdg)

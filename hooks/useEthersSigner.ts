@@ -1,30 +1,48 @@
-import { useMemo } from "react";
-import { providers } from "ethers";
 import { useWalletClient } from "wagmi";
-import { WalletClient } from "viem";
+import React from "react";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { BrowserProvider, JsonRpcSigner } from "ethers";
+import type { WalletClient } from "viem";
 
-export function walletClientToSigner(walletClient: WalletClient) {
-  const { account, chain, transport } = walletClient;
-  if (!chain) return null;
-  if (!account) return null;
-
-  const network = {
-    chainId: chain.id,
-    name: chain.name,
-    ensAddress: chain.contracts?.ensRegistry?.address,
-  };
-  //@ts-ignore
-  const provider = new providers.Web3Provider(transport, network);
-  const signer = provider.getSigner(account.address);
-  return signer;
+async function walletClientToSigner(
+  walletClient: WalletClient
+): Promise<JsonRpcSigner> {
+  const { account, chain, transport } = walletClient as unknown as any;
+  const provider = new BrowserProvider(transport as any, chain?.id);
+  return provider.getSigner(account?.address);
 }
 
-/** Hook to convert a viem Wallet Client to an ethers.js Signer. */
+/** Hook to convert a viem Wallet Client to an ethers v6 Signer. */
 export function useEthersSigner({ chainId }: { chainId?: number } = {}) {
   const { data: walletClient } = useWalletClient({ chainId });
-
-  return useMemo(
-    () => (walletClient ? walletClientToSigner(walletClient) : undefined),
-    [walletClient]
+  const { openConnectModal } = useConnectModal();
+  const [signer, setSigner] = React.useState<JsonRpcSigner | undefined>(
+    undefined
   );
+
+  React.useEffect(() => {
+    let isMounted = true;
+    async function computeSigner() {
+      if (!walletClient) {
+        if (isMounted) setSigner(undefined);
+        return;
+      }
+      try {
+        const s = await walletClientToSigner(walletClient as WalletClient);
+        if (isMounted) setSigner(s);
+      } catch (err) {
+        console.error(err);
+        if (isMounted) setSigner(undefined);
+      }
+    }
+    computeSigner();
+    return () => {
+      isMounted = false;
+    };
+  }, [walletClient]);
+
+  return {
+    signer,
+    reconnect: openConnectModal || (() => {}),
+  };
 }

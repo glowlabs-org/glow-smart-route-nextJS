@@ -1,8 +1,8 @@
 import { useContracts } from "./useContracts";
-import { BigNumber, Signer, ethers } from "ethers";
+
 import { Result, Ok, Err } from "ts-results";
-import { useEthersSigner } from "./useEthersSigner";
-import { useEffect, useState } from "react";
+
+import { JsonRpcSigner } from "ethers";
 
 export type SYMBOLS = "GLOW" | "GCC" | "IMPACT POWER POINTS" | "USDG" | "USDC";
 
@@ -15,7 +15,7 @@ export enum SendTokensError {
 export const useERC20 = ({
   signer,
 }: {
-  signer: ethers.providers.JsonRpcSigner | undefined | null;
+  signer: JsonRpcSigner | undefined | null;
 }) => {
   const { usdg, glow, isReady } = useContracts(signer);
 
@@ -26,7 +26,7 @@ export const useERC20 = ({
   async function sendTokens(
     symbol: SYMBOLS,
     to: `0x${string}`,
-    amount: BigNumber
+    amount: bigint
   ): Promise<Result<boolean, SendTokensError>> {
     if (!signer) return new Err(SendTokensError.SIGNER_NOT_AVAILABLE);
 

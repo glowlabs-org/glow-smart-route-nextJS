@@ -50,7 +50,7 @@ export function ProcessingModal({
   };
 
   // ---------------------- API & polling ----------------------
-  const { fetchTransferDetails, gctlPrice } = useGctlApi();
+  const { fetchTransferDetails, gctlPriceNumber, gctlPrice } = useGctlApi();
 
   const [status, setStatus] = useState<"processing" | "success" | "error">(
     "processing"
@@ -124,7 +124,9 @@ export function ProcessingModal({
           console.log(transfer.status);
           if (transfer.status === "confirmed") {
             setStatus("success");
-            setProcessedAmount(formatUnits(BigInt(transfer.amountRaw), 6));
+            setProcessedAmount(
+              formatUnits(BigInt(transfer.amountRaw) / BigInt(gctlPrice), 6)
+            );
           } else if (transfer.status === "failed") {
             setStatus("error");
             failureInfoRef.current = transfer;
@@ -174,7 +176,7 @@ export function ProcessingModal({
             handleClose={onClose}
             processedAmount={processedAmount}
             trackingTxHash={trackingTxHash ?? undefined}
-            gctlPrice={gctlPrice}
+            gctlPrice={gctlPriceNumber}
           />
         </DialogContent>
       </Dialog>

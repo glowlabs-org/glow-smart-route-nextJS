@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/ban-types */
 import { addresses } from "@/web3/constants/addresses";
-import { PublicClient } from "viem";
+import { formatUnits, PublicClient } from "viem";
 import { getProtocolWeek } from "./getProtocolWeek";
-import { formatUnits } from "ethers/lib/utils";
 import { minerPoolAndGCAAbi } from "@/web3/constants/abis/MinerPoolAndGCA.abi";
 
 /**

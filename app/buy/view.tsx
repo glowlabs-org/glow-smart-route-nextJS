@@ -2,7 +2,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { BigNumber, ethers } from "ethers";
+
 import {
   Select,
   SelectContent,
@@ -13,7 +13,6 @@ import {
 import { toast } from "sonner";
 import { Result } from "ts-results";
 import { useSwap } from "@/hooks/useSwap";
-import { addresses } from "@glowlabs-org/guarded-launch-ethers-sdk";
 import { Input } from "@/components/ui/input";
 import { useAccount } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
@@ -45,7 +44,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SendTab } from "./send-tab";
 import { useQueryState } from "nuqs";
 
-import { BeamsBackground } from "@/components/ui/beam-background";
+import { addresses } from "@/web3/constants/addresses";
+import { MaxUint256 } from "ethers";
 
 const tokens = {
   USDG: {
@@ -166,11 +166,12 @@ export default function View({
     }
   }, [txIdParam]);
 
-  const signer = useEthersSigner();
+  //TODO: fix this
+  const { signer } = useEthersSigner();
   // Forwarder & GCTL helpers
   const chainIdNum = parseInt(CHAIN_ID.toString());
   const { mintGCTL, checkTokenAllowance, approveToken } = useForwarder(
-    signer ?? undefined,
+    signer as any,
     chainIdNum
   );
 
@@ -255,8 +256,7 @@ export default function View({
       if (selectedTokenSell.label === "USDC") {
         if (
           usdgBalance &&
-          Number(ethers.utils.formatUnits(usdgBalance.toString(), 6)) >=
-            Number(amountToSell)
+          Number(formatUnits(usdgBalance, 6)) >= Number(amountToSell)
         ) {
           return {
             label: `BUY`,
@@ -309,10 +309,7 @@ export default function View({
       }
     } else {
       if (selectedTokenSell.label === "USDC") {
-        if (
-          usdgBalance?.lt(0) &&
-          usdgBalance?.lt(ethers.utils.parseUnits(amountToSell, 6))
-        ) {
+        if (usdgBalance && usdgBalance >= BigInt(parseUnits(amountToSell, 6))) {
           return {
             label: `SWAP`,
             disabled: false,
@@ -384,10 +381,7 @@ export default function View({
   }
 
   const handleBuy = async () => {
-    const amountIn = ethers.utils.parseUnits(
-      amountToSell,
-      selectedTokenSell.decimals
-    );
+    const amountIn = parseUnits(amountToSell, selectedTokenSell.decimals);
 
     try {
       setPendingTx(true);
@@ -398,11 +392,11 @@ export default function View({
         // buy glow with uniswap
         if (smartBalancingAmounts?.amount_in_uni) {
           const swapRes = await swap({
-            amount: ethers.utils.parseUnits(
+            amount: parseUnits(
               toFixedTruncate(Number(smartBalancingAmounts.amount_in_uni), 6),
-              "6"
+              6
             ),
-            slippagePercentTenThousandDenominator: BigNumber.from(
+            slippagePercentTenThousandDenominator: BigInt(
               Number(slippageTolerance) * 100
             ),
           });
@@ -421,7 +415,7 @@ export default function View({
           const purchaseGlowEarlyLiquidityRes =
             await purchaseGlowEarlyLiquidity({
               incrementsToPurchase,
-              slippagePointsTenThousandths: BigNumber.from(
+              slippagePointsTenThousandths: BigInt(
                 Number(slippageTolerance) * 100
               ),
             });
@@ -455,7 +449,7 @@ export default function View({
           selectedTokenSell.label === "USDG")
       ) {
         try {
-          const amountToSpend = BigNumber.from(
+          const amountToSpend = BigInt(
             parseUnits(amountToSell, selectedTokenSell.decimals).toString()
           );
 
@@ -466,9 +460,9 @@ export default function View({
               selectedTokenSell.label === "USDC" ? "USDC" : "USDG"
             );
 
-            if (currentAllowance.lt(amountToSpend)) {
+            if (currentAllowance < amountToSpend) {
               await approveToken(
-                ethers.constants.MaxUint256,
+                MaxUint256,
                 selectedTokenSell.label === "USDC" ? "USDC" : "USDG"
               );
             }
@@ -539,9 +533,9 @@ export default function View({
     if (amount_usdg_in_uniswap > 0) {
       const estimatedCostInUSDForUniswapResAfterAmountWithFees =
         await estimateGasForUniswap({
-          amount: ethers.utils.parseUnits(
+          amount: parseUnits(
             toFixedTruncate(Number(amount_usdg_in_uniswap), 6),
-            "6"
+            6
           ),
           ethPriceInUSD,
         });
@@ -562,7 +556,7 @@ export default function View({
       );
       const res = await estimateGasForPurchaseGlowEarlyLiquidity({
         incrementsToPurchase,
-        slippagePointsTenThousandths: BigNumber.from(200),
+        slippagePointsTenThousandths: BigInt(200),
         ethPriceInUSD,
       });
       if (res.ok) {
@@ -580,7 +574,7 @@ export default function View({
           return;
         }
         const uniswapEstimate = await estimateOutputAmount({
-          amountIn: ethers.utils.parseUnits(amountToSell, "6"),
+          amountIn: parseUnits(amountToSell, 6),
         });
         const smartBalancingAmountsRes = await getSmartBalancingAmounts({
           amountUsdgIn: Number(amountToSell),
@@ -609,7 +603,7 @@ export default function View({
         if (selectedTokenSell.label === "USDC") {
           const estimatedGasForswapUSDCToUSDGRes =
             await estimateGasForswapUSDCToUSDG(
-              ethers.utils.parseUnits(amountToSell, "6"),
+              parseUnits(amountToSell, 6),
               ethPriceInUSD
             );
           if (estimatedGasForswapUSDCToUSDGRes.ok) {
@@ -669,17 +663,15 @@ export default function View({
         );
 
         setSmartBalancingAmounts({
-          amount_in_glow_bonding_curve: toFixedTruncate(
-            amountsWithFees.amount_usdg_in_bonding_curve,
-            6
+          amount_in_glow_bonding_curve: BigInt(
+            toFixedTruncate(amountsWithFees.amount_usdg_in_bonding_curve, 6)
           ),
           amount_out_glow: toFixedTruncate(
             amountsWithFees.amount_out_glow_bonding_curve,
             18
           ),
-          amount_in_uni: toFixedTruncate(
-            amountsWithFees.amount_usdg_in_uniswap,
-            6
+          amount_in_uni: BigInt(
+            toFixedTruncate(amountsWithFees.amount_usdg_in_uniswap, 6)
           ),
           amount_out_uni: toFixedTruncate(
             amountsWithFees.amount_out_glow_uniswap,
@@ -697,9 +689,7 @@ export default function View({
         });
 
         const findAmountGlowFromUSDGAmountRes =
-          await findAmountGlowFromUSDGAmount(
-            ethers.utils.parseUnits(amountToSell, "6")
-          );
+          await findAmountGlowFromUSDGAmount(parseUnits(amountToSell, 6));
 
         if (!uniswapEstimate.ok) {
           console.error("!uniswapEstimate.ok", uniswapEstimate.val);
@@ -717,13 +707,10 @@ export default function View({
         }
 
         const estimatedUniswapOutputAmount = Number(
-          ethers.utils.formatUnits(uniswapEstimate.val.toString(), "18")
+          formatUnits(uniswapEstimate.val, 18)
         );
         const estimatedOutputAmountFormated = Number(
-          ethers.utils.formatUnits(
-            findAmountGlowFromUSDGAmountRes.val.toString(),
-            "18"
-          )
+          formatUnits(findAmountGlowFromUSDGAmountRes.val, 18)
         );
 
         // If we have smart balancing amounts, use the total from both routes
@@ -775,20 +762,14 @@ export default function View({
       ) {
         // For GLOW -> USDC, we need to estimate GLOW -> USDG first
         const estimateRes = await estimateGlowToUSDG({
-          amountIn: ethers.utils.parseUnits(
-            amountToSell,
-            selectedTokenSell.decimals
-          ),
+          amountIn: parseUnits(amountToSell, selectedTokenSell.decimals),
         });
 
         if (estimateRes.ok) {
           // USDG to USDC is 1:1, so the USDG amount equals USDC amount
           setEstimatedOutputAmount({
             ...defaultTokensEstimate,
-            [selectedTokenBuy.label]: ethers.utils.formatUnits(
-              estimateRes.val.toString(),
-              "6"
-            ),
+            [selectedTokenBuy.label]: formatUnits(estimateRes.val, 6),
           });
         }
         return;
@@ -815,17 +796,14 @@ export default function View({
         return;
       }
       const estimateRes = await estimateOutputAmount({
-        amountIn: ethers.utils.parseUnits(
-          amountToSell,
-          selectedTokenSell.decimals
-        ),
+        amountIn: parseUnits(amountToSell, selectedTokenSell.decimals),
       });
 
       if (estimateRes.ok) {
         setEstimatedOutputAmount({
           ...defaultTokensEstimate,
-          [selectedTokenBuy.label]: ethers.utils.formatUnits(
-            estimateRes.val.toString(),
+          [selectedTokenBuy.label]: formatUnits(
+            estimateRes.val,
             selectedTokenBuy.decimals
           ),
         });
@@ -843,9 +821,7 @@ export default function View({
     const balance = await getBalance();
     await refreshBalances();
     if (balance.ok) {
-      setTokenSellBalance(
-        ethers.utils.formatUnits(balance.val, selectedTokenSell.decimals)
-      );
+      setTokenSellBalance(formatUnits(balance.val, selectedTokenSell.decimals));
     }
     setBalancesLoading(false);
   };
@@ -925,7 +901,7 @@ export default function View({
       }
       try {
         const res = await estimateGasForRedeemUSDG(
-          ethers.utils.parseUnits(usdgWithdrawAmount, 6),
+          parseUnits(usdgWithdrawAmount, 6),
           ethPriceInUSD
         );
         if (res.ok) setEstimatedWithdrawGas(res.val);
@@ -940,7 +916,7 @@ export default function View({
   console.log({ isProcessingTransaction });
 
   return (
-    <BeamsBackground className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
       {/* Hero Section with Enhanced Gradient */}
 
       <div className="relative overflow-hidden min-h-screen">
@@ -1225,9 +1201,7 @@ export default function View({
             startTransition(router.refresh);
           }
         }}
-        slippagePointsTenThousandths={BigNumber.from(
-          Number(slippageTolerance) * 100
-        )}
+        slippagePointsTenThousandths={BigInt(Number(slippageTolerance) * 100)}
       />
       <GlowToUsdcDialog
         isOpen={isGlowToUsdcDialogOpen}
@@ -1293,6 +1267,6 @@ export default function View({
           setTrackingTxHash(null);
         }}
       />
-    </BeamsBackground>
+    </div>
   );
 }

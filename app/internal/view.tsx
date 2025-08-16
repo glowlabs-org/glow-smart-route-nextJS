@@ -10,7 +10,6 @@ import { useAccount } from "wagmi";
 // UI Components
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { BeamsBackground } from "@/components/ui/beam-background";
 
 // Custom hooks
 import { useGctlApi } from "@/hooks/useGctlApi";
@@ -22,7 +21,6 @@ import { StakedEventsTab } from "@/components/buy-gctl/staked-events-tab";
 import { FailedOperationsTab } from "@/components/buy-gctl/failed-operations-tab";
 import { ProcessingModal } from "@/components/buy-gctl/processing-modal";
 import { DashboardTab } from "@/components/buy-gctl/dashboard-tab";
-import { PurchaseGctlTab } from "@/components/buy-gctl/purchase-gctl-tab";
 
 export default function BuyGctlView() {
   // =================================================================
@@ -41,23 +39,23 @@ export default function BuyGctlView() {
   // DATA STATE (GCTL API)
   // =================================================================
   const {
-    gctlBalance,
-    gctlPrice,
     mintedEvents,
     stakedEvents,
     pendingTransfers,
     failedOperations,
     regions,
-    isGctlBalanceLoading,
+
     isGctlPriceLoading,
     isMintedEventsLoading,
     isStakedEventsLoading,
     isPendingTransfersLoading,
     isFailedOperationsLoading,
     fetchMintedEvents,
-    fetchStakedEvents,
     fetchPendingTransfers,
     fetchFailedOperations,
+    gctlPriceNumber,
+    glwPriceNumber,
+    isGlwPriceLoading,
   } = useGctlApi(address);
 
   // =================================================================
@@ -79,8 +77,6 @@ export default function BuyGctlView() {
   const [activeTab, setActiveTab] = useState<string>("minted");
   const [mainActiveTab, setMainActiveTab] = useState<string>("dashboard");
 
-  // Use React Query loading states instead of manual state
-  const gctlDataLoading = isGctlBalanceLoading || isGctlPriceLoading;
   const dataLoading =
     activeTab === "minted"
       ? isMintedEventsLoading
@@ -104,13 +100,6 @@ export default function BuyGctlView() {
     return remaining;
   };
 
-  // Format time for display (mm:ss)
-  const formatTime = (ms: number) => {
-    const minutes = Math.floor(ms / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-  };
-
   // Reset all modal and transaction states
   const resetStates = () => {
     setIsProcessingTransaction(false);
@@ -121,63 +110,6 @@ export default function BuyGctlView() {
     setTrackingTxHash(null);
     setTxId(""); // Clear query parameter
   };
-
-  // =================================================================
-  // TRANSACTION HANDLERS
-  // =================================================================
-
-  // Handle transaction start from PurchaseGctlTab
-  const handleTransactionStart = (txHash: string) => {
-    setTrackingTxHash(txHash);
-    setTxId(txHash); // Add to query params
-    setIsProcessingTransaction(true);
-    setProcessingStartTime(Date.now());
-    setTimeRemaining(45 * 1000); // 45 seconds
-
-    // Initial fetch to check if transaction appears quickly
-    setTimeout(() => {
-      fetchPendingTransfers();
-      fetchMintedEvents();
-    }, 5000); // Check after 5 seconds
-  };
-
-  // Handle transaction found from TransactionLookupTab
-  const handleTransactionFound = (
-    txId: string,
-    type: "completed" | "pending" | "failed",
-    data?: any
-  ) => {
-    setTrackingTxHash(txId);
-    setTxId(txId); // Add to query params
-
-    switch (type) {
-      case "completed":
-        // Show success modal
-        setProcessedAmount(data.creditedAmount);
-        setShowSuccess(true);
-        break;
-      case "pending":
-        // Show processing modal
-        setIsProcessingTransaction(true);
-        setProcessingStartTime(Date.now());
-        setTimeRemaining(data.remainingTime);
-        break;
-      case "failed":
-        // Show error toast
-        toast.error(`Transaction failed: ${data.errorMessage}`);
-        break;
-    }
-  };
-
-  // =================================================================
-  // EFFECTS - DATA INITIALIZATION
-  // =================================================================
-
-  // React Query handles data fetching automatically, no manual initialization needed
-
-  // =================================================================
-  // EFFECTS - TRANSACTION PROCESSING
-  // =================================================================
 
   // Timer effect for processing countdown
   useEffect(() => {
@@ -347,7 +279,7 @@ export default function BuyGctlView() {
   // RENDER
   // =================================================================
   return (
-    <BeamsBackground className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
       {/* Processing Modal */}
       {isProcessingTransaction && (
         <ProcessingModal
@@ -370,6 +302,63 @@ export default function BuyGctlView() {
               </p>
             </div>
 
+            {/* ========== PRICE DISPLAY SECTION ========== */}
+            <div className="w-full mb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* GCTL Price Card */}
+                <div className="bg-card/60 backdrop-blur-xl rounded-2xl border border-border p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">
+                        GCTL Price
+                      </p>
+                      {isGctlPriceLoading ? (
+                        <Skeleton className="h-8 w-32" />
+                      ) : (
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-2xl font-bold text-foreground">
+                            ${gctlPriceNumber}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            USD
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="size-14 bg-primary/10 rounded-xl flex items-center justify-center">
+                      <span className="text-primary font-bold">GCTL</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* GLW Price Card */}
+                <div className="bg-card/60 backdrop-blur-xl rounded-2xl border border-border p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">
+                        GLW Price
+                      </p>
+                      {isGlwPriceLoading ? (
+                        <Skeleton className="h-8 w-32" />
+                      ) : (
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-2xl font-bold text-foreground">
+                            ${glwPriceNumber}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            USD
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="size-14 bg-green-500/10 rounded-xl flex items-center justify-center">
+                      <span className="text-green-500 font-bold">GLW</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* ========== MAIN TABS ========== */}
             <div className="w-full mb-8">
               <Tabs
@@ -381,22 +370,9 @@ export default function BuyGctlView() {
                   <TabsTrigger value="dashboard" className="rounded-lg">
                     Dashboard
                   </TabsTrigger>
-                  <TabsTrigger value="mint" className="rounded-lg">
-                    GCTL Purchase
-                  </TabsTrigger>
                 </TabsList>
                 <TabsContent value="dashboard" className="mt-0">
                   <DashboardTab walletAddress={address} />
-                </TabsContent>
-                <TabsContent value="mint" className="mt-0">
-                  <PurchaseGctlTab
-                    gctlBalance={gctlBalance}
-                    gctlPrice={gctlPrice}
-                    gctlDataLoading={gctlDataLoading}
-                    onTransactionStart={handleTransactionStart}
-                    fetchPendingTransfers={fetchPendingTransfers}
-                    fetchMintedEvents={fetchMintedEvents}
-                  />
                 </TabsContent>
               </Tabs>
             </div>
@@ -465,6 +441,6 @@ export default function BuyGctlView() {
           </div>
         </div>
       </div>
-    </BeamsBackground>
+    </div>
   );
 }

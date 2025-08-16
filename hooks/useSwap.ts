@@ -1,31 +1,21 @@
 /**
 Users purchase GCC From Uniswap using USDG
 */
-import {
-  UnifapV2Router,
-  UnifapV2Router__factory,
-  ERC20,
-  ERC20__factory,
-  addresses,
-} from "@glowlabs-org/guarded-launch-ethers-sdk";
 
 import { useEthersSigner } from "./useEthersSigner";
 import { useEffect, useState } from "react";
-import { Contract, ethers } from "ethers";
-import {
-  UnifapV2Pair,
-  UnifapV2Pair__factory,
-} from "@glowlabs-org/guarded-launch-ethers-sdk";
-
-import { BigNumber } from "ethers";
-import { getReserves } from "@/utils/uniswapv2/getReserves";
 import { Result, Ok, Err } from "ts-results";
-import { getAmountOut } from "@/utils/uniswapv2/getAmountOut";
-import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
+import { addresses } from "@glowlabs-org/guarded-launch-abis";
+import { publicClient } from "@/web3/web3/clients/publicClient";
+import { useWalletClient } from "wagmi";
+import { formatEther, parseAbi } from "viem";
 
-const UNISWAP_V2_FACTORY_ABI = [
+const UNISWAP_V2_FACTORY_ABI = parseAbi([
   "function getPair(address tokenA, address tokenB) external view returns (address pair)",
-];
+]);
+const UNISWAP_V2_PAIR_ABI = parseAbi([
+  "function getReserves() view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)",
+]);
 const UNISWAP_V2_ROUTER_ADDRESS: `0x${string}` =
   "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D" as `0x${string}`;
 
@@ -53,23 +43,156 @@ type UseSwapProps = {
   tokenB_address: string;
 };
 export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
-  const signer = useEthersSigner();
-  const [uniswapV2Factory, setUniswapV2Factory] = useState<Contract | null>(
-    null
-  );
+  const { signer } = useEthersSigner();
+  const { data: walletClient } = useWalletClient();
   const [isUsdcSelected, setIsUsdcSelected] = useState<boolean>(false);
-  const [tokenA, setTokenA] = useState<ERC20 | null>();
-  const [tokenB, setTokenB] = useState<ERC20 | null>();
+  const [tokenA, setTokenA] = useState<any | null>();
+  const [tokenB, setTokenB] = useState<any | null>();
 
   // const[swapState, setSwapState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-  const [uniswapRouter, setUniswapRouter] = useState<UnifapV2Router | null>(
-    null
-  );
+  const [uniswapRouter, setUniswapRouter] = useState<any | null>(null);
   const [uniswapPurchaseState, setUniswapPurchaseState] =
     useState<UniswapPurchaseState>("NONE");
-  const [pair, setPair] = useState<UnifapV2Pair | null>(null);
-  const SLIPPAGE_NUMERATOR_DEFAULT = BigNumber.from(50); //.5%
-  const SLIPPAGE_DENOMINATOR_DEFAULT = BigNumber.from(10000);
+  const [pairAddress, setPairAddress] = useState<`0x${string}` | null>(null);
+  const SLIPPAGE_NUMERATOR_DEFAULT = BigInt(50); //.5%
+  const SLIPPAGE_DENOMINATOR_DEFAULT = BigInt(10000);
+
+  function toBigInt(value: bigint | { toString(): string }): bigint {
+    return typeof value === "bigint" ? value : BigInt(value.toString());
+  }
+
+  function getAmountOutBigInt({
+    amountIn,
+    reserveIn,
+    reserveOut,
+  }: {
+    amountIn: bigint;
+    reserveIn: bigint;
+    reserveOut: bigint;
+  }): Result<bigint, string> {
+    if (amountIn === BigInt(0)) return new Err("amountIn is 0");
+    if (reserveIn === BigInt(0)) return new Err("reserveIn is 0");
+    if (reserveOut === BigInt(0)) return new Err("reserveOut is 0");
+    const amountInWithFee = amountIn * BigInt(997);
+    const numerator = amountInWithFee * reserveOut;
+    const denominator = reserveIn * BigInt(1000) + amountInWithFee;
+    return new Ok(numerator / denominator);
+  }
+
+  function makeTx(hash: `0x${string}`) {
+    return {
+      wait: async () => publicClient.waitForTransactionReceipt({ hash }),
+    };
+  }
+
+  function makeErc20(address: `0x${string}`) {
+    return {
+      address,
+      provider: {
+        getGasPrice: async () => publicClient.getGasPrice(),
+      },
+      balanceOf: async (owner: `0x${string}`) =>
+        (await publicClient.readContract({
+          address,
+          abi: parseAbi(["function balanceOf(address) view returns (uint256)"]),
+          functionName: "balanceOf",
+          args: [owner],
+        })) as bigint,
+      allowance: async (owner: `0x${string}`, spender: `0x${string}`) =>
+        (await publicClient.readContract({
+          address,
+          abi: parseAbi([
+            "function allowance(address owner, address spender) view returns (uint256)",
+          ]),
+          functionName: "allowance",
+          args: [owner, spender],
+        })) as bigint,
+      approve: async (spender: `0x${string}`, amount: bigint) => {
+        if (!walletClient) throw new Error("Wallet client not available");
+        const hash = await walletClient.writeContract({
+          address,
+          abi: parseAbi([
+            "function approve(address spender, uint256 amount) returns (bool)",
+          ]),
+          functionName: "approve",
+          args: [spender, amount],
+        });
+        return makeTx(hash);
+      },
+      estimateGas: {
+        approve: async (spender: `0x${string}`, amount: bigint) =>
+          publicClient.estimateContractGas({
+            address,
+            abi: parseAbi([
+              "function approve(address spender, uint256 amount) returns (bool)",
+            ]),
+            functionName: "approve",
+            account: walletClient?.account?.address as
+              | `0x${string}`
+              | undefined,
+            args: [spender, amount],
+          }),
+      },
+    };
+  }
+
+  function makeUniswapRouter(address: `0x${string}`) {
+    const ROUTER_ABI = parseAbi([
+      "function swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, address[] path, address to, uint256 deadline) returns (uint256[] amounts)",
+    ]);
+    return {
+      address,
+      provider: { getGasPrice: async () => publicClient.getGasPrice() },
+      swapExactTokensForTokens: async (
+        amountIn: bigint,
+        amountOutMin: bigint,
+        path: `0x${string}`[],
+        to: `0x${string}`,
+        deadline: number
+      ) => {
+        if (!walletClient) throw new Error("Wallet client not available");
+        const hash = await walletClient.writeContract({
+          address,
+          abi: ROUTER_ABI,
+          functionName: "swapExactTokensForTokens",
+          args: [amountIn, amountOutMin, path, to, BigInt(deadline)],
+        });
+        return makeTx(hash);
+      },
+    };
+  }
+
+  async function getReservesViem({
+    tokenA,
+    tokenB,
+    pairAddress,
+  }: {
+    tokenA: `0x${string}`;
+    tokenB: `0x${string}`;
+    pairAddress: `0x${string}`;
+  }): Promise<
+    Result<
+      {
+        reserveTokenA: bigint;
+        reserveTokenB: bigint;
+      },
+      string
+    >
+  > {
+    try {
+      const [reserve0, reserve1] = (await publicClient.readContract({
+        address: pairAddress,
+        abi: UNISWAP_V2_PAIR_ABI,
+        functionName: "getReserves",
+      })) as readonly [bigint, bigint, number];
+      const tokenAIsToken0 = tokenA.toLowerCase() < tokenB.toLowerCase();
+      const reserveTokenA = tokenAIsToken0 ? reserve0 : reserve1;
+      const reserveTokenB = tokenAIsToken0 ? reserve1 : reserve0;
+      return new Ok({ reserveTokenA, reserveTokenB });
+    } catch {
+      return new Err("Error getting reserves");
+    }
+  }
 
   function resetUniswapPurchaseState() {
     setUniswapPurchaseState("NONE");
@@ -79,7 +202,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     amount,
     ethPriceInUSD,
   }: {
-    amount: BigNumber;
+    amount: bigint | { toString(): string };
 
     ethPriceInUSD: number | null;
   }): Promise<Result<string, string>> {
@@ -87,16 +210,16 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       return new Ok("0");
     }
     if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
-    if (!pair) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
+    if (!pairAddress) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!tokenA) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!tokenB) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
-    let totalEstimatedGas = BigNumber.from(0);
-    const getReservesResult = await getReserves({
-      tokenA: tokenA.address,
-      tokenB: tokenB.address,
-      pairAddress: pair.address,
-      signer,
+    let totalEstimatedGas = BigInt(0);
+    const amountBigInt = toBigInt(amount);
+    const getReservesResult = await getReservesViem({
+      tokenA: tokenA.address as `0x${string}`,
+      tokenB: tokenB.address as `0x${string}`,
+      pairAddress: pairAddress as `0x${string}`,
     });
     const signerAddress = await signer.getAddress();
 
@@ -106,23 +229,23 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     );
 
     if (!getReservesResult.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
-    if (allowanceTokenA.lt(amount)) {
-      const estimatedGas = await tokenA.estimateGas.approve(
+    if (allowanceTokenA < amountBigInt) {
+      const estimatedGas: bigint = await tokenA.estimateGas.approve(
         uniswapRouter.address,
-        amount
+        amountBigInt
       );
-      const gasPrice = await tokenA.provider.getGasPrice();
-      const estimatedCost = estimatedGas.mul(gasPrice);
-      totalEstimatedGas = totalEstimatedGas.add(estimatedCost);
+      const gasPrice: bigint = await tokenA.provider.getGasPrice();
+      const estimatedCost: bigint = estimatedGas * gasPrice;
+      totalEstimatedGas = totalEstimatedGas + estimatedCost;
     }
 
-    const estimatedGas = BigNumber.from(160000);
-    const gasPrice = await uniswapRouter.provider.getGasPrice();
-    const estimatedCost = estimatedGas.mul(gasPrice);
-    totalEstimatedGas = totalEstimatedGas.add(estimatedCost);
+    const estimatedGas: bigint = BigInt(160000);
+    const gasPrice: bigint = await uniswapRouter.provider.getGasPrice();
+    const estimatedCost: bigint = estimatedGas * gasPrice;
+    totalEstimatedGas = totalEstimatedGas + estimatedCost;
 
     if (ethPriceInUSD) {
-      const estimatedCostInEth = ethers.utils.formatEther(totalEstimatedGas);
+      const estimatedCostInEth = formatEther(totalEstimatedGas);
       const estimatedCostInUSD = (
         parseFloat(estimatedCostInEth) * ethPriceInUSD
       ).toFixed(2);
@@ -136,37 +259,41 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     amount,
     slippagePercentTenThousandDenominator = SLIPPAGE_NUMERATOR_DEFAULT,
   }: {
-    amount: BigNumber;
-    slippagePercentTenThousandDenominator?: BigNumber;
+    amount: bigint | { toString(): string };
+    slippagePercentTenThousandDenominator?: bigint | { toString(): string };
   }): Promise<Result<boolean, SwapError>> {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
       return new Ok(false);
     }
     if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
-    if (!pair) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
+    if (!pairAddress) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!tokenA) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!tokenB) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
-    const getReservesResult = await getReserves({
-      tokenA: tokenA.address,
-      tokenB: tokenB.address,
-      pairAddress: pair.address,
-      signer,
+    const amountBigInt = toBigInt(amount);
+    const slippageBigInt = toBigInt(slippagePercentTenThousandDenominator);
+    const getReservesResult = await getReservesViem({
+      tokenA: tokenA.address as `0x${string}`,
+      tokenB: tokenB.address as `0x${string}`,
+      pairAddress: pairAddress as `0x${string}`,
     });
     const signerAddress = await signer.getAddress();
 
     const balanceTokenA = await tokenA.balanceOf(signerAddress);
-    if (balanceTokenA.lt(amount))
+    if (balanceTokenA < amountBigInt)
       return new Err(SwapError.INSUFFICIENT_TOKEN_A_BALANCE);
     const allowanceTokenA = await tokenA.allowance(
       signerAddress,
       uniswapRouter.address
     );
 
-    if (allowanceTokenA.lt(amount)) {
+    if (allowanceTokenA < amountBigInt) {
       try {
         setUniswapPurchaseState("REQUESTING_TOKEN_APPROVAL");
-        const approveTx = await tokenA.approve(uniswapRouter.address, amount);
+        const approveTx = await tokenA.approve(
+          uniswapRouter.address,
+          amountBigInt
+        );
         setUniswapPurchaseState("APPROVING_TOKEN");
         await approveTx.wait();
       } catch (err) {
@@ -177,30 +304,29 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
 
     if (!getReservesResult.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
     const { reserveTokenA, reserveTokenB } = getReservesResult.val;
-    const amountOut = getAmountOut({
-      amountIn: amount,
-      reserveIn: reserveTokenA,
-      reserveOut: reserveTokenB,
+    const amountOut = getAmountOutBigInt({
+      amountIn: amountBigInt,
+      reserveIn: BigInt(reserveTokenA.toString()),
+      reserveOut: BigInt(reserveTokenB.toString()),
     });
     if (!amountOut.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
-    const amountOutMin = amountOut.val.sub(
-      amountOut.val
-        .mul(slippagePercentTenThousandDenominator)
-        .div(SLIPPAGE_DENOMINATOR_DEFAULT)
-    );
+    const amountOutVal = amountOut.val;
+    const amountOutMin =
+      amountOutVal -
+      (amountOutVal * slippageBigInt) / SLIPPAGE_DENOMINATOR_DEFAULT;
 
-    const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
     const path = [tokenA.address, tokenB.address];
 
     try {
       setUniswapPurchaseState("PURCHASING_TOKEN");
 
       const tx = await uniswapRouter.swapExactTokensForTokens(
-        amount,
+        amountBigInt,
         amountOutMin,
-        path,
-        signerAddress,
-        deadline
+        path as any,
+        signerAddress as any,
+        Number(deadline)
       );
       await tx.wait();
       setUniswapPurchaseState("DONE");
@@ -214,35 +340,35 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
   async function estimateOutputAmount({
     amountIn,
   }: {
-    amountIn: BigNumber;
-  }): Promise<Result<BigNumber, SwapError>> {
+    amountIn: bigint | { toString(): string };
+  }): Promise<Result<bigint, SwapError>> {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
-      return new Ok(BigNumber.from(0));
+      return new Ok(BigInt(0));
     }
     if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
-    if (!pair) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
+    if (!pairAddress) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!tokenA) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!tokenB) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
+    const amountInBigInt = toBigInt(amountIn);
     // console.log({
     //   tokenA: tokenA.address,
     //   tokenB: tokenB.address,
     //   pairAddress: pair.address,
     // });
 
-    const getReservesResult = await getReserves({
-      tokenA: tokenA.address,
-      tokenB: tokenB.address,
-      pairAddress: pair.address,
-      signer,
+    const getReservesResult = await getReservesViem({
+      tokenA: tokenA.address as `0x${string}`,
+      tokenB: tokenB.address as `0x${string}`,
+      pairAddress: pairAddress as `0x${string}`,
     });
 
     if (!getReservesResult.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
     const { reserveTokenA, reserveTokenB } = getReservesResult.val;
-    const amountOut = getAmountOut({
-      amountIn,
-      reserveIn: reserveTokenA,
-      reserveOut: reserveTokenB,
+    const amountOut = getAmountOutBigInt({
+      amountIn: amountInBigInt,
+      reserveIn: BigInt(reserveTokenA.toString()),
+      reserveOut: BigInt(reserveTokenB.toString()),
     });
     if (!amountOut.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
 
@@ -252,34 +378,34 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
   async function estimateGlowToUSDG({
     amountIn,
   }: {
-    amountIn: BigNumber;
-  }): Promise<Result<BigNumber, SwapError>> {
+    amountIn: bigint | { toString(): string };
+  }): Promise<Result<bigint, SwapError>> {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
-      return new Ok(BigNumber.from(0));
+      return new Ok(BigInt(0));
     }
     if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
+    const amountInBigInt = toBigInt(amountIn);
 
-    const factory = new Contract(
-      UNISWAP_V2_FACTORY_ADDRESS,
-      UNISWAP_V2_FACTORY_ABI,
-      signer
-    );
-    const pairAddress = await factory.getPair(addresses.glow, addresses.usdg);
+    const pairAddress = (await publicClient.readContract({
+      address: UNISWAP_V2_FACTORY_ADDRESS,
+      abi: UNISWAP_V2_FACTORY_ABI,
+      functionName: "getPair",
+      args: [addresses.glow, addresses.usdg],
+    })) as `0x${string}`;
 
-    const getReservesResult = await getReserves({
+    const getReservesResult = await getReservesViem({
       tokenA: addresses.glow,
       tokenB: addresses.usdg,
       pairAddress: pairAddress,
-      signer,
     });
 
     if (!getReservesResult.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
     const { reserveTokenA, reserveTokenB } = getReservesResult.val;
-    const amountOut = getAmountOut({
-      amountIn,
-      reserveIn: reserveTokenA,
-      reserveOut: reserveTokenB,
+    const amountOut = getAmountOutBigInt({
+      amountIn: amountInBigInt,
+      reserveIn: BigInt(reserveTokenA.toString()),
+      reserveOut: BigInt(reserveTokenB.toString()),
     });
     if (!amountOut.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
 
@@ -290,8 +416,8 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     amount,
     slippagePercentTenThousandDenominator = SLIPPAGE_NUMERATOR_DEFAULT,
   }: {
-    amount: BigNumber;
-    slippagePercentTenThousandDenominator?: BigNumber;
+    amount: bigint | { toString(): string };
+    slippagePercentTenThousandDenominator?: bigint | { toString(): string };
   }): Promise<Result<boolean, SwapError>> {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
       return new Ok(false);
@@ -300,28 +426,29 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
 
     // Create token instances for GLOW and USDG
-    const glowToken = ERC20__factory.connect(addresses.glow, signer);
-    const usdgToken = ERC20__factory.connect(addresses.usdg, signer);
+    const glowToken = makeErc20(addresses.glow);
+    const usdgToken = makeErc20(addresses.usdg);
 
     // Get pair for GLOW/USDG
-    const factory = new Contract(
-      UNISWAP_V2_FACTORY_ADDRESS,
-      UNISWAP_V2_FACTORY_ABI,
-      signer
-    );
-    const pairAddress = await factory.getPair(addresses.glow, addresses.usdg);
+    const pairAddress = (await publicClient.readContract({
+      address: UNISWAP_V2_FACTORY_ADDRESS,
+      abi: UNISWAP_V2_FACTORY_ABI,
+      functionName: "getPair",
+      args: [addresses.glow, addresses.usdg],
+    })) as `0x${string}`;
 
-    const getReservesResult = await getReserves({
+    const getReservesResult = await getReservesViem({
       tokenA: addresses.glow,
       tokenB: addresses.usdg,
       pairAddress: pairAddress,
-      signer,
     });
 
-    const signerAddress = await signer.getAddress();
+    const signerAddress = (await signer.getAddress()) as `0x${string}`;
     const balanceGlow = await glowToken.balanceOf(signerAddress);
 
-    if (balanceGlow.lt(amount))
+    const amountBigInt = toBigInt(amount);
+    const slippageBigInt = toBigInt(slippagePercentTenThousandDenominator);
+    if (balanceGlow < amountBigInt)
       return new Err(SwapError.INSUFFICIENT_TOKEN_A_BALANCE);
 
     const allowanceGlow = await glowToken.allowance(
@@ -329,12 +456,12 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       uniswapRouter.address
     );
 
-    if (allowanceGlow.lt(amount)) {
+    if (allowanceGlow < amountBigInt) {
       try {
         setUniswapPurchaseState("REQUESTING_TOKEN_APPROVAL");
         const approveTx = await glowToken.approve(
           uniswapRouter.address,
-          amount
+          amountBigInt
         );
         setUniswapPurchaseState("APPROVING_TOKEN");
         await approveTx.wait();
@@ -346,31 +473,30 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
 
     if (!getReservesResult.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
     const { reserveTokenA, reserveTokenB } = getReservesResult.val;
-    const amountOut = getAmountOut({
-      amountIn: amount,
-      reserveIn: reserveTokenA,
-      reserveOut: reserveTokenB,
+    const amountOut = getAmountOutBigInt({
+      amountIn: amountBigInt,
+      reserveIn: BigInt(reserveTokenA.toString()),
+      reserveOut: BigInt(reserveTokenB.toString()),
     });
     if (!amountOut.ok) return new Err(SwapError.GET_AMOUNT_OUT_FAILED);
 
-    const amountOutMin = amountOut.val.sub(
-      amountOut.val
-        .mul(slippagePercentTenThousandDenominator)
-        .div(SLIPPAGE_DENOMINATOR_DEFAULT)
-    );
+    const amountOutVal = amountOut.val;
+    const amountOutMin =
+      amountOutVal -
+      (amountOutVal * slippageBigInt) / SLIPPAGE_DENOMINATOR_DEFAULT;
 
-    const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
     const path = [addresses.glow, addresses.usdg];
 
     try {
       setUniswapPurchaseState("PURCHASING_TOKEN");
 
       const tx = await uniswapRouter.swapExactTokensForTokens(
-        amount,
+        amountBigInt,
         amountOutMin,
-        path,
-        signerAddress,
-        deadline
+        path as any,
+        signerAddress as any,
+        Number(deadline)
       );
       await tx.wait();
       setUniswapPurchaseState("DONE");
@@ -382,54 +508,52 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
   }
 
   async function deployFixture() {
-    if (signer) {
-      if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
-        return;
-      }
-      const router = UnifapV2Router__factory.connect(
-        UNISWAP_V2_ROUTER_ADDRESS,
-        signer
-      );
-      const factory = new Contract(
-        UNISWAP_V2_FACTORY_ADDRESS,
-        UNISWAP_V2_FACTORY_ABI,
-        signer
-      );
-      let pair: UnifapV2Pair;
-      let tokenA: ERC20;
-      if (tokenA_address === "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48") {
-        const pairAddress = await factory.getPair(
-          addresses.usdg,
-          tokenB_address
-        );
-        pair = UnifapV2Pair__factory.connect(pairAddress, signer);
-        tokenA = ERC20__factory.connect(addresses.usdg, signer);
-        setIsUsdcSelected(true);
-      } else {
-        const pairAddress = await factory.getPair(
-          tokenA_address,
-          tokenB_address
-        );
-        pair = UnifapV2Pair__factory.connect(pairAddress, signer);
-        tokenA = ERC20__factory.connect(tokenA_address, signer);
-        setIsUsdcSelected(false);
-      }
-
-      const tokenB = ERC20__factory.connect(tokenB_address, signer);
-      setTokenA(tokenA);
-      setTokenB(tokenB);
-
-      setUniswapRouter(router);
-      setUniswapV2Factory(factory);
-
-      setPair(pair);
+    if (!walletClient) return;
+    if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
+      return;
     }
+    const router = makeUniswapRouter(UNISWAP_V2_ROUTER_ADDRESS);
+    let pairAddr: `0x${string}`;
+    let tokenAWrapper: any;
+
+    if (
+      tokenA_address.toLowerCase() ===
+      "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".toLowerCase()
+    ) {
+      pairAddr = (await publicClient.readContract({
+        address: UNISWAP_V2_FACTORY_ADDRESS,
+        abi: UNISWAP_V2_FACTORY_ABI,
+        functionName: "getPair",
+        args: [addresses.usdg, tokenB_address as `0x${string}`],
+      })) as `0x${string}`;
+      tokenAWrapper = makeErc20(addresses.usdg);
+      setIsUsdcSelected(true);
+    } else {
+      pairAddr = (await publicClient.readContract({
+        address: UNISWAP_V2_FACTORY_ADDRESS,
+        abi: UNISWAP_V2_FACTORY_ABI,
+        functionName: "getPair",
+        args: [
+          tokenA_address as `0x${string}`,
+          tokenB_address as `0x${string}`,
+        ],
+      })) as `0x${string}`;
+      tokenAWrapper = makeErc20(tokenA_address as `0x${string}`);
+      setIsUsdcSelected(false);
+    }
+
+    const tokenBWrapper = makeErc20(tokenB_address as `0x${string}`);
+    setTokenA(tokenAWrapper);
+    setTokenB(tokenBWrapper);
+
+    setUniswapRouter(router);
+    setPairAddress(pairAddr);
   }
 
   useEffect(() => {
     deployFixture();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signer, tokenA_address, tokenB_address]);
+  }, [walletClient, tokenA_address, tokenB_address]);
 
   return {
     swap,

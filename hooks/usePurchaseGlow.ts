@@ -1,16 +1,13 @@
-import { BigNumber, BigNumberish, ethers } from "ethers";
 import { useContracts } from "./useContracts";
 import { Ok, Err, Result } from "ts-results";
 import { useState } from "react";
-import { useEthersSigner } from "./useEthersSigner";
 import { estimateGlowFromUSDG } from "@/utils/math/estimateGlowFromUSDG";
-import { formatUnits } from "viem";
+import { formatEther, formatUnits, parseUnits } from "viem";
 import { getOptimalUSDGAmounts } from "@/utils/glowSmartBalancing";
 import { getReserves } from "@/utils/uniswapv2/getReserves";
-import { addresses } from "@glowlabs-org/guarded-launch-ethers-sdk";
-import { UnifapV2Pair__factory } from "@glowlabs-org/guarded-launch-ethers-sdk";
 import { Contract } from "ethers";
-import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
+import { addresses } from "@/web3/constants/addresses";
+import { useEthersSigner } from "./useEthersSigner";
 
 const UNISWAP_V2_FACTORY_ABI = [
   "function getPair(address tokenA, address tokenB) external view returns (address pair)",
@@ -20,8 +17,8 @@ const UNISWAP_V2_FACTORY_ADDRESS: `0x${string}` =
   "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f" as `0x${string}`;
 
 export type SmartBalancingAmounts = {
-  amount_in_uni: BigNumberish;
-  amount_in_glow_bonding_curve: BigNumberish;
+  amount_in_uni: BigInt;
+  amount_in_glow_bonding_curve: BigInt;
   amount_out_uni: string;
   amount_out_glow: string;
   uniswapUSDGReserves: number;
@@ -63,8 +60,8 @@ export const purchaseGlowStateToMessage = (state: PurchaseGlowState) => {
   return purchaseGlowStateMessages[state];
 };
 export function usePurchaseGlow() {
-  const DENOMINATOR = BigNumber.from(10_000);
-  const signer = useEthersSigner();
+  const DENOMINATOR = BigInt(10_000);
+  const { signer } = useEthersSigner();
   const { usdc, usdg, glow, earlyLiquidity } = useContracts(signer);
   const [glowPurchaseState, setGlowPurchaseState] =
     useState<PurchaseGlowState>("NONE");
@@ -80,9 +77,9 @@ export function usePurchaseGlow() {
    */
   async function getGlowQuoteEarlyLiquidity(
     incrementsToPurchase: number
-  ): Promise<Result<BigNumber, string>> {
+  ): Promise<Result<bigint, string>> {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
-      return new Ok(BigNumber.from(0));
+      return new Ok(BigInt(0));
     }
     if (!earlyLiquidity) return new Err("Early Liquidity not available");
     const price = await earlyLiquidity.getPrice(incrementsToPurchase);
@@ -90,10 +87,10 @@ export function usePurchaseGlow() {
   }
 
   async function findAmountGlowFromUSDGAmount(
-    usdgAmount: BigNumberish
-  ): Promise<Result<BigNumber, string>> {
+    usdgAmount: bigint
+  ): Promise<Result<bigint, string>> {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
-      return new Ok(BigNumber.from(0));
+      return new Ok(BigInt(0));
     }
     if (!usdg) return new Err("USDG not available");
     if (!glow) return new Err("Glow not available");
@@ -112,7 +109,7 @@ export function usePurchaseGlow() {
     // Convert to fixed decimal string with max 18 decimals (GLOW decimals)
     const formattedAmount = amountGlowEstimated.toFixed(18);
 
-    return new Ok(ethers.utils.parseUnits(formattedAmount, 18));
+    return new Ok(parseUnits(formattedAmount, 18));
   }
 
   /**
@@ -123,10 +120,10 @@ export function usePurchaseGlow() {
    */
   async function purchaseGlowEarlyLiquidity({
     incrementsToPurchase,
-    slippagePointsTenThousandths = BigNumber.from(0), // 0%
+    slippagePointsTenThousandths = BigInt(0), // 0%
   }: {
     incrementsToPurchase: number;
-    slippagePointsTenThousandths: BigNumber;
+    slippagePointsTenThousandths: bigint;
   }): Promise<Result<boolean, string>> {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
       return new Ok(false);
@@ -141,14 +138,13 @@ export function usePurchaseGlow() {
     // const decreasedIncrementsToPurchase =
     //   incrementsToPurchase *
     //   (1 - slippagePointsTenThousandths.toNumber() / 10000);
-    const priceResult: Result<BigNumber, string> =
+    const priceResult: Result<bigint, string> =
       await getGlowQuoteEarlyLiquidity(incrementsToPurchase);
     if (!priceResult.ok) return new Err(priceResult.val);
-    const price: BigNumber = priceResult.val;
-    const priceTimesSlippage: BigNumber = price
-      .mul(slippagePointsTenThousandths)
-      .div(DENOMINATOR);
-    const usdgNeeded: BigNumber = price.add(priceTimesSlippage);
+    const price: bigint = priceResult.val;
+    const priceTimesSlippage: bigint =
+      (price * slippagePointsTenThousandths) / DENOMINATOR;
+    const usdgNeeded: bigint = price + priceTimesSlippage;
 
     const signerAddress = await usdc.signer.getAddress();
     const udsgBalance = await usdg.balanceOf(signerAddress);
@@ -157,8 +153,8 @@ export function usePurchaseGlow() {
 
     if (udsgBalance.lt(usdgNeeded)) {
       const usdcBalance = await usdc.balanceOf(signerAddress);
-      const usdcNeeded = usdgNeeded.sub(udsgBalance);
-      if (usdcNeeded.gt(usdcBalance)) {
+      const usdcNeeded = usdgNeeded - udsgBalance;
+      if (usdcNeeded > usdcBalance) {
         setGlowPurchaseState("ERROR");
         return new Err("Insufficient USDG and USDC Balance");
       }
@@ -231,11 +227,11 @@ export function usePurchaseGlow() {
    */
   async function estimateGasForPurchaseGlowEarlyLiquidity({
     incrementsToPurchase,
-    slippagePointsTenThousandths = BigNumber.from(500), //.5%
+    slippagePointsTenThousandths = BigInt(500), //.5%
     ethPriceInUSD,
   }: {
     incrementsToPurchase: number;
-    slippagePointsTenThousandths: BigNumber;
+    slippagePointsTenThousandths: bigint;
     ethPriceInUSD: number | null;
   }): Promise<Result<string, string>> {
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
@@ -245,15 +241,14 @@ export function usePurchaseGlow() {
     if (!usdc) return new Err("USDC not available");
     if (!usdg) return new Err("USDG not available");
     if (!glow) return new Err("Glow not available");
-    let totalEstimatedGas = BigNumber.from(0);
-    const priceResult: Result<BigNumber, string> =
+    let totalEstimatedGas = BigInt(0);
+    const priceResult: Result<bigint, string> =
       await getGlowQuoteEarlyLiquidity(incrementsToPurchase);
     if (!priceResult.ok) return new Err(priceResult.val);
-    const price: BigNumber = priceResult.val;
-    const priceTimesSlippage: BigNumber = price
-      .mul(slippagePointsTenThousandths)
-      .div(DENOMINATOR);
-    const usdgNeeded: BigNumber = price.add(priceTimesSlippage);
+    const price: bigint = priceResult.val;
+    const priceTimesSlippage: bigint =
+      (price * slippagePointsTenThousandths) / DENOMINATOR;
+    const usdgNeeded: bigint = price + priceTimesSlippage;
 
     const usdcGasPrice = await usdc.provider.getGasPrice();
     const signerAddress = await usdc.signer.getAddress();
@@ -269,17 +264,17 @@ export function usePurchaseGlow() {
         usdgNeeded
       );
 
-      const estimatedCost = estimatedGas.mul(usdcGasPrice);
-      totalEstimatedGas = totalEstimatedGas.add(estimatedCost);
+      const estimatedCost = estimatedGas * BigInt(usdcGasPrice);
+      totalEstimatedGas = totalEstimatedGas + estimatedCost;
     }
 
-    const estimatedGas = BigNumber.from(160000);
+    const estimatedGas = BigInt(160000);
 
-    const estimatedCost = estimatedGas.mul(usdcGasPrice);
-    totalEstimatedGas = totalEstimatedGas.add(estimatedCost);
+    const estimatedCost = estimatedGas * usdcGasPrice;
+    totalEstimatedGas = totalEstimatedGas + estimatedCost;
 
     if (ethPriceInUSD) {
-      const estimatedCostInEth = ethers.utils.formatEther(totalEstimatedGas);
+      const estimatedCostInEth = formatEther(totalEstimatedGas);
       const estimatedCostInUSD = (
         parseFloat(estimatedCostInEth) * ethPriceInUSD
       ).toFixed(2);
@@ -305,8 +300,8 @@ export function usePurchaseGlow() {
     if (!signer) return new Err("Signer not available");
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
       return new Ok({
-        amount_in_uni: BigNumber.from(0),
-        amount_in_glow_bonding_curve: 0,
+        amount_in_uni: BigInt(0),
+        amount_in_glow_bonding_curve: BigInt(0),
         amount_out_uni: "0",
         amount_out_glow: "0",
         uniswapUSDGReserves: 0,
@@ -323,24 +318,19 @@ export function usePurchaseGlow() {
       signer
     );
     const pairAddress = await factory.getPair(addresses.usdg, addresses.glow);
-    const pair = UnifapV2Pair__factory.connect(pairAddress, signer);
     const getReservesResult = await getReserves({
       tokenA: addresses.usdg,
       tokenB: addresses.glow,
-      pairAddress: pair.address,
+      pairAddress: pairAddress,
       signer,
     });
 
     if (!getReservesResult.ok) return new Err("Error getting reserves");
     const { reserveTokenA, reserveTokenB } = getReservesResult.val;
 
-    const reservesUsdg = Number(
-      ethers.utils.formatUnits(reserveTokenA.toString(), "6")
-    );
+    const reservesUsdg = Number(formatUnits(reserveTokenA, 6));
 
-    const reservesGlow = Number(
-      ethers.utils.formatUnits(reserveTokenB.toString(), "18")
-    );
+    const reservesGlow = Number(formatUnits(reserveTokenB, 18));
 
     const {
       amountUSDGToSpendInUniswap,
@@ -357,8 +347,8 @@ export function usePurchaseGlow() {
     });
 
     return new Ok({
-      amount_in_uni: amountUSDGToSpendInUniswap,
-      amount_in_glow_bonding_curve: amountUSDGToSpendInEarlyLiquidity,
+      amount_in_uni: BigInt(amountUSDGToSpendInUniswap),
+      amount_in_glow_bonding_curve: BigInt(amountUSDGToSpendInEarlyLiquidity),
       amount_out_uni: expectedOutFromUniswap.toFixed(4),
       amount_out_glow: expectedOutFromEarlyLiquidity.toFixed(4),
       uniswapUSDGReserves: reservesUsdg,

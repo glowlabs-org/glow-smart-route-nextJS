@@ -13,19 +13,20 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConnectButton } from "@/components/connect-button";
 import { toast } from "sonner";
-import { ethers, BigNumber } from "ethers";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
 import { SYMBOLS } from "@/hooks/useERC20Balances";
 import { Token } from "./view";
-import { Result } from "ts-results";
 import { useERC20 } from "@/hooks/useERC20";
+import { formatUnits, isAddress, parseUnits } from "viem";
+
+type BalanceLike = bigint | { toString(): string } | null;
 
 interface SendTabProps {
   isConnected: boolean;
   isWalletLoading: boolean;
   balancesLoading: boolean;
-  glowBalance: BigNumber | null;
-  usdgBalance: BigNumber | null;
+  glowBalance: BalanceLike;
+  usdgBalance: BalanceLike;
   signer: any;
 
   refreshBalances: () => Promise<void>;
@@ -53,18 +54,20 @@ export function SendTab({
   const [sendToAddress, setSendToAddress] = useState<string>("");
   const [pendingSendTx, setPendingSendTx] = useState<boolean>(false);
 
+  function toBigIntBalance(value: BalanceLike): bigint {
+    if (value === null) return BigInt(0);
+    return typeof value === "bigint" ? value : BigInt(value.toString());
+  }
+
   const getTokenToSendBalance = () => {
-    return Number(
+    const balanceBigInt =
       selectedTokenSend.label === "GLOW"
-        ? glowBalance
-          ? ethers.utils.formatUnits(glowBalance, selectedTokenSend.decimals)
-          : "0"
+        ? toBigIntBalance(glowBalance)
         : selectedTokenSend.label === "USDG"
-        ? usdgBalance
-          ? ethers.utils.formatUnits(usdgBalance, selectedTokenSend.decimals)
-          : "0"
-        : "0"
-    );
+        ? toBigIntBalance(usdgBalance)
+        : BigInt(0);
+
+    return Number(formatUnits(balanceBigInt, selectedTokenSend.decimals));
   };
 
   const getSendButtonProps = () => {
@@ -103,10 +106,10 @@ export function SendTab({
       toast.error("Invalid amount");
       return;
     }
-    if (ethers.utils.isAddress(sendToAddress)) {
+    if (isAddress(sendToAddress)) {
       setPendingSendTx(true);
       try {
-        const amountToSendFormated = ethers.utils.parseUnits(
+        const amountToSendFormated = parseUnits(
           amountToSend,
           selectedTokenSend.decimals
         );
@@ -114,7 +117,8 @@ export function SendTab({
         const result = await sendTokens(
           selectedTokenSend.label as SYMBOLS,
           sendToAddress as `0x${string}`,
-          amountToSendFormated
+          // Cast to any for transition until hooks are updated to bigint
+          amountToSendFormated as any
         );
 
         if (result.ok) {

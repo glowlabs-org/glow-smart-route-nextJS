@@ -42,7 +42,8 @@ export function DashboardTab({ walletAddress }: DashboardTabProps) {
 
     const totalGctlStaked = regions.reduce((sum, region) => {
       return (
-        sum + parseFloat(formatUnits(BigInt(region.currentGctlStake || "0"), 6))
+        //TODO: fix this
+        sum + parseFloat(formatUnits(BigInt("0"), 6))
       );
     }, 0);
 
@@ -69,12 +70,14 @@ export function DashboardTab({ walletAddress }: DashboardTabProps) {
       .map((region) => ({
         ...region,
         stakeAmount: parseFloat(
-          formatUnits(BigInt(region.currentGctlStake || "0"), 6)
+          //TODO: fix this
+          formatUnits(BigInt("0"), 6)
         ),
         stakePercentage:
           totalGctlStaked > 0
             ? (parseFloat(
-                formatUnits(BigInt(region.currentGctlStake || "0"), 6)
+                //TODO: fix this
+                formatUnits(BigInt("0"), 6)
               ) /
                 totalGctlStaked) *
               100
@@ -226,7 +229,6 @@ export function DashboardTab({ walletAddress }: DashboardTabProps) {
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
-                      <span className="text-2xl">{region.flag}</span>
                       <div>
                         <div className="font-semibold text-foreground">
                           {region.name}
@@ -360,7 +362,8 @@ export function DashboardTab({ walletAddress }: DashboardTabProps) {
                       Active Regions
                     </div>
                     <div className="text-xl font-bold text-foreground">
-                      {regions.filter((r) => r.isActive).length}
+                      {/* TODO: fix this */}
+                      {regions.length}
                     </div>
                   </div>
                   <div className="text-center p-3 bg-background/40 backdrop-blur-sm rounded-xl border border-border/50">

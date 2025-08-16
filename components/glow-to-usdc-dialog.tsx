@@ -8,22 +8,18 @@ import { ArrowLeftRight, Check, Loader2, Info } from "lucide-react";
 import { waitingToSuccessVariants } from "@/animations/variants";
 import { motion } from "framer-motion";
 import React, { FC, useEffect } from "react";
-import { Card } from "./ui/card";
-import { BigNumber, ethers } from "ethers";
 import { Input } from "./ui/input";
 import { formatPrice } from "@/utils/formatPrice";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
-import { SwapError, useSwap } from "@/hooks/useSwap";
-import { Result } from "ts-results";
+import { useSwap } from "@/hooks/useSwap";
+
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
-import { Token } from "@/app/buy/view";
-import { addresses } from "@glowlabs-org/guarded-launch-ethers-sdk";
-import {
-  USDGRedemptionError,
-  useUSDGRedemption,
-} from "@/hooks/useUSDGRedemption";
+
+import { useUSDGRedemption } from "@/hooks/useUSDGRedemption";
+import { addresses } from "@/web3/constants/addresses";
+import { formatUnits, parseUnits } from "viem";
 
 type PendingState = {
   code: string;
@@ -126,7 +122,7 @@ export const GlowToUsdcDialog: FC<{
     setCurrentState("NONE");
 
     try {
-      const amountIn = ethers.utils.parseUnits(amountToSell, 18); // GLOW has 18 decimals
+      const amountIn = parseUnits(amountToSell, 18); // GLOW has 18 decimals
 
       // First, estimate the USDG output
       const estimateRes = await estimateGlowToUSDG({ amountIn });
@@ -137,13 +133,13 @@ export const GlowToUsdcDialog: FC<{
         return;
       }
 
-      const estimatedUsdgAmount = ethers.utils.formatUnits(estimateRes.val, 6);
+      const estimatedUsdgAmount = formatUnits(estimateRes.val, 6);
       setIntermediateUsdgAmount(estimatedUsdgAmount);
 
       // Step 1: Swap GLOW to USDG
       const swapRes = await swapGlowToUSDG({
         amount: amountIn,
-        slippagePercentTenThousandDenominator: BigNumber.from(
+        slippagePercentTenThousandDenominator: BigInt(
           Number(slippageTolerance) * 100
         ),
       });
@@ -160,7 +156,7 @@ export const GlowToUsdcDialog: FC<{
       updatePendingStates("REQUESTING_USDG_APPROVAL");
 
       // Step 2: Redeem USDG for USDC
-      const usdgAmount = ethers.utils.parseUnits(estimatedUsdgAmount, 6);
+      const usdgAmount = parseUnits(estimatedUsdgAmount, 6);
 
       // The approval is handled inside redeemUSDGForUSDC
       setCurrentState("APPROVING_USDG");

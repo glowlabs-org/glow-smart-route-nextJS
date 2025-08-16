@@ -8,14 +8,13 @@ import { Check, Loader2 } from "lucide-react";
 import { waitingToSuccessVariants } from "@/animations/variants";
 import { motion } from "framer-motion";
 import React, { FC, useEffect } from "react";
-import { BigNumber, ethers } from "ethers";
 import { Input } from "./ui/input";
-import { formatPrice } from "@/utils/formatPrice";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { useUSDGRedemption } from "@/hooks/useUSDGRedemption";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
+import { parseUnits } from "viem";
 
 type PendingState = {
   code: string;
@@ -77,7 +76,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
     setCurrentState("NONE");
 
     try {
-      const amountUSDG = ethers.utils.parseUnits(amountToRedeem, 6);
+      const amountUSDG = parseUnits(amountToRedeem, 6);
 
       // Update state for approval
       setCurrentState("REQUESTING_USDG_APPROVAL");

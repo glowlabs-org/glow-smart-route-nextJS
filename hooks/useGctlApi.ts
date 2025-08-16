@@ -1,19 +1,22 @@
 "use client";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Result, Ok, Err } from "ts-results";
 import {
-  type MintedEvent,
-  type StakedEvent,
-  type PendingTransfer,
-  type FailedOperation,
-  type Region,
-  type RegionStake,
-  type WalletRegionStake,
-  type WalletRegionUnlocked,
-  ControlRouter,
+  DECIMALS_BY_TOKEN,
+  FailedOperation,
+  MintedEvent,
+  PendingTransfer,
+  Region,
+  RegionRouter,
+  RegionStake,
+  StakedEvent,
   TransferDetails,
+  WalletRegionStake,
+  WalletRegionUnlocked,
+  ControlRouter,
 } from "@glowlabs-org/utils/browser";
+import { formatUnits } from "viem";
 
 if (!process.env.NEXT_PUBLIC_GCTL_API) {
   throw new Error("NEXT_PUBLIC_GCTL_API is not set");
@@ -21,6 +24,7 @@ if (!process.env.NEXT_PUBLIC_GCTL_API) {
 
 // Initialize Glow Control API client
 const control = ControlRouter(process.env.NEXT_PUBLIC_GCTL_API);
+const region = RegionRouter(process.env.NEXT_PUBLIC_GCTL_API);
 
 /**
  * Extract a useful error message from an unknown error value.
@@ -35,6 +39,7 @@ function parseApiError(error: unknown): string {
 // Query Keys
 const QUERY_KEYS = {
   gctlBalance: (wallet?: string) => ["gctl-balance", wallet],
+  glwPrice: () => ["glw-price"],
   gctlPrice: () => ["gctl-price"],
   mintedEvents: () => ["minted-events"],
   stakeEvents: () => ["stake-events"], // Updated from stakedEvents
@@ -59,7 +64,7 @@ export function useGctlApi(walletAddress?: string) {
   const queryClient = useQueryClient();
 
   const fetchRegionsApi = async (): Promise<Region[]> => {
-    const data = await control.fetchRegions();
+    const data = await region.fetchRegions();
     return data.filter((r) => r.id !== 998 && r.id !== 999);
   };
   // ----------------------- React Query hooks -----------------------------
@@ -77,9 +82,26 @@ export function useGctlApi(walletAddress?: string) {
     retry: 2,
   });
 
+  // GLW Price Query
+  const {
+    data: glwPrice,
+    refetch: refetchGlwPrice,
+    isLoading: isGlwPriceLoading,
+  } = useQuery({
+    queryKey: QUERY_KEYS.glwPrice(),
+    queryFn: () => control.fetchGlwPrice(),
+    staleTime: 60_000, // Cache for 1 minute
+    gcTime: 5 * 60_000, // Garbage collect after 5 minutes
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: 60_000, // Refetch every minute to stay up-to-date
+    retry: 2,
+  });
+
   // GCTL Price Query
   const {
-    data: gctlPrice = 0,
+    data: gctlPrice = "0",
     refetch: refetchGctlPrice,
     isLoading: isGctlPriceLoading,
   } = useQuery({
@@ -88,6 +110,22 @@ export function useGctlApi(walletAddress?: string) {
     staleTime: 30 * 1000, // 30 seconds
     retry: 2,
   });
+
+  const glwPriceNumber = useMemo(
+    () =>
+      parseFloat(
+        formatUnits(BigInt(glwPrice || "0"), DECIMALS_BY_TOKEN.USDC).toString()
+      ),
+    [glwPrice]
+  );
+
+  const gctlPriceNumber = useMemo(
+    () =>
+      parseFloat(
+        formatUnits(BigInt(gctlPrice || "0"), DECIMALS_BY_TOKEN.USDC).toString()
+      ),
+    [gctlPrice]
+  );
 
   // Minted Events Query
   const {
@@ -227,7 +265,7 @@ export function useGctlApi(walletAddress?: string) {
     }) => {
       if (!walletAddress) throw new Error("Wallet address not provided");
 
-      return await control.stakeGctl(walletAddress, regionId, amount);
+      // return await control.stakeGctl(walletAddress, regionId, amount);
     },
     onSuccess: (_, { regionId }) => {
       // Invalidate all relevant queries - will auto-refetch if actively observed
@@ -268,7 +306,7 @@ export function useGctlApi(walletAddress?: string) {
     }) => {
       if (!walletAddress) throw new Error("Wallet address not provided");
 
-      return await control.unstakeGctl(walletAddress, regionId, amount);
+      // return await control.unstakeGctl(walletAddress, regionId, amount);
     },
     onSuccess: (_, { regionId }) => {
       // Invalidate all relevant queries - will auto-refetch if actively observed
@@ -339,7 +377,7 @@ export function useGctlApi(walletAddress?: string) {
   }, [refetchGctlBalance, gctlBalance]);
 
   const fetchGctlPrice = useCallback(async (): Promise<
-    Result<number, string>
+    Result<string, string>
   > => {
     try {
       await refetchGctlPrice();
@@ -512,6 +550,9 @@ export function useGctlApi(walletAddress?: string) {
     pendingTransfers,
     failedOperations,
     regions,
+    glwPrice,
+    glwPriceNumber,
+    gctlPriceNumber,
 
     // Loading states
     isGctlBalanceLoading,
@@ -521,6 +562,7 @@ export function useGctlApi(walletAddress?: string) {
     isPendingTransfersLoading,
     isFailedOperationsLoading,
     isRegionsLoading,
+    isGlwPriceLoading,
 
     // Legacy functions (for backward compatibility)
     fetchGctlBalance,

@@ -4,25 +4,12 @@ import React, { useEffect, useState } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ethers, BigNumber } from "ethers";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { useGctlApi } from "@/hooks/useGctlApi";
-import { useContracts } from "@/hooks/useContracts";
-import { formatPrice } from "@/utils/formatPrice";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
-import {
-  Copy,
-  LogOut,
-  Send,
-  Download,
-  ChevronDown,
-  TrendingUp,
-  Settings,
-  Power,
-} from "lucide-react";
+import { Copy, LogOut, Send } from "lucide-react";
 import { toast } from "sonner";
-import { addresses } from "@glowlabs-org/guarded-launch-ethers-sdk";
 import {
   Sheet,
   SheetContent,
@@ -38,15 +25,11 @@ import {
 } from "@/components/ui/dialog";
 import { SendTab } from "@/app/buy/send-tab";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { AddressToGradient } from "@/utils/address-to-gradient";
-import { StringToGradient } from "@/utils/string-to-gradient";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { addresses } from "@/web3/constants/addresses";
+import { formatUnits } from "viem";
+import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 
 interface WalletSidebarProps {
   open: boolean;
@@ -100,8 +83,7 @@ export function WalletSidebar({
 }: WalletSidebarProps) {
   const { address } = useAccount();
   const { disconnect } = useDisconnect();
-  const signer = useEthersSigner();
-  const { earlyLiquidity, isReady: contractsReady } = useContracts(signer);
+  const { signer } = useEthersSigner();
 
   const { usdcBalance, usdgBalance, glowBalance, isReady, refreshBalances } =
     useER20Balances({ symbol: "USDC", signer });
@@ -120,12 +102,9 @@ export function WalletSidebar({
     }
   }, [isReady, open, refreshBalances]);
 
-  const formatBalance = (
-    balance: BigNumber | null,
-    decimals: number
-  ): string => {
+  const formatBalance = (balance: bigint | null, decimals: number): string => {
     if (!balance) return "0";
-    const formatted = ethers.utils.formatUnits(balance, decimals);
+    const formatted = formatUnits(balance, decimals);
     return toFixedTruncate(Number(formatted), 4);
   };
 
@@ -176,7 +155,10 @@ export function WalletSidebar({
     {
       symbol: "GCTL",
       balance: gctlBalance ? toFixedTruncate(Number(gctlBalance), 4) : "0",
-      balanceUSD: (Number(gctlBalance || 0) * gctlPrice).toFixed(2),
+      balanceUSD: (
+        Number(gctlBalance || 0) *
+        parseFloat(formatUnits(BigInt(gctlPrice), DECIMALS_BY_TOKEN.USDC))
+      ).toFixed(2),
       loading: isGctlBalanceLoading || isGctlPriceLoading,
     },
   ];

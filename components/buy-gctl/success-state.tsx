@@ -48,7 +48,7 @@ export function SuccessState({
         <div className="text-4xl font-bold text-foreground mb-2">
           + {parseFloat(processedAmount).toLocaleString()} GCTL
         </div>
-        {usdcAmount && gctlPrice && (
+        {usdcAmount && (
           <div className="text-muted-foreground text-sm">
             Including network fee: ~$
             {(parseFloat(usdcAmount) * 0.001).toFixed(6)} USDC

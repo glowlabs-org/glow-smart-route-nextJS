@@ -210,7 +210,7 @@ export function RegionSelectionModal({
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 ml-11 max-h-80 overflow-y-auto pr-2">
                     {regions.map((region) => {
                       const regionStake = parseFloat(
-                        formatUnits(BigInt(region.currentGctlStake || "0"), 6)
+                        formatUnits(BigInt("0"), 6)
                       );
 
                       return (
@@ -228,30 +228,15 @@ export function RegionSelectionModal({
                           <CardContent className="p-5">
                             <div className="flex items-start justify-between mb-4">
                               <div className="flex items-center space-x-3">
-                                <span className="text-2xl group-hover:scale-110 transition-transform duration-200">
-                                  {region.flag}
-                                </span>
                                 <div>
                                   <div className="font-semibold text-base text-foreground group-hover:text-primary transition-colors">
                                     {region.name}
                                   </div>
                                   <div className="text-xs text-muted-foreground flex items-center mt-1">
-                                    <Users className="w-3 h-3 mr-1" />
-                                    {region.solarFarmCount} farms
+                                    <Users className="w-3 h-3 mr-1" />0 farms
                                   </div>
                                 </div>
                               </div>
-                              {region.isActive ? (
-                                <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200 text-xs">
-                                  <Unlock className="w-3 h-3 mr-1" />
-                                  Active
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary" className="text-xs">
-                                  <Lock className="w-3 h-3 mr-1" />
-                                  Inactive
-                                </Badge>
-                              )}
                             </div>
 
                             <div className="space-y-3">

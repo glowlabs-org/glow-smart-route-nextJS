@@ -1,8 +1,8 @@
 import { useContracts } from "./useContracts";
-import { BigNumber, Signer, ethers } from "ethers";
 import { Result, Ok, Err } from "ts-results";
-import { useEthersSigner } from "./useEthersSigner";
+
 import { useEffect, useState } from "react";
+import { JsonRpcSigner } from "ethers";
 
 export type SYMBOLS = "GLOW" | "IMPACT POWER POINTS" | "USDG" | "USDC";
 
@@ -16,18 +16,18 @@ export const useER20Balances = ({
   signer,
 }: {
   symbol: SYMBOLS;
-  signer: ethers.providers.JsonRpcSigner | undefined | null;
+  signer: JsonRpcSigner | undefined | null;
 }) => {
   const { usdg, glow, usdc, isReady } = useContracts(signer);
-  const [usdcBalance, setUsdcBalance] = useState<BigNumber | null>(null);
-  const [usdgBalance, setUsdgBalance] = useState<BigNumber | null>(null);
-  const [glowBalance, setGlowBalance] = useState<BigNumber | null>(null);
+  const [usdcBalance, setUsdcBalance] = useState<bigint | null>(null);
+  const [usdgBalance, setUsdgBalance] = useState<bigint | null>(null);
+  const [glowBalance, setGlowBalance] = useState<bigint | null>(null);
 
   /**
    * @param getBalance ~ Returns the balance for the desired token
    * @return Result<BigNumber, GetBalanceError> ~ Returns the balance for the desired token
    */
-  async function getBalance(): Promise<Result<BigNumber, GetBalanceError>> {
+  async function getBalance(): Promise<Result<bigint, GetBalanceError>> {
     if (!signer) return new Err(GetBalanceError.SIGNER_NOT_AVAILABLE);
     const address = await signer.getAddress();
 

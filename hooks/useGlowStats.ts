@@ -1,15 +1,15 @@
 import { useContracts } from "./useContracts";
-import { BigNumber, ethers } from "ethers";
 import { Result, Ok, Err } from "ts-results";
 import { useEthersSigner } from "./useEthersSigner";
 import { useEffect, useState } from "react";
+import { formatUnits } from "viem";
 
 export enum GlowStatsError {
   CONTRACTS_NOT_AVAILABLE = "Contracts not available",
 }
 
 export const useGlowStats = (circulatingSupply: string) => {
-  const signer = useEthersSigner();
+  const { signer } = useEthersSigner();
   const { earlyLiquidity, isReady } = useContracts(signer);
   const [glowPrice, setGlowPrice] = useState<string>("0");
   const [marketCap, setMarketCap] = useState<string>("0");
@@ -19,12 +19,12 @@ export const useGlowStats = (circulatingSupply: string) => {
   /**
    * @return Result<BigNumber, GlowStatsError> ~ The amount of glow price for one increment
    */
-  async function getGlowPrice(): Promise<Result<BigNumber, GlowStatsError>> {
+  async function getGlowPrice(): Promise<Result<bigint, GlowStatsError>> {
     if (!earlyLiquidity) return new Err(GlowStatsError.CONTRACTS_NOT_AVAILABLE);
     setIsFetching(true);
     const glowPrice = await earlyLiquidity.getPrice(100);
     // console.log({ glowPrice: glowPrice.toString() });
-    setGlowPrice(ethers.utils.formatUnits(glowPrice, 6));
+    setGlowPrice(formatUnits(glowPrice, 6));
     setIsFetching(false);
     setIsLoading(false);
     return new Ok(glowPrice);
