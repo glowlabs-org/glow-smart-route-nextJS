@@ -129,7 +129,6 @@ export function SendTab({
           setAmountToSend("0");
           setSendToAddress("");
         } else {
-          console.log(result.val);
           toast.error(result.val || "Transaction failed");
           setPendingSendTx(false);
         }

@@ -175,7 +175,8 @@ export default function View({
     chainIdNum
   );
 
-  const { gctlPrice, isGctlPriceLoading } = useGctlApi(address);
+  const { gctlPrice, gctlPriceNumber, isGctlPriceLoading } =
+    useGctlApi(address);
 
   const [statsLoading, setStatsLoading] = useState<boolean>(true);
 
@@ -187,12 +188,8 @@ export default function View({
   } = usePurchaseGlow();
   const { swapUSDCToUSDG, estimateGasForswapUSDCToUSDG } = useSwapUSDCToUSDG();
 
-  const {
-    usdcInRedemption,
-    redeemUSDGForUSDC,
-    estimateGasForRedeemUSDG,
-    getUSDCBalanceOfRedemptionContract,
-  } = useUSDGRedemption();
+  const { estimateGasForRedeemUSDG, getUSDCBalanceOfRedemptionContract } =
+    useUSDGRedemption();
 
   const {
     getBalance,
@@ -309,7 +306,12 @@ export default function View({
       }
     } else {
       if (selectedTokenSell.label === "USDC") {
-        if (usdgBalance && usdgBalance >= BigInt(parseUnits(amountToSell, 6))) {
+        if (
+          usdcBalance &&
+          usdcBalance < BigInt(parseUnits(amountToSell, 6)) &&
+          usdgBalance &&
+          usdgBalance >= BigInt(parseUnits(amountToSell, 6))
+        ) {
           return {
             label: `SWAP`,
             disabled: false,
@@ -462,7 +464,7 @@ export default function View({
 
             if (currentAllowance < amountToSpend) {
               await approveToken(
-                MaxUint256,
+                amountToSpend,
                 selectedTokenSell.label === "USDC" ? "USDC" : "USDG"
               );
             }
@@ -663,15 +665,17 @@ export default function View({
         );
 
         setSmartBalancingAmounts({
-          amount_in_glow_bonding_curve: BigInt(
-            toFixedTruncate(amountsWithFees.amount_usdg_in_bonding_curve, 6)
+          amount_in_glow_bonding_curve: parseUnits(
+            toFixedTruncate(amountsWithFees.amount_usdg_in_bonding_curve, 6),
+            6
           ),
           amount_out_glow: toFixedTruncate(
             amountsWithFees.amount_out_glow_bonding_curve,
             18
           ),
-          amount_in_uni: BigInt(
-            toFixedTruncate(amountsWithFees.amount_usdg_in_uniswap, 6)
+          amount_in_uni: parseUnits(
+            toFixedTruncate(amountsWithFees.amount_usdg_in_uniswap, 6),
+            6
           ),
           amount_out_uni: toFixedTruncate(
             amountsWithFees.amount_out_glow_uniswap,
@@ -788,7 +792,8 @@ export default function View({
           setEstimatedOutputAmount(defaultTokensEstimate);
           return;
         }
-        const estimatedGctl = Number(amountToSell) / Number(gctlPrice);
+
+        const estimatedGctl = Number(amountToSell) / gctlPriceNumber;
         setEstimatedOutputAmount({
           ...defaultTokensEstimate,
           [selectedTokenBuy.label]: toFixedTruncate(estimatedGctl, 6),
@@ -817,13 +822,20 @@ export default function View({
   };
 
   const getTokenSellBalance = async () => {
-    setBalancesLoading(true);
-    const balance = await getBalance();
-    await refreshBalances();
-    if (balance.ok) {
-      setTokenSellBalance(formatUnits(balance.val, selectedTokenSell.decimals));
+    try {
+      setBalancesLoading(true);
+      const balance = await getBalance();
+      await refreshBalances();
+      if (balance.ok) {
+        setTokenSellBalance(
+          formatUnits(balance.val, selectedTokenSell.decimals)
+        );
+      }
+      setBalancesLoading(false);
+    } catch (error) {
+      console.error("Error in getTokenSellBalance:", error);
+      setBalancesLoading(false);
     }
-    setBalancesLoading(false);
   };
 
   const handleSelectTokenToSell = (value: TOKENS_ENUM) => {
@@ -912,8 +924,6 @@ export default function View({
     }
     estimate();
   }, [usdgWithdrawAmount, ethPriceInUSD, estimateGasForRedeemUSDG]);
-
-  console.log({ isProcessingTransaction });
 
   return (
     <div className="min-h-screen bg-background">
@@ -1265,6 +1275,9 @@ export default function View({
           setIsProcessingTransaction(false);
           setShowSuccess(false);
           setTrackingTxHash(null);
+          setAmountToSell("0");
+          setEstimatedOutputAmount(defaultTokensEstimate);
+          setSmartBalancingAmounts(undefined);
         }}
       />
     </div>

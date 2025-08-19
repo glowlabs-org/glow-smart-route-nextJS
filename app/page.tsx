@@ -113,7 +113,7 @@ export default async function Page() {
       getHeadlineStats(),
       getEthPriceInUSD(),
     ]);
-    console.log(glowStats, ethPriceInUSD);
+
     const glowPrice = glowStats.glowPrice.toString();
     const earlyLiquidityCurrentPrice = glowStats.earlyLiquidityPrice.toString();
     const marketCap = glowStats.marketCap.toString();

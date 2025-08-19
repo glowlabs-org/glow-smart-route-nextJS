@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useWalletClient } from "wagmi";
-import { erc20Abi, type WalletClient } from "viem";
+import { parseAbi, type WalletClient } from "viem";
 import { EarlyLiquidityABI, USDGABI } from "@glowlabs-org/guarded-launch-abis";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { getAddresses } from "@glowlabs-org/utils/browser";
 import { addresses as staticAddresses } from "@/web3/constants/addresses";
+
+const erc20Abi = parseAbi([
+  "function balanceOf(address owner) view returns (uint256)",
+  "function totalSupply() view returns (uint256)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function transfer(address to, uint256 amount) returns (bool)",
+]);
 
 type AnyAddress = `0x${string}`;
 
@@ -70,6 +78,7 @@ export function useContracts(_signer: any) {
             args: [owner, spender],
           })) as bigint,
         approve: async (spender: AnyAddress, amount: bigint) => {
+          console.log("approve", spender, amount);
           if (!walletClient) throw new Error("Wallet client not available");
           const hash = await walletClient.writeContract({
             address,

@@ -95,12 +95,6 @@ export const UsdgToUsdcRedemptionDialog: FC<{
         setCurrentState("DONE");
         updatePendingStates(3);
         setIsTransactionSuccessful(true);
-        toast.success(
-          `Successfully redeemed ${toFixedTruncate(
-            Number(amountToRedeem),
-            6
-          )} USDC`
-        );
       } else {
         setCurrentState("ERROR");
         setErrorStates();

@@ -151,7 +151,7 @@ export function usePurchaseGlow() {
 
     //If we don't have enough USDG, try obtaining more by swapping USDC
 
-    if (udsgBalance.lt(usdgNeeded)) {
+    if (udsgBalance < usdgNeeded) {
       const usdcBalance = await usdc.balanceOf(signerAddress);
       const usdcNeeded = usdgNeeded - udsgBalance;
       if (usdcNeeded > usdcBalance) {
@@ -159,7 +159,7 @@ export function usePurchaseGlow() {
         return new Err("Insufficient USDG and USDC Balance");
       }
       const usdcAllowance = await usdc.allowance(signerAddress, usdg.address);
-      if (usdcAllowance.lt(usdcNeeded)) {
+      if (usdcAllowance < usdcNeeded) {
         setGlowPurchaseState("REQUESTING_USDC_APPROVAL_TO_OBTAIN_USDG");
 
         try {
@@ -188,7 +188,7 @@ export function usePurchaseGlow() {
       signerAddress,
       earlyLiquidity.address
     );
-    if (usdgAllowance.lt(usdgNeeded)) {
+    if (usdgAllowance < usdgNeeded) {
       try {
         const approveTx = await usdg.approve(
           earlyLiquidity.address,
@@ -258,7 +258,7 @@ export function usePurchaseGlow() {
       earlyLiquidity.address
     );
 
-    if (usdgAllowance.lt(usdgNeeded)) {
+    if (usdgAllowance < usdgNeeded) {
       const estimatedGas = await usdg.estimateGas.approve(
         earlyLiquidity.address,
         usdgNeeded

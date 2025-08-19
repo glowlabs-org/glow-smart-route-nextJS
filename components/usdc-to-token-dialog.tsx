@@ -194,6 +194,7 @@ export const UsdcToTokenDialog: FC<{
         const swapUSDCtoUSDGRes = await swapUSDCToUSDG(
           parseUnits(amountToSell, 6)
         );
+        console.log("swapUSDCtoUSDGRes", swapUSDCtoUSDGRes);
 
         if (!swapUSDCtoUSDGRes.ok) {
           setErrorStates();
@@ -268,6 +269,7 @@ export const UsdcToTokenDialog: FC<{
 
       setIsPending(false);
     } catch (error) {
+      console.error("Error in handlePurchaseGlow:", error);
       setIsPending(false);
     }
   };

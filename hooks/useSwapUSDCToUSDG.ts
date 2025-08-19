@@ -65,13 +65,17 @@ export const useSwapUSDCToUSDG = () => {
         return new Err(SwapUSDCToUSDGError.CONTRACTS_NOT_AVAILABLE);
       if (!signer) return new Err(SwapUSDCToUSDGError.SIGNER_NOT_AVAILABLE);
       const signerAddress = await signer.getAddress();
-
+      console.log("signerAddress", signerAddress);
       const allowance = await usdc.allowance(signerAddress, usdg.address);
-      if (allowance.lt(amount)) {
+      console.log("allowance", { allowance, amount });
+      if (allowance < amount) {
+        console.log("approving");
         const tx = await usdc.approve(usdg.address, amount);
+        console.log("tx", tx);
         await tx.wait();
       }
 
+      console.log("amount", amount);
       const tx = await usdg.swap(signerAddress, amount);
       await tx.wait();
       return new Ok(true);

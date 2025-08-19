@@ -225,8 +225,6 @@ export default function BuyGctlView() {
         (transfer) => transfer.txId.toLowerCase() === txId.toLowerCase()
       );
 
-      console.log("pendingTransfer", pendingTransfer);
-
       if (pendingTransfer) {
         const remainingTime = calculateRemainingTime(pendingTransfer.ts);
         setTimeRemaining(remainingTime);

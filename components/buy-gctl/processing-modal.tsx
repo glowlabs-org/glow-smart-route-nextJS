@@ -15,6 +15,7 @@ import { SuccessState } from "@/components/buy-gctl/success-state";
 import { formatUnits } from "viem";
 import { useQueryState } from "nuqs";
 import { LumaSpinner } from "../icons/luma-spinner";
+import { GlowSymbolAnimated } from "../glow-symbol-animated";
 
 interface ProcessingModalProps {
   isOpen: boolean;
@@ -125,7 +126,7 @@ export function ProcessingModal({
           if (transfer.status === "confirmed") {
             setStatus("success");
             setProcessedAmount(
-              formatUnits(BigInt(transfer.amountRaw) / BigInt(gctlPrice), 6)
+              (BigInt(transfer.amountRaw) / BigInt(gctlPrice)).toString()
             );
           } else if (transfer.status === "failed") {
             setStatus("error");
@@ -258,7 +259,7 @@ export function ProcessingModal({
           {/* Processing Icon */}
           <div className="mb-6">
             <div className="flex items-center justify-center mx-auto mb-4">
-              <LumaSpinner />
+              <GlowSymbolAnimated className="size-14" />
             </div>
             <div className="text-2xl font-bold text-foreground mb-2">
               Processing Purchase
