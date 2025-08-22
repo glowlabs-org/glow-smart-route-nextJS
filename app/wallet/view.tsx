@@ -85,6 +85,15 @@ export default function View() {
     .filter(([, amount]) => (amount as number) > 0)
     .map(([region]) => `Impact (${region})`);
 
+  // Impact certificates breakdown helpers
+  const impactEntries = Object.entries(impactCertificates).filter(
+    ([, amount]) => Number(amount) > 0
+  );
+  const totalImpact = impactEntries.reduce(
+    (sum, [, amt]) => sum + Number(amt),
+    0
+  );
+
   const baseTokenOptions = (() => {
     const options = new Set<string>();
     if (hasUsdc) {
@@ -434,40 +443,70 @@ export default function View() {
                 <CardTitle className="text-sm">Impact Certificates</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {Object.entries(impactCertificates).map(
-                    ([region, amount]) => (
-                      <Badge
-                        key={region}
-                        variant="secondary"
-                        className="text-xs"
-                      >
-                        {region}: {amount}
-                      </Badge>
-                    )
-                  )}
-                </div>
+                {totalImpact > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex items-end justify-between">
+                      <div className="text-2xl font-bold">
+                        {totalImpact.toLocaleString()} credits
+                      </div>
+                      {claimable.impactVested !== "0" && (
+                        <div className="text-xs text-muted-foreground">
+                          Vested: {claimable.impactVested}
+                        </div>
+                      )}
+                    </div>
+                    {/* Segmented progress bar */}
+                    <div className="w-full h-3 rounded-full bg-muted/50 overflow-hidden flex">
+                      {impactEntries.map(([region, amt], idx) => {
+                        const pct = (Number(amt) / totalImpact) * 100;
+                        const isLast = idx === impactEntries.length - 1;
+                        return (
+                          <div
+                            key={region}
+                            style={{
+                              width: `${pct}%`,
+                              backgroundColor: "#000000",
+                              borderRight: isLast
+                                ? "none"
+                                : "1px solid rgba(255,255,255,0.4)",
+                            }}
+                            className="h-full"
+                            title={`${region}: ${amt}`}
+                          />
+                        );
+                      })}
+                    </div>
+                    {/* Legend */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {impactEntries.map(([region, amt], idx) => (
+                        <div
+                          key={region}
+                          className="flex items-center gap-2 text-xs"
+                        >
+                          <span
+                            className="inline-block w-3 h-3 rounded-sm"
+                            style={{
+                              backgroundColor: "#000000",
+                            }}
+                          />
+                          <span className="text-muted-foreground">
+                            {region}
+                          </span>
+                          <span className="ml-auto font-medium">
+                            {Number(amt).toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground mb-2">
+                    No impact certificates yet.
+                  </div>
+                )}
                 {claimable.impactVested !== "0" && (
                   <div className="text-xs text-muted-foreground">
                     Vested: {claimable.impactVested}
-                  </div>
-                )}
-                {impactRegions.length > 0 && (
-                  <div className="pt-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        // Jump to Swap with a preselected impact asset if present
-                        const firstImpact = impactRegions[0];
-                        if (firstImpact) {
-                          setSwapFrom(firstImpact);
-                        }
-                        setActiveTab("swap");
-                      }}
-                    >
-                      Buy Back
-                    </Button>
                   </div>
                 )}
               </CardContent>
