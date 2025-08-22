@@ -85,7 +85,7 @@ export default function View() {
     .filter(([, amount]) => (amount as number) > 0)
     .map(([region]) => `Impact (${region})`);
 
-  // Impact certificates breakdown helpers
+  // impact credits breakdown helpers
   const impactEntries = Object.entries(impactCertificates).filter(
     ([, amount]) => Number(amount) > 0
   );
@@ -224,14 +224,6 @@ export default function View() {
       return;
     }
     prepareSwap("USDC", "USDG", parseAmountString(balances.usdc).toString());
-  };
-
-  const handleSwapGlowToUsdc = () => {
-    if (!hasGlow) {
-      toast.info("No GLOW available to swap");
-      return;
-    }
-    prepareSwap("GLOW", "USDC", parseAmountString(balances.glow).toString());
   };
 
   const getRoutePreview = () => {
@@ -436,92 +428,43 @@ export default function View() {
             </Card>
           )}
 
-          {/* Impact Certificates Card */}
-          {(impactRegions.length > 0 || claimable.impactVested !== "0") && (
-            <Card className="relative overflow-hidden">
+          {/* impact credits Card */}
+          {impactEntries.length > 0 && (
+            <Card className="relative overflow-hidden col-span-2">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Impact Certificates</CardTitle>
+                <CardTitle className="text-sm">impact credits</CardTitle>
               </CardHeader>
               <CardContent>
-                {totalImpact > 0 ? (
-                  <div className="space-y-3">
-                    <div className="flex items-end justify-between">
-                      <div className="text-2xl font-bold">
-                        {totalImpact.toLocaleString()} credits
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                    {impactEntries.map(([region, amt]) => (
+                      <div
+                        key={region}
+                        className="flex items-center justify-between rounded-md border p-3"
+                      >
+                        <span className="text-xs text-muted-foreground">
+                          {region}
+                        </span>
+                        <span className="ml-auto font-medium">
+                          {Number(amt).toLocaleString()} credits
+                        </span>
                       </div>
-                      {claimable.impactVested !== "0" && (
-                        <div className="text-xs text-muted-foreground">
-                          Vested: {claimable.impactVested}
-                        </div>
-                      )}
-                    </div>
-                    {/* Segmented progress bar */}
-                    <div className="w-full h-3 rounded-full bg-muted/50 overflow-hidden flex">
-                      {impactEntries.map(([region, amt], idx) => {
-                        const pct = (Number(amt) / totalImpact) * 100;
-                        const isLast = idx === impactEntries.length - 1;
-                        return (
-                          <div
-                            key={region}
-                            style={{
-                              width: `${pct}%`,
-                              backgroundColor: "#000000",
-                              borderRight: isLast
-                                ? "none"
-                                : "1px solid rgba(255,255,255,0.4)",
-                            }}
-                            className="h-full"
-                            title={`${region}: ${amt}`}
-                          />
-                        );
-                      })}
-                    </div>
-                    {/* Legend */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                      {impactEntries.map(([region, amt], idx) => (
-                        <div
-                          key={region}
-                          className="flex items-center gap-2 text-xs"
-                        >
-                          <span
-                            className="inline-block w-3 h-3 rounded-sm"
-                            style={{
-                              backgroundColor: "#000000",
-                            }}
-                          />
-                          <span className="text-muted-foreground">
-                            {region}
-                          </span>
-                          <span className="ml-auto font-medium">
-                            {Number(amt).toLocaleString()}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                    ))}
                   </div>
-                ) : (
-                  <div className="text-xs text-muted-foreground mb-2">
-                    No impact certificates yet.
-                  </div>
-                )}
-                {claimable.impactVested !== "0" && (
-                  <div className="text-xs text-muted-foreground">
-                    Vested: {claimable.impactVested}
-                  </div>
-                )}
+                </div>
               </CardContent>
             </Card>
           )}
         </div>
 
         {/* B. Swap & Send */}
-        <Card className="mb-8 max-w-screen-md mx-auto">
+        {/* <Card className="mb-8 max-w-screen-md mx-auto">
           <CardHeader>
             <CardTitle>Swap</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {/* From */}
+       
               <div className="space-y-2">
                 <label className="text-sm font-medium">From</label>
                 <div className="flex gap-2">
@@ -547,14 +490,14 @@ export default function View() {
                 </div>
               </div>
 
-              {/* Swap Icon */}
+       
               <div className="flex justify-center">
                 <div className="bg-background border-4 border-border rounded-full p-2">
                   <ArrowDownUp className="w-4 h-4" />
                 </div>
               </div>
 
-              {/* To */}
+        
               <div className="space-y-2">
                 <label className="text-sm font-medium">To</label>
                 <div className="flex gap-2">
@@ -584,7 +527,7 @@ export default function View() {
                 </div>
               </div>
 
-              {/* Route Preview */}
+     
               <div className="bg-muted/50 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Info className="w-4 h-4 text-muted-foreground" />
@@ -600,7 +543,7 @@ export default function View() {
               </Button>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
         {/* C. GCTL Staking */}
         {(balances.gctl !== "0" || balances.gctlStaked !== "0") && (

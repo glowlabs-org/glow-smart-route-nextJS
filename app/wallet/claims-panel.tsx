@@ -64,7 +64,7 @@ export function ClaimsPanel({
               Claims Available
             </CardTitle>
             <CardDescription className="mt-2">
-              Claim your earned tokens and vested impact certificates
+              Claim your earned tokens and vested impact credits
             </CardDescription>
           </div>
           {claimableItems.length > 1 && (
@@ -123,7 +123,7 @@ export function ClaimsPanel({
                 <Sparkles className="w-4 h-4" />
               </div>
               <div className="flex-1">
-                <div className="font-medium">Impact Certificates Vested</div>
+                <div className="font-medium">impact credits Vested</div>
                 <div className="text-sm text-muted-foreground mt-1">
                   {claimable.impactVested} certificates vested this epoch
                 </div>
