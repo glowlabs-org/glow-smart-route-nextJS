@@ -535,9 +535,6 @@ export function PositionsView() {
                         USDG
                       </span>
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      +{(feesRatePerSec * 3600).toFixed(4)} USDG/hr
-                    </div>
                   </div>
                 </div>
               </div>
