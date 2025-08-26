@@ -586,39 +586,8 @@ export function PositionsView() {
                         const multiplier = getLoyaltyMultiplier(
                           position.createdAt
                         );
-                        // Live multiplier increment (per second) + countdown to next increment step
-                        const [liveMultiplier, setLiveMultiplier] =
-                          React.useState(multiplier);
-                        const [countdownSeconds, setCountdownSeconds] =
-                          React.useState(0);
-                        const incrementStep = 1e-6;
-                        React.useEffect(() => {
-                          function update() {
-                            const msNow = Date.now();
-                            const daysNow = Math.max(
-                              0,
-                              (msNow - position.createdAt) /
-                                (1000 * 60 * 60 * 24)
-                            );
-                            const cur = Math.pow(daysNow, 0.176091259) || 0;
-                            const curPlus1 =
-                              Math.pow(
-                                daysNow + 1 / (24 * 60 * 60),
-                                0.176091259
-                              ) || 0;
-                            const ratePerSecond = Math.max(0, curPlus1 - cur);
-                            const target = cur + incrementStep;
-                            const remaining =
-                              ratePerSecond > 0
-                                ? Math.ceil((target - cur) / ratePerSecond)
-                                : 0;
-                            setLiveMultiplier(cur);
-                            setCountdownSeconds(remaining);
-                          }
-                          update();
-                          const id = setInterval(update, 1000);
-                          return () => clearInterval(id);
-                        }, [position.createdAt]);
+                        // Derive multiplier directly to avoid per-item intervals and rerenders
+                        const liveMultiplier = multiplier;
                         const days = Math.max(
                           0,
                           (now - position.createdAt) / (1000 * 60 * 60 * 24)
