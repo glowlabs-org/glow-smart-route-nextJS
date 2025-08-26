@@ -18,6 +18,8 @@ import { SYMBOLS } from "@/hooks/useERC20Balances";
 import { Token } from "./view";
 import { useERC20 } from "@/hooks/useERC20";
 import { formatUnits, isAddress, parseUnits } from "viem";
+import { InstructionsDialog } from "@/components/instructions-dialog";
+import { Info } from "lucide-react";
 
 type BalanceLike = bigint | { toString(): string } | null;
 
@@ -238,6 +240,14 @@ export function SendTab({
             {pendingSendTx ? "Sending..." : getSendButtonProps().label}
           </Button>
         )}
+      </div>
+      <div className="text-center">
+        <InstructionsDialog>
+          <Button variant="ghost">
+            <Info className="w-4 h-4 mr-1" />
+            Learn about Glow&apos;s guarded launch
+          </Button>
+        </InstructionsDialog>
       </div>
     </div>
   );

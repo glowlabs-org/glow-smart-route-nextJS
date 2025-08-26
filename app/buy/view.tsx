@@ -46,6 +46,8 @@ import { useQueryState } from "nuqs";
 
 import { addresses } from "@/web3/constants/addresses";
 import { MaxUint256 } from "ethers";
+import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 const tokens = {
   USDG: {
@@ -926,7 +928,14 @@ export default function View({
   }, [usdgWithdrawAmount, ethPriceInUSD, estimateGasForRedeemUSDG]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      <Image
+        src="/images/sections/bg-gradient.png"
+        alt="Background"
+        fill
+        className="object-cover"
+      />
+
       {/* Hero Section with Enhanced Gradient */}
 
       <div className="relative overflow-hidden min-h-screen">
@@ -935,7 +944,7 @@ export default function View({
           <div className="flex flex-col items-center justify-center lg:flex-row gap-2 md:gap-6 lg:gap-8 w-full">
             {/* Main Content Area */}
             <div className="flex-1 flex w-full justify-center">
-              <div className="bg-card/60 backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full max-w-[600px] p-6">
+              <div className="bg-background/80 backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full max-w-[600px] p-6">
                 {/* Enhanced Tabs Navigation */}
                 <Tabs defaultValue="swap">
                   <TabsList>
@@ -987,7 +996,7 @@ export default function View({
                             value={selectedTokenSell.label}
                             onValueChange={handleSelectTokenToSell}
                           >
-                            <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-md border-border bg-background font-medium">
+                            <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-xl border-border bg-background font-medium">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1047,7 +1056,7 @@ export default function View({
                             value={selectedTokenBuy.label}
                             onValueChange={handleSelectTokenToBuy}
                           >
-                            <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-md border-border bg-background font-medium">
+                            <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-xl border-border bg-background font-medium">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1064,7 +1073,7 @@ export default function View({
                       {/* Enhanced Transaction Details */}
                       {smartBalancingAmounts &&
                         selectedTokenBuy.label === "GLOW" && (
-                          <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-md p-4 lg:p-5 space-y-4 border border-border/20">
+                          <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-xl p-4 lg:p-5 space-y-4 border border-border/20">
                             <div className="flex items-center gap-2 mb-3">
                               <Info className="w-4 h-4 text-muted-foreground" />
                               <span className="text-xs lg:text-sm font-medium text-muted-foreground">

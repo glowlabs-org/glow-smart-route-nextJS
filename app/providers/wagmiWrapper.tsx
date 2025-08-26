@@ -8,6 +8,7 @@ import { http } from "wagmi";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
+import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 
 if (!process.env.NEXT_PUBLIC_WALLET_CONNECT_ID) {
   throw new Error("NEXT_PUBLIC_WALLET_CONNECT_ID is not set");
@@ -56,6 +57,7 @@ export const WagmiWrapper = ({ children }: { children: React.ReactNode }) => {
       <WagmiProvider config={config}>
         <RainbowKitProvider>
           <Toaster />
+          {/* <SmartAccountWarningDialog /> */}
           {children}
         </RainbowKitProvider>
       </WagmiProvider>

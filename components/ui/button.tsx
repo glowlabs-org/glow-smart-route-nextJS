@@ -10,7 +10,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-glow-light-grey text-foreground backdrop-blur-xl border border-foreground/20 dark:bg-transparent hover:shadow-sm hover:bg-foreground hover:text-background dark:hover:bg-foreground dark:hover:text-background",
+          "bg-foreground text-background backdrop-blur-xl border border-foreground/20 dark:bg-transparent hover:scale-95s hover:-translate-y-0.5 hover:bg-background hover:text-foreground dark:hover:bg-foreground dark:hover:text-background",
         orange:
           "bg-[var(--color-glow-orange)] text-foreground font-semibold tracking-wide hover:scale-105 hover:-translate-y-0.5",
         success: "bg-[#16a34a] text-white hover:bg-[#15803d]",

@@ -5,6 +5,7 @@ import { Error } from "@/components/loading";
 import { PageWrapper } from "./components/page-wrapper";
 import { Metadata } from "next";
 import { Navbar } from "./components/navbar";
+import { GridBeams } from "@/components/magicui/grid-beams";
 
 export const revalidate = 36;
 
@@ -96,6 +97,7 @@ function PageContent(props: PageContentProps) {
         ethPriceInUSD={props.ethPriceInUSD}
         usdcRewardPool={props.usdcRewardPool}
       />
+
       <View
         glowPrice={props.glowPrice}
         earlyLiquidityCurrentPrice={props.earlyLiquidityCurrentPrice}

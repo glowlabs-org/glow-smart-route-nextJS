@@ -44,7 +44,10 @@ import { soldFarmsActivity } from "./mock-farms";
 export default function MiningMarketplacePage() {
   const [regionParam, setRegionParam] = useQueryState("region");
   const [currencyParam, setCurrencyParam] = useQueryState("currency", {
-    defaultValue: "USDC",
+    defaultValue: "GLW",
+  });
+  const [sortParam, setSortParam] = useQueryState("sort", {
+    defaultValue: "rating-desc",
   });
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [selectedFarmForDeposit, setSelectedFarmForDeposit] =
@@ -52,11 +55,22 @@ export default function MiningMarketplacePage() {
   const [listDialogOpen, setListDialogOpen] = React.useState(false);
 
   const selectedRegion = regionParam || "All";
-  const selectedCurrency = currencyParam || "USDC";
+  const selectedCurrency = currencyParam || "GLW";
+  const selectedSort = sortParam || "rating-desc";
 
   const filtered = farmsForSale.filter((farm) =>
     selectedRegion === "All" ? true : farm.region === selectedRegion
   );
+
+  const sorted = React.useMemo(() => {
+    const base = [...filtered];
+    if (selectedSort === "rating-asc") {
+      base.sort((a, b) => a.rewardRating - b.rewardRating);
+    } else {
+      base.sort((a, b) => b.rewardRating - a.rewardRating);
+    }
+    return base;
+  }, [filtered, selectedSort]);
 
   function onPayDeposit(farm: FarmForSale) {
     setSelectedFarmForDeposit(farm);
@@ -125,6 +139,25 @@ export default function MiningMarketplacePage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Sort</span>
+                <Select
+                  value={selectedSort}
+                  onValueChange={(v) => setSortParam(v)}
+                >
+                  <SelectTrigger className="w-[230px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="rating-desc">
+                      Reward rating: high to low
+                    </SelectItem>
+                    <SelectItem value="rating-asc">
+                      Reward rating: low to high
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* List */}
@@ -134,7 +167,7 @@ export default function MiningMarketplacePage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
-                {filtered.map((farm) => {
+                {sorted.map((farm) => {
                   const priceInSelected =
                     farm.pricePerAsset[selectedCurrency as PaymentCurrency];
                   const weeklyDepositReward =

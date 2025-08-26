@@ -32,24 +32,34 @@ export const Navbar = ({
             className={cn("w-36 h-12 relative z-10 text-glow-black")}
           />
         </Link>
-        {isConnected ? (
-          <Button onClick={() => setIsOpen(!isOpen)}>
-            {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ""}
-          </Button>
-        ) : (
-          <ConnectButton size="small" className="block" variant="default" />
-        )}
+        <div className="flex items-center space-x-8">
+          <Link href="/positions" className="hover:scale-105 transition-all">
+            Positions
+          </Link>
+          <Link
+            href="/mining-marketplace"
+            className="hover:scale-105 transition-all"
+          >
+            Mining Marketplace
+          </Link>
+
+          {isConnected ? (
+            <Button onClick={() => setIsOpen(!isOpen)}>
+              {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ""}
+            </Button>
+          ) : (
+            <ConnectButton className="block" variant="default" size="medium" />
+          )}
+        </div>
       </div>
-      {glowPrice !== "0" && (
-        <WalletSidebar
-          open={isOpen}
-          onOpenChange={setIsOpen}
-          glowPrice={glowPrice}
-          marketCap={marketCap}
-          ethPriceInUSD={ethPriceInUSD}
-          usdcRewardPool={usdcRewardPool}
-        />
-      )}
+      <WalletSidebar
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        glowPrice={glowPrice}
+        marketCap={marketCap}
+        ethPriceInUSD={ethPriceInUSD}
+        usdcRewardPool={usdcRewardPool}
+      />
     </nav>
   );
 };
