@@ -13,7 +13,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowDownUp, ArrowUp, Info } from "lucide-react";
+import {
+  ArrowDownUp,
+  ArrowUp,
+  Info,
+  Plus,
+  Minus,
+  TrendingUp,
+  Droplets,
+  Wallet,
+  Sparkles,
+} from "lucide-react";
 import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
 import { animate, useMotionValue, useMotionValueEvent } from "framer-motion";
@@ -26,6 +36,7 @@ import {
 import { AddLiquidityReviewDialog } from "./add-liquidity-dialog";
 import { RemoveLiquidityDialog } from "./remove-liquidity-dialog";
 import Image from "next/image";
+import { LiquidityIncentiveDialog } from "./liquidity-incentive-dialog";
 
 interface RewardPool {
   id: string;
@@ -133,14 +144,20 @@ function AddLiquidityPanel({ onConfirm }: AddLiquidityPanelProps) {
 
   return (
     <div className="bg-background/80 backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
-      <div className="p-6 space-y-6">
-        <div>
-          <h3 className="text-xl font-semibold">Add Liquidity</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Add liquidity to the GLW/USDG main pool
-          </p>
+      <div className="border-b border-border p-6">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-border">
+            <Plus className="w-5 h-5 text-green-500" />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold">Add Liquidity</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Add liquidity to the GLW/USDG pool and start earning rewards
+            </p>
+          </div>
         </div>
-
+      </div>
+      <div className="p-6 space-y-6">
         {/* GLW Input */}
         <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
           <div className="flex items-center justify-between mb-3">
@@ -285,6 +302,7 @@ export function PositionsView() {
     Record<string, number>
   >({}); // USDG/sec
   const [showIncentiveBanner, setShowIncentiveBanner] = React.useState(true);
+  const [showIncentiveDialog, setShowIncentiveDialog] = React.useState(false);
   useMotionValueEvent(animatedRewards, "change", (v) =>
     setAnimatedRewardsDisplay(v)
   );
@@ -299,6 +317,8 @@ export function PositionsView() {
     try {
       const hidden = window.localStorage.getItem("lp_banner_hidden");
       if (hidden === "1") setShowIncentiveBanner(false);
+      const dialogAck = window.localStorage.getItem("lp_dialog_ack");
+      if (dialogAck !== "1") setShowIncentiveDialog(true);
     } catch {}
   }, []);
 
@@ -307,6 +327,13 @@ export function PositionsView() {
       window.localStorage.setItem("lp_banner_hidden", "1");
     } catch {}
     setShowIncentiveBanner(false);
+  }
+
+  function acknowledgeIncentiveDialog() {
+    try {
+      window.localStorage.setItem("lp_dialog_ack", "1");
+    } catch {}
+    setShowIncentiveDialog(false);
   }
 
   // mock: sum of finalized rewards across positions could be displayed here
@@ -456,294 +483,284 @@ export function PositionsView() {
   }
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden pt-12">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-primary/5" />
-
-      <div className="max-w-screen-xl mx-auto px-2 md:px-6 lg:px-12 xl:px-16 py-8 relative z-10">
-        {/* Rewards summary */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* Live rewards card */}
-          <div className="bg-background/80 backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
-            <div className="p-6">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
-                Rewards earned (live)
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="rounded-xl border p-3">
-                  <div className="text-xs text-muted-foreground mb-1">
-                    GLW incentives
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl md:text-3xl font-extrabold tabular-nums">
-                      {animatedRewardsDisplay.toLocaleString(undefined, {
-                        minimumFractionDigits: 6,
-                        maximumFractionDigits: 6,
-                      })}
-                    </span>
-                    <span className="text-muted-foreground font-medium">
-                      GLW
-                    </span>
-                  </div>
-                </div>
-                <div className="rounded-xl border p-3">
-                  <div className="text-xs text-muted-foreground mb-1">
-                    Exchange fee rewards
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl md:text-3xl font-extrabold tabular-nums">
-                      {Object.values(positionFeesMap)
-                        .reduce((a, b) => a + b, 0)
-                        .toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                    </span>
-                    <span className="text-muted-foreground font-medium">
-                      USDG
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Totals and info (from positions) card */}
-          <div className="bg-background/80 backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
-            <div className="p-6">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-3">
-                My Positions Balances
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-xs text-muted-foreground">Total GLW</div>
-                  <div className="text-2xl md:text-3xl font-bold tabular-nums">
-                    {positions
-                      .reduce((acc, p) => acc + p.glwAmount, 0)
-                      .toLocaleString(undefined, { maximumFractionDigits: 4 })}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">
-                    Total USDG
-                  </div>
-                  <div className="text-2xl md:text-3xl font-bold tabular-nums">
-                    {positions
-                      .reduce((acc, p) => acc + p.usdgAmount, 0)
-                      .toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Main Content with Sidebar Layout */}
+      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-6">
           {/* Main Content Area */}
-          <div className="space-y-4">
-            {/* Action buttons */}
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Liquidity Management</h2>
-              <Button
-                variant="outline"
-                onClick={() => setRemoveDialogOpen(true)}
-                disabled={positions.length === 0}
-                className="h-12"
-              >
-                Remove liquidity
-              </Button>
-            </div>
-
-            {/* Liquidity incentive banner */}
-            {showIncentiveBanner && (
-              <div className="rounded-2xl border border-border bg-background p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-2">
-                    <div className=" font-medium">
-                      Liquidity incentive program
+          <div className="space-y-6">
+            {/* Rewards Summary Card */}
+            <div className="bg-background/80 backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="w-4 h-4 text-yellow-500" />
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Rewards Summary
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-muted/30 rounded-xl border border-border p-4">
+                    <div className="text-xs text-muted-foreground mb-2">
+                      GLW Incentives
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      5,000 GLW per week for 12 weeks to Uniswap LPs. Rewards
-                      are distributed proportionally by liquidity provided, with
-                      a loyalty bonus that increases the longer liquidity stays
-                      deposited.
-                    </p>
-                    <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-1">
-                      <li>1 day: no bonus</li>
-                      <li>10 days: +50% bonus</li>
-                      <li>100 days: +125% bonus</li>
-                    </ul>
-                    <p className="text-xs text-muted-foreground">
-                      Bonuses scale up over time, rewarding early and persistent
-                      LPs to help deepen GLW liquidity.
-                    </p>
-                    <div>
-                      <Link
-                        href="/blog/liquidity-incentive-proposal"
-                        className="text-xs underline text-primary hover:text-primary/80"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Read the full article →
-                      </Link>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl md:text-3xl font-extrabold tabular-nums">
+                        {animatedRewardsDisplay.toLocaleString(undefined, {
+                          minimumFractionDigits: 6,
+                          maximumFractionDigits: 6,
+                        })}
+                      </span>
+                      <span className="text-muted-foreground font-medium">
+                        GLW
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      +{(totalRatePerSec * 3600).toFixed(6)} GLW/hr
                     </div>
                   </div>
-                  <button
-                    onClick={hideIncentiveBanner}
-                    className="text-xs text-muted-foreground hover:text-foreground underline"
-                  >
-                    Hide
-                  </button>
+                  <div className="bg-muted/30 rounded-xl border border-border p-4">
+                    <div className="text-xs text-muted-foreground mb-2">
+                      Exchange Fee Rewards
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl md:text-3xl font-extrabold tabular-nums">
+                        {Object.values(positionFeesMap)
+                          .reduce((a, b) => a + b, 0)
+                          .toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                      </span>
+                      <span className="text-muted-foreground font-medium">
+                        USDG
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      +{(feesRatePerSec * 3600).toFixed(4)} USDG/hr
+                    </div>
+                  </div>
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* Add Liquidity Panel - Always visible */}
+            {/* Add Liquidity Card */}
             <AddLiquidityPanel onConfirm={onAddLiquidity} />
           </div>
 
-          {/* Sidebar: Your Positions */}
-          <aside className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Your Positions</h3>
-              <span className="text-xs text-muted-foreground">
-                {positions.length} active
-              </span>
-            </div>
+          {/* Right Sidebar */}
+          <aside className="xl:sticky xl:top-[80px] h-fit space-y-4">
+            <div className="bg-background/80 backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-muted-foreground" />
+                    <h3 className="text-lg font-semibold">Your Positions</h3>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setRemoveDialogOpen(true)}
+                    disabled={positions.length === 0}
+                    className="h-9 sm:h-10"
+                  >
+                    <Minus className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Remove Liquidity</span>
+                    <span className="sm:hidden">Remove</span>
+                  </Button>
+                </div>
 
-            {positions.length > 0 && (
-              <div className="space-y-3">
-                {positions
-                  .slice()
-                  .sort((a, b) => b.createdAt - a.createdAt) // FILO
-                  .map((position) => {
-                    const finalized = positionFinalizedMap[position.id] ?? 0;
-                    const pending = positionPendingMap[position.id] ?? 0;
-                    const multiplier = getLoyaltyMultiplier(position.createdAt);
-                    const days = Math.max(
-                      0,
-                      (now - position.createdAt) / (1000 * 60 * 60 * 24)
-                    );
-                    return (
-                      <div
-                        key={position.id}
-                        className="bg-background/80 backdrop-blur-xl rounded-2xl border border-border overflow-hidden hover:border-border/80 transition-all duration-200"
-                      >
-                        <div className="p-4">
-                          {/* Position Header */}
-                          <div className="flex items-center justify-between mb-3">
-                            <div>
-                              <div className="font-medium">{position.pair}</div>
-                              <div className="text-xs text-muted-foreground">
-                                Opened {Math.floor(days)}d ago
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-xs text-muted-foreground uppercase tracking-wider">
-                                APY
-                              </div>
-                              <div className="text-lg font-bold tabular-nums">
-                                {position.apy.toFixed(2)}%
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Composition progress bar */}
-                          {(() => {
-                            const currentGlwWithRewards =
-                              position.glwAmount + finalized + pending;
-                            const totalValue =
-                              currentGlwWithRewards * (MOCK_PRICE_RATIO || 0) +
-                              position.usdgAmount;
-                            const pctGLW =
-                              totalValue > 0
-                                ? (currentGlwWithRewards *
-                                    (MOCK_PRICE_RATIO || 0)) /
-                                  totalValue
-                                : 0;
-                            const pctUSDG = 1 - pctGLW;
-                            return (
-                              <div className="mt-3 rounded-md border p-3">
-                                <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                                  <span>Current pool value</span>
-                                </div>
-
-                                <div className="flex items-center justify-between">
-                                  <span>
-                                    {" "}
-                                    {currentGlwWithRewards.toLocaleString(
-                                      undefined,
-                                      {
-                                        maximumFractionDigits: 4,
-                                      }
-                                    )}{" "}
-                                    GLW{" "}
-                                  </span>
-                                  <span>
-                                    {position.usdgAmount.toLocaleString(
-                                      undefined,
-                                      {
-                                        maximumFractionDigits: 2,
-                                      }
-                                    )}{" "}
-                                    USDG
-                                  </span>
-                                </div>
-                              </div>
+                {positions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground text-sm">
+                      No active positions yet
+                    </p>
+                    <p className="text-muted-foreground text-xs mt-1">
+                      Add liquidity to start earning rewards
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[calc(100vh-200px)] overflow-y-auto pr-1">
+                    {positions
+                      .slice()
+                      .sort((a, b) => b.createdAt - a.createdAt) // FILO
+                      .map((position) => {
+                        const finalized =
+                          positionFinalizedMap[position.id] ?? 0;
+                        const pending = positionPendingMap[position.id] ?? 0;
+                        const multiplier = getLoyaltyMultiplier(
+                          position.createdAt
+                        );
+                        // Live multiplier increment (per second) + countdown to next increment step
+                        const [liveMultiplier, setLiveMultiplier] =
+                          React.useState(multiplier);
+                        const [countdownSeconds, setCountdownSeconds] =
+                          React.useState(0);
+                        const incrementStep = 1e-6;
+                        React.useEffect(() => {
+                          function update() {
+                            const msNow = Date.now();
+                            const daysNow = Math.max(
+                              0,
+                              (msNow - position.createdAt) /
+                                (1000 * 60 * 60 * 24)
                             );
-                          })()}
-
-                          {/* Rewards and loyalty */}
-                          <div className="grid grid-cols-2 gap-3 mt-3">
-                            <div className="rounded-md border p-3">
-                              <div className="flex items-center justify-between">
-                                <div className="text-xs text-muted-foreground">
-                                  GLW rewards
+                            const cur = Math.pow(daysNow, 0.176091259) || 0;
+                            const curPlus1 =
+                              Math.pow(
+                                daysNow + 1 / (24 * 60 * 60),
+                                0.176091259
+                              ) || 0;
+                            const ratePerSecond = Math.max(0, curPlus1 - cur);
+                            const target = cur + incrementStep;
+                            const remaining =
+                              ratePerSecond > 0
+                                ? Math.ceil((target - cur) / ratePerSecond)
+                                : 0;
+                            setLiveMultiplier(cur);
+                            setCountdownSeconds(remaining);
+                          }
+                          update();
+                          const id = setInterval(update, 1000);
+                          return () => clearInterval(id);
+                        }, [position.createdAt]);
+                        const days = Math.max(
+                          0,
+                          (now - position.createdAt) / (1000 * 60 * 60 * 24)
+                        );
+                        return (
+                          <div
+                            key={position.id}
+                            className="bg-muted/30 rounded-xl border border-border overflow-hidden hover:border-foreground/20 transition-all duration-200"
+                          >
+                            <div className="p-4">
+                              {/* Position Header */}
+                              <div className="flex items-center justify-between mb-3">
+                                <div>
+                                  <div className="font-medium">
+                                    {position.pair}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Opened {Math.floor(days)}d ago
+                                  </div>
                                 </div>
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger className="text-xs text-muted-foreground">
-                                      ?
-                                    </TooltipTrigger>
-                                    <TooltipContent className="text-xs max-w-xs">
-                                      GLW incentives are distributed after the
-                                      v2 launch when epochs finalize. Amounts
-                                      shown accrue in real time but are not
-                                      immediately claimable. The v2 launch date
-                                      is not yet defined.
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
+                                <div className="text-right">
+                                  <div className="text-xs text-muted-foreground uppercase tracking-wider">
+                                    APY
+                                  </div>
+                                  <div className="text-lg font-bold tabular-nums">
+                                    {position.apy.toFixed(2)}%
+                                  </div>
+                                </div>
                               </div>
-                              <div className="font-medium tabular-nums">
-                                {(finalized + pending).toFixed(6)} GLW
+
+                              {/* Composition progress bar */}
+                              {(() => {
+                                const currentGlwWithRewards =
+                                  position.glwAmount + finalized + pending;
+                                // For mock UI: force a 50/50 visual split
+                                const pctGLW = 0.5;
+                                const pctUSDG = 0.5;
+                                return (
+                                  <div className="mt-3 rounded-md border p-3">
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                                      <span>Current pool value</span>
+                                      <span>
+                                        {(pctGLW * 100).toFixed(2)}% GLW ·{" "}
+                                        {(pctUSDG * 100).toFixed(2)}% USDG
+                                      </span>
+                                    </div>
+                                    <div className="h-2 w-full rounded-full overflow-hidden flex border border-border">
+                                      <div
+                                        className="bg-foreground"
+                                        style={{
+                                          width: `${(pctGLW * 100).toFixed(
+                                            2
+                                          )}%`,
+                                        }}
+                                      />
+                                      <div
+                                        className="bg-muted-foreground"
+                                        style={{
+                                          width: `${(pctUSDG * 100).toFixed(
+                                            2
+                                          )}%`,
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="flex items-center justify-between mt-2">
+                                      <span>
+                                        {currentGlwWithRewards.toLocaleString(
+                                          undefined,
+                                          { maximumFractionDigits: 4 }
+                                        )}{" "}
+                                        GLW
+                                      </span>
+                                      <span>
+                                        {position.usdgAmount.toLocaleString(
+                                          undefined,
+                                          { maximumFractionDigits: 2 }
+                                        )}{" "}
+                                        USDG
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
+                              {/* Rewards and loyalty */}
+                              <div className="grid grid-cols-2 gap-3 mt-3">
+                                <div className="rounded-md border p-3">
+                                  <div className="flex items-center justify-between">
+                                    <div className="text-xs text-muted-foreground">
+                                      GLW rewards
+                                    </div>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger className="text-xs text-muted-foreground">
+                                          ?
+                                        </TooltipTrigger>
+                                        <TooltipContent className="text-xs max-w-xs">
+                                          GLW incentives are distributed after
+                                          the v2 launch when epochs finalize.
+                                          Amounts shown accrue in real time but
+                                          are not immediately claimable. The v2
+                                          launch date is not yet defined.
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </div>
+                                  <div className="font-medium tabular-nums">
+                                    {(finalized + pending).toFixed(6)} GLW
+                                  </div>
+                                </div>
+                                <div className="rounded-md border p-3">
+                                  <div className="text-xs text-muted-foreground">
+                                    Exchange fee rewards
+                                  </div>
+                                  <div className="font-medium tabular-nums">
+                                    {positionFeesMap[position.id]?.toFixed(2) ??
+                                      "0.00"}{" "}
+                                    USDG
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            <div className="rounded-md border p-3">
-                              <div className="text-xs text-muted-foreground">
-                                Exchange fee rewards
-                              </div>
-                              <div className="font-medium tabular-nums">
-                                {positionFeesMap[position.id]?.toFixed(2) ??
-                                  "0.00"}{" "}
-                                USDG
+                              <div className="mt-3 rounded-md border p-3 flex items-center justify-between">
+                                <div className="flex flex-col">
+                                  <div className="text-xs text-muted-foreground">
+                                    Loyalty bonus
+                                  </div>
+                                </div>
+                                <div className="font-mono text-sm">
+                                  {liveMultiplier.toFixed(12)}×
+                                </div>
                               </div>
                             </div>
                           </div>
-                          <div className="mt-3 rounded-md border p-3 flex items-center justify-between">
-                            <div className="text-xs text-muted-foreground">
-                              Loyalty bonus
-                            </div>
-                            <div className="font-mono text-sm">
-                              {multiplier.toFixed(6)}×
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </aside>
         </div>
 
@@ -754,6 +771,13 @@ export function PositionsView() {
           positions={positions}
           priceRatio={MOCK_PRICE_RATIO}
           onConfirm={onRemoveLiquidity}
+        />
+
+        {/* Liquidity Incentive Dialog (first-visit) */}
+        <LiquidityIncentiveDialog
+          open={showIncentiveDialog}
+          onOpenChange={setShowIncentiveDialog}
+          onAcknowledge={acknowledgeIncentiveDialog}
         />
       </div>
     </div>

@@ -48,6 +48,7 @@ import { addresses } from "@/web3/constants/addresses";
 import { MaxUint256 } from "ethers";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import PositionsView from "../positions/view";
 
 const tokens = {
   USDG: {
@@ -938,22 +939,25 @@ export default function View({
 
       {/* Hero Section with Enhanced Gradient */}
 
-      <div className="relative overflow-hidden min-h-screen">
-        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-2 md:px-6 lg:px-12 xl:px-16 relative z-10 min-h-screen flex items-center justify-center pt-20 lg:pt-0">
-          {/* Hero Content */}
-          <div className="flex flex-col items-center justify-center lg:flex-row gap-2 md:gap-6 lg:gap-8 w-full">
-            {/* Main Content Area */}
-            <div className="flex-1 flex w-full justify-center">
-              <div className="bg-background/80 backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full max-w-[600px] p-6">
-                {/* Enhanced Tabs Navigation */}
-                <Tabs defaultValue="swap">
-                  <TabsList>
-                    <TabsTrigger value="swap">Swap</TabsTrigger>
-                    <TabsTrigger value="send">Send</TabsTrigger>
-                  </TabsList>
+      <div className="relative overflow-hidden min-h-screen flex flex-col justify-center items-center pt-20 ">
+        <Tabs defaultValue="swap" className="items-center">
+          <TabsList className="self-center">
+            <TabsTrigger value="swap">Swap</TabsTrigger>
+            <TabsTrigger value="send">Send</TabsTrigger>
+            <TabsTrigger value="liquidity">Liquidity</TabsTrigger>
+          </TabsList>
 
-                  {/* Swap Content */}
-                  <TabsContent value="swap">
+          <TabsContent value="swap">
+            <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-2 md:px-6 lg:px-12 xl:px-16 relative z-10 flex items-center justify-center">
+              {/* Hero Content */}
+              <div className="flex flex-col items-center justify-center lg:flex-row gap-2 md:gap-6 lg:gap-8 w-full">
+                {/* Main Content Area */}
+                <div className="flex-1 flex w-full justify-center">
+                  <div className="bg-background/80 backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full max-w-[600px] p-6">
+                    {/* Enhanced Tabs Navigation */}
+
+                    {/* Swap Content */}
+
                     <div>
                       {/* Enhanced From Token */}
                       <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
@@ -1166,8 +1170,19 @@ export default function View({
                         </InstructionsDialog>
                       </div>
                     </div>
-                  </TabsContent>
-                  <TabsContent value="send">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="send">
+            <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-2 md:px-6 lg:px-12 xl:px-16 relative z-10 flex items-center justify-center">
+              {/* Hero Content */}
+              <div className="flex flex-col items-center justify-center lg:flex-row gap-2 md:gap-6 lg:gap-8 w-full">
+                {/* Main Content Area */}
+                <div className="flex-1 flex w-full justify-center">
+                  <div className="bg-background/80 backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full max-w-[600px] p-6">
                     <SendTab
                       isConnected={isConnected}
                       isWalletLoading={isWalletLoading}
@@ -1181,14 +1196,16 @@ export default function View({
                         USDG: tokens.USDG,
                       }}
                     />
-                  </TabsContent>
-                </Tabs>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </TabsContent>
+          <TabsContent value="liquidity">
+            <PositionsView />
+          </TabsContent>
+        </Tabs>
       </div>
-
       {/* Dialogs */}
       <UsdcToTokenDialog
         isOpen={isDialogOpen}
