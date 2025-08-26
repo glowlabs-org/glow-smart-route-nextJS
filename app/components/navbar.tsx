@@ -33,9 +33,6 @@ export const Navbar = ({
           />
         </Link>
         <div className="flex items-center space-x-8">
-          <Link href="/positions" className="hover:scale-105 transition-all">
-            Positions
-          </Link>
           <Link
             href="/mining-marketplace"
             className="hover:scale-105 transition-all"
