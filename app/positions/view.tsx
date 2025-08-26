@@ -14,15 +14,23 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ArrowDownUp, ArrowUp, Info } from "lucide-react";
+import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
 import { animate, useMotionValue, useMotionValueEvent } from "framer-motion";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { AddLiquidityReviewDialog } from "./add-liquidity-dialog";
 import { RemoveLiquidityDialog } from "./remove-liquidity-dialog";
+import Image from "next/image";
 
 interface RewardPool {
   id: string;
   pair: string;
-  apr: number; // as percent
+  apy: number; // as percent
   version: "v2" | "v3" | "v4";
   feeTier: string; // e.g. "0.05%"
 }
@@ -32,7 +40,7 @@ interface Position {
   pair: "GLW/USDG";
   glwAmount: number;
   usdgAmount: number;
-  apr: number; // as percent
+  apy: number; // as percent
   poolSharePct: number; // 0..100
   createdAt: number; // ms epoch
   initialGlw: number;
@@ -42,6 +50,8 @@ interface Position {
 // MOCKED RESERVES + PRICE (USDG per 1 GLW)
 const MOCK_PRICE_RATIO = 0.635834;
 const MOCK_POOL_RESERVES = { glw: 13_900_000, usdg: 8_800_000 };
+const SECONDS_IN_YEAR = 365 * 24 * 60 * 60;
+const MOCK_FEE_APY = 6; // mock exchange fee APY in percent
 
 interface AddLiquidityPanelProps {
   onConfirm: (params: { glw: number; usdg: number }) => Promise<void>;
@@ -197,18 +207,6 @@ function AddLiquidityPanel({ onConfirm }: AddLiquidityPanelProps) {
           </div>
         </div>
 
-        {/* Pool Share Info */}
-        <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-xl px-4  border border-border/20">
-          <div className="flex items-center justify-between">
-            <span className="text-xs lg:text-sm text-muted-foreground">
-              Pool Share
-            </span>
-            <span className="text-xs lg:text-sm font-medium">
-              {poolSharePct.toFixed(4)}%
-            </span>
-          </div>
-        </div>
-
         {/* Action Button */}
         <Button
           onClick={handleAdd}
@@ -241,7 +239,7 @@ const initialPositions: Position[] = [
     pair: "GLW/USDG",
     glwAmount: 1200.5,
     usdgAmount: 820.25,
-    apr: 34.1,
+    apy: 12.1,
     poolSharePct: 0.22,
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 14, // 14 days ago
     initialGlw: 1200.5,
@@ -252,7 +250,7 @@ const initialPositions: Position[] = [
     pair: "GLW/USDG",
     glwAmount: 300.0,
     usdgAmount: 200.0,
-    apr: 34.1,
+    apy: 11.1,
     poolSharePct: 0.05,
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 3, // 3 days ago
     initialGlw: 300,
@@ -269,6 +267,7 @@ export function PositionsView() {
   const animatedRewards = useMotionValue(0);
   const [animatedRewardsDisplay, setAnimatedRewardsDisplay] = React.useState(0);
   const [totalRatePerSec, setTotalRatePerSec] = React.useState(0);
+  const [feesRatePerSec, setFeesRatePerSec] = React.useState(0);
   // Live, per-position reward displays
   const [positionFinalizedMap, setPositionFinalizedMap] = React.useState<
     Record<string, number>
@@ -279,6 +278,13 @@ export function PositionsView() {
   const [positionRateMap, setPositionRateMap] = React.useState<
     Record<string, number>
   >({});
+  const [positionFeesMap, setPositionFeesMap] = React.useState<
+    Record<string, number>
+  >({}); // USDG-denominated fees accrued
+  const [positionFeeRateMap, setPositionFeeRateMap] = React.useState<
+    Record<string, number>
+  >({}); // USDG/sec
+  const [showIncentiveBanner, setShowIncentiveBanner] = React.useState(true);
   useMotionValueEvent(animatedRewards, "change", (v) =>
     setAnimatedRewardsDisplay(v)
   );
@@ -288,6 +294,21 @@ export function PositionsView() {
     return () => clearInterval(id);
   }, []);
 
+  // Restore hidden state of the liquidity incentive banner
+  React.useEffect(() => {
+    try {
+      const hidden = window.localStorage.getItem("lp_banner_hidden");
+      if (hidden === "1") setShowIncentiveBanner(false);
+    } catch {}
+  }, []);
+
+  function hideIncentiveBanner() {
+    try {
+      window.localStorage.setItem("lp_banner_hidden", "1");
+    } catch {}
+    setShowIncentiveBanner(false);
+  }
+
   // mock: sum of finalized rewards across positions could be displayed here
   React.useEffect(() => {
     let finalizedSum = 0;
@@ -296,6 +317,9 @@ export function PositionsView() {
     const finalizedById: Record<string, number> = {};
     const pendingById: Record<string, number> = {};
     const rateById: Record<string, number> = {};
+    const feesById: Record<string, number> = {};
+    const feeRateById: Record<string, number> = {};
+    let totalFeeRate = 0;
     for (const p of positions) {
       const r = getRewardsEstimatesGLW(p);
       finalizedSum += r.finalized;
@@ -304,12 +328,29 @@ export function PositionsView() {
       finalizedById[p.id] = r.finalized;
       pendingById[p.id] = r.pending;
       rateById[p.id] = r.ratePerSecond;
+
+      // Fees accrued (mock): APY on position total value (in USDG)
+      const positionValueInUSDG =
+        p.usdgAmount + p.glwAmount * (MOCK_PRICE_RATIO || 0);
+      const elapsedSeconds = Math.max(
+        0,
+        Math.floor((now - p.createdAt) / 1000)
+      );
+      const feeRatePerSecond =
+        ((MOCK_FEE_APY / 100) * positionValueInUSDG) / SECONDS_IN_YEAR;
+      const feesAccrued = feeRatePerSecond * elapsedSeconds;
+      feesById[p.id] = feesAccrued;
+      feeRateById[p.id] = feeRatePerSecond;
+      totalFeeRate += feeRatePerSecond;
     }
     setRewardsEarnedGlw(finalizedSum);
     setTotalRatePerSec(totalRate);
     setPositionFinalizedMap(finalizedById);
     setPositionPendingMap(pendingById);
     setPositionRateMap(rateById);
+    setPositionFeesMap(feesById);
+    setPositionFeeRateMap(feeRateById);
+    setFeesRatePerSec(totalFeeRate);
 
     animatedRewards.set(totalNow);
     const tick = setInterval(() => {
@@ -329,9 +370,17 @@ export function PositionsView() {
         }
         return next;
       });
+      setPositionFeesMap((prev) => {
+        const next: Record<string, number> = {};
+        for (const key of Object.keys(positionFeeRateMap)) {
+          const current = prev[key] ?? 0;
+          next[key] = current + (positionFeeRateMap[key] || 0);
+        }
+        return next;
+      });
     }, 1000);
     return () => clearInterval(id);
-  }, [positionRateMap]);
+  }, [positionRateMap, positionFeeRateMap]);
 
   const EPOCH_SECONDS = 7 * 24 * 60 * 60; // 7-day epochs (mock)
 
@@ -342,21 +391,19 @@ export function PositionsView() {
 
   function getRewardsEstimatesGLW(p: Position) {
     // Simple estimate: rewards accrue on GLW principal only to avoid price dependency
-    const aprPerSecond = p.apr / 100 / (365 * 24 * 60 * 60);
+    const apyPerSecond = p.apy / 100 / (365 * 24 * 60 * 60);
     const elapsedSeconds = Math.max(0, Math.floor((now - p.createdAt) / 1000));
     const multiplier = getLoyaltyMultiplier(p.createdAt);
-
-    const total = p.glwAmount * aprPerSecond * elapsedSeconds * multiplier;
 
     const completedEpochs = Math.floor(elapsedSeconds / EPOCH_SECONDS);
     const finalizedSeconds = completedEpochs * EPOCH_SECONDS;
     const pendingSeconds = elapsedSeconds - finalizedSeconds;
 
     const finalized =
-      p.glwAmount * aprPerSecond * finalizedSeconds * multiplier;
-    const pending = p.glwAmount * aprPerSecond * pendingSeconds * multiplier;
+      p.glwAmount * apyPerSecond * finalizedSeconds * multiplier;
+    const pending = p.glwAmount * apyPerSecond * pendingSeconds * multiplier;
 
-    const ratePerSecond = p.glwAmount * aprPerSecond * multiplier;
+    const ratePerSecond = p.glwAmount * apyPerSecond * multiplier;
 
     return { finalized, pending, multiplier, ratePerSecond };
   }
@@ -367,7 +414,7 @@ export function PositionsView() {
       pair: "GLW/USDG",
       glwAmount: glw,
       usdgAmount: usdg,
-      apr: 34.1,
+      apy: 11.1,
       poolSharePct: 0.01,
       createdAt: Date.now(),
       initialGlw: glw,
@@ -422,30 +469,55 @@ export function PositionsView() {
               <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
                 Rewards earned (live)
               </div>
-              <div className="flex items-center flex-wrap gap-3">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl md:text-4xl font-extrabold tabular-nums">
-                    {animatedRewardsDisplay.toLocaleString(undefined, {
-                      minimumFractionDigits: 6,
-                      maximumFractionDigits: 6,
-                    })}
-                  </span>
-                  <span className="text-muted-foreground font-medium">GLW</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-xl border p-3">
+                  <div className="text-xs text-muted-foreground mb-1">
+                    GLW incentives
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl md:text-3xl font-extrabold tabular-nums">
+                      {animatedRewardsDisplay.toLocaleString(undefined, {
+                        minimumFractionDigits: 6,
+                        maximumFractionDigits: 6,
+                      })}
+                    </span>
+                    <span className="text-muted-foreground font-medium">
+                      GLW
+                    </span>
+                  </div>
+                </div>
+                <div className="rounded-xl border p-3">
+                  <div className="text-xs text-muted-foreground mb-1">
+                    Exchange fee rewards
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl md:text-3xl font-extrabold tabular-nums">
+                      {Object.values(positionFeesMap)
+                        .reduce((a, b) => a + b, 0)
+                        .toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                    </span>
+                    <span className="text-muted-foreground font-medium">
+                      USDG
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Totals (from positions) card */}
+          {/* Totals and info (from positions) card */}
           <div className="bg-background/80 backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
             <div className="p-6">
               <div className="text-xs uppercase tracking-wide text-muted-foreground mb-3">
-                My balances
+                My Positions Balances
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-xs text-muted-foreground">Total GLW</div>
-                  <div className="text-2xl font-bold tabular-nums">
+                  <div className="text-2xl md:text-3xl font-bold tabular-nums">
                     {positions
                       .reduce((acc, p) => acc + p.glwAmount, 0)
                       .toLocaleString(undefined, { maximumFractionDigits: 4 })}
@@ -455,7 +527,7 @@ export function PositionsView() {
                   <div className="text-xs text-muted-foreground">
                     Total USDG
                   </div>
-                  <div className="text-2xl font-bold tabular-nums">
+                  <div className="text-2xl md:text-3xl font-bold tabular-nums">
                     {positions
                       .reduce((acc, p) => acc + p.usdgAmount, 0)
                       .toLocaleString(undefined, { maximumFractionDigits: 2 })}
@@ -481,6 +553,50 @@ export function PositionsView() {
                 Remove liquidity
               </Button>
             </div>
+
+            {/* Liquidity incentive banner */}
+            {showIncentiveBanner && (
+              <div className="rounded-2xl border border-border bg-background p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-2">
+                    <div className=" font-medium">
+                      Liquidity incentive program
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      5,000 GLW per week for 12 weeks to Uniswap LPs. Rewards
+                      are distributed proportionally by liquidity provided, with
+                      a loyalty bonus that increases the longer liquidity stays
+                      deposited.
+                    </p>
+                    <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-1">
+                      <li>1 day: no bonus</li>
+                      <li>10 days: +50% bonus</li>
+                      <li>100 days: +125% bonus</li>
+                    </ul>
+                    <p className="text-xs text-muted-foreground">
+                      Bonuses scale up over time, rewarding early and persistent
+                      LPs to help deepen GLW liquidity.
+                    </p>
+                    <div>
+                      <Link
+                        href="/blog/liquidity-incentive-proposal"
+                        className="text-xs underline text-primary hover:text-primary/80"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Read the full article →
+                      </Link>
+                    </div>
+                  </div>
+                  <button
+                    onClick={hideIncentiveBanner}
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
+                  >
+                    Hide
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Add Liquidity Panel - Always visible */}
             <AddLiquidityPanel onConfirm={onAddLiquidity} />
@@ -519,36 +635,15 @@ export function PositionsView() {
                             <div>
                               <div className="font-medium">{position.pair}</div>
                               <div className="text-xs text-muted-foreground">
-                                Pool share: {position.poolSharePct.toFixed(2)}%
-                                · Opened {Math.floor(days)}d ago
+                                Opened {Math.floor(days)}d ago
                               </div>
                             </div>
                             <div className="text-right">
                               <div className="text-xs text-muted-foreground uppercase tracking-wider">
-                                APR
+                                APY
                               </div>
                               <div className="text-lg font-bold tabular-nums">
-                                {position.apr.toFixed(2)}%
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Initial amounts */}
-                          <div className="grid  text-sm">
-                            <div className="rounded-md border p-3">
-                              <div className="text-xs text-muted-foreground">
-                                Deposited
-                              </div>
-                              <div className="font-medium tabular-nums">
-                                {position.initialGlw.toLocaleString(undefined, {
-                                  maximumFractionDigits: 4,
-                                })}{" "}
-                                GLW ·{" "}
-                                {position.initialUsdg.toLocaleString(
-                                  undefined,
-                                  { maximumFractionDigits: 2 }
-                                )}{" "}
-                                USDG
+                                {position.apy.toFixed(2)}%
                               </div>
                             </div>
                           </div>
@@ -571,31 +666,8 @@ export function PositionsView() {
                               <div className="mt-3 rounded-md border p-3">
                                 <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
                                   <span>Current pool value</span>
-                                  <span>
-                                    {pctGLW * 100 < 100
-                                      ? (pctGLW * 100).toFixed(2)
-                                      : 100}
-                                    % GLW ·{" "}
-                                    {pctUSDG * 100 < 100
-                                      ? (pctUSDG * 100).toFixed(2)
-                                      : 100}
-                                    % USDG
-                                  </span>
                                 </div>
-                                <div className="h-2 w-full rounded-full overflow-hidden flex border border-border">
-                                  <div
-                                    className="bg-foreground"
-                                    style={{
-                                      width: `${(pctGLW * 100).toFixed(2)}%`,
-                                    }}
-                                  />
-                                  <div
-                                    className="bg-muted-foreground"
-                                    style={{
-                                      width: `${(pctUSDG * 100).toFixed(2)}%`,
-                                    }}
-                                  />
-                                </div>
+
                                 <div className="flex items-center justify-between">
                                   <span>
                                     {" "}
@@ -624,19 +696,37 @@ export function PositionsView() {
                           {/* Rewards and loyalty */}
                           <div className="grid grid-cols-2 gap-3 mt-3">
                             <div className="rounded-md border p-3">
-                              <div className="text-xs text-muted-foreground">
-                                Finalized rewards
+                              <div className="flex items-center justify-between">
+                                <div className="text-xs text-muted-foreground">
+                                  GLW rewards
+                                </div>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger className="text-xs text-muted-foreground">
+                                      ?
+                                    </TooltipTrigger>
+                                    <TooltipContent className="text-xs max-w-xs">
+                                      GLW incentives are distributed after the
+                                      v2 launch when epochs finalize. Amounts
+                                      shown accrue in real time but are not
+                                      immediately claimable. The v2 launch date
+                                      is not yet defined.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               </div>
                               <div className="font-medium tabular-nums">
-                                {finalized.toFixed(6)} GLW
+                                {(finalized + pending).toFixed(6)} GLW
                               </div>
                             </div>
                             <div className="rounded-md border p-3">
                               <div className="text-xs text-muted-foreground">
-                                Pending rewards
+                                Exchange fee rewards
                               </div>
                               <div className="font-medium tabular-nums">
-                                {pending.toFixed(6)} GLW
+                                {positionFeesMap[position.id]?.toFixed(2) ??
+                                  "0.00"}{" "}
+                                USDG
                               </div>
                             </div>
                           </div>

@@ -9,6 +9,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface AddLiquidityReviewDialogProps {
   open: boolean;
@@ -41,6 +42,8 @@ export function AddLiquidityReviewDialog({
   const totalValueUSD = priceRatio
     ? (glwAmount * priceRatio + usdgAmount).toFixed(2)
     : "0.00";
+
+  const [acknowledged, setAcknowledged] = React.useState(false);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -111,6 +114,21 @@ export function AddLiquidityReviewDialog({
               <span className="text-sm font-mono">{networkCostUSD}</span>
             </div>
           </div>
+
+          {/* Acknowledgement */}
+          <div className="pt-4 border-t">
+            <label htmlFor="ack-lp" className="flex items-start gap-3 text-sm">
+              <Checkbox
+                id="ack-lp"
+                checked={acknowledged}
+                onCheckedChange={(v) => setAcknowledged(Boolean(v))}
+              />
+              <span className="text-muted-foreground">
+                I understand LP tokens and GLW rewards will be claimable after
+                the v2 launch. The launch date is not yet defined.
+              </span>
+            </label>
+          </div>
         </div>
 
         <DialogFooter className="gap-2">
@@ -124,6 +142,7 @@ export function AddLiquidityReviewDialog({
           <Button
             onClick={onConfirm}
             isLoading={isSubmitting}
+            disabled={!acknowledged}
             className="flex-1"
           >
             Confirm
