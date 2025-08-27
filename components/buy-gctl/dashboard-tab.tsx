@@ -14,24 +14,34 @@ import {
 } from "lucide-react";
 import { formatUnits } from "viem";
 import { useGctlApi } from "@/hooks/useGctlApi";
+import {
+  MintedEvent,
+  PendingTransfer,
+  Region,
+} from "@glowlabs-org/utils/browser";
 
 interface DashboardTabProps {
   walletAddress?: string;
+  mintedEvents: MintedEvent[];
+  regions: Region[];
+  pendingTransfers: PendingTransfer[];
+  isMintedEventsLoading: boolean;
+  isStakedEventsLoading: boolean;
+  isRegionsLoading: boolean;
+  isPendingTransfersLoading: boolean;
 }
 
-export function DashboardTab({ walletAddress }: DashboardTabProps) {
-  const {
-    mintedEvents,
-    stakedEvents,
-    regions,
-    pendingTransfers,
-    gctlPrice,
-    isMintedEventsLoading,
-    isStakedEventsLoading,
-    isRegionsLoading,
-    isPendingTransfersLoading,
-    isGctlPriceLoading,
-  } = useGctlApi(walletAddress);
+export function DashboardTab({
+  walletAddress,
+  mintedEvents,
+  regions,
+  pendingTransfers,
+  isMintedEventsLoading,
+  isStakedEventsLoading,
+  isRegionsLoading,
+  isPendingTransfersLoading,
+}: DashboardTabProps) {
+  const { isGctlPriceLoading } = useGctlApi(walletAddress);
 
   // Calculate metrics
   const metrics = useMemo(() => {

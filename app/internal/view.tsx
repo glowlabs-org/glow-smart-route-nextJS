@@ -12,7 +12,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 // Custom hooks
-import { useGctlApi } from "@/hooks/useGctlApi";
 
 // Feature components
 import { MintedEventsTab } from "@/components/buy-gctl/minted-events-tab";
@@ -21,6 +20,8 @@ import { StakedEventsTab } from "@/components/buy-gctl/staked-events-tab";
 import { FailedOperationsTab } from "@/components/buy-gctl/failed-operations-tab";
 import { ProcessingModal } from "@/components/buy-gctl/processing-modal";
 import { DashboardTab } from "@/components/buy-gctl/dashboard-tab";
+import { useGctlApi } from "@/hooks/useGctlApi";
+import { useRegions } from "@/hooks/useRegions";
 
 export default function BuyGctlView() {
   // =================================================================
@@ -39,24 +40,32 @@ export default function BuyGctlView() {
   // DATA STATE (GCTL API)
   // =================================================================
   const {
-    mintedEvents,
-    stakedEvents,
-    pendingTransfers,
-    failedOperations,
-    regions,
-
     isGctlPriceLoading,
-    isMintedEventsLoading,
-    isStakedEventsLoading,
-    isPendingTransfersLoading,
-    isFailedOperationsLoading,
     fetchMintedEvents,
     fetchPendingTransfers,
     fetchFailedOperations,
     gctlPriceNumber,
+    useMintedEvents,
+    usePendingTransfers,
+    useFailedOperations,
+    useRegionStake,
+    useStakeEvents,
     glwPriceNumber,
     isGlwPriceLoading,
   } = useGctlApi(address);
+
+  const { regions, isRegionsLoading } = useRegions();
+
+  const { data: mintedEvents, isLoading: isMintedEventsLoading } =
+    useMintedEvents();
+  const { data: pendingTransfers, isLoading: isPendingTransfersLoading } =
+    usePendingTransfers();
+  const { data: failedOperations, isLoading: isFailedOperationsLoading } =
+    useFailedOperations();
+  const { data: regionStake, isLoading: isRegionStakeLoading } =
+    useRegionStake(1);
+  const { data: stakeEvents, isLoading: isStakedEventsLoading } =
+    useStakeEvents();
 
   // =================================================================
   // TRANSACTION PROCESSING STATE
@@ -118,7 +127,7 @@ export default function BuyGctlView() {
     const interval = setInterval(() => {
       // Try to find the pending transfer to get accurate timing
       if (trackingTxHash) {
-        const pendingTransfer = pendingTransfers.find(
+        const pendingTransfer = pendingTransfers?.transfers.find(
           (transfer) =>
             transfer.txId.toLowerCase() === trackingTxHash.toLowerCase()
         );
@@ -177,7 +186,7 @@ export default function BuyGctlView() {
     if (!isProcessingTransaction || !trackingTxHash) return;
 
     // Check if transaction appears in minted events (completed)
-    const mintedEvent = mintedEvents.find(
+    const mintedEvent = mintedEvents?.events.find(
       (event) => event.txId.toLowerCase() === trackingTxHash.toLowerCase()
     );
 
@@ -192,7 +201,7 @@ export default function BuyGctlView() {
     }
 
     // Optional: Check if transaction appears in pending transfers (being processed)
-    const pendingTransfer = pendingTransfers.find(
+    const pendingTransfer = pendingTransfers?.transfers.find(
       (transfer) => transfer.txId.toLowerCase() === trackingTxHash.toLowerCase()
     );
 
@@ -221,7 +230,7 @@ export default function BuyGctlView() {
       setProcessingStartTime(Date.now());
 
       // Calculate dynamic remaining time based on pending transfer timestamp
-      const pendingTransfer = pendingTransfers.find(
+      const pendingTransfer = pendingTransfers?.transfers.find(
         (transfer) => transfer.txId.toLowerCase() === txId.toLowerCase()
       );
 
@@ -370,7 +379,16 @@ export default function BuyGctlView() {
                   </TabsTrigger>
                 </TabsList>
                 <TabsContent value="dashboard" className="mt-0">
-                  <DashboardTab walletAddress={address} />
+                  <DashboardTab
+                    walletAddress={address}
+                    mintedEvents={mintedEvents?.events ?? []}
+                    regions={regions ?? []}
+                    pendingTransfers={pendingTransfers?.transfers ?? []}
+                    isMintedEventsLoading={isMintedEventsLoading}
+                    isStakedEventsLoading={isStakedEventsLoading}
+                    isRegionsLoading={isRegionsLoading}
+                    isPendingTransfersLoading={isPendingTransfersLoading}
+                  />
                 </TabsContent>
               </Tabs>
             </div>
@@ -405,7 +423,7 @@ export default function BuyGctlView() {
                   </TabsList>
                   <TabsContent value="pending">
                     <PendingTransfersTab
-                      pendingTransfers={pendingTransfers}
+                      pendingTransfers={pendingTransfers?.transfers ?? []}
                       dataLoading={dataLoading}
                       onRefresh={async () => {
                         await fetchPendingTransfers();
@@ -414,22 +432,23 @@ export default function BuyGctlView() {
                   </TabsContent>
                   <TabsContent value="minted">
                     <MintedEventsTab
-                      mintedEvents={mintedEvents}
+                      mintedEvents={mintedEvents?.events ?? []}
                       dataLoading={dataLoading}
                     />
                   </TabsContent>
 
                   <TabsContent value="staked">
                     <StakedEventsTab
-                      stakedEvents={stakedEvents}
+                      stakedEvents={stakeEvents ?? []}
                       dataLoading={dataLoading}
-                      regions={regions}
+                      regions={regions ?? []}
+                      isRegionsLoading={isRegionsLoading}
                     />
                   </TabsContent>
 
                   <TabsContent value="failed">
                     <FailedOperationsTab
-                      failedOperations={failedOperations}
+                      failedOperations={failedOperations?.operations ?? []}
                       dataLoading={dataLoading}
                     />
                   </TabsContent>

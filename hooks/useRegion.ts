@@ -10,12 +10,12 @@ import {
   RegionRouter,
 } from "@glowlabs-org/utils/browser";
 
-if (!process.env.NEXT_PUBLIC_GCTL_API) {
-  throw new Error("NEXT_PUBLIC_GCTL_API is not set");
+if (!process.env.NEXT_PUBLIC_CONTROL_API_URL) {
+  throw new Error("NEXT_PUBLIC_CONTROL_API_URL is not set");
 }
 
 // Initialize Region API client
-const regionRouter = RegionRouter(process.env.NEXT_PUBLIC_GCTL_API);
+const regionRouter = RegionRouter(process.env.NEXT_PUBLIC_CONTROL_API_URL);
 
 /**
  * Extract a useful error message from an unknown error value.

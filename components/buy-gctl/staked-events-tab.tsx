@@ -26,6 +26,7 @@ interface StakedEventsTabProps {
   stakedEvents: StakedEvent[];
   dataLoading: boolean;
   regions: Region[];
+  isRegionsLoading: boolean;
 }
 
 function CopyableAddress({
@@ -133,6 +134,7 @@ export function StakedEventsTab({
   stakedEvents,
   dataLoading,
   regions,
+  isRegionsLoading,
 }: StakedEventsTabProps) {
   return (
     <Card className="border border-border bg-card/90 backdrop-blur-sm">
@@ -145,7 +147,7 @@ export function StakedEventsTab({
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        {dataLoading ? (
+        {dataLoading || isRegionsLoading ? (
           <div className="flex justify-center items-center p-12">
             <div className="text-center">
               <Loader2 className="h-8 w-8 animate-spin text-green-600 mx-auto mb-4" />

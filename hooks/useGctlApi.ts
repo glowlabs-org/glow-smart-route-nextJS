@@ -1,30 +1,29 @@
 "use client";
 import { useCallback, useMemo } from "react";
+import Decimal from "decimal.js";
+import { formatUnits } from "viem";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Result, Ok, Err } from "ts-results";
 import {
-  DECIMALS_BY_TOKEN,
-  FailedOperation,
-  MintedEvent,
-  PendingTransfer,
-  Region,
-  RegionRouter,
-  RegionStake,
-  StakedEvent,
-  TransferDetails,
-  WalletRegionStake,
-  WalletRegionUnlocked,
+  type MintedEvent,
+  type StakedEvent,
+  type PendingTransfer,
+  type FailedOperation,
+  type RegionStake,
+  type WalletRegionStake,
+  type WalletRegionUnlocked,
+  type RestakeRequest,
   ControlRouter,
+  TransferDetails,
+  StakeRequest,
 } from "@glowlabs-org/utils/browser";
-import { formatUnits } from "viem";
 
-if (!process.env.NEXT_PUBLIC_GCTL_API) {
-  throw new Error("NEXT_PUBLIC_GCTL_API is not set");
+if (!process.env.NEXT_PUBLIC_CONTROL_API_URL) {
+  throw new Error("NEXT_PUBLIC_CONTROL_API_URL is not set");
 }
 
 // Initialize Glow Control API client
-const control = ControlRouter(process.env.NEXT_PUBLIC_GCTL_API);
-const region = RegionRouter(process.env.NEXT_PUBLIC_GCTL_API);
+const control = ControlRouter(process.env.NEXT_PUBLIC_CONTROL_API_URL);
 
 /**
  * Extract a useful error message from an unknown error value.
@@ -39,13 +38,31 @@ function parseApiError(error: unknown): string {
 // Query Keys
 const QUERY_KEYS = {
   gctlBalance: (wallet?: string) => ["gctl-balance", wallet],
-  glwPrice: () => ["glw-price"],
   gctlPrice: () => ["gctl-price"],
-  mintedEvents: () => ["minted-events"],
-  stakeEvents: () => ["stake-events"], // Updated from stakedEvents
-  pendingTransfers: () => ["pending-transfers"],
-  failedOperations: () => ["failed-operations"],
+  gctlCirculatingSupply: () => ["gctl-circulating-supply"],
+  mintedEvents: (page?: number, limit?: number) => [
+    "minted-events",
+    page,
+    limit,
+  ],
+  stakeEvents: (regionId?: number, page?: number, limit?: number) => [
+    "stake-events",
+    regionId,
+    page,
+    limit,
+  ], // Updated from stakedEvents
+  pendingTransfers: (page?: number, limit?: number) => [
+    "pending-transfers",
+    page,
+    limit,
+  ],
+  failedOperations: (page?: number, limit?: number) => [
+    "failed-operations",
+    page,
+    limit,
+  ],
   regions: () => ["regions"],
+  latestNonce: (wallet?: string) => ["latest-nonce", wallet],
   transferDetails: (txId: string) => ["transfer-details", txId],
   regionStake: (regionId: number) => ["region-stake", regionId],
   walletRegionStake: (wallet?: string, regionId?: number) => [
@@ -58,16 +75,26 @@ const QUERY_KEYS = {
     wallet,
     regionId,
   ],
+  glwPrice: () => ["glw-price"],
 } as const;
 
 export function useGctlApi(walletAddress?: string) {
   const queryClient = useQueryClient();
 
-  const fetchRegionsApi = async (): Promise<Region[]> => {
-    const data = await region.fetchRegions();
-    return data.filter((r) => r.id !== 998 && r.id !== 999);
-  };
   // ----------------------- React Query hooks -----------------------------
+
+  // Latest Nonce used for the wallet
+  const {
+    data: latestNonce = "0",
+    refetch: refetchLatestNonce,
+    isLoading: isLatestNonceLoading,
+  } = useQuery({
+    queryKey: QUERY_KEYS.latestNonce(walletAddress),
+    queryFn: () => control.fetchLastNonce(walletAddress!),
+    enabled: !!walletAddress,
+    staleTime: 10 * 1000, // 10 seconds
+    retry: 2,
+  });
 
   // GCTL Balance Query
   const {
@@ -79,23 +106,6 @@ export function useGctlApi(walletAddress?: string) {
     queryFn: () => control.fetchGctlBalance(walletAddress!),
     enabled: !!walletAddress,
     staleTime: 10 * 1000, // 10 seconds
-    retry: 2,
-  });
-
-  // GLW Price Query
-  const {
-    data: glwPrice,
-    refetch: refetchGlwPrice,
-    isLoading: isGlwPriceLoading,
-  } = useQuery({
-    queryKey: QUERY_KEYS.glwPrice(),
-    queryFn: () => control.fetchGlwPrice(),
-    staleTime: 60_000, // Cache for 1 minute
-    gcTime: 5 * 60_000, // Garbage collect after 5 minutes
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    refetchInterval: 60_000, // Refetch every minute to stay up-to-date
     retry: 2,
   });
 
@@ -111,111 +121,134 @@ export function useGctlApi(walletAddress?: string) {
     retry: 2,
   });
 
-  const glwPriceNumber = useMemo(
-    () =>
-      parseFloat(
-        formatUnits(BigInt(glwPrice || "0"), DECIMALS_BY_TOKEN.USDC).toString()
+  const {
+    data: glwPrice = "0",
+    refetch: refetchGlwPrice,
+    isLoading: isGlwPriceLoading,
+  } = useQuery({
+    queryKey: QUERY_KEYS.glwPrice(),
+    queryFn: () => control.fetchGlwPrice(),
+    staleTime: 60_000, // Cache for 1 minute
+    gcTime: 5 * 60_000, // Garbage collect after 5 minutes
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: 60_000, // Refetch every minute to stay up-to-date
+    retry: 2,
+  });
+
+  const glwPriceNumber = useMemo(() => {
+    try {
+      return new Decimal(formatUnits(BigInt(glwPrice), 6)).toNumber();
+    } catch {
+      return 0;
+    }
+  }, [glwPrice]);
+
+  const gctlPriceNumber = useMemo(() => {
+    try {
+      return new Decimal(formatUnits(BigInt(gctlPrice), 6)).toNumber();
+    } catch {
+      return 0;
+    }
+  }, [gctlPrice]);
+
+  // GCTL Circulating Supply
+  const {
+    data: gctlCirculatingSupply = "0",
+    refetch: refetchGctlCirculatingSupply,
+    isLoading: isGctlCirculatingSupplyLoading,
+  } = useQuery({
+    queryKey: QUERY_KEYS.gctlCirculatingSupply(),
+    queryFn: () => control.fetchCirculatingSupply(),
+    staleTime: 30 * 1000, // 30 seconds
+    retry: 2,
+  });
+
+  const gctlCirculatingSupplyNumber = useMemo(() => {
+    try {
+      return new Decimal(
+        formatUnits(BigInt(gctlCirculatingSupply), 6)
+      ).toNumber();
+    } catch {
+      return 0;
+    }
+  }, [gctlCirculatingSupply]);
+
+  // Conditional hooks for Events/Transfers
+  const useMintedEvents = (params?: { page?: number; limit?: number }) =>
+    useQuery({
+      queryKey: QUERY_KEYS.mintedEvents(params?.page, params?.limit),
+      queryFn: () => control.fetchMintedEvents(params?.page, params?.limit),
+      staleTime: 0,
+      gcTime: 0,
+      refetchOnMount: true,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      refetchInterval: 30000,
+      refetchIntervalInBackground: true,
+      retry: 2,
+    });
+
+  const useStakeEvents = (params?: {
+    regionId?: number;
+    page?: number;
+    limit?: number;
+  }) =>
+    useQuery({
+      queryKey: QUERY_KEYS.stakeEvents(
+        params?.regionId,
+        params?.page,
+        params?.limit
       ),
-    [glwPrice]
-  );
+      queryFn: async () => {
+        const data = await fetchStakedEvents(params ?? {});
+        if (data.ok) {
+          return data.val;
+        }
+        return [];
+      },
+      staleTime: 0,
+      gcTime: 0,
+      refetchOnMount: true,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      refetchInterval: 30000,
+      refetchIntervalInBackground: true,
+      retry: 2,
+    });
 
-  const gctlPriceNumber = useMemo(
-    () =>
-      parseFloat(
-        formatUnits(BigInt(gctlPrice || "0"), DECIMALS_BY_TOKEN.USDC).toString()
-      ),
-    [gctlPrice]
-  );
+  const usePendingTransfers = (params?: { page?: number; limit?: number }) =>
+    useQuery({
+      queryKey: QUERY_KEYS.pendingTransfers(params?.page, params?.limit),
+      queryFn: () => control.fetchPendingTransfers(params?.page, params?.limit),
+      staleTime: 0,
+      gcTime: 0,
+      refetchOnMount: true,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      refetchInterval: 30000,
+      refetchIntervalInBackground: true,
+      retry: 2,
+    });
 
-  // Minted Events Query
-  const {
-    data: mintedEvents = [],
-    refetch: refetchMintedEvents,
-    isLoading: isMintedEventsLoading,
-  } = useQuery({
-    queryKey: QUERY_KEYS.mintedEvents(),
-    queryFn: () => control.fetchMintedEvents(),
-    staleTime: 0, // No caching - always fetch fresh data
-    gcTime: 0, // Don't cache results
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    refetchInterval: 30000, // Refetch every 30 seconds
-    refetchIntervalInBackground: true, // Continue refetching even when window is not focused
-    retry: 2,
-  });
-
-  // Stake Events Query (Updated from Staked Events)
-  const {
-    data: stakedEvents = [], // Keep the same data property name for backward compatibility
-    refetch: refetchStakedEvents,
-    isLoading: isStakedEventsLoading,
-  } = useQuery({
-    queryKey: QUERY_KEYS.stakeEvents(), // Updated query key
-    queryFn: () => control.fetchStakeEvents(), // Updated function name
-    staleTime: 0, // No caching - always fetch fresh data
-    gcTime: 0, // Don't cache results
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    refetchInterval: 30000, // Refetch every 30 seconds
-    refetchIntervalInBackground: true, // Continue refetching even when window is not focused
-    retry: 2,
-  });
-
-  // Pending Transfers Query
-  const {
-    data: pendingTransfers = [],
-    refetch: refetchPendingTransfers,
-    isLoading: isPendingTransfersLoading,
-  } = useQuery({
-    queryKey: QUERY_KEYS.pendingTransfers(),
-    queryFn: () => control.fetchPendingTransfers(),
-    staleTime: 0, // No caching - always fetch fresh data
-    gcTime: 0, // Don't cache results
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    refetchInterval: 30000, // Refetch every 30 seconds
-    refetchIntervalInBackground: true, // Continue refetching even when window is not focused
-    retry: 2,
-  });
-
-  // Failed Operations Query
-  const {
-    data: failedOperations = [],
-    refetch: refetchFailedOperations,
-    isLoading: isFailedOperationsLoading,
-  } = useQuery({
-    queryKey: QUERY_KEYS.failedOperations(),
-    queryFn: () => control.fetchFailedOperations(),
-    staleTime: 0, // No caching - always fetch fresh data
-    gcTime: 0, // Don't cache results
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    retry: 2,
-  });
-
-  // Regions Query
-  const {
-    data: regions = [],
-    refetch: refetchRegions,
-    isLoading: isRegionsLoading,
-  } = useQuery({
-    queryKey: QUERY_KEYS.regions(),
-    queryFn: fetchRegionsApi,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: 2,
-  });
-
-  // Hooks for staking data - these can be called conditionally
+  const useFailedOperations = (params?: { page?: number; limit?: number }) =>
+    useQuery({
+      queryKey: QUERY_KEYS.failedOperations(params?.page, params?.limit),
+      queryFn: () => control.fetchFailedOperations(params?.page, params?.limit),
+      staleTime: 0,
+      gcTime: 0,
+      refetchOnMount: true,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      retry: 2,
+    });
 
   // Hook for transfer details - can be called conditionally
   const useTransferDetails = (txId: string) =>
     useQuery({
       queryKey: QUERY_KEYS.transferDetails(txId),
-      queryFn: () => control.fetchTransferDetails(txId),
+      queryFn: () => fetchTransferDetails(txId),
       enabled: !!txId,
       staleTime: 0, // No caching - always fetch fresh data
       gcTime: 0, // Don't cache results
@@ -225,7 +258,7 @@ export function useGctlApi(walletAddress?: string) {
   const useRegionStake = (regionId: number) => {
     return useQuery({
       queryKey: QUERY_KEYS.regionStake(regionId),
-      queryFn: () => control.fetchRegionStake(regionId),
+      queryFn: () => fetchStakedEvents({ regionId }),
       staleTime: 30 * 1000, // 30 seconds
       retry: 2,
     });
@@ -256,16 +289,10 @@ export function useGctlApi(walletAddress?: string) {
 
   // Stake GCTL Mutation
   const stakeMutation = useMutation({
-    mutationFn: async ({
-      regionId,
-      amount,
-    }: {
-      regionId: number;
-      amount: string;
-    }) => {
+    mutationFn: async (stakeRequest: StakeRequest) => {
       if (!walletAddress) throw new Error("Wallet address not provided");
 
-      // return await control.stakeGctl(walletAddress, regionId, amount);
+      return await control.stakeGctl(stakeRequest);
     },
     onSuccess: (_, { regionId }) => {
       // Invalidate all relevant queries - will auto-refetch if actively observed
@@ -282,7 +309,13 @@ export function useGctlApi(walletAddress?: string) {
         queryKey: QUERY_KEYS.walletRegionUnlocked(walletAddress, regionId),
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.regions() });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.stakeEvents() }); // Add staked events invalidation
+      queryClient.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) && q.queryKey[0] === "stake-events",
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.latestNonce(walletAddress),
+      });
     },
     onError: (error) => {
       console.error("Stake mutation error:", error);
@@ -291,22 +324,19 @@ export function useGctlApi(walletAddress?: string) {
         queryKey: QUERY_KEYS.gctlBalance(walletAddress),
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.regions() });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.stakeEvents() }); // Add staked events invalidation
+      queryClient.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) && q.queryKey[0] === "stake-events",
+      });
     },
   });
 
   // Unstake GCTL Mutation
   const unstakeMutation = useMutation({
-    mutationFn: async ({
-      regionId,
-      amount,
-    }: {
-      regionId: number;
-      amount: string;
-    }) => {
+    mutationFn: async (unstakeRequest: StakeRequest) => {
       if (!walletAddress) throw new Error("Wallet address not provided");
 
-      // return await control.unstakeGctl(walletAddress, regionId, amount);
+      return await control.unstakeGctl(unstakeRequest);
     },
     onSuccess: (_, { regionId }) => {
       // Invalidate all relevant queries - will auto-refetch if actively observed
@@ -324,6 +354,9 @@ export function useGctlApi(walletAddress?: string) {
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.regions() });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.stakeEvents() }); // Add staked events invalidation
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.latestNonce(walletAddress),
+      });
     },
     onError: (error) => {
       console.error("Unstake mutation error:", error);
@@ -336,6 +369,62 @@ export function useGctlApi(walletAddress?: string) {
     },
   });
 
+  // Restake GCTL Mutation
+  const restakeMutation = useMutation({
+    mutationFn: async (restakeRequest: RestakeRequest) => {
+      if (!walletAddress) throw new Error("Wallet address not provided");
+      return await control.restakeGctl(restakeRequest);
+    },
+    onSuccess: (_, { fromZoneId, toZoneId }) => {
+      // Invalidate balances and region stakes for both source and destination
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.gctlBalance(walletAddress),
+      });
+      if (typeof fromZoneId === "number") {
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.regionStake(fromZoneId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.walletRegionStake(walletAddress, fromZoneId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.walletRegionUnlocked(walletAddress, fromZoneId),
+        });
+      }
+      if (typeof toZoneId === "number") {
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.regionStake(toZoneId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.walletRegionStake(walletAddress, toZoneId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.walletRegionUnlocked(walletAddress, toZoneId),
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.regions() });
+      queryClient.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) && q.queryKey[0] === "stake-events",
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.latestNonce(walletAddress),
+      });
+    },
+    onError: (error) => {
+      console.error("Restake mutation error:", error);
+      // Conservative invalidation in case of partial state
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.gctlBalance(walletAddress),
+      });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.regions() });
+      queryClient.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) && q.queryKey[0] === "stake-events",
+      });
+    },
+  });
+
   // Retry Failed Operation Mutation
   const retryFailedOperationMutation = useMutation({
     mutationFn: async (operationId: string) =>
@@ -343,13 +432,18 @@ export function useGctlApi(walletAddress?: string) {
     onSuccess: () => {
       // Invalidate failed operations to refresh the list
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.failedOperations(),
+        predicate: (q) =>
+          Array.isArray(q.queryKey) && q.queryKey[0] === "failed-operations",
       });
       // Also invalidate other relevant queries as the retry might affect them
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.pendingTransfers(),
+        predicate: (q) =>
+          Array.isArray(q.queryKey) && q.queryKey[0] === "pending-transfers",
       });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.mintedEvents() });
+      queryClient.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) && q.queryKey[0] === "minted-events",
+      });
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.gctlBalance(walletAddress),
       });
@@ -360,6 +454,32 @@ export function useGctlApi(walletAddress?: string) {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.failedOperations(),
       });
+    },
+  });
+
+  const stakeGctlMutation = useMutation({
+    mutationFn: async (stakeRequest: StakeRequest) => {
+      if (!walletAddress) throw new Error("Wallet address not provided");
+      return await control.stakeGctl(stakeRequest);
+    },
+    onSuccess: (_, { regionId }) => {
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.walletRegionStake(walletAddress, regionId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.walletRegionUnlocked(walletAddress, regionId),
+      });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.regions() });
+      queryClient.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) && q.queryKey[0] === "stake-events",
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.latestNonce(walletAddress),
+      });
+    },
+    onError: (error) => {
+      console.error("Stake mutation error:", error);
     },
   });
 
@@ -381,66 +501,75 @@ export function useGctlApi(walletAddress?: string) {
   > => {
     try {
       await refetchGctlPrice();
-      return new Ok(gctlPrice);
+      return new Ok(gctlPrice.toString());
     } catch (error) {
       return new Err(parseApiError(error));
     }
   }, [refetchGctlPrice, gctlPrice]);
 
+  const fetchCirculatingSupply = useCallback(async (): Promise<
+    Result<string, string>
+  > => {
+    try {
+      await refetchGctlCirculatingSupply();
+      return new Ok(gctlCirculatingSupply.toString());
+    } catch (error) {
+      return new Err(parseApiError(error));
+    }
+  }, [refetchGctlCirculatingSupply, gctlCirculatingSupply]);
+
   const fetchMintedEvents = useCallback(async (): Promise<
     Result<MintedEvent[], string>
   > => {
     try {
-      await refetchMintedEvents();
-      return new Ok(mintedEvents);
+      const data = await control.fetchMintedEvents();
+      return new Ok(data.events || []);
     } catch (error) {
       return new Err(parseApiError(error));
     }
-  }, [refetchMintedEvents, mintedEvents]);
+  }, []);
 
-  const fetchStakedEvents = useCallback(async (): Promise<
-    Result<StakedEvent[], string>
-  > => {
-    try {
-      const result = await refetchStakedEvents();
-      return new Ok(result.data || []);
-    } catch (error) {
-      return new Err(parseApiError(error));
-    }
-  }, [refetchStakedEvents]);
+  const fetchStakedEvents = useCallback(
+    async ({
+      page,
+      limit,
+      regionId,
+    }: {
+      page?: number;
+      limit?: number;
+      regionId?: number;
+    }): Promise<Result<StakedEvent[], string>> => {
+      try {
+        const data = await control.fetchStakeEvents(page, limit, regionId);
+        return new Ok(data.events || []);
+      } catch (error) {
+        return new Err(parseApiError(error));
+      }
+    },
+    []
+  );
 
   const fetchPendingTransfers = useCallback(async (): Promise<
     Result<PendingTransfer[], string>
   > => {
     try {
-      const result = await refetchPendingTransfers();
-      return new Ok(result.data || []);
+      const data = await control.fetchPendingTransfers();
+      return new Ok(data.transfers || []);
     } catch (error) {
       return new Err(parseApiError(error));
     }
-  }, [refetchPendingTransfers]);
+  }, []);
 
   const fetchFailedOperations = useCallback(async (): Promise<
     Result<FailedOperation[], string>
   > => {
     try {
-      const result = await refetchFailedOperations();
-      return new Ok(result.data || []);
+      const data = await control.fetchFailedOperations();
+      return new Ok(data.operations || []);
     } catch (error) {
       return new Err(parseApiError(error));
     }
-  }, [refetchFailedOperations]);
-
-  const fetchRegions = useCallback(async (): Promise<
-    Result<Region[], string>
-  > => {
-    try {
-      await refetchRegions();
-      return new Ok(regions);
-    } catch (error) {
-      return new Err(parseApiError(error));
-    }
-  }, [refetchRegions, regions]);
+  }, []);
 
   const fetchRegionStake = useCallback(
     async (regionId: number): Promise<Result<RegionStake, string>> => {
@@ -487,12 +616,9 @@ export function useGctlApi(walletAddress?: string) {
   );
 
   const stakeGctl = useCallback(
-    async (
-      regionId: number,
-      amount: string
-    ): Promise<Result<boolean, string>> => {
+    async (stakeRequest: StakeRequest): Promise<Result<boolean, string>> => {
       try {
-        await stakeMutation.mutateAsync({ regionId, amount });
+        await stakeMutation.mutateAsync(stakeRequest);
         return new Ok(true);
       } catch (error) {
         return new Err(parseApiError(error));
@@ -502,12 +628,9 @@ export function useGctlApi(walletAddress?: string) {
   );
 
   const unstakeGctl = useCallback(
-    async (
-      regionId: number,
-      amount: string
-    ): Promise<Result<boolean, string>> => {
+    async (unstakeRequest: StakeRequest): Promise<Result<boolean, string>> => {
       try {
-        await unstakeMutation.mutateAsync({ regionId, amount });
+        await unstakeMutation.mutateAsync(unstakeRequest);
         return new Ok(true);
       } catch (error) {
         return new Err(parseApiError(error));
@@ -540,38 +663,54 @@ export function useGctlApi(walletAddress?: string) {
     []
   );
 
+  const invalidateAllQueries = useCallback(() => {
+    queryClient.invalidateQueries();
+  }, [queryClient]);
+
+  // New: Restake helper
+  const restakeGctl = useCallback(
+    async (
+      restakeRequest: RestakeRequest
+    ): Promise<Result<boolean, string>> => {
+      try {
+        await restakeMutation.mutateAsync(restakeRequest);
+        return new Ok(true);
+      } catch (error) {
+        return new Err(parseApiError(error));
+      }
+    },
+    [restakeMutation]
+  );
+
   // --------------------------- Exports -----------------------------------
   return {
     // Data
     gctlBalance,
     gctlPrice,
-    mintedEvents,
-    stakedEvents,
-    pendingTransfers,
-    failedOperations,
-    regions,
+    gctlPriceNumber,
     glwPrice,
     glwPriceNumber,
-    gctlPriceNumber,
+    gctlCirculatingSupply,
+    gctlCirculatingSupplyNumber,
+    latestNonce,
+    // Events/transfers data are now exposed via conditional hooks instead
 
     // Loading states
     isGctlBalanceLoading,
     isGctlPriceLoading,
-    isMintedEventsLoading,
-    isStakedEventsLoading,
-    isPendingTransfersLoading,
-    isFailedOperationsLoading,
-    isRegionsLoading,
     isGlwPriceLoading,
+    isGctlCirculatingSupplyLoading,
+    // Loading states for events/transfers are provided by conditional hooks
 
     // Legacy functions (for backward compatibility)
     fetchGctlBalance,
     fetchGctlPrice,
+    fetchCirculatingSupply,
     fetchMintedEvents,
     fetchStakedEvents,
     fetchPendingTransfers,
     fetchFailedOperations,
-    fetchRegions,
+
     fetchRegionStake,
     fetchWalletRegionStake,
     fetchWalletRegionUnlocked,
@@ -579,16 +718,25 @@ export function useGctlApi(walletAddress?: string) {
     stakeGctl,
     unstakeGctl,
     retryFailedOperation,
+    stakeGctlMutation,
+    restakeGctl,
 
     // New React Query hooks for conditional usage
     useRegionStake,
     useWalletRegionStake,
     useWalletRegionUnlocked,
     useTransferDetails,
+    useMintedEvents,
+    useStakeEvents,
+    usePendingTransfers,
+    useFailedOperations,
 
     // Mutation states
     isStaking: stakeMutation.isPending,
     isUnstaking: unstakeMutation.isPending,
+    isRestaking: restakeMutation.isPending,
     isRetryingFailedOperation: retryFailedOperationMutation.isPending,
+    isLatestNonceLoading,
+    invalidateAllQueries,
   } as const;
 }

@@ -10,7 +10,7 @@ export function Loading() {
   return (
     <div className="min-h-screen bg-background relative">
       <Image
-        src="/images/sections/bg-gradient.png"
+        src="/images/sections/beam.png"
         alt="Background"
         fill
         className="object-cover"

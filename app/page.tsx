@@ -6,6 +6,7 @@ import { PageWrapper } from "./components/page-wrapper";
 import { Metadata } from "next";
 import { Navbar } from "./components/navbar";
 import { GridBeams } from "@/components/magicui/grid-beams";
+import { Header } from "@/components/header";
 
 export const revalidate = 36;
 
@@ -90,7 +91,8 @@ interface PageContentProps {
 function PageContent(props: PageContentProps) {
   return (
     <div className="min-h-screen bg-background">
-      <Navbar
+      <Header
+        withIsScrolled={false}
         glowPrice={props.glowPrice}
         earlyLiquidityCurrentPrice={props.earlyLiquidityCurrentPrice}
         marketCap={props.marketCap}
