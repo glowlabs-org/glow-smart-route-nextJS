@@ -7,6 +7,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -53,20 +55,20 @@ export function UnstakeDialog({
   );
 
   const [selectedRegion, setSelectedRegion] = useState<string>("");
-  const [amount, setAmount] = useState<string>("0");
+  const [percentage, setPercentage] = useState<number>(0);
 
   const selected = stakedRegions.find((r) => r.region === selectedRegion);
   const maxForRegion = selected ? parseNum(selected.userStake) : 0;
+  const unstakeAmount = (maxForRegion * percentage) / 100;
 
-  const disableSubmit =
-    !selectedRegion || parseNum(amount) <= 0 || parseNum(amount) > maxForRegion;
+  const disableSubmit = !selectedRegion || percentage <= 0;
 
   function handleSubmit() {
     if (disableSubmit) {
       toast.error("Enter a valid amount to unstake");
       return;
     }
-    toast.success(`Unstaking ${parseNum(amount).toLocaleString()} GCTL`, {
+    toast.success(`Unstaking ${unstakeAmount.toLocaleString()} GCTL`, {
       description: `${selectedRegion} • Drips over 100 weeks (1%/wk)`,
     });
     onClose();
@@ -83,19 +85,17 @@ export function UnstakeDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Unstake GCTL</DialogTitle>
-          <DialogDescription>
-            Choose the region and amount to unstake. Unstaking drips 1% per week
-            over 100 weeks. You can cancel later.
-          </DialogDescription>
+          <DialogTitle className="text-base">Unstake GCTL</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Regions */}
           <div>
-            <h3 className="text-sm font-medium mb-3">Your Staked Regions</h3>
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">
+              Your staked regions
+            </h3>
             {stakedRegions.length === 0 ? (
               <div className="text-xs text-muted-foreground">
                 You have no staked GCTL in any region.
@@ -106,7 +106,7 @@ export function UnstakeDialog({
                   value={selectedRegion}
                   onValueChange={(v) => {
                     setSelectedRegion(v);
-                    setAmount("0");
+                    setPercentage(0);
                   }}
                 >
                   <Table>
@@ -143,34 +143,54 @@ export function UnstakeDialog({
             )}
           </div>
 
-          {/* Amount */}
+          {/* Unstake percentage (remove-liquidity style) */}
           <div>
-            <Label htmlFor="unstake-amount">Amount</Label>
-            <div className="flex gap-2 mt-2">
-              <Input
-                id="unstake-amount"
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0"
-                max={maxForRegion || undefined}
-              />
-              <Button
-                variant="outline"
-                onClick={() => setAmount(maxForRegion.toString())}
-                disabled={!selectedRegion}
-              >
-                Max
-              </Button>
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Select unstake amount
+            </h3>
+            <div className="text-center py-4">
+              <div className="text-5xl font-bold tabular-nums">
+                {percentage}%
+              </div>
             </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Available in {selectedRegion || "region"}:{" "}
-              {maxForRegion.toLocaleString()} GCTL
+            <div className="px-2">
+              <Slider
+                value={[percentage]}
+                onValueChange={(value) => setPercentage(value[0])}
+                max={100}
+                step={1}
+                className="w-full"
+                disabled={!selectedRegion}
+              />
+            </div>
+            <div className="flex gap-2 justify-center mt-4">
+              {[25, 50, 75, 100].map((p) => (
+                <Button
+                  key={p}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPercentage(p)}
+                  className="px-4"
+                  disabled={!selectedRegion}
+                >
+                  {p === 100 ? "Max" : `${p}%`}
+                </Button>
+              ))}
+            </div>
+            <div className="text-xs text-muted-foreground text-center mt-2">
+              {selectedRegion ? (
+                <>
+                  Unstaking {unstakeAmount.toLocaleString()} GCTL of{" "}
+                  {maxForRegion.toLocaleString()} GCTL
+                </>
+              ) : (
+                <>Select a region to continue</>
+              )}
             </div>
           </div>
 
           {/* Preview */}
-          {selectedRegion && parseNum(amount) > 0 && (
+          {selectedRegion && percentage > 0 && (
             <div className="bg-muted/50 rounded-lg p-4 space-y-1 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Region</span>
@@ -179,7 +199,7 @@ export function UnstakeDialog({
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Unstake Amount</span>
                 <span className="font-medium">
-                  {parseNum(amount).toLocaleString()} GCTL
+                  {unstakeAmount.toLocaleString()} GCTL
                 </span>
               </div>
               <div className="flex justify-between pt-2 border-t">
@@ -202,22 +222,21 @@ export function UnstakeDialog({
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button onClick={handleSubmit} disabled={disableSubmit}>
-                Unstake Now
-              </Button>
-            </div>
+          <DialogFooter className="gap-2">
             {parseNum(gctlUnstaking) > 0 && (
               <Button variant="ghost" onClick={handleStopUnstake}>
                 Stop Unstake ({parseNum(gctlUnstaking).toLocaleString()} GCTL)
               </Button>
             )}
-          </div>
+            <div className="ml-auto flex gap-2">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button onClick={handleSubmit} disabled={disableSubmit}>
+                Unstake
+              </Button>
+            </div>
+          </DialogFooter>
         </div>
       </DialogContent>
     </Dialog>

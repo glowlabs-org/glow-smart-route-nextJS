@@ -4,9 +4,9 @@ import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -17,13 +17,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { TrendingUp, Info, ExternalLink } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Info } from "lucide-react";
 
 interface RestakeAssistantProps {
   isOpen: boolean;
@@ -37,23 +35,65 @@ interface RestakeAssistantProps {
   }>;
 }
 
+const MOCK_REGION_YIELDS: RestakeAssistantProps["regionYields"] = [
+  {
+    region: "North Valley",
+    yield: "12.4",
+    unretiredCredits: "24,100",
+    purchasePrice: "$1.02",
+    userStake: "1,250",
+  },
+  {
+    region: "Coastal Ridge",
+    yield: "9.8",
+    unretiredCredits: "18,450",
+    purchasePrice: "$0.97",
+    userStake: "0",
+  },
+  {
+    region: "Sunset Plains",
+    yield: "14.1",
+    unretiredCredits: "31,220",
+    purchasePrice: "$1.08",
+    userStake: "4,750",
+  },
+  {
+    region: "Canyon East",
+    yield: "7.6",
+    unretiredCredits: "12,005",
+    purchasePrice: "$0.93",
+    userStake: "3,200",
+  },
+  {
+    region: "Harbor South",
+    yield: "10.2",
+    unretiredCredits: "15,330",
+    purchasePrice: "$1.00",
+    userStake: "0",
+  },
+];
+
 export function RestakeAssistant({
   isOpen,
   onClose,
   regionYields,
 }: RestakeAssistantProps) {
-  const [selectedRegion, setSelectedRegion] = useState<string>("");
-  const [restakeAmount, setRestakeAmount] = useState("1000");
+  const [selectedFromRegion, setSelectedFromRegion] = useState<string>("");
+  const [selectedToRegion, setSelectedToRegion] = useState<string>("");
+  const [restakePercentage, setRestakePercentage] = useState(0);
   const [showAllRegions, setShowAllRegions] = useState(false);
 
+  const sourceRegions =
+    regionYields && regionYields.length > 0 ? regionYields : MOCK_REGION_YIELDS;
+
   // Sort regions by yield (highest first)
-  const sortedRegions = [...regionYields].sort(
+  const sortedRegions = [...sourceRegions].sort(
     (a, b) =>
       parseFloat(b.yield.replace(/,/g, "")) -
       parseFloat(a.yield.replace(/,/g, ""))
   );
 
-  const displayedRegions = showAllRegions
+  const displayedToRegions = showAllRegions
     ? sortedRegions
     : sortedRegions.slice(0, 3);
 
@@ -68,7 +108,7 @@ export function RestakeAssistant({
     return 5000; // baseline when no stake
   }
 
-  const estimatedStakeByRegion = regionYields.reduce<Record<string, number>>(
+  const estimatedStakeByRegion = sourceRegions.reduce<Record<string, number>>(
     (acc, r) => {
       acc[r.region] = estimateRegionStake(r);
       return acc;
@@ -91,122 +131,101 @@ export function RestakeAssistant({
     return { sharePct, weeklyGlw };
   }
 
-  const handleRegionSelect = (region: string) => {
-    setRestakeAmount("0");
-    setSelectedRegion(region);
+  const handleSelectFrom = (region: string) => {
+    setSelectedFromRegion(region);
+    setRestakePercentage(0);
+    if (region === selectedToRegion) setSelectedToRegion("");
+  };
+  const handleSelectTo = (region: string) => {
+    setSelectedToRegion(region);
   };
 
-  const handleRestake = () => {
-    if (!selectedRegion) {
-      toast.error("Please select a region");
-      return;
-    }
-    const selected = regionYields.find((r) => r.region === selectedRegion);
-    const maxStake = selected
-      ? parseFloat(selected.userStake.replace(/,/g, "")) || 0
-      : 0;
-    const amount = parseFloat(restakeAmount || "0");
-    if (amount <= 0) {
-      toast.error("Enter an amount to restake");
-      return;
-    }
-    if (amount > maxStake) {
-      toast.error("Amount exceeds staked in selected region");
-      return;
-    }
-    toast.success(`Restaking ${restakeAmount} GCTL`, {
-      description: `To region: ${selectedRegion}`,
+  const stakedFromRegions = sourceRegions.filter(
+    (r) => parseNum(r.userStake) > 0
+  );
+  const sortedFromRegions = [...stakedFromRegions].sort(
+    (a, b) => parseNum(b.userStake) - parseNum(a.userStake)
+  );
+  const displayedFromRegions = showAllRegions
+    ? sortedFromRegions
+    : sortedFromRegions.slice(0, 3);
+
+  const fromRegionData = sourceRegions.find(
+    (r) => r.region === selectedFromRegion
+  );
+  const maxStakeForSelected = fromRegionData
+    ? parseFloat(fromRegionData.userStake.replace(/,/g, "")) || 0
+    : 0;
+  const restakeAmount = (maxStakeForSelected * restakePercentage) / 100;
+  const restakeDisabled =
+    !selectedFromRegion ||
+    !selectedToRegion ||
+    selectedFromRegion === selectedToRegion ||
+    restakePercentage <= 0;
+
+  const onSubmitRestake = () => {
+    if (!selectedFromRegion || !selectedToRegion) return;
+    const amount = restakeAmount;
+    if (amount <= 0) return;
+    toast.success(`Restaking ${restakeAmount.toLocaleString()} GCTL`, {
+      description: `${selectedFromRegion} → ${selectedToRegion}`,
     });
     onClose();
   };
-  const selectedRegionData = regionYields.find(
-    (r) => r.region === selectedRegion
-  );
-  const maxStakeForSelected = selectedRegionData
-    ? parseFloat(selectedRegionData.userStake.replace(/,/g, "")) || 0
-    : 0;
-  const restakeDisabled =
-    !selectedRegion ||
-    parseFloat(restakeAmount || "0") <= 0 ||
-    parseFloat(restakeAmount || "0") > maxStakeForSelected;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Restake Assistant</DialogTitle>
-          <DialogDescription>
-            Move your GCTL to the best performing region
-          </DialogDescription>
+          <DialogTitle className="text-base">Restake GCTL</DialogTitle>
         </DialogHeader>
 
         <div className="mt-6 space-y-6">
-          {/* Compare Regions Table */}
+          {/* From Region (staked only) */}
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium">Compare Regions</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                From region (your staked)
+              </h3>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowAllRegions(!showAllRegions)}
               >
-                {showAllRegions ? "Show Top 3" : "Show All Regions"}
+                {showAllRegions ? "Show Top 3" : "Show Top"}
               </Button>
             </div>
-
             <div className="border rounded-lg overflow-hidden">
               <RadioGroup
-                value={selectedRegion}
-                onValueChange={handleRegionSelect}
+                value={selectedFromRegion}
+                onValueChange={handleSelectFrom}
               >
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12"></TableHead>
                       <TableHead>Region</TableHead>
-                      <TableHead>
-                        <div className="flex items-center gap-1">
-                          Region Share of 175k/wk
-                        </div>
-                      </TableHead>
-                      <TableHead>Unbinded Credits</TableHead>
-
                       <TableHead>Your Stake</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {displayedRegions.map((region, idx) => (
-                      <TableRow key={region.region}>
+                    {displayedFromRegions.map((r) => (
+                      <TableRow key={r.region}>
                         <TableCell>
                           <RadioGroupItem
-                            value={region.region}
-                            id={`r-${region.region}`}
+                            value={r.region}
+                            id={`from-${r.region}`}
                           />
                         </TableCell>
                         <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            {region.region}
-                            {idx === 0 && (
-                              <Badge variant="default" className="text-xs">
-                                TOP
-                              </Badge>
-                            )}
-                          </div>
+                          {r.region}
                         </TableCell>
-                        <TableCell className="font-bold text-green-600">
-                          {computeRegionShare(region.region).sharePct.toFixed(
-                            2
-                          )}
-                          %
-                        </TableCell>
-                        <TableCell>{region.unretiredCredits}</TableCell>
-
                         <TableCell>
-                          {region.userStake === "0" ? (
+                          {r.userStake === "0" ? (
                             <span className="text-muted-foreground">-</span>
                           ) : (
                             <span className="font-medium">
-                              {region.userStake}
+                              {r.userStake} GCTL
                             </span>
                           )}
                         </TableCell>
@@ -218,111 +237,140 @@ export function RestakeAssistant({
             </div>
           </div>
 
+          {/* To Region (all) */}
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">
+              To region
+            </h3>
+            <div className="border rounded-lg overflow-hidden">
+              <RadioGroup
+                value={selectedToRegion}
+                onValueChange={handleSelectTo}
+              >
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12"></TableHead>
+                      <TableHead>Region</TableHead>
+                      <TableHead>Yield %</TableHead>
+                      <TableHead>Unbinded Credits</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {displayedToRegions.map((region) => (
+                      <TableRow key={region.region}>
+                        <TableCell>
+                          <RadioGroupItem
+                            value={region.region}
+                            id={`to-${region.region}`}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {region.region}
+                        </TableCell>
+                        <TableCell className="font-bold text-green-600">
+                          {parseFloat(region.yield).toFixed(2)}%
+                        </TableCell>
+                        <TableCell>{region.unretiredCredits}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </RadioGroup>
+            </div>
+            {selectedFromRegion &&
+              selectedToRegion &&
+              selectedFromRegion === selectedToRegion && (
+                <div className="text-xs text-orange-600 mt-2">
+                  From and To regions must be different
+                </div>
+              )}
+          </div>
+
           {/* Restake Configuration */}
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="amount">Amount to Restake</Label>
-              <div className="flex gap-2 mt-2">
-                <Input
-                  id="amount"
-                  type="number"
-                  value={restakeAmount}
-                  onChange={(e) => setRestakeAmount(e.target.value)}
-                  placeholder="0"
-                  max={maxStakeForSelected || undefined}
-                />
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    setRestakeAmount(maxStakeForSelected.toString())
-                  }
-                >
-                  Max
-                </Button>
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Available in {selectedRegion || "region"}:{" "}
-                {maxStakeForSelected.toLocaleString()} GCTL
+            <div className="text-sm font-medium text-muted-foreground">
+              Select restake amount
+            </div>
+            <div className="text-center py-2">
+              <div className="text-5xl font-bold tabular-nums">
+                {restakePercentage}%
               </div>
             </div>
-
-            {selectedRegion && (
-              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                <div className="text-sm font-medium">Preview</div>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Selected Regions
-                    </span>
-                    <span className="font-medium">{selectedRegion}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Amount per Region
-                    </span>
-                    <span className="font-medium">
-                      {parseFloat(restakeAmount || "0").toFixed(2)} GCTL
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t">
-                    <span className="text-muted-foreground">
-                      Region Share (est.)
-                    </span>
-                    <span className="font-bold text-green-600">
-                      {computeRegionShare(
-                        selectedRegion,
-                        parseFloat(restakeAmount || "0")
-                      ).sharePct.toFixed(2)}
-                      %
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      GLW/week to region (est.)
-                    </span>
-                    <span className="font-bold text-green-600">
-                      {computeRegionShare(
-                        selectedRegion,
-                        parseFloat(restakeAmount || "0")
-                      ).weeklyGlw.toFixed(0)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5" />
-                <div className="text-xs text-blue-600 dark:text-blue-400">
-                  <div className="font-medium mb-1">Info</div>
-                  <div>Restaking drips 1% per week.</div>
-                </div>
-              </div>
+            <div className="px-2">
+              <Slider
+                value={[restakePercentage]}
+                onValueChange={(v) => setRestakePercentage(v[0])}
+                max={100}
+                step={1}
+                className="w-full"
+                disabled={!selectedFromRegion}
+              />
+            </div>
+            <div className="flex gap-2 justify-center">
+              {[25, 50, 75, 100].map((p) => (
+                <Button
+                  key={p}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRestakePercentage(p)}
+                  className="px-4"
+                  disabled={!selectedFromRegion}
+                >
+                  {p === 100 ? "Max" : `${p}%`}
+                </Button>
+              ))}
+            </div>
+            <div className="text-xs text-muted-foreground text-center">
+              {selectedFromRegion ? (
+                <>
+                  Restaking {restakeAmount.toLocaleString()} GCTL of{" "}
+                  {maxStakeForSelected.toLocaleString()} GCTL
+                </>
+              ) : (
+                <>Select a from region to continue</>
+              )}
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-between pt-4">
-            <Button
-              variant="link"
-              size="sm"
-              onClick={() => toast.info("Opening impact.glow.org")}
-            >
-              Deep dive on impact & farms
-              <ExternalLink className="w-3 h-3 ml-1" />
-            </Button>
+          {selectedFromRegion && selectedToRegion && restakePercentage > 0 && (
+            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+              <div className="text-sm font-medium">Preview</div>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">From → To</span>
+                  <span className="font-medium">
+                    {selectedFromRegion} → {selectedToRegion}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-medium">
+                    {restakeAmount.toLocaleString()} GCTL
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button onClick={handleRestake} disabled={restakeDisabled}>
-                Restake Now
-              </Button>
+          <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3">
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5" />
+              <div className="text-xs text-blue-600 dark:text-blue-400">
+                Restaking drips 1% per week.
+              </div>
             </div>
           </div>
         </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={onSubmitRestake} disabled={restakeDisabled}>
+            Restake
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

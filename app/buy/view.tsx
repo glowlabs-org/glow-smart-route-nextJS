@@ -49,6 +49,10 @@ import { cn } from "@/lib/utils";
 import Image from "next/image";
 import PositionsView from "../positions/view";
 import { useGctlApi } from "@/hooks/useGctlApi";
+import { WalletDashboardTab } from "@/components/wallet/wallet-dashboard-tab";
+import { RestakeAssistant } from "@/app/wallet/restake-assistant";
+import { UnstakeDialog } from "@/app/wallet/unstake-dialog";
+import { ContributeDialog } from "@/components/dialogs/ContributeDialog";
 
 const tokens = {
   USDG: {
@@ -152,6 +156,10 @@ export default function View({
   const [trackingTxHash, setTrackingTxHash] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState<boolean>(false);
   const [processedGctlAmount, setProcessedGctlAmount] = useState<string>("0");
+
+  const [isRestakeOpen, setIsRestakeOpen] = useState(false);
+  const [isUnstakeOpen, setIsUnstakeOpen] = useState(false);
+  const [isContributeOpen, setIsContributeOpen] = useState(false);
 
   // -------------------------------------------------------------------
   // URL PARAM STATE (txId)
@@ -934,6 +942,7 @@ export default function View({
           <TabsList className="self-center bg-background backdrop-blur-xl rounded-full p-6 border border-border overflow-hidden">
             <TabsTrigger value="swap">Swap</TabsTrigger>
             <TabsTrigger value="send">Send</TabsTrigger>
+
             <TabsTrigger value="liquidity">Liquidity</TabsTrigger>
           </TabsList>
 
@@ -1174,6 +1183,7 @@ export default function View({
               />
             </div>
           </TabsContent>
+
           <TabsContent value="liquidity">
             <PositionsView />
           </TabsContent>
@@ -1278,6 +1288,23 @@ export default function View({
           setEstimatedOutputAmount(defaultTokensEstimate);
           setSmartBalancingAmounts(undefined);
         }}
+      />
+
+      {/* Wallet Tab Modals */}
+      <RestakeAssistant
+        isOpen={isRestakeOpen}
+        onClose={() => setIsRestakeOpen(false)}
+        regionYields={[]}
+      />
+      <UnstakeDialog
+        isOpen={isUnstakeOpen}
+        onClose={() => setIsUnstakeOpen(false)}
+        regionYields={[]}
+        gctlUnstaking={"0"}
+      />
+      <ContributeDialog
+        open={isContributeOpen}
+        onOpenChange={setIsContributeOpen}
       />
     </div>
   );
