@@ -15,3 +15,8 @@ export const publicClient = createPublicClient({
     ? http(customUrl, { timeout: 15_000 })
     : http(undefined, { timeout: 15_000 }),
 });
+
+export const mainnetPublicClient = createPublicClient({
+  chain: mainnet,
+  transport: http(mainnetRpcUrl, { timeout: 15_000 }),
+});

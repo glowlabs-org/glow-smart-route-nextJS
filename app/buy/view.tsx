@@ -47,19 +47,20 @@ import { addresses } from "@/web3/constants/addresses";
 import { MaxUint256 } from "ethers";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import PositionsView from "../positions/view";
+import PositionsView from "../liquidity/view";
 import { useGctlApi } from "@/hooks/useGctlApi";
 import { WalletDashboardTab } from "@/components/wallet/wallet-dashboard-tab";
 import { RestakeAssistant } from "@/app/wallet/restake-assistant";
 import { UnstakeDialog } from "@/app/wallet/unstake-dialog";
 import { ContributeDialog } from "@/components/dialogs/ContributeDialog";
+import { StatsSidebar } from "./stats-sidebar";
 
 const tokens = {
   USDG: {
     label: "USDG",
     address: addresses.usdg,
     decimals: 6,
-    allowedPairs: ["GLOW", "USDC", "GCTL"],
+    allowedPairs: ["GLOW", "USDC"],
     toFixed: 6,
   },
   GLOW: {
@@ -73,7 +74,7 @@ const tokens = {
     label: "USDC",
     address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" as `0x${string}`,
     decimals: 6,
-    allowedPairs: ["GLOW", "USDG", "GCTL"],
+    allowedPairs: ["GLOW", "USDG"],
     toFixed: 6,
   },
   GCTL: {
@@ -148,6 +149,7 @@ export default function View({
 
   const [isUsdcInRedemptionLoading, setIsUsdcInRedemptionLoading] =
     useState(false);
+  const [usdcInRedemption, setUsdcInRedemption] = useState<number>(0);
 
   const [balancesLoading, setBalancesLoading] = useState<boolean>(true);
   // GCTL swap & modal state
@@ -903,7 +905,10 @@ export default function View({
     const fetchUsdcInRedemption = async () => {
       if (isConnected && !isWalletLoading) {
         setIsUsdcInRedemptionLoading(true);
-        await getUSDCBalanceOfRedemptionContract();
+        const balance = await getUSDCBalanceOfRedemptionContract();
+        if (balance) {
+          setUsdcInRedemption(Number(formatUnits(balance, 6)));
+        }
         setIsUsdcInRedemptionLoading(false);
       }
     };
@@ -944,257 +949,296 @@ export default function View({
 
       {/* Hero Section with Enhanced Gradient */}
 
-      <div className="relative overflow-hidden min-h-screen flex flex-col justify-center items-center pt-20 xl:pt-24">
-        <Tabs defaultValue="swap" className="items-center">
-          <TabsList className="self-center bg-background backdrop-blur-xl rounded-full p-6 border border-border overflow-hidden">
-            <TabsTrigger value="swap">Swap</TabsTrigger>
-            <TabsTrigger value="send">Send</TabsTrigger>
+      <div className="relative overflow-hidden min-h-screen flex flex-col justify-center items-center py-20 xl:pt-24">
+        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 lg:px-6 py-2 w-full">
+          <Tabs defaultValue="swap" className="lg:items-center">
+            <TabsList className="self-center bg-background backdrop-blur-xl rounded-full p-6 border border-border overflow-hidden mx-auto w-fit flex">
+              <TabsTrigger value="swap">Swap</TabsTrigger>
+              <TabsTrigger value="send">Send</TabsTrigger>
+              <TabsTrigger value="liquidity">Liquidity</TabsTrigger>
+            </TabsList>
 
-            <TabsTrigger value="liquidity">Liquidity</TabsTrigger>
-          </TabsList>
+            <TabsContent value="swap">
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 mt-2 lg:mt-6">
+                {/* Main Swap Content */}
+                <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full p-4 lg:p-6 h-fit mx-auto max-w-[600px] lg:max-w-none">
+                  {/* Enhanced Tabs Navigation */}
 
-          <TabsContent value="swap">
-            <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full max-w-[600px] p-2 lg:p-6">
-              {/* Enhanced Tabs Navigation */}
+                  {/* Swap Content */}
 
-              {/* Swap Content */}
-
-              <div>
-                {/* Enhanced From Token */}
-                <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-                      You pay
-                    </span>
-                    {isConnected && (
-                      <span className="text-xs lg:text-sm text-muted-foreground">
-                        Balance:{" "}
-                        <span className="font-medium">
-                          {isWalletLoading || balancesLoading ? (
-                            <Skeleton className="w-16 h-4 inline-block" />
-                          ) : (
-                            toFixedTruncate(Number(tokenSellBalance), 2)
-                          )}
+                  <div>
+                    {/* Enhanced From Token */}
+                    <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                          You pay
                         </span>
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-                    <div className="flex-1 min-w-0">
-                      <Input
-                        type="text"
-                        placeholder="0.00"
-                        className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
-                        value={amountToSell}
-                        disabled={!isConnected || isWalletLoading}
-                        onChange={(e) => {
-                          if (Number(e.target.value) < 0) {
-                            setAmountToSell("");
-                            return;
-                          }
-                          setAmountToSell(e.target.value);
-                        }}
-                      />
-                    </div>
-                    <Select
-                      disabled={!isConnected || isWalletLoading}
-                      value={selectedTokenSell.label}
-                      onValueChange={handleSelectTokenToSell}
-                    >
-                      <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-xl border-border bg-background font-medium">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="USDC">USDC</SelectItem>
-                        <SelectItem value="GLOW">GLOW</SelectItem>
-                        <SelectItem value="USDG">USDG</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Enhanced Swap Direction */}
-                <div className="relative py-2">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <button className="bg-background border-4 border-border rounded-full p-2 lg:p-3 hover:bg-muted/30 transition-all duration-200 z-50">
-                      <ArrowDownUp className="w-4 h-4 lg:w-5 lg:h-5 text-muted-foreground" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Enhanced To Token */}
-                <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-                      You receive
-                    </span>
-                    {isEstimateLoading && (
-                      <div className="text-xs text-muted-foreground flex items-center gap-1">
-                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                        Calculating...
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-                    <div className="flex-1 min-w-0">
-                      {isEstimateLoading ? (
-                        <Skeleton className="h-10 lg:h-14 w-full bg-muted/50" />
-                      ) : (
-                        <Input
-                          placeholder="0.00"
-                          className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
-                          value={
-                            Number(currentTokenEstimatedOutputAmount)
-                              ? formatPrice(
-                                  currentTokenEstimatedOutputAmount,
-                                  selectedTokenBuy.toFixed
+                        {isConnected && (
+                          <span className="text-xs lg:text-sm text-muted-foreground">
+                            Balance:{" "}
+                            <span className="font-medium">
+                              {isWalletLoading || balancesLoading ? (
+                                <Skeleton className="w-16 h-4 inline-block" />
+                              ) : (
+                                Number(tokenSellBalance).toLocaleString(
+                                  "en-US",
+                                  {
+                                    maximumFractionDigits: 0,
+                                  }
                                 )
-                              : ""
-                          }
+                              )}
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                        <div className="flex-1 min-w-0">
+                          <Input
+                            type="text"
+                            placeholder="0.00"
+                            className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
+                            value={amountToSell}
+                            disabled={!isConnected || isWalletLoading}
+                            onChange={(e) => {
+                              if (Number(e.target.value) < 0) {
+                                setAmountToSell("");
+                                return;
+                              }
+                              setAmountToSell(e.target.value);
+                            }}
+                          />
+                        </div>
+                        <Select
                           disabled={!isConnected || isWalletLoading}
-                          readOnly
-                        />
+                          value={selectedTokenSell.label}
+                          onValueChange={handleSelectTokenToSell}
+                        >
+                          <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-xl border-border bg-background font-medium">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="USDC">USDC</SelectItem>
+                            <SelectItem value="GLOW">GLOW</SelectItem>
+                            <SelectItem value="USDG">USDG</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Enhanced Swap Direction */}
+                    <div className="relative py-2">
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <button className="bg-background border-4 border-border rounded-full p-2 lg:p-3 hover:bg-muted/30 transition-all duration-200 z-50">
+                          <ArrowDownUp className="w-4 h-4 lg:w-5 lg:h-5 text-muted-foreground" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Enhanced To Token */}
+                    <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                          You receive
+                        </span>
+                        {isEstimateLoading && (
+                          <div className="text-xs text-muted-foreground flex items-center gap-1">
+                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                            Calculating...
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                        <div className="flex-1 min-w-0">
+                          {isEstimateLoading ? (
+                            <Skeleton className="h-10 lg:h-14 w-full bg-muted/50" />
+                          ) : (
+                            <Input
+                              placeholder="0.00"
+                              className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
+                              value={
+                                Number(currentTokenEstimatedOutputAmount)
+                                  ? formatPrice(
+                                      currentTokenEstimatedOutputAmount,
+                                      selectedTokenBuy.toFixed
+                                    )
+                                  : ""
+                              }
+                              disabled={!isConnected || isWalletLoading}
+                              readOnly
+                            />
+                          )}
+                        </div>
+                        <Select
+                          disabled={!isConnected || isWalletLoading}
+                          value={selectedTokenBuy.label}
+                          onValueChange={handleSelectTokenToBuy}
+                        >
+                          <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-xl border-border bg-background font-medium">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {selectedTokenSell.allowedPairs.map((token) => (
+                              <SelectItem key={token} value={token}>
+                                {token}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Enhanced Transaction Details */}
+                    {smartBalancingAmounts &&
+                      selectedTokenBuy.label === "GLOW" && (
+                        <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-xl p-4 lg:p-5 space-y-4 border border-border/20">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Info className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                              Transaction Details
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <div className="text-xs text-muted-foreground">
+                                Uniswap Route
+                              </div>
+                              <div className="text-sm font-medium">
+                                {isEstimateLoading ? (
+                                  <Skeleton className="w-16 h-4" />
+                                ) : (
+                                  `${Number(
+                                    smartBalancingAmounts?.amount_out_uni
+                                  ).toFixed(6)} GLOW`
+                                )}
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="text-xs text-muted-foreground">
+                                Bonding Curve
+                              </div>
+                              <div className="text-sm font-medium">
+                                {isEstimateLoading ? (
+                                  <Skeleton className="w-16 h-4" />
+                                ) : (
+                                  `${Number(
+                                    smartBalancingAmounts?.amount_out_glow
+                                  ).toFixed(6)} GLOW`
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="pt-3 border-t border-border/20">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs lg:text-sm text-muted-foreground">
+                                Estimated Network Fee
+                              </span>
+                              <span className="text-xs lg:text-sm font-medium">
+                                {isEstimateLoading ? (
+                                  <Skeleton className="w-16 h-4" />
+                                ) : (
+                                  `~$${Number(
+                                    smartBalancingAmounts.estimatedTotalGasInUSD
+                                  ).toFixed(2)}`
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                    {/* Enhanced Swap Button */}
+                    <div className="pt-8">
+                      {!isConnected && !isWalletLoading ? (
+                        <ConnectButton variant="default" />
+                      ) : isWalletLoading ? (
+                        <ConnectButton variant="default" />
+                      ) : (
+                        <Button
+                          disabled={
+                            buttonProps.disabled ||
+                            pendingTx ||
+                            isEstimateLoading ||
+                            balancesLoading
+                          }
+                          onClick={buttonProps.callback}
+                          className="w-full h-12 lg:h-16"
+                        >
+                          {pendingTx && (
+                            <div className="mr-3">
+                              <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                            </div>
+                          )}
+                          {pendingTx ? "Processing..." : buttonProps.label}
+                        </Button>
                       )}
                     </div>
-                    <Select
-                      disabled={!isConnected || isWalletLoading}
-                      value={selectedTokenBuy.label}
-                      onValueChange={handleSelectTokenToBuy}
-                    >
-                      <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-12 lg:h-14 rounded-xl border-border bg-background font-medium">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {selectedTokenSell.allowedPairs.map((token) => (
-                          <SelectItem key={token} value={token}>
-                            {token}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+
+                    {/* Enhanced Info Link */}
+                    <div className="text-center pt-4">
+                      <InstructionsDialog>
+                        <Button variant="ghost">
+                          <Info className="w-4 h-4 mr-1" />
+                          Learn about Glow&apos;s guarded launch
+                        </Button>
+                      </InstructionsDialog>
+                    </div>
                   </div>
                 </div>
 
-                {/* Enhanced Transaction Details */}
-                {smartBalancingAmounts && selectedTokenBuy.label === "GLOW" && (
-                  <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-xl p-4 lg:p-5 space-y-4 border border-border/20">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Info className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-                        Transaction Details
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <div className="text-xs text-muted-foreground">
-                          Uniswap Route
-                        </div>
-                        <div className="text-sm font-medium">
-                          {isEstimateLoading ? (
-                            <Skeleton className="w-16 h-4" />
-                          ) : (
-                            `${Number(
-                              smartBalancingAmounts?.amount_out_uni
-                            ).toFixed(6)} GLOW`
-                          )}
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="text-xs text-muted-foreground">
-                          Bonding Curve
-                        </div>
-                        <div className="text-sm font-medium">
-                          {isEstimateLoading ? (
-                            <Skeleton className="w-16 h-4" />
-                          ) : (
-                            `${Number(
-                              smartBalancingAmounts?.amount_out_glow
-                            ).toFixed(6)} GLOW`
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="pt-3 border-t border-border/20">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs lg:text-sm text-muted-foreground">
-                          Estimated Network Fee
-                        </span>
-                        <span className="text-xs lg:text-sm font-medium">
-                          {isEstimateLoading ? (
-                            <Skeleton className="w-16 h-4" />
-                          ) : (
-                            `~$${Number(
-                              smartBalancingAmounts.estimatedTotalGasInUSD
-                            ).toFixed(2)}`
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Enhanced Swap Button */}
-                <div className="pt-8">
-                  {!isConnected && !isWalletLoading ? (
-                    <ConnectButton variant="default" />
-                  ) : isWalletLoading ? (
-                    <ConnectButton variant="default" />
-                  ) : (
-                    <Button
-                      disabled={
-                        buttonProps.disabled ||
-                        pendingTx ||
-                        isEstimateLoading ||
-                        balancesLoading
-                      }
-                      onClick={buttonProps.callback}
-                      className="w-full h-12 lg:h-16"
-                    >
-                      {pendingTx && (
-                        <div className="mr-3">
-                          <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                        </div>
-                      )}
-                      {pendingTx ? "Processing..." : buttonProps.label}
-                    </Button>
-                  )}
-                </div>
-
-                {/* Enhanced Info Link */}
-                <div className="text-center pt-4">
-                  <InstructionsDialog>
-                    <Button variant="ghost">
-                      <Info className="w-4 h-4 mr-1" />
-                      Learn about Glow&apos;s guarded launch
-                    </Button>
-                  </InstructionsDialog>
-                </div>
+                {/* Desktop Sidebar - Hidden on mobile, visible on lg and up */}
+                <aside className="lg:sticky lg:top-4 h-fit space-y-4">
+                  <StatsSidebar
+                    glowPrice={glowPrice}
+                    marketCap={marketCap}
+                    ethPriceInUSD={ethPriceInUSD}
+                    usdcRewardPool={usdcRewardPool}
+                    usdcInRedemption={usdcInRedemption}
+                    statsLoading={false}
+                    isUsdcInRedemptionLoading={isUsdcInRedemptionLoading}
+                    isWalletLoading={isWalletLoading}
+                  />
+                </aside>
               </div>
-            </div>
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="send">
-            <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full max-w-[600px] p-2 lg:p-6">
-              <SendTab
-                isConnected={isConnected}
-                isWalletLoading={isWalletLoading}
-                balancesLoading={balancesLoading}
-                glowBalance={glowBalance}
-                usdgBalance={usdgBalance}
-                signer={signer}
-                refreshBalances={refreshBalances}
-                tokens={{
-                  GLOW: tokens.GLOW,
-                  USDG: tokens.USDG,
-                }}
-              />
-            </div>
-          </TabsContent>
+            <TabsContent value="send">
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 mt-2 lg:mt-6">
+                <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full p-4 lg:p-6 h-fit mx-auto max-w-[600px] lg:max-w-none">
+                  <SendTab
+                    isConnected={isConnected}
+                    isWalletLoading={isWalletLoading}
+                    balancesLoading={balancesLoading}
+                    glowBalance={glowBalance}
+                    usdgBalance={usdgBalance}
+                    signer={signer}
+                    refreshBalances={refreshBalances}
+                    tokens={{
+                      GLOW: tokens.GLOW,
+                      USDG: tokens.USDG,
+                    }}
+                  />
+                </div>
+                {/* Desktop Sidebar for Send Tab - Hidden on mobile */}
+                <aside className="lg:sticky lg:top-4 h-fit space-y-4">
+                  <StatsSidebar
+                    glowPrice={glowPrice}
+                    marketCap={marketCap}
+                    ethPriceInUSD={ethPriceInUSD}
+                    usdcRewardPool={usdcRewardPool}
+                    usdcInRedemption={usdcInRedemption}
+                    statsLoading={false}
+                    isUsdcInRedemptionLoading={isUsdcInRedemptionLoading}
+                    isWalletLoading={isWalletLoading}
+                  />
+                </aside>
+              </div>
+            </TabsContent>
 
-          <TabsContent value="liquidity">
-            <PositionsView />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="liquidity">
+              <PositionsView />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
       {/* Dialogs */}
       <UsdcToTokenDialog
@@ -1298,7 +1342,7 @@ export default function View({
       />
 
       {/* Wallet Tab Modals */}
-      <RestakeAssistant
+      {/* <RestakeAssistant
         isOpen={isRestakeOpen}
         onClose={() => setIsRestakeOpen(false)}
         regionYields={[]}
@@ -1312,7 +1356,7 @@ export default function View({
       <ContributeDialog
         open={isContributeOpen}
         onOpenChange={setIsContributeOpen}
-      />
+      /> */}
     </div>
   );
 }

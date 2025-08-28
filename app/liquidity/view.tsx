@@ -55,7 +55,7 @@ export function PositionsView() {
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Main Content with Sidebar Layout */}
-      <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+      <div className="max-w-screen-xl 2xl:max-w-screen-2xl lg:px-8 py-2">
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_500px] gap-4">
           {/* Main Content Area */}
           <div className="space-y-4">

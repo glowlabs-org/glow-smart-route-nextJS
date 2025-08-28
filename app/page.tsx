@@ -116,7 +116,7 @@ export default async function Page() {
       getEthPriceInUSD(),
     ]);
 
-    const glowPrice = glowStats.glowPrice.toString();
+    const glowPrice = glowStats.lowestGlowPrice.toString();
     const earlyLiquidityCurrentPrice = glowStats.earlyLiquidityPrice.toString();
     const marketCap = glowStats.marketCap.toString();
     const usdcRewardPool = glowStats.usdcRewardPool;

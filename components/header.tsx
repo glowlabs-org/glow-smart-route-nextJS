@@ -189,7 +189,7 @@ export function Header({
                       : "default"
                   }
                 >
-                  <ul className="grid gap-3 p-6 md:w-[250px]">
+                  <ul className="grid gap-3 p-6 md:w-[300px]">
                     <ListItem
                       href="https://app.glow.org?swap"
                       title="Swap"
@@ -197,7 +197,7 @@ export function Header({
                         shouldApplyScrolledStyles || !withIsScrolled
                       }
                     >
-                      Swap GLW, USDG, GCTL, and more
+                      Swap GLW, USDG, and more
                     </ListItem>
                     <ListItem
                       href="https://app.glow.org?liquidity"
@@ -550,7 +550,7 @@ export function Header({
         </nav>
 
         {/* Mobile Menu Drawer */}
-        <Drawer direction="right">
+        <Drawer direction="right" shouldScaleBackground={false}>
           <DrawerTrigger asChild>
             <motion.button
               className={cn(
@@ -560,12 +560,16 @@ export function Header({
                   "bg-white/10 border-white/20 text-white hover:bg-white/20"
               )}
               whileTap={{ scale: 0.95 }}
+              aria-label="Open menu"
             >
               <Menu className="h-6 w-6" />
             </motion.button>
           </DrawerTrigger>
 
-          <DrawerContent className="h-full max-w-[80vw] w-80 bg-background/95 backdrop-blur-xl border-l border-border shadow-2xl">
+          <DrawerContent
+            showHandle={false}
+            className="fixed right-0 inset-y-0 h-screen w-80 max-w-[85vw] bg-background backdrop-blur-xl border-l border-border shadow-2xl"
+          >
             <DrawerHeader className="border-b border-border">
               <div className="flex items-center justify-between">
                 <GlowLockup className="w-32 h-10" />
@@ -573,6 +577,7 @@ export function Header({
                   <motion.button
                     className="p-2 rounded-xl hover:bg-secondary/80 transition-colors"
                     whileTap={{ scale: 0.95 }}
+                    aria-label="Close menu"
                   >
                     <X className="h-5 w-5" />
                   </motion.button>
@@ -591,6 +596,69 @@ export function Header({
                 {/* Dropdown Menus */}
                 <div className="pt-4 border-t border-border mt-4">
                   <div className="space-y-2">
+                    {/* App Menu */}
+                    <div>
+                      <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                        App
+                      </div>
+                      <div className="ml-4 space-y-1">
+                        <DrawerClose asChild>
+                          <Link
+                            href="https://app.glow.org?swap"
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={() => {
+                              setTimeout(() => {
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              }, 100);
+                            }}
+                            className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                          >
+                            Swap
+                          </Link>
+                        </DrawerClose>
+                        <DrawerClose asChild>
+                          <Link
+                            href="https://app.glow.org?liquidity"
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={() => {
+                              setTimeout(() => {
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              }, 100);
+                            }}
+                            className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                          >
+                            Liquidity
+                          </Link>
+                        </DrawerClose>
+                      </div>
+                    </div>
+
+                    {/* Impact Menu */}
+                    <div>
+                      <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                        Impact
+                      </div>
+                      <div className="ml-4 space-y-1">
+                        <DrawerClose asChild>
+                          <Link
+                            href="https://impact.glow.org"
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={() => {
+                              setTimeout(() => {
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              }, 100);
+                            }}
+                            className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                          >
+                            Infrastructure projects
+                          </Link>
+                        </DrawerClose>
+                      </div>
+                    </div>
+
                     {/* Resources Menu */}
                     <div>
                       <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
@@ -606,7 +674,7 @@ export function Header({
                                 window.scrollTo({ top: 0, behavior: "smooth" });
                               }, 100);
                             }}
-                            className="block px-4 py-2 text-sm rounded-lg hover:bg-secondary/80 transition-colors"
+                            className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
                           >
                             Blog
                           </Link>
@@ -615,12 +683,13 @@ export function Header({
                           <Link
                             href="https://glow.org/press"
                             target="_blank"
+                            rel="noreferrer"
                             onClick={() => {
                               setTimeout(() => {
                                 window.scrollTo({ top: 0, behavior: "smooth" });
                               }, 100);
                             }}
-                            className="block px-4 py-2 text-sm rounded-lg hover:bg-secondary/80 transition-colors"
+                            className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
                           >
                             Press
                           </Link>
@@ -629,12 +698,13 @@ export function Header({
                           <Link
                             href="https://glow.org/branding"
                             target="_blank"
+                            rel="noreferrer"
                             onClick={() => {
                               setTimeout(() => {
                                 window.scrollTo({ top: 0, behavior: "smooth" });
                               }, 100);
                             }}
-                            className="block px-4 py-2 text-sm rounded-lg hover:bg-secondary/80 transition-colors"
+                            className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
                           >
                             Branding
                           </Link>
@@ -657,21 +727,37 @@ export function Header({
                                 window.scrollTo({ top: 0, behavior: "smooth" });
                               }, 100);
                             }}
-                            className="block px-4 py-2 text-sm rounded-lg hover:bg-secondary/80 transition-colors"
+                            className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
                           >
-                            Solar Farms
+                            Solar Farms Map
+                          </Link>
+                        </DrawerClose>
+                        <DrawerClose asChild>
+                          <Link
+                            href="https://glow.org/audits?view=list"
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={() => {
+                              setTimeout(() => {
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              }, 100);
+                            }}
+                            className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                          >
+                            Solar Farms List
                           </Link>
                         </DrawerClose>
                         <DrawerClose asChild>
                           <Link
                             href="https://glow.org/gves"
                             target="_blank"
+                            rel="noreferrer"
                             onClick={() => {
                               setTimeout(() => {
                                 window.scrollTo({ top: 0, behavior: "smooth" });
                               }, 100);
                             }}
-                            className="block px-4 py-2 text-sm rounded-lg hover:bg-secondary/80 transition-colors"
+                            className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
                           >
                             Glow Verification Entities
                           </Link>
@@ -694,7 +780,7 @@ export function Header({
                                 window.scrollTo({ top: 0, behavior: "smooth" });
                               }, 100);
                             }}
-                            className="block px-4 py-2 text-sm rounded-lg hover:bg-secondary/80 transition-colors"
+                            className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
                           >
                             Archives
                           </Link>
@@ -703,12 +789,13 @@ export function Header({
                           <Link
                             href="https://glow.org/weekly-reports"
                             target="_blank"
+                            rel="noreferrer"
                             onClick={() => {
                               setTimeout(() => {
                                 window.scrollTo({ top: 0, behavior: "smooth" });
                               }, 100);
                             }}
-                            className="block px-4 py-2 text-sm rounded-lg hover:bg-secondary/80 transition-colors"
+                            className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
                           >
                             Weekly Reports
                           </Link>
@@ -717,12 +804,13 @@ export function Header({
                           <Link
                             href="https://glow.org/rewards"
                             target="_blank"
+                            rel="noreferrer"
                             onClick={() => {
                               setTimeout(() => {
                                 window.scrollTo({ top: 0, behavior: "smooth" });
                               }, 100);
                             }}
-                            className="block px-4 py-2 text-sm rounded-lg hover:bg-secondary/80 transition-colors"
+                            className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
                           >
                             Rewards
                           </Link>
@@ -735,7 +823,7 @@ export function Header({
             </div>
 
             {/* Footer CTA */}
-            <div className="border-t border-border bg-secondary/30">
+            <div className="border-t border-border bg-muted p-4">
               {isConnected && address ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -763,17 +851,6 @@ export function Header({
                     align="end"
                     className="w-72 backdrop-blur-xl bg-background/95 border-border"
                   >
-                    <DropdownMenuItem asChild className="cursor-pointer">
-                      <Link href="/new-campaign">
-                        <List className="w-4 h-4 mr-2" /> Your campaigns
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="cursor-pointer">
-                      <Link href="/new-campaign">
-                        <Plus className="w-4 h-4 mr-2" /> Create new campaign
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onSelect={async (e) => {
                         e.preventDefault();
@@ -787,6 +864,58 @@ export function Header({
                       className="cursor-pointer"
                     >
                       <Copy className="w-4 h-4 mr-2" /> Copy address
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={async (e) => {
+                        e.preventDefault();
+                        if (isMintingTestUSDC) return;
+                        try {
+                          setIsMintingTestUSDC(true);
+                          const txHash = await mintTestUSDC(
+                            BigInt(10000000000),
+                            address
+                          );
+                          if (txHash && typeof txHash === "string") {
+                            toast.success("Mint transaction submitted", {
+                              description: `${txHash.slice(
+                                0,
+                                8
+                              )}...${txHash.slice(-6)}`,
+                            });
+                          } else {
+                            toast.success("Minted test USDC");
+                          }
+                        } catch (error) {
+                          toast.error("Failed to mint test USDC", {
+                            description:
+                              error instanceof Error
+                                ? error.message
+                                : "Unknown error occurred",
+                          });
+                        } finally {
+                          setIsMintingTestUSDC(false);
+                        }
+                      }}
+                      className="cursor-pointer"
+                    >
+                      {isMintingTestUSDC ? (
+                        <span className="inline-flex items-center">
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />{" "}
+                          Minting Test USDC...
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center">
+                          <DollarSign className="w-4 h-4 mr-2" /> MintTest USDC
+                        </span>
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                      <Link
+                        href="https://www.alchemy.com/faucets/ethereum-sepolia"
+                        target="_blank"
+                      >
+                        <DollarSign className="w-4 h-4 mr-2" /> Get Sepolia ETH
+                      </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild className="cursor-pointer">
                       <Link
