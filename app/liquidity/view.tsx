@@ -4,7 +4,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Minus } from "lucide-react";
+import { Minus, Sparkles } from "lucide-react";
 import { formatUnits } from "viem";
 import {
   Tooltip,
@@ -12,6 +12,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  HoverCard,
+  HoverCardTrigger,
+  HoverCardContent,
+} from "@/components/ui/hover-card";
+import { NumberTicker } from "@/components/ui/number-ticker";
 import { AddLiquidityReviewDialog } from "./add-liquidity-dialog";
 import { RemoveLiquidityDialog } from "./remove-liquidity-dialog";
 
@@ -28,20 +34,19 @@ export function PositionsView() {
   const {
     positions,
     now,
-    animatedRewardsDisplay,
-    totalRatePerSec,
+    totalAccumulatedGlw,
+    isPositionsLoading,
+    isPositionsFetching,
+    isPositionsPending,
     positionFinalizedMap,
-    positionPendingMap,
+
     positionFeesMap,
     priceRatio,
     poolReserves,
     getLoyaltyMultiplier,
-    addLiquidity,
     showIncentiveDialog,
     acknowledgeIncentiveDialog,
     onIncentiveDialogOpenChange,
-    isAddingLiquidity,
-    estimateAddLiquidityNetworkCostUSD,
     quoteOtherAmount,
     wouldAddLiquidityLikelyFail,
   } = useLiquidityPositions();
@@ -71,17 +76,17 @@ export function PositionsView() {
           {/* Right Sidebar */}
           <aside className="xl:sticky h-fit space-y-4">
             <RewardsSummaryCard
-              animatedRewardsDisplay={animatedRewardsDisplay}
-              totalRatePerSec={totalRatePerSec}
+              totalAccumulatedGlw={totalAccumulatedGlw}
               totalFeeRewardsUSDG={totalFeeRewardsUSDG}
+              isLoading={isPositionsLoading || isPositionsFetching}
             />
             <PositionsList
               positions={positions}
               now={now}
               positionFinalizedMap={positionFinalizedMap}
-              positionPendingMap={positionPendingMap}
               positionFeesMap={positionFeesMap}
               getLoyaltyMultiplier={getLoyaltyMultiplier}
+              isLoading={isPositionsLoading || isPositionsPending}
               onOpenRemove={() => setRemoveDialogOpen(true)}
             />
           </aside>
@@ -142,7 +147,7 @@ function AddLiquidityPanel({
 
   React.useEffect(() => {
     refreshBalances();
-  }, [refreshBalances]);
+  }, [signer]);
 
   const glwBalanceNumber = useMemo(() => {
     if (!glowBalance) return 0;
@@ -193,28 +198,6 @@ function AddLiquidityPanel({
       }
     }
   }
-
-  // Removed auto-toast on reserves change; we validate on action click instead
-
-  const poolSharePct = React.useMemo(() => {
-    if (!poolReserves) return 0;
-    const glwNum = Number(glw || "0");
-    const usdgNum = Number(usdg || "0");
-    if (glwNum <= 0 || usdgNum <= 0) return 0;
-
-    const reserveGLW = Number(poolReserves.glw);
-    const reserveUSDG = Number(poolReserves.usdg);
-    if (!Number.isFinite(reserveGLW) || !Number.isFinite(reserveUSDG)) return 0;
-    if (reserveGLW <= 0 || reserveUSDG <= 0) return 0; // avoid divide-by-zero and loading state
-
-    // Uniswap V2 share: minted/totalSupply = x, share after adding = x / (1 + x)
-    const ratioA = glwNum / reserveGLW;
-    const ratioB = usdgNum / reserveUSDG;
-    const x = Math.min(ratioA, ratioB);
-    const share = (x / (1 + x)) * 100;
-    if (!Number.isFinite(share) || share < 0) return 0;
-    return Math.min(100, share);
-  }, [glw, usdg, poolReserves]);
 
   const glwNum = React.useMemo(() => {
     const n = Number(glw);
@@ -282,14 +265,16 @@ function AddLiquidityPanel({
               Input
             </span>
             <span
-              className={`text-xs lg:text-sm ${
+              className={`text-xs lg:text-sm flex items-center gap-1 ${
                 isGlwOverBalance ? "text-destructive" : "text-muted-foreground"
               }`}
             >
               Balance:{" "}
-              {glwBalanceNumber.toLocaleString("en-US", {
-                maximumFractionDigits: 0,
-              })}
+              <NumberTicker
+                value={glwBalanceNumber}
+                decimalPlaces={0}
+                className="text-xs lg:text-sm"
+              />
             </span>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
@@ -323,14 +308,16 @@ function AddLiquidityPanel({
               Input
             </span>
             <span
-              className={`text-xs lg:text-sm ${
+              className={`text-xs lg:text-sm flex items-center gap-1 ${
                 isUsdgOverBalance ? "text-destructive" : "text-muted-foreground"
               }`}
             >
               Balance:{" "}
-              {usdgBalanceNumber.toLocaleString("en-US", {
-                maximumFractionDigits: 0,
-              })}
+              <NumberTicker
+                value={usdgBalanceNumber}
+                decimalPlaces={0}
+                className="text-xs lg:text-sm"
+              />
             </span>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
@@ -389,15 +376,15 @@ function AddLiquidityPanel({
 }
 
 interface RewardsSummaryCardProps {
-  animatedRewardsDisplay: number;
-  totalRatePerSec: number;
+  totalAccumulatedGlw: number;
   totalFeeRewardsUSDG: number;
+  isLoading?: boolean;
 }
 
 function RewardsSummaryCard({
-  animatedRewardsDisplay,
-  totalRatePerSec,
+  totalAccumulatedGlw,
   totalFeeRewardsUSDG,
+  isLoading,
 }: RewardsSummaryCardProps) {
   return (
     <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
@@ -411,18 +398,26 @@ function RewardsSummaryCard({
               GLW Incentives
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-xl font-extrabold tabular-nums">
-                {animatedRewardsDisplay.toLocaleString(undefined, {
-                  minimumFractionDigits: 6,
-                  maximumFractionDigits: 6,
-                })}
-              </span>
-              <span className="text-muted-foreground font-medium text-sm">
-                GLW
-              </span>
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              +{(totalRatePerSec * 3600).toFixed(6)} GLW/hr
+              {isLoading ? (
+                <span className="inline-block h-6 w-32 rounded bg-muted animate-pulse" />
+              ) : (
+                <>
+                  <NumberTicker
+                    value={totalAccumulatedGlw}
+                    decimalPlaces={
+                      totalAccumulatedGlw < 1
+                        ? 6
+                        : totalAccumulatedGlw < 100
+                        ? 4
+                        : 2
+                    }
+                    className="text-xl font-extrabold"
+                  />
+                  <span className="text-muted-foreground font-medium text-sm">
+                    GLW
+                  </span>
+                </>
+              )}
             </div>
           </div>
           <div className="bg-muted/30 rounded-xl border border-border p-4">
@@ -430,15 +425,20 @@ function RewardsSummaryCard({
               Exchange Fee Rewards
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-xl font-extrabold tabular-nums">
-                {totalFeeRewardsUSDG.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </span>
-              <span className="text-muted-foreground font-medium text-sm">
-                Liquidity
-              </span>
+              {isLoading ? (
+                <span className="inline-block h-6 w-24 rounded bg-muted animate-pulse" />
+              ) : (
+                <>
+                  <NumberTicker
+                    value={totalFeeRewardsUSDG}
+                    decimalPlaces={2}
+                    className="text-xl font-extrabold"
+                  />
+                  <span className="text-muted-foreground font-medium text-sm">
+                    Liquidity
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -458,9 +458,9 @@ interface PositionsListProps {
   }>;
   now: number;
   positionFinalizedMap: Record<string, number>;
-  positionPendingMap: Record<string, number>;
   positionFeesMap: Record<string, number>;
   getLoyaltyMultiplier: (createdAt: number) => number;
+  isLoading?: boolean;
   onOpenRemove: () => void;
 }
 
@@ -468,9 +468,9 @@ function PositionsList({
   positions,
   now,
   positionFinalizedMap,
-  positionPendingMap,
   positionFeesMap,
   getLoyaltyMultiplier,
+  isLoading,
   onOpenRemove,
 }: PositionsListProps) {
   return (
@@ -491,8 +491,13 @@ function PositionsList({
             <span className="sm:hidden">Remove</span>
           </Button>
         </div>
-
-        {positions.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-3">
+            <div className="h-16 rounded-xl bg-muted animate-pulse" />
+            <div className="h-16 rounded-xl bg-muted animate-pulse" />
+            <div className="h-16 rounded-xl bg-muted animate-pulse" />
+          </div>
+        ) : positions.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-muted-foreground text-sm">
               No active positions yet
@@ -512,7 +517,6 @@ function PositionsList({
                   position={position}
                   now={now}
                   finalized={positionFinalizedMap[position.id] ?? 0}
-                  pending={positionPendingMap[position.id] ?? 0}
                   feesUSDG={positionFeesMap[position.id] ?? 0}
                   getLoyaltyMultiplier={getLoyaltyMultiplier}
                 />
@@ -535,7 +539,6 @@ interface PositionCardProps {
   };
   now: number;
   finalized: number;
-  pending: number;
   feesUSDG: number;
   getLoyaltyMultiplier: (createdAt: number) => number;
 }
@@ -544,13 +547,39 @@ function PositionCard({
   position,
   now,
   finalized,
-  pending,
   feesUSDG,
   getLoyaltyMultiplier,
 }: PositionCardProps) {
-  const days = Math.max(0, (now - position.createdAt) / (1000 * 60 * 60 * 24));
+  // Calculate time components more accurately
+  const totalMs = Math.max(0, now - position.createdAt);
+  const totalSeconds = Math.floor(totalMs / 1000);
+  const days = Math.floor(totalSeconds / (60 * 60 * 24));
+  const hours = Math.floor((totalSeconds % (60 * 60 * 24)) / (60 * 60));
+  const minutes = Math.floor((totalSeconds % (60 * 60)) / 60);
+
+  // Format time display based on duration
+  const getTimeDisplay = () => {
+    if (days > 0) {
+      return `${days}d ${hours}h ago`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes}m ago`;
+    } else if (minutes > 0) {
+      return `${minutes}m ago`;
+    } else {
+      return "Just now";
+    }
+  };
+
   const liveMultiplier = getLoyaltyMultiplier(position.createdAt);
-  const currentGlwWithRewards = position.glwAmount + finalized + pending;
+  const currentGlw = position.glwAmount;
+  const incentiveApy = Number.isFinite((position as any).liquidityIncentiveApy)
+    ? ((position as any).liquidityIncentiveApy as number)
+    : position.apy;
+  const feesApy = Number.isFinite((position as any).feesApy)
+    ? ((position as any).feesApy as number)
+    : 0;
+  const performanceFeePct = 0; // currently 0%
+  const netApy = Math.max(0, incentiveApy + feesApy - performanceFeePct);
   return (
     <div className="bg-muted/30 rounded-xl border border-border overflow-hidden hover:border-foreground/20 transition-all duration-200">
       <div className="p-4">
@@ -558,21 +587,73 @@ function PositionCard({
           <div>
             <div className="font-medium">{position.pair}</div>
             <div className="text-xs text-muted-foreground">
-              Opened {Math.floor(days)}d ago
+              Opened {getTimeDisplay()}
             </div>
           </div>
           <div className="text-right">
             <div className="text-xs text-muted-foreground uppercase tracking-wider">
               APY
             </div>
-            <div className="text-lg font-bold tabular-nums">
-              {position.apy.toFixed(2)}%
-            </div>
+            <HoverCard>
+              <HoverCardTrigger asChild>
+                <div className="text-lg font-bold tabular-nums flex items-center justify-end cursor-help">
+                  <NumberTicker
+                    value={netApy}
+                    decimalPlaces={2}
+                    className="text-lg font-bold"
+                    suffix="%"
+                  />
+                  <Sparkles
+                    className="ml-1 h-4 w-4 text-accent"
+                    aria-hidden="true"
+                  />
+                </div>
+              </HoverCardTrigger>
+              <HoverCardContent
+                align="end"
+                className="rounded-2xl border border-border bg-background text-foreground shadow-xl"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Incentive APY</span>
+                    <span className="font-medium">
+                      {incentiveApy.toLocaleString("en-US", {
+                        maximumFractionDigits: 2,
+                      })}
+                      %
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Fees APY</span>
+                    <span className="font-medium">
+                      {feesApy >= 0 ? "+" : ""}
+                      {feesApy.toLocaleString("en-US", {
+                        maximumFractionDigits: 2,
+                      })}
+                      %
+                    </span>
+                  </div>
+
+                  <div className="border-t pt-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">Combined APY</span>
+                      <span className="text-primary font-semibold">
+                        =
+                        {netApy.toLocaleString("en-US", {
+                          maximumFractionDigits: 4,
+                        })}
+                        %
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
           </div>
         </div>
 
         <CompositionBar
-          glwAmount={currentGlwWithRewards}
+          glwAmount={currentGlw}
           usdgAmount={position.usdgAmount}
         />
 
@@ -594,22 +675,39 @@ function PositionCard({
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <div className="font-medium tabular-nums">
-              {(finalized + pending).toFixed(6)} GLW
+            <div className="font-medium tabular-nums flex items-baseline gap-1">
+              <NumberTicker
+                value={finalized}
+                decimalPlaces={4}
+                className="font-medium"
+              />
+              <span>GLW</span>
             </div>
           </div>
           <div className="rounded-md border p-3">
             <div className="text-xs text-muted-foreground">
               Exchange fee rewards
             </div>
-            <div className="font-medium tabular-nums">
-              {feesUSDG.toFixed(2)} Liquidity
+            <div className="font-medium tabular-nums flex items-baseline gap-1">
+              <NumberTicker
+                value={feesUSDG}
+                decimalPlaces={2}
+                className="font-medium"
+              />
+              <span>Liquidity</span>
             </div>
           </div>
         </div>
         <div className="mt-3 rounded-md border p-3 flex items-center justify-between">
           <div className="text-xs text-muted-foreground">Loyalty bonus</div>
-          <div className="font-mono text-sm">{liveMultiplier.toFixed(12)}×</div>
+          <div className="font-mono text-sm flex items-center">
+            <NumberTicker
+              value={liveMultiplier}
+              decimalPlaces={12}
+              className="font-mono text-sm"
+              suffix="×"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -628,9 +726,9 @@ function CompositionBar({ glwAmount, usdgAmount }: CompositionBarProps) {
     <div className="mt-3 rounded-md border p-3">
       <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
         <span>Current pool value</span>
-        <span>
+        {/* <span>
           {(pctGLW * 100).toFixed(2)}% GLW · {(pctUSDG * 100).toFixed(2)}% USDG
-        </span>
+        </span> */}
       </div>
       <div className="h-2 w-full rounded-full overflow-hidden flex border border-border">
         <div

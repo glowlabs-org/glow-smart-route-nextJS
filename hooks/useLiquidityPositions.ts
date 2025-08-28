@@ -2,15 +2,20 @@
 
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { animate, useMotionValue, useMotionValueEvent } from "framer-motion";
-import { parseAbi, erc20Abi, zeroAddress, formatEther } from "viem";
+import {
+  parseAbi,
+  erc20Abi,
+  zeroAddress,
+  formatEther,
+  formatUnits,
+} from "viem";
 import { useAccount, useWalletClient, useChainId } from "wagmi";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { DECIMALS_BY_TOKEN, getAddresses } from "@glowlabs-org/utils/browser";
-import seedGlowUsdgPairOnSepolia from "@/web3/web3/create-and-seed-pair";
 import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { toast } from "sonner";
+import Decimal from "decimal.js";
 
 export interface Position {
   id: string;
@@ -22,6 +27,14 @@ export interface Position {
   createdAt: number;
   initialGlw: number;
   initialUsdg: number;
+  // Optional fields enriched from API
+  apiMultiplier?: number;
+  accumulatedGlowRewards?: number; // GLW
+  totalLiquidityFeesEarnedLP?: number; // LP tokens (decimals 12)
+  totalLiquidityFeesEarnedUSDG?: number; // USDG equivalent
+  liquidityIncentiveApy?: number; // percent
+  feesApy?: number; // percent
+  combinedApy?: number; // percent
 }
 
 interface LiquidityPoolReserves {
@@ -39,20 +52,34 @@ interface UseLiquidityPositionsOptions {
 }
 
 const SECONDS_IN_YEAR = 365 * 24 * 60 * 60;
+const LP_DECIMALS = 12; // liquidity token = 12
 
-const DEFAULT_POSITIONS: Position[] = [
-  {
-    id: "p1",
-    pair: "GLW/USDG",
-    glwAmount: 1200.5,
-    usdgAmount: 820.25,
-    apy: 12.1,
-    poolSharePct: 0.22,
-    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 14,
-    initialGlw: 1200.5,
-    initialUsdg: 820.25,
-  },
-];
+// API response shapes
+interface ApiFeeTrackerItem {
+  liquidity: string;
+  startRoiIndex: string;
+  endRoiIndex: string | null;
+}
+interface ApiPositionItem {
+  liquidity: string; // LP tokens (decimals 12)
+  timestamp: string; // seconds
+  lastSavedMultiplier: number;
+  accumulatedGlowRewards: string; // number-like string
+  feeTracker: ApiFeeTrackerItem[];
+  combinedAPY: string;
+  multiplier: number;
+  totalLiquidityFeesEarned: string; // LP tokens
+  feesAPY: string;
+  liquidityIncentiveAPY: string;
+}
+interface ApiPositionsResponse {
+  feeReturnAnnualized: number;
+  positionsWithApy: ApiPositionItem[];
+  totalGlwRewardsEarned: string;
+  totalAccruedLiquidityProviderFees?: string;
+}
+
+const DEFAULT_POSITIONS: Position[] = [];
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
   throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
@@ -82,53 +109,107 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
     );
   const [poolReservesVersion, setPoolReservesVersion] = React.useState(0);
   const [poolReservesUpdatedAt, setPoolReservesUpdatedAt] = React.useState(0);
-  const positionsInitial = options?.initialPositions ?? DEFAULT_POSITIONS;
-  const { data: positions = positionsInitial } = useQuery<Position[]>({
-    queryKey: ["lp-positions", chainId, address, poolReservesVersion],
+
+  const {
+    data: positions = [],
+    isLoading: isPositionsLoading,
+    isFetching: isPositionsFetching,
+    isPending: isPositionsPending,
+  } = useQuery<Position[]>({
+    queryKey: ["lp-positions", chainId, address],
     enabled: Boolean(address),
     queryFn: fetchUserPositions,
-    initialData: positionsInitial,
+    staleTime: 15_000,
+    refetchInterval: (q) => {
+      const d = (q as any)?.state?.data as Position[] | undefined;
+      return Array.isArray(d) && d.length > 0 ? 30_000 : 5_000;
+    },
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    refetchIntervalInBackground: true,
+    retry: 2,
+  });
+
+  // Fetch API totals separately to avoid setState inside queryFn loops
+  const positionsApiQuery = useQuery<ApiPositionsResponse | null>({
+    queryKey: ["lp-positions-api", chainId, address],
+    enabled: Boolean(address),
+    queryFn: async () => fetchPositionsFromApi(address as `0x${string}`),
     staleTime: 15_000,
     refetchInterval: 30_000,
     refetchOnMount: true,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
     retry: 2,
   });
+
+  // Memoized API totals (no setState) to avoid update loops
+  const totalAccumulatedGlw = React.useMemo(() => {
+    const api = positionsApiQuery.data;
+    if (!api?.totalGlwRewardsEarned) return 0;
+    try {
+      return new Decimal(
+        formatUnits(
+          BigInt(api.totalGlwRewardsEarned || "0"),
+          DECIMALS_BY_TOKEN.GLW
+        )
+      ).toNumber();
+    } catch {
+      return 0;
+    }
+  }, [positionsApiQuery.data]);
+
+  const totalAccruedLiquidityProviderFees = React.useMemo(() => {
+    const api = positionsApiQuery.data;
+    if (!api?.totalAccruedLiquidityProviderFees) return 0;
+    try {
+      return new Decimal(
+        formatUnits(
+          BigInt(api.totalAccruedLiquidityProviderFees || "0"),
+          LP_DECIMALS
+        )
+      ).toNumber();
+    } catch {
+      return 0;
+    }
+  }, [positionsApiQuery.data]);
   const [now, setNow] = React.useState<number>(Date.now());
 
-  const [rewardsEarnedGlw, setRewardsEarnedGlw] = React.useState<number>(0);
-  const animatedRewards = useMotionValue(0);
-  const [animatedRewardsDisplay, setAnimatedRewardsDisplay] = React.useState(0);
-  const [totalRatePerSec, setTotalRatePerSec] = React.useState(0);
-  const [feesRatePerSec, setFeesRatePerSec] = React.useState(0);
-
-  const [positionFinalizedMap, setPositionFinalizedMap] = React.useState<
-    Record<string, number>
-  >({});
-  const [positionPendingMap, setPositionPendingMap] = React.useState<
-    Record<string, number>
-  >({});
-  const [positionRateMap, setPositionRateMap] = React.useState<
-    Record<string, number>
-  >({});
-  const [positionFeesMap, setPositionFeesMap] = React.useState<
-    Record<string, number>
-  >({});
-  const [positionFeeRateMap, setPositionFeeRateMap] = React.useState<
-    Record<string, number>
-  >({});
+  // Derived values are computed via memo to avoid update loops
+  const [
+    /* deprecated state removed */
+  ] = React.useState<void>();
 
   const [showIncentiveDialog, setShowIncentiveDialog] = React.useState(false);
 
-  const lastAnimatedUpdateRef = React.useRef(0);
-  useMotionValueEvent(animatedRewards, "change", (v) => {
-    const nowMs =
-      typeof performance !== "undefined" ? performance.now() : Date.now();
-    if (nowMs - lastAnimatedUpdateRef.current >= 100) {
-      lastAnimatedUpdateRef.current = nowMs;
-      setAnimatedRewardsDisplay(v);
+  // ---- API helpers ----
+  function normalizeApyToPercent(input: unknown): number {
+    const num = typeof input === "string" ? Number(input) : (input as number);
+    if (!Number.isFinite(num) || num < 0) return 0;
+    // API returns APY as decimal (e.g., 0.121 for 12.1%), convert to percent
+    const pct = num * 100;
+    return Math.min(pct, 10000); // Cap at 10000% to avoid UI issues
+  }
+
+  async function fetchPositionsFromApi(
+    addr: string
+  ): Promise<ApiPositionsResponse | null> {
+    try {
+      const base =
+        process.env.NEXT_PUBLIC_POSITIONS_API_BASE || "http://localhost:42069";
+      const res = await fetch(`${base}/get-liquidity-positions/${addr}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) return null;
+      const json = (await res.json()) as ApiPositionsResponse;
+      return json;
+    } catch {
+      return null;
     }
-  });
+  }
+
+  // No animated totals; only loyalty bonus moves in real-time
 
   React.useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1_000);
@@ -187,6 +268,19 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
     []
   );
 
+  // Cache the pair address to avoid repeated factory lookups
+  const pairAddressRef = React.useRef<`0x${string}` | null>(null);
+  async function getPairAddressCached(): Promise<`0x${string}` | null> {
+    if (pairAddressRef.current) return pairAddressRef.current;
+    try {
+      const addr = await resolvePairAddress();
+      pairAddressRef.current = addr;
+      return addr;
+    } catch {
+      return null;
+    }
+  }
+
   // ---- Pure helpers (no React state) ----
   function orderReservesByTokenSymbols(params: {
     token0: string;
@@ -207,8 +301,13 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
     decimals: { glw: number; usdg: number };
   }) {
     const { usdgReserve, glwReserve, decimals } = params;
-    const usdg = Number(usdgReserve) / 10 ** decimals.usdg;
-    const glw = Number(glwReserve) / 10 ** decimals.glw;
+    const base = new Decimal(10);
+    const usdg = new Decimal(usdgReserve.toString())
+      .div(base.pow(decimals.usdg))
+      .toNumber();
+    const glw = new Decimal(glwReserve.toString())
+      .div(base.pow(decimals.glw))
+      .toNumber();
     return { usdg, glw };
   }
 
@@ -238,7 +337,8 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
 
   function computePriceRatioFromFloats(params: { glw: number; usdg: number }) {
     const { glw, usdg } = params;
-    return glw > 0 ? usdg / glw : 0;
+    if (!Number.isFinite(glw) || glw <= 0) return 0;
+    return new Decimal(usdg).div(glw).toNumber();
   }
 
   function computeLiquidityToRemove({
@@ -331,39 +431,35 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
   }
 
   async function fetchUserPositions(): Promise<Position[]> {
+    console.log("fetchUserPositions");
     try {
-      if (!address) return positionsInitial;
-      const pairAddr = (await resolvePairAddress()) as `0x${string}` | null;
+      if (!address) return [];
+      const pairAddr = (await getPairAddressCached()) as `0x${string}` | null;
       if (!pairAddr) return [];
-
-      const token0 = (await publicClient.readContract({
-        address: pairAddr,
-        abi: PairAbi,
-        functionName: "token0",
-      })) as `0x${string}`;
-      const [reserve0, reserve1] = (await publicClient.readContract({
-        address: pairAddr,
-        abi: PairAbi,
-        functionName: "getReserves",
-      })) as readonly [bigint, bigint, number];
+      const mc = await publicClient.multicall({
+        contracts: [
+          { address: pairAddr, abi: PairAbi, functionName: "token0" },
+          { address: pairAddr, abi: PairAbi, functionName: "getReserves" },
+          { address: pairAddr, abi: erc20Abi, functionName: "totalSupply" },
+          {
+            address: pairAddr,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [address as `0x${string}`],
+          },
+        ],
+        allowFailure: false,
+      });
+      const token0 = mc[0] as `0x${string}`;
+      const [reserve0, reserve1] = mc[1] as readonly [bigint, bigint, number];
       const { usdgReserve, glwReserve } = orderReservesByTokenSymbols({
         token0,
         usdGAddress: SDKAddresses.USDG,
         reserve0,
         reserve1,
       });
-
-      const totalSupply = (await publicClient.readContract({
-        address: pairAddr,
-        abi: erc20Abi,
-        functionName: "totalSupply",
-      })) as bigint;
-      const userLp = (await publicClient.readContract({
-        address: pairAddr,
-        abi: erc20Abi,
-        functionName: "balanceOf",
-        args: [address as `0x${string}`],
-      })) as bigint;
+      const totalSupply = mc[2] as bigint;
+      const userLp = mc[3] as bigint;
 
       if (userLp === BigInt(0) || totalSupply === BigInt(0)) return [];
 
@@ -374,44 +470,116 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
         liquidityToRemove: userLp,
       });
 
-      let createdAt = Date.now();
-      let initialGlw = glw;
-      let initialUsdg = usdg;
+      const sharePct = Number((userLp * BigInt(10000)) / totalSupply) / 100;
+
+      // Fetch API for APY/multiplier/fees (do not set local state here)
+      let apiData: ApiPositionsResponse | null = null;
       try {
-        const createdKey = `lp_created_at_${chainId}_${address}`;
-        const initKey = `lp_initial_${chainId}_${address}`;
-        const storedCreated = window.localStorage.getItem(createdKey);
-        const storedInit = window.localStorage.getItem(initKey);
-        if (storedCreated) createdAt = Number(storedCreated) || createdAt;
-        if (storedInit) {
-          const parsed = JSON.parse(storedInit) as {
-            glw: number;
-            usdg: number;
-          };
-          if (Number.isFinite(parsed?.glw)) initialGlw = parsed.glw;
-          if (Number.isFinite(parsed?.usdg)) initialUsdg = parsed.usdg;
-        } else {
-          window.localStorage.setItem(createdKey, String(createdAt));
-          window.localStorage.setItem(
-            initKey,
-            JSON.stringify({ glw: initialGlw, usdg: initialUsdg })
-          );
-        }
+        apiData = await fetchPositionsFromApi(address as `0x${string}`);
       } catch {}
 
-      const sharePct = Number((userLp * BigInt(10000)) / totalSupply) / 100;
-      const pos: Position = {
-        id: "p1",
-        pair: "GLW/USDG",
-        glwAmount: glw,
-        usdgAmount: usdg,
-        apy: 12.1,
-        poolSharePct: Math.min(100, Math.max(0, sharePct)),
-        createdAt,
-        initialGlw,
-        initialUsdg,
-      };
-      return [pos];
+      const positions: Position[] = [];
+
+      if (
+        apiData &&
+        Array.isArray(apiData.positionsWithApy) &&
+        apiData.positionsWithApy.length > 0
+      ) {
+        // Create a position for each API entry (FILO queue - newest first)
+        // Sort by timestamp descending (newest first)
+        const sortedApiPositions = [...apiData.positionsWithApy].sort(
+          (a, b) => {
+            const tsA = Number(a.timestamp) || 0;
+            const tsB = Number(b.timestamp) || 0;
+            return tsB - tsA; // Descending order (newest first)
+          }
+        );
+
+        for (let i = 0; i < sortedApiPositions.length; i++) {
+          const apiPos = sortedApiPositions[i];
+
+          // Parse liquidity amount to determine position size
+          let liquidityAmount = BigInt(0);
+          try {
+            liquidityAmount = BigInt(apiPos.liquidity || "0");
+          } catch {}
+
+          // Compute exact underlying amounts for this position from reserves
+          const posAmounts = computeRemoveOutputsFloats({
+            usdgReserve,
+            glwReserve,
+            totalSupply,
+            liquidityToRemove: liquidityAmount,
+          });
+          const positionGlw = posAmounts.glw;
+          const positionUsdg = posAmounts.usdg;
+
+          // Pool share percentage for this position
+          const positionSharePct =
+            Number((liquidityAmount * BigInt(10000)) / totalSupply) / 100;
+
+          // Parse accumulated rewards
+          let accGlow = 0;
+          try {
+            accGlow = new Decimal(
+              formatUnits(
+                BigInt(apiPos.accumulatedGlowRewards || "0"),
+                DECIMALS_BY_TOKEN.GLW
+              )
+            ).toNumber();
+          } catch {}
+
+          let accFeesLP = 0;
+          try {
+            accFeesLP = new Decimal(
+              formatUnits(
+                BigInt(apiPos.totalLiquidityFeesEarned || "0"),
+                LP_DECIMALS
+              )
+            ).toNumber();
+          } catch {}
+
+          const tsMs = Number(apiPos.timestamp) * 1000;
+          const createdAt =
+            Number.isFinite(tsMs) && tsMs > 0 ? tsMs : Date.now();
+
+          positions.push({
+            id: `p${i + 1}`,
+            pair: "GLW/USDG",
+            glwAmount: positionGlw,
+            usdgAmount: positionUsdg,
+            apy: normalizeApyToPercent(apiPos.combinedAPY),
+            poolSharePct: Math.min(100, Math.max(0, positionSharePct)),
+            createdAt,
+            initialGlw: positionGlw,
+            initialUsdg: positionUsdg,
+            apiMultiplier: apiPos.multiplier,
+            accumulatedGlowRewards: accGlow,
+            totalLiquidityFeesEarnedLP: accFeesLP,
+            totalLiquidityFeesEarnedUSDG: accFeesLP,
+            liquidityIncentiveApy: normalizeApyToPercent(
+              apiPos.liquidityIncentiveAPY
+            ),
+            feesApy: normalizeApyToPercent(apiPos.feesAPY),
+            combinedApy: normalizeApyToPercent(apiPos.combinedAPY),
+          });
+        }
+      } else {
+        // Fallback: create single position if no API data
+        positions.push({
+          id: "p1",
+          pair: "GLW/USDG",
+          glwAmount: glw,
+          usdgAmount: usdg,
+          apy: 12.1,
+          poolSharePct: Math.min(100, Math.max(0, sharePct)),
+          createdAt: Date.now(),
+          initialGlw: glw,
+          initialUsdg: usdg,
+        });
+      }
+
+      return positions;
     } catch (e) {
       return [];
     }
@@ -424,7 +592,7 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
   }>({
     queryKey: ["pool-info", chainId],
     queryFn: async () => {
-      const pairAddr = (await resolvePairAddress()) as `0x${string}` | null;
+      const pairAddr = (await getPairAddressCached()) as `0x${string}` | null;
       if (!pairAddr) throw new Error("Pair not found");
       const { glw, usdg } = await fetchReservesFloats(pairAddr);
       return {
@@ -435,7 +603,7 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
     staleTime: 15_000,
     refetchInterval: 30_000,
     refetchOnMount: true,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     retry: 2,
   });
@@ -457,13 +625,9 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
 
   function toUnits(n: number, decimals: number) {
     if (!Number.isFinite(n)) return BigInt(0);
-    const [intPart, fracPart = ""] = String(n).split(".");
-    const normalized =
-      (intPart + (fracPart + "0".repeat(decimals)).slice(0, decimals)).replace(
-        /^0+/,
-        ""
-      ) || "0";
-    return BigInt(normalized);
+    const base = new Decimal(10).pow(decimals);
+    const scaled = new Decimal(n).mul(base).toFixed(0, Decimal.ROUND_DOWN);
+    return BigInt(scaled);
   }
 
   function applySlippage(amount: bigint, bps: number) {
@@ -558,7 +722,7 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
     if (!Number.isFinite(amountA) || amountA <= 0) return 0;
     if (!Number.isFinite(reserveA) || reserveA <= 0) return 0;
     if (!Number.isFinite(reserveB) || reserveB <= 0) return 0;
-    return (amountA * reserveB) / reserveA;
+    return new Decimal(amountA).mul(reserveB).div(reserveA).toNumber();
   }
 
   // Public API: quote the counterpart amount to match pool ratio
@@ -600,22 +764,22 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
       return false;
     if (reserveGLW <= 0 || reserveUSDG <= 0) return false;
 
-    const slippage = defaultSlippageBps / 10_000;
-    const amountAMin = glw * (1 - slippage);
-    const amountBMin = usdg * (1 - slippage);
+    const slippage = new Decimal(defaultSlippageBps).div(10_000);
+    const amountAMin = new Decimal(glw).mul(new Decimal(1).minus(slippage));
+    const amountBMin = new Decimal(usdg).mul(new Decimal(1).minus(slippage));
 
-    const ratio = reserveUSDG / reserveGLW;
-    if (!Number.isFinite(ratio) || ratio <= 0) return false;
-    const amountBOptimal = glw * ratio;
-    if (amountBOptimal <= usdg) {
-      const usedA = glw;
+    const ratio = new Decimal(reserveUSDG).div(reserveGLW);
+    if (!ratio.isFinite() || ratio.lte(0)) return false;
+    const amountBOptimal = new Decimal(glw).mul(ratio);
+    if (amountBOptimal.lte(usdg)) {
+      const usedA = new Decimal(glw);
       const usedB = amountBOptimal;
-      return usedA < amountAMin || usedB < amountBMin;
+      return usedA.lt(amountAMin) || usedB.lt(amountBMin);
     } else {
-      const amountAOptimal = usdg / ratio;
+      const amountAOptimal = new Decimal(usdg).div(ratio);
       const usedA = amountAOptimal;
-      const usedB = usdg;
-      return usedA < amountAMin || usedB < amountBMin;
+      const usedB = new Decimal(usdg);
+      return usedA.lt(amountAMin) || usedB.lt(amountBMin);
     }
   }
 
@@ -626,37 +790,32 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
       if (!address) return { glw: 0, usdg: 0 };
       if (!Number.isFinite(percentage) || percentage <= 0)
         return { glw: 0, usdg: 0 };
-      const pairAddr = (await resolvePairAddress()) as `0x${string}` | null;
+      const pairAddr = (await getPairAddressCached()) as `0x${string}` | null;
       if (!pairAddr) return null;
-
-      const token0 = (await publicClient.readContract({
-        address: pairAddr,
-        abi: PairAbi,
-        functionName: "token0",
-      })) as `0x${string}`;
-      const [reserve0, reserve1] = (await publicClient.readContract({
-        address: pairAddr,
-        abi: PairAbi,
-        functionName: "getReserves",
-      })) as readonly [bigint, bigint, number];
+      const mc = await publicClient.multicall({
+        contracts: [
+          { address: pairAddr, abi: PairAbi, functionName: "token0" },
+          { address: pairAddr, abi: PairAbi, functionName: "getReserves" },
+          { address: pairAddr, abi: erc20Abi, functionName: "totalSupply" },
+          {
+            address: pairAddr,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [address as `0x${string}`],
+          },
+        ],
+        allowFailure: false,
+      });
+      const token0 = mc[0] as `0x${string}`;
+      const [reserve0, reserve1] = mc[1] as readonly [bigint, bigint, number];
       const { usdgReserve, glwReserve } = orderReservesByTokenSymbols({
         token0,
         usdGAddress: SDKAddresses.USDG,
         reserve0,
         reserve1,
       });
-
-      const totalSupply = (await publicClient.readContract({
-        address: pairAddr,
-        abi: erc20Abi,
-        functionName: "totalSupply",
-      })) as bigint;
-      const userLp = (await publicClient.readContract({
-        address: pairAddr,
-        abi: erc20Abi,
-        functionName: "balanceOf",
-        args: [address as `0x${string}`],
-      })) as bigint;
+      const totalSupply = mc[2] as bigint;
+      const userLp = mc[3] as bigint;
       if (userLp === BigInt(0) || totalSupply === BigInt(0))
         return { glw: 0, usdg: 0 };
 
@@ -780,41 +939,30 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
   }
 
   function getRewardsEstimatesGLW(p: Position) {
-    const apyPerSecond = p.apy / 100 / (365 * 24 * 60 * 60);
-    const elapsedSeconds = Math.max(0, Math.floor((now - p.createdAt) / 1000));
-    const multiplier = getLoyaltyMultiplier(p.createdAt);
+    // Prefer API accumulated value for finalized component
+    const finalizedFromApi = Number.isFinite(p.accumulatedGlowRewards)
+      ? (p.accumulatedGlowRewards as number)
+      : 0;
+    return {
+      finalized: finalizedFromApi,
 
-    const completedEpochs = Math.floor(elapsedSeconds / epochSeconds);
-    const finalizedSeconds = completedEpochs * epochSeconds;
-    const pendingSeconds = elapsedSeconds - finalizedSeconds;
-
-    const finalized =
-      p.glwAmount * apyPerSecond * finalizedSeconds * multiplier;
-    const pending = p.glwAmount * apyPerSecond * pendingSeconds * multiplier;
-    const ratePerSecond = p.glwAmount * apyPerSecond * multiplier;
-
-    return { finalized, pending, multiplier, ratePerSecond };
+      multiplier: getLoyaltyMultiplier(p.createdAt),
+    };
   }
 
-  React.useEffect(() => {
-    let finalizedSum = 0;
-    let totalRate = 0;
-    let totalNowAccum = 0;
+  const derivedRewards = React.useMemo(() => {
     const finalizedById: Record<string, number> = {};
     const pendingById: Record<string, number> = {};
     const rateById: Record<string, number> = {};
     const feesById: Record<string, number> = {};
     const feeRateById: Record<string, number> = {};
-    let totalFeeRate = 0;
 
+    let finalizedSum = 0;
     for (const p of positions) {
       const r = getRewardsEstimatesGLW(p);
       finalizedSum += r.finalized;
-      totalRate += r.ratePerSecond;
-      totalNowAccum += r.finalized + r.pending;
       finalizedById[p.id] = r.finalized;
-      pendingById[p.id] = r.pending;
-      rateById[p.id] = r.ratePerSecond;
+      rateById[p.id] = r.multiplier;
 
       const positionValueInUSDG =
         p.usdgAmount + p.glwAmount * (dynamicPriceRatio || 0);
@@ -822,50 +970,30 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
         0,
         Math.floor((now - p.createdAt) / 1000)
       );
+      const feesApy = Number.isFinite(p.feesApy)
+        ? (p.feesApy as number)
+        : feeApyPercent;
       const feeRatePerSecond =
-        ((feeApyPercent / 100) * positionValueInUSDG) / SECONDS_IN_YEAR;
-      const feesAccrued = feeRatePerSecond * elapsedSeconds;
+        ((feesApy / 100) * positionValueInUSDG) / SECONDS_IN_YEAR;
+      const feesAccrued = Number.isFinite(p.totalLiquidityFeesEarnedLP)
+        ? (p.totalLiquidityFeesEarnedLP as number)
+        : feeRatePerSecond * elapsedSeconds;
       feesById[p.id] = feesAccrued;
       feeRateById[p.id] = feeRatePerSecond;
-      totalFeeRate += feeRatePerSecond;
     }
 
-    setRewardsEarnedGlw(finalizedSum);
-    setTotalRatePerSec(totalRate);
-    setPositionFinalizedMap(finalizedById);
-    setPositionPendingMap(pendingById);
-    setPositionRateMap(rateById);
-    setPositionFeesMap(feesById);
-    setPositionFeeRateMap(feeRateById);
-    setFeesRatePerSec(totalFeeRate);
-
-    animatedRewards.set(totalNowAccum);
-    const tick = setInterval(() => {
-      const target = animatedRewards.get() + totalRate;
-      animate(animatedRewards, target, { duration: 0.8, ease: "easeOut" });
-    }, 1000);
-    return () => clearInterval(tick);
+    return {
+      rewardsEarnedGlw: finalizedSum,
+      positionFinalizedMap: finalizedById,
+      positionPendingMap: pendingById,
+      positionRateMap: rateById,
+      positionFeesMap: feesById,
+      positionFeeRateMap: feeRateById,
+    } as const;
   }, [positions, now, dynamicPriceRatio, feeApyPercent, epochSeconds]);
 
-  React.useEffect(() => {
-    const id = setInterval(() => {
-      setPositionPendingMap((prev) => {
-        const next: Record<string, number> = {};
-        for (const key of Object.keys(prev))
-          next[key] = prev[key] + (positionRateMap[key] || 0);
-        return next;
-      });
-      setPositionFeesMap((prev) => {
-        const next: Record<string, number> = {};
-        for (const key of Object.keys(positionFeeRateMap)) {
-          const current = prev[key] ?? 0;
-          next[key] = current + (positionFeeRateMap[key] || 0);
-        }
-        return next;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [positionRateMap, positionFeeRateMap]);
+  // Single ticking source of truth is `now`. We avoid a second interval
+  // to prevent update cascades and depth issues.
 
   const addLiquidityMutation = useMutation({
     mutationKey: ["add-liquidity", chainId, address],
@@ -1149,16 +1277,19 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
     // state
     positions,
     now,
+    isPositionsLoading,
+    isPositionsFetching,
+    isPositionsPending,
     // rewards
-    rewardsEarnedGlw,
-    animatedRewardsDisplay,
-    totalRatePerSec,
-    feesRatePerSec,
-    positionFinalizedMap,
-    positionPendingMap,
-    positionRateMap,
-    positionFeesMap,
-    positionFeeRateMap,
+    rewardsEarnedGlw: derivedRewards.rewardsEarnedGlw,
+    totalAccumulatedGlw, // Total GLW rewards from API
+    totalAccruedLiquidityProviderFees,
+
+    positionFinalizedMap: derivedRewards.positionFinalizedMap,
+    positionPendingMap: derivedRewards.positionPendingMap,
+    positionRateMap: derivedRewards.positionRateMap,
+    positionFeesMap: derivedRewards.positionFeesMap,
+    positionFeeRateMap: derivedRewards.positionFeeRateMap,
     // params
     priceRatio: dynamicPriceRatio,
     poolReserves: dynamicPoolReserves,

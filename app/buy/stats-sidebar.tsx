@@ -2,6 +2,7 @@ import React from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NumberTicker } from "@/components/ui/number-ticker";
 import { useGctlApi } from "@/hooks/useGctlApi";
+import { ExternalLink } from "lucide-react";
 
 interface StatsSidebarProps {
   glowPrice: string;
@@ -83,22 +84,6 @@ export function StatsSidebar({
 
           <div className="bg-muted/30 rounded-xl border border-border p-3 lg:p-4">
             <div className="text-xs text-muted-foreground mb-1 lg:mb-2">
-              Reward Pool
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-base lg:text-xl font-extrabold tabular-nums">
-                ${" "}
-                {statsLoading ? (
-                  <Skeleton className="w-24 h-6 inline-block" />
-                ) : (
-                  <NumberTicker value={Number(usdcRewardPool)} />
-                )}
-              </span>
-            </div>
-          </div>
-
-          <div className="bg-muted/30 rounded-xl border border-border p-3 lg:p-4">
-            <div className="text-xs text-muted-foreground mb-1 lg:mb-2">
               USDC Available
             </div>
             <div className="flex items-baseline gap-2">
@@ -119,7 +104,7 @@ export function StatsSidebar({
             )}
           </div>
 
-          <div className="bg-muted/30 rounded-xl border border-border p-3 lg:p-4 col-span-2 lg:col-span-1">
+          <div className="bg-muted/30 rounded-xl border border-border p-3 lg:p-4 ">
             <div className="text-xs text-muted-foreground mb-1 lg:mb-2">
               ETH Price
             </div>
@@ -133,6 +118,19 @@ export function StatsSidebar({
                   : "-"}
               </span>
             </div>
+          </div>
+
+          {/* Trading Activity Link */}
+          <div className="bg-muted/30 rounded-xl border border-border p-3 lg:p-4 col-span-2 lg:col-span-1">
+            <a
+              href="https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-medium hover:underline"
+            >
+              View GLW/USDG activity
+              <ExternalLink className="w-4 h-4" />
+            </a>
           </div>
         </div>
       </div>

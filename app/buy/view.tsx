@@ -959,7 +959,7 @@ export default function View({
             </TabsList>
 
             <TabsContent value="swap">
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 mt-2 lg:mt-6">
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 mt-2 lg:mt-4">
                 {/* Main Swap Content */}
                 <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full p-4 lg:p-6 h-fit mx-auto max-w-[600px] lg:max-w-none">
                   {/* Enhanced Tabs Navigation */}
@@ -1202,7 +1202,7 @@ export default function View({
             </TabsContent>
 
             <TabsContent value="send">
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 mt-2 lg:mt-6">
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 mt-2 lg:mt-4">
                 <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full p-4 lg:p-6 h-fit mx-auto max-w-[600px] lg:max-w-none">
                   <SendTab
                     isConnected={isConnected}

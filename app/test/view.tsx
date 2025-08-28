@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,113 +11,41 @@ import {
   useWalletClient,
 } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits, parseUnits, parseAbi, erc20Abi, zeroAddress } from "viem";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
+import { DECIMALS_BY_TOKEN, getAddresses } from "@glowlabs-org/utils/browser";
+import { publicClient } from "@/web3/web3/clients/publicClient";
 
-// GLOW_ADDRESS = "0x8e27016D0B866a56CE74A1a280c749dD679bb0Fa"
-// USDG_ADDRESS = "0x2a085A3aEA8982396533327c854753Ce521B666d"
-// ROUTER_ADDRESS = "0xeE567Fe1712Faf6149d80dA1E6934E354124CfE3"
-// PAIR_ADDRESS = "0xAB222Ee0781b624516FddB440A1DdCaeE87C2408"
-// Sepolia testnet addresses - You'll need to update these with actual Sepolia addresses
+const SDKAddresses = getAddresses(parseInt(process.env.NEXT_PUBLIC_CHAIN_ID!));
+
+const UNISWAP_V2_FACTORY = SDKAddresses.UNISWAP_V2_FACTORY;
+
 const SEPOLIA_ADDRESSES = {
-  USDG: "0x2a085A3aEA8982396533327c854753Ce521B666d", // Replace with actual Sepolia USDG address
-  GLOW: "0x8e27016D0B866a56CE74A1a280c749dD679bb0Fa", // Replace with actual Sepolia Glow address
-  UNISWAP_V2_PAIR: "0xAB222Ee0781b624516FddB440A1DdCaeE87C2408", // Replace with actual Sepolia pair address
-  UNISWAP_V2_ROUTER: "0xeE567Fe1712Faf6149d80dA1E6934E354124CfE3", // Replace with actual Sepolia router address
+  USDG: SDKAddresses.USDG,
+  GLOW: SDKAddresses.GLW,
+  UNISWAP_V2_ROUTER: SDKAddresses.UNISWAP_V2_ROUTER,
+  UNISWAP_V2_FACTORY: SDKAddresses.UNISWAP_V2_FACTORY,
 };
 
 const DECIMALS = {
-  USDG: 6,
-  GLOW: 18,
+  USDG: DECIMALS_BY_TOKEN.USDG,
+  GLOW: DECIMALS_BY_TOKEN.GLW,
 };
 
-// Uniswap V2 Pair ABI for getReserves
-const PAIR_ABI = [
-  {
-    constant: true,
-    inputs: [],
-    name: "getReserves",
-    outputs: [
-      { name: "_reserve0", type: "uint112" },
-      { name: "_reserve1", type: "uint112" },
-      { name: "_blockTimestampLast", type: "uint32" },
-    ],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [],
-    name: "token0",
-    outputs: [{ name: "", type: "address" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [],
-    name: "token1",
-    outputs: [{ name: "", type: "address" }],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-];
+// Reuse ABIs from useLiquidityPositions pattern
+const PairAbi = parseAbi([
+  "function getReserves() view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)",
+  "function token0() view returns (address)",
+  "function token1() view returns (address)",
+]);
 
-// Uniswap V2 Router ABI for swaps
-const ROUTER_ABI = [
-  {
-    inputs: [
-      { name: "amountIn", type: "uint256" },
-      { name: "amountOutMin", type: "uint256" },
-      { name: "path", type: "address[]" },
-      { name: "to", type: "address" },
-      { name: "deadline", type: "uint256" },
-    ],
-    name: "swapExactTokensForTokens",
-    outputs: [{ name: "amounts", type: "uint256[]" }],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-];
-
-// ERC20 ABI for approvals
-const ERC20_ABI = [
-  {
-    inputs: [
-      { name: "spender", type: "address" },
-      { name: "amount", type: "uint256" },
-    ],
-    name: "approve",
-    outputs: [{ name: "", type: "bool" }],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ name: "account", type: "address" }],
-    name: "balanceOf",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { name: "owner", type: "address" },
-      { name: "spender", type: "address" },
-    ],
-    name: "allowance",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-];
+const RouterAbi = parseAbi([
+  "function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] path, address to, uint deadline) returns (uint[] amounts)",
+]);
 
 export default function TestView() {
   const { address, isConnected } = useAccount();
-  const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
   const chainId = useChainId();
 
@@ -138,23 +66,35 @@ export default function TestView() {
     glow: bigint;
   }>({ usdg: BigInt(0), glow: BigInt(0) });
   const [needsApproval, setNeedsApproval] = useState(false);
+  const [pairAddress, setPairAddress] = useState<`0x${string}` | null>(null);
+  const [pairInfo, setPairInfo] = useState<{
+    totalSupply: bigint;
+    userLpBalance: bigint;
+  }>({ totalSupply: BigInt(0), userLpBalance: BigInt(0) });
+  const [liquidityInfo, setLiquidityInfo] = useState<{
+    currentLiquidity: number;
+    estimatedLiquidity: number;
+  }>({ currentLiquidity: 0, estimatedLiquidity: 0 });
 
   // Check if we're on Sepolia
   const isOnSepolia = chainId === 11155111;
 
-  // Log initial state
-  useEffect(() => {
-    console.log("TestView mounted with state:", {
-      address,
-      isConnected,
-      chainId,
-      isOnSepolia,
-      hasPublicClient: !!publicClient,
-      hasWalletClient: !!walletClient,
-      contractAddresses: SEPOLIA_ADDRESSES,
-      rpcUrl: process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || "default public RPC",
-    });
-  }, [address, isConnected, chainId, isOnSepolia, publicClient, walletClient]);
+  // Helper functions similar to useLiquidityPositions
+  const orderReservesByTokenSymbols = useCallback(
+    (params: {
+      token0: string;
+      usdGAddress: string;
+      reserve0: bigint;
+      reserve1: bigint;
+    }) => {
+      const { token0, usdGAddress, reserve0, reserve1 } = params;
+      const isToken0USDG = token0.toLowerCase() === usdGAddress.toLowerCase();
+      const usdgReserve = isToken0USDG ? reserve0 : reserve1;
+      const glowReserve = isToken0USDG ? reserve1 : reserve0;
+      return { usdgReserve, glowReserve };
+    },
+    []
+  );
 
   // Fetch token balances
   const fetchBalances = async () => {
@@ -180,7 +120,7 @@ export default function TestView() {
       console.log("📖 Calling USDG balanceOf...");
       const usdgBalance = (await publicClient.readContract({
         address: SEPOLIA_ADDRESSES.USDG as `0x${string}`,
-        abi: ERC20_ABI,
+        abi: erc20Abi,
         functionName: "balanceOf",
         args: [address],
       })) as bigint;
@@ -189,7 +129,7 @@ export default function TestView() {
       console.log("📖 Calling GLOW balanceOf...");
       const glowBalance = (await publicClient.readContract({
         address: SEPOLIA_ADDRESSES.GLOW as `0x${string}`,
-        abi: ERC20_ABI,
+        abi: erc20Abi,
         functionName: "balanceOf",
         args: [address],
       })) as bigint;
@@ -223,7 +163,7 @@ export default function TestView() {
 
       const allowance = (await publicClient.readContract({
         address: tokenAddress as `0x${string}`,
-        abi: ERC20_ABI,
+        abi: erc20Abi,
         functionName: "allowance",
         args: [address, SEPOLIA_ADDRESSES.UNISWAP_V2_ROUTER as `0x${string}`],
       })) as bigint;
@@ -246,7 +186,7 @@ export default function TestView() {
 
       const hash = await walletClient.writeContract({
         address: tokenAddress as `0x${string}`,
-        abi: ERC20_ABI,
+        abi: erc20Abi,
         functionName: "approve",
         args: [SEPOLIA_ADDRESSES.UNISWAP_V2_ROUTER as `0x${string}`, amount],
       });
@@ -270,10 +210,11 @@ export default function TestView() {
     setLoading(true);
     try {
       const amountIn = parseUnits(inputAmount, DECIMALS[fromToken]);
+      const slippageBps = BigInt(Math.round(slippage * 100)); // percent -> bps
       const minAmountOut =
         (parseUnits(outputAmount, DECIMALS[toToken]) *
-          BigInt(100 - slippage * 10)) /
-        BigInt(100);
+          (BigInt(10_000) - slippageBps)) /
+        BigInt(10_000);
       const path =
         fromToken === "USDG"
           ? [SEPOLIA_ADDRESSES.USDG, SEPOLIA_ADDRESSES.GLOW]
@@ -282,7 +223,7 @@ export default function TestView() {
 
       const hash = await walletClient.writeContract({
         address: SEPOLIA_ADDRESSES.UNISWAP_V2_ROUTER as `0x${string}`,
-        abi: ROUTER_ABI,
+        abi: RouterAbi,
         functionName: "swapExactTokensForTokens",
         args: [amountIn, minAmountOut, path, address, deadline],
       });
@@ -304,66 +245,110 @@ export default function TestView() {
     }
   };
 
+  // Resolve pair via factory (matching useLiquidityPositions pattern)
+  const resolvePairAddress = useCallback(async (): Promise<
+    `0x${string}` | null
+  > => {
+    console.log("📊 resolvePairAddress called");
+    if (!publicClient) return null;
+    try {
+      if (UNISWAP_V2_FACTORY) {
+        const addr = (await publicClient.readContract({
+          address: UNISWAP_V2_FACTORY as `0x${string}`,
+          abi: parseAbi([
+            "function getPair(address tokenA, address tokenB) external view returns (address pair)",
+          ]),
+          functionName: "getPair",
+          args: [SEPOLIA_ADDRESSES.GLOW, SEPOLIA_ADDRESSES.USDG],
+        })) as `0x${string}`;
+        console.log("📊 Pair address received:", addr);
+        if (addr && addr !== zeroAddress) return addr;
+      }
+      // fallback to constant or throw
+      throw new Error("Pair not found");
+    } catch {
+      throw new Error("Pair not found");
+    }
+  }, [publicClient]);
+
   // Fetch reserves from Uniswap V2 pair
-  const fetchReserves = async () => {
-    console.log("🔥 FETCHRESERVES CALLED! 🔥");
+  const fetchReserves = useCallback(async () => {
     if (!publicClient || !isOnSepolia) {
-      console.log("fetchReserves skipped:", {
-        hasPublicClient: !!publicClient,
-        isOnSepolia,
-        chainId,
-      });
       return;
     }
 
-    console.log(
-      "Fetching reserves from pair:",
-      SEPOLIA_ADDRESSES.UNISWAP_V2_PAIR
-    );
-
     try {
-      console.log("📊 Reading reserves directly...");
+      const pairAddr = await resolvePairAddress();
+      setPairAddress(pairAddr);
+      if (!pairAddr) {
+        console.log("Pair not found via factory");
+        return;
+      }
 
-      console.log("📊 Calling getReserves...");
-      const reservesResult = (await publicClient.readContract({
-        address: SEPOLIA_ADDRESSES.UNISWAP_V2_PAIR as `0x${string}`,
-        abi: PAIR_ABI,
-        functionName: "getReserves",
-      })) as [bigint, bigint, number];
+      console.log("Fetching reserves from pair:", pairAddr);
 
-      console.log("📊 Raw reserves received:", {
-        reserve0: reservesResult[0].toString(),
-        reserve1: reservesResult[1].toString(),
-        timestamp: reservesResult[2],
+      // Use multicall for efficiency
+      const contracts = [
+        {
+          address: pairAddr,
+          abi: PairAbi,
+          functionName: "token0",
+        },
+        {
+          address: pairAddr,
+          abi: PairAbi,
+          functionName: "getReserves",
+        },
+        {
+          address: pairAddr,
+          abi: erc20Abi,
+          functionName: "totalSupply",
+        },
+        ...(address
+          ? [
+              {
+                address: pairAddr,
+                abi: erc20Abi,
+                functionName: "balanceOf",
+                args: [address],
+              },
+            ]
+          : []),
+      ];
+
+      const results = await publicClient.multicall({
+        contracts,
+        allowFailure: false,
       });
 
-      const [reserve0, reserve1] = reservesResult;
+      const token0 = results[0] as `0x${string}`;
+      const [reserve0, reserve1] = results[1] as readonly [
+        bigint,
+        bigint,
+        number
+      ];
+      const totalSupply = results[2] as bigint;
+      const userLpBalance = address ? (results[3] as bigint) : BigInt(0);
 
-      console.log("📊 Calling token0...");
-      const token0 = (await publicClient.readContract({
-        address: SEPOLIA_ADDRESSES.UNISWAP_V2_PAIR as `0x${string}`,
-        abi: PAIR_ABI,
-        functionName: "token0",
-      })) as `0x${string}`;
-      console.log("📊 token0 received:", token0);
+      console.log("📊 Raw reserves:", {
+        reserve0: reserve0.toString(),
+        reserve1: reserve1.toString(),
+        token0,
+        totalSupply: totalSupply.toString(),
+        userLpBalance: userLpBalance.toString(),
+      });
 
-      console.log("📊 Calling token1...");
-      const token1 = (await publicClient.readContract({
-        address: SEPOLIA_ADDRESSES.UNISWAP_V2_PAIR as `0x${string}`,
-        abi: PAIR_ABI,
-        functionName: "token1",
-      })) as `0x${string}`;
-      console.log("📊 token1 received:", token1);
-
-      console.log("Pair tokens:", { token0, token1 });
-
-      // Determine which reserve is USDG and which is GLOW
-      const isToken0USDG =
-        token0.toLowerCase() === SEPOLIA_ADDRESSES.USDG.toLowerCase();
+      // Use helper to order reserves
+      const { usdgReserve, glowReserve } = orderReservesByTokenSymbols({
+        token0,
+        usdGAddress: SEPOLIA_ADDRESSES.USDG,
+        reserve0,
+        reserve1,
+      });
 
       const finalReserves = {
-        usdg: isToken0USDG ? reserve0 : reserve1,
-        glow: isToken0USDG ? reserve1 : reserve0,
+        usdg: usdgReserve,
+        glow: glowReserve,
       };
 
       console.log("Processed reserves:", {
@@ -371,19 +356,26 @@ export default function TestView() {
         glow: finalReserves.glow.toString(),
         usdgFormatted: formatUnits(finalReserves.usdg, DECIMALS.USDG),
         glowFormatted: formatUnits(finalReserves.glow, DECIMALS.GLOW),
-        isToken0USDG,
       });
 
       setReserves(finalReserves);
+      setPairInfo({ totalSupply, userLpBalance });
     } catch (error) {
       console.error("Error fetching reserves:", error);
-      console.error("Error details:", {
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-      toast.error("Failed to fetch pool reserves");
+      if (error instanceof Error && error.message === "Pair not found") {
+        toast.error("Liquidity pair not found on this network");
+      } else {
+        toast.error("Failed to fetch pool reserves");
+      }
     }
-  };
+  }, [
+    publicClient,
+    isOnSepolia,
+    chainId,
+    address,
+    resolvePairAddress,
+    orderReservesByTokenSymbols,
+  ]);
 
   // Calculate output amount using constant product formula
   const calculateOutputAmount = (input: string) => {
@@ -391,6 +383,7 @@ export default function TestView() {
       setOutputAmount("");
       setPriceImpact(0);
       setNewGlowPrice(0);
+      setLiquidityInfo({ currentLiquidity: 0, estimatedLiquidity: 0 });
       return;
     }
 
@@ -406,6 +399,43 @@ export default function TestView() {
       const numerator = amountInWithFee * reserveOut;
       const denominator = reserveIn * BigInt(1000) + amountInWithFee;
       const amountOut = numerator / denominator;
+
+      // Calculate current liquidity (L = sqrt(x * y))
+      // Convert to proper decimal format for calculation
+      const usdgReserveFloat = Number(
+        formatUnits(reserves.usdg, DECIMALS.USDG)
+      );
+      const glowReserveFloat = Number(
+        formatUnits(reserves.glow, DECIMALS.GLOW)
+      );
+      const currentLiquidity = Math.sqrt(usdgReserveFloat * glowReserveFloat);
+
+      // Calculate new reserves after swap (accounting for the fee already applied in amountOut calculation)
+      const newReserveIn = reserveIn + inputBigInt;
+      const newReserveOut = reserveOut - amountOut;
+
+      // Map back to USDG and GLOW reserves
+      const newUsdgReserve =
+        fromToken === "USDG" ? newReserveIn : newReserveOut;
+      const newGlowReserve =
+        fromToken === "USDG" ? newReserveOut : newReserveIn;
+
+      // Convert new reserves to decimal format and calculate estimated liquidity
+      const newUsdgReserveFloat = Number(
+        formatUnits(newUsdgReserve, DECIMALS.USDG)
+      );
+      const newGlowReserveFloat = Number(
+        formatUnits(newGlowReserve, DECIMALS.GLOW)
+      );
+      const estimatedLiquidity = Math.sqrt(
+        newUsdgReserveFloat * newGlowReserveFloat
+      );
+
+      // Store liquidity info
+      setLiquidityInfo({
+        currentLiquidity,
+        estimatedLiquidity,
+      });
 
       // Calculate price impact for any swap involving GLOW
       if (fromToken === "GLOW" || toToken === "GLOW") {
@@ -492,6 +522,7 @@ export default function TestView() {
     setOutputAmount(inputAmount);
     setPriceImpact(0);
     setNewGlowPrice(0);
+    setLiquidityInfo({ currentLiquidity: 0, estimatedLiquidity: 0 });
   };
 
   // Handle input change
@@ -560,6 +591,16 @@ export default function TestView() {
       checkApproval();
     }
   }, [inputAmount, fromToken, isConnected]);
+
+  // Format number with locale string
+  const formatWithCommas = (value: string, decimals: number = 2) => {
+    const num = parseFloat(value);
+    if (isNaN(num)) return "0";
+    return num.toLocaleString(undefined, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+  };
 
   const prices = getCurrentPrice();
 
@@ -723,10 +764,10 @@ export default function TestView() {
               </div>
             </div>
 
-            {/* Price Impact - show when any swap involves Glow */}
+            {/* Price Impact and Liquidity Info - show when any swap involves Glow */}
             {(fromToken === "GLOW" || toToken === "GLOW") &&
               priceImpact > 0 && (
-                <div className="bg-yellow-50 p-3 rounded-lg">
+                <div className="bg-yellow-50 p-3 rounded-lg space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Price Impact</span>
                     <span
@@ -742,12 +783,48 @@ export default function TestView() {
                     </span>
                   </div>
                   {inputAmount && outputAmount && newGlowPrice > 0 && (
-                    <div className="mt-2 text-xs text-gray-600">
+                    <div className="text-xs text-gray-600 space-y-1">
                       <div>
                         Glow price before swap: ${prices.usdgPerGlow.toFixed(6)}
                       </div>
                       <div>
                         Glow price after swap: ${newGlowPrice.toFixed(6)}
+                      </div>
+                    </div>
+                  )}
+                  {liquidityInfo.currentLiquidity > 0 && (
+                    <div className="pt-2 border-t border-yellow-200">
+                      <div className="text-xs text-gray-600 space-y-1">
+                        <div className="font-semibold">Liquidity (√(x·y))</div>
+                        <div>
+                          Current liquidity:{" "}
+                          {liquidityInfo.currentLiquidity.toFixed(6)}
+                        </div>
+                        <div>
+                          Est. liquidity after swap:{" "}
+                          {liquidityInfo.estimatedLiquidity.toFixed(6)}
+                        </div>
+                        <div className="text-gray-500">
+                          Delta:{" "}
+                          {liquidityInfo.estimatedLiquidity >
+                          liquidityInfo.currentLiquidity
+                            ? "+"
+                            : ""}
+                          {(
+                            liquidityInfo.estimatedLiquidity -
+                            liquidityInfo.currentLiquidity
+                          ).toFixed(6)}
+                        </div>
+                        <div className="text-gray-500">
+                          Change:{" "}
+                          {(
+                            ((liquidityInfo.estimatedLiquidity -
+                              liquidityInfo.currentLiquidity) /
+                              liquidityInfo.currentLiquidity) *
+                            100
+                          ).toFixed(4)}
+                          %
+                        </div>
                       </div>
                     </div>
                   )}
@@ -807,8 +884,50 @@ export default function TestView() {
             {reserves && (
               <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-1 text-sm text-gray-600">
                 <h4 className="font-semibold text-gray-700">Pool Reserves</h4>
-                <div>USDG: {formatUnits(reserves.usdg, DECIMALS.USDG)}</div>
-                <div>GLOW: {formatUnits(reserves.glow, DECIMALS.GLOW)}</div>
+                <div>
+                  USDG:{" "}
+                  {formatWithCommas(formatUnits(reserves.usdg, DECIMALS.USDG))}
+                </div>
+                <div>
+                  GLOW:{" "}
+                  {formatWithCommas(formatUnits(reserves.glow, DECIMALS.GLOW))}
+                </div>
+                <div>
+                  Current Liquidity (√(x·y)):{" "}
+                  {Math.sqrt(
+                    Number(formatUnits(reserves.usdg, DECIMALS.USDG)) *
+                      Number(formatUnits(reserves.glow, DECIMALS.GLOW))
+                  ).toFixed(6)}
+                </div>
+                <div className="mt-2 pt-2 border-t">
+                  <div className="font-semibold text-gray-700">
+                    LP Token Info
+                  </div>
+                  <div>
+                    Total Supply:{" "}
+                    {formatWithCommas(formatUnits(pairInfo.totalSupply, 12))} LP
+                  </div>
+                  {address && (
+                    <div>
+                      Your Balance:{" "}
+                      {formatWithCommas(
+                        formatUnits(pairInfo.userLpBalance, 12)
+                      )}{" "}
+                      LP
+                      {pairInfo.totalSupply > BigInt(0) && (
+                        <span className="text-xs ml-1">
+                          (
+                          {(
+                            (Number(pairInfo.userLpBalance) /
+                              Number(pairInfo.totalSupply)) *
+                            100
+                          ).toFixed(4)}
+                          %)
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -827,8 +946,9 @@ export default function TestView() {
                 <div className="mt-2">Contract Addresses:</div>
                 <div className="ml-2">USDG: {SEPOLIA_ADDRESSES.USDG}</div>
                 <div className="ml-2">GLOW: {SEPOLIA_ADDRESSES.GLOW}</div>
+
                 <div className="ml-2">
-                  Pair: {SEPOLIA_ADDRESSES.UNISWAP_V2_PAIR}
+                  Pair (resolved): {pairAddress || "Not found"}
                 </div>
                 <div className="ml-2">
                   Router: {SEPOLIA_ADDRESSES.UNISWAP_V2_ROUTER}
