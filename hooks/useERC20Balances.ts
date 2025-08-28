@@ -12,10 +12,8 @@ export enum GetBalanceError {
 }
 
 export const useER20Balances = ({
-  symbol,
   signer,
 }: {
-  symbol: SYMBOLS;
   signer: JsonRpcSigner | undefined | null;
 }) => {
   const { usdg, glow, usdc, isReady } = useContracts(signer);
@@ -27,27 +25,19 @@ export const useER20Balances = ({
    * @param getBalance ~ Returns the balance for the desired token
    * @return Result<BigNumber, GetBalanceError> ~ Returns the balance for the desired token
    */
-  async function getBalance(): Promise<Result<bigint, GetBalanceError>> {
+  async function getBalances(): Promise<
+    Result<{ glow: bigint; usdg: bigint; usdc: bigint }, GetBalanceError>
+  > {
     if (!signer) return new Err(GetBalanceError.SIGNER_NOT_AVAILABLE);
     const address = await signer.getAddress();
-
-    switch (symbol) {
-      case "GLOW":
-        if (!glow) return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
-        return new Ok(await glow.balanceOf(address));
-
-      case "USDG":
-        if (!usdg) return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
-        return new Ok(await usdg.balanceOf(address));
-
-      case "USDC":
-        if (!usdc) return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
-        // return new Ok(await BigNumber.from(700000000000000));
-        return new Ok(await usdc.balanceOf(address));
-
-      default:
-        return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
-    }
+    if (!glow || !usdg || !usdc)
+      return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
+    const [g, u, c] = await Promise.all([
+      glow.balanceOf(address),
+      usdg.balanceOf(address),
+      usdc.balanceOf(address),
+    ]);
+    return new Ok({ glow: g, usdg: u, usdc: c });
   }
 
   const setUsdcBalanceForSigner = async () => {
@@ -78,12 +68,12 @@ export const useER20Balances = ({
   };
 
   const refreshBalances = async () => {
-    if (isReady) {
-      getBalance();
-      setUsdcBalanceForSigner();
-      setUsdgBalanceForSigner();
-      setGlowBalanceForSigner();
-    }
+    if (!isReady) return;
+    await Promise.all([
+      setUsdcBalanceForSigner(),
+      setUsdgBalanceForSigner(),
+      setGlowBalanceForSigner(),
+    ]);
   };
 
   useEffect(() => {
@@ -105,7 +95,7 @@ export const useER20Balances = ({
   }, [isReady, glow]);
 
   return {
-    getBalance,
+    getBalances,
     isReady,
     usdcBalance,
     usdgBalance,

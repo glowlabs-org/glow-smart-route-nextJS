@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Minus } from "lucide-react";
+import { formatUnits } from "viem";
 import {
   Tooltip,
   TooltipContent,
@@ -16,6 +17,12 @@ import { RemoveLiquidityDialog } from "./remove-liquidity-dialog";
 
 import { LiquidityIncentiveDialog } from "./liquidity-incentive-dialog";
 import { useLiquidityPositions } from "@/hooks/useLiquidityPositions";
+import { useEthersSigner } from "@/hooks/useEthersSigner";
+import { useER20Balances } from "@/hooks/useERC20Balances";
+import { useMemo } from "react";
+import Decimal from "decimal.js";
+import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
+import { useWalletClient } from "wagmi";
 
 export function PositionsView() {
   const {
@@ -30,10 +37,13 @@ export function PositionsView() {
     poolReserves,
     getLoyaltyMultiplier,
     addLiquidity,
-    removeLiquidity,
     showIncentiveDialog,
     acknowledgeIncentiveDialog,
     onIncentiveDialogOpenChange,
+    isAddingLiquidity,
+    estimateAddLiquidityNetworkCostUSD,
+    quoteOtherAmount,
+    wouldAddLiquidityLikelyFail,
   } = useLiquidityPositions();
   const [removeDialogOpen, setRemoveDialogOpen] = React.useState(false);
 
@@ -41,24 +51,6 @@ export function PositionsView() {
     () => Object.values(positionFeesMap).reduce((a, b) => a + b, 0),
     [positionFeesMap]
   );
-  async function onAddLiquidity({ glw, usdg }: { glw: number; usdg: number }) {
-    try {
-      await addLiquidity({ glw, usdg });
-    } catch (error) {
-      toast.error("Failed to add liquidity");
-      throw error;
-    }
-  }
-
-  async function onRemoveLiquidity(percentage: number) {
-    try {
-      await removeLiquidity(percentage);
-      setRemoveDialogOpen(false);
-      toast.success(`Removed ${percentage}% of liquidity (mock)`);
-    } catch (error) {
-      toast.error("Failed to remove liquidity");
-    }
-  }
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -69,9 +61,10 @@ export function PositionsView() {
           <div className="space-y-4">
             {/* Add Liquidity Card */}
             <AddLiquidityPanel
-              onConfirm={onAddLiquidity}
               priceRatio={priceRatio}
               poolReserves={poolReserves}
+              quoteOtherAmount={quoteOtherAmount}
+              wouldAddLiquidityLikelyFail={wouldAddLiquidityLikelyFail}
             />
           </div>
 
@@ -98,9 +91,6 @@ export function PositionsView() {
         <RemoveLiquidityDialog
           open={removeDialogOpen}
           onOpenChange={setRemoveDialogOpen}
-          positions={positions}
-          priceRatio={priceRatio}
-          onConfirm={onRemoveLiquidity}
         />
 
         {/* Liquidity Incentive Dialog (first-visit) */}
@@ -119,53 +109,141 @@ export default PositionsView;
 // ---- Subcomponents ----
 
 interface AddLiquidityPanelProps {
-  onConfirm: (params: { glw: number; usdg: number }) => Promise<void>;
   priceRatio: number;
   poolReserves: { glw: number; usdg: number };
+  quoteOtherAmount: (params: {
+    fromToken: "GLW" | "USDG";
+    amount: number;
+  }) => number;
+  wouldAddLiquidityLikelyFail: (params: {
+    glw: number;
+    usdg: number;
+  }) => boolean;
 }
 
 function AddLiquidityPanel({
-  onConfirm,
   priceRatio,
   poolReserves,
+  quoteOtherAmount,
+  wouldAddLiquidityLikelyFail,
 }: AddLiquidityPanelProps) {
   const [glw, setGlw] = React.useState<string>("");
   const [usdg, setUsdg] = React.useState<string>("");
   const [matchRatio] = React.useState<boolean>(true);
   const [reviewOpen, setReviewOpen] = React.useState(false);
 
+  const { signer } = useEthersSigner();
+  const { usdgBalance, glowBalance, refreshBalances } = useER20Balances({
+    signer,
+  });
+  const [preflightError, setPreflightError] = React.useState<string | null>(
+    null
+  );
+
+  React.useEffect(() => {
+    refreshBalances();
+  }, [refreshBalances]);
+
+  const glwBalanceNumber = useMemo(() => {
+    if (!glowBalance) return 0;
+    try {
+      return new Decimal(
+        formatUnits(BigInt(glowBalance), DECIMALS_BY_TOKEN.GLW)
+      ).toNumber();
+    } catch {
+      return 0;
+    }
+  }, [glowBalance]);
+
+  const usdgBalanceNumber = useMemo(() => {
+    if (!usdgBalance) return 0;
+    try {
+      return new Decimal(
+        formatUnits(BigInt(usdgBalance), DECIMALS_BY_TOKEN.USDG)
+      ).toNumber();
+    } catch {
+      return 0;
+    }
+  }, [usdgBalance]);
+
   function handleGlwChange(v: string) {
     setGlw(v);
+    setPreflightError(null);
     if (matchRatio && priceRatio) {
       const n = Number(v);
-      if (!Number.isNaN(n)) setUsdg(n > 0 ? (n * priceRatio).toFixed(2) : "");
+      if (!Number.isNaN(n)) {
+        const q = quoteOtherAmount({ fromToken: "GLW", amount: n });
+        if (n > 0 && q > 0) setUsdg(q.toFixed(2));
+        else
+          setUsdg(n > 0 && priceRatio > 0 ? (n * priceRatio).toFixed(2) : "");
+      }
     }
   }
 
   function handleUsdgChange(v: string) {
     setUsdg(v);
+    setPreflightError(null);
     if (matchRatio && priceRatio) {
       const n = Number(v);
-      if (!Number.isNaN(n) && priceRatio > 0)
-        setGlw(n > 0 ? (n / priceRatio).toFixed(4) : "");
+      if (!Number.isNaN(n)) {
+        const q = quoteOtherAmount({ fromToken: "USDG", amount: n });
+        if (n > 0 && q > 0) setGlw(q.toFixed(4));
+        else if (priceRatio > 0)
+          setGlw(n > 0 ? (n / priceRatio).toFixed(4) : "");
+      }
     }
   }
+
+  // Removed auto-toast on reserves change; we validate on action click instead
 
   const poolSharePct = React.useMemo(() => {
     if (!poolReserves) return 0;
     const glwNum = Number(glw || "0");
     const usdgNum = Number(usdg || "0");
     if (glwNum <= 0 || usdgNum <= 0) return 0;
-    const frac = Math.min(
-      glwNum / poolReserves.glw,
-      usdgNum / poolReserves.usdg
-    );
-    return Math.max(0, Math.min(100, frac * 100));
+
+    const reserveGLW = Number(poolReserves.glw);
+    const reserveUSDG = Number(poolReserves.usdg);
+    if (!Number.isFinite(reserveGLW) || !Number.isFinite(reserveUSDG)) return 0;
+    if (reserveGLW <= 0 || reserveUSDG <= 0) return 0; // avoid divide-by-zero and loading state
+
+    // Uniswap V2 share: minted/totalSupply = x, share after adding = x / (1 + x)
+    const ratioA = glwNum / reserveGLW;
+    const ratioB = usdgNum / reserveUSDG;
+    const x = Math.min(ratioA, ratioB);
+    const share = (x / (1 + x)) * 100;
+    if (!Number.isFinite(share) || share < 0) return 0;
+    return Math.min(100, share);
   }, [glw, usdg, poolReserves]);
 
-  async function handleAdd() {
-    const glwNum = Number(glw);
-    const usdgNum = Number(usdg);
+  const glwNum = React.useMemo(() => {
+    const n = Number(glw);
+    return Number.isFinite(n) ? n : 0;
+  }, [glw]);
+  const usdgNum = React.useMemo(() => {
+    const n = Number(usdg);
+    return Number.isFinite(n) ? n : 0;
+  }, [usdg]);
+
+  const isGlwOverBalance = glwNum > glwBalanceNumber;
+  const isUsdgOverBalance = usdgNum > usdgBalanceNumber;
+  const isAmountMissing =
+    glw.trim() === "" || usdg.trim() === "" || glwNum <= 0 || usdgNum <= 0;
+  const isActionDisabled =
+    isAmountMissing || isGlwOverBalance || isUsdgOverBalance;
+  const actionLabel =
+    isGlwOverBalance && isUsdgOverBalance
+      ? "Insufficient funds"
+      : isGlwOverBalance
+      ? "Insufficient GLW balance"
+      : isUsdgOverBalance
+      ? "Insufficient USDG balance"
+      : isAmountMissing
+      ? "Enter amounts"
+      : "Review";
+
+  function handleAdd() {
+    if (isActionDisabled) return;
     if (
       !Number.isFinite(glwNum) ||
       !Number.isFinite(usdgNum) ||
@@ -175,21 +253,14 @@ function AddLiquidityPanel({
       toast.error("Enter valid GLW and USDG amounts");
       return;
     }
-    setReviewOpen(true);
-  }
-
-  async function confirmAfterReview() {
-    const glwNum = Number(glw);
-    const usdgNum = Number(usdg);
-    try {
-      await onConfirm({ glw: glwNum, usdg: usdgNum });
-      setGlw("");
-      setUsdg("");
-      setReviewOpen(false);
-      toast.success("Liquidity added (mock)");
-    } catch {
-      toast.error("Failed to add liquidity");
+    if (wouldAddLiquidityLikelyFail({ glw: glwNum, usdg: usdgNum })) {
+      setPreflightError(
+        "Pool reserves changed. Your amounts likely fail slippage. Adjust amounts to match pool ratio."
+      );
+      return;
     }
+    setPreflightError(null);
+    setReviewOpen(true);
   }
 
   return (
@@ -210,8 +281,15 @@ function AddLiquidityPanel({
             <span className="text-xs lg:text-sm font-medium text-muted-foreground">
               Input
             </span>
-            <span className="text-xs lg:text-sm text-muted-foreground">
-              Balance: 0
+            <span
+              className={`text-xs lg:text-sm ${
+                isGlwOverBalance ? "text-destructive" : "text-muted-foreground"
+              }`}
+            >
+              Balance:{" "}
+              {glwBalanceNumber.toLocaleString("en-US", {
+                maximumFractionDigits: 0,
+              })}
             </span>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
@@ -220,7 +298,9 @@ function AddLiquidityPanel({
                 type="text"
                 inputMode="decimal"
                 placeholder="0.00"
-                className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
+                className={`text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full ${
+                  isGlwOverBalance ? "text-destructive" : ""
+                }`}
                 value={glw}
                 onChange={(e) => {
                   if (Number(e.target.value) < 0) {
@@ -242,8 +322,15 @@ function AddLiquidityPanel({
             <span className="text-xs lg:text-sm font-medium text-muted-foreground">
               Input
             </span>
-            <span className="text-xs lg:text-sm text-muted-foreground">
-              Balance: 0
+            <span
+              className={`text-xs lg:text-sm ${
+                isUsdgOverBalance ? "text-destructive" : "text-muted-foreground"
+              }`}
+            >
+              Balance:{" "}
+              {usdgBalanceNumber.toLocaleString("en-US", {
+                maximumFractionDigits: 0,
+              })}
             </span>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
@@ -252,7 +339,9 @@ function AddLiquidityPanel({
                 type="text"
                 inputMode="decimal"
                 placeholder="0.00"
-                className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
+                className={`text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full ${
+                  isUsdgOverBalance ? "text-destructive" : ""
+                }`}
                 value={usdg}
                 onChange={(e) => {
                   if (Number(e.target.value) < 0) {
@@ -269,12 +358,18 @@ function AddLiquidityPanel({
           </div>
         </div>
 
+        {preflightError && (
+          <div className="rounded-xl border border-destructive bg-destructive/10 text-destructive p-3 text-sm">
+            {preflightError}
+          </div>
+        )}
+
         <Button
           onClick={handleAdd}
-          isLoading={false}
+          disabled={isActionDisabled}
           className="w-full h-12 lg:h-14"
         >
-          Review
+          {actionLabel}
         </Button>
       </div>
 
@@ -283,10 +378,11 @@ function AddLiquidityPanel({
         onOpenChange={setReviewOpen}
         glwAmount={Number(glw || 0)}
         usdgAmount={Number(usdg || 0)}
-        priceRatio={priceRatio}
-        poolSharePct={poolSharePct}
-        onConfirm={confirmAfterReview}
-        isSubmitting={false}
+        onSuccess={() => {
+          // Reset the input fields after successful transaction
+          setGlw("");
+          setUsdg("");
+        }}
       />
     </div>
   );
@@ -341,7 +437,7 @@ function RewardsSummaryCard({
                 })}
               </span>
               <span className="text-muted-foreground font-medium text-sm">
-                USDG
+                Liquidity
               </span>
             </div>
           </div>
@@ -507,7 +603,7 @@ function PositionCard({
               Exchange fee rewards
             </div>
             <div className="font-medium tabular-nums">
-              {feesUSDG.toFixed(2)} USDG
+              {feesUSDG.toFixed(2)} Liquidity
             </div>
           </div>
         </div>

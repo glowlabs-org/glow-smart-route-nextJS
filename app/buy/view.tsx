@@ -21,7 +21,7 @@ import { CHAIN_ID } from "@/web3/constants";
 import { ProcessingModal } from "@/components/buy-gctl/processing-modal";
 import { ArrowDownUp, Info } from "lucide-react";
 import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
-import { SYMBOLS, useER20Balances } from "@/hooks/useERC20Balances";
+import { useER20Balances } from "@/hooks/useERC20Balances";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { ConnectButton } from "@/components/connect-button";
 import {
@@ -200,7 +200,7 @@ export default function View({
     useUSDGRedemption();
 
   const {
-    getBalance,
+    getBalances,
     isReady,
     usdcBalance,
     setUsdcBalanceForSigner,
@@ -209,7 +209,6 @@ export default function View({
     refreshBalances,
     glowBalance,
   } = useER20Balances({
-    symbol: selectedTokenSell.label as SYMBOLS,
     signer,
   });
   const debouncedEstimate = useDebouncedCallback(
@@ -832,12 +831,16 @@ export default function View({
   const getTokenSellBalance = async () => {
     try {
       setBalancesLoading(true);
-      const balance = await getBalance();
+      const balances = await getBalances();
       await refreshBalances();
-      if (balance.ok) {
-        setTokenSellBalance(
-          formatUnits(balance.val, selectedTokenSell.decimals)
-        );
+      if (balances.ok) {
+        const raw =
+          selectedTokenSell.label === "USDC"
+            ? balances.val.usdc
+            : selectedTokenSell.label === "USDG"
+            ? balances.val.usdg
+            : balances.val.glow;
+        setTokenSellBalance(formatUnits(raw, selectedTokenSell.decimals));
       }
       setBalancesLoading(false);
     } catch (error) {
@@ -873,11 +876,15 @@ export default function View({
 
   const buttonProps = computeButtonProps();
 
+  // Fetch only the sell token balance when sell token or wallet readiness changes
   useEffect(() => {
-    if (selectedTokenSell && selectedTokenBuy && signer && isReady) {
+    if (selectedTokenSell && signer && isReady) {
       getTokenSellBalance();
     }
+  }, [selectedTokenSell, signer, isReady]);
 
+  // Estimate output when inputs change; no balance fetch here
+  useEffect(() => {
     if (selectedTokenSell && selectedTokenBuy && amountToSell) {
       if (!Number.isNaN(Number(amountToSell)) && Number(amountToSell) > 0) {
         debouncedEstimate(amountToSell);

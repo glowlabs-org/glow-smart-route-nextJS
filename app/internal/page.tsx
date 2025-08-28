@@ -1,10 +1,11 @@
-import { Navbar } from "../components/navbar";
+import { Header } from "@/components/header";
 import BuyGctlView from "./view";
 
 export default function BuyGctlPage() {
   return (
     <>
-      <Navbar
+      <Header
+        withIsScrolled={false}
         glowPrice="0"
         earlyLiquidityCurrentPrice="0"
         marketCap="0"

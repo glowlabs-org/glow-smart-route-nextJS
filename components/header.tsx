@@ -50,7 +50,6 @@ import { useForwarder } from "@glowlabs-org/utils/browser";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { GlowLockup } from "./glow-lockup";
 import { ConnectButton } from "./connect-button";
-import { WalletSidebar } from "./wallet-sidebar";
 
 // ListItem component for navigation menu content
 const ListItem = React.forwardRef<
@@ -170,6 +169,50 @@ export function Header({
         </Link>
 
         <nav className="hidden lg:flex items-center gap-2">
+          <NavigationMenu viewport={shouldApplyScrolledStyles}>
+            <NavigationMenuList>
+              <NavigationMenuItem>
+                <NavigationMenuTrigger
+                  className={cn(
+                    "text-muted-foreground hover:text-foreground transition-colors relative group text-base",
+                    shouldApplyScrolledStyles || !withIsScrolled
+                      ? "bg-transparent hover:bg-foreground hover:text-glow-white focus:bg-glow-light-grey focus:text-glow-black"
+                      : "bg-transparent hover:bg-white/10 hover:text-white focus:bg-white/10 focus:text-white text-white/90"
+                  )}
+                >
+                  App
+                </NavigationMenuTrigger>
+                <NavigationMenuContent
+                  variant={
+                    !shouldApplyScrolledStyles && withIsScrolled
+                      ? "card"
+                      : "default"
+                  }
+                >
+                  <ul className="grid gap-3 p-6 md:w-[250px]">
+                    <ListItem
+                      href="https://app.glow.org?swap"
+                      title="Swap"
+                      shouldApplyScrolledStyles={
+                        shouldApplyScrolledStyles || !withIsScrolled
+                      }
+                    >
+                      Swap GLW, USDG, GCTL, and more
+                    </ListItem>
+                    <ListItem
+                      href="https://app.glow.org?liquidity"
+                      title="Liquidity"
+                      shouldApplyScrolledStyles={
+                        shouldApplyScrolledStyles || !withIsScrolled
+                      }
+                    >
+                      Add liquidity to the GLW/USDG pool and earn rewards
+                    </ListItem>
+                  </ul>
+                </NavigationMenuContent>
+              </NavigationMenuItem>
+            </NavigationMenuList>
+          </NavigationMenu>
           <NavigationMenu viewport={shouldApplyScrolledStyles}>
             <NavigationMenuList>
               <NavigationMenuItem>
@@ -777,14 +820,6 @@ export function Header({
           </DrawerContent>
         </Drawer>
       </div>
-      <WalletSidebar
-        open={isOpen}
-        onOpenChange={setIsOpen}
-        glowPrice={glowPrice}
-        marketCap={marketCap}
-        ethPriceInUSD={ethPriceInUSD}
-        usdcRewardPool={usdcRewardPool}
-      />
     </motion.header>
   );
 }
