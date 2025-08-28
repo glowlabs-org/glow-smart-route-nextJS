@@ -171,6 +171,12 @@ export default function View({
     clearOnDefault: true,
   });
 
+  // Tab state synced with URL (?tab=swap|send|liquidity)
+  const [tab, setTab] = useQueryState("tab", {
+    defaultValue: "swap",
+    clearOnDefault: true,
+  });
+
   // Restore processing modal from query param on initial load / refresh
   useEffect(() => {
     if (txIdParam && !isProcessingTransaction) {
@@ -951,7 +957,7 @@ export default function View({
 
       <div className="relative overflow-hidden min-h-screen flex flex-col justify-center items-center py-20 xl:pt-24">
         <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 lg:px-6 py-2 w-full">
-          <Tabs defaultValue="swap" className="lg:items-center">
+          <Tabs value={tab} onValueChange={setTab} className="lg:items-center">
             <TabsList className="self-center bg-background backdrop-blur-xl rounded-full p-6 border border-border overflow-hidden mx-auto w-fit flex">
               <TabsTrigger value="swap">Swap</TabsTrigger>
               <TabsTrigger value="send">Send</TabsTrigger>

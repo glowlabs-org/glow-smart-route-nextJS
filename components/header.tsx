@@ -462,59 +462,6 @@ export function Header({
                   >
                     <Copy className="w-4 h-4 mr-2" /> Copy address
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={async (e) => {
-                      e.preventDefault();
-                      if (isMintingTestUSDC) return;
-                      try {
-                        setIsMintingTestUSDC(true);
-                        const txHash = await mintTestUSDC(
-                          BigInt(10000000000),
-                          address
-                        );
-                        if (txHash && typeof txHash === "string") {
-                          toast.success("Mint transaction submitted", {
-                            description: `${txHash.slice(
-                              0,
-                              8
-                            )}...${txHash.slice(-6)}`,
-                          });
-                        } else {
-                          toast.success("Minted test USDC");
-                        }
-                      } catch (error) {
-                        toast.error("Failed to mint test USDC", {
-                          description:
-                            error instanceof Error
-                              ? error.message
-                              : "Unknown error occurred",
-                        });
-                      } finally {
-                        setIsMintingTestUSDC(false);
-                      }
-                    }}
-                    className="cursor-pointer"
-                  >
-                    {isMintingTestUSDC ? (
-                      <span className="inline-flex items-center">
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />{" "}
-                        Minting Test USDC...
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center">
-                        <DollarSign className="w-4 h-4 mr-2" /> MintTest USDC
-                      </span>
-                    )}
-                  </DropdownMenuItem>
-
-                  <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link
-                      href="https://www.alchemy.com/faucets/ethereum-sepolia"
-                      target="_blank"
-                    >
-                      <DollarSign className="w-4 h-4 mr-2" /> Get Sepolia ETH
-                    </Link>
-                  </DropdownMenuItem>
 
                   <DropdownMenuItem asChild className="cursor-pointer">
                     <Link
@@ -865,58 +812,7 @@ export function Header({
                     >
                       <Copy className="w-4 h-4 mr-2" /> Copy address
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={async (e) => {
-                        e.preventDefault();
-                        if (isMintingTestUSDC) return;
-                        try {
-                          setIsMintingTestUSDC(true);
-                          const txHash = await mintTestUSDC(
-                            BigInt(10000000000),
-                            address
-                          );
-                          if (txHash && typeof txHash === "string") {
-                            toast.success("Mint transaction submitted", {
-                              description: `${txHash.slice(
-                                0,
-                                8
-                              )}...${txHash.slice(-6)}`,
-                            });
-                          } else {
-                            toast.success("Minted test USDC");
-                          }
-                        } catch (error) {
-                          toast.error("Failed to mint test USDC", {
-                            description:
-                              error instanceof Error
-                                ? error.message
-                                : "Unknown error occurred",
-                          });
-                        } finally {
-                          setIsMintingTestUSDC(false);
-                        }
-                      }}
-                      className="cursor-pointer"
-                    >
-                      {isMintingTestUSDC ? (
-                        <span className="inline-flex items-center">
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />{" "}
-                          Minting Test USDC...
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center">
-                          <DollarSign className="w-4 h-4 mr-2" /> MintTest USDC
-                        </span>
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="cursor-pointer">
-                      <Link
-                        href="https://www.alchemy.com/faucets/ethereum-sepolia"
-                        target="_blank"
-                      >
-                        <DollarSign className="w-4 h-4 mr-2" /> Get Sepolia ETH
-                      </Link>
-                    </DropdownMenuItem>
+
                     <DropdownMenuItem asChild className="cursor-pointer">
                       <Link
                         href={`/profile/${address}`}

@@ -40,6 +40,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { soldFarmsActivity } from "./mock-farms";
+import { notFound } from "next/navigation";
 
 export default function MiningMarketplacePage() {
   const [regionParam, setRegionParam] = useQueryState("region");
@@ -76,6 +77,8 @@ export default function MiningMarketplacePage() {
     setSelectedFarmForDeposit(farm);
     setDialogOpen(true);
   }
+
+  return notFound();
 
   return (
     <div className="min-h-screen bg-background">

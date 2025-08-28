@@ -402,17 +402,11 @@ function RewardsSummaryCard({
                 <span className="inline-block h-6 w-32 rounded bg-muted animate-pulse" />
               ) : (
                 <>
-                  <NumberTicker
-                    value={totalAccumulatedGlw}
-                    decimalPlaces={
-                      totalAccumulatedGlw < 1
-                        ? 6
-                        : totalAccumulatedGlw < 100
-                        ? 4
-                        : 2
-                    }
-                    className="text-xl font-extrabold"
-                  />
+                  <span className="text-xl font-extrabold tabular-nums">
+                    {totalAccumulatedGlw.toLocaleString("en-US", {
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
                   <span className="text-muted-foreground font-medium text-sm">
                     GLW
                   </span>
@@ -429,11 +423,11 @@ function RewardsSummaryCard({
                 <span className="inline-block h-6 w-24 rounded bg-muted animate-pulse" />
               ) : (
                 <>
-                  <NumberTicker
-                    value={totalFeeRewardsUSDG}
-                    decimalPlaces={2}
-                    className="text-xl font-extrabold"
-                  />
+                  <span className="text-xl font-extrabold tabular-nums">
+                    {totalFeeRewardsUSDG.toLocaleString("en-US", {
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
                   <span className="text-muted-foreground font-medium text-sm">
                     Liquidity
                   </span>
@@ -575,9 +569,10 @@ function PositionCard({
   const incentiveApy = Number.isFinite((position as any).liquidityIncentiveApy)
     ? ((position as any).liquidityIncentiveApy as number)
     : position.apy;
-  const feesApy = Number.isFinite((position as any).feesApy)
+  const rawFeesApy = Number.isFinite((position as any).feesApy)
     ? ((position as any).feesApy as number)
     : 0;
+  const feesApy = rawFeesApy <= 1 ? rawFeesApy * 100 : rawFeesApy;
   const performanceFeePct = 0; // currently 0%
   const netApy = Math.max(0, incentiveApy + feesApy - performanceFeePct);
   return (
@@ -599,14 +594,11 @@ function PositionCard({
                 <div className="text-lg font-bold tabular-nums flex items-center justify-end cursor-help">
                   <NumberTicker
                     value={netApy}
-                    decimalPlaces={2}
+                    decimalPlaces={0}
                     className="text-lg font-bold"
                     suffix="%"
                   />
-                  <Sparkles
-                    className="ml-1 h-4 w-4 text-accent"
-                    aria-hidden="true"
-                  />
+                  <Sparkles className="ml-2 size-5" aria-hidden="true" />
                 </div>
               </HoverCardTrigger>
               <HoverCardContent
