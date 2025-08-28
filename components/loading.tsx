@@ -5,6 +5,7 @@ import { AlertCircle } from "lucide-react";
 import { BeamsBackground } from "@/components/ui/beam-background";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import { GlowSymbol } from "./glow-symbol";
 
 export function Loading() {
   return (
@@ -33,7 +34,7 @@ export function Error({ message }: { message: string }) {
     <BeamsBackground intensity="medium">
       <div className="h-screen flex flex-col items-center justify-center relative z-10 gap-4">
         <div className="w-32 h-32 md:w-40 md:h-40 flex items-center justify-center">
-          <AlertCircle className="w-16 h-16 md:w-20 md:h-20 text-foreground" />
+          <GlowSymbol className="size-10 text-foreground" />
         </div>
 
         <h1 className="glow-headline text-2xl lg:text-4xl xl:text-5xl text-foreground">
