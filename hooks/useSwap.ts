@@ -9,6 +9,7 @@ import { addresses } from "@glowlabs-org/guarded-launch-abis";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { useWalletClient } from "wagmi";
 import { formatEther, parseAbi } from "viem";
+import Decimal from "decimal.js";
 
 const UNISWAP_V2_FACTORY_ABI = parseAbi([
   "function getPair(address tokenA, address tokenB) external view returns (address pair)",
@@ -54,11 +55,42 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
   const [uniswapPurchaseState, setUniswapPurchaseState] =
     useState<UniswapPurchaseState>("NONE");
   const [pairAddress, setPairAddress] = useState<`0x${string}` | null>(null);
+  const [tokenADecimals, setTokenADecimals] = useState<number | null>(null);
+  const [tokenBDecimals, setTokenBDecimals] = useState<number | null>(null);
   const SLIPPAGE_NUMERATOR_DEFAULT = BigInt(50); //.5%
   const SLIPPAGE_DENOMINATOR_DEFAULT = BigInt(10000);
 
-  function toBigInt(value: bigint | { toString(): string }): bigint {
-    return typeof value === "bigint" ? value : BigInt(value.toString());
+  const USDC_MAINNET_ADDRESS = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+
+  function getTokenADecimalsSafe(): number {
+    if (tokenADecimals != null) return tokenADecimals;
+    const addr = (tokenA?.address || "").toLowerCase();
+    if (
+      addr === (addresses.usdg || "").toLowerCase() ||
+      addr === USDC_MAINNET_ADDRESS.toLowerCase()
+    ) {
+      return 6;
+    }
+    return 18;
+  }
+
+  function toBigIntAmount(value: bigint | { toString(): string }): bigint {
+    if (typeof value === "bigint") return value;
+    const raw = (value?.toString?.() || "0").trim();
+    // Fast path for plain integers in base units
+    if (/^\d+$/.test(raw)) return BigInt(raw);
+
+    const decimals = getTokenADecimalsSafe();
+    const decimalValue = new Decimal(raw);
+    if (!decimalValue.isFinite()) return BigInt(0);
+
+    // If already an integer (e.g., scientific notation representing an integer), don't rescale
+    if (decimalValue.isInteger()) return BigInt(decimalValue.toFixed(0));
+
+    const scaled = decimalValue
+      .mul(new Decimal(10).pow(decimals))
+      .toFixed(0, Decimal.ROUND_DOWN);
+    return BigInt(scaled);
   }
 
   function getAmountOutBigInt({
@@ -91,6 +123,12 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       provider: {
         getGasPrice: async () => publicClient.getGasPrice(),
       },
+      decimals: async () =>
+        (await publicClient.readContract({
+          address,
+          abi: parseAbi(["function decimals() view returns (uint8)"]),
+          functionName: "decimals",
+        })) as number,
       balanceOf: async (owner: `0x${string}`) =>
         (await publicClient.readContract({
           address,
@@ -215,7 +253,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     if (!tokenB) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     let totalEstimatedGas = BigInt(0);
-    const amountBigInt = toBigInt(amount);
+    const amountBigInt = toBigIntAmount(amount);
     const getReservesResult = await getReservesViem({
       tokenA: tokenA.address as `0x${string}`,
       tokenB: tokenB.address as `0x${string}`,
@@ -270,8 +308,10 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     if (!tokenA) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!tokenB) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
-    const amountBigInt = toBigInt(amount);
-    const slippageBigInt = toBigInt(slippagePercentTenThousandDenominator);
+    const amountBigInt = toBigIntAmount(amount);
+    const slippageBigInt = toBigIntAmount(
+      slippagePercentTenThousandDenominator
+    );
     const getReservesResult = await getReservesViem({
       tokenA: tokenA.address as `0x${string}`,
       tokenB: tokenB.address as `0x${string}`,
@@ -280,6 +320,8 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     const signerAddress = await signer.getAddress();
 
     const balanceTokenA = await tokenA.balanceOf(signerAddress);
+    console.log("balanceTokenA", balanceTokenA.toString());
+    console.log("amountBigInt", amountBigInt.toString());
     if (balanceTokenA < amountBigInt)
       return new Err(SwapError.INSUFFICIENT_TOKEN_A_BALANCE);
     const allowanceTokenA = await tokenA.allowance(
@@ -287,6 +329,8 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       uniswapRouter.address
     );
 
+    console.log("allowanceTokenA", allowanceTokenA.toString());
+    console.log("amountBigInt", amountBigInt.toString());
     if (allowanceTokenA < amountBigInt) {
       try {
         setUniswapPurchaseState("REQUESTING_TOKEN_APPROVAL");
@@ -350,7 +394,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     if (!pairAddress) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!tokenA) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!tokenB) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
-    const amountInBigInt = toBigInt(amountIn);
+    const amountInBigInt = toBigIntAmount(amountIn);
     // console.log({
     //   tokenA: tokenA.address,
     //   tokenB: tokenB.address,
@@ -385,7 +429,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     }
     if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!uniswapRouter) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
-    const amountInBigInt = toBigInt(amountIn);
+    const amountInBigInt = toBigIntAmount(amountIn);
 
     const pairAddress = (await publicClient.readContract({
       address: UNISWAP_V2_FACTORY_ADDRESS,
@@ -446,8 +490,12 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     const signerAddress = (await signer.getAddress()) as `0x${string}`;
     const balanceGlow = await glowToken.balanceOf(signerAddress);
 
-    const amountBigInt = toBigInt(amount);
-    const slippageBigInt = toBigInt(slippagePercentTenThousandDenominator);
+    const amountBigInt = toBigIntAmount(amount);
+    const slippageBigInt = toBigIntAmount(
+      slippagePercentTenThousandDenominator
+    );
+    console.log("balanceGlow", balanceGlow.toString());
+    console.log("amountBigInt", amountBigInt.toString());
     if (balanceGlow < amountBigInt)
       return new Err(SwapError.INSUFFICIENT_TOKEN_A_BALANCE);
 
@@ -548,6 +596,15 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
 
     setUniswapRouter(router);
     setPairAddress(pairAddr);
+
+    try {
+      const [decA, decB] = await Promise.all([
+        tokenAWrapper.decimals(),
+        tokenBWrapper.decimals(),
+      ]);
+      setTokenADecimals(Number(decA));
+      setTokenBDecimals(Number(decB));
+    } catch {}
   }
 
   useEffect(() => {

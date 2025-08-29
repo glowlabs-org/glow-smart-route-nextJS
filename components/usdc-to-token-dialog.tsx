@@ -1,21 +1,17 @@
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { ArrowLeftRight, Check, Loader2, Info } from "lucide-react";
+  TransactionDialog,
+  type TransactionDetail,
+} from "@/components/dialogs/transaction-dialog";
+import { ArrowLeftRight, Check, Loader2, Info, ArrowDown } from "lucide-react";
 import { waitingToSuccessVariants } from "@/animations/variants";
 import { motion } from "framer-motion";
 import React, { FC, useEffect } from "react";
-import { Card } from "./ui/card";
 import {
   SmartBalancingAmounts,
   purchaseGlowStateMessages,
   usePurchaseGlow,
 } from "@/hooks/usePurchaseGlow";
 
-import { Input } from "./ui/input";
 import { formatPrice } from "@/utils/formatPrice";
 import clsx from "clsx";
 import { toast } from "sonner";
@@ -26,7 +22,7 @@ import { SwapUSDCToUSDGError } from "@/hooks/useSwapUSDCToUSDG";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
 import { Token } from "@/app/buy/view";
 
-import { parseUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
 import { addresses } from "@/web3/constants/addresses";
 
 type PendingState = {
@@ -166,6 +162,12 @@ export const UsdcToTokenDialog: FC<{
   slippagePointsTenThousandths,
 }) => {
   const [isPending, setIsPending] = React.useState(false);
+  const [isSuccess, setIsSuccess] = React.useState(false);
+  const [isError, setIsError] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [txHash, setTxHash] = React.useState<string | null>(null);
+  const [networkCostUSD, setNetworkCostUSD] = React.useState<string>("");
+  const [isNetworkCostLoading, setIsNetworkCostLoading] = React.useState(false);
   const [isImpactPowerPointsBuySuccess, setIsImpactPowerPointsBuySuccess] =
     React.useState(false);
   const [swapUSDCToUSDGState, setSwapUSDCToUSDGState] = React.useState<
@@ -186,8 +188,16 @@ export const UsdcToTokenDialog: FC<{
 
   const handlePurchaseGlow = async () => {
     setIsPending(true);
+    setIsError(false);
+    setIsSuccess(false);
+    setErrorMessage(null);
+
     try {
-      if (selectedTokenSell.label === "USDC") {
+      // If we're swapping USDC to USDG only (not continuing to GLOW)
+      if (
+        selectedTokenSell.label === "USDC" &&
+        selectedTokenBuy.label === "USDG"
+      ) {
         setSwapUSDCToUSDGState("PURCHASING_USDG");
         updatePendingStates(0);
 
@@ -200,19 +210,57 @@ export const UsdcToTokenDialog: FC<{
           setErrorStates();
           setSwapUSDCToUSDGState(undefined);
           setIsPending(false);
+          setIsError(true);
+          setErrorMessage(String(swapUSDCtoUSDGRes.val));
           toast.error(swapUSDCtoUSDGRes.val);
           return;
         }
 
         setSwapUSDCToUSDGState("SUCCESSFULLY_OBTAINED_USDG");
+        updatePendingStates(1);
 
+        // Mark as success since we're only swapping to USDG
+        setPendingStates((prev) =>
+          prev.map((state) => ({ ...state, pending: false, validated: true }))
+        );
+        setIsPending(false);
+        setIsSuccess(true);
+        return;
+      }
+
+      // If we're swapping USDC to GLOW (via USDG)
+      if (
+        selectedTokenSell.label === "USDC" &&
+        selectedTokenBuy.label === "GLOW"
+      ) {
+        setSwapUSDCToUSDGState("PURCHASING_USDG");
+        updatePendingStates(0);
+
+        const swapUSDCtoUSDGRes = await swapUSDCToUSDG(
+          parseUnits(amountToSell, 6)
+        );
+        console.log("swapUSDCtoUSDGRes", swapUSDCtoUSDGRes);
+
+        if (!swapUSDCtoUSDGRes.ok) {
+          setErrorStates();
+          setSwapUSDCToUSDGState(undefined);
+          setIsPending(false);
+          setIsError(true);
+          setErrorMessage(String(swapUSDCtoUSDGRes.val));
+          toast.error(swapUSDCtoUSDGRes.val);
+          return;
+        }
+
+        setSwapUSDCToUSDGState("SUCCESSFULLY_OBTAINED_USDG");
         updatePendingStates(1);
       } else {
         updatePendingStates(0);
       }
+
       const isUniswapElligible =
         smartBalancingAmounts &&
-        Number(smartBalancingAmounts?.amount_in_uni) > 0;
+        Number(formatUnits(smartBalancingAmounts?.amount_in_uni as bigint, 6)) >
+          0;
       const isBondingCurveElligible =
         smartBalancingAmounts &&
         Number(smartBalancingAmounts?.amount_out_glow) > 0;
@@ -223,14 +271,14 @@ export const UsdcToTokenDialog: FC<{
           defaultPendingStates("uniswap", selectedTokenSell.label)
         );
         const purchaseGlowFromUniswap = await swap({
-          amount: BigInt(
-            (smartBalancingAmounts.amount_in_uni as any).toString()
-          ),
+          amount: smartBalancingAmounts.amount_in_uni as any,
           slippagePercentTenThousandDenominator: slippagePointsTenThousandths,
         });
         if (!purchaseGlowFromUniswap.ok) {
           setErrorStates();
           setIsPending(false);
+          setIsError(true);
+          setErrorMessage(String(purchaseGlowFromUniswap.val));
           toast.error(purchaseGlowFromUniswap.val);
           return;
         }
@@ -253,6 +301,8 @@ export const UsdcToTokenDialog: FC<{
         if (!purchaseGlowEarlyLiquidityRes.ok) {
           setErrorStates();
           setIsPending(false);
+          setIsError(true);
+          setErrorMessage(String(purchaseGlowEarlyLiquidityRes.val));
           toast.error(purchaseGlowEarlyLiquidityRes.val);
           return;
         }
@@ -263,46 +313,75 @@ export const UsdcToTokenDialog: FC<{
           return { ...state, pending: false, validated: true };
         })
       );
-      // Remove toast.success since we'll show success screen instead
-      // toast.success("Transaction Successfull");
 
       setIsPending(false);
-    } catch (error) {
+      setIsSuccess(true);
+    } catch (error: any) {
       console.error("Error in handlePurchaseGlow:", error);
       setIsPending(false);
+      setIsError(true);
+      setErrorMessage(error?.message || "Transaction failed");
+      setTxHash(error?.txHash ?? null);
     }
   };
 
+  // Estimate network fee when dialog opens
   useEffect(() => {
-    resetGlowPurchaseState();
-    resetUniswapPurchaseState();
-    setSwapUSDCToUSDGState(undefined);
-    const initialPendingStates =
-      selectedTokenSell.label === "USDC" ? usdcDefaultPendingStates : [];
-    setPendingStates(initialPendingStates);
-    setIsImpactPowerPointsBuySuccess(false);
-    // simulate setPendingStates to validated one after the other every 1 second
-    // let i = 0;
-    // const interval = setInterval(() => {
-    //   if (i < pendingStates.length) {
-    //     console.log("setting state", i);
-    //     setPendingStates((prev) =>
-    //       prev.map((state, index) => {
-    //         if (index === i) {
-    //           return { ...state, pending: true };
-    //         }
-    //         if (index === i - 1) {
-    //           return { ...state, pending: false, validated: true };
-    //         }
-    //         return state;
-    //       })
-    //     );
-    //     i++;
-    //   } else {
-    //     clearInterval(interval);
-    //   }
-    // }, 1000);
+    async function estimateFee() {
+      if (!isOpen || !amount || Number(amount) <= 0) return;
+      try {
+        setIsNetworkCostLoading(true);
+        // Estimate based on typical gas costs for swap operations
+        // You may want to implement actual gas estimation here
+        const estimatedCost = "$2.50"; // Placeholder - implement actual estimation
+        setNetworkCostUSD(estimatedCost);
+      } catch {
+        setNetworkCostUSD("$0.00");
+      } finally {
+        setIsNetworkCostLoading(false);
+      }
+    }
 
+    if (isOpen) {
+      estimateFee();
+    }
+  }, [isOpen, amount]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      // Reset all states when dialog closes
+      resetGlowPurchaseState();
+      resetUniswapPurchaseState();
+      setSwapUSDCToUSDGState(undefined);
+      setIsPending(false);
+      setIsSuccess(false);
+      setIsError(false);
+      setErrorMessage(null);
+      setTxHash(null);
+      setNetworkCostUSD("");
+      setIsNetworkCostLoading(false);
+      setIsImpactPowerPointsBuySuccess(false);
+      setPendingStates([]);
+    } else {
+      // Initialize pending states when dialog opens
+      let initialPendingStates: PendingState[] = [];
+
+      if (
+        selectedTokenSell.label === "USDC" &&
+        selectedTokenBuy.label === "USDG"
+      ) {
+        // For USDC to USDG direct swap
+        initialPendingStates = usdcDefaultPendingStates;
+      } else if (
+        selectedTokenSell.label === "USDC" &&
+        selectedTokenBuy.label === "GLOW"
+      ) {
+        // For USDC to GLOW (via USDG)
+        initialPendingStates = usdcDefaultPendingStates;
+      }
+
+      setPendingStates(initialPendingStates);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
@@ -357,16 +436,22 @@ export const UsdcToTokenDialog: FC<{
       updateStateBasedOnPurchase(uniswapPurchaseState);
     }
 
-    // Mark all as validated when both are done or when only one was needed
-    if (
-      (glowPurchaseState === "DONE" || uniswapPurchaseState === "DONE") &&
-      !pendingStates.some((state) => state.pending)
-    ) {
+    // Handle error states
+    if (glowPurchaseState === "ERROR" || uniswapPurchaseState === "ERROR") {
+      setIsError(true);
+      setIsPending(false);
+      if (!errorMessage) {
+        setErrorMessage("Transaction failed. Please try again.");
+      }
+    }
+
+    // Mark all as validated when either flow is done
+    if (glowPurchaseState === "DONE" || uniswapPurchaseState === "DONE") {
       setPendingStates((prev) =>
-        prev.map((state) => {
-          return { ...state, pending: false, validated: true };
-        })
+        prev.map((state) => ({ ...state, pending: false, validated: true }))
       );
+      setIsSuccess(true);
+      setIsPending(false);
     }
   }, [glowPurchaseState, uniswapPurchaseState]);
 
@@ -390,252 +475,246 @@ export const UsdcToTokenDialog: FC<{
           .slice(-2)
       : pendingStates;
 
+  // Calculate if transaction is successful
   const isTransactionSuccessful =
+    isSuccess ||
     isImpactPowerPointsBuySuccess ||
     glowPurchaseState === "DONE" ||
     uniswapPurchaseState === "DONE";
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent
-        onInteractOutside={(e) => {
-          if (isPending) e.preventDefault();
-        }}
-        className="bg-card/90 backdrop-blur-sm rounded-3xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden"
-      >
-        <div className="px-8 py-8">
-          <DialogHeader className="pb-6">
-            <DialogTitle className="text-2xl font-bold text-center">
-              Review Buy
-            </DialogTitle>
-          </DialogHeader>
+  // Transaction details for review
+  const transactionDetails: TransactionDetail[] = [
+    {
+      label: "You Pay",
+      value: Number(amountToSell).toLocaleString("en-US", {
+        maximumFractionDigits: 6,
+      }),
+      unit: selectedTokenSell.label,
+    },
+    {
+      label: "You Receive",
+      value: Number(amount) ? formatPrice(amount, 4) : "0.00",
+      unit: selectedTokenBuy.label,
+    },
+  ];
 
-          {isTransactionSuccessful ? (
-            <div className="space-y-6">
-              <div className="flex flex-col items-center gap-4 py-8">
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-                  <Check className="w-10 h-10 text-green-600" />
-                </div>
-                <h3 className="text-2xl font-bold text-foreground">
-                  Purchase Successful!
-                </h3>
-                <p className="text-sm text-muted-foreground text-center max-w-sm">
-                  Your {selectedTokenBuy.label} purchase has been completed
-                  successfully
-                </p>
+  // Success details
+  const successDetails: TransactionDetail[] = [
+    {
+      label: "Sent",
+      value: Number(amountToSell).toLocaleString("en-US", {
+        maximumFractionDigits: 6,
+      }),
+      unit: selectedTokenSell.label,
+    },
+    {
+      label: "Received",
+      value: (
+        <span className="text-green-600 font-mono">
+          {Number(amount).toLocaleString("en-US", {
+            maximumFractionDigits: 4,
+          })}
+        </span>
+      ),
+      unit: selectedTokenBuy.label,
+    },
+  ];
+
+  // Custom review content with pending states
+  const reviewContent = (
+    <div className="space-y-6 mb-8">
+      {/* Token swap visualization */}
+      <div className="space-y-3">
+        <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-4">
+          <div className="flex items-center justify-between text-left">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">You pay</div>
+              <div className="text-2xl font-bold">
+                {Number(amountToSell).toLocaleString("en-US", {
+                  maximumFractionDigits: 6,
+                })}{" "}
+                <span className="text-lg font-medium text-muted-foreground">
+                  {selectedTokenSell.label}
+                </span>
               </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-between items-center py-3 border-b border-border">
-                  <span className="text-sm text-muted-foreground">Sent</span>
-                  <span className="font-mono font-medium text-sm">
-                    {Number(amountToSell).toLocaleString("en-US", {
-                      maximumFractionDigits: 6,
-                    })}{" "}
-                    {selectedTokenSell.label}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center py-3 border-b border-border">
-                  <span className="text-sm text-muted-foreground">
-                    Received
-                  </span>
-                  <span className="font-mono font-medium text-green-600 text-sm">
-                    {Number(amount).toLocaleString("en-US", {
-                      maximumFractionDigits: 4,
-                    })}{" "}
-                    {selectedTokenBuy.label}
-                  </span>
-                </div>
-              </div>
-
-              <Button
-                variant="default"
-                onClick={() => onOpenChange(false)}
-                className="w-full h-12 text-base font-medium rounded-xl"
-              >
-                Close
-              </Button>
             </div>
-          ) : (
-            <>
-              <div className="space-y-4">
-                {/* TOKEN TO SELL  */}
-                <div className="space-y-2">
-                  <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        You pay
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Input
-                        type="number"
-                        placeholder="0.00"
-                        className="text-2xl md:text-3xl font-bold bg-transparent dark:bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        pattern="[0-9]*"
-                        value={amountToSell}
-                        readOnly
-                      />
-                      <span className="text-2xl font-medium text-foreground">
-                        {selectedTokenSell.label}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                {/* END TOKEN TO SELL  */}
-
-                {/* TOKEN TO BUY  */}
-                <div className="space-y-2">
-                  <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        You receive
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Input
-                        placeholder="0.00"
-                        className="text-2xl md:text-3xl font-bold bg-transparent dark:bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        value={Number(amount) ? formatPrice(amount, 4) : "0.00"}
-                        readOnly
-                      />
-                      <span className="text-2xl font-medium text-foreground">
-                        {selectedTokenBuy.label}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                {/* END TOKEN TO BUY  */}
-              </div>
-              {glowPurchaseState !== "NONE" ||
-              uniswapPurchaseState !== "NONE" ||
-              swapUSDCToUSDGState ? (
-                <div className="mt-6">
-                  <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-6 space-y-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Info className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm font-medium text-muted-foreground">
-                        Transaction Status
-                      </span>
-                    </div>
-                    <div className="space-y-3">
-                      {lastTwoRelevantStates.map((state, index) => (
-                        <motion.div
-                          key={index}
-                          className="flex items-center gap-3"
-                          initial={{ opacity: 0.5 }}
-                          animate={
-                            state.validated || state.pending ? "show" : "hidden"
-                          }
-                          variants={waitingToSuccessVariants}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="bg-background/80 backdrop-blur-sm rounded-xl p-2.5 flex items-center justify-center h-10 w-10 shrink-0 border border-border/50">
-                              {state.validated ? (
-                                <Check
-                                  className={clsx("w-5 h-5", "text-green-600")}
-                                />
-                              ) : state.pending ? (
-                                <Loader2
-                                  className={clsx(
-                                    "w-5 h-5 animate-spin",
-                                    "text-primary"
-                                  )}
-                                />
-                              ) : (
-                                <ArrowLeftRight
-                                  className={clsx(
-                                    "w-5 h-5",
-                                    "text-muted-foreground"
-                                  )}
-                                />
-                              )}
-                            </div>
-                            <div>
-                              <h3
-                                className={clsx(
-                                  "text-sm font-medium",
-                                  state.validated && !state.pending
-                                    ? "text-foreground"
-                                    : state.pending
-                                    ? "text-foreground"
-                                    : "text-muted-foreground"
-                                )}
-                              >
-                                {state.message}
-                              </h3>
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                      {isImpactPowerPointsBuySuccess ? (
-                        <motion.div
-                          className="flex items-center gap-3"
-                          initial={{ opacity: 0.5 }}
-                          animate={"show"}
-                          variants={waitingToSuccessVariants}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="bg-background/80 backdrop-blur-sm rounded-xl p-2.5 flex items-center justify-center h-10 w-10 shrink-0 border border-border/50">
-                              <Check
-                                className={clsx("w-5 h-5", "text-green-600")}
-                              />
-                            </div>
-                            <div>
-                              <h3
-                                className={clsx(
-                                  "text-sm font-medium text-foreground"
-                                )}
-                              >
-                                Successfully purchased Impact Power Points
-                              </h3>
-                            </div>
-                          </div>
-                        </motion.div>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <Button
-                  variant="default"
-                  onClick={handleDispatchBuy}
-                  className="w-full h-12 text-base font-medium rounded-xl mt-6"
-                >
-                  {isPending && (
-                    <div className="mr-3">
-                      <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                    </div>
-                  )}
-                  Approve and Buy
-                </Button>
-              )}
-              {glowPurchaseState === "ERROR" ||
-              uniswapPurchaseState === "ERROR" ? (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    const initialPendingStates =
-                      selectedTokenSell.label === "USDC"
-                        ? usdcDefaultPendingStates
-                        : [];
-                    resetGlowPurchaseState();
-                    resetUniswapPurchaseState();
-                    setSwapUSDCToUSDGState(undefined);
-                    setPendingStates(initialPendingStates);
-                    setIsImpactPowerPointsBuySuccess(false);
-                    handleDispatchBuy();
-                  }}
-                  className="w-full h-12 text-base font-medium rounded-xl mt-3"
-                >
-                  Try Again
-                </Button>
-              ) : null}
-            </>
-          )}
+          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        <div className="flex justify-center">
+          <div className="bg-background rounded-full p-2 border border-border">
+            <ArrowDown className="size-6 text-muted-foreground" />
+          </div>
+        </div>
+
+        <div className="text-left bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">
+                You receive
+              </div>
+              <div className="text-2xl font-bold">
+                {Number(amount) ? formatPrice(amount, 4) : "0.00"}{" "}
+                <span className="text-lg font-medium text-muted-foreground">
+                  {selectedTokenBuy.label}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Pending states display */}
+      {(glowPurchaseState !== "NONE" ||
+        uniswapPurchaseState !== "NONE" ||
+        swapUSDCToUSDGState) && (
+        <div className="bg-secondary/30 backdrop-blur-sm border border-border rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Transaction Progress
+            </span>
+          </div>
+          <div className="space-y-2">
+            {lastTwoRelevantStates.map((state, index) => (
+              <motion.div
+                key={index}
+                className="flex items-center gap-3"
+                initial={{ opacity: 0.5 }}
+                animate={state.validated || state.pending ? "show" : "hidden"}
+                variants={waitingToSuccessVariants}
+              >
+                <div className="bg-background/80 backdrop-blur-sm rounded-lg p-2 flex items-center justify-center h-8 w-8 shrink-0 border border-border/50">
+                  {state.validated && !state.pending ? (
+                    <Check className="w-4 h-4 text-green-600" />
+                  ) : state.pending ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  ) : (
+                    <ArrowLeftRight className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </div>
+                <div>
+                  <h3
+                    className={clsx(
+                      "text-sm",
+                      state.validated && !state.pending
+                        ? "text-foreground font-medium"
+                        : state.pending
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    {state.message}
+                  </h3>
+                </div>
+              </motion.div>
+            ))}
+            {isImpactPowerPointsBuySuccess && (
+              <motion.div
+                className="flex items-center gap-3"
+                initial={{ opacity: 0.5 }}
+                animate="show"
+                variants={waitingToSuccessVariants}
+              >
+                <div className="bg-background/80 backdrop-blur-sm rounded-lg p-2 flex items-center justify-center h-8 w-8 shrink-0 border border-border/50">
+                  <Check className="w-4 h-4 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-foreground">
+                    Successfully swapped Impact Power Points
+                  </h3>
+                </div>
+              </motion.div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Custom footer with retry button for errors
+  const customFooter = isError ? (
+    <div className="flex gap-3">
+      <Button
+        variant="outline"
+        onClick={() => onOpenChange(false)}
+        className="flex-1"
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={() => {
+          let initialPendingStates: PendingState[] = [];
+
+          if (
+            selectedTokenSell.label === "USDC" &&
+            selectedTokenBuy.label === "USDG"
+          ) {
+            // For USDC to USDG direct swap
+            initialPendingStates = usdcDefaultPendingStates;
+          } else if (
+            selectedTokenSell.label === "USDC" &&
+            selectedTokenBuy.label === "GLOW"
+          ) {
+            // For USDC to GLOW (via USDG)
+            initialPendingStates = usdcDefaultPendingStates;
+          }
+
+          resetGlowPurchaseState();
+          resetUniswapPurchaseState();
+          setSwapUSDCToUSDGState(undefined);
+          setPendingStates(initialPendingStates);
+          setIsImpactPowerPointsBuySuccess(false);
+          setIsError(false);
+          setErrorMessage(null);
+          handleDispatchBuy();
+        }}
+        className="flex-1"
+      >
+        Try Again
+      </Button>
+    </div>
+  ) : !isPending && !isTransactionSuccessful ? (
+    <div className="flex gap-3">
+      <Button
+        variant="outline"
+        onClick={() => onOpenChange(false)}
+        className="flex-1"
+      >
+        Cancel
+      </Button>
+      <Button onClick={handleDispatchBuy} className="flex-1">
+        Approve and Buy
+      </Button>
+    </div>
+  ) : undefined;
+
+  return (
+    <TransactionDialog
+      open={isOpen}
+      onOpenChange={onOpenChange}
+      isSubmitting={isPending}
+      isSuccess={isTransactionSuccessful}
+      isError={isError}
+      title="Review Swap"
+      successTitle={`+${Number(amount).toLocaleString("en-US", {
+        maximumFractionDigits: 4,
+      })} ${selectedTokenBuy.label}`}
+      errorTitle="Swap Failed"
+      processingTitle="Processing Swap"
+      description="Review your transaction details before confirming"
+      processingDescription="Please wait while we process your swap"
+      errorDescription={
+        errorMessage ||
+        "We were unable to complete your swap. Please try again."
+      }
+      transactionDetails={transactionDetails}
+      successDetails={successDetails}
+      txHash={txHash}
+      networkFee={networkCostUSD}
+      isNetworkFeeLoading={isNetworkCostLoading}
+      reviewContent={reviewContent}
+      footer={customFooter}
+      confirmLabel="Approve and Buy"
+    />
   );
 };

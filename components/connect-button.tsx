@@ -1,16 +1,9 @@
 import { ConnectButton as RainbowKitConnectButton } from "@rainbow-me/rainbowkit";
 import { Button } from "./ui/button";
 import { Loader2 } from "lucide-react";
-import { useAccount, useDisconnect } from "wagmi";
+import { useAccount } from "wagmi";
 import clsx from "clsx";
 import * as React from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "./ui/dialog";
 
 export const ConnectButton = ({
   className,
@@ -21,31 +14,8 @@ export const ConnectButton = ({
   variant: "default" | "outline-white";
   size?: "small" | "medium" | "large";
 }) => {
-  const { isConnecting, isReconnecting, isConnected, address } = useAccount();
-  const { disconnect } = useDisconnect();
+  const { isConnecting, isReconnecting } = useAccount();
   const isWalletLoading = isConnecting || isReconnecting;
-
-  const [isTosOpen, setIsTosOpen] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!isConnected || !address) return;
-    try {
-      const key = `tos_ack_${address.toLowerCase()}`;
-      const ack = window.localStorage.getItem(key);
-      if (ack !== "1") setIsTosOpen(true);
-    } catch {}
-  }, [isConnected, address]);
-
-  function handleAcceptTos() {
-    try {
-      if (address) {
-        window.localStorage.setItem(`tos_ack_${address.toLowerCase()}`, "1");
-      } else {
-        window.localStorage.setItem("tos_ack", "1");
-      }
-    } catch {}
-    setIsTosOpen(false);
-  }
 
   const getSizeClasses = () => {
     switch (size) {
@@ -145,54 +115,16 @@ export const ConnectButton = ({
               }
 
               return (
-                <>
-                  <div style={{ display: "flex", gap: 12 }}>
-                    <Button
-                      variant={variant}
-                      onClick={openAccountModal}
-                      type="button"
-                      className={`w-full ${getSizeClasses()} font-semibold`}
-                    >
-                      {account?.displayName}
-                    </Button>
-                  </div>
-
-                  <Dialog open={isTosOpen} onOpenChange={setIsTosOpen}>
-                    <DialogContent className="sm:max-w-sm">
-                      <DialogHeader>
-                        <DialogTitle className="text-base">
-                          Terms of Service
-                        </DialogTitle>
-                      </DialogHeader>
-
-                      <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
-                          By connecting your wallet, you acknowledge and agree
-                          to Glow’s Terms of Service. This application is
-                          experimental and does not provide financial advice.
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Your acceptance will be remembered on this device.
-                        </p>
-                      </div>
-
-                      <DialogFooter className="gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setIsTosOpen(false);
-                            try {
-                              disconnect();
-                            } catch {}
-                          }}
-                        >
-                          Disconnect
-                        </Button>
-                        <Button onClick={handleAcceptTos}>I Accept</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </>
+                <div style={{ display: "flex", gap: 12 }}>
+                  <Button
+                    variant={variant}
+                    onClick={openAccountModal}
+                    type="button"
+                    className={`w-full ${getSizeClasses()} font-semibold`}
+                  >
+                    {account?.displayName}
+                  </Button>
+                </div>
               );
             })()}
           </div>

@@ -8,6 +8,7 @@ import { getReserves } from "@/utils/uniswapv2/getReserves";
 import { Contract } from "ethers";
 import { addresses } from "@/web3/constants/addresses";
 import { useEthersSigner } from "./useEthersSigner";
+import Decimal from "decimal.js";
 
 const UNISWAP_V2_FACTORY_ABI = [
   "function getPair(address tokenA, address tokenB) external view returns (address pair)",
@@ -17,8 +18,8 @@ const UNISWAP_V2_FACTORY_ADDRESS: `0x${string}` =
   "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f" as `0x${string}`;
 
 export type SmartBalancingAmounts = {
-  amount_in_uni: BigInt;
-  amount_in_glow_bonding_curve: BigInt;
+  amount_in_uni: bigint;
+  amount_in_glow_bonding_curve: bigint;
   amount_out_uni: string;
   amount_out_glow: string;
   uniswapUSDGReserves: number;
@@ -161,6 +162,8 @@ export function usePurchaseGlow() {
     if (udsgBalance < usdgNeeded) {
       const usdcBalance = await usdc.balanceOf(signerAddress);
       const usdcNeeded = usdgNeeded - udsgBalance;
+      console.log("usdcNeeded", usdcNeeded.toString());
+      console.log("usdcBalance", usdcBalance.toString());
       if (usdcNeeded > usdcBalance) {
         setGlowPurchaseState("ERROR");
         return new Err("Insufficient USDG and USDC Balance");
@@ -354,8 +357,16 @@ export function usePurchaseGlow() {
     });
 
     return new Ok({
-      amount_in_uni: BigInt(amountUSDGToSpendInUniswap),
-      amount_in_glow_bonding_curve: BigInt(amountUSDGToSpendInEarlyLiquidity),
+      amount_in_uni: BigInt(
+        new Decimal(amountUSDGToSpendInUniswap)
+          .mul(new Decimal(10).pow(6))
+          .toFixed(0, Decimal.ROUND_DOWN)
+      ),
+      amount_in_glow_bonding_curve: BigInt(
+        new Decimal(amountUSDGToSpendInEarlyLiquidity)
+          .mul(new Decimal(10).pow(6))
+          .toFixed(0, Decimal.ROUND_DOWN)
+      ),
       amount_out_uni: expectedOutFromUniswap.toFixed(4),
       amount_out_glow: expectedOutFromEarlyLiquidity.toFixed(4),
       uniswapUSDGReserves: reservesUsdg,

@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -34,7 +34,7 @@ import { UsdcToTokenDialog } from "@/components/usdc-to-token-dialog";
 import { GlowToUsdcDialog } from "@/components/glow-to-usdc-dialog";
 import { UsdgToUsdcRedemptionDialog } from "@/components/usdg-to-usdc-redemption-dialog";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
-import { useDebouncedCallback } from "use-debounce";
+import { useDebouncedAsync } from "@/hooks/useDebouncedAsync";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getOptimalUSDGAmountsWithFees } from "@/utils/glowSmartBalancing";
 import { useRouter } from "next/navigation";
@@ -42,6 +42,7 @@ import { useUSDGRedemption } from "@/hooks/useUSDGRedemption";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SendTab } from "./send-tab";
 import { useQueryState } from "nuqs";
+import Decimal from "decimal.js";
 
 import { addresses } from "@/web3/constants/addresses";
 import { MaxUint256 } from "ethers";
@@ -219,17 +220,19 @@ export default function View({
   } = useER20Balances({
     signer,
   });
-  const debouncedEstimate = useDebouncedCallback(
-    async (amountToSell: string) => {
+  const { run: debouncedEstimate, cancel: cancelEstimate } = useDebouncedAsync<
+    string,
+    void
+  >(
+    async (value, signal) => {
+      setEstimateQueueAmount((prev) => prev + 1);
       try {
-        setEstimateQueueAmount((prev) => prev + 1);
-        await estimateAmount();
-        setEstimateQueueAmount((prev) => prev - 1);
-      } catch (error) {
+        await estimateAmount(value, signal);
+      } finally {
         setEstimateQueueAmount((prev) => prev - 1);
       }
     },
-    500
+    { delayMs: 350 }
   );
 
   const {
@@ -255,6 +258,19 @@ export default function View({
       );
     } else {
       toast.error(data.val);
+    }
+  }
+
+  function toUnitsDecimal(value: string, decimals: number): bigint {
+    try {
+      const d = new Decimal(value || "0");
+      if (!d.isFinite() || d.lte(0)) return BigInt(0);
+      const scaled = d
+        .mul(new Decimal(10).pow(decimals))
+        .toFixed(0, Decimal.ROUND_DOWN);
+      return BigInt(scaled);
+    } catch {
+      return BigInt(0);
     }
   }
 
@@ -323,9 +339,11 @@ export default function View({
       if (selectedTokenSell.label === "USDC") {
         if (
           usdcBalance &&
-          usdcBalance < BigInt(parseUnits(amountToSell, 6)) &&
           usdgBalance &&
-          usdgBalance >= BigInt(parseUnits(amountToSell, 6))
+          (() => {
+            const amt = toUnitsDecimal(amountToSell, 6);
+            return usdcBalance < amt && usdgBalance >= amt;
+          })()
         ) {
           return {
             label: `SWAP`,
@@ -352,13 +370,13 @@ export default function View({
             },
           };
         }
-        // For USDC -> USDG, perform direct swap (no dialog)
+        // For USDC -> USDG, show the dialog
         if (selectedTokenBuy.label === "USDG") {
           return {
             label: `SWAP`,
             disabled: false,
             callback: () => {
-              handleBuy();
+              setIsDialogOpen(true);
             },
           };
         }
@@ -402,6 +420,17 @@ export default function View({
             handleBuy();
           },
         };
+      } else if (
+        selectedTokenSell.label === "GLOW" &&
+        selectedTokenBuy.label === "USDG"
+      ) {
+        return {
+          label: `SWAP`,
+          disabled: false,
+          callback: () => {
+            setIsGlowToUsdcDialogOpen(true);
+          },
+        };
       } else {
         return {
           label: `SWAP`,
@@ -415,7 +444,7 @@ export default function View({
   }
 
   const handleBuy = async () => {
-    const amountIn = parseUnits(amountToSell, selectedTokenSell.decimals);
+    const amountIn = toUnitsDecimal(amountToSell, selectedTokenSell.decimals);
 
     try {
       setPendingTx(true);
@@ -599,18 +628,18 @@ export default function View({
     return "0";
   };
 
-  const estimateAmount = async () => {
+  const estimateAmount = async (amountStr: string, signal: AbortSignal) => {
     try {
       if (selectedTokenBuy.label === "GLOW") {
-        if (!amountToSell || amountToSell === "0") {
+        if (!amountStr || amountStr === "0") {
           setSmartBalancingAmounts(undefined);
           return;
         }
         const uniswapEstimate = await estimateOutputAmount({
-          amountIn: parseUnits(amountToSell, 6),
+          amountIn: toUnitsDecimal(amountStr, 6),
         });
         const smartBalancingAmountsRes = await getSmartBalancingAmounts({
-          amountUsdgIn: Number(amountToSell),
+          amountUsdgIn: Number(amountStr),
           earlyLiquidityCurrentPrice: Number(earlyLiquidityCurrentPrice),
         });
         if (!smartBalancingAmountsRes.ok) {
@@ -629,14 +658,14 @@ export default function View({
         //uniswap fees
         let estimatedCostInUSDForUniswap = "0";
         estimatedCostInUSDForUniswap = await getUniswapFees(
-          Number(smartBalancingAmountsRes.val.amount_in_uni)
+          Number(formatUnits(smartBalancingAmountsRes.val.amount_in_uni, 6))
         );
 
         let estimatedGasForswapUSDCToUSDG = "0";
         if (selectedTokenSell.label === "USDC") {
           const estimatedGasForswapUSDCToUSDGRes =
             await estimateGasForswapUSDCToUSDG(
-              parseUnits(amountToSell, 6),
+              toUnitsDecimal(amountStr, 6),
               ethPriceInUSD
             );
           if (estimatedGasForswapUSDCToUSDGRes.ok) {
@@ -662,10 +691,13 @@ export default function View({
           ),
 
           amount_usdg_in_uniswap: Number(
-            smartBalancingAmountsRes.val.amount_in_uni
+            formatUnits(smartBalancingAmountsRes.val.amount_in_uni, 6)
           ),
           amount_usdg_in_bonding_curve: Number(
-            smartBalancingAmountsRes.val.amount_in_glow_bonding_curve
+            formatUnits(
+              smartBalancingAmountsRes.val.amount_in_glow_bonding_curve,
+              6
+            )
           ),
           uniswapUSDGReserves: Number(
             smartBalancingAmountsRes.val.uniswapUSDGReserves
@@ -695,6 +727,7 @@ export default function View({
           6
         );
 
+        if (signal.aborted) return; // stale
         setSmartBalancingAmounts({
           amount_in_glow_bonding_curve: parseUnits(
             toFixedTruncate(amountsWithFees.amount_usdg_in_bonding_curve, 6),
@@ -724,7 +757,7 @@ export default function View({
         });
 
         const findAmountGlowFromUSDGAmountRes =
-          await findAmountGlowFromUSDGAmount(parseUnits(amountToSell, 6));
+          await findAmountGlowFromUSDGAmount(toUnitsDecimal(amountStr, 6));
 
         if (!uniswapEstimate.ok) {
           console.error("!uniswapEstimate.ok", uniswapEstimate.val);
@@ -748,14 +781,18 @@ export default function View({
           formatUnits(findAmountGlowFromUSDGAmountRes.val, 18)
         );
 
-        // If we have smart balancing amounts, use the total from both routes
-        let finalOutput;
-        if (smartBalancingAmounts) {
-          const uniswapOutput = Number(smartBalancingAmounts.amount_out_uni);
-          const bondingCurveOutput = Number(
-            smartBalancingAmounts.amount_out_glow
-          );
-          finalOutput = uniswapOutput + bondingCurveOutput;
+        // Use fresh calculation results to avoid stale state
+        let finalOutput: number;
+        const uniswapOutFresh = Number(amountsWithFees.amount_out_glow_uniswap);
+        const bondingOutFresh = Number(
+          amountsWithFees.amount_out_glow_bonding_curve
+        );
+        const hasFresh =
+          Number.isFinite(uniswapOutFresh) || Number.isFinite(bondingOutFresh);
+        if (hasFresh) {
+          finalOutput =
+            (Number.isFinite(uniswapOutFresh) ? uniswapOutFresh : 0) +
+            (Number.isFinite(bondingOutFresh) ? bondingOutFresh : 0);
         } else {
           // Fallback to max output for non-smart balancing scenarios
           finalOutput = Math.max(
@@ -764,6 +801,7 @@ export default function View({
           );
         }
 
+        if (signal.aborted) return; // stale
         setEstimatedOutputAmount({
           ...defaultTokensEstimate,
           [selectedTokenBuy.label]: finalOutput.toString(),
@@ -775,9 +813,10 @@ export default function View({
         selectedTokenBuy.label === "USDG" &&
         selectedTokenSell.label === "USDC"
       ) {
+        if (signal.aborted) return; // stale
         setEstimatedOutputAmount({
           ...defaultTokensEstimate,
-          [selectedTokenBuy.label]: amountToSell,
+          [selectedTokenBuy.label]: amountStr,
         });
         return;
       }
@@ -785,9 +824,10 @@ export default function View({
         selectedTokenBuy.label === "USDC" &&
         selectedTokenSell.label === "USDG"
       ) {
+        if (signal.aborted) return; // stale
         setEstimatedOutputAmount({
           ...defaultTokensEstimate,
-          [selectedTokenBuy.label]: amountToSell,
+          [selectedTokenBuy.label]: amountStr,
         });
         return;
       }
@@ -797,11 +837,12 @@ export default function View({
       ) {
         // For GLOW -> USDC, we need to estimate GLOW -> USDG first
         const estimateRes = await estimateGlowToUSDG({
-          amountIn: parseUnits(amountToSell, selectedTokenSell.decimals),
+          amountIn: toUnitsDecimal(amountStr, selectedTokenSell.decimals),
         });
 
         if (estimateRes.ok) {
           // USDG to USDC is 1:1, so the USDG amount equals USDC amount
+          if (signal.aborted) return; // stale
           setEstimatedOutputAmount({
             ...defaultTokensEstimate,
             [selectedTokenBuy.label]: formatUnits(estimateRes.val, 6),
@@ -815,8 +856,8 @@ export default function View({
           selectedTokenSell.label === "USDG")
       ) {
         if (
-          !amountToSell ||
-          Number(amountToSell) <= 0
+          !amountStr ||
+          Number(amountStr) <= 0
           //TODO: add gctl price
           // ||
           // isGctlPriceLoading ||
@@ -828,6 +869,7 @@ export default function View({
         //TODO: add gctl price
         // const estimatedGctl = Number(amountToSell) / gctlPriceNumber;
         const estimatedGctl = 0;
+        if (signal.aborted) return; // stale
         setEstimatedOutputAmount({
           ...defaultTokensEstimate,
           [selectedTokenBuy.label]: toFixedTruncate(estimatedGctl, 6),
@@ -835,10 +877,11 @@ export default function View({
         return;
       }
       const estimateRes = await estimateOutputAmount({
-        amountIn: parseUnits(amountToSell, selectedTokenSell.decimals),
+        amountIn: toUnitsDecimal(amountStr, selectedTokenSell.decimals),
       });
 
       if (estimateRes.ok) {
+        if (signal.aborted) return; // stale
         setEstimatedOutputAmount({
           ...defaultTokensEstimate,
           [selectedTokenBuy.label]: formatUnits(
@@ -923,6 +966,9 @@ export default function View({
       setSmartBalancingAmounts(undefined);
       setEstimatedOutputAmount(defaultTokensEstimate);
     }
+    return () => {
+      cancelEstimate();
+    };
   }, [selectedTokenSell, selectedTokenBuy, amountToSell, signer, isReady]);
 
   // Add effect to fetch USDC balance when wallet connects
@@ -1157,20 +1203,23 @@ export default function View({
                                 )}
                               </div>
                             </div>
-                            <div className="space-y-2">
-                              <div className="text-xs text-muted-foreground">
-                                Bonding Curve
+                            {Number(smartBalancingAmounts?.amount_out_glow) >
+                              0 && (
+                              <div className="space-y-2">
+                                <div className="text-xs text-muted-foreground">
+                                  Bonding Curve
+                                </div>
+                                <div className="text-sm font-medium">
+                                  {isEstimateLoading ? (
+                                    <Skeleton className="w-16 h-4" />
+                                  ) : (
+                                    `${Number(
+                                      smartBalancingAmounts?.amount_out_glow
+                                    ).toFixed(6)} GLOW`
+                                  )}
+                                </div>
                               </div>
-                              <div className="text-sm font-medium">
-                                {isEstimateLoading ? (
-                                  <Skeleton className="w-16 h-4" />
-                                ) : (
-                                  `${Number(
-                                    smartBalancingAmounts?.amount_out_glow
-                                  ).toFixed(6)} GLOW`
-                                )}
-                              </div>
-                            </div>
+                            )}
                           </div>
                           <div className="pt-3 border-t border-border/20">
                             <div className="flex items-center justify-between">
@@ -1323,6 +1372,7 @@ export default function View({
         amountToSell={amountToSell}
         estimatedOutputAmount={currentTokenEstimatedOutputAmount}
         slippageTolerance={slippageTolerance}
+        targetToken={selectedTokenBuy.label as "USDC" | "USDG"}
         onOpenChange={(open) => {
           setIsGlowToUsdcDialogOpen(open);
           if (!open) {

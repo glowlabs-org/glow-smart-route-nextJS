@@ -29,12 +29,12 @@ export interface Position {
   initialUsdg: number;
   // Optional fields enriched from API
   apiMultiplier?: number;
-  accumulatedGlowRewards?: number; // GLW
+  accumulatedGlowRewards: number; // GLW
   totalLiquidityFeesEarnedLP?: number; // LP tokens (decimals 12)
   totalLiquidityFeesEarnedUSDG?: number; // USDG equivalent
   liquidityIncentiveApy?: number; // percent
-  feesApy?: number; // percent
-  combinedApy?: number; // percent
+  feesApy: number; // percent
+  combinedApy: number; // percent
 }
 
 interface LiquidityPoolReserves {
@@ -564,19 +564,6 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
             combinedApy: normalizeApyToPercent(apiPos.combinedAPY),
           });
         }
-      } else {
-        // Fallback: create single position if no API data
-        positions.push({
-          id: "p1",
-          pair: "GLW/USDG",
-          glwAmount: glw,
-          usdgAmount: usdg,
-          apy: 12.1,
-          poolSharePct: Math.min(100, Math.max(0, sharePct)),
-          createdAt: Date.now(),
-          initialGlw: glw,
-          initialUsdg: usdg,
-        });
       }
 
       return positions;

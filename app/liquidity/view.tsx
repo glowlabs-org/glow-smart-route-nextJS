@@ -22,7 +22,7 @@ import { AddLiquidityReviewDialog } from "./add-liquidity-dialog";
 import { RemoveLiquidityDialog } from "./remove-liquidity-dialog";
 
 import { LiquidityIncentiveDialog } from "./liquidity-incentive-dialog";
-import { useLiquidityPositions } from "@/hooks/useLiquidityPositions";
+import { useLiquidityPositions } from "@/hooks/useLiquidityPositionsOptimized";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { useMemo } from "react";
@@ -40,8 +40,8 @@ export function PositionsView() {
     isPositionsFetching,
     isPositionsPending,
     positionFinalizedMap,
-
-    positionFeesMap,
+    totalFeeRewardsLP,
+    positionFeesLP,
     priceRatio,
     poolReserves,
     getLoyaltyMultiplier,
@@ -52,13 +52,6 @@ export function PositionsView() {
     wouldAddLiquidityLikelyFail,
   } = useLiquidityPositions();
   const [removeDialogOpen, setRemoveDialogOpen] = React.useState(false);
-
-  const totalFeeRewardsUSDG = React.useMemo(
-    () => Object.values(positionFeesMap).reduce((a, b) => a + b, 0),
-    [positionFeesMap]
-  );
-
-  console.log("isPositionsLoading", isPositionsLoading);
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -80,14 +73,14 @@ export function PositionsView() {
           <aside className="xl:sticky h-fit space-y-4">
             <RewardsSummaryCard
               totalAccumulatedGlw={totalAccumulatedGlw}
-              totalFeeRewardsUSDG={totalFeeRewardsUSDG}
-              isLoading={isPositionsLoading || isPositionsFetching}
+              totalFeeRewardsLP={totalFeeRewardsLP}
+              isLoading={isPositionsLoading}
             />
             <PositionsList
               positions={positions}
               now={now}
               positionFinalizedMap={positionFinalizedMap}
-              positionFeesMap={positionFeesMap}
+              positionFeesLP={positionFeesLP}
               getLoyaltyMultiplier={getLoyaltyMultiplier}
               isLoading={isPositionsLoading}
               onOpenRemove={() => setRemoveDialogOpen(true)}
@@ -129,7 +122,7 @@ interface AddLiquidityPanelProps {
   }) => boolean;
 }
 
-function AddLiquidityPanel({
+const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
   priceRatio,
   quoteOtherAmount,
   wouldAddLiquidityLikelyFail,
@@ -379,17 +372,17 @@ function AddLiquidityPanel({
       />
     </div>
   );
-}
+});
 
 interface RewardsSummaryCardProps {
   totalAccumulatedGlw: number;
-  totalFeeRewardsUSDG: number;
+  totalFeeRewardsLP: number;
   isLoading?: boolean;
 }
 
-function RewardsSummaryCard({
+const RewardsSummaryCard = React.memo(function RewardsSummaryCard({
   totalAccumulatedGlw,
-  totalFeeRewardsUSDG,
+  totalFeeRewardsLP,
   isLoading,
 }: RewardsSummaryCardProps) {
   return (
@@ -410,7 +403,7 @@ function RewardsSummaryCard({
                 <>
                   <span className="text-xl font-extrabold tabular-nums">
                     {totalAccumulatedGlw.toLocaleString("en-US", {
-                      maximumFractionDigits: 2,
+                      maximumFractionDigits: 4,
                     })}
                   </span>
                   <span className="text-muted-foreground font-medium text-sm">
@@ -430,8 +423,8 @@ function RewardsSummaryCard({
               ) : (
                 <>
                   <span className="text-xl font-extrabold tabular-nums">
-                    {totalFeeRewardsUSDG.toLocaleString("en-US", {
-                      maximumFractionDigits: 2,
+                    {totalFeeRewardsLP.toLocaleString("en-US", {
+                      maximumFractionDigits: 4,
                     })}
                   </span>
                   <span className="text-muted-foreground font-medium text-sm">
@@ -445,7 +438,7 @@ function RewardsSummaryCard({
       </div>
     </div>
   );
-}
+});
 
 interface PositionsListProps {
   positions: Array<{
@@ -458,17 +451,17 @@ interface PositionsListProps {
   }>;
   now: number;
   positionFinalizedMap: Record<string, number>;
-  positionFeesMap: Record<string, number>;
+  positionFeesLP: Record<string, number>;
   getLoyaltyMultiplier: (createdAt: number) => number;
   isLoading?: boolean;
   onOpenRemove: () => void;
 }
 
-function PositionsList({
+const PositionsList = React.memo(function PositionsList({
   positions,
   now,
   positionFinalizedMap,
-  positionFeesMap,
+  positionFeesLP,
   getLoyaltyMultiplier,
   isLoading,
   onOpenRemove,
@@ -517,7 +510,7 @@ function PositionsList({
                   position={position}
                   now={now}
                   finalized={positionFinalizedMap[position.id] ?? 0}
-                  feesUSDG={positionFeesMap[position.id] ?? 0}
+                  feesLP={positionFeesLP[position.id] ?? 0}
                   getLoyaltyMultiplier={getLoyaltyMultiplier}
                 />
               ))}
@@ -526,7 +519,7 @@ function PositionsList({
       </div>
     </div>
   );
-}
+});
 
 interface PositionCardProps {
   position: {
@@ -536,18 +529,21 @@ interface PositionCardProps {
     usdgAmount: number;
     apy: number;
     createdAt: number;
+    combinedApy?: number;
+    feesApy?: number;
+    liquidityIncentiveApy?: number;
   };
   now: number;
   finalized: number;
-  feesUSDG: number;
+  feesLP: number;
   getLoyaltyMultiplier: (createdAt: number) => number;
 }
 
-function PositionCard({
+const PositionCard = React.memo(function PositionCard({
   position,
   now,
   finalized,
-  feesUSDG,
+  feesLP,
   getLoyaltyMultiplier,
 }: PositionCardProps) {
   // Calculate time components more accurately
@@ -572,17 +568,11 @@ function PositionCard({
 
   const liveMultiplier = getLoyaltyMultiplier(position.createdAt);
   const currentGlw = position.glwAmount;
-  const incentiveApy = Number.isFinite((position as any).liquidityIncentiveApy)
-    ? ((position as any).liquidityIncentiveApy as number)
-    : position.apy;
-  const rawFeesApy = Number.isFinite((position as any).feesApy)
-    ? ((position as any).feesApy as number)
-    : 0;
-  const feesApy = rawFeesApy <= 1 ? rawFeesApy * 100 : rawFeesApy;
-  const performanceFeePct = 0; // currently 0%
-  const netApy = Math.max(0, incentiveApy + feesApy - performanceFeePct);
+  const incentiveApy = position.liquidityIncentiveApy ?? position.apy;
+  const feesApy = position.feesApy ?? 0;
+  const netApy = position.combinedApy ?? position.apy;
   return (
-    <div className="bg-muted/30 rounded-xl border border-border overflow-hidden hover:border-foreground/20 transition-all duration-200">
+    <div className="bg-muted/30 rounded-xl border border-border overflow-hidden transition-all duration-200">
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -598,13 +588,13 @@ function PositionCard({
             <HoverCard>
               <HoverCardTrigger asChild>
                 <div className="text-lg font-bold tabular-nums flex items-center justify-end cursor-help">
-                  <NumberTicker
-                    value={netApy}
-                    decimalPlaces={0}
-                    className="text-lg font-bold"
-                    suffix="%"
+                  <span className="text-lg font-bold">
+                    {netApy.toFixed(0)}%
+                  </span>
+                  <Sparkles
+                    className="ml-2 size-5 text-glow-purple"
+                    aria-hidden="true"
                   />
-                  <Sparkles className="ml-2 size-5" aria-hidden="true" />
                 </div>
               </HoverCardTrigger>
               <HoverCardContent
@@ -674,11 +664,7 @@ function PositionCard({
               </TooltipProvider>
             </div>
             <div className="font-medium tabular-nums flex items-baseline gap-1">
-              <NumberTicker
-                value={finalized}
-                decimalPlaces={4}
-                className="font-medium"
-              />
+              <span className="font-medium">{finalized.toFixed(4)}</span>
               <span>GLW</span>
             </div>
           </div>
@@ -687,18 +673,17 @@ function PositionCard({
               Exchange fee rewards
             </div>
             <div className="font-medium tabular-nums flex items-baseline gap-1">
-              <NumberTicker
-                value={feesUSDG}
-                decimalPlaces={2}
-                className="font-medium"
-              />
+              <span className="font-medium">{feesLP.toFixed(2)}</span>
               <span>Liquidity</span>
             </div>
           </div>
         </div>
         <div className="mt-3 rounded-md border p-3 flex items-center justify-between">
-          <div className="text-xs text-muted-foreground">Loyalty bonus</div>
+          <div className="text-xs text-muted-foreground">
+            Loyalty bonus (live)
+          </div>
           <div className="font-mono text-sm flex items-center">
+            {/* Only the loyalty bonus animates with time - updates every second */}
             <NumberTicker
               value={liveMultiplier}
               decimalPlaces={12}
@@ -710,14 +695,17 @@ function PositionCard({
       </div>
     </div>
   );
-}
+});
 
 interface CompositionBarProps {
   glwAmount: number;
   usdgAmount: number;
 }
 
-function CompositionBar({ glwAmount, usdgAmount }: CompositionBarProps) {
+const CompositionBar = React.memo(function CompositionBar({
+  glwAmount,
+  usdgAmount,
+}: CompositionBarProps) {
   const pctGLW = 0.5;
   const pctUSDG = 0.5;
   return (
@@ -750,4 +738,4 @@ function CompositionBar({ glwAmount, usdgAmount }: CompositionBarProps) {
       </div>
     </div>
   );
-}
+});

@@ -1,14 +1,11 @@
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { ArrowLeftRight, Check, Loader2, Info } from "lucide-react";
+  TransactionDialog,
+  type TransactionDetail,
+} from "@/components/dialogs/transaction-dialog";
+import { ArrowLeftRight, Check, Loader2, Info, ArrowDown } from "lucide-react";
 import { waitingToSuccessVariants } from "@/animations/variants";
 import { motion } from "framer-motion";
 import React, { FC, useEffect } from "react";
-import { Input } from "./ui/input";
 import { formatPrice } from "@/utils/formatPrice";
 import clsx from "clsx";
 import { toast } from "sonner";
@@ -39,56 +36,90 @@ type GlowToUsdcState =
   | "DONE"
   | "ERROR";
 
-const defaultPendingStates: PendingState[] = [
-  {
-    code: "REQUESTING_GLOW_APPROVAL",
-    message: "Requesting GLOW approval",
-    validated: false,
-    pending: false,
-  },
-  {
-    code: "APPROVING_GLOW",
-    message: "Approving GLOW",
-    validated: false,
-    pending: false,
-  },
-  {
-    code: "SWAPPING_GLOW_TO_USDG",
-    message: "Swapping GLOW to USDG",
-    validated: false,
-    pending: false,
-  },
-  {
-    code: "REQUESTING_USDG_APPROVAL",
-    message: "Requesting USDG approval",
-    validated: false,
-    pending: false,
-  },
-  {
-    code: "APPROVING_USDG",
-    message: "Approving USDG",
-    validated: false,
-    pending: false,
-  },
-  {
-    code: "REDEEMING_USDG_FOR_USDC",
-    message: "Redeeming USDG for USDC",
-    validated: false,
-    pending: false,
-  },
-  {
-    code: "DONE",
-    message: "Successfully converted GLOW to USDC",
-    validated: false,
-    pending: false,
-  },
-];
+const getDefaultPendingStates = (
+  targetToken: "USDC" | "USDG"
+): PendingState[] => {
+  if (targetToken === "USDG") {
+    return [
+      {
+        code: "REQUESTING_GLOW_APPROVAL",
+        message: "Requesting GLOW approval",
+        validated: false,
+        pending: false,
+      },
+      {
+        code: "APPROVING_GLOW",
+        message: "Approving GLOW",
+        validated: false,
+        pending: false,
+      },
+      {
+        code: "SWAPPING_GLOW_TO_USDG",
+        message: "Swapping GLOW to USDG",
+        validated: false,
+        pending: false,
+      },
+      {
+        code: "DONE",
+        message: "Successfully swapped GLOW to USDG",
+        validated: false,
+        pending: false,
+      },
+    ];
+  }
+
+  return [
+    {
+      code: "REQUESTING_GLOW_APPROVAL",
+      message: "Requesting GLOW approval",
+      validated: false,
+      pending: false,
+    },
+    {
+      code: "APPROVING_GLOW",
+      message: "Approving GLOW",
+      validated: false,
+      pending: false,
+    },
+    {
+      code: "SWAPPING_GLOW_TO_USDG",
+      message: "Swapping GLOW to USDG",
+      validated: false,
+      pending: false,
+    },
+    {
+      code: "REQUESTING_USDG_APPROVAL",
+      message: "Requesting USDG approval",
+      validated: false,
+      pending: false,
+    },
+    {
+      code: "APPROVING_USDG",
+      message: "Approving USDG",
+      validated: false,
+      pending: false,
+    },
+    {
+      code: "REDEEMING_USDG_FOR_USDC",
+      message: "Redeeming USDG for USDC",
+      validated: false,
+      pending: false,
+    },
+    {
+      code: "DONE",
+      message: "Successfully converted GLOW to USDC",
+      validated: false,
+      pending: false,
+    },
+  ];
+};
 
 export const GlowToUsdcDialog: FC<{
   isOpen: boolean;
   amountToSell: string;
   estimatedOutputAmount: string;
   slippageTolerance: string;
+  targetToken?: "USDC" | "USDG";
   onOpenChange: (open: boolean) => void;
 }> = ({
   isOpen,
@@ -96,10 +127,18 @@ export const GlowToUsdcDialog: FC<{
   amountToSell,
   estimatedOutputAmount,
   slippageTolerance,
+  targetToken = "USDC",
 }) => {
   const [isPending, setIsPending] = React.useState(false);
-  const [pendingStates, setPendingStates] =
-    React.useState<PendingState[]>(defaultPendingStates);
+  const [isSuccess, setIsSuccess] = React.useState(false);
+  const [isError, setIsError] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [txHash, setTxHash] = React.useState<string | null>(null);
+  const [networkCostUSD, setNetworkCostUSD] = React.useState<string>("");
+  const [isNetworkCostLoading, setIsNetworkCostLoading] = React.useState(false);
+  const [pendingStates, setPendingStates] = React.useState<PendingState[]>(
+    getDefaultPendingStates(targetToken)
+  );
   const [currentState, setCurrentState] =
     React.useState<GlowToUsdcState>("NONE");
   const [intermediateUsdgAmount, setIntermediateUsdgAmount] =
@@ -117,8 +156,11 @@ export const GlowToUsdcDialog: FC<{
 
   const { redeemUSDGForUSDC } = useUSDGRedemption();
 
-  const handleSwapGlowToUsdc = async () => {
+  const handleSwapGlowToTarget = async () => {
     setIsPending(true);
+    setIsError(false);
+    setIsSuccess(false);
+    setErrorMessage(null);
     setCurrentState("NONE");
 
     try {
@@ -128,6 +170,8 @@ export const GlowToUsdcDialog: FC<{
       const estimateRes = await estimateGlowToUSDG({ amountIn });
       if (!estimateRes.ok) {
         setCurrentState("ERROR");
+        setIsError(true);
+        setErrorMessage("Failed to estimate USDG output");
         toast.error("Failed to estimate USDG output");
         setIsPending(false);
         return;
@@ -146,11 +190,23 @@ export const GlowToUsdcDialog: FC<{
 
       if (!swapRes.ok) {
         setCurrentState("ERROR");
+        setIsError(true);
+        setErrorMessage(swapRes.val);
         toast.error(swapRes.val);
         setIsPending(false);
         return;
       }
 
+      // If target is USDG, we're done
+      if (targetToken === "USDG") {
+        setCurrentState("DONE");
+        updatePendingStates("DONE");
+        setIsPending(false);
+        setIsSuccess(true);
+        return;
+      }
+
+      // If target is USDC, continue with redemption
       // Update state for USDG approval/redemption
       setCurrentState("REQUESTING_USDG_APPROVAL");
       updatePendingStates("REQUESTING_USDG_APPROVAL");
@@ -170,8 +226,11 @@ export const GlowToUsdcDialog: FC<{
       if (redeemRes.ok) {
         setCurrentState("DONE");
         updatePendingStates("DONE");
+        setIsSuccess(true);
       } else {
         setCurrentState("ERROR");
+        setIsError(true);
+        setErrorMessage(redeemRes.val);
         toast.error(redeemRes.val);
       }
 
@@ -179,6 +238,9 @@ export const GlowToUsdcDialog: FC<{
     } catch (error: any) {
       setCurrentState("ERROR");
       setIsPending(false);
+      setIsError(true);
+      setErrorMessage(error?.message || "Transaction failed");
+      setTxHash(error?.txHash ?? null);
       toast.error(error?.message || "Transaction failed");
     }
   };
@@ -213,15 +275,57 @@ export const GlowToUsdcDialog: FC<{
     }
   }, [uniswapPurchaseState]);
 
+  // Estimate network fee when dialog opens
+  useEffect(() => {
+    async function estimateFee() {
+      if (
+        !isOpen ||
+        !estimatedOutputAmount ||
+        Number(estimatedOutputAmount) <= 0
+      )
+        return;
+      try {
+        setIsNetworkCostLoading(true);
+        // Estimate based on typical gas costs for swap operations
+        // You may want to implement actual gas estimation here
+        const estimatedCost = "$2.50"; // Placeholder - implement actual estimation
+        setNetworkCostUSD(estimatedCost);
+      } catch {
+        setNetworkCostUSD("$0.00");
+      } finally {
+        setIsNetworkCostLoading(false);
+      }
+    }
+
+    if (isOpen) {
+      estimateFee();
+    }
+  }, [isOpen, estimatedOutputAmount]);
+
+  // Reset once when the dialog closes
   useEffect(() => {
     if (!isOpen) {
-      // Reset states when dialog closes
-      setPendingStates(defaultPendingStates);
+      setPendingStates(getDefaultPendingStates(targetToken));
       setCurrentState("NONE");
       setIntermediateUsdgAmount("");
       resetUniswapPurchaseState();
+      setIsPending(false);
+      setIsSuccess(false);
+      setIsError(false);
+      setErrorMessage(null);
+      setTxHash(null);
+      setNetworkCostUSD("");
+      setIsNetworkCostLoading(false);
     }
-  }, [isOpen, resetUniswapPurchaseState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Update pending states only when open and the target token changes
+  useEffect(() => {
+    if (isOpen) {
+      setPendingStates(getDefaultPendingStates(targetToken));
+    }
+  }, [isOpen, targetToken]);
 
   const visibleStates = pendingStates.filter((state) => {
     const stateIndex = pendingStates.findIndex((s) => s.code === state.code);
@@ -240,223 +344,218 @@ export const GlowToUsdcDialog: FC<{
     return false;
   });
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent
-        onInteractOutside={(e) => {
-          if (isPending) e.preventDefault();
-        }}
-        className="sm:max-w-[480px]"
-      >
-        <DialogHeader className="pb-4">
-          <DialogTitle className="text-xl lg:text-2xl font-semibold">
-            Review Swap
-          </DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4">
-          {/* TOKEN TO SELL */}
-          <div className="grid gap-2">
-            <div className="group relative bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30 hover:border-border/60 transition-all duration-300">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-                  You pay
-                </span>
-              </div>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-                <div className="flex-1 min-w-0 flex items-center gap-2">
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    value={amountToSell}
-                    readOnly
-                  />
-                  <span className="text-lg sm:text-xl lg:text-2xl font-medium text-foreground">
-                    GLOW
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+  // Calculate if transaction is successful
+  const isTransactionSuccessful = isSuccess || currentState === "DONE";
 
-          {/* TOKEN TO RECEIVE */}
-          <div className="grid gap-2">
-            <div className="group relative bg-gradient-to-r from-glow-medium-grey/50 to-glow-medium-grey/40 rounded-md p-4 lg:p-6 border border-border/30 hover:border-border/60 transition-all duration-300">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-                  You receive
+  // Transaction details for review
+  const transactionDetails: TransactionDetail[] = [
+    {
+      label: "You Pay",
+      value: Number(amountToSell).toLocaleString("en-US", {
+        maximumFractionDigits: 6,
+      }),
+      unit: "GLOW",
+    },
+    {
+      label: "You Receive",
+      value: Number(estimatedOutputAmount)
+        ? formatPrice(estimatedOutputAmount, 6)
+        : "0.00",
+      unit: targetToken,
+    },
+  ];
+
+  // Success details
+  const successDetails: TransactionDetail[] = [
+    {
+      label: "Sent",
+      value: Number(amountToSell).toLocaleString("en-US", {
+        maximumFractionDigits: 2,
+      }),
+      unit: "GLOW",
+    },
+    ...(intermediateUsdgAmount && targetToken === "USDC"
+      ? [
+          {
+            label: "Via",
+            value: Number(intermediateUsdgAmount).toLocaleString("en-US", {
+              maximumFractionDigits: 6,
+            }),
+            unit: "USDG",
+          },
+        ]
+      : []),
+    {
+      label: "Received",
+      value: (
+        <span className="text-green-600 font-mono">
+          {formatPrice(estimatedOutputAmount, 6)}
+        </span>
+      ),
+      unit: targetToken,
+    },
+  ];
+
+  // Custom review content with pending states
+  const reviewContent = (
+    <div className="space-y-6 mb-8">
+      {/* Token swap visualization */}
+      <div className="space-y-3">
+        <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-4">
+          <div className="flex items-center justify-between text-left">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">You pay</div>
+              <div className="text-2xl font-bold">
+                {Number(amountToSell).toLocaleString("en-US", {
+                  maximumFractionDigits: 6,
+                })}{" "}
+                <span className="text-lg font-medium text-muted-foreground">
+                  GLOW
                 </span>
-              </div>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-                <div className="flex-1 min-w-0 flex items-center gap-2">
-                  <Input
-                    placeholder="0.00"
-                    className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    value={
-                      Number(estimatedOutputAmount)
-                        ? formatPrice(estimatedOutputAmount, 6)
-                        : "0.00"
-                    }
-                    readOnly
-                  />
-                  <span className="text-lg sm:text-xl lg:text-2xl font-medium text-foreground">
-                    USDC
-                  </span>
-                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {currentState === "DONE" ? (
-          <div className="grid gap-4">
-            <div className="flex flex-col items-center gap-3 py-6">
-              <div className="bg-green-100 rounded-full p-4">
-                <Check className="w-10 h-10 text-green-600" />
+        <div className="flex justify-center">
+          <div className="bg-background rounded-full p-2 border border-border">
+            <ArrowDown className="size-6 text-muted-foreground" />
+          </div>
+        </div>
+
+        <div className="text-left bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">
+                You receive
               </div>
-              <h3 className="text-xl lg:text-2xl font-semibold text-foreground">
-                Swap Successful!
-              </h3>
-              <p className="text-sm lg:text-base text-muted-foreground text-center">
-                Your GLOW has been successfully swapped to USDC
-              </p>
+              <div className="text-2xl font-bold">
+                {Number(estimatedOutputAmount)
+                  ? formatPrice(estimatedOutputAmount, 6)
+                  : "0.00"}{" "}
+                <span className="text-lg font-medium text-muted-foreground">
+                  {targetToken}
+                </span>
+              </div>
             </div>
+          </div>
+        </div>
+      </div>
 
-            <div className="grid gap-3">
-              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-muted/10 to-muted/5 rounded-md border border-border/20">
-                <span className="text-sm lg:text-base text-muted-foreground">
-                  Sent
-                </span>
-                <span className="font-mono font-medium text-sm lg:text-base">
-                  {Number(amountToSell).toLocaleString("en-US", {
-                    maximumFractionDigits: 2,
-                  })}
-                  GLOW
-                </span>
-              </div>
-
-              {intermediateUsdgAmount && (
-                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-muted/10 to-muted/5 rounded-md border border-border/20">
-                  <span className="text-sm lg:text-base text-muted-foreground">
-                    Via
-                  </span>
-                  <span className="font-mono font-medium text-sm lg:text-base">
-                    {Number(intermediateUsdgAmount).toLocaleString("en-US", {
-                      maximumFractionDigits: 6,
-                    })}
-                    USDG
-                  </span>
+      {/* Pending states display */}
+      {(uniswapPurchaseState !== "NONE" || currentState !== "NONE") && (
+        <div className="bg-secondary/30 backdrop-blur-sm border border-border rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Transaction Progress
+            </span>
+          </div>
+          <div className="space-y-2">
+            {visibleStates.map((state, index) => (
+              <motion.div
+                key={state.code}
+                className="flex items-center gap-3"
+                initial={{ opacity: 0.5 }}
+                animate={state.validated || state.pending ? "show" : "hidden"}
+                variants={waitingToSuccessVariants}
+              >
+                <div className="bg-background/80 backdrop-blur-sm rounded-lg p-2 flex items-center justify-center h-8 w-8 shrink-0 border border-border/50">
+                  {state.validated && !state.pending ? (
+                    <Check className="w-4 h-4 text-green-600" />
+                  ) : state.pending ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  ) : (
+                    <ArrowLeftRight className="w-4 h-4 text-muted-foreground" />
+                  )}
                 </div>
-              )}
-
-              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-muted/10 to-muted/5 rounded-md border border-border/20">
-                <span className="text-sm lg:text-base text-muted-foreground">
-                  Received
-                </span>
-                <span className="font-mono font-medium text-green-600 text-sm lg:text-base">
-                  {formatPrice(estimatedOutputAmount, 6)} USDC
-                </span>
-              </div>
-            </div>
-
-            <Button
-              variant="default"
-              onClick={() => onOpenChange(false)}
-              className="w-full h-12 lg:h-14 rounded-md text-base lg:text-lg font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              Close
-            </Button>
-          </div>
-        ) : currentState !== "NONE" ? (
-          <div className="grid grid-cols-1 gap-4">
-            <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-md p-4 lg:p-5 space-y-4 border border-border/20">
-              <div className="flex items-center gap-2 mb-3">
-                <Info className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm lg:text-base font-medium text-muted-foreground">
-                  Transaction Status
-                </span>
-              </div>
-              <div className="grid gap-3">
-                {visibleStates.map((state, index) => (
-                  <motion.div
-                    key={state.code}
-                    className="flex items-center gap-3"
-                    initial={{ opacity: 0.5 }}
-                    animate={
-                      state.validated || state.pending ? "show" : "hidden"
-                    }
-                    variants={waitingToSuccessVariants}
+                <div>
+                  <h3
+                    className={clsx(
+                      "text-sm",
+                      state.validated && !state.pending
+                        ? "text-foreground font-medium"
+                        : state.pending
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    )}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="bg-background/80 backdrop-blur-sm dark:bg-muted/50 rounded-md p-2.5 flex items-center justify-center h-10 w-10 shrink-0 border border-border/20">
-                        {state.validated && !state.pending ? (
-                          <Check
-                            className={clsx("w-5 h-5", "text-green-600")}
-                          />
-                        ) : state.pending ? (
-                          <Loader2
-                            className={clsx(
-                              "w-5 h-5 animate-spin",
-                              "text-primary"
-                            )}
-                          />
-                        ) : (
-                          <ArrowLeftRight
-                            className={clsx("w-5 h-5", "text-muted-foreground")}
-                          />
-                        )}
-                      </div>
-                      <div>
-                        <h3
-                          className={clsx(
-                            "text-sm lg:text-base font-medium",
-                            state.validated && !state.pending
-                              ? "text-foreground"
-                              : state.pending
-                              ? "text-foreground"
-                              : "text-muted-foreground"
-                          )}
-                        >
-                          {state.message}
-                        </h3>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
+                    {state.message}
+                  </h3>
+                </div>
+              </motion.div>
+            ))}
           </div>
-        ) : (
-          <Button
-            variant="default"
-            onClick={handleSwapGlowToUsdc}
-            disabled={isPending}
-            className="w-full h-12 lg:h-14 rounded-md text-base lg:text-lg font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
-          >
-            {isPending && (
-              <div className="mr-3">
-                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-              </div>
-            )}
-            Approve and Swap
-          </Button>
-        )}
+        </div>
+      )}
+    </div>
+  );
 
-        {currentState === "ERROR" && (
-          <Button
-            variant="outline"
-            onClick={() => {
-              setPendingStates(defaultPendingStates);
-              setCurrentState("NONE");
-              resetUniswapPurchaseState();
-              handleSwapGlowToUsdc();
-            }}
-            className="w-full h-12 lg:h-14 rounded-md text-base lg:text-lg font-semibold transition-all duration-300"
-          >
-            Try Again
-          </Button>
-        )}
-      </DialogContent>
-    </Dialog>
+  // Custom footer with retry button for errors
+  const customFooter = isError ? (
+    <div className="flex gap-3">
+      <Button
+        variant="outline"
+        onClick={() => onOpenChange(false)}
+        className="flex-1"
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={() => {
+          setPendingStates(getDefaultPendingStates(targetToken));
+          setCurrentState("NONE");
+          resetUniswapPurchaseState();
+          setIsError(false);
+          setErrorMessage(null);
+          handleSwapGlowToTarget();
+        }}
+        className="flex-1"
+      >
+        Try Again
+      </Button>
+    </div>
+  ) : !isPending && !isTransactionSuccessful ? (
+    <div className="flex gap-3">
+      <Button
+        variant="outline"
+        onClick={() => onOpenChange(false)}
+        className="flex-1"
+      >
+        Cancel
+      </Button>
+      <Button onClick={handleSwapGlowToTarget} className="flex-1">
+        Approve and Swap
+      </Button>
+    </div>
+  ) : undefined;
+
+  return (
+    <TransactionDialog
+      open={isOpen}
+      onOpenChange={onOpenChange}
+      isSubmitting={isPending}
+      isSuccess={isTransactionSuccessful}
+      isError={isError}
+      title="Review Swap"
+      successTitle={`+${Number(estimatedOutputAmount).toLocaleString("en-US", {
+        maximumFractionDigits: 6,
+      })} ${targetToken}`}
+      errorTitle="Swap Failed"
+      processingTitle="Processing Swap"
+      description="Review your transaction details before confirming"
+      processingDescription="Please wait while we process your swap"
+      errorDescription={
+        errorMessage ||
+        "We were unable to complete your swap. Please try again."
+      }
+      transactionDetails={transactionDetails}
+      successDetails={successDetails}
+      txHash={txHash}
+      networkFee={networkCostUSD}
+      isNetworkFeeLoading={isNetworkCostLoading}
+      reviewContent={reviewContent}
+      footer={customFooter}
+      confirmLabel="Approve and Swap"
+    />
   );
 };
