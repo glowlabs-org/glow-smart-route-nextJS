@@ -369,14 +369,11 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
           </div>
         </div>
         {apyEstimate && (
-          <div className="relative rounded-2xl border border-accent/20 dark:border-primary/20 bg-accent/10 dark:bg-transparent dark:bg-gradient-to-br dark:from-primary/5 dark:via-transparent dark:to-primary/5 p-4 space-y-3">
+          <div className="relative rounded-2xl border border-border dark:border-primary/20 bg-muted/10 dark:bg-transparent dark:bg-gradient-to-br dark:from-primary/5 dark:via-transparent dark:to-primary/5 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">
-                  {glwNum > 0 && usdgNum > 0
-                    ? "Estimated APY"
-                    : "Default Pool APY"}
+                  {"Max Estimated APY"}
                 </span>
               </div>
               <div className="text-right">
@@ -394,7 +391,7 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
             <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/30">
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5">
-                  <div className="h-2 w-2 rounded-full bg-green-500/60" />
+                  <div className="h-2 w-2 rounded-full bg-glow-green" />
                   <span className="text-xs text-muted-foreground">
                     Estimated Trading Fees
                   </span>
@@ -410,7 +407,7 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5">
-                  <div className="h-2 w-2 rounded-full bg-blue-500/60" />
+                  <div className="h-2 w-2 rounded-full bg-glow-purple" />
                   <span className="text-xs text-muted-foreground">
                     Estimated GLW Incentives
                   </span>
@@ -538,7 +535,7 @@ const RewardsSummaryCard = React.memo(function RewardsSummaryCard({
               )}
             </div>
             {!isLoading && isBeforeIncentivesStart && (
-              <div className="text-xs mt-2 text-accent">
+              <div className="text-xs mt-2 text-accent dark:text-glow-purple">
                 GLW Incentives begin on September 2nd 10:00 AM EST
               </div>
             )}
@@ -741,19 +738,24 @@ const PositionCard = React.memo(function PositionCard({
             </div>
           </div>
           <div className="text-right">
-            <div className="text-xs text-muted-foreground uppercase tracking-wider">
-              APY
+            <div className="text-xs text-muted-foreground tracking-wider">
+              Est. APY
             </div>
             <HoverCard>
               <HoverCardTrigger asChild>
                 <div className="text-lg font-bold tabular-nums flex items-center justify-end cursor-help">
-                  <span className="text-lg font-bold">
-                    {netApy.toFixed(0)}%
-                  </span>
-                  <Sparkles
-                    className="ml-2 size-5 text-accent"
-                    aria-hidden="true"
-                  />
+                  <div className="flex flex-col items-end">
+                    <span className="text-lg font-bold flex items-center">
+                      {netApy.toLocaleString("en-US", {
+                        maximumFractionDigits: 2,
+                      })}
+                      %
+                      <Sparkles
+                        className="ml-2 size-5 text-accent dark:text-glow-purple"
+                        aria-hidden="true"
+                      />
+                    </span>
+                  </div>
                 </div>
               </HoverCardTrigger>
               <HoverCardContent
@@ -810,7 +812,7 @@ const PositionCard = React.memo(function PositionCard({
                       <span className="text-primary font-semibold">
                         =
                         {netApy.toLocaleString("en-US", {
-                          maximumFractionDigits: 4,
+                          maximumFractionDigits: 2,
                         })}
                         %
                       </span>
@@ -907,7 +909,7 @@ const CompositionBar = React.memo(function CompositionBar({
       </div>
       <div className="h-2 w-full rounded-full overflow-hidden flex border border-border">
         <div
-          className="bg-foreground"
+          className="glow-gradient"
           style={{ width: `${(pctGLW * 100).toFixed(2)}%` }}
         />
         <div
