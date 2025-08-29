@@ -377,11 +377,11 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
                 </span>
               </div>
               <div className="text-right">
-                <span className="text-2xl font-bold text-primary">
+                <span className="text-2xl font-bold text-accent dark:text-glow-purple">
                   <NumberTicker
                     value={apyEstimate.combinedApy}
                     decimalPlaces={0}
-                    className="text-2xl font-bold text-primary"
+                    className="text-2xl font-bold"
                   />
                   %
                 </span>
@@ -909,7 +909,7 @@ const CompositionBar = React.memo(function CompositionBar({
       </div>
       <div className="h-2 w-full rounded-full overflow-hidden flex border border-border">
         <div
-          className="glow-gradient"
+          className="bg-foreground dark:bg-glow-purple"
           style={{ width: `${(pctGLW * 100).toFixed(2)}%` }}
         />
         <div
