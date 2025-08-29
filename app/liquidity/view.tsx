@@ -4,8 +4,9 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Minus, Sparkles } from "lucide-react";
+import { Minus, Sparkles, ArrowRight } from "lucide-react";
 import { formatUnits } from "viem";
+import Link from "next/link";
 import {
   Tooltip,
   TooltipContent,
@@ -133,9 +134,10 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
   const [reviewOpen, setReviewOpen] = React.useState(false);
 
   const { signer } = useEthersSigner();
-  const { usdgBalance, glowBalance, refreshBalances } = useER20Balances({
-    signer,
-  });
+  const { usdgBalance, glowBalance, usdcBalance, refreshBalances } =
+    useER20Balances({
+      signer,
+    });
   const [preflightError, setPreflightError] = React.useState<string | null>(
     null
   );
@@ -165,6 +167,17 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
       return 0;
     }
   }, [usdgBalance]);
+
+  const usdcBalanceNumber = useMemo(() => {
+    if (!usdcBalance) return 0;
+    try {
+      return new Decimal(
+        formatUnits(BigInt(usdcBalance), DECIMALS_BY_TOKEN.USDC)
+      ).toNumber();
+    } catch {
+      return 0;
+    }
+  }, [usdcBalance]);
 
   function handleGlwChange(v: string) {
     setGlw(v);
@@ -339,6 +352,28 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
             </div>
           </div>
         </div>
+
+        {/* USDC to USDG swap suggestion banner */}
+        {isUsdgOverBalance && usdcBalanceNumber >= usdgNum && usdgNum > 0 && (
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <p className="text-sm font-medium">Need more USDG?</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  You have {usdcBalanceNumber.toFixed(2)} USDC available. Swap
+                  USDC to USDG to continue.
+                </p>
+              </div>
+              <Link
+                href="/?tab=swap"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                Go to Swap
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+          </div>
+        )}
 
         {preflightError && (
           <div className="rounded-xl border border-destructive bg-destructive/10 text-destructive p-3 text-sm">

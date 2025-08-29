@@ -9,9 +9,9 @@ import { Header } from "@/components/header";
 export const revalidate = 36;
 
 export const metadata: Metadata = {
-  title: "BuyGlow.xyz - Swap GLOW, USDG, USDC",
+  title: "app.glow.org - Swap GLOW, USDG, USDC & Provide Liquidity",
   description:
-    "Trade and swap Glow tokens. Buy GLOW with USDG or USDC and participate in the Glow ecosystem's guarded launch.",
+    "Trade and swap Glow tokens. Buy GLOW with USDG or USDC, provide liquidity to the GLOW/USDG Uniswap pool, and participate in the Glow ecosystem's guarded launch.",
   keywords: [
     "Glow token",
     "GLOW",
@@ -20,6 +20,9 @@ export const metadata: Metadata = {
     "DeFi",
     "token swap",
     "decentralized exchange",
+    "liquidity provision",
+    "liquidity pool",
+    "yield farming",
     "Ethereum",
     "blockchain",
     "cryptocurrency",
@@ -34,22 +37,22 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL("https://buyglow.xyz"),
+  metadataBase: new URL("https://app.glow.org"),
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "BuyGlow.xyz - Swap GLOW, USDG, USDC",
+    title: "app.glow.org - Swap GLOW, USDG, USDC & Provide Liquidity",
     description:
-      "Trade and swap Glow tokens. Buy GLOW with USDG or USDC and participate in the Glow ecosystem's guarded launch.",
-    url: "https://buyglow.xyz",
-    siteName: "BuyGlow.xyz",
+      "Trade and swap Glow tokens. Buy GLOW with USDG or USDC, provide liquidity to the GLOW/USDG Uniswap pool, and participate in the Glow ecosystem's guarded launch.",
+    url: "https://app.glow.org",
+    siteName: "app.glow.org",
     images: [
       {
         url: "/Chrome_512x512.png",
         width: 512,
         height: 512,
-        alt: "BuyGlow.xyz - Decentralized Token Exchange",
+        alt: "app.glow.org - Decentralized Token Exchange",
       },
     ],
     locale: "en_US",
@@ -57,9 +60,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Glow Token App - Swap GLOW, USDG, USDC",
+    title: "Glow Token App - Swap GLOW, USDG, USDC & Provide Liquidity",
     description:
-      "Trade and swap Glow tokens on the decentralized exchange. Buy GLOW with USDG or USDC and participate in the Glow ecosystem's guarded launch.",
+      "Trade and swap Glow tokens on the decentralized exchange. Buy GLOW with USDG or USDC, provide liquidity to earn rewards, and participate in the Glow ecosystem's guarded launch.",
     images: ["/Chrome_512x512.png"],
   },
   robots: {
@@ -89,14 +92,7 @@ interface PageContentProps {
 function PageContent(props: PageContentProps) {
   return (
     <div className="min-h-screen bg-background">
-      <Header
-        withIsScrolled={false}
-        glowPrice={props.glowPrice}
-        earlyLiquidityCurrentPrice={props.earlyLiquidityCurrentPrice}
-        marketCap={props.marketCap}
-        ethPriceInUSD={props.ethPriceInUSD}
-        usdcRewardPool={props.usdcRewardPool}
-      />
+      <Header withIsScrolled={false} />
 
       <View
         glowPrice={props.glowPrice}

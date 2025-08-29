@@ -33,7 +33,7 @@ console.log(
 console.log(chain);
 
 const config = getDefaultConfig({
-  appName: "BuyGlow.xyz",
+  appName: "app.glow.org",
   projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_ID,
   chains: [chain],
   transports: {

@@ -46,7 +46,6 @@ import {
 
 import { cn } from "@/lib/utils";
 
-import { useForwarder } from "@glowlabs-org/utils/browser";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { GlowLockup } from "./glow-lockup";
 import { ConnectButton } from "./connect-button";
@@ -114,28 +113,12 @@ ListItem.displayName = "ListItem";
 
 export function Header({
   withIsScrolled = true,
-  glowPrice,
-  marketCap,
-  ethPriceInUSD,
-  usdcRewardPool,
 }: {
-  glowPrice: string;
-  earlyLiquidityCurrentPrice: string;
-  marketCap: string;
-  ethPriceInUSD: number | null;
-  usdcRewardPool: string;
   withIsScrolled?: boolean;
 }) {
-  const [isOpen, setIsOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { signer } = useEthersSigner();
-  const { mintTestUSDC } = useForwarder(
-    signer,
-    Number(process.env.NEXT_PUBLIC_CHAIN_ID)
-  );
-  const [isMintingTestUSDC, setIsMintingTestUSDC] = React.useState(false);
 
   React.useEffect(() => {
     const handleScroll = () => {

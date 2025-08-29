@@ -189,7 +189,7 @@ export function AddLiquidityReviewDialog({
       ? "<0.001%"
       : `${poolSharePct.toLocaleString(undefined, {
           minimumFractionDigits: 0,
-          maximumFractionDigits: 3,
+          maximumFractionDigits: 5,
         })}%`;
 
   const networkFeeText = networkCostUSD || "$0.00";
@@ -213,7 +213,7 @@ export function AddLiquidityReviewDialog({
   // Custom footer with acknowledgement checkbox
   const customFooter = !(isSubmitting || addLiquidityMutation.isPending) ? (
     <>
-      <div className="mb-8 p-4 bg-muted rounded-xl">
+      <div className="mb-8 p-4 bg-muted border border-border rounded-xl">
         <label
           htmlFor="ack-lp"
           className="flex items-start gap-3 text-sm cursor-pointer"
@@ -222,9 +222,9 @@ export function AddLiquidityReviewDialog({
             id="ack-lp"
             checked={acknowledged}
             onCheckedChange={(v) => setAcknowledged(Boolean(v))}
-            className="mt-0.5"
+            className="mt-0.5 border-accent size-6"
           />
-          <span className="text-muted-foreground">
+          <span className="text-foreground">
             I understand GLW rewards will be claimable after the v2 Smart
             Contract relaunch. The relaunch date is not yet defined.
           </span>
