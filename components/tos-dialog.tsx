@@ -130,6 +130,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
   };
 
   const handleDecline = () => {
+    disconnect();
     setIsOpen(false);
     try {
       disconnect();
