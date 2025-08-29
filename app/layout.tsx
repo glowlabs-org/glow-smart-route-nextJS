@@ -53,7 +53,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`antialiased`}>
-        <ThemeProvider attribute="class" defaultTheme="light">
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <WagmiWrapper>
             <NuqsAdapter>{children}</NuqsAdapter>
             <Toaster position="bottom-right" />

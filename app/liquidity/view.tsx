@@ -610,16 +610,18 @@ const PositionsList = React.memo(function PositionsList({
           <div className="flex items-center gap-2">
             <h3 className="text-lg font-semibold">Your Positions</h3>
           </div>
-          <Button
-            variant="outline"
-            onClick={onOpenRemove}
-            disabled={positions.length === 0}
-            className="h-9 sm:h-10"
-          >
-            <Minus className="w-4 h-4 mr-2" />
-            <span className="hidden sm:inline">Remove Liquidity</span>
-            <span className="sm:hidden">Remove</span>
-          </Button>
+          {positions.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={onOpenRemove}
+              disabled={positions.length === 0}
+              className="h-9 sm:h-10"
+            >
+              <Minus className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Remove Liquidity</span>
+              <span className="sm:hidden">Remove</span>
+            </Button>
+          )}
         </div>
         {isLoading ? (
           <div className="space-y-3">
