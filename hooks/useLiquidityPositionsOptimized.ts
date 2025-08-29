@@ -765,19 +765,9 @@ export function useApyEstimate(glwAmount: number, usdgAmount: number) {
       poolReserves.usdg > 0,
     queryFn: async () => {
       try {
-        // Calculate expected liquidity tokens using Uniswap V2 formula
-        // When adding liquidity, if reserves exist, liquidity = min(amount0 * totalSupply / reserve0, amount1 * totalSupply / reserve1)
-        // For initial liquidity calculation, we need to estimate based on the pool's current state
-
-        const pairAddr = await getPairAddressCached();
-        if (!pairAddr) return null;
-
-        // Get current total supply
-        const totalSupply = await publicClient.readContract({
-          address: pairAddr,
-          abi: erc20Abi,
-          functionName: "totalSupply",
-        });
+        // Calculate liquidity delta for the pool
+        // Liquidity in Uniswap V2 is sqrt(reserve0 * reserve1)
+        // The API expects the liquidity delta (change in liquidity)
 
         // Convert amounts to proper units
         const glwUnits = toUnits(glwAmount, DECIMALS_BY_TOKEN.GLW);
@@ -791,39 +781,63 @@ export function useApyEstimate(glwAmount: number, usdgAmount: number) {
           DECIMALS_BY_TOKEN.USDG
         );
 
-        let expectedLiquidity: bigint;
+        // Calculate current liquidity: sqrt(reserve0 * reserve1)
+        const currentLiquiditySquared = glwReserveUnits * usdgReserveUnits;
 
-        if (totalSupply === BigInt(0)) {
-          // Initial liquidity: sqrt(amount0 * amount1) - MINIMUM_LIQUIDITY
-          const product = glwUnits * usdgUnits;
-          // Approximate sqrt for bigint
-          let x = product;
+        // Helper function to calculate bigint square root
+        const bigIntSqrt = (n: bigint): bigint => {
+          if (n === BigInt(0)) return BigInt(0);
+          let x = n;
           let y = (x + BigInt(1)) / BigInt(2);
           while (y < x) {
             x = y;
-            y = (x + product / x) / BigInt(2);
+            y = (x + n / x) / BigInt(2);
           }
-          expectedLiquidity = x - BigInt(1000); // Subtract MINIMUM_LIQUIDITY
+          return x;
+        };
+
+        const currentLiquidity = bigIntSqrt(currentLiquiditySquared);
+
+        // Calculate new reserves after adding liquidity
+        // We need to determine the actual amounts that will be added based on the current ratio
+        const currentRatio =
+          Number(formatUnits(usdgReserveUnits, DECIMALS_BY_TOKEN.USDG)) /
+          Number(formatUnits(glwReserveUnits, DECIMALS_BY_TOKEN.GLW));
+
+        let actualGlwUnits: bigint;
+        let actualUsdgUnits: bigint;
+
+        // Determine which token is the limiting factor
+        const requiredUsdg = Number(glwAmount) * currentRatio;
+        const requiredGlw = Number(usdgAmount) / currentRatio;
+
+        if (requiredUsdg <= Number(usdgAmount)) {
+          // GLW is the limiting factor
+          actualGlwUnits = glwUnits;
+          actualUsdgUnits = toUnits(requiredUsdg, DECIMALS_BY_TOKEN.USDG);
         } else {
-          // Calculate expected liquidity tokens
-          const liquidityFromGlw = (glwUnits * totalSupply) / glwReserveUnits;
-          const liquidityFromUsdg =
-            (usdgUnits * totalSupply) / usdgReserveUnits;
-          expectedLiquidity =
-            liquidityFromGlw < liquidityFromUsdg
-              ? liquidityFromGlw
-              : liquidityFromUsdg;
+          // USDG is the limiting factor
+          actualGlwUnits = toUnits(requiredGlw, DECIMALS_BY_TOKEN.GLW);
+          actualUsdgUnits = usdgUnits;
         }
 
-        // Convert to LP token decimals (12)
-        const liquidityInLpDecimals = formatUnits(expectedLiquidity, 0); // Already in LP units
+        // Calculate new reserves
+        const newGlwReserves = glwReserveUnits + actualGlwUnits;
+        const newUsdgReserves = usdgReserveUnits + actualUsdgUnits;
+
+        // Calculate new liquidity: sqrt(newReserve0 * newReserve1)
+        const newLiquiditySquared = newGlwReserves * newUsdgReserves;
+        const newLiquidity = bigIntSqrt(newLiquiditySquared);
+
+        // Calculate liquidity delta
+        const liquidityDelta = newLiquidity - currentLiquidity;
 
         // Fetch APY estimate from API
         const base =
           process.env.NEXT_PUBLIC_POSITIONS_API_BASE ||
           "http://localhost:42069";
         const res = await fetch(
-          `${base}/estimate-apy?liquidity=${liquidityInLpDecimals}`,
+          `${base}/estimate-apy?liquidity=${liquidityDelta.toString()}`,
           {
             cache: "no-store",
           }
@@ -843,9 +857,7 @@ export function useApyEstimate(glwAmount: number, usdgAmount: number) {
           liquidityIncentiveApy: normalizeApyToPercent(
             position.liquidityIncentiveAPY
           ),
-          expectedLiquidity: Number(
-            formatUnits(expectedLiquidity, LP_DECIMALS)
-          ),
+          liquidityDelta: liquidityDelta.toString(),
         };
       } catch (error) {
         console.error("Error estimating APY:", error);
