@@ -911,11 +911,11 @@ const CompositionBar = React.memo(function CompositionBar({
       </div>
       <div className="h-2 w-full rounded-full overflow-hidden flex border border-border">
         <div
-          className="bg-foreground dark:bg-glow-purple"
+          className="bg-foreground "
           style={{ width: `${(pctGLW * 100).toFixed(2)}%` }}
         />
         <div
-          className="bg-muted-foreground"
+          className="bg-muted-foreground/30 dark:bg-muted"
           style={{ width: `${(pctUSDG * 100).toFixed(2)}%` }}
         />
       </div>
