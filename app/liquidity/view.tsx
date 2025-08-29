@@ -23,7 +23,10 @@ import { AddLiquidityReviewDialog } from "./add-liquidity-dialog";
 import { RemoveLiquidityDialog } from "./remove-liquidity-dialog";
 
 import { LiquidityIncentiveDialog } from "./liquidity-incentive-dialog";
-import { useLiquidityPositions } from "@/hooks/useLiquidityPositionsOptimized";
+import {
+  useLiquidityPositions,
+  useApyEstimate,
+} from "@/hooks/useLiquidityPositionsOptimized";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { useMemo } from "react";
@@ -218,6 +221,12 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
     return Number.isFinite(n) ? n : 0;
   }, [usdg]);
 
+  // Get APY estimate for current amounts
+  const { apyEstimate, isLoading: isApyLoading } = useApyEstimate(
+    glwNum,
+    usdgNum
+  );
+
   const isGlwOverBalance = glwNum > glwBalanceNumber;
   const isUsdgOverBalance = usdgNum > usdgBalanceNumber;
   const isAmountMissing =
@@ -259,8 +268,8 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
   return (
     <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
       <div className="p-6 ">
-        <div className="flex items-center gap-3">
-          <div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-1">
             <h3 className="text-xl font-semibold">Add Liquidity</h3>
             <p className="text-sm text-muted-foreground mt-1">
               Add liquidity to the GLW/USDG pool and start earning rewards
@@ -354,7 +363,20 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
             </div>
           </div>
         </div>
-
+        {apyEstimate && glwNum > 0 && usdgNum > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Est. APY</span>
+            <span className="text-lg font-bold text-accent">
+              up to{" "}
+              <NumberTicker
+                value={apyEstimate.combinedApy}
+                decimalPlaces={0}
+                className="text-lg font-bold text-accent"
+              />
+              %
+            </span>
+          </div>
+        )}
         {/* USDC to USDG swap suggestion banner */}
         {isUsdgOverBalance && usdcBalanceNumber >= usdgNum && usdgNum > 0 && (
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">

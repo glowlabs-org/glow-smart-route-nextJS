@@ -751,7 +751,117 @@ export function wouldAddLiquidityLikelyFail(params: {
   }
 }
 
-// 6. Incentive Dialog State Hook (local state management)
+// 6. APY Estimation Hook - Estimates APY for given liquidity amounts
+export function useApyEstimate(glwAmount: number, usdgAmount: number) {
+  const chainId = useChainId();
+  const { poolReserves } = usePoolInfo();
+
+  const { data: apyEstimate, isLoading } = useQuery({
+    queryKey: ["apy-estimate", chainId, glwAmount, usdgAmount, poolReserves],
+    enabled:
+      glwAmount > 0 &&
+      usdgAmount > 0 &&
+      poolReserves.glw > 0 &&
+      poolReserves.usdg > 0,
+    queryFn: async () => {
+      try {
+        // Calculate expected liquidity tokens using Uniswap V2 formula
+        // When adding liquidity, if reserves exist, liquidity = min(amount0 * totalSupply / reserve0, amount1 * totalSupply / reserve1)
+        // For initial liquidity calculation, we need to estimate based on the pool's current state
+
+        const pairAddr = await getPairAddressCached();
+        if (!pairAddr) return null;
+
+        // Get current total supply
+        const totalSupply = await publicClient.readContract({
+          address: pairAddr,
+          abi: erc20Abi,
+          functionName: "totalSupply",
+        });
+
+        // Convert amounts to proper units
+        const glwUnits = toUnits(glwAmount, DECIMALS_BY_TOKEN.GLW);
+        const usdgUnits = toUnits(usdgAmount, DECIMALS_BY_TOKEN.USDG);
+        const glwReserveUnits = toUnits(
+          poolReserves.glw,
+          DECIMALS_BY_TOKEN.GLW
+        );
+        const usdgReserveUnits = toUnits(
+          poolReserves.usdg,
+          DECIMALS_BY_TOKEN.USDG
+        );
+
+        let expectedLiquidity: bigint;
+
+        if (totalSupply === BigInt(0)) {
+          // Initial liquidity: sqrt(amount0 * amount1) - MINIMUM_LIQUIDITY
+          const product = glwUnits * usdgUnits;
+          // Approximate sqrt for bigint
+          let x = product;
+          let y = (x + BigInt(1)) / BigInt(2);
+          while (y < x) {
+            x = y;
+            y = (x + product / x) / BigInt(2);
+          }
+          expectedLiquidity = x - BigInt(1000); // Subtract MINIMUM_LIQUIDITY
+        } else {
+          // Calculate expected liquidity tokens
+          const liquidityFromGlw = (glwUnits * totalSupply) / glwReserveUnits;
+          const liquidityFromUsdg =
+            (usdgUnits * totalSupply) / usdgReserveUnits;
+          expectedLiquidity =
+            liquidityFromGlw < liquidityFromUsdg
+              ? liquidityFromGlw
+              : liquidityFromUsdg;
+        }
+
+        // Convert to LP token decimals (12)
+        const liquidityInLpDecimals = formatUnits(expectedLiquidity, 0); // Already in LP units
+
+        // Fetch APY estimate from API
+        const base =
+          process.env.NEXT_PUBLIC_POSITIONS_API_BASE ||
+          "http://localhost:42069";
+        const res = await fetch(
+          `${base}/estimate-apy?liquidity=${liquidityInLpDecimals}`,
+          {
+            cache: "no-store",
+          }
+        );
+
+        if (!res.ok) return null;
+
+        const data = await res.json();
+
+        // Extract the first position's APY data
+        const position = data.positionsWithApy?.[0];
+        if (!position) return null;
+
+        return {
+          combinedApy: normalizeApyToPercent(position.combinedAPY),
+          feesApy: normalizeApyToPercent(position.feesAPY),
+          liquidityIncentiveApy: normalizeApyToPercent(
+            position.liquidityIncentiveAPY
+          ),
+          expectedLiquidity: Number(
+            formatUnits(expectedLiquidity, LP_DECIMALS)
+          ),
+        };
+      } catch (error) {
+        console.error("Error estimating APY:", error);
+        return null;
+      }
+    },
+    staleTime: 10_000, // Cache for 10 seconds
+    refetchInterval: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
+
+  return { apyEstimate, isLoading };
+}
+
+// 7. Incentive Dialog State Hook (local state management)
 export function useIncentiveDialogState() {
   const [showDialog, setShowDialog] = React.useState(false);
 
