@@ -92,7 +92,7 @@ interface PageContentProps {
 function PageContent(props: PageContentProps) {
   return (
     <div className="min-h-screen bg-background">
-      <Header withIsScrolled={false} />
+      <Header />
 
       <View
         glowPrice={props.glowPrice}

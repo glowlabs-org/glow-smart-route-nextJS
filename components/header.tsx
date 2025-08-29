@@ -56,59 +56,30 @@ const ListItem = React.forwardRef<
   React.ElementRef<"a">,
   React.ComponentPropsWithoutRef<"a"> & {
     title: string;
-    shouldApplyScrolledStyles?: boolean;
   }
->(
-  (
-    {
-      className,
-      title,
-      children,
-      href,
-      shouldApplyScrolledStyles = true,
-      ...props
-    },
-    ref
-  ) => {
-    return (
-      <li>
-        <NavigationMenuLink asChild>
-          <Link
-            ref={ref}
-            href={href || "#"}
-            className={cn(
-              "block select-none space-y-1 rounded-xl p-3 leading-none no-underline outline-none transition-all duration-200",
-              shouldApplyScrolledStyles
-                ? "hover:bg-foreground hover:border-border focus:bg-foreground focus:text-foreground"
-                : "hover:bg-white/10 hover:text-white focus:bg-white/10 focus:text-white",
-              className
-            )}
-            {...props}
-          >
-            <div
-              className={cn(
-                "text-sm font-medium leading-none",
-                !shouldApplyScrolledStyles && "text-white/90"
-              )}
-            >
-              {title}
-            </div>
-            <p
-              className={cn(
-                "line-clamp-2 text-sm leading-snug",
-                shouldApplyScrolledStyles
-                  ? "text-muted-foreground"
-                  : "text-white/70"
-              )}
-            >
-              {children}
-            </p>
-          </Link>
-        </NavigationMenuLink>
-      </li>
-    );
-  }
-);
+>(({ className, title, children, href, ...props }, ref) => {
+  return (
+    <li>
+      <NavigationMenuLink asChild>
+        <Link
+          ref={ref}
+          href={href || "#"}
+          className={cn(
+            "block select-none space-y-1 rounded-xl p-3 leading-none no-underline outline-none transition-all duration-200",
+            "hover:bg-foreground hover:text-foreground-foreground focus:bg-foreground focus:text-foreground-foreground",
+            className
+          )}
+          {...props}
+        >
+          <div className="text-sm font-medium leading-none">{title}</div>
+          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+            {children}
+          </p>
+        </Link>
+      </NavigationMenuLink>
+    </li>
+  );
+});
 ListItem.displayName = "ListItem";
 
 export function Header({
@@ -137,7 +108,9 @@ export function Header({
       <motion.header
         className={cn(
           "fixed w-full z-50 transition-all duration-300 px-6 md:px-12 xl:px-16",
-          scrolled || !withIsScrolled ? "bg-transparent" : "bg-transparent"
+          withIsScrolled && scrolled
+            ? "bg-background shadow-sm"
+            : "bg-transparent"
         )}
         initial={{ y: -100 }}
         animate={{ y: 0 }}
@@ -145,51 +118,24 @@ export function Header({
       >
         <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto h-20 flex items-center justify-between">
           <Link href="/" className="flex items-center space-x-2 group">
-            <GlowLockup
-              className={cn(
-                "w-24 md:w-36 h-12 relative z-10",
-                !shouldApplyScrolledStyles && withIsScrolled && "text-white"
-              )}
-            />
+            <GlowLockup className="w-24 md:w-36 h-12 relative z-10 text-foreground" />
           </Link>
 
           <nav className="hidden lg:flex items-center gap-2">
-            <NavigationMenu viewport={shouldApplyScrolledStyles}>
+            <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger
-                    className={cn(
-                      "text-muted-foreground hover:text-foreground transition-colors relative group text-base",
-                      shouldApplyScrolledStyles || !withIsScrolled
-                        ? "bg-transparent hover:bg-foreground hover:text-glow-white focus:bg-glow-light-grey focus:text-glow-black"
-                        : "bg-transparent hover:bg-white/10 hover:text-white focus:bg-white/10 focus:text-white text-white/90"
-                    )}
-                  >
+                  <NavigationMenuTrigger className="text-foreground hover:text-white transition-colors relative group text-base bg-transparent hover:bg-foreground focus:bg-foreground">
                     App
                   </NavigationMenuTrigger>
-                  <NavigationMenuContent
-                    variant={
-                      !shouldApplyScrolledStyles && withIsScrolled
-                        ? "card"
-                        : "default"
-                    }
-                  >
+                  <NavigationMenuContent>
                     <ul className="grid gap-3 p-6 md:w-[300px]">
-                      <ListItem
-                        href="https://app.glow.org?swap"
-                        title="Swap"
-                        shouldApplyScrolledStyles={
-                          shouldApplyScrolledStyles || !withIsScrolled
-                        }
-                      >
+                      <ListItem href="https://app.glow.org?swap" title="Swap">
                         Swap GLW, USDG, and more
                       </ListItem>
                       <ListItem
                         href="https://app.glow.org?liquidity"
                         title="Liquidity"
-                        shouldApplyScrolledStyles={
-                          shouldApplyScrolledStyles || !withIsScrolled
-                        }
                       >
                         Add liquidity to the GLW/USDG pool and earn rewards
                       </ListItem>
@@ -198,33 +144,17 @@ export function Header({
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
-            <NavigationMenu viewport={shouldApplyScrolledStyles}>
+            <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger
-                    className={cn(
-                      "text-muted-foreground hover:text-foreground transition-colors relative group text-base",
-                      shouldApplyScrolledStyles || !withIsScrolled
-                        ? "bg-transparent hover:bg-foreground hover:text-glow-white focus:bg-glow-light-grey focus:text-glow-black"
-                        : "bg-transparent hover:bg-white/10 hover:text-white focus:bg-white/10 focus:text-white text-white/90"
-                    )}
-                  >
+                  <NavigationMenuTrigger className="text-foreground hover:text-white transition-colors relative group text-base bg-transparent hover:bg-foreground focus:bg-foreground">
                     Impact
                   </NavigationMenuTrigger>
-                  <NavigationMenuContent
-                    variant={
-                      !shouldApplyScrolledStyles && withIsScrolled
-                        ? "card"
-                        : "default"
-                    }
-                  >
+                  <NavigationMenuContent>
                     <ul className="grid gap-3 p-6 md:w-[250px]">
                       <ListItem
                         href="https://impact.glow.org"
                         title="Infrastructure projects"
-                        shouldApplyScrolledStyles={
-                          shouldApplyScrolledStyles || !withIsScrolled
-                        }
                       >
                         See the list of infrastructure projects
                       </ListItem>
@@ -233,34 +163,18 @@ export function Header({
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
-            <NavigationMenu viewport={shouldApplyScrolledStyles}>
+            <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger
-                    className={cn(
-                      "text-muted-foreground hover:text-foreground transition-colors relative group text-base",
-                      shouldApplyScrolledStyles || !withIsScrolled
-                        ? "bg-transparent hover:bg-foreground hover:text-glow-white focus:bg-foreground focus:text-glow-white"
-                        : "bg-transparent hover:bg-white/10 hover:text-white focus:bg-white/10 focus:text-white text-white/90"
-                    )}
-                  >
+                  <NavigationMenuTrigger className="text-foreground hover:text-white transition-colors relative group text-base bg-transparent hover:bg-foreground focus:bg-foreground">
                     Resources
                   </NavigationMenuTrigger>
-                  <NavigationMenuContent
-                    variant={
-                      !shouldApplyScrolledStyles && withIsScrolled
-                        ? "card"
-                        : "default"
-                    }
-                  >
+                  <NavigationMenuContent>
                     <ul className="grid gap-3 p-6 md:w-[250px]">
                       <ListItem
                         href="https://glow.org/blog"
                         title="Blog"
                         target="_blank"
-                        shouldApplyScrolledStyles={
-                          shouldApplyScrolledStyles || !withIsScrolled
-                        }
                       >
                         Latest news and insights
                       </ListItem>
@@ -268,9 +182,6 @@ export function Header({
                         href="https://glow.org/press"
                         title="Press"
                         target="_blank"
-                        shouldApplyScrolledStyles={
-                          shouldApplyScrolledStyles || !withIsScrolled
-                        }
                       >
                         Press releases and media coverage
                       </ListItem>
@@ -278,9 +189,6 @@ export function Header({
                         href="https://glow.org/branding"
                         title="Branding"
                         target="_blank"
-                        shouldApplyScrolledStyles={
-                          shouldApplyScrolledStyles || !withIsScrolled
-                        }
                       >
                         Brand assets and guidelines
                       </ListItem>
@@ -289,34 +197,18 @@ export function Header({
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
-            <NavigationMenu viewport={shouldApplyScrolledStyles}>
+            <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger
-                    className={cn(
-                      "text-muted-foreground hover:text-foreground transition-colors relative group text-base",
-                      shouldApplyScrolledStyles || !withIsScrolled
-                        ? "bg-transparent hover:bg-foreground hover:text-glow-white focus:bg-foreground focus:text-glow-white"
-                        : "bg-transparent hover:bg-white/10 hover:text-white focus:bg-white/10 focus:text-white text-white/90"
-                    )}
-                  >
+                  <NavigationMenuTrigger className="text-foreground hover:text-white transition-colors relative group text-base bg-transparent hover:bg-foreground focus:bg-foreground">
                     Audits
                   </NavigationMenuTrigger>
-                  <NavigationMenuContent
-                    variant={
-                      !shouldApplyScrolledStyles && withIsScrolled
-                        ? "card"
-                        : "default"
-                    }
-                  >
+                  <NavigationMenuContent>
                     <ul className="grid gap-3 p-6 md:w-[250px]">
                       <ListItem
                         href="https://glow.org/audits"
                         title="Audits"
                         target="_blank"
-                        shouldApplyScrolledStyles={
-                          shouldApplyScrolledStyles || !withIsScrolled
-                        }
                       >
                         Solar Farms Map
                       </ListItem>
@@ -324,9 +216,6 @@ export function Header({
                         href="https://glow.org/audits?view=list"
                         title="Audits"
                         target="_blank"
-                        shouldApplyScrolledStyles={
-                          shouldApplyScrolledStyles || !withIsScrolled
-                        }
                       >
                         Solar Farms List
                       </ListItem>
@@ -334,9 +223,6 @@ export function Header({
                         href="https://glow.org/gves"
                         title="GVEs"
                         target="_blank"
-                        shouldApplyScrolledStyles={
-                          shouldApplyScrolledStyles || !withIsScrolled
-                        }
                       >
                         Glow Verification Entities
                       </ListItem>
@@ -345,34 +231,18 @@ export function Header({
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
-            <NavigationMenu viewport={shouldApplyScrolledStyles}>
+            <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger
-                    className={cn(
-                      "text-muted-foreground hover:text-foreground transition-colors relative group text-base mr-6",
-                      shouldApplyScrolledStyles || !withIsScrolled
-                        ? "bg-transparent hover:bg-foreground hover:text-glow-white focus:bg-foreground focus:text-glow-white"
-                        : "bg-transparent hover:bg-white/10 hover:text-white focus:bg-white/10 focus:text-white text-white/90"
-                    )}
-                  >
+                  <NavigationMenuTrigger className="text-foreground hover:text-white transition-colors relative group text-base bg-transparent hover:bg-foreground focus:bg-foreground mr-6">
                     Data
                   </NavigationMenuTrigger>
-                  <NavigationMenuContent
-                    variant={
-                      !shouldApplyScrolledStyles && withIsScrolled
-                        ? "card"
-                        : "default"
-                    }
-                  >
+                  <NavigationMenuContent>
                     <ul className="grid gap-3 p-6 md:w-[300px]">
                       <ListItem
                         href="https://glow.org/archives"
                         title="Archives"
                         target="_blank"
-                        shouldApplyScrolledStyles={
-                          shouldApplyScrolledStyles || !withIsScrolled
-                        }
                       >
                         Access historical data and records
                       </ListItem>
@@ -380,9 +250,6 @@ export function Header({
                         href="https://glow.org/weekly-reports"
                         title="Weekly Reports"
                         target="_blank"
-                        shouldApplyScrolledStyles={
-                          shouldApplyScrolledStyles || !withIsScrolled
-                        }
                       >
                         View detailed weekly performance reports
                       </ListItem>
@@ -390,9 +257,6 @@ export function Header({
                         href="https://glow.org/rewards"
                         title="Rewards"
                         target="_blank"
-                        shouldApplyScrolledStyles={
-                          shouldApplyScrolledStyles || !withIsScrolled
-                        }
                       >
                         View Farm Rewards
                       </ListItem>
@@ -408,12 +272,7 @@ export function Header({
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className={cn(
-                        "inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm transition-all duration-200",
-                        shouldApplyScrolledStyles || !withIsScrolled
-                          ? "bg-background/95 backdrop-blur-xl border-border hover:bg-muted/30 hover:border-border/60 text-foreground"
-                          : "bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 hover:border-white/20"
-                      )}
+                      className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm transition-all duration-200 bg-background/95 backdrop-blur-xl border-border hover:bg-muted/30 hover:border-border/60 text-foreground"
                       aria-label="Wallet menu"
                       title={address}
                     >
@@ -471,9 +330,7 @@ export function Header({
                 </DropdownMenu>
               ) : (
                 <ConnectButton
-                  variant={
-                    !scrolled && withIsScrolled ? "outline-white" : "default"
-                  }
+                  variant="default"
                   className="w-auto"
                   size="small"
                 />
@@ -485,12 +342,7 @@ export function Header({
           <Drawer direction="right" shouldScaleBackground={false}>
             <DrawerTrigger asChild>
               <motion.button
-                className={cn(
-                  "lg:hidden p-2 rounded-xl border border-border bg-background/80 backdrop-blur-sm hover:bg-secondary/80 transition-all duration-300 relative z-50",
-                  !shouldApplyScrolledStyles &&
-                    withIsScrolled &&
-                    "bg-white/10 border-white/20 text-white hover:bg-white/20"
-                )}
+                className="lg:hidden p-2 rounded-xl border border-border bg-background/80 backdrop-blur-sm hover:bg-secondary/80 transition-all duration-300 relative z-50 text-foreground"
                 whileTap={{ scale: 0.95 }}
                 aria-label="Open menu"
               >
