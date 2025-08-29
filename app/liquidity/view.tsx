@@ -29,6 +29,7 @@ import { useMemo } from "react";
 import Decimal from "decimal.js";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { useWalletClient } from "wagmi";
+import { ConnectButton } from "@/components/connect-button";
 
 export function PositionsView() {
   const {
@@ -56,6 +57,8 @@ export function PositionsView() {
     () => Object.values(positionFeesMap).reduce((a, b) => a + b, 0),
     [positionFeesMap]
   );
+
+  console.log("isPositionsLoading", isPositionsLoading);
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -86,7 +89,7 @@ export function PositionsView() {
               positionFinalizedMap={positionFinalizedMap}
               positionFeesMap={positionFeesMap}
               getLoyaltyMultiplier={getLoyaltyMultiplier}
-              isLoading={isPositionsLoading || isPositionsPending}
+              isLoading={isPositionsLoading}
               onOpenRemove={() => setRemoveDialogOpen(true)}
             />
           </aside>
@@ -128,7 +131,6 @@ interface AddLiquidityPanelProps {
 
 function AddLiquidityPanel({
   priceRatio,
-  poolReserves,
   quoteOtherAmount,
   wouldAddLiquidityLikelyFail,
 }: AddLiquidityPanelProps) {
@@ -351,13 +353,17 @@ function AddLiquidityPanel({
           </div>
         )}
 
-        <Button
-          onClick={handleAdd}
-          disabled={isActionDisabled}
-          className="w-full h-12 lg:h-14"
-        >
-          {actionLabel}
-        </Button>
+        {signer ? (
+          <Button
+            onClick={handleAdd}
+            disabled={isActionDisabled}
+            className="w-full h-12 lg:h-14"
+          >
+            {actionLabel}
+          </Button>
+        ) : (
+          <ConnectButton variant="default" />
+        )}
       </div>
 
       <AddLiquidityReviewDialog
