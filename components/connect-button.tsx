@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useAccount } from "wagmi";
 import clsx from "clsx";
 import * as React from "react";
+import { useEffect, useState, useRef } from "react";
 
 export const ConnectButton = ({
   className,
@@ -15,7 +16,52 @@ export const ConnectButton = ({
   size?: "small" | "medium" | "large";
 }) => {
   const { isConnecting, isReconnecting } = useAccount();
-  const isWalletLoading = isConnecting || isReconnecting;
+  const [isStuckConnecting, setIsStuckConnecting] = useState(false);
+  const connectingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  // Detect Safari browser
+  const isSafari =
+    typeof window !== "undefined" &&
+    /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+  // Handle stuck connection state (especially in Safari)
+  useEffect(() => {
+    if (isConnecting || isReconnecting) {
+      // Clear any existing timeout
+      if (connectingTimeoutRef.current) {
+        clearTimeout(connectingTimeoutRef.current);
+      }
+
+      // Set a timeout to detect stuck connection (shorter for Safari)
+      const timeoutDuration = isSafari ? 3000 : 5000;
+      connectingTimeoutRef.current = setTimeout(() => {
+        setIsStuckConnecting(true);
+        // Force reload wallet state after timeout
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem("wagmi.wallet");
+          window.localStorage.removeItem("wagmi.connected");
+          window.localStorage.removeItem("wagmi.store");
+        }
+      }, timeoutDuration);
+    } else {
+      // Clear timeout and reset stuck state when not connecting
+      if (connectingTimeoutRef.current) {
+        clearTimeout(connectingTimeoutRef.current);
+      }
+      setIsStuckConnecting(false);
+    }
+
+    return () => {
+      if (connectingTimeoutRef.current) {
+        clearTimeout(connectingTimeoutRef.current);
+      }
+    };
+  }, [isConnecting, isReconnecting, isSafari]);
+
+  const isWalletLoading =
+    (isConnecting || isReconnecting) && !isStuckConnecting;
 
   const getSizeClasses = () => {
     switch (size) {

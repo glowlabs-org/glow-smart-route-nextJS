@@ -82,27 +82,30 @@ export function StatsSidebar({
             </div>
           </div> */}
 
-          <div className="bg-muted/30 rounded-xl border border-border p-3 lg:p-4">
-            <div className="text-xs text-muted-foreground mb-1 lg:mb-2">
-              USDC Available
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-base lg:text-xl font-extrabold tabular-nums">
-                ${" "}
-                {isUsdcInRedemptionLoading || isWalletLoading ? (
-                  <Skeleton className="w-24 h-6 inline-block" />
-                ) : (
-                  <NumberTicker value={usdcInRedemption} />
+          {usdcInRedemption > 0 &&
+            (!isUsdcInRedemptionLoading || !isWalletLoading) && (
+              <div className="bg-muted/30 rounded-xl border border-border p-3 lg:p-4">
+                <div className="text-xs text-muted-foreground mb-1 lg:mb-2">
+                  USDC Available
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-base lg:text-xl font-extrabold tabular-nums">
+                    ${" "}
+                    {isUsdcInRedemptionLoading || isWalletLoading ? (
+                      <Skeleton className="w-24 h-6 inline-block" />
+                    ) : (
+                      <NumberTicker value={usdcInRedemption} />
+                    )}
+                  </span>
+                </div>
+                {isUsdcInRedemptionLoading && !isWalletLoading && (
+                  <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                    Updating...
+                  </div>
                 )}
-              </span>
-            </div>
-            {isUsdcInRedemptionLoading && !isWalletLoading && (
-              <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                Updating...
               </div>
             )}
-          </div>
 
           <div className="bg-muted/30 rounded-xl border border-border p-3 lg:p-4 ">
             <div className="text-xs text-muted-foreground mb-1 lg:mb-2">
