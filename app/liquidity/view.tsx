@@ -364,17 +364,62 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
           </div>
         </div>
         {apyEstimate && glwNum > 0 && usdgNum > 0 && (
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Est. APY</span>
-            <span className="text-lg font-bold text-accent">
-              up to{" "}
-              <NumberTicker
-                value={apyEstimate.combinedApy}
-                decimalPlaces={0}
-                className="text-lg font-bold text-accent"
-              />
-              %
-            </span>
+          <div className="relative rounded-2xl border border-accent/20 dark:border-primary/20 bg-accent/10 dark:bg-transparent dark:bg-gradient-to-br dark:from-primary/5 dark:via-transparent dark:to-primary/5 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Estimated APY</span>
+              </div>
+              <div className="text-right">
+                <span className="text-2xl font-bold text-primary">
+                  <NumberTicker
+                    value={apyEstimate.combinedApy}
+                    decimalPlaces={0}
+                    className="text-2xl font-bold text-primary"
+                  />
+                  %
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/30">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2 w-2 rounded-full bg-green-500/60" />
+                  <span className="text-xs text-muted-foreground">
+                    Trading Fees
+                  </span>
+                </div>
+                <div className="text-sm font-semibold">
+                  <NumberTicker
+                    value={apyEstimate.feesApy}
+                    decimalPlaces={1}
+                    className="text-sm font-semibold"
+                  />
+                  % APY
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2 w-2 rounded-full bg-blue-500/60" />
+                  <span className="text-xs text-muted-foreground">
+                    GLW Incentives
+                  </span>
+                </div>
+                <div className="text-sm font-semibold">
+                  <NumberTicker
+                    value={apyEstimate.liquidityIncentiveApy}
+                    decimalPlaces={1}
+                    className="text-sm font-semibold"
+                  />
+                  % APY
+                </div>
+              </div>
+            </div>
+
+            <div className="text-xs text-muted-foreground text-center opacity-80">
+              Rewards increase over time with loyalty multiplier
+            </div>
           </div>
         )}
         {/* USDC to USDG swap suggestion banner */}
