@@ -91,7 +91,7 @@ function NavigationMenuContent({
 }) {
   const cardStyles =
     variant === "card"
-      ? "border border-white/20 rounded-2xl shadow-2xl bg-white/10 backdrop-blur-xl"
+      ? "border border-white/20 rounded-2xl shadow-2xl bg-background/10 backdrop-blur-xl"
       : "border border-border rounded-2xl bg-background/95 backdrop-blur-xl shadow-xl";
 
   const cardShadowStyle =
@@ -138,7 +138,7 @@ function NavigationMenuViewport({
 }) {
   const cardStyles =
     variant === "card"
-      ? "border border-white/20 bg-white/10 backdrop-blur-xl shadow-2xl"
+      ? "border border-background/20 bg-background/10 backdrop-blur-xl shadow-2xl"
       : "bg-background/95 backdrop-blur-xl text-popover-foreground border border-border shadow-xl";
 
   const cardShadowStyle =

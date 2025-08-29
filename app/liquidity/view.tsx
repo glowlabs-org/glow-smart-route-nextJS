@@ -42,6 +42,7 @@ export function PositionsView() {
     isPositionsPending,
     positionFinalizedMap,
     totalFeeRewardsLP,
+    totalFeeRewardsLPValue,
     positionFeesLP,
     priceRatio,
     poolReserves,
@@ -75,6 +76,7 @@ export function PositionsView() {
             <RewardsSummaryCard
               totalAccumulatedGlw={totalAccumulatedGlw}
               totalFeeRewardsLP={totalFeeRewardsLP}
+              totalFeeRewardsLPValue={totalFeeRewardsLPValue}
               isLoading={isPositionsLoading}
             />
             <PositionsList
@@ -412,14 +414,24 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
 interface RewardsSummaryCardProps {
   totalAccumulatedGlw: number;
   totalFeeRewardsLP: number;
+  totalFeeRewardsLPValue: number;
   isLoading?: boolean;
 }
 
 const RewardsSummaryCard = React.memo(function RewardsSummaryCard({
   totalAccumulatedGlw,
   totalFeeRewardsLP,
+  totalFeeRewardsLPValue,
   isLoading,
 }: RewardsSummaryCardProps) {
+  // Check if we're before GLW incentives start time (September 2nd, 10am EST)
+  const glwIncentivesStartTime = React.useMemo(() => {
+    // September 2nd, 2025, 10:00 AM EST (UTC-5)
+    return new Date("2025-09-02T15:00:00Z").getTime(); // 15:00 UTC = 10:00 EST
+  }, []);
+
+  const isBeforeIncentivesStart = Date.now() < glwIncentivesStartTime;
+
   return (
     <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
       <div className="p-6">
@@ -447,6 +459,11 @@ const RewardsSummaryCard = React.memo(function RewardsSummaryCard({
                 </>
               )}
             </div>
+            {!isLoading && isBeforeIncentivesStart && (
+              <div className="text-xs mt-2 text-accent">
+                GLW Incentives begin on September 2nd 10:00 AM EST
+              </div>
+            )}
           </div>
           <div className="bg-muted/30 rounded-xl border border-border p-4">
             <div className="text-xs text-muted-foreground mb-2">
@@ -468,6 +485,16 @@ const RewardsSummaryCard = React.memo(function RewardsSummaryCard({
                 </>
               )}
             </div>
+            {!isLoading && totalFeeRewardsLPValue > 0 && (
+              <div className="text-xs text-muted-foreground mt-1">
+                ≈ $
+                {totalFeeRewardsLPValue.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}{" "}
+                USD
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -627,14 +654,14 @@ const PositionCard = React.memo(function PositionCard({
                     {netApy.toFixed(0)}%
                   </span>
                   <Sparkles
-                    className="ml-2 size-5 text-glow-purple"
+                    className="ml-2 size-5 text-accent"
                     aria-hidden="true"
                   />
                 </div>
               </HoverCardTrigger>
               <HoverCardContent
                 align="end"
-                className="rounded-2xl border border-border bg-background text-foreground shadow-xl"
+                className="rounded-2xl border border-border bg-background text-zinc-900 dark:text-zinc-100 shadow-xl"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">

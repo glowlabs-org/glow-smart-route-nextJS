@@ -334,6 +334,7 @@ export function useUserPositions() {
 export function useApiTotals() {
   const chainId = useChainId();
   const { address } = useAccount();
+  const { poolReserves, priceRatio } = usePoolInfo();
 
   const { data } = useQuery<ApiPositionsResponse | null>({
     queryKey: ["lp-positions-api", chainId, address],
@@ -343,6 +344,23 @@ export function useApiTotals() {
     refetchInterval: 30_000,
     refetchOnMount: true,
     refetchOnWindowFocus: false,
+  });
+
+  // Fetch LP token total supply for value calculations
+  const { data: lpTokenSupply } = useQuery({
+    queryKey: ["lp-token-supply", chainId],
+    queryFn: async () => {
+      const pairAddr = await getPairAddressCached();
+      if (!pairAddr) return BigInt(0);
+
+      return await publicClient.readContract({
+        address: pairAddr,
+        abi: erc20Abi,
+        functionName: "totalSupply",
+      });
+    },
+    staleTime: 15_000,
+    refetchInterval: 30_000,
   });
 
   const totalAccumulatedGlw = React.useMemo(() => {
@@ -367,7 +385,43 @@ export function useApiTotals() {
     }
   }, [data]);
 
-  return { totalAccumulatedGlw, totalFeeRewardsLP };
+  // Calculate the dollar value of LP token rewards
+  const totalFeeRewardsLPValue = React.useMemo(() => {
+    if (
+      totalFeeRewardsLP === 0 ||
+      !poolReserves.glw ||
+      !poolReserves.usdg ||
+      !lpTokenSupply ||
+      lpTokenSupply === BigInt(0)
+    ) {
+      return 0;
+    }
+
+    try {
+      // Calculate total pool value in USDG
+      // GLW value in USDG + USDG value = Total Value Locked (TVL)
+      const glwValueInUsdg = poolReserves.glw * priceRatio;
+      const totalPoolValueInUsdg = glwValueInUsdg + poolReserves.usdg;
+
+      // Convert totalSupply to number with LP_DECIMALS
+      const totalSupplyFormatted = Number(
+        formatUnits(lpTokenSupply, LP_DECIMALS)
+      );
+
+      // Calculate value per LP token
+      const valuePerLPToken = totalPoolValueInUsdg / totalSupplyFormatted;
+
+      // Calculate the dollar value of the user's LP rewards
+      const lpRewardsValue = totalFeeRewardsLP * valuePerLPToken;
+
+      return lpRewardsValue;
+    } catch (error) {
+      console.error("Error calculating LP rewards value:", error);
+      return 0;
+    }
+  }, [totalFeeRewardsLP, poolReserves, priceRatio, lpTokenSupply]);
+
+  return { totalAccumulatedGlw, totalFeeRewardsLP, totalFeeRewardsLPValue };
 }
 
 // 4. Liquidity Mutations Hook
@@ -735,7 +789,8 @@ export function useLiquidityPositions() {
     isFetching,
     isPending,
   } = useUserPositions();
-  const { totalAccumulatedGlw, totalFeeRewardsLP } = useApiTotals();
+  const { totalAccumulatedGlw, totalFeeRewardsLP, totalFeeRewardsLPValue } =
+    useApiTotals();
   const {
     addLiquidity,
     removeLiquidity,
@@ -780,6 +835,7 @@ export function useLiquidityPositions() {
     // Rewards
     totalAccumulatedGlw,
     totalFeeRewardsLP,
+    totalFeeRewardsLPValue,
     positionFinalizedMap,
     positionFeesLP,
 

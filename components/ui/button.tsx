@@ -10,21 +10,21 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-foreground text-background backdrop-blur-xl border border-foreground/20 dark:bg-transparent hover:scale-95s hover:-translate-y-0.5 hover:bg-background hover:text-foreground dark:hover:bg-foreground dark:hover:text-background",
+          "bg-foreground text-background border border-foreground/20 dark:bg-transparent dark:text-zinc-100 dark:border-zinc-700 hover:-translate-y-0.5 hover:bg-background hover:text-zinc-900 dark:hover:bg-foreground dark:hover:text-background",
         orange:
-          "bg-[var(--color-glow-orange)] text-foreground font-semibold tracking-wide hover:scale-105 hover:-translate-y-0.5",
+          "bg-[var(--color-glow-orange)] text-white font-semibold tracking-wide hover:scale-105 hover:-translate-y-0.5",
         success: "bg-[#16a34a] text-white hover:bg-[#15803d]",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
-          "bg-background text-foreground border-2 border-border hover:bg-foreground hover:text-background",
+          "bg-background text-zinc-900 dark:text-zinc-100 border-2 border-border hover:bg-foreground hover:text-background",
         "outline-white":
           "bg-transparent text-primary-foreground border border-primary-foreground hover:bg-primary-foreground hover:text-primary",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         "secondary-primary":
           "bg-foreground text-background hover:bg-foreground/90",
-        ghost: "hover:bg-foreground/10 hover:text-foreground",
+        ghost: "text-zinc-900 dark:text-zinc-100 hover:bg-accent/10",
         link: "text-primary underline-offset-4 hover:underline hover:text-primary/80",
       },
       size: {

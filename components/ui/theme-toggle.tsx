@@ -22,13 +22,11 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
     return (
       <div
         className={cn(
-          "flex w-16 h-8 p-1 rounded-full bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700",
+          "relative inline-flex h-8 w-14 items-center rounded-full bg-muted border border-border",
           className
         )}
       >
-        <div className="flex justify-center items-center w-6 h-6 rounded-full bg-white dark:bg-zinc-700">
-          <Moon className="w-4 h-4 text-gray-600" strokeWidth={1.5} />
-        </div>
+        <div className="absolute left-1 h-6 w-6 rounded-full bg-background shadow-sm" />
       </div>
     );
   }
@@ -36,46 +34,46 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
   const isDark = theme === "dark";
 
   return (
-    <div
+    <button
       className={cn(
-        "flex w-16 h-8 p-1 rounded-full cursor-pointer transition-all duration-300",
+        "relative inline-flex h-8 w-14 items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         isDark
-          ? "bg-zinc-950 border border-zinc-800"
-          : "bg-white border border-zinc-200",
+          ? "bg-muted border border-border"
+          : "bg-muted border border-border",
         className
       )}
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      role="button"
-      tabIndex={0}
+      aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
     >
-      <div className="flex justify-between items-center w-full">
-        <div
+      {/* Track icons */}
+      <span className="absolute inset-0 flex items-center justify-between px-1.5">
+        <Sun
           className={cn(
-            "flex justify-center items-center w-6 h-6 rounded-full transition-transform duration-300",
-            isDark
-              ? "transform translate-x-0 bg-zinc-800"
-              : "transform translate-x-8 bg-gray-200"
+            "h-4 w-4 transition-opacity duration-200",
+            isDark ? "opacity-50" : "opacity-100 text-muted-foreground"
           )}
-        >
-          {isDark ? (
-            <Moon className="w-4 h-4 text-white" strokeWidth={1.5} />
-          ) : (
-            <Sun className="w-4 h-4 text-gray-700" strokeWidth={1.5} />
-          )}
-        </div>
-        <div
+        />
+        <Moon
           className={cn(
-            "flex justify-center items-center w-6 h-6 rounded-full transition-transform duration-300",
-            isDark ? "bg-transparent" : "transform -translate-x-8"
+            "h-4 w-4 transition-opacity duration-200",
+            isDark ? "opacity-100 text-muted-foreground" : "opacity-50"
           )}
-        >
-          {isDark ? (
-            <Sun className="w-4 h-4 text-gray-500" strokeWidth={1.5} />
-          ) : (
-            <Moon className="w-4 h-4 text-black" strokeWidth={1.5} />
-          )}
-        </div>
-      </div>
-    </div>
+        />
+      </span>
+
+      {/* Sliding thumb with icon */}
+      <span
+        className={cn(
+          "absolute h-6 w-6 rounded-full bg-background shadow-sm transition-transform duration-200 flex items-center justify-center",
+          isDark ? "translate-x-7" : "translate-x-1"
+        )}
+      >
+        {isDark ? (
+          <Moon className="h-3.5 w-3.5 text-foreground" />
+        ) : (
+          <Sun className="h-3.5 w-3.5 text-foreground" />
+        )}
+      </span>
+    </button>
   );
 }

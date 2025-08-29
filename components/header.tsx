@@ -50,6 +50,7 @@ import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { GlowLockup } from "./glow-lockup";
 import { ConnectButton } from "./connect-button";
 import { TosDialog } from "./tos-dialog";
+import { ThemeToggle } from "./ui/theme-toggle";
 
 // ListItem component for navigation menu content
 const ListItem = React.forwardRef<
@@ -66,7 +67,7 @@ const ListItem = React.forwardRef<
           href={href || "#"}
           className={cn(
             "block select-none space-y-1 rounded-xl p-3 leading-none no-underline outline-none transition-all duration-200",
-            "hover:bg-foreground hover:text-foreground-foreground focus:bg-foreground focus:text-foreground-foreground",
+            "hover:bg-foreground  dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100",
             className
           )}
           {...props}
@@ -100,9 +101,6 @@ export function Header({
     return () => window.removeEventListener("scroll", handleScroll);
   }, [withIsScrolled]);
 
-  // Determine if we should apply scrolled styles
-  const shouldApplyScrolledStyles = withIsScrolled && scrolled;
-
   return (
     <>
       <motion.header
@@ -118,14 +116,14 @@ export function Header({
       >
         <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto h-20 flex items-center justify-between">
           <Link href="/" className="flex items-center space-x-2 group">
-            <GlowLockup className="w-24 md:w-36 h-12 relative z-10 text-foreground" />
+            <GlowLockup className="w-24 md:w-36 h-12 relative z-10 text-zinc-900 dark:text-zinc-100" />
           </Link>
 
           <nav className="hidden lg:flex items-center gap-2">
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger className="text-foreground hover:text-white transition-colors relative group text-base bg-transparent hover:bg-foreground focus:bg-foreground">
+                  <NavigationMenuTrigger className="text-zinc-900 dark:text-zinc-100 transition-colors relative group text-base bg-transparent hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 data-[state=open]:bg-foreground data-[state=open]:text-background dark:data-[state=open]:bg-accent/10 dark:data-[state=open]:text-zinc-100">
                     App
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
@@ -147,7 +145,7 @@ export function Header({
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger className="text-foreground hover:text-white transition-colors relative group text-base bg-transparent hover:bg-foreground focus:bg-foreground">
+                  <NavigationMenuTrigger className="text-zinc-900 dark:text-zinc-100 transition-colors relative group text-base bg-transparent hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 data-[state=open]:bg-foreground data-[state=open]:text-background dark:data-[state=open]:bg-accent/10 dark:data-[state=open]:text-zinc-100">
                     Impact
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
@@ -166,7 +164,7 @@ export function Header({
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger className="text-foreground hover:text-white transition-colors relative group text-base bg-transparent hover:bg-foreground focus:bg-foreground">
+                  <NavigationMenuTrigger className="text-zinc-900 dark:text-zinc-100 transition-colors relative group text-base bg-transparent hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 data-[state=open]:bg-foreground data-[state=open]:text-background dark:data-[state=open]:bg-accent/10 dark:data-[state=open]:text-zinc-100">
                     Resources
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
@@ -200,7 +198,7 @@ export function Header({
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger className="text-foreground hover:text-white transition-colors relative group text-base bg-transparent hover:bg-foreground focus:bg-foreground">
+                  <NavigationMenuTrigger className="text-zinc-900 dark:text-zinc-100 transition-colors relative group text-base bg-transparent hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 data-[state=open]:bg-foreground data-[state=open]:text-background dark:data-[state=open]:bg-accent/10 dark:data-[state=open]:text-zinc-100">
                     Audits
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
@@ -234,7 +232,7 @@ export function Header({
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger className="text-foreground hover:text-white transition-colors relative group text-base bg-transparent hover:bg-foreground focus:bg-foreground mr-6">
+                  <NavigationMenuTrigger className="text-zinc-900 dark:text-zinc-100 transition-colors relative group text-base bg-transparent hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 data-[state=open]:bg-foreground data-[state=open]:text-background dark:data-[state=open]:bg-accent/10 dark:data-[state=open]:text-zinc-100 mr-6">
                     Data
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
@@ -266,13 +264,14 @@ export function Header({
               </NavigationMenuList>
             </NavigationMenu>
 
-            <div>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
               {isConnected && address ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm transition-all duration-200 bg-background/95 backdrop-blur-xl border-border hover:bg-muted/30 hover:border-border/60 text-foreground"
+                      className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm transition-all duration-200 bg-background/95 backdrop-blur-xl border-border hover:bg-muted/30 hover:border-border/60 text-zinc-900 dark:text-zinc-100"
                       aria-label="Wallet menu"
                       title={address}
                     >
@@ -342,7 +341,7 @@ export function Header({
           <Drawer direction="right" shouldScaleBackground={false}>
             <DrawerTrigger asChild>
               <motion.button
-                className="lg:hidden p-2 rounded-xl border border-border bg-background/80 backdrop-blur-sm hover:bg-secondary/80 transition-all duration-300 relative z-50 text-foreground"
+                className="lg:hidden p-2 rounded-xl border border-border bg-background/80 backdrop-blur-sm hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-all duration-300 relative z-50 text-zinc-900 dark:text-zinc-100"
                 whileTap={{ scale: 0.95 }}
                 aria-label="Open menu"
               >
@@ -359,7 +358,7 @@ export function Header({
                   <GlowLockup className="w-32 h-10" />
                   <DrawerClose asChild>
                     <motion.button
-                      className="p-2 rounded-xl hover:bg-secondary/80 transition-colors"
+                      className="p-2 rounded-xl hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                       whileTap={{ scale: 0.95 }}
                       aria-label="Close menu"
                     >
@@ -399,7 +398,7 @@ export function Header({
                                   });
                                 }, 100);
                               }}
-                              className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                              className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                             >
                               Swap
                             </Link>
@@ -417,7 +416,7 @@ export function Header({
                                   });
                                 }, 100);
                               }}
-                              className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                              className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                             >
                               Liquidity
                             </Link>
@@ -444,7 +443,7 @@ export function Header({
                                   });
                                 }, 100);
                               }}
-                              className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                              className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                             >
                               Infrastructure projects
                             </Link>
@@ -470,7 +469,7 @@ export function Header({
                                   });
                                 }, 100);
                               }}
-                              className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                              className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                             >
                               Blog
                             </Link>
@@ -488,7 +487,7 @@ export function Header({
                                   });
                                 }, 100);
                               }}
-                              className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                              className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                             >
                               Press
                             </Link>
@@ -506,7 +505,7 @@ export function Header({
                                   });
                                 }, 100);
                               }}
-                              className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                              className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                             >
                               Branding
                             </Link>
@@ -532,7 +531,7 @@ export function Header({
                                   });
                                 }, 100);
                               }}
-                              className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                              className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                             >
                               Solar Farms Map
                             </Link>
@@ -550,7 +549,7 @@ export function Header({
                                   });
                                 }, 100);
                               }}
-                              className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                              className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                             >
                               Solar Farms List
                             </Link>
@@ -568,7 +567,7 @@ export function Header({
                                   });
                                 }, 100);
                               }}
-                              className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                              className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                             >
                               Glow Verification Entities
                             </Link>
@@ -594,7 +593,7 @@ export function Header({
                                   });
                                 }, 100);
                               }}
-                              className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                              className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                             >
                               Archives
                             </Link>
@@ -612,7 +611,7 @@ export function Header({
                                   });
                                 }, 100);
                               }}
-                              className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                              className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                             >
                               Weekly Reports
                             </Link>
@@ -630,7 +629,7 @@ export function Header({
                                   });
                                 }, 100);
                               }}
-                              className="block px-4 py-3 text-base rounded-lg hover:bg-secondary/80 transition-colors"
+                              className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                             >
                               Rewards
                             </Link>

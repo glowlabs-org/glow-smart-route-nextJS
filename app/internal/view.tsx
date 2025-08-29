@@ -323,7 +323,7 @@ export default function BuyGctlView() {
                         <Skeleton className="h-8 w-32" />
                       ) : (
                         <div className="flex items-baseline gap-2">
-                          <span className="text-2xl font-bold text-foreground">
+                          <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
                             ${gctlPriceNumber}
                           </span>
                           <span className="text-sm text-muted-foreground">
@@ -349,7 +349,7 @@ export default function BuyGctlView() {
                         <Skeleton className="h-8 w-32" />
                       ) : (
                         <div className="flex items-baseline gap-2">
-                          <span className="text-2xl font-bold text-foreground">
+                          <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
                             ${glwPriceNumber}
                           </span>
                           <span className="text-sm text-muted-foreground">
@@ -396,7 +396,7 @@ export default function BuyGctlView() {
             {/* ========== TRANSACTION HISTORY TABS ========== */}
             <div className="w-full bg-card/60 backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
               <div className="p-6 pb-4 border-b border-border/20">
-                <h3 className="text-xl font-semibold text-foreground">
+                <h3 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
                   Transaction History
                 </h3>
               </div>

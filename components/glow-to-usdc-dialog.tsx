@@ -473,9 +473,9 @@ export const GlowToUsdcDialog: FC<{
                     className={clsx(
                       "text-sm",
                       state.validated && !state.pending
-                        ? "text-foreground font-medium"
+                        ? "text-zinc-900 dark:text-zinc-100 font-medium"
                         : state.pending
-                        ? "text-foreground"
+                        ? "text-zinc-900 dark:text-zinc-100"
                         : "text-muted-foreground"
                     )}
                   >

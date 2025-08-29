@@ -12,6 +12,60 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Separator } from "./ui/separator";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { keccak256, toHex } from "viem";
+
+// ToS content version and hash generation
+const TOS_VERSION = "1.0";
+const TOS_CONTENT = `Terms of Service - Version ${TOS_VERSION}
+
+1. Acceptance of Terms
+By connecting your digital wallet to this Application (app.glow.org), you explicitly agree to these Terms of Service. If you do not agree, do not use the Application.
+Eligibility: By using the Application, you represent and warrant that you are at least 18 years of age, or the age of legal majority in your jurisdiction (if higher), and possess the legal authority to agree to these Terms and use the Application lawfully.
+
+2. User Responsibility
+- The User is solely responsible for their interactions with the Application, including all associated smart contracts and blockchain transactions.
+- Users acknowledge the inherent risks in blockchain technology, including but not limited to financial loss, smart contract vulnerabilities, network disruptions, and regulatory risks.
+Privacy Acknowledgment: The Application does not intentionally collect personal data. However, blockchain transactions inherently expose certain transaction-related information publicly, including blockchain addresses and associated metadata. By using the Application, Users acknowledge and accept this inherent blockchain transparency.
+Prohibited Activities: Users expressly agree not to engage in any unlawful or prohibited activities, including fraud, money laundering, market manipulation, sanction evasion, or any activity otherwise prohibited by applicable law or regulations when using the Application.
+
+3. No Liability & Warranty Disclaimer
+- The Application and associated smart contracts are provided on an "as-is" basis.
+- The Company explicitly disclaims any responsibility for direct, indirect, incidental, special, consequential, or exemplary damages, including financial loss, arising from or relating to the use of the Application.
+- The Company makes no warranties, express or implied, regarding the reliability, accuracy, completeness, or functionality of the Application or associated smart contracts.
+
+4. Regulatory Compliance
+- Users confirm they are not using the Application from any jurisdiction where its use is prohibited or restricted.
+- It is the User's responsibility to comply with applicable local laws and regulations.
+
+5. Indemnification
+Users agree to indemnify and hold harmless the Company and its affiliates, officers, employees, and representatives from and against all claims, liabilities, damages, losses, or expenses arising from their use of the Application.
+
+6. No Custody of Blockchain Assets
+- The Application does not have custody, possession, or control over the User's blockchain assets at any time.
+- Users interact directly with smart contracts and retain full control over their private keys and blockchain assets.
+
+7. Modification of Terms
+The Company reserves the right to modify these Terms at any time. Updates will be posted publicly on the Application at app.glow.org/tos, and Users bear the responsibility to periodically review these Terms. Continued use after changes constitutes acceptance.
+
+8. Intellectual Property
+All intellectual property associated with the Application, including trademarks and copyrights, remains the property of the Company.
+User Submissions: Any feedback, suggestions, or submissions provided by Users related to the Application shall be deemed non-confidential. Users hereby grant the Company a perpetual, irrevocable, worldwide, royalty-free, and unrestricted right to use, incorporate, or otherwise exploit such submissions without restriction or compensation.
+
+9. Arbitration and Dispute Resolution
+Any dispute arising out of or in connection with these Terms or your use of the Application shall be referred to and finally resolved by arbitration administered by the Cayman International Arbitration Centre (CIAC) in accordance with the CIAC Arbitration Rules in force at the time of arbitration. The seat of arbitration shall be George Town, Cayman Islands. The arbitration proceedings shall be conducted in English. The arbitration tribunal's decision shall be final and binding upon all parties.
+
+10. Governing Law and Jurisdiction
+These Terms shall be governed by and construed in accordance with the laws of the Cayman Islands, without regard to conflicts of law principles. Users agree to submit to the exclusive jurisdiction of the courts located in George Town, Cayman Islands, for purposes of enforcing arbitration decisions or addressing claims not subject to arbitration.
+
+11. Risk Acknowledgment
+- Users acknowledge and agree they fully understand the risks associated with blockchain technology and related activities.
+- Users are encouraged to perform independent research before engaging in any transactions on the Application.`;
+
+const getTosHash = () => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(TOS_CONTENT);
+  return keccak256(toHex(data));
+};
 
 export function TosDialog() {
   const { isConnected, address } = useAccount();
@@ -78,13 +132,15 @@ export function TosDialog() {
     try {
       // Create message with ToS acceptance and timestamp
       const timestamp = new Date().toISOString();
+      const tosHash = getTosHash();
       const message = `I accept the Glow Terms of Service at app.glow.org
 
 By signing this message, I (${address}) confirm that I have read, understood, and agree to be bound by the Terms of Service.
 
 Date: ${timestamp}
 Application: app.glow.org
-Version: ToS v1.0
+Version: ToS v${TOS_VERSION}
+ToS Hash: ${tosHash}
 
 This signature serves as my digital acknowledgment and acceptance of the terms.`;
 
@@ -159,8 +215,8 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
         onEscapeKeyDown={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
       >
-        <DialogHeader className="px-6 pt-6">
-          <DialogTitle className="text-xl font-semibold">
+        <DialogHeader className="p-6 border-b">
+          <DialogTitle className="text-3xl font-bold text-accent">
             Terms of Service
           </DialogTitle>
         </DialogHeader>

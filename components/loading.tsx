@@ -14,7 +14,7 @@ export function Loading() {
         src="/images/sections/beam.png"
         alt="Background"
         fill
-        className="object-cover"
+        className="object-cover dark:hidden"
       />
       <div className="h-screen flex flex-col items-center justify-center relative z-10 gap-4">
         <GlowSymbolAnimated className="w-32 h-32 md:w-40 md:h-40 text-foreground" />

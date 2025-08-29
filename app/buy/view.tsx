@@ -1015,7 +1015,7 @@ export default function View({
         src="/images/sections/beam.png"
         alt="Background"
         fill
-        className="object-cover"
+        className="object-cover dark:hidden"
       />
 
       {/* Hero Section with Enhanced Gradient */}

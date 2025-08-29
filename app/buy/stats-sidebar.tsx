@@ -62,7 +62,7 @@ export function StatsSidebar({
                 {statsLoading ? (
                   <Skeleton className="w-20 h-6 inline-block" />
                 ) : (
-                  Number(glowPrice).toFixed(2)
+                  <NumberTicker value={Number(glowPrice)} decimalPlaces={2} />
                 )}
               </span>
             </div>

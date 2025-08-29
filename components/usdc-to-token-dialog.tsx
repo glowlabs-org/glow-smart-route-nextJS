@@ -510,7 +510,7 @@ export const UsdcToTokenDialog: FC<{
     {
       label: "Received",
       value: (
-        <span className="text-green-600 font-mono">
+        <span className="text-accent font-mono">
           {Number(amount).toLocaleString("en-US", {
             maximumFractionDigits: 4,
           })}
@@ -597,9 +597,9 @@ export const UsdcToTokenDialog: FC<{
                     className={clsx(
                       "text-sm",
                       state.validated && !state.pending
-                        ? "text-foreground font-medium"
+                        ? "text-zinc-900 dark:text-zinc-100 font-medium"
                         : state.pending
-                        ? "text-foreground"
+                        ? "text-zinc-900 dark:text-zinc-100"
                         : "text-muted-foreground"
                     )}
                   >
@@ -619,7 +619,7 @@ export const UsdcToTokenDialog: FC<{
                   <Check className="w-4 h-4 text-green-600" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-foreground">
+                  <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                     Successfully swapped Impact Power Points
                   </h3>
                 </div>

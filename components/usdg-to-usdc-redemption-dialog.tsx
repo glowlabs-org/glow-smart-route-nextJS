@@ -162,7 +162,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
               <div className="text-center space-y-4">
                 {/* Amount Display */}
                 <div className="mb-6">
-                  <div className="text-4xl font-bold text-foreground mb-2">
+                  <div className="text-4xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
                     + {toFixedTruncate(Number(amountToRedeem), 2)} USDC
                   </div>
                   <div className="text-muted-foreground text-sm">
@@ -172,7 +172,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
 
                 {/* Status Badge */}
                 <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full mb-8">
-                  <span className="text-foreground text-sm font-medium">
+                  <span className="text-zinc-900 dark:text-zinc-100 text-sm font-medium">
                     Completed •{" "}
                     {new Date().toLocaleDateString("en-US", {
                       day: "numeric",
@@ -192,14 +192,14 @@ export const UsdgToUsdcRedemptionDialog: FC<{
               <div className="space-y-4 text-left">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">From</span>
-                  <span className="text-foreground text-sm font-medium">
+                  <span className="text-zinc-900 dark:text-zinc-100 text-sm font-medium">
                     USDG Balance
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">To</span>
-                  <span className="text-foreground text-sm font-medium">
+                  <span className="text-zinc-900 dark:text-zinc-100 text-sm font-medium">
                     USDC Wallet
                   </span>
                 </div>
@@ -208,7 +208,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                   <span className="text-muted-foreground text-sm">
                     Amount Redeemed
                   </span>
-                  <span className="text-foreground text-sm font-medium">
+                  <span className="text-zinc-900 dark:text-zinc-100 text-sm font-medium">
                     {toFixedTruncate(Number(amountToRedeem), 2)} USDG
                   </span>
                 </div>
@@ -217,7 +217,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                   <span className="text-muted-foreground text-sm">
                     Amount Received
                   </span>
-                  <span className="text-foreground text-sm font-medium">
+                  <span className="text-zinc-900 dark:text-zinc-100 text-sm font-medium">
                     {toFixedTruncate(Number(amountToRedeem), 2)} USDC
                   </span>
                 </div>
@@ -226,7 +226,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                   <span className="text-muted-foreground text-sm">
                     Exchange Rate
                   </span>
-                  <span className="text-foreground text-sm font-medium">
+                  <span className="text-zinc-900 dark:text-zinc-100 text-sm font-medium">
                     1:1
                   </span>
                 </div>
@@ -244,7 +244,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
             <>
               {/* Header */}
               <div className="mb-8">
-                <h2 className="text-2xl font-bold text-foreground mb-2">
+                <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
                   Redeem USDG
                 </h2>
                 <p className="text-muted-foreground text-sm">
@@ -270,7 +270,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                         value={amountToRedeem}
                         readOnly
                       />
-                      <span className="text-2xl font-medium text-foreground">
+                      <span className="text-2xl font-medium text-zinc-900 dark:text-zinc-100">
                         USDG
                       </span>
                     </div>
@@ -292,7 +292,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                         value={amountToRedeem}
                         readOnly
                       />
-                      <span className="text-2xl font-medium text-foreground">
+                      <span className="text-2xl font-medium text-zinc-900 dark:text-zinc-100">
                         USDC
                       </span>
                     </div>
@@ -312,7 +312,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                 <div className="mt-8">
                   {/* Status Badge */}
                   <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full mb-6">
-                    <span className="text-foreground text-sm font-medium">
+                    <span className="text-zinc-900 dark:text-zinc-100 text-sm font-medium">
                       Processing redemption...
                     </span>
                   </div>
@@ -344,9 +344,9 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                               className={clsx(
                                 "text-sm",
                                 state.validated && !state.pending
-                                  ? "text-foreground"
+                                  ? "text-zinc-900 dark:text-zinc-100"
                                   : state.pending
-                                  ? "text-foreground"
+                                  ? "text-zinc-900 dark:text-zinc-100"
                                   : "text-muted-foreground"
                               )}
                             >
