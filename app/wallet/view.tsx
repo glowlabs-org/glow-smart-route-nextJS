@@ -226,20 +226,6 @@ export default function View() {
     prepareSwap("USDC", "USDG", parseAmountString(balances.usdc).toString());
   };
 
-  const getRoutePreview = () => {
-    if (swapTo === "GCTL" && swapFrom === "USDG") return "USDG → GCTL (mint)";
-    if (swapTo === "GCTL" && swapFrom === "USDC")
-      return "USDC → USDG → GCTL (mint)";
-    if (swapFrom === "GLOW" && swapTo === "USDC") return "GLOW → USDG → USDC";
-    if (swapFrom === "USDG" && swapTo === "GLOW") return "USDG → GLOW";
-    if (swapFrom === "USDC" && swapTo === "GLOW") return "USDC → USDG → GLOW";
-    if (swapFrom.includes("Impact") && swapTo === "GLOW")
-      return `${swapFrom} Burn → USDC → GLOW`;
-    if (swapFrom.includes("Impact") && swapTo === "USDG")
-      return `${swapFrom} Burn → USDC → USDG`;
-    return `${swapFrom} → ${swapTo}`;
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 xl:px-16 py-8">

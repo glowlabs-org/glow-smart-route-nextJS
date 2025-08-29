@@ -463,7 +463,7 @@ export function Header({
                     <Copy className="w-4 h-4 mr-2" /> Copy address
                   </DropdownMenuItem>
 
-                  <DropdownMenuItem asChild className="cursor-pointer">
+                  {/* <DropdownMenuItem asChild className="cursor-pointer">
                     <Link
                       href={`/profile/${address}`}
                       target="_blank"
@@ -472,7 +472,7 @@ export function Header({
                       <User className="w-4 h-4 mr-2" /> View profile
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator /> */}
                   <DropdownMenuItem
                     onSelect={(e) => {
                       e.preventDefault();
@@ -812,7 +812,7 @@ export function Header({
                     >
                       <Copy className="w-4 h-4 mr-2" /> Copy address
                     </DropdownMenuItem>
-
+                    {/* 
                     <DropdownMenuItem asChild className="cursor-pointer">
                       <Link
                         href={`/profile/${address}`}
@@ -822,7 +822,7 @@ export function Header({
                         <User className="w-4 h-4 mr-2" /> View profile
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
+                    <DropdownMenuSeparator /> */}
                     <DropdownMenuItem
                       onSelect={(e) => {
                         e.preventDefault();

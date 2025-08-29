@@ -8,7 +8,6 @@ import { http } from "wagmi";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
-import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 
 if (!process.env.NEXT_PUBLIC_WALLET_CONNECT_ID) {
   throw new Error("NEXT_PUBLIC_WALLET_CONNECT_ID is not set");
@@ -25,6 +24,12 @@ if (process.env.NEXT_PUBLIC_CHAIN_ID === "1") {
 {
   chain = sepolia;
 }
+
+console.log(
+  "process.env.NEXT_PUBLIC_WALLET_CONNECT_ID",
+  process.env.NEXT_PUBLIC_WALLET_CONNECT_ID
+);
+console.log(chain);
 
 const config = getDefaultConfig({
   appName: "BuyGlow.xyz",

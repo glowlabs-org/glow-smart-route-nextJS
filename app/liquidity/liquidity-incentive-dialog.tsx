@@ -9,7 +9,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 
 interface LiquidityIncentiveDialogProps {
   open: boolean;
@@ -27,37 +26,35 @@ export function LiquidityIncentiveDialog({
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-base">
-            Liquidity incentive program
+            Liquidity Incentive Grant
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            We propose a 12-week grant of 5,000 GLW per week to Uniswap LPs.
-            Rewards are distributed proportionally by liquidity share with an
-            exponential loyalty bonus that grows the longer your liquidity stays
-            deposited.
+            Glow is running a promotion from September 2nd, 2025 to November
+            25th, 2025 where it is distributing 5,000 GLW per week to liquidity
+            providers. If the program is successful, it is likely to be extended
+            beyond November 25th.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Liquidity providers will earn GLW tokens based on how much liquidity
+            they provide, and based on how long they have been providing
+            liquidity. The rewards are structured to be exponential:
           </p>
           <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-            <li>1 day: no bonus</li>
-            <li>10 days: +50% bonus</li>
-            <li>100 days: +125% bonus</li>
+            <li>After 1 day, liquidity providers earn 1x rewards</li>
+            <li>After 10 days, liquidity providers earn 1.5x rewards</li>
+            <li>After 100 days, liquidity providers earn 2.25x rewards</li>
           </ul>
           <p className="text-sm text-muted-foreground">
-            GLW incentives are distributed after the v2 launch when epochs
-            finalize. The v2 launch date is not yet defined.
+            ...and so on, with rewards steadily increasing every few minutes
           </p>
-
-          <div>
-            <Link
-              href="/blog/liquidity-incentive-proposal"
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm underline text-primary hover:text-primary/80"
-            >
-              Read the full article →
-            </Link>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            The GLW rewards will be distributed to liquidity providers when the
+            GLW V2 smart contracts go live. The UI will track your liquidity
+            positions, as well as how many rewards they have earned.
+          </p>
         </div>
 
         <DialogFooter className="gap-2">

@@ -51,7 +51,7 @@ export function ProcessingModal({
   };
 
   // ---------------------- API & polling ----------------------
-  const { fetchTransferDetails, gctlPriceNumber, gctlPrice } = useGctlApi();
+  // const { fetchTransferDetails, gctlPriceNumber, gctlPrice } = useGctlApi();
 
   const [status, setStatus] = useState<"processing" | "success" | "error">(
     "processing"
@@ -93,67 +93,68 @@ export function ProcessingModal({
     }
   }, [isOpen, trackingTxHash, setTxIdParam]);
 
-  // Initial fetch and periodic refetch
-  useEffect(() => {
-    if (!isOpen || !trackingTxHash) return;
+  //TODO: add gctl price
+  // // Initial fetch and periodic refetch
+  // useEffect(() => {
+  //   if (!isOpen || !trackingTxHash) return;
 
-    let isMounted = true;
-    let isFirstFetch = true;
+  //   let isMounted = true;
+  //   let isFirstFetch = true;
 
-    const poll = async () => {
-      if (!trackingTxHash) return;
+  //   const poll = async () => {
+  //     if (!trackingTxHash) return;
 
-      try {
-        if (isFirstFetch) {
-          setIsInitialFetching(true);
-        }
+  //     try {
+  //       if (isFirstFetch) {
+  //         setIsInitialFetching(true);
+  //       }
 
-        const pendingRes = await fetchTransferDetails(trackingTxHash);
+  //       const pendingRes = await fetchTransferDetails(trackingTxHash);
 
-        if (!isMounted) return;
+  //       if (!isMounted) return;
 
-        if (isFirstFetch) {
-          setIsInitialFetching(false);
-          isFirstFetch = false;
-        }
+  //       if (isFirstFetch) {
+  //         setIsInitialFetching(false);
+  //         isFirstFetch = false;
+  //       }
 
-        if (pendingRes.ok) {
-          setHasInitialResponse(true);
-          const transfer = pendingRes.val;
-          console.log(transfer);
+  //       if (pendingRes.ok) {
+  //         setHasInitialResponse(true);
+  //         const transfer = pendingRes.val;
+  //         console.log(transfer);
 
-          console.log(transfer.status);
-          if (transfer.status === "confirmed") {
-            setStatus("success");
-            setProcessedAmount(
-              (BigInt(transfer.amountRaw) / BigInt(gctlPrice)).toString()
-            );
-          } else if (transfer.status === "failed") {
-            setStatus("error");
-            failureInfoRef.current = transfer;
-          }
-        } else {
-          // No response - show default countdown
-          setHasInitialResponse(true);
-        }
-      } catch (error) {
-        console.error("Error fetching transfer details:", error);
-        if (isFirstFetch) {
-          setIsInitialFetching(false);
-          setHasInitialResponse(true);
-        }
-      }
-    };
+  //         console.log(transfer.status);
+  //         if (transfer.status === "confirmed") {
+  //           setStatus("success");
+  //           setProcessedAmount(
+  //             (BigInt(transfer.amountRaw) / BigInt(gctlPrice)).toString()
+  //           );
+  //         } else if (transfer.status === "failed") {
+  //           setStatus("error");
+  //           failureInfoRef.current = transfer;
+  //         }
+  //       } else {
+  //         // No response - show default countdown
+  //         setHasInitialResponse(true);
+  //       }
+  //     } catch (error) {
+  //       console.error("Error fetching transfer details:", error);
+  //       if (isFirstFetch) {
+  //         setIsInitialFetching(false);
+  //         setHasInitialResponse(true);
+  //       }
+  //     }
+  //   };
 
-    // First poll immediately
-    poll();
-    const id = setInterval(poll, POLL_INTERVAL);
+  //   // First poll immediately
+  //   poll();
+  //   const id = setInterval(poll, POLL_INTERVAL);
 
-    return () => {
-      isMounted = false;
-      clearInterval(id);
-    };
-  }, [isOpen, trackingTxHash, fetchTransferDetails]);
+  //   return () => {
+  //     isMounted = false;
+  //     clearInterval(id);
+  //   };
+  // }, [isOpen, trackingTxHash, fetchTransferDetails]);
 
   const progressPercentage = Math.max(
     0,
@@ -177,7 +178,8 @@ export function ProcessingModal({
             handleClose={onClose}
             processedAmount={processedAmount}
             trackingTxHash={trackingTxHash ?? undefined}
-            gctlPrice={gctlPriceNumber}
+            //TODO: add gctl price
+            gctlPrice={0}
           />
         </DialogContent>
       </Dialog>

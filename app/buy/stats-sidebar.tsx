@@ -25,7 +25,7 @@ export function StatsSidebar({
   isUsdcInRedemptionLoading,
   isWalletLoading,
 }: StatsSidebarProps) {
-  const { gctlPrice, isGctlPriceLoading } = useGctlApi();
+  // const { gctlPrice, isGctlPriceLoading } = useGctlApi();
 
   return (
     <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden">

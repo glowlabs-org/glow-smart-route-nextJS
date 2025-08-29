@@ -193,8 +193,8 @@ export default function View({
     chainIdNum
   );
 
-  const { gctlPrice, gctlPriceNumber, isGctlPriceLoading } =
-    useGctlApi(address);
+  // const { gctlPrice, gctlPriceNumber, isGctlPriceLoading } =
+  //   useGctlApi(address);
 
   const {
     purchaseGlowEarlyLiquidity,
@@ -800,15 +800,18 @@ export default function View({
       ) {
         if (
           !amountToSell ||
-          Number(amountToSell) <= 0 ||
-          isGctlPriceLoading ||
-          Number(gctlPrice) === 0
+          Number(amountToSell) <= 0
+          //TODO: add gctl price
+          // ||
+          // isGctlPriceLoading ||
+          // Number(gctlPrice) === 0
         ) {
           setEstimatedOutputAmount(defaultTokensEstimate);
           return;
         }
-
-        const estimatedGctl = Number(amountToSell) / gctlPriceNumber;
+        //TODO: add gctl price
+        // const estimatedGctl = Number(amountToSell) / gctlPriceNumber;
+        const estimatedGctl = 0;
         setEstimatedOutputAmount({
           ...defaultTokensEstimate,
           [selectedTokenBuy.label]: toFixedTruncate(estimatedGctl, 6),

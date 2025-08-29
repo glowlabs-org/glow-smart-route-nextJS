@@ -34,7 +34,7 @@ export function Error({ message }: { message: string }) {
     <BeamsBackground intensity="medium">
       <div className="h-screen flex flex-col items-center justify-center relative z-10 gap-4">
         <div className="w-32 h-32 md:w-40 md:h-40 flex items-center justify-center">
-          <GlowSymbol className="size-10 text-foreground" />
+          <GlowSymbol className="size-24 text-foreground" />
         </div>
 
         <h1 className="glow-headline text-2xl lg:text-4xl xl:text-5xl text-foreground">
