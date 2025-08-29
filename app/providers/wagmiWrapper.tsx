@@ -20,14 +20,15 @@ if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
 let chain: Chain;
 if (process.env.NEXT_PUBLIC_CHAIN_ID === "1") {
   chain = mainnet;
-} else process.env.NEXT_PUBLIC_CHAIN_ID === "11155111";
-{
+} else if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
   chain = sepolia;
+} else {
+  throw new Error("Invalid chain ID");
 }
 
 console.log(
-  "process.env.NEXT_PUBLIC_WALLET_CONNECT_ID",
-  process.env.NEXT_PUBLIC_WALLET_CONNECT_ID
+  "process.env.NEXT_PUBLIC_CHAIN_ID",
+  process.env.NEXT_PUBLIC_CHAIN_ID
 );
 console.log(chain);
 

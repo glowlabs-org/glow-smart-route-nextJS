@@ -382,7 +382,7 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
           functionName: "getPair",
           args: [SDKAddresses.GLW, SDKAddresses.USDG],
         })) as `0x${string}`;
-
+        console.log("addr", addr);
         if (addr && addr !== zeroAddress) return addr;
       }
       // fallback to constant
