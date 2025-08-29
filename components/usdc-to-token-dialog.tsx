@@ -223,9 +223,8 @@ export const UsdcToTokenDialog: FC<{
           defaultPendingStates("uniswap", selectedTokenSell.label)
         );
         const purchaseGlowFromUniswap = await swap({
-          amount: parseUnits(
-            toFixedTruncate(Number(smartBalancingAmounts.amount_in_uni), 6),
-            6
+          amount: BigInt(
+            (smartBalancingAmounts.amount_in_uni as any).toString()
           ),
           slippagePercentTenThousandDenominator: slippagePointsTenThousandths,
         });
@@ -430,7 +429,9 @@ export const UsdcToTokenDialog: FC<{
                 <div className="flex justify-between items-center py-3 border-b border-border">
                   <span className="text-sm text-muted-foreground">Sent</span>
                   <span className="font-mono font-medium text-sm">
-                    {toFixedTruncate(Number(amountToSell), 6)}{" "}
+                    {Number(amountToSell).toLocaleString("en-US", {
+                      maximumFractionDigits: 6,
+                    })}{" "}
                     {selectedTokenSell.label}
                   </span>
                 </div>
@@ -440,7 +441,10 @@ export const UsdcToTokenDialog: FC<{
                     Received
                   </span>
                   <span className="font-mono font-medium text-green-600 text-sm">
-                    {formatPrice(amount, 4)} {selectedTokenBuy.label}
+                    {Number(amount).toLocaleString("en-US", {
+                      maximumFractionDigits: 4,
+                    })}{" "}
+                    {selectedTokenBuy.label}
                   </span>
                 </div>
               </div>

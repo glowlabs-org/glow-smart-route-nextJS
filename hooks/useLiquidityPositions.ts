@@ -855,7 +855,8 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
 
       const amountAGlow = toUnits(glw, tokenDecimals.glw);
       const amountBUsdg = toUnits(usdg, tokenDecimals.usdg);
-
+      console.log("amountAGlow", amountAGlow.toString());
+      console.log("amountBUsdg", amountBUsdg.toString());
       let totalGas = BigInt(0);
       // Estimate approvals if needed
       totalGas += await estimateApprovalGasIfInsufficient({
@@ -1047,6 +1048,8 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
 
       const amountAGlow = toUnits(glw, tokenDecimals.glw);
       const amountBUsdg = toUnits(usdg, tokenDecimals.usdg);
+      console.log("amountAGlow", amountAGlow.toString());
+      console.log("amountBUsdg", amountBUsdg.toString());
       const desiredA = amountAGlow;
       const desiredB = amountBUsdg;
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
@@ -1065,6 +1068,9 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
           args: [address as `0x${string}`],
         }),
       ])) as [bigint, bigint];
+      console.log("glwBalance", glwBalance.toString());
+      console.log("usdgBalance", usdgBalance.toString());
+
       if (glwBalance < amountAGlow) {
         throw new Error("Insufficient GLW balance");
       }

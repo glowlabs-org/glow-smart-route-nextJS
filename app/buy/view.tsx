@@ -352,15 +352,32 @@ export default function View({
             },
           };
         }
+        // For USDC -> USDG, perform direct swap (no dialog)
+        if (selectedTokenBuy.label === "USDG") {
+          return {
+            label: `SWAP`,
+            disabled: false,
+            callback: () => {
+              handleBuy();
+            },
+          };
+        }
+        // For USDC -> GCTL, also handle directly
+        if (selectedTokenBuy.label === "GCTL") {
+          return {
+            label: `SWAP`,
+            disabled: false,
+            callback: () => {
+              handleBuy();
+            },
+          };
+        }
+        // Otherwise (e.g., USDC -> GLOW), open the combined flow dialog
         return {
           label: `SWAP`,
           disabled: false,
           callback: () => {
-            if (selectedTokenBuy.label === "GCTL") {
-              handleBuy();
-            } else {
-              setIsDialogOpen(true);
-            }
+            setIsDialogOpen(true);
           },
         };
       } else if (
@@ -409,9 +426,8 @@ export default function View({
         // buy glow with uniswap
         if (smartBalancingAmounts?.amount_in_uni) {
           const swapRes = await swap({
-            amount: parseUnits(
-              toFixedTruncate(Number(smartBalancingAmounts.amount_in_uni), 6),
-              6
+            amount: BigInt(
+              (smartBalancingAmounts.amount_in_uni as any).toString()
             ),
             slippagePercentTenThousandDenominator: BigInt(
               Number(slippageTolerance) * 100
@@ -983,21 +999,41 @@ export default function View({
                           You pay
                         </span>
                         {isConnected && (
-                          <span className="text-xs lg:text-sm text-muted-foreground">
-                            Balance:{" "}
-                            <span className="font-medium">
-                              {isWalletLoading || balancesLoading ? (
-                                <Skeleton className="w-16 h-4 inline-block" />
-                              ) : (
-                                Number(tokenSellBalance).toLocaleString(
-                                  "en-US",
-                                  {
-                                    maximumFractionDigits: 0,
-                                  }
-                                )
-                              )}
+                          <div className="flex items-center gap-2 text-xs lg:text-sm text-muted-foreground">
+                            <span>
+                              Balance:{" "}
+                              <span className="font-medium">
+                                {isWalletLoading || balancesLoading ? (
+                                  <Skeleton className="w-16 h-4 inline-block" />
+                                ) : (
+                                  Number(tokenSellBalance).toLocaleString(
+                                    "en-US",
+                                    {
+                                      maximumFractionDigits: 0,
+                                    }
+                                  )
+                                )}
+                              </span>
                             </span>
-                          </span>
+                            <Button
+                              variant="outline"
+                              className="h-7 px-2 py-0 text-xs"
+                              disabled={
+                                !isConnected ||
+                                isWalletLoading ||
+                                balancesLoading
+                              }
+                              onClick={() => {
+                                const maxVal = toFixedTruncate(
+                                  Number(tokenSellBalance || 0),
+                                  selectedTokenSell.toFixed
+                                );
+                                setAmountToSell(maxVal);
+                              }}
+                            >
+                              Max
+                            </Button>
+                          </div>
                         )}
                       </div>
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">

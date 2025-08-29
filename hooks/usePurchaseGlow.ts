@@ -97,11 +97,18 @@ export function usePurchaseGlow() {
     if (!earlyLiquidity)
       return new Err("Early Liquidity or USDC not available");
 
-    const firstTermBN = await earlyLiquidity.getPrice(1);
-    const firstTermNumber = firstTermBN.toNumber();
+    const firstTermRaw = await earlyLiquidity.getPrice(1);
+    const firstTermNumber = Number(
+      formatUnits(
+        typeof firstTermRaw === "bigint"
+          ? firstTermRaw
+          : BigInt(firstTermRaw.toString()),
+        6
+      )
+    );
     const amountGlowEstimated =
       estimateGlowFromUSDG(
-        firstTermNumber / 1e6,
+        firstTermNumber,
         Number(formatUnits(BigInt(usdgAmount.toString()), 6))
       ) / 100;
 

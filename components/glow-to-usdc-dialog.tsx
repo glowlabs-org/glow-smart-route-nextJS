@@ -170,12 +170,6 @@ export const GlowToUsdcDialog: FC<{
       if (redeemRes.ok) {
         setCurrentState("DONE");
         updatePendingStates("DONE");
-        toast.success(
-          `GLOW successfully swapped for ${toFixedTruncate(
-            Number(estimatedOutputAmount),
-            6
-          )} USDC`
-        );
       } else {
         setCurrentState("ERROR");
         toast.error(redeemRes.val);
@@ -334,7 +328,10 @@ export const GlowToUsdcDialog: FC<{
                   Sent
                 </span>
                 <span className="font-mono font-medium text-sm lg:text-base">
-                  {toFixedTruncate(Number(amountToSell), 2)} GLOW
+                  {Number(amountToSell).toLocaleString("en-US", {
+                    maximumFractionDigits: 2,
+                  })}
+                  GLOW
                 </span>
               </div>
 
@@ -344,7 +341,10 @@ export const GlowToUsdcDialog: FC<{
                     Via
                   </span>
                   <span className="font-mono font-medium text-sm lg:text-base">
-                    {toFixedTruncate(Number(intermediateUsdgAmount), 6)} USDG
+                    {Number(intermediateUsdgAmount).toLocaleString("en-US", {
+                      maximumFractionDigits: 6,
+                    })}
+                    USDG
                   </span>
                 </div>
               )}
