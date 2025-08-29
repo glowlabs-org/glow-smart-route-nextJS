@@ -35,14 +35,15 @@ import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { useWalletClient } from "wagmi";
 import { ConnectButton } from "@/components/connect-button";
 
+const GLW_INCENTIVES_START_TIME = new Date("2025-09-02T15:00:00Z").getTime(); // 15:00 UTC = 10:00 EST
+
 export function PositionsView() {
   const {
     positions,
     now,
     totalAccumulatedGlw,
     isPositionsLoading,
-    isPositionsFetching,
-    isPositionsPending,
+
     positionFinalizedMap,
     totalFeeRewardsLP,
     totalFeeRewardsLPValue,
@@ -221,10 +222,14 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
     return Number.isFinite(n) ? n : 0;
   }, [usdg]);
 
-  // Get APY estimate for current amounts
-  const { apyEstimate, isLoading: isApyLoading } = useApyEstimate(
-    glwNum,
-    usdgNum
+  // Get APY estimate for current amounts (use defaults if no amounts entered)
+  // Default values respect the current pool ratio
+  const defaultGlw = 100;
+  const defaultUsdg = priceRatio > 0 ? defaultGlw * priceRatio : 100;
+
+  const { apyEstimate } = useApyEstimate(
+    glwNum > 0 ? glwNum : defaultGlw,
+    usdgNum > 0 ? usdgNum : defaultUsdg
   );
 
   const isGlwOverBalance = glwNum > glwBalanceNumber;
@@ -363,12 +368,16 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
             </div>
           </div>
         </div>
-        {apyEstimate && glwNum > 0 && usdgNum > 0 && (
+        {apyEstimate && (
           <div className="relative rounded-2xl border border-accent/20 dark:border-primary/20 bg-accent/10 dark:bg-transparent dark:bg-gradient-to-br dark:from-primary/5 dark:via-transparent dark:to-primary/5 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">Estimated APY</span>
+                <span className="text-sm font-medium">
+                  {glwNum > 0 && usdgNum > 0
+                    ? "Estimated APY"
+                    : "Default Pool APY"}
+                </span>
               </div>
               <div className="text-right">
                 <span className="text-2xl font-bold text-primary">
@@ -387,7 +396,7 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
                 <div className="flex items-center gap-1.5">
                   <div className="h-2 w-2 rounded-full bg-green-500/60" />
                   <span className="text-xs text-muted-foreground">
-                    Trading Fees
+                    Estimated Trading Fees
                   </span>
                 </div>
                 <div className="text-sm font-semibold">
@@ -403,7 +412,7 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
                 <div className="flex items-center gap-1.5">
                   <div className="h-2 w-2 rounded-full bg-blue-500/60" />
                   <span className="text-xs text-muted-foreground">
-                    GLW Incentives
+                    Estimated GLW Incentives
                   </span>
                 </div>
                 <div className="text-sm font-semibold">
@@ -418,7 +427,9 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
             </div>
 
             <div className="text-xs text-muted-foreground text-center opacity-80">
-              Rewards increase over time with loyalty multiplier
+              {glwNum > 0 && usdgNum > 0
+                ? "Rewards increase over time with loyalty multiplier"
+                : "Enter amounts to see your personalized APY estimate"}
             </div>
           </div>
         )}
@@ -695,11 +706,30 @@ const PositionCard = React.memo(function PositionCard({
     }
   };
 
+  const isIncentivesActive = React.useMemo(() => {
+    return Date.now() >= GLW_INCENTIVES_START_TIME;
+  }, []);
+
+  // Calculate countdown to incentives start
+  const timeUntilIncentives = React.useMemo(() => {
+    const now = Date.now();
+    if (now >= GLW_INCENTIVES_START_TIME) return null;
+
+    const diff = GLW_INCENTIVES_START_TIME - now;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return { days, hours, minutes };
+  }, [now]); // Update with 'now' to keep countdown live
+
   const liveMultiplier = getLoyaltyMultiplier(position.createdAt);
   const currentGlw = position.glwAmount;
   const incentiveApy = position.liquidityIncentiveApy ?? position.apy;
   const feesApy = position.feesApy ?? 0;
-  const netApy = position.combinedApy ?? position.apy;
+  // Show only fees APY until incentives are active
+  const netApy = isIncentivesActive
+    ? position.combinedApy ?? position.apy
+    : feesApy;
   return (
     <div className="bg-muted/30 rounded-xl border border-border overflow-hidden transition-all duration-200">
       <div className="p-4">
@@ -731,9 +761,30 @@ const PositionCard = React.memo(function PositionCard({
                 className="rounded-2xl border border-border bg-background text-zinc-900 dark:text-zinc-100 shadow-xl"
               >
                 <div className="space-y-3">
+                  {!isIncentivesActive && timeUntilIncentives && (
+                    <div className="bg-primary/10 rounded-lg p-2 text-center">
+                      <div className="text-xs text-muted-foreground mb-1">
+                        GLW Incentives start in
+                      </div>
+                      <div className="text-sm font-semibold">
+                        {timeUntilIncentives.days}d {timeUntilIncentives.hours}h{" "}
+                        {timeUntilIncentives.minutes}m
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Incentive APY</span>
-                    <span className="font-medium">
+                    <span className="text-muted-foreground">
+                      {isIncentivesActive
+                        ? "Incentive APY"
+                        : "Incentive APY (coming)"}
+                    </span>
+                    <span
+                      className={`font-medium ${
+                        !isIncentivesActive ? "text-muted-foreground/50" : ""
+                      }`}
+                    >
+                      {isIncentivesActive ? "" : "~"}
                       {incentiveApy.toLocaleString("en-US", {
                         maximumFractionDigits: 2,
                       })}
@@ -753,7 +804,9 @@ const PositionCard = React.memo(function PositionCard({
 
                   <div className="border-t pt-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium">Combined APY</span>
+                      <span className="font-medium">
+                        {isIncentivesActive ? "Combined APY" : "Current APY"}
+                      </span>
                       <span className="text-primary font-semibold">
                         =
                         {netApy.toLocaleString("en-US", {
@@ -762,6 +815,11 @@ const PositionCard = React.memo(function PositionCard({
                         %
                       </span>
                     </div>
+                    {!isIncentivesActive && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        (Fees only until incentives start)
+                      </div>
+                    )}
                   </div>
                 </div>
               </HoverCardContent>
@@ -807,20 +865,22 @@ const PositionCard = React.memo(function PositionCard({
             </div>
           </div>
         </div>
-        <div className="mt-3 rounded-md border p-3 flex items-center justify-between">
-          <div className="text-xs text-muted-foreground">
-            Loyalty bonus (live)
+        {isIncentivesActive && (
+          <div className="mt-3 rounded-md border p-3 flex items-center justify-between">
+            <div className="text-xs text-muted-foreground">
+              Loyalty bonus (live)
+            </div>
+            <div className="font-mono text-sm flex items-center">
+              {/* Only the loyalty bonus animates with time - updates every second */}
+              <NumberTicker
+                value={liveMultiplier}
+                decimalPlaces={12}
+                className="font-mono text-sm"
+                suffix="×"
+              />
+            </div>
           </div>
-          <div className="font-mono text-sm flex items-center">
-            {/* Only the loyalty bonus animates with time - updates every second */}
-            <NumberTicker
-              value={liveMultiplier}
-              decimalPlaces={12}
-              className="font-mono text-sm"
-              suffix="×"
-            />
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
