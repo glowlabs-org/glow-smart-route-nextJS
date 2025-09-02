@@ -35,7 +35,7 @@ import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { useWalletClient } from "wagmi";
 import { ConnectButton } from "@/components/connect-button";
 
-const GLW_INCENTIVES_START_TIME = new Date("2025-09-02T15:00:00Z").getTime(); // 15:00 UTC = 10:00 EST
+const GLW_INCENTIVES_START_TIME = 1756821600 * 1000; // 10:00 EST
 
 export function PositionsView() {
   const {
