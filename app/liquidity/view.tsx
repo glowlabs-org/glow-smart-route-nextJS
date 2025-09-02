@@ -534,11 +534,6 @@ const RewardsSummaryCard = React.memo(function RewardsSummaryCard({
                 </>
               )}
             </div>
-            {!isLoading && isBeforeIncentivesStart && (
-              <div className="text-xs mt-2 text-accent dark:text-glow-purple">
-                GLW Incentives begin on September 2nd 10:00 AM EST
-              </div>
-            )}
           </div>
           <div className="bg-muted/30 rounded-xl border border-border p-4">
             <div className="text-xs text-muted-foreground mb-2">
@@ -765,18 +760,6 @@ const PositionCard = React.memo(function PositionCard({
                 className="rounded-2xl border border-border bg-background text-zinc-900 dark:text-zinc-100 shadow-xl"
               >
                 <div className="space-y-3">
-                  {!isIncentivesActive && timeUntilIncentives && (
-                    <div className="bg-primary/10 rounded-lg p-2 text-center">
-                      <div className="text-xs text-muted-foreground mb-1">
-                        GLW Incentives start in
-                      </div>
-                      <div className="text-sm font-semibold">
-                        {timeUntilIncentives.days}d {timeUntilIncentives.hours}h{" "}
-                        {timeUntilIncentives.minutes}m
-                      </div>
-                    </div>
-                  )}
-
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
                       {isIncentivesActive
