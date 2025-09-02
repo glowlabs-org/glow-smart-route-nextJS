@@ -17,6 +17,8 @@ import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { toast } from "sonner";
 import Decimal from "decimal.js";
 
+export const GLW_INCENTIVES_START_TIME = 1756821600 * 1000; // 10:00 EST
+
 // Types
 export interface Position {
   id: string;
@@ -691,7 +693,8 @@ export function useLiquidityMutations() {
 
 // 5. Helper functions that don't need to be in a hook
 export function getLoyaltyMultiplier(createdAt: number, now: number) {
-  const days = Math.max(0, (now - createdAt) / (1000 * 60 * 60 * 24));
+  const startDate = Math.max(GLW_INCENTIVES_START_TIME, createdAt);
+  const days = Math.max(0, (now - startDate) / (1000 * 60 * 60 * 24));
   return Math.pow(days, 0.176091259) || 0;
 }
 

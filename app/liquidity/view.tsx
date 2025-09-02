@@ -26,6 +26,7 @@ import { LiquidityIncentiveDialog } from "./liquidity-incentive-dialog";
 import {
   useLiquidityPositions,
   useApyEstimate,
+  GLW_INCENTIVES_START_TIME,
 } from "@/hooks/useLiquidityPositionsOptimized";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
@@ -34,8 +35,6 @@ import Decimal from "decimal.js";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { useWalletClient } from "wagmi";
 import { ConnectButton } from "@/components/connect-button";
-
-const GLW_INCENTIVES_START_TIME = 1756821600 * 1000; // 10:00 EST
 
 export function PositionsView() {
   const {
@@ -703,18 +702,6 @@ const PositionCard = React.memo(function PositionCard({
   const isIncentivesActive = React.useMemo(() => {
     return Date.now() >= GLW_INCENTIVES_START_TIME;
   }, []);
-
-  // Calculate countdown to incentives start
-  const timeUntilIncentives = React.useMemo(() => {
-    const now = Date.now();
-    if (now >= GLW_INCENTIVES_START_TIME) return null;
-
-    const diff = GLW_INCENTIVES_START_TIME - now;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    return { days, hours, minutes };
-  }, [now]); // Update with 'now' to keep countdown live
 
   const liveMultiplier = getLoyaltyMultiplier(position.createdAt);
   const currentGlw = position.glwAmount;
