@@ -77,6 +77,8 @@ if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
 const SDKAddresses = getAddresses(parseInt(process.env.NEXT_PUBLIC_CHAIN_ID!));
 const UNISWAP_V2_ROUTER = SDKAddresses.UNISWAP_V2_ROUTER;
 const UNISWAP_V2_FACTORY = SDKAddresses.UNISWAP_V2_FACTORY;
+const GLW_ADDRESS = SDKAddresses.GLW_UNISWAP;
+const USDG_ADDRESS = SDKAddresses.USDG_UNISWAP;
 
 // Shared ABIs
 const RouterAbi = parseAbi([
@@ -137,7 +139,7 @@ async function getPairAddressCached(): Promise<`0x${string}` | null> {
         "function getPair(address tokenA, address tokenB) external view returns (address pair)",
       ]),
       functionName: "getPair",
-      args: [SDKAddresses.GLW, SDKAddresses.USDG],
+      args: [GLW_ADDRESS, USDG_ADDRESS],
     })) as `0x${string}`;
 
     if (addr && addr !== zeroAddress) {
@@ -171,7 +173,7 @@ export function usePoolInfo() {
       });
 
       const isToken0USDG =
-        (token0 as string).toLowerCase() === SDKAddresses.USDG.toLowerCase();
+        (token0 as string).toLowerCase() === USDG_ADDRESS.toLowerCase();
       const usdgReserve = isToken0USDG ? reserve0 : reserve1;
       const glwReserve = isToken0USDG ? reserve1 : reserve0;
 
@@ -239,8 +241,7 @@ export function useUserPositions() {
       if (userLp === BigInt(0) || totalSupply === BigInt(0)) return [];
 
       // Calculate reserves ordering
-      const isToken0USDG =
-        token0.toLowerCase() === SDKAddresses.USDG.toLowerCase();
+      const isToken0USDG = token0.toLowerCase() === USDG_ADDRESS.toLowerCase();
       const usdgReserve = isToken0USDG ? reserve0 : reserve1;
       const glwReserve = isToken0USDG ? reserve1 : reserve0;
 
@@ -480,13 +481,13 @@ export function useLiquidityMutations() {
       const [glwBalance, usdgBalance] = await publicClient.multicall({
         contracts: [
           {
-            address: SDKAddresses.GLW,
+            address: GLW_ADDRESS,
             abi: erc20Abi,
             functionName: "balanceOf",
             args: [address as `0x${string}`],
           },
           {
-            address: SDKAddresses.USDG,
+            address: USDG_ADDRESS,
             abi: erc20Abi,
             functionName: "balanceOf",
             args: [address as `0x${string}`],
@@ -508,7 +509,7 @@ export function useLiquidityMutations() {
 
       // Check and set GLW allowance
       const glwAllowance = await publicClient.readContract({
-        address: SDKAddresses.GLW,
+        address: GLW_ADDRESS,
         abi: erc20Abi,
         functionName: "allowance",
         args: [address as `0x${string}`, router],
@@ -516,7 +517,7 @@ export function useLiquidityMutations() {
 
       if (glwAllowance < amountAGlow) {
         const hash = await walletClient.writeContract({
-          address: SDKAddresses.GLW,
+          address: GLW_ADDRESS,
           abi: erc20Abi,
           functionName: "approve",
           args: [router, MAX_UINT256],
@@ -526,7 +527,7 @@ export function useLiquidityMutations() {
 
       // Check and set USDG allowance
       const usdgAllowance = await publicClient.readContract({
-        address: SDKAddresses.USDG,
+        address: USDG_ADDRESS,
         abi: erc20Abi,
         functionName: "allowance",
         args: [address as `0x${string}`, router],
@@ -534,7 +535,7 @@ export function useLiquidityMutations() {
 
       if (usdgAllowance < amountBUsdg) {
         const hash = await walletClient.writeContract({
-          address: SDKAddresses.USDG,
+          address: USDG_ADDRESS,
           abi: erc20Abi,
           functionName: "approve",
           args: [router, MAX_UINT256],
@@ -551,8 +552,8 @@ export function useLiquidityMutations() {
         abi: RouterAbi,
         functionName: "addLiquidity",
         args: [
-          SDKAddresses.GLW,
-          SDKAddresses.USDG,
+          GLW_ADDRESS,
+          USDG_ADDRESS,
           amountAGlow,
           amountBUsdg,
           amountAMin,
@@ -620,7 +621,7 @@ export function useLiquidityMutations() {
         });
 
       const isToken0USDG =
-        (token0 as string).toLowerCase() === SDKAddresses.USDG.toLowerCase();
+        (token0 as string).toLowerCase() === USDG_ADDRESS.toLowerCase();
       const usdgReserve = isToken0USDG ? reserve0 : reserve1;
       const glwReserve = isToken0USDG ? reserve1 : reserve0;
 
@@ -664,8 +665,8 @@ export function useLiquidityMutations() {
         abi: RouterAbi,
         functionName: "removeLiquidity",
         args: [
-          SDKAddresses.GLW,
-          SDKAddresses.USDG,
+          GLW_ADDRESS,
+          USDG_ADDRESS,
           liquidityToRemove,
           amountGlowMin,
           amountUsdgMin,

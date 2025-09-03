@@ -22,8 +22,8 @@ const SDKAddresses = getAddresses(parseInt(process.env.NEXT_PUBLIC_CHAIN_ID!));
 const UNISWAP_V2_FACTORY = SDKAddresses.UNISWAP_V2_FACTORY;
 
 const SEPOLIA_ADDRESSES = {
-  USDG: SDKAddresses.USDG,
-  GLOW: SDKAddresses.GLW,
+  USDG: SDKAddresses.USDG_UNISWAP,
+  GLOW: SDKAddresses.GLW_UNISWAP,
   UNISWAP_V2_ROUTER: SDKAddresses.UNISWAP_V2_ROUTER,
   UNISWAP_V2_FACTORY: SDKAddresses.UNISWAP_V2_FACTORY,
 };

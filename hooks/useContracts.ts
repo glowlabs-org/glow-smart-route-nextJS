@@ -4,7 +4,10 @@ import { parseAbi, type WalletClient } from "viem";
 import { EarlyLiquidityABI, USDGABI } from "@glowlabs-org/guarded-launch-abis";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { getAddresses } from "@glowlabs-org/utils/browser";
-import { addresses as staticAddresses } from "@/web3/constants/addresses";
+import {
+  addresses,
+  addresses as staticAddresses,
+} from "@/web3/constants/addresses";
 
 const erc20Abi = parseAbi([
   "function balanceOf(address owner) view returns (uint256)",
@@ -27,14 +30,12 @@ export function useContracts(_signer: any) {
     }
     const SDKAddresses = getAddresses(
       parseInt(process.env.NEXT_PUBLIC_CHAIN_ID)
-    ) as any;
+    );
 
-    const GLW_ADDRESS: AnyAddress = SDKAddresses?.GLW as AnyAddress;
-    const USDG_ADDRESS: AnyAddress = SDKAddresses?.USDG as AnyAddress;
-    const USDC_ADDRESS: AnyAddress = SDKAddresses?.USDC as AnyAddress;
-    const EARLY_LIQUIDITY_ADDRESS: AnyAddress =
-      (SDKAddresses?.EARLY_LIQUIDITY as AnyAddress) ??
-      (staticAddresses.earlyLiquidity as AnyAddress);
+    const GLW_ADDRESS: AnyAddress = SDKAddresses?.GLW_UNISWAP as AnyAddress;
+    const USDG_ADDRESS: AnyAddress = SDKAddresses?.USDG_UNISWAP as AnyAddress;
+    const USDC_ADDRESS: AnyAddress = SDKAddresses?.USDC;
+    const EARLY_LIQUIDITY_ADDRESS: AnyAddress = addresses.earlyLiquidity;
 
     function makeTx(hash: `0x${string}`) {
       return {

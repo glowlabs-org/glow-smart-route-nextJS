@@ -89,6 +89,8 @@ const SDKAddresses = getAddresses(parseInt(process.env.NEXT_PUBLIC_CHAIN_ID!));
 
 const UNISWAP_V2_ROUTER = SDKAddresses.UNISWAP_V2_ROUTER;
 const UNISWAP_V2_FACTORY = SDKAddresses.UNISWAP_V2_FACTORY;
+const GLW_ADDRESS = SDKAddresses.GLW_UNISWAP;
+const USDG_ADDRESS = SDKAddresses.USDG_UNISWAP;
 
 export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
   const feeApyPercent = options?.feeApyPercent ?? 6; // mock exchange fee APY in percent
@@ -324,7 +326,7 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
     })) as readonly [bigint, bigint, number];
     const { usdgReserve, glwReserve } = orderReservesByTokenSymbols({
       token0,
-      usdGAddress: SDKAddresses.USDG,
+      usdGAddress: USDG_ADDRESS,
       reserve0,
       reserve1,
     });
@@ -380,7 +382,7 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
             "function getPair(address tokenA, address tokenB) external view returns (address pair)",
           ]),
           functionName: "getPair",
-          args: [SDKAddresses.GLW, SDKAddresses.USDG],
+          args: [GLW_ADDRESS, USDG_ADDRESS],
         })) as `0x${string}`;
         console.log("addr", addr);
         if (addr && addr !== zeroAddress) return addr;
@@ -454,7 +456,7 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
       const [reserve0, reserve1] = mc[1] as readonly [bigint, bigint, number];
       const { usdgReserve, glwReserve } = orderReservesByTokenSymbols({
         token0,
-        usdGAddress: SDKAddresses.USDG,
+        usdGAddress: USDG_ADDRESS,
         reserve0,
         reserve1,
       });
@@ -797,7 +799,7 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
       const [reserve0, reserve1] = mc[1] as readonly [bigint, bigint, number];
       const { usdgReserve, glwReserve } = orderReservesByTokenSymbols({
         token0,
-        usdGAddress: SDKAddresses.USDG,
+        usdGAddress: USDG_ADDRESS,
         reserve0,
         reserve1,
       });
@@ -837,8 +839,8 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
 
       const account = walletClient.account.address as `0x${string}`;
       const router = UNISWAP_V2_ROUTER as `0x${string}`;
-      const GLW = SDKAddresses.GLW as `0x${string}`;
-      const USDG = SDKAddresses.USDG as `0x${string}`;
+      const GLW = GLW_ADDRESS;
+      const USDG = USDG_ADDRESS;
 
       const amountAGlow = toUnits(glw, tokenDecimals.glw);
       const amountBUsdg = toUnits(usdg, tokenDecimals.usdg);
@@ -1043,13 +1045,13 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
 
       const [glwBalance, usdgBalance] = (await Promise.all([
         publicClient.readContract({
-          address: SDKAddresses.GLW,
+          address: GLW_ADDRESS,
           abi: erc20Abi,
           functionName: "balanceOf",
           args: [address as `0x${string}`],
         }),
         publicClient.readContract({
-          address: SDKAddresses.USDG,
+          address: USDG_ADDRESS,
           abi: erc20Abi,
           functionName: "balanceOf",
           args: [address as `0x${string}`],
@@ -1074,7 +1076,7 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
             "function getPair(address tokenA, address tokenB) external view returns (address pair)",
           ]),
           functionName: "getPair",
-          args: [SDKAddresses.GLW, SDKAddresses.USDG],
+          args: [GLW_ADDRESS, USDG_ADDRESS],
         })) as `0x${string}`;
 
         if (pairAddr && pairAddr !== zeroAddress) {
@@ -1090,13 +1092,13 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
       }
 
       await ensureMaxAllowanceIfNeeded({
-        token: SDKAddresses.GLW as `0x${string}`,
+        token: GLW_ADDRESS as `0x${string}`,
         owner: address as `0x${string}`,
         spender: UNISWAP_V2_ROUTER as `0x${string}`,
         requiredAmount: amountAGlow,
       });
       await ensureMaxAllowanceIfNeeded({
-        token: SDKAddresses.USDG as `0x${string}`,
+        token: USDG_ADDRESS as `0x${string}`,
         owner: address as `0x${string}`,
         spender: UNISWAP_V2_ROUTER as `0x${string}`,
         requiredAmount: amountBUsdg,
@@ -1109,8 +1111,8 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
           abi: RouterAbi,
           functionName: "addLiquidity",
           args: [
-            SDKAddresses.GLW,
-            SDKAddresses.USDG,
+            GLW_ADDRESS,
+            USDG_ADDRESS,
             desiredA,
             desiredB,
             amountAMin,
@@ -1187,8 +1189,7 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
         abi: PairAbi,
         functionName: "token0",
       })) as `0x${string}`;
-      const isToken0USDG =
-        token0.toLowerCase() === SDKAddresses.USDG.toLowerCase();
+      const isToken0USDG = token0.toLowerCase() === USDG_ADDRESS.toLowerCase();
       const usdgReserve = isToken0USDG ? reserve0 : reserve1;
       const glwReserve = isToken0USDG ? reserve1 : reserve0;
       const totalSupply = (await publicClient.readContract({
@@ -1230,8 +1231,8 @@ export function useLiquidityPositions(options?: UseLiquidityPositionsOptions) {
         abi: RouterAbi,
         functionName: "removeLiquidity",
         args: [
-          SDKAddresses.GLW,
-          SDKAddresses.USDG,
+          GLW_ADDRESS,
+          USDG_ADDRESS,
           liquidityToRemove,
           amountGlowMin,
           amountUsdgMin,
