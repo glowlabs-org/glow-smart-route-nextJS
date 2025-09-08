@@ -10,7 +10,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         {/* Favicon and Icons */}
         <link rel="icon" type="image/png" sizes="16x16" href="/16x16.png" />

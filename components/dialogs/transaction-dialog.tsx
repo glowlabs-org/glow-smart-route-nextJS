@@ -333,16 +333,7 @@ export function TransactionDialog({
                         </Button>
                       )}
                     </>
-                  ) : (
-                    <Button
-                      variant="secondary"
-                      onClick={() => onOpenChange(false)}
-                      className="w-full"
-                      disabled
-                    >
-                      Processing...
-                    </Button>
-                  )}
+                  ) : null}
                 </div>
               )}
 

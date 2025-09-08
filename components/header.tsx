@@ -156,6 +156,12 @@ export function Header({
                       >
                         See the list of infrastructure projects
                       </ListItem>
+                      <ListItem
+                        href="https://impact.glow.org/new-campaign"
+                        title="Create a Region"
+                      >
+                        Create a new infrastructure project
+                      </ListItem>
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
@@ -440,18 +446,19 @@ export function Header({
                                 href="https://impact.glow.org"
                                 target="_blank"
                                 rel="noreferrer"
-                                onClick={() => {
-                                  setTimeout(() => {
-                                    window.scrollTo({
-                                      top: 0,
-                                      behavior: "smooth",
-                                    });
-                                  }, 100);
-                                }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
                                 Infrastructure projects
                               </Link>
+                              <DrawerClose asChild>
+                                <Link
+                                  href="https://impact.glow.org/new-campaign"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Create a Region
+                                </Link>
+                              </DrawerClose>
                             </DrawerClose>
                           </div>
                         </div>

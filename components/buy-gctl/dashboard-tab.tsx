@@ -17,13 +17,15 @@ import { useGctlApi } from "@/hooks/useGctlApi";
 import {
   MintedEvent,
   PendingTransfer,
-  Region,
+  RegionWithMetadata,
+  StakedEvent,
 } from "@glowlabs-org/utils/browser";
 
 interface DashboardTabProps {
   walletAddress?: string;
   mintedEvents: MintedEvent[];
-  regions: Region[];
+  stakeEvents: StakedEvent[];
+  regions: RegionWithMetadata[];
   pendingTransfers: PendingTransfer[];
   isMintedEventsLoading: boolean;
   isStakedEventsLoading: boolean;
@@ -34,6 +36,7 @@ interface DashboardTabProps {
 export function DashboardTab({
   walletAddress,
   mintedEvents,
+  stakeEvents,
   regions,
   pendingTransfers,
   isMintedEventsLoading,
@@ -50,12 +53,11 @@ export function DashboardTab({
       return sum + parseFloat(formatUnits(BigInt(event.gctlMinted), 6));
     }, 0);
 
-    const totalGctlStaked = regions.reduce((sum, region) => {
-      return (
-        //TODO: fix this
-        sum + parseFloat(formatUnits(BigInt("0"), 6))
-      );
-    }, 0);
+    const totalGctlStaked = stakeEvents
+      .filter((event) => event.direction === "stake")
+      .reduce((sum, event) => {
+        return sum + parseFloat(formatUnits(BigInt(event.amount), 6));
+      }, 0);
 
     const uniqueHolders = new Set(
       mintedEvents.map((event) => event.wallet.toLowerCase())
@@ -63,7 +65,7 @@ export function DashboardTab({
 
     // Capital Flows
     const totalUsdcReceived = mintedEvents
-      .filter((event) => event.currency === "USDC")
+      .filter((event) => event.currency === "USDG")
       .reduce((sum, event) => {
         return sum + parseFloat(formatUnits(BigInt(event.amountRaw), 6));
       }, 0);
@@ -123,99 +125,107 @@ export function DashboardTab({
   };
 
   return (
-    <div className="bg-card/60 backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full">
-      <div className="p-6 pb-4 border-b border-border/20">
+    <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full">
+      <div className="p-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-            Network Dashboard
-          </h2>
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold">Network Dashboard</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Real-time network metrics and analytics
+            </p>
+          </div>
           <span className="text-sm text-muted-foreground flex items-center gap-2">
-            <Activity className="w-3 h-3" />
-            Real-time metrics
+            <Activity className="w-4 h-4" />
+            Live
           </span>
         </div>
       </div>
 
-      <div className="p-6 space-y-8">
+      <div className="p-6 pt-0 space-y-8">
         {/* Supply & Stake Overview */}
         <div className="space-y-6">
-          <div className="flex items-center space-x-2">
-            <Coins className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-semibold text-foreground">
-              Supply & Stake Overview
-            </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold">Supply & Stake Overview</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total GCTL Minted */}
-            <div className="group relative bg-gradient-to-br from-green-500/10 to-emerald-500/5 rounded-2xl p-4 border border-green-500/20 hover:border-green-500/30 transition-all duration-300">
-              <div className="text-center">
-                <div className="text-sm font-medium text-muted-foreground mb-2">
+            <div className="bg-muted/30 rounded-2xl border border-border p-4 hover:border-border/60 transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-sm font-medium text-muted-foreground">
                   Total GCTL Minted
                 </div>
-                {isLoading ? (
-                  <Skeleton className="h-8 w-32 mx-auto bg-muted/50" />
-                ) : (
-                  <div className="text-2xl font-bold text-foreground">
-                    {formatLargeNumber(metrics.totalGctlMinted)}
-                  </div>
-                )}
-                <div className="text-xs text-muted-foreground mt-1">GCTL</div>
+                <TrendingUp className="w-5 h-5 text-green-500" />
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-10 w-40 bg-muted/50" />
+              ) : (
+                <div className="text-3xl font-bold text-foreground">
+                  {formatLargeNumber(metrics.totalGctlMinted)}
+                </div>
+              )}
+              <div className="text-sm text-muted-foreground mt-2">
+                GCTL tokens
               </div>
             </div>
 
             {/* Total GCTL Staked */}
-            <div className="group relative bg-gradient-to-br from-blue-500/10 to-blue-500/5 rounded-2xl p-4 border border-blue-500/20 hover:border-blue-500/30 transition-all duration-300">
-              <div className="text-center">
-                <div className="text-sm font-medium text-muted-foreground mb-2">
+            <div className="bg-muted/30 rounded-2xl border border-border p-4 hover:border-border/60 transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-sm font-medium text-muted-foreground">
                   Total GCTL Staked
                 </div>
-                {isLoading ? (
-                  <Skeleton className="h-8 w-32 mx-auto bg-muted/50" />
-                ) : (
-                  <div className="text-2xl font-bold text-foreground">
-                    {formatLargeNumber(metrics.totalGctlStaked)}
-                  </div>
-                )}
-                <div className="text-xs text-muted-foreground mt-1">GCTL</div>
+                <Coins className="w-5 h-5 text-blue-500" />
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-10 w-40 bg-muted/50" />
+              ) : (
+                <div className="text-3xl font-bold text-foreground">
+                  {formatLargeNumber(metrics.totalGctlStaked)}
+                </div>
+              )}
+              <div className="text-sm text-muted-foreground mt-2">
+                GCTL staked
               </div>
             </div>
 
             {/* Staking Rate */}
-            <div className="group relative bg-gradient-to-br from-purple-500/10 to-purple-500/5 rounded-2xl p-4 border border-purple-500/20 hover:border-purple-500/30 transition-all duration-300">
-              <div className="text-center">
-                <div className="text-sm font-medium text-muted-foreground mb-2">
+            <div className="bg-muted/30 rounded-2xl border border-border p-4 hover:border-border/60 transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-sm font-medium text-muted-foreground">
                   Staking Rate
                 </div>
-                {isLoading ? (
-                  <Skeleton className="h-8 w-32 mx-auto bg-muted/50" />
-                ) : (
-                  <div className="text-2xl font-bold text-foreground">
-                    {metrics.stakingRate.toFixed(2)}%
-                  </div>
-                )}
-                <div className="text-xs text-muted-foreground mt-1">
-                  of supply
+                <PieChart className="w-5 h-5 text-purple-500" />
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-10 w-40 bg-muted/50" />
+              ) : (
+                <div className="text-3xl font-bold text-foreground">
+                  {metrics.stakingRate.toFixed(2)}%
                 </div>
+              )}
+              <div className="text-sm text-muted-foreground mt-2">
+                of supply
               </div>
             </div>
 
             {/* Unique Holders */}
-            <div className="group relative bg-gradient-to-br from-orange-500/10 to-orange-500/5 rounded-2xl p-4 border border-orange-500/20 hover:border-orange-500/30 transition-all duration-300">
-              <div className="text-center">
-                <div className="text-sm font-medium text-muted-foreground mb-2">
+            <div className="bg-muted/30 rounded-2xl border border-border p-4 hover:border-border/60 transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-sm font-medium text-muted-foreground">
                   Unique Holders
                 </div>
-                {isLoading ? (
-                  <Skeleton className="h-8 w-32 mx-auto bg-muted/50" />
-                ) : (
-                  <div className="text-2xl font-bold text-foreground">
-                    {metrics.uniqueHolders.toLocaleString()}
-                  </div>
-                )}
-                <div className="text-xs text-muted-foreground mt-1">
-                  addresses
+                <Users className="w-5 h-5 text-orange-500" />
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-10 w-40 bg-muted/50" />
+              ) : (
+                <div className="text-3xl font-bold text-foreground">
+                  {metrics.uniqueHolders.toLocaleString()}
                 </div>
+              )}
+              <div className="text-sm text-muted-foreground mt-2">
+                addresses
               </div>
             </div>
           </div>
@@ -224,9 +234,8 @@ export function DashboardTab({
         {/* Regional Staking Breakdown */}
         {metrics.regionBreakdown.length > 0 && (
           <div className="space-y-6">
-            <div className="flex items-center space-x-2">
-              <MapPin className="w-5 h-5 text-primary" />
-              <h3 className="text-lg font-semibold text-foreground">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold">
                 Regional Staking Distribution
               </h3>
             </div>
@@ -235,10 +244,11 @@ export function DashboardTab({
               {metrics.regionBreakdown.slice(0, 6).map((region) => (
                 <div
                   key={region.id}
-                  className="group bg-muted/30 rounded-2xl p-4 border border-border hover:border-border/60 transition-all duration-300"
+                  className="bg-muted/30 rounded-2xl p-4 border border-border hover:border-border/60 transition-all duration-300"
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center gap-3">
+                      <MapPin className="w-4 h-4 text-primary" />
                       <div>
                         <div className="font-semibold text-foreground">
                           {region.name}
@@ -276,16 +286,13 @@ export function DashboardTab({
 
         {/* Capital Flows */}
         <div className="space-y-6">
-          <div className="flex items-center space-x-2">
-            <DollarSign className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-semibold text-foreground">
-              Capital Flows
-            </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold">Capital Flows</h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Total USDC Received */}
-            <div className="group bg-gradient-to-br from-indigo-500/10 to-indigo-500/5 rounded-2xl p-6 border border-indigo-500/20 hover:border-indigo-500/30 transition-all duration-300">
+            <div className="bg-muted/30 rounded-2xl p-6 border border-border hover:border-border/60 transition-all duration-300">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-sm font-medium text-muted-foreground">
                   USDC from GCTL Purchases
@@ -306,12 +313,12 @@ export function DashboardTab({
             </div>
 
             {/* Transaction Volume */}
-            <div className="group bg-gradient-to-br from-teal-500/10 to-teal-500/5 rounded-2xl p-6 border border-teal-500/20 hover:border-teal-500/30 transition-all duration-300">
+            <div className="bg-muted/30 rounded-2xl p-6 border border-border hover:border-border/60 transition-all duration-300">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-sm font-medium text-muted-foreground">
                   Total Transactions
                 </div>
-                <PieChart className="w-5 h-5 text-teal-500" />
+                <BarChart3 className="w-5 h-5 text-teal-500" />
               </div>
               {isLoading ? (
                 <Skeleton className="h-10 w-40 bg-muted/50" />
@@ -324,17 +331,13 @@ export function DashboardTab({
                 GCTL minting events
               </div>
             </div>
-          </div>
 
-          {/* Protocol Fees Section */}
-          <div className="grid grid-cols-1 gap-4">
-            {/* Protocol Fees Paid */}
-            <div className="group bg-gradient-to-br from-violet-500/10 to-violet-500/5 rounded-2xl p-6 border border-violet-500/20 hover:border-violet-500/30 transition-all duration-300">
+            <div className="bg-muted/30 rounded-2xl p-6 border border-border hover:border-border/60 transition-all duration-300">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-sm font-medium text-muted-foreground">
                   Protocol Deposits Paid
                 </div>
-                <Coins className="w-5 h-5 text-violet-500" />
+                <DollarSign className="w-5 h-5 text-violet-500" />
               </div>
               {isLoading ? (
                 <Skeleton className="h-10 w-40 bg-muted/50" />
@@ -356,38 +359,50 @@ export function DashboardTab({
         </div>
 
         {/* Network Health Indicators */}
-        <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-2xl border border-primary/20">
+        <div className="bg-muted/30 rounded-2xl border border-border">
           <div className="p-6">
-            <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center mt-1 flex-shrink-0">
-                <BarChart3 className="w-5 h-5 text-primary-foreground" />
+            <div className="flex items-center gap-2 mb-4">
+              <h3 className="text-lg font-semibold">Network Health</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-background/40 backdrop-blur-sm rounded-xl border border-border/50 p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-sm font-medium text-muted-foreground">
+                    Active Regions
+                  </div>
+                  <MapPin className="w-5 h-5 text-primary" />
+                </div>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-16 bg-muted/50" />
+                ) : (
+                  <div className="text-2xl font-bold text-foreground">
+                    {regions.filter((r) => r.isActive).length}
+                  </div>
+                )}
+                <div className="text-sm text-muted-foreground mt-2">
+                  regions
+                </div>
               </div>
-              <div className="space-y-3 flex-1">
-                <h4 className="font-bold text-foreground text-lg">
-                  Network Health
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="text-center p-3 bg-background/40 backdrop-blur-sm rounded-xl border border-border/50">
-                    <div className="text-xs text-muted-foreground mb-1">
-                      Active Regions
-                    </div>
-                    <div className="text-xl font-bold text-foreground">
-                      {/* TODO: fix this */}
-                      {regions.length}
-                    </div>
+              <div className="bg-background/40 backdrop-blur-sm rounded-xl border border-border/50 p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-sm font-medium text-muted-foreground">
+                    Avg. Stake per Region
                   </div>
-                  <div className="text-center p-3 bg-background/40 backdrop-blur-sm rounded-xl border border-border/50">
-                    <div className="text-xs text-muted-foreground mb-1">
-                      Avg. Stake per Region
-                    </div>
-                    <div className="text-xl font-bold text-foreground">
-                      {regions.length > 0
-                        ? formatLargeNumber(
-                            metrics.totalGctlStaked / regions.length
-                          )
-                        : "0"}
-                    </div>
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                </div>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-24 bg-muted/50" />
+                ) : (
+                  <div className="text-2xl font-bold text-foreground">
+                    {regions.length > 0
+                      ? formatLargeNumber(
+                          metrics.totalGctlStaked / regions.length
+                        )
+                      : "0"}
                   </div>
+                )}
+                <div className="text-sm text-muted-foreground mt-2">
+                  GCTL avg
                 </div>
               </div>
             </div>

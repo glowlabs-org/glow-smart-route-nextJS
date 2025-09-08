@@ -382,6 +382,7 @@ export default function BuyGctlView() {
                   <DashboardTab
                     walletAddress={address}
                     mintedEvents={mintedEvents?.events ?? []}
+                    stakeEvents={stakeEvents ?? []}
                     regions={regions ?? []}
                     pendingTransfers={pendingTransfers?.transfers ?? []}
                     isMintedEventsLoading={isMintedEventsLoading}
