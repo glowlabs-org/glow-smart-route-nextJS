@@ -24,25 +24,26 @@ import {
   type SortOrder,
   type AuctionApplication,
 } from "@/hooks/useMiningMarketplace";
-import { ListFarmDialog } from "./list-farm-dialog";
+import {
+  useRewardScore,
+  getRewardScoreForApplication,
+} from "@/hooks/useRewardScore";
 import { DepositDialog } from "./deposit-dialog";
 import { SponsoredFarmsActivity } from "./sponsored-farms-activity";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Info } from "lucide-react";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Header } from "@/components/header";
 import { notFound } from "next/navigation";
+import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
+import { formatUnits, parseUnits } from "viem";
+import Link from "next/link";
 
 export default function MiningMarketplacePage() {
-  return notFound();
+  // return notFound();
 
   const [zoneParam, setZoneParam] = useQueryState("zone");
-  const [currencyParam, setCurrencyParam] = useQueryState("currency");
+  // const [currencyParam, setCurrencyParam] = useQueryState("currency");
   const [sortParam, setSortParam] = useQueryState("sort", {
     defaultValue: "publishedOnAuctionTimestamp",
   });
@@ -52,11 +53,10 @@ export default function MiningMarketplacePage() {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [selectedApplicationForDeposit, setSelectedApplicationForDeposit] =
     React.useState<AuctionApplication | null>(null);
-  const [listDialogOpen, setListDialogOpen] = React.useState(false);
 
-  // const selectedZoneId = zoneParam ? parseInt(zoneParam) : undefined; // TODO: Add back in
-  const selectedZoneId = 1;
-  const selectedCurrency = currencyParam as PaymentCurrency | undefined;
+  const selectedZoneId = zoneParam ? parseInt(zoneParam) : undefined; // TODO: Add back in
+  // const selectedZoneId = 1;
+  const selectedCurrency = "GLW" as PaymentCurrency | undefined;
   const selectedSort = sortParam as SortBy;
   const selectedSortOrder = sortOrderParam as SortOrder;
 
@@ -71,7 +71,14 @@ export default function MiningMarketplacePage() {
   });
 
   // Get available zones
-  const { zones } = useAvailableZones();
+  const { zones } = useAvailableZones(applications);
+
+  // Get reward scores for applications
+  const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
+    applications,
+    paymentCurrency: selectedCurrency || "GLW",
+    enabled: applications.length > 0,
+  });
 
   function onPayDeposit(application: AuctionApplication) {
     setSelectedApplicationForDeposit(application);
@@ -89,15 +96,13 @@ export default function MiningMarketplacePage() {
                 <div className="flex-1">
                   <h1 className="text-xl font-semibold">Mining Marketplace</h1>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Browse farms for sale and pay the protocol deposit in your
-                    preferred currency
+                    Sponsor solar farms and earn weekly GLW rewards
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() => setListDialogOpen(true)}
-                >
-                  List a Farm (Test)
+                <Button variant="outline" asChild>
+                  <Link href="https://impact.glow.org" target="_blank">
+                    See Regions Dashboard
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -146,7 +151,7 @@ export default function MiningMarketplacePage() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="flex items-center gap-2">
+                      {/* <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-muted-foreground">
                           Currency
                         </span>
@@ -167,7 +172,7 @@ export default function MiningMarketplacePage() {
                             <SelectItem value="GCTL">GCTL</SelectItem>
                           </SelectContent>
                         </Select>
-                      </div>
+                      </div> */}
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-muted-foreground">
                           Sort By
@@ -183,14 +188,9 @@ export default function MiningMarketplacePage() {
                             <SelectItem value="publishedOnAuctionTimestamp">
                               Date Published
                             </SelectItem>
-                            <SelectItem value="sponsorSplitPercent">
-                              Sponsor Split %
-                            </SelectItem>
+
                             <SelectItem value="finalProtocolFee">
-                              Protocol Fee
-                            </SelectItem>
-                            <SelectItem value="paymentCurrency">
-                              Payment Currency
+                              Protocol Deposit
                             </SelectItem>
                           </SelectContent>
                         </Select>
@@ -286,6 +286,11 @@ export default function MiningMarketplacePage() {
                           application.applicationPriceQuotes
                         );
 
+                        const rewardScore = getRewardScoreForApplication(
+                          rewardScoreMap,
+                          application.id
+                        );
+
                         return (
                           <Card
                             key={application.id}
@@ -294,6 +299,13 @@ export default function MiningMarketplacePage() {
                             <CardContent className="p-0">
                               {/* Images */}
                               <div className="relative">
+                                {/* Zone Badge */}
+                                <div className="absolute top-3 left-3 z-10">
+                                  <div className="bg-black/80 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-medium">
+                                    {application.zone.name}
+                                  </div>
+                                </div>
+
                                 {application.afterInstallPictures.length > 0 ? (
                                   <div className="grid grid-cols-2 gap-1">
                                     <div className="col-span-2 relative">
@@ -329,7 +341,7 @@ export default function MiningMarketplacePage() {
                                   </div>
                                 ) : (
                                   <div className="grid grid-cols-2 gap-1">
-                                    <div className="col-span-2">
+                                    <div className="col-span-2 relative">
                                       <div className="w-full h-56 bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
                                         <span className="text-gray-400">
                                           No images available
@@ -343,7 +355,7 @@ export default function MiningMarketplacePage() {
                               </div>
 
                               <div className="p-6 space-y-5">
-                                {/* Header with Location and Sponsor Split */}
+                                {/* Header with Fractions Available and Reward Score */}
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1 min-w-0">
                                     <div
@@ -353,7 +365,40 @@ export default function MiningMarketplacePage() {
                                         fontWeight: 300,
                                       }}
                                     >
-                                      {(Math.random() * 100).toFixed(0)}
+                                      {application.activeFraction
+                                        ? `${
+                                            application.activeFraction
+                                              .remainingSteps || 0
+                                          }/${
+                                            application.activeFraction
+                                              .totalSteps
+                                          }`
+                                        : "0/0"}
+                                    </div>
+                                    <div
+                                      className="text-xs uppercase tracking-wider text-gray-500"
+                                      style={{
+                                        fontFamily: "Söhne, sans-serif",
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      Shares Available
+                                    </div>
+                                  </div>
+                                  {/* Reward Score */}
+                                  <div className="text-right ml-4">
+                                    <div
+                                      className="text-3xl lg:text-4xl leading-none mb-1"
+                                      style={{
+                                        fontFamily: "Duplicate Slab, serif",
+                                        fontWeight: 300,
+                                      }}
+                                    >
+                                      {rewardScore?.rewardScore
+                                        ? rewardScore.rewardScore.toFixed(0)
+                                        : isRewardScoresLoading
+                                        ? "..."
+                                        : "0"}
                                     </div>
                                     <div
                                       className="text-xs uppercase tracking-wider text-gray-500"
@@ -365,158 +410,157 @@ export default function MiningMarketplacePage() {
                                       Reward Score
                                     </div>
                                   </div>
-                                  {/* Sponsor Split */}
-                                  <div className="text-right ml-4">
-                                    <div
-                                      className="text-3xl lg:text-4xl leading-none mb-1"
-                                      style={{
-                                        fontFamily: "Duplicate Slab, serif",
-                                        fontWeight: 300,
-                                      }}
-                                    >
-                                      {application.sponsorSplitPercent}%
-                                    </div>
-                                    <div
-                                      className="text-xs uppercase tracking-wider text-gray-500"
-                                      style={{
-                                        fontFamily: "Söhne, sans-serif",
-                                        fontWeight: 600,
-                                      }}
-                                    >
-                                      Sponsor Split
-                                    </div>
-                                  </div>
                                 </div>
 
-                                {/* Protocol Deposit - Primary Focus */}
-                                <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
-                                  <div
-                                    className="text-sm text-gray-600 dark:text-gray-400 mb-2"
-                                    style={{
-                                      fontFamily: "Söhne, sans-serif",
-                                      fontWeight: 400,
-                                    }}
-                                  >
-                                    Protocol Deposit
-                                  </div>
-                                  {depositAmountInCurrency ? (
-                                    <div>
-                                      <div
-                                        className="text-2xl lg:text-3xl text-black dark:text-white"
-                                        style={{
-                                          fontFamily: "Söhne, sans-serif",
-                                          fontWeight: 600,
-                                        }}
-                                      >
-                                        {formatNumber(
-                                          parseFloat(depositAmountInCurrency),
-                                          0
-                                        )}{" "}
-                                        <span className="text-lg font-normal">
-                                          {displayCurrency}
-                                        </span>
-                                      </div>
-                                      {availableCurrencies.length > 1 && (
+                                <div className="grid grid-cols-2 gap-4">
+                                  {/* Step Price - Left Column */}
+                                  <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
+                                    <div
+                                      className="text-sm text-gray-600 dark:text-gray-400 mb-2"
+                                      style={{
+                                        fontFamily: "Söhne, sans-serif",
+                                        fontWeight: 400,
+                                      }}
+                                    >
+                                      Price per share
+                                    </div>
+                                    {application.activeFraction?.step ? (
+                                      <div>
                                         <div
-                                          className="text-xs text-gray-500 dark:text-gray-500 mt-2"
+                                          className="text-2xl lg:text-3xl text-black dark:text-white"
+                                          style={{
+                                            fontFamily: "Söhne, sans-serif",
+                                            fontWeight: 600,
+                                          }}
+                                        >
+                                          {formatNumber(
+                                            parseFloat(
+                                              formatUnits(
+                                                BigInt(
+                                                  application.activeFraction
+                                                    .step
+                                                ),
+                                                DECIMALS_BY_TOKEN["GLW"]
+                                              )
+                                            ),
+                                            0
+                                          )}{" "}
+                                          <span className="text-lg font-normal">
+                                            GLW
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ) : depositAmountInCurrency ? (
+                                      <div>
+                                        <div
+                                          className="text-2xl lg:text-3xl text-black dark:text-white"
+                                          style={{
+                                            fontFamily: "Söhne, sans-serif",
+                                            fontWeight: 600,
+                                          }}
+                                        >
+                                          {formatNumber(
+                                            parseFloat(depositAmountInCurrency),
+                                            0
+                                          )}{" "}
+                                          <span className="text-lg font-normal">
+                                            {displayCurrency}
+                                          </span>
+                                        </div>
+                                        <div
+                                          className="text-sm text-gray-500 dark:text-gray-500 mt-1"
                                           style={{
                                             fontFamily: "Söhne, sans-serif",
                                             fontWeight: 300,
                                           }}
                                         >
-                                          Available in:{" "}
-                                          {availableCurrencies.join(", ")}
+                                          Full sponsorship
                                         </div>
-                                      )}
-                                    </div>
-                                  ) : application.finalProtocolFee ? (
-                                    <div>
-                                      <div
-                                        className="text-2xl lg:text-3xl text-black dark:text-white"
-                                        style={{
-                                          fontFamily: "Söhne, sans-serif",
-                                          fontWeight: 600,
-                                        }}
-                                      >
-                                        $
-                                        {formatNumber(
-                                          parseFloat(
-                                            application.finalProtocolFee
-                                          ),
-                                          2
-                                        )}
                                       </div>
+                                    ) : (
                                       <div
-                                        className="text-sm text-gray-500 dark:text-gray-500 mt-1"
+                                        className="text-lg text-gray-500"
                                         style={{
                                           fontFamily: "Söhne, sans-serif",
                                           fontWeight: 300,
                                         }}
                                       >
-                                        {displayCurrency} price not available
+                                        Price not available
                                       </div>
-                                    </div>
-                                  ) : (
-                                    <div
-                                      className="text-lg text-gray-500"
-                                      style={{
-                                        fontFamily: "Söhne, sans-serif",
-                                        fontWeight: 300,
-                                      }}
-                                    >
-                                      Protocol fee not set
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Stats Grid */}
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div className="text-center p-3">
-                                    <div
-                                      className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-500 mb-1"
-                                      style={{
-                                        fontFamily: "Söhne, sans-serif",
-                                        fontWeight: 600,
-                                      }}
-                                    >
-                                      Est. Weekly GLW
-                                    </div>
-                                    <div
-                                      className="text-lg text-black dark:text-white"
-                                      style={{
-                                        fontFamily: "Söhne, sans-serif",
-                                        fontWeight: 500,
-                                      }}
-                                    >
-                                      {(Math.random() * 1000).toFixed(0)}/wk
-                                    </div>
+                                    )}
                                   </div>
-                                  <div className="text-center p-3">
+
+                                  <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
                                     <div
-                                      className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-500 mb-1"
+                                      className="text-sm text-gray-600 dark:text-gray-400 mb-2"
                                       style={{
                                         fontFamily: "Söhne, sans-serif",
-                                        fontWeight: 600,
+                                        fontWeight: 400,
                                       }}
                                     >
-                                      Lifetime Impact
+                                      Est. Weekly Rewards for{" "}
+                                      {application.activeFraction?.totalSteps}{" "}
+                                      shares
                                     </div>
-                                    <div
-                                      className="text-lg text-black dark:text-white"
-                                      style={{
-                                        fontFamily: "Söhne, sans-serif",
-                                        fontWeight: 500,
-                                      }}
-                                    >
-                                      {application.auditFields
-                                        ?.adjustedWeeklyCarbonCredits
-                                        ? `${formatNumber(
-                                            application.auditFields
-                                              .adjustedWeeklyCarbonCredits *
-                                              1565,
-                                            0
-                                          )} cc`
-                                        : "TBD"}
+                                    <div>
+                                      <div
+                                        className="text-lg lg:text-xl text-black dark:text-white"
+                                        style={{
+                                          fontFamily: "Söhne, sans-serif",
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        {rewardScore?.userWeeklyGlwRewards &&
+                                        rewardScore?.userWeeklyPdRewards
+                                          ? (() => {
+                                              const glwRewards = parseFloat(
+                                                formatUnits(
+                                                  BigInt(
+                                                    rewardScore.userWeeklyGlwRewards
+                                                  ),
+                                                  DECIMALS_BY_TOKEN["GLW"]
+                                                )
+                                              );
+                                              const pdRewards = parseFloat(
+                                                formatUnits(
+                                                  BigInt(
+                                                    rewardScore.userWeeklyPdRewards
+                                                  ),
+                                                  DECIMALS_BY_TOKEN["GLW"] // Assuming PD rewards are also in GLW
+                                                )
+                                              );
+                                              const totalRewards =
+                                                glwRewards + pdRewards;
+                                              return `${totalRewards.toLocaleString(
+                                                undefined,
+                                                {
+                                                  minimumFractionDigits: 0,
+                                                  maximumFractionDigits: 0,
+                                                }
+                                              )} GLW`;
+                                            })()
+                                          : isRewardScoresLoading
+                                          ? "..."
+                                          : "0 GLW"}
+                                        <span className="text-base text-gray-500 dark:text-gray-500 ml-2 font-normal">
+                                          ≈
+                                          {rewardScore?.userEstimatedWeeklyCash
+                                            ? `$${parseFloat(
+                                                formatUnits(
+                                                  BigInt(
+                                                    rewardScore.userEstimatedWeeklyCash
+                                                  ),
+                                                  6 // USDC decimals for cash estimates
+                                                )
+                                              ).toLocaleString(undefined, {
+                                                minimumFractionDigits: 0,
+                                                maximumFractionDigits: 0,
+                                              })}`
+                                            : isRewardScoresLoading
+                                            ? "..."
+                                            : "$0"}
+                                        </span>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
@@ -526,7 +570,13 @@ export default function MiningMarketplacePage() {
                                   <Button
                                     className="flex-1 rounded-full h-11"
                                     onClick={() => onPayDeposit(application)}
-                                    disabled={!depositAmountInCurrency}
+                                    disabled={
+                                      application.activeFraction
+                                        ? application.activeFraction.isFilled ||
+                                          (application.activeFraction
+                                            .remainingSteps || 0) <= 0
+                                        : !depositAmountInCurrency
+                                    }
                                   >
                                     <span
                                       style={{
@@ -534,24 +584,12 @@ export default function MiningMarketplacePage() {
                                         fontWeight: 400,
                                       }}
                                     >
-                                      Sponsor Farm
-                                    </span>
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    className="flex-1 rounded-full h-11"
-                                    onClick={() => {
-                                      // TODO: Add view details functionality
-                                      toast.info("View details coming soon");
-                                    }}
-                                  >
-                                    <span
-                                      style={{
-                                        fontFamily: "Söhne, sans-serif",
-                                        fontWeight: 400,
-                                      }}
-                                    >
-                                      View Details
+                                      {application.activeFraction?.isFilled
+                                        ? "Fully Funded"
+                                        : (application.activeFraction
+                                            ?.remainingSteps || 0) <= 0
+                                        ? "No Shares Available"
+                                        : "Buy Shares"}
                                     </span>
                                   </Button>
                                 </div>
@@ -566,18 +604,7 @@ export default function MiningMarketplacePage() {
               </TabsContent>
 
               <TabsContent value="activity" className="mt-0">
-                <div className="p-6 pt-4">
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold mb-2">
-                      Sponsored Farms Activity
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      View all farms that have been successfully sponsored and
-                      are now operational
-                    </p>
-                  </div>
-                  <SponsoredFarmsActivity />
-                </div>
+                <SponsoredFarmsActivity />
               </TabsContent>
             </Tabs>
           </div>
@@ -587,16 +614,7 @@ export default function MiningMarketplacePage() {
             open={dialogOpen}
             onOpenChange={setDialogOpen}
             application={selectedApplicationForDeposit}
-            selectedCurrency={selectedCurrency || "USDG"}
-          />
-
-          <ListFarmDialog
-            open={listDialogOpen}
-            onOpenChange={setListDialogOpen}
-            onListed={() => {
-              toast.success("Application submitted for review");
-              setListDialogOpen(false);
-            }}
+            selectedCurrency={"GLW"}
           />
         </div>
       </div>

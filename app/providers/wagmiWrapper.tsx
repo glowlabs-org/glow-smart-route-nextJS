@@ -59,32 +59,9 @@ export const WagmiWrapper = ({ children }: { children: React.ReactNode }) => {
       })
   );
 
-  // Detect Safari to handle its specific issues
-  const isSafari =
-    typeof window !== "undefined" &&
-    /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-
-  // Clear potentially corrupted wallet state on Safari
-  React.useEffect(() => {
-    if (isSafari && typeof window !== "undefined") {
-      // Check for corrupted state
-      const wagmiStore = window.localStorage.getItem("wagmi.store");
-      if (wagmiStore) {
-        try {
-          JSON.parse(wagmiStore);
-        } catch (e) {
-          // Clear corrupted state
-          window.localStorage.removeItem("wagmi.wallet");
-          window.localStorage.removeItem("wagmi.connected");
-          window.localStorage.removeItem("wagmi.store");
-        }
-      }
-    }
-  }, [isSafari]);
-
   return (
     <QueryClientProvider client={queryClient}>
-      <WagmiProvider config={config} reconnectOnMount={!isSafari}>
+      <WagmiProvider config={config} reconnectOnMount={true}>
         <RainbowKitProvider>
           <Toaster />
           {/* <SmartAccountWarningDialog /> */}

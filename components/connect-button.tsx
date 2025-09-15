@@ -10,10 +10,12 @@ export const ConnectButton = ({
   className,
   variant = "default",
   size = "large",
+  onConnect,
 }: {
   className?: string;
   variant: "default" | "outline-white";
   size?: "small" | "medium" | "large";
+  onConnect?: () => void;
 }) => {
   const { isConnecting, isReconnecting } = useAccount();
   const [isStuckConnecting, setIsStuckConnecting] = useState(false);
@@ -137,7 +139,10 @@ export const ConnectButton = ({
                 return (
                   <Button
                     variant={variant}
-                    onClick={openConnectModal}
+                    onClick={() => {
+                      openConnectModal();
+                      onConnect?.();
+                    }}
                     type="button"
                     className={`w-full ${getSizeClasses()} font-semibold`}
                   >

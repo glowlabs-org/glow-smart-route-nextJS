@@ -74,6 +74,27 @@ export interface WeeklyCarbonDebt {
   applicationId: string;
 }
 
+export interface ActiveFraction {
+  id: string;
+  nonce: number;
+  status: string;
+  sponsorSplitPercent: number;
+  createdAt: string;
+  expirationAt: string | null;
+  isCommittedOnChain: boolean;
+  isFilled: boolean;
+  totalSteps: number;
+  splitsSold: number;
+  step: string; // Price per step in GLW
+  token: string;
+  owner: string;
+  txHash: string | null;
+  progressPercent: number;
+  remainingSteps: number | null;
+  amountRaised: string | null;
+  totalAmountNeeded: string | null;
+}
+
 export interface AuctionApplication {
   id: string;
   userId: string;
@@ -92,6 +113,7 @@ export interface AuctionApplication {
   weeklyProduction: WeeklyProduction[];
   weeklyCarbonDebt: WeeklyCarbonDebt[];
   afterInstallPictures: Document[];
+  activeFraction: ActiveFraction | null;
 }
 
 export interface MiningMarketplaceFilters {
@@ -163,9 +185,7 @@ export function useMiningMarketplace(params: UseMiningMarketplaceParams = {}) {
 }
 
 // Helper hook to get unique zones from applications
-export function useAvailableZones() {
-  const { applications, isLoading } = useMiningMarketplace();
-
+export function useAvailableZones(applications: AuctionApplication[] = []) {
   const zones = applications.reduce((acc, app) => {
     const zone = app.zone;
     if (!acc.find((z) => z.id === zone.id)) {
@@ -176,7 +196,6 @@ export function useAvailableZones() {
 
   return {
     zones,
-    isLoading,
   };
 }
 
@@ -262,18 +281,46 @@ export function getAvailableCurrencies(
   ) as PaymentCurrency[];
 }
 
-// Sponsored farm type
-export interface SponsoredFarm {
-  id: string;
+// Splits activity types
+export interface SplitActivity {
+  // Split transaction details
+  transactionHash: string;
+  blockNumber: number;
+  buyer: string;
+  creator: string;
+  stepsPurchased: number;
+  amount: string; // BigInt as string
+  step: string; // BigInt as string
+  timestamp: number;
+  purchaseDate: string;
+
+  // Fraction context
+  fractionId: string;
   applicationId: string;
-  protocolDepositPaidAmount: string;
-  protocolDepositPaidCurrency: string;
-  builtAt: string;
-  sponsorWallet: string;
-  regionId: number;
-  regionName?: string;
-  farmOwnerName?: string;
-  afterInstallPictures?: Document[];
+  fractionStatus: string;
+  isFilled: boolean;
+  progressPercent: number;
+
+  // Purchase value calculation
+  stepPrice: string; // BigInt as string
+  totalValue: string; // BigInt as string
+}
+
+export interface SplitsActivityResponse {
+  activity: SplitActivity[];
+  summary: {
+    totalTransactions: number;
+    totalStepsPurchased: number;
+    totalAmountSpent: string; // BigInt as string
+    uniqueBuyers: number;
+    uniqueFractions: number;
+  };
+}
+
+export interface UseSplitsActivityParams {
+  limit?: number;
+  walletAddress?: string;
+  enabled?: boolean;
 }
 
 // Sponsorship mutation hook
@@ -285,23 +332,53 @@ export interface SponsorApplicationParams {
   onSuccess?: () => void;
 }
 
-// Hook to fetch sponsored farms
-export function useSponsoredFarms(enabled: boolean = true) {
-  const queryKey = ["sponsored-farms"];
+// Hook to fetch splits activity
+export function useSplitsActivity(params: UseSplitsActivityParams = {}) {
+  const { limit = 50, walletAddress, enabled = true } = params;
+
+  const queryKey = ["splits-activity", limit, walletAddress];
 
   const query = useQuery({
     queryKey,
-    queryFn: async () => {
-      const res = await farmsRouter.fetchSponsoredFarms();
-      return res;
+    queryFn: async (): Promise<SplitsActivityResponse> => {
+      const searchParams = new URLSearchParams();
+
+      if (limit) {
+        searchParams.append("limit", limit.toString());
+      }
+      if (walletAddress) {
+        searchParams.append("walletAddress", walletAddress);
+      }
+
+      const url = `${HUB_URL}/fractions/splits-activity?${searchParams.toString()}`;
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Failed to fetch splits activity: ${response.status} - ${errorText}`
+        );
+      }
+
+      const data = await response.json();
+      return data as SplitsActivityResponse;
     },
     enabled,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: false,
+    staleTime: 2 * 60 * 1000, // 2 minutes - shorter than sponsored farms since this is more dynamic
+    refetchOnWindowFocus: true,
+    refetchInterval: 30_000, // Refetch every 30 seconds for real-time activity
   });
 
   return {
-    sponsoredFarms: query.data || [],
+    activity: query.data?.activity || [],
+    summary: query.data?.summary || {
+      totalTransactions: 0,
+      totalStepsPurchased: 0,
+      totalAmountSpent: "0",
+      uniqueBuyers: 0,
+      uniqueFractions: 0,
+    },
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,
@@ -325,7 +402,7 @@ export function useSponsorApplication() {
     onSuccess: (data, variables) => {
       // Invalidate all mining marketplace queries to refresh the list
       queryClient.invalidateQueries({ queryKey: ["mining-marketplace"] });
-      queryClient.invalidateQueries({ queryKey: ["sponsored-farms"] });
+      queryClient.invalidateQueries({ queryKey: ["splits-activity"] });
 
       // Call the onSuccess callback if provided
       if (variables.onSuccess) {

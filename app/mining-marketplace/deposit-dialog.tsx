@@ -19,26 +19,29 @@ import {
 } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { formatUnits, parseUnits } from "viem";
-import { DECIMALS_BY_TOKEN, useForwarder } from "@glowlabs-org/utils/browser";
+import {
+  DECIMALS_BY_TOKEN,
+  useOffchainFractions,
+} from "@glowlabs-org/utils/browser";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
-import { useGctlApi } from "@/hooks/useGctlApi";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@/components/connect-button";
 import {
-  calculateProtocolDepositAmount,
-  calculateGctlPaymentAmount,
-  getAvailableCurrencies,
   useSponsorApplication,
-  type PaymentCurrency,
   type AuctionApplication,
 } from "@/hooks/useMiningMarketplace";
+import {
+  useRewardScore,
+  getRewardScoreForApplication,
+} from "@/hooks/useRewardScore";
+import { useFractionSplits } from "@/hooks/useFractionSplits";
 import Decimal from "decimal.js";
 
 interface DepositDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   application: AuctionApplication | null;
-  selectedCurrency: PaymentCurrency;
+  selectedCurrency: "GLW"; // Only GLW is supported for fractions
   onSuccess?: () => void;
 }
 
@@ -55,10 +58,10 @@ export function DepositDialog({
   // const [quoteId, setQuoteId] = React.useState<string>(generateQuoteId());
   const [lockedAtMs, setLockedAtMs] = React.useState<number>(Date.now());
   const [nowMs, setNowMs] = React.useState<number>(Date.now());
-  const [currency, setCurrency] =
-    React.useState<PaymentCurrency>(selectedCurrency);
-  const [useUSDG, setUseUSDG] = React.useState(false);
+  // Only GLW is supported for fractions
+  const currency = "GLW";
   const [acknowledged, setAcknowledged] = React.useState(false);
+  const [stepsToBuy, setStepsToBuy] = React.useState(1);
 
   // Transaction states
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -82,72 +85,43 @@ export function DepositDialog({
     }
   }, [signer]);
 
-  const { fetchTransferDetails, gctlPriceNumber } = useGctlApi(signerAddress);
   const sponsorMutation = useSponsorApplication();
 
-  // Initialize forwarder (will handle null signer internally)
-  const forwarder = useForwarder(
+  // Get reward score for the application
+  const { rewardScoreMap } = useRewardScore({
+    applications: application ? [application] : [],
+    paymentCurrency: currency,
+    enabled: Boolean(application && open),
+  });
+
+  // Initialize offchain fractions hook
+  const fractions = useOffchainFractions(
     signer,
     parseInt(process.env.NEXT_PUBLIC_CHAIN_ID!)
   );
 
   // Balance queries
-  const {
-    data: usdcBalance,
-    isLoading: isUsdcLoading,
-    refetch: refetchUsdcBalance,
-  } = useQuery({
-    queryKey: ["token-balance", "USDC", signerAddress],
-    enabled: Boolean(signer && forwarder && open && signerAddress),
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: true,
-    queryFn: async () => {
-      try {
-        if (!signer || !forwarder) return null;
-        const userAddress = await signer.getAddress();
-        const bal = await forwarder.checkTokenBalance(userAddress, "USDC");
-        return formatUnits(bal, DECIMALS_BY_TOKEN.USDC);
-      } catch (e) {
-        return null;
-      }
-    },
-  });
 
-  const {
-    data: usdgBalance,
-    isLoading: isUsdgLoading,
-    refetch: refetchUsdgBalance,
-  } = useQuery({
-    queryKey: ["token-balance", "USDG", signerAddress],
-    enabled: Boolean(signer && forwarder && open && signerAddress),
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: true,
-    queryFn: async () => {
-      try {
-        if (!signer || !forwarder) return null;
-        const userAddress = await signer.getAddress();
-        const bal = await forwarder.checkTokenBalance(userAddress, "USDG");
-        return formatUnits(bal, DECIMALS_BY_TOKEN.USDG);
-      } catch (e) {
-        return null;
-      }
-    },
-  });
-
+  // GLW balance query
   const {
     data: glwBalance,
     isLoading: isGlwLoading,
     refetch: refetchGlwBalance,
   } = useQuery({
     queryKey: ["token-balance", "GLW", signerAddress],
-    enabled: Boolean(signer && forwarder && open && signerAddress),
+    enabled: Boolean(
+      signer && fractions.isSignerAvailable && open && signerAddress
+    ),
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
     queryFn: async () => {
       try {
-        if (!signer || !forwarder) return null;
+        if (!signer || !fractions.isSignerAvailable) return null;
         const userAddress = await signer.getAddress();
-        const bal = await forwarder.checkTokenBalance(userAddress, "GLW");
+        const bal = await fractions.checkTokenBalance(
+          userAddress,
+          fractions.addresses.GLW
+        );
         return formatUnits(bal, DECIMALS_BY_TOKEN.GLW);
       } catch (e) {
         return null;
@@ -155,93 +129,45 @@ export function DepositDialog({
     },
   });
 
+  // Splits polling using the dedicated hook
+  const {
+    summary: splitsSummary,
+    isLoading: isLoadingSplits,
+    refetch: refetchSplits,
+  } = useFractionSplits({
+    walletAddress: signerAddress || null,
+    fractionId: application?.activeFraction?.id || null,
+    enabled: Boolean(signerAddress && application?.activeFraction?.id && open),
+    refetchInterval: 10_000, // Poll every 10 seconds
+  });
+
   // const expiryMs = lockedAtMs + QUOTE_LOCK_MINUTES * 60 * 1000;
   // const secondsRemaining = Math.max(0, Math.floor((expiryMs - nowMs) / 1000));
   // const minutes = Math.floor(secondsRemaining / 60);
   // const seconds = secondsRemaining % 60;
 
-  // Calculate deposit amounts and available currencies
-  const availableCurrencies = React.useMemo(() => {
-    return application
-      ? getAvailableCurrencies(application.applicationPriceQuotes)
-      : [];
-  }, [application]);
-
-  const depositAmount = React.useMemo(() => {
-    if (!application) return null;
-
-    // If GCTL is selected and we're paying with USDC/USDG
-    if (currency === "GCTL" && gctlPriceNumber > 0) {
-      return calculateGctlPaymentAmount(
-        application.finalProtocolFee,
-        application.applicationPriceQuotes,
-        gctlPriceNumber
-      );
-    }
-
-    // For all other currencies, use standard calculation
-    return calculateProtocolDepositAmount(
-      application.finalProtocolFee,
-      application.applicationPriceQuotes,
-      currency
-    );
-  }, [application, currency, gctlPriceNumber]);
-
-  const depositAmountNumber = React.useMemo(() => {
-    if (!depositAmount) return 0;
-    try {
-      return new Decimal(depositAmount).toNumber();
-    } catch {
-      return 0;
-    }
-  }, [depositAmount]);
+  // For fractions, we use step-based purchasing instead of deposit amounts
+  const depositAmountNumber = 0;
 
   // Get user balance for selected currency
   const userBalance = React.useMemo(() => {
-    const effectiveCurrency =
-      currency === "GCTL" ? (useUSDG ? "USDG" : "USDC") : currency;
-
     try {
-      switch (effectiveCurrency) {
-        case "USDC":
-          return new Decimal(usdcBalance || "0").toNumber();
-        case "USDG":
-          return new Decimal(usdgBalance || "0").toNumber();
-        case "GLW":
-          return new Decimal(glwBalance || "0").toNumber();
-        default:
-          return 0;
+      // Only GLW is supported for fractions
+      if (application?.activeFraction) {
+        return new Decimal(glwBalance || "0").toNumber();
       }
+
+      // Legacy support for non-fraction applications (though these are no longer supported)
+      return new Decimal(glwBalance || "0").toNumber();
     } catch {
       return 0;
     }
-  }, [currency, useUSDG, usdcBalance, usdgBalance, glwBalance]);
+  }, [glwBalance, application?.activeFraction]);
 
   const hasInsufficientBalance = depositAmountNumber > userBalance;
 
-  // Format display values - moved before early returns to maintain hook order
-  const displayCurrency =
-    currency === "GCTL" ? (useUSDG ? "USDG" : "USDC") : currency;
-  const paymentAmountText = React.useMemo(() => {
-    if (!application) return "0";
-    if (currency === "GCTL" && gctlPriceNumber > 0) {
-      const gctlPaymentAmount = calculateGctlPaymentAmount(
-        application.finalProtocolFee,
-        application.applicationPriceQuotes,
-        gctlPriceNumber
-      );
-      if (gctlPaymentAmount) {
-        try {
-          const amount = new Decimal(gctlPaymentAmount);
-          return formatNumber(amount.toNumber(), 0);
-        } catch {
-          return "0";
-        }
-      }
-      return "0";
-    }
-    return formatNumber(depositAmountNumber, 0);
-  }, [application, currency, gctlPriceNumber, depositAmountNumber]);
+  // For fractions, display currency is always GLW
+  const displayCurrency = "GLW";
 
   // Reset states when dialog opens/closes
   React.useEffect(() => {
@@ -260,14 +186,7 @@ export function DepositDialog({
     }
   }, [open]);
 
-  // Sync with externally selected currency
-  React.useEffect(() => {
-    if (availableCurrencies.includes(selectedCurrency)) {
-      setCurrency(selectedCurrency);
-    } else if (availableCurrencies.length > 0) {
-      setCurrency(availableCurrencies[0]);
-    }
-  }, [selectedCurrency, availableCurrencies]);
+  // For fractions, currency is always GLW - no need to sync
 
   // // Update quote when currency changes
   // React.useEffect(() => {
@@ -284,9 +203,13 @@ export function DepositDialog({
     return () => clearInterval(interval);
   }, [open]);
 
-  async function handleConfirm() {
-    if (!application || !signer || !forwarder || !depositAmount) {
-      toast.error("Missing required information for payment");
+  async function handleStepPurchase() {
+    if (
+      !application?.activeFraction ||
+      !signer ||
+      !fractions.isSignerAvailable
+    ) {
+      toast.error("Missing required information for share purchase");
       return;
     }
 
@@ -296,299 +219,401 @@ export function DepositDialog({
       setErrorMessage(null);
 
       const userAddress = await signer.getAddress();
+      const { activeFraction } = application;
 
-      // Determine actual payment currency and amount
-      const useGCTL = currency === "GCTL";
-      const actualPaymentCurrency = useGCTL
-        ? useUSDG
-          ? "USDG"
-          : "USDC"
-        : currency;
+      console.log(
+        `Buying ${stepsToBuy} shares for application ${application.id}`
+      );
+      console.log(`Share price: ${activeFraction.step} GLW`);
 
-      const paymentAmount = useGCTL
-        ? calculateGctlPaymentAmount(
-            application.finalProtocolFee,
-            application.applicationPriceQuotes,
-            gctlPriceNumber
-          )
-        : depositAmount;
+      // Calculate total GLW needed
+      const totalGlwNeeded = BigInt(activeFraction.step) * BigInt(stepsToBuy);
 
-      if (!paymentAmount) {
-        throw new Error(`Price not available in ${actualPaymentCurrency}`);
+      // Check GLW balance
+      const glwBalance = await fractions.checkTokenBalance(
+        userAddress,
+        fractions.addresses.GLW
+      );
+
+      if (glwBalance < totalGlwNeeded) {
+        throw new Error(
+          `Insufficient GLW balance. Need ${formatUnits(
+            totalGlwNeeded,
+            DECIMALS_BY_TOKEN.GLW
+          )} GLW, have ${formatUnits(glwBalance, DECIMALS_BY_TOKEN.GLW)} GLW`
+        );
       }
 
-      const actualDecimals = getCurrencyDecimals(actualPaymentCurrency);
-      console.log("paymentAmount", paymentAmount);
-      console.log("actualDecimals", actualDecimals);
-
-      // Use Decimal for precise conversion
-      const paymentAmountDecimal = new Decimal(paymentAmount);
-      const multiplier = new Decimal(10).pow(actualDecimals);
-      const amountBigInt = BigInt(
-        paymentAmountDecimal.mul(multiplier).toFixed(0)
-      );
-      const amount = amountBigInt;
-
-      // Phase 1: Token Approval
-      await forwarder.approveToken(
-        amount,
-        actualPaymentCurrency as "USDC" | "USDG" | "GLW"
+      // Check and approve GLW allowance if needed
+      const currentAllowance = await fractions.checkTokenAllowance(
+        userAddress,
+        fractions.addresses.GLW
       );
 
-      // Refresh balances after approval
-      await Promise.all([
-        refetchUsdcBalance(),
-        refetchUsdgBalance(),
-        refetchGlwBalance(),
-      ]);
+      if (currentAllowance < totalGlwNeeded) {
+        console.log("Approving GLW tokens...");
+        toast.info("Approving GLW tokens...");
 
-      // Phase 2: Payment Processing
-      const paymentTxHash = useGCTL
-        ? await forwarder.sponsorProtocolFeeAndMintGCTLAndStake(
-            amount,
+        try {
+          await fractions.approveToken(fractions.addresses.GLW, totalGlwNeeded);
+
+          // Wait a bit for approval to be indexed
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          // Verify approval was successful
+          const newAllowance = await fractions.checkTokenAllowance(
             userAddress,
-            application.id,
-            actualPaymentCurrency as "USDC" | "USDG"
-          )
-        : await forwarder.sponsorProtocolFee(
-            amount,
-            userAddress,
-            application.id,
-            actualPaymentCurrency as "USDC" | "USDG" | "GLW"
+            fractions.addresses.GLW
           );
 
-      setTxHash(paymentTxHash);
+          if (newAllowance < totalGlwNeeded) {
+            throw new Error("Token approval failed. Please try again.");
+          }
+        } catch (approvalError: any) {
+          if (
+            approvalError.message?.includes("User rejected") ||
+            approvalError.message?.includes("User denied")
+          ) {
+            throw new Error("Token approval was rejected");
+          }
+          throw approvalError;
+        }
+      }
+
+      // Buy fractions
+      console.log("Buying fractions...");
+      toast.info("Processing share purchase...");
+
+      const txHash = await fractions.buyFractions({
+        creator: activeFraction.owner,
+        id: activeFraction.id,
+        stepsToBuy: BigInt(stepsToBuy),
+        minStepsToBuy: BigInt(stepsToBuy), // Same as stepsToBuy for now
+      });
+
+      setTxHash(txHash);
       setIsSubmitting(false);
       setIsProcessing(true);
 
-      // Store values for use in polling callback
-      const sponsorshipData = {
-        applicationId: application.id,
-        amount: amount,
-        currency: actualPaymentCurrency,
-        txHash: paymentTxHash,
-      };
+      // Validate that we actually got a transaction hash
+      if (!txHash) {
+        throw new Error(
+          "No transaction hash received. Transaction may not have been submitted."
+        );
+      }
 
-      // Start polling for transaction confirmation
-      let pollCount = 0;
-      const maxPolls = 15; // Poll for up to 5 minutes (15 * 10s)
-      let transferFound = false;
+      // Poll for transaction confirmation
+      const provider = signer.provider;
+      let receipt = null;
 
-      const pollInterval = setInterval(async () => {
-        try {
-          pollCount++;
+      if (provider) {
+        let attempts = 0;
+        const maxAttempts = 60; // 60 attempts with 1 second delay = 1 minute max
 
-          const result = await fetchTransferDetails(paymentTxHash);
-
-          if (result.ok) {
-            const transfer = result.val;
-            transferFound = true;
-            console.log("Transfer status:", transfer.status);
-
-            if (transfer.status === "confirmed") {
-              clearInterval(pollInterval);
-              setIsProcessing(false);
-              setIsSuccess(true);
-
-              // Refresh balances after payment
-              await Promise.all([
-                refetchUsdcBalance(),
-                refetchUsdgBalance(),
-                refetchGlwBalance(),
-              ]);
-
-              // Trigger the mutation to invalidate queries
-              await sponsorMutation.mutateAsync({
-                ...sponsorshipData,
-                onSuccess: onSuccess,
-              });
-            } else if (transfer.status === "failed") {
-              clearInterval(pollInterval);
-              setIsProcessing(false);
-              setIsError(true);
-              setErrorMessage("Transaction failed");
+        while (!receipt && attempts < maxAttempts) {
+          try {
+            receipt = await provider.getTransactionReceipt(txHash);
+            if (receipt) {
+              if (receipt.status === 0) {
+                throw new Error("Transaction failed on-chain");
+              }
+              break;
             }
-          } else if (pollCount >= maxPolls) {
-            // After 2 minutes, if transfer not found, show error
-            clearInterval(pollInterval);
-            setIsProcessing(false);
-            setIsError(true);
-
-            if (!transferFound) {
-              setErrorMessage(
-                `Transaction not found after 2 minutes. Your transaction ID is: ${paymentTxHash}. Please save this ID and try again later or contact support.`
-              );
-            } else {
-              // Transfer was found but still pending after 2 minutes
-              setErrorMessage(
-                `Transaction is taking longer than expected. Your transaction ID is: ${paymentTxHash}. Please save this ID and check back later.`
-              );
-            }
+          } catch (e) {
+            console.log("Waiting for transaction confirmation...");
           }
-        } catch (error) {
-          console.error("Error polling transaction status:", error);
-          // Continue polling on error
+
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          attempts++;
         }
-      }, 10000); // Poll every 10 seconds
+
+        if (!receipt) {
+          throw new Error(
+            "Transaction confirmation timeout. Please check your wallet for the transaction status."
+          );
+        }
+      } else {
+        throw new Error(
+          "Unable to confirm transaction - provider not available"
+        );
+      }
+
+      // Wait for splits polling to confirm the purchase
+      console.log("Waiting for splits confirmation...");
+      toast.info("Waiting for purchase confirmation...");
+
+      // Refresh splits immediately to start polling
+      await refetchSplits();
+
+      // Poll splits until we see the purchase reflected
+      const maxWaitTime = 60000; // 60 seconds max wait
+      const pollInterval = 5000; // Check every 5 seconds
+      let waitTime = 0;
+      let purchaseConfirmed = false;
+
+      const initialStepsPurchased = splitsSummary.totalStepsPurchased;
+
+      while (waitTime < maxWaitTime && !purchaseConfirmed) {
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        waitTime += pollInterval;
+
+        // Refresh splits data
+        const { data: latestSplits } = await refetchSplits();
+
+        if (
+          latestSplits &&
+          latestSplits.summary.totalStepsPurchased > initialStepsPurchased
+        ) {
+          purchaseConfirmed = true;
+          console.log(
+            `Purchase confirmed! User now owns ${latestSplits.summary.totalStepsPurchased} total shares`
+          );
+          break;
+        }
+      }
+
+      if (!purchaseConfirmed) {
+        console.warn(
+          "Purchase confirmation timeout - transaction may still be processing"
+        );
+        toast.warning(
+          "Purchase may still be processing. Check your wallet for updates."
+        );
+      }
+
+      // Only set success after confirmation (or timeout)
+      setIsProcessing(false);
+      setIsSuccess(true);
+
+      // Refresh balances
+      await refetchGlwBalance();
+
+      toast.success(`Successfully purchased ${stepsToBuy} shares!`);
+
+      // Trigger the mutation to invalidate queries
+      await sponsorMutation.mutateAsync({
+        applicationId: application.id,
+        amount: totalGlwNeeded,
+        currency: "GLW",
+        txHash: txHash,
+        onSuccess: onSuccess,
+      });
     } catch (error: any) {
       setIsSubmitting(false);
+      setIsProcessing(false);
       setIsError(true);
-      const message = error?.message || "Transaction failed";
+
+      let message = "Share purchase failed";
+
+      // Handle specific error types based on OffchainFractionsError enum
+      if (
+        error.message?.includes("Insufficient balance") ||
+        error.message?.includes("Insufficient GLW balance")
+      ) {
+        message = error.message;
+      } else if (
+        error.message?.includes("User rejected") ||
+        error.message?.includes("User denied")
+      ) {
+        message = "Transaction was rejected";
+      } else if (error.message?.includes("Token approval")) {
+        message = error.message;
+      } else if (error.message?.includes("Invalid parameters")) {
+        message = "Invalid purchase parameters";
+      } else if (error.message?.includes("Fraction not found")) {
+        message = "Application fraction not found";
+      } else if (error.message?.includes("Transaction failed on-chain")) {
+        message = "Transaction failed. Please check your wallet and try again.";
+      } else if (error.message) {
+        // Use the error message if it's informative
+        message = error.message;
+      }
+
       setErrorMessage(message);
       setTxHash(error?.txHash ?? null);
-      console.error("handlePayment error", error);
+      console.error("handleStepPurchase error", error);
       toast.error(message);
     }
+  }
+
+  async function handleConfirm() {
+    // Only handle step-based purchasing for fractions
+    if (application?.activeFraction) {
+      return handleStepPurchase();
+    }
+
+    // No other payment methods are supported
+    toast.error("Only fraction-based applications are supported");
   }
 
   // Early return conditions - check these in render
   if (!application) return null;
 
-  // Show connect wallet state
-  if (!isConnected) {
-    return (
-      <TransactionDialog
-        open={open}
-        onOpenChange={onOpenChange}
-        title="Connect Wallet Required"
-        description="Please connect your wallet to sponsor this application"
-        transactionDetails={[]}
-        reviewContent={
-          <div className="py-8">
-            <ConnectButton variant="default" size="large" className="w-full" />
-          </div>
-        }
-      />
-    );
-  }
+  const canConfirm = application.activeFraction
+    ? // For step-based purchasing
+      !isSubmitting &&
+      !isProcessing &&
+      stepsToBuy > 0 &&
+      stepsToBuy <= (application.activeFraction.remainingSteps || 0) &&
+      isConnected &&
+      acknowledged
+    : // For full sponsorship
+      !isSubmitting &&
+      !isProcessing &&
+      !hasInsufficientBalance &&
+      isConnected &&
+      acknowledged;
 
-  const canConfirm =
-    !isSubmitting &&
-    !isProcessing &&
-    !hasInsufficientBalance &&
-    depositAmount &&
-    isConnected &&
-    acknowledged;
+  // Get reward score for display
+  const rewardScore = application
+    ? getRewardScoreForApplication(rewardScoreMap, application.id)
+    : null;
 
   // Transaction details
-  const transactionDetails: TransactionDetail[] = [
-    {
-      label: "Reward Score",
-      value: 0, //TODO: Replace with actual reward score
-    },
-    {
-      label: "Location",
-      value: application.zone.name,
-    },
-    {
-      label: currency === "GCTL" ? "Payment Amount" : "Protocol Deposit",
-      value: paymentAmountText,
-      unit: displayCurrency,
-    },
-    ...(currency === "GCTL"
-      ? [
-          {
-            label: "GCTL Amount",
-            value: formatNumber(
-              new Decimal(
-                calculateProtocolDepositAmount(
-                  application.finalProtocolFee,
-                  application.applicationPriceQuotes,
-                  "GCTL"
-                ) || "0"
-              ).toNumber(),
-              0
+  const transactionDetails: TransactionDetail[] = application.activeFraction
+    ? [
+        {
+          label: "Location",
+          value: application.zone.name,
+        },
+        {
+          label: "Shares to Buy",
+          value: stepsToBuy.toString(),
+        },
+        {
+          label: "Price per Share",
+          value: formatNumber(
+            parseFloat(
+              formatUnits(
+                BigInt(application.activeFraction.step),
+                DECIMALS_BY_TOKEN["GLW"]
+              )
             ),
-            unit: "GCTL",
-          },
-        ]
-      : []),
-    {
-      label: "Sponsor Split",
-      value: `${application.sponsorSplitPercent}%`,
-    },
-  ];
+            0
+          ),
+          unit: "GLW",
+        },
+      ]
+    : [];
 
   // Success details
-  const successDetails: TransactionDetail[] = [
-    {
-      label: "Amount Paid",
-      value: paymentAmountText,
-      unit: displayCurrency,
-    },
-    {
-      label: "Farm Sponsored",
-      value:
-        application.enquiryFields?.farmOwnerName ||
-        `Farm ${application.id.slice(0, 8)}`,
-    },
-    {
-      label: "Your Sponsor Split",
-      value: `${application.sponsorSplitPercent}%`,
-    },
-  ];
+  const successDetails: TransactionDetail[] = application.activeFraction
+    ? [
+        {
+          label: "Shares Purchased",
+          value: stepsToBuy.toString(),
+        },
+        {
+          label: "Total GLW Paid",
+          value: formatNumber(
+            parseFloat(
+              formatUnits(
+                BigInt(application.activeFraction.step) * BigInt(stepsToBuy),
+                DECIMALS_BY_TOKEN["GLW"]
+              )
+            ),
+            0
+          ),
+          unit: "GLW",
+        },
+        {
+          label: "Farm",
+          value:
+            application.enquiryFields?.farmOwnerName ||
+            `Farm ${application.id.slice(0, 8)}`,
+        },
+      ]
+    : [];
 
   // Custom review content
   const reviewContent = (
     <div className="space-y-4">
-      {/* Currency Selection */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
-            Payment Currency
-          </span>
-          <Select
-            value={currency}
-            onValueChange={(v) => setCurrency(v as PaymentCurrency)}
-            disabled={isSubmitting}
-          >
-            <SelectTrigger className="w-[140px] h-8">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {availableCurrencies.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* USDC/USDG toggle for GCTL */}
-        {currency === "GCTL" && (
-          <div className="flex items-center justify-between pl-4">
-            <span className="text-xs text-muted-foreground">Pay with</span>
-            <Select
-              value={useUSDG ? "USDG" : "USDC"}
-              onValueChange={(v) => setUseUSDG(v === "USDG")}
-              disabled={isSubmitting}
-            >
-              <SelectTrigger className="w-[100px] h-7 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="USDC">USDC</SelectItem>
-                <SelectItem value="USDG">USDG</SelectItem>
-              </SelectContent>
-            </Select>
+      {/* Step Selection for Fractions or Currency Selection for Full Sponsorship */}
+      {application.activeFraction ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Shares to Buy</span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setStepsToBuy(Math.max(1, stepsToBuy - 1))}
+                disabled={stepsToBuy <= 1 || isSubmitting}
+                className="h-8 w-8 p-0"
+              >
+                -
+              </Button>
+              <span className="text-sm font-mono w-12 text-center">
+                {stepsToBuy}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setStepsToBuy(
+                    Math.min(
+                      application.activeFraction?.remainingSteps || 1,
+                      stepsToBuy + 1
+                    )
+                  )
+                }
+                disabled={
+                  stepsToBuy >=
+                    (application.activeFraction?.remainingSteps || 0) ||
+                  isSubmitting
+                }
+                className="h-8 w-8 p-0"
+              >
+                +
+              </Button>
+            </div>
           </div>
-        )}
-      </div>
+          <div className="text-xs text-muted-foreground text-right">
+            Max: {application.activeFraction.remainingSteps} shares available
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              Payment Currency
+            </span>
+            GLW
+          </div>
+        </div>
+      )}
+
+      {/* USDC/USDG toggle not needed for fractions */}
 
       {/* Balance Info */}
-      <div className="bg-muted/50 border border-border rounded-lg p-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Your Balance</span>
-          <span
-            className={`text-sm font-mono ${
-              hasInsufficientBalance ? "text-destructive" : ""
-            }`}
-          >
-            {formatNumber(userBalance, 2)} {displayCurrency}
-          </span>
+      {!application.activeFraction && (
+        <div className="bg-muted/50 border border-border rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Your Balance</span>
+            <span
+              className={`text-sm font-mono ${
+                hasInsufficientBalance ? "text-destructive" : ""
+              }`}
+            >
+              {formatNumber(userBalance, 2)} {displayCurrency}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* GLW Balance Info for Step Purchases */}
+      {application.activeFraction && (
+        <div className="bg-muted/50 border border-border rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              Your GLW Balance
+            </span>
+            <span className="text-sm font-mono">
+              {formatNumber(parseFloat(glwBalance || "0"), 2)} GLW
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Quote Expiry */}
       {/* <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
@@ -624,13 +649,29 @@ export function DepositDialog({
       </div>
 
       {/* Insufficient Balance Warning */}
-      {hasInsufficientBalance && (
+      {!application.activeFraction && hasInsufficientBalance && (
         <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
           <div className="text-sm text-destructive">
             Insufficient {displayCurrency} balance
           </div>
         </div>
       )}
+
+      {/* Insufficient GLW Balance Warning for Step Purchases */}
+      {application.activeFraction &&
+        parseFloat(glwBalance || "0") <
+          parseFloat(
+            formatUnits(
+              BigInt(application.activeFraction.step) * BigInt(stepsToBuy),
+              DECIMALS_BY_TOKEN["GLW"]
+            )
+          ) && (
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+            <div className="text-sm text-destructive">
+              Insufficient GLW balance for {stepsToBuy} shares
+            </div>
+          </div>
+        )}
     </div>
   );
 
@@ -709,12 +750,41 @@ export function DepositDialog({
               className="mt-0.5 border-accent size-5"
             />
             <span className="text-foreground leading-relaxed">
-              I understand that I am sponsoring this solar farm and will receive{" "}
-              {application.sponsorSplitPercent}% of the weekly GLW rewards
-              generated
+              {application.activeFraction
+                ? `I understand that I am purchasing ${stepsToBuy} shares of this solar farm and will receive ${application.activeFraction.sponsorSplitPercent}% of the weekly GLW rewards for each share owned`
+                : `I understand that I am sponsoring this solar farm and will receive ${application.sponsorSplitPercent}% of the weekly GLW rewards generated`}
             </span>
           </label>
         </div>
+
+        {/* Prominent Total Cost Row - only for fractions */}
+        {application.activeFraction && (
+          <div className="mb-6 p-4 bg-accent/5 border-2 border-accent/20 rounded-xl">
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold text-foreground">
+                Total Cost
+              </span>
+              <div className="text-right">
+                <span className="text-xl font-bold text-foreground">
+                  {formatNumber(
+                    parseFloat(
+                      formatUnits(
+                        BigInt(application.activeFraction.step) *
+                          BigInt(stepsToBuy),
+                        DECIMALS_BY_TOKEN["GLW"]
+                      )
+                    ),
+                    0
+                  )}
+                </span>
+                <span className="text-base font-semibold text-muted-foreground ml-1">
+                  GLW
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-3">
           <Button
             variant="outline"
@@ -723,13 +793,24 @@ export function DepositDialog({
           >
             Cancel
           </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={!canConfirm}
-            className="flex-1"
-          >
-            Confirm Sponsorship
-          </Button>
+          {isConnected ? (
+            <Button
+              onClick={handleConfirm}
+              disabled={!canConfirm}
+              className="flex-1"
+            >
+              {application.activeFraction
+                ? `Buy ${stepsToBuy} Shares`
+                : "Confirm Sponsorship"}
+            </Button>
+          ) : (
+            <ConnectButton
+              className="flex-1"
+              size="medium"
+              variant="default"
+              onConnect={() => onOpenChange(false)}
+            />
+          )}
         </div>
       </>
     ) : null;
@@ -741,19 +822,42 @@ export function DepositDialog({
       isSubmitting={isSubmitting || isProcessing}
       isSuccess={isSuccess}
       isError={isError}
-      title="Confirm Sponsorship"
-      successTitle="Farm Sponsored!"
-      errorTitle="Sponsorship Failed"
-      processingTitle={
-        isProcessing ? "Confirming Transaction" : "Processing Sponsorship"
+      title={
+        application.activeFraction ? "Buy Farm Shares" : "Confirm Sponsorship"
       }
-      description="Review your sponsorship details"
+      successTitle={
+        application.activeFraction ? "Shares Purchased!" : "Farm Sponsored!"
+      }
+      errorTitle={
+        application.activeFraction
+          ? "Share Purchase Failed"
+          : "Sponsorship Failed"
+      }
+      processingTitle={
+        isProcessing
+          ? "Confirming Transaction"
+          : application.activeFraction
+          ? "Processing Share Purchase"
+          : "Processing Sponsorship"
+      }
+      description={
+        application.activeFraction
+          ? "Review your share purchase details"
+          : "Review your sponsorship details"
+      }
       processingDescription={
         isProcessing
-          ? "Waiting for blockchain confirmation..."
+          ? "Confirming transaction and updating records..."
+          : application.activeFraction
+          ? "Please wait while we process your share purchase"
           : "Please wait while we process your sponsorship"
       }
-      errorDescription={errorMessage || "Failed to sponsor the farm"}
+      errorDescription={
+        errorMessage ||
+        (application.activeFraction
+          ? "Failed to purchase shares"
+          : "Failed to sponsor the farm")
+      }
       transactionDetails={transactionDetails}
       successDetails={successDetails}
       txHash={txHash}

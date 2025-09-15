@@ -700,6 +700,10 @@
   animation: float-delayed 8s ease-in-out infinite;
 }
 
+[data-rk] {
+  z-index: 1000 !important;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

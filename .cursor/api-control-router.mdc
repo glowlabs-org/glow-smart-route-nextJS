@@ -1,8 +1,8 @@
 ---
-description: 
-globs: 
+description: control staking gctl
 alwaysApply: false
 ---
+
 # Control Router
 
 This directory implements the API for purchasing GCTL with on-chain stable-coins (**USDC**, **USDG**) and – for protocol-fee transfers – (**USDC**, **USDG**,**GLW**), integrating with BullMQ for async confirmation.
