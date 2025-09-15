@@ -4,19 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import {
-  Menu,
-  X,
-  Wallet,
-  ChevronDown,
-  Copy,
-  Loader2,
-  LogOut,
-  User,
-  List,
-  Plus,
-  DollarSign,
-} from "lucide-react";
+import { Menu, X, Wallet, ChevronDown, Copy, LogOut, User } from "lucide-react";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -136,6 +124,9 @@ export function Header({
                         title="Liquidity"
                       >
                         Add liquidity to the GLW/USDG pool and earn rewards
+                      </ListItem>
+                      <ListItem href="/glow-launchpad" title="Glow Launchpad">
+                        Sponsor solar farms and earn weekly GLW rewards
                       </ListItem>
                     </ul>
                   </NavigationMenuContent>
@@ -312,16 +303,12 @@ export function Header({
                       <Copy className="w-4 h-4 mr-2" /> Copy address
                     </DropdownMenuItem>
 
-                    {/* <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link
-                      href={`/profile/${address}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <User className="w-4 h-4 mr-2" /> View profile
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator /> */}
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                      <Link href={`/wallet`} rel="noreferrer">
+                        <User className="w-4 h-4 mr-2" /> My Wallet
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onSelect={(e) => {
                         e.preventDefault();
@@ -696,17 +683,13 @@ export function Header({
                         >
                           <Copy className="w-4 h-4 mr-2" /> Copy address
                         </DropdownMenuItem>
-                        {/* 
-                    <DropdownMenuItem asChild className="cursor-pointer">
-                      <Link
-                        href={`/profile/${address}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <User className="w-4 h-4 mr-2" /> View profile
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator /> */}
+
+                        <DropdownMenuItem asChild className="cursor-pointer">
+                          <Link href={`/wallet`} rel="noreferrer">
+                            <User className="w-4 h-4 mr-2" /> My Wallet
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onSelect={(e) => {
                             e.preventDefault();

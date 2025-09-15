@@ -29,7 +29,7 @@ import { ConnectButton } from "@/components/connect-button";
 import {
   useSponsorApplication,
   type AuctionApplication,
-} from "@/hooks/useMiningMarketplace";
+} from "@/hooks/useGlowLaunchpad";
 import {
   useRewardScore,
   getRewardScoreForApplication,

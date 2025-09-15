@@ -16,7 +16,7 @@ import { formatNumber } from "./utils";
 import {
   useSplitsActivity,
   type SplitActivity,
-} from "@/hooks/useMiningMarketplace";
+} from "@/hooks/useGlowLaunchpad";
 import { cn } from "@/lib/utils";
 
 interface SponsoredFarmsActivityProps {

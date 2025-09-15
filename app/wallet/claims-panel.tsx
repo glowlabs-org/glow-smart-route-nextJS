@@ -115,29 +115,6 @@ export function ClaimsPanel({
               </div>
             </div>
           ))}
-
-          {/* Impact Vesting Info */}
-          {claimable.impactVested !== "0" && (
-            <div className="flex items-start gap-3 p-4 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
-              <div className="p-2 rounded-full bg-background text-purple-600">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div className="flex-1">
-                <div className="font-medium">impact credits Vested</div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  {claimable.impactVested} certificates vested this epoch
-                </div>
-                <div className="flex items-start gap-2 mt-3 text-xs text-muted-foreground">
-                  <AlertCircle className="w-3 h-3 mt-0.5" />
-                  <span>
-                    Vested certificates can be used for binding to farms or
-                    redeemed via Swap for pot value. Vesting occurs weekly and
-                    does not affect your staking rewards.
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Info Section */}

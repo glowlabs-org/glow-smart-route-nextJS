@@ -56,7 +56,7 @@ import { UnstakeDialog } from "@/app/wallet/unstake-dialog";
 import { ContributeDialog } from "@/components/dialogs/ContributeDialog";
 import { StatsSidebar } from "./stats-sidebar";
 
-const tokens = {
+export const tokens = {
   USDG: {
     label: "USDG",
     address: addresses.usdg,
@@ -1299,16 +1299,10 @@ export default function View({
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 mt-2 lg:mt-4">
                 <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full p-4 lg:p-6 h-fit mx-auto max-w-[600px] lg:max-w-none">
                   <SendTab
-                    isConnected={isConnected}
-                    isWalletLoading={isWalletLoading}
-                    balancesLoading={balancesLoading}
-                    glowBalance={glowBalance}
-                    usdgBalance={usdgBalance}
-                    signer={signer}
-                    refreshBalances={refreshBalances}
                     tokens={{
                       GLOW: tokens.GLOW,
                       USDG: tokens.USDG,
+                      USDC: tokens.USDC,
                     }}
                   />
                 </div>

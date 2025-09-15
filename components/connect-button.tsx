@@ -94,7 +94,7 @@ export const ConnectButton = ({
           account &&
           chain &&
           (!authenticationStatus || authenticationStatus === "authenticated");
-
+        console.log({ ready, connected, account, chain, authenticationStatus });
         return (
           <div
             className={clsx("flex justify-center", className)}

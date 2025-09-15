@@ -132,6 +132,8 @@ if (!process.env.NEXT_PUBLIC_CONTROL_API_URL) {
   throw new Error("NEXT_PUBLIC_CONTROL_API_URL is not set");
 }
 
+const farmsRouter = FarmsRouter(process.env.NEXT_PUBLIC_CONTROL_API_URL);
+
 export function useGlowLaunchpad(params: UseGlowLaunchpadParams = {}) {
   const { filters = {}, enabled = true } = params;
 

@@ -14,40 +14,42 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ConnectButton } from "@/components/connect-button";
 import { toast } from "sonner";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
-import { SYMBOLS } from "@/hooks/useERC20Balances";
+import { SYMBOLS, useER20Balances } from "@/hooks/useERC20Balances";
 import { Token } from "./view";
 import { useERC20 } from "@/hooks/useERC20";
 import { formatUnits, isAddress, parseUnits } from "viem";
 import { InstructionsDialog } from "@/components/instructions-dialog";
 import { Info } from "lucide-react";
+import { useEthersSigner } from "@/hooks/useEthersSigner";
+import { useAccount } from "wagmi";
 
 type BalanceLike = bigint | { toString(): string } | null;
 
 interface SendTabProps {
-  isConnected: boolean;
-  isWalletLoading: boolean;
-  balancesLoading: boolean;
-  glowBalance: BalanceLike;
-  usdgBalance: BalanceLike;
-  signer: any;
-
-  refreshBalances: () => Promise<void>;
   tokens: {
     GLOW: Token;
     USDG: Token;
+    USDC: Token;
   };
 }
 
-export function SendTab({
-  isConnected,
-  isWalletLoading,
-  balancesLoading,
-  glowBalance,
-  usdgBalance,
-  signer,
-  refreshBalances,
-  tokens,
-}: SendTabProps) {
+export function SendTab({ tokens }: SendTabProps) {
+  const { isConnected, isConnecting, isReconnecting } = useAccount();
+  const { signer } = useEthersSigner();
+
+  // Get balances using the hook directly
+  const {
+    usdcBalance,
+    usdgBalance,
+    glowBalance,
+    isReady: erc20Ready,
+    isLoading: erc20Loading,
+    refreshBalances,
+  } = useER20Balances({ signer });
+
+  // Add a general loading state check
+  const isWalletLoading = isConnecting || isReconnecting;
+  const balancesLoading = erc20Loading;
   const { sendTokens, isReady: isSendTokensReady } = useERC20({ signer });
   const [amountToSend, setAmountToSend] = useState<string>("0");
   const [selectedTokenSend, setSelectedTokenSend] = useState<Token>(
@@ -67,6 +69,8 @@ export function SendTab({
         ? toBigIntBalance(glowBalance)
         : selectedTokenSend.label === "USDG"
         ? toBigIntBalance(usdgBalance)
+        : selectedTokenSend.label === "USDC"
+        ? toBigIntBalance(usdcBalance)
         : BigInt(0);
 
     return Number(formatUnits(balanceBigInt, selectedTokenSend.decimals));
@@ -124,6 +128,7 @@ export function SendTab({
         );
 
         if (result.ok) {
+          // Refresh balances after successful transaction
           await refreshBalances();
           setPendingSendTx(false);
           toast.success("Transaction successful");
@@ -198,6 +203,7 @@ export function SendTab({
             <SelectContent>
               <SelectItem value="GLOW">GLOW</SelectItem>
               <SelectItem value="USDG">USDG</SelectItem>
+              <SelectItem value="USDC">USDC</SelectItem>
             </SelectContent>
           </Select>
         </div>

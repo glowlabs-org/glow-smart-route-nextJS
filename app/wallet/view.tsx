@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -9,174 +9,94 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import {
-  ArrowDownUp,
-  Info,
-  Send,
-  Plus,
-  Minus,
-  ChevronRight,
-  Shuffle,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { RestakeAssistant } from "@/app/wallet/restake-assistant";
-import { UnstakeDialog } from "@/app/wallet/unstake-dialog";
+import { Send, ChevronRight, RefreshCw, ExternalLink } from "lucide-react";
 import { ClaimsPanel } from "@/app/wallet/claims-panel";
-import { RecentActivity } from "@/app/wallet/recent-activity";
-import { ScenarioType, getScenarioData } from "@/app/wallet/mock-scenarios";
-import { Progress } from "@/components/ui/progress";
+import { useAccount } from "wagmi";
+import { useEthersSigner } from "@/hooks/useEthersSigner";
+import { useER20Balances } from "@/hooks/useERC20Balances";
+import { useGctlApi } from "@/hooks/useGctlApi";
+import { formatUnits } from "ethers";
+import { Header } from "@/components/header";
+import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
+import { SendDialog } from "@/components/send-dialog";
 
 export default function View() {
-  const [selectedScenario, setSelectedScenario] =
-    useState<ScenarioType>("full");
-  const scenarioData = getScenarioData(selectedScenario);
+  const { address, isConnected } = useAccount();
+  const { signer } = useEthersSigner();
+  const [sendDialogOpen, setSendDialogOpen] = React.useState(false);
 
+  // ERC20 balances (GLOW, USDC, USDG)
   const {
-    balances,
-    claimable,
-    impactCertificates,
-    regionYields,
-    purchasedFarms,
-    recentActivity,
-  } = scenarioData;
-  const [activeTab, setActiveTab] = useState<"swap" | "send">("swap");
-  const [swapFrom, setSwapFrom] = useState("USDC");
-  const [swapTo, setSwapTo] = useState("GLOW");
-  const [swapAmount, setSwapAmount] = useState("");
-  const [sendAsset, setSendAsset] = useState("USDC");
-  const [sendTo, setSendTo] = useState("");
-  const [sendAmount, setSendAmount] = useState("");
-  const [autoRestake, setAutoRestake] = useState(true);
-  const [isRestakeOpen, setIsRestakeOpen] = useState(false);
-  const [isPortfolioOpen, setIsPortfolioOpen] = useState(false);
-  const [isUnstakeOpen, setIsUnstakeOpen] = useState(false);
+    usdcBalance,
+    usdgBalance,
+    glowBalance,
+    isReady: erc20Ready,
+    isLoading: erc20Loading,
+    refreshBalances,
+  } = useER20Balances({ signer });
+
+  // GCTL balance and API
+  const { gctlBalance, isGctlBalanceLoading } = useGctlApi(address);
+
+  // Helper functions to format balances
+  function formatBalance(
+    balance: bigint | null,
+    decimals: number = 18
+  ): string {
+    if (!balance) return "0.00";
+    try {
+      const formatted = formatUnits(balance, decimals);
+      const num = parseFloat(formatted);
+      return num.toLocaleString("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      });
+    } catch {
+      return "0.00";
+    }
+  }
+
+  function formatGctlBalance(balance: string): string {
+    try {
+      const balanceBigInt = BigInt(balance);
+      const formatted = formatUnits(balanceBigInt, DECIMALS_BY_TOKEN.GCTL);
+      const num = parseFloat(formatted);
+      return num.toLocaleString("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      });
+    } catch {
+      return "0.00";
+    }
+  }
+
+  // Format balances for display
+  const formattedBalances = {
+    usdc: formatBalance(usdcBalance, DECIMALS_BY_TOKEN.USDC),
+    usdg: formatBalance(usdgBalance, DECIMALS_BY_TOKEN.USDG),
+    glow: formatBalance(glowBalance, DECIMALS_BY_TOKEN.GLW),
+    gctl: formatGctlBalance(gctlBalance),
+  };
 
   // Progressive disclosure helpers
-  function parseAmountString(value: string): number {
-    try {
-      return parseFloat(value.replace(/,/g, "")) || 0;
-    } catch {
-      return 0;
-    }
-  }
+  const hasUsdc = usdcBalance && usdcBalance > BigInt(0);
+  const hasUsdg = usdgBalance && usdgBalance > BigInt(0);
+  const hasGlow = glowBalance && glowBalance > BigInt(0);
+  const hasGctl = gctlBalance && BigInt(gctlBalance) > BigInt(0);
 
-  const hasUsdc = parseAmountString(balances.usdc) > 0;
-  const hasUsdg = parseAmountString(balances.usdg) > 0;
-  const hasGlow = parseAmountString(balances.glow) > 0;
-  const hasGctl =
-    parseAmountString(balances.gctl) > 0 ||
-    parseAmountString(balances.gctlStaked) > 0 ||
-    parseAmountString(balances.gctlUnstaking) > 0;
+  console.log({ usdgBalance });
+  console.log({ gctlBalance });
 
-  const hasUnstaking = parseAmountString(balances.gctlUnstaking) > 0;
-  const impactRegions = Object.entries(impactCertificates)
-    .filter(([, amount]) => (amount as number) > 0)
-    .map(([region]) => `Impact (${region})`);
-
-  // impact credits breakdown helpers
-  const impactEntries = Object.entries(impactCertificates).filter(
-    ([, amount]) => Number(amount) > 0
-  );
-  const totalImpact = impactEntries.reduce(
-    (sum, [, amt]) => sum + Number(amt),
-    0
-  );
-
-  const baseTokenOptions = (() => {
-    const options = new Set<string>();
-    if (hasUsdc) {
-      ["USDG", "GLOW", "GCTL"].forEach((t) => options.add(t));
-    }
-    if (hasUsdg) {
-      ["USDC", "GLOW", "GCTL"].forEach((t) => options.add(t));
-    }
-
-    return Array.from(options);
-  })();
-
-  // From: always include USDC as default; also include assets the user holds (GCTL excluded)
-  const fromOptions = Array.from(
-    new Set([
-      "USDC",
-      ...(hasUsdg ? ["USDG"] : []),
-      ...(hasGlow ? ["GLOW"] : []),
-      ...(hasUsdc ? ["USDC"] : []),
-    ])
-  );
-
-  function isImpactAsset(symbol: string): boolean {
-    return symbol.startsWith("Impact (");
-  }
-
-  // To options are constrained by protocol rules
-  const toOptions = (() => {
-    switch (swapFrom) {
-      case "GLOW":
-        return ["USDC", "USDG"]; // GLW is tradable only to USDC or USDG
-      case "USDC":
-        return ["USDG", "GLOW", "GCTL"]; // USDC → USDG/GLW or mint GCTL
-      case "USDG":
-        return ["USDC", "GLOW", "GCTL"]; // USDG → USDC/GLW or mint GCTL
-      default:
-        // For any other source (e.g., Impact via special flows), fall back to core tokens
-        return ["USDC", "USDG", "GLOW"];
-    }
-  })();
-
-  // Ensure currently selected assets remain valid across scenarios
-  React.useEffect(() => {
-    if (fromOptions.length > 0 && !fromOptions.includes(swapFrom)) {
-      setSwapFrom(fromOptions[0]);
-    }
-    if (toOptions.length > 0 && !toOptions.includes(swapTo)) {
-      setSwapTo(toOptions[0]);
-    }
-    if (baseTokenOptions.length > 0 && !baseTokenOptions.includes(sendAsset)) {
-      setSendAsset(baseTokenOptions[0]);
-    }
-  }, [selectedScenario, balances, impactCertificates]);
-
-  // Mock functions
-  const handleSwap = () => {
-    if (!swapAmount) {
-      toast.error("Please enter an amount");
-      return;
-    }
-    if (swapTo === "GCTL") {
-      toast.success("Minting GCTL (mock)", {
-        description: `${swapFrom} → GCTL prepared`,
-      });
-    } else {
-      toast.success(`Swapping ${swapAmount} ${swapFrom} to ${swapTo}`, {
-        description: "Transaction submitted successfully",
-      });
-    }
-    setSwapAmount("");
+  // Mock claimable data for now (TODO: implement real claimable data)
+  const claimable = {
+    usdg: "0",
+    glow: "0",
+    impactVested: "0",
   };
 
-  const handleSend = () => {
-    if (!sendAmount || !sendTo) {
-      toast.error("Please fill all fields");
-      return;
-    }
-    toast.success(`Sending ${sendAmount} ${sendAsset}`, {
-      description: `To: ${sendTo.slice(0, 6)}...${sendTo.slice(-4)}`,
-    });
-    setSendAmount("");
-    setSendTo("");
-  };
+  // Mock purchased farms for now (TODO: implement real farm data)
+  const purchasedFarms: any[] = [];
 
   const handleClaim = (token: string) => {
     toast.success(`Claiming ${token}`, {
@@ -196,105 +116,68 @@ export default function View() {
         toast.info("No USDG available to swap");
         return;
       }
-      setActiveTab("swap");
-      setSwapFrom("USDG");
-      setSwapTo("USDC");
-      setSwapAmount(parseAmountString(balances.usdg).toString());
+      //TODO: open swap modal
+      toast.info("Swap modal would open");
       toast.success("Prepared USDG → USDC swap (1:1)");
     } catch (error: any) {
       toast.error(error?.message || "Failed to prepare swap");
     }
   };
 
-  function prepareSwap(from: string, to: string, amount: string) {
-    try {
-      setActiveTab("swap");
-      setSwapFrom(from);
-      setSwapTo(to);
-      setSwapAmount(amount);
-      toast.success(`Prepared ${from} → ${to} swap`);
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to prepare swap");
-    }
-  }
-
   const handleSwapUsdcToUsdg = () => {
     if (!hasUsdc) {
       toast.info("No USDC available to swap");
       return;
     }
-    prepareSwap("USDC", "USDG", parseAmountString(balances.usdc).toString());
+    //TODO: open swap modal
+    toast.info("Swap modal would open");
   };
 
+  // Show connection prompt if not connected
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Connect Your Wallet</h2>
+          <p className="text-muted-foreground mb-6">
+            Please connect your wallet to view your balances and manage your
+            assets.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 xl:px-16 py-8">
+    <div className="min-h-screen bg-background ">
+      <Header withIsScrolled={false} />
+      <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 xl:px-16 py-8 pt-24">
         {/* Page Header with Scenario Selector */}
         <div className="flex items-start justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold">Power Wallet</h1>
             <p className="text-muted-foreground mt-2">
-              Your balances, staking, swaps, claims, and recent activity across
-              Glow
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-2">
-              <Shuffle className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Test Scenario</span>
-            </div>
-            <Select
-              value={selectedScenario}
-              onValueChange={(value) =>
-                setSelectedScenario(value as ScenarioType)
-              }
-            >
-              <SelectTrigger className="w-[250px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="full">
-                  Full Dashboard (All Features)
-                </SelectItem>
-                <SelectItem value="glow-only">GLOW Holder Only</SelectItem>
-                <SelectItem value="usdc-only">USDC Holder Only</SelectItem>
-                <SelectItem value="glow-and-usdc">
-                  GLOW & USDC Holder
-                </SelectItem>
-                <SelectItem value="gctl-staker">Active GCTL Staker</SelectItem>
-                <SelectItem value="new-user">New User (Empty)</SelectItem>
-                <SelectItem value="no-activity">No Recent Activity</SelectItem>
-                <SelectItem value="no-farms">No Purchased Farms</SelectItem>
-
-                <SelectItem value="impact-holder">
-                  Impact Certificate Holder
-                </SelectItem>
-                <SelectItem value="unstaking-user">
-                  Unstaking in Progress
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              For UX Workshop Testing
+              Your all-in-one wallet for Glow
             </p>
           </div>
         </div>
 
         {/* A. Balances & Claims Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          {/* USDC Card */}
-
+          {/* USDC Card - Always show when connected */}
           <Card className="relative overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">USDC</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${balances.usdc}</div>
+              <div className="text-2xl font-bold">
+                ${erc20Loading || !erc20Ready ? "..." : formattedBalances.usdc}
+              </div>
               <div className="flex items-center gap-2 mt-3">
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => toast.info("Send modal would open")}
+                  onClick={() => setSendDialogOpen(true)}
                 >
                   <Send className="w-3 h-3 mr-1" />
                   Send
@@ -312,14 +195,20 @@ export default function View() {
             </CardContent>
           </Card>
 
-          {/* USDG Card */}
-          {(hasUsdg || claimable.usdg !== "0") && (
+          {/* USDG Card - Show if has balance, claimable, or still loading */}
+          {(hasUsdg ||
+            claimable.usdg !== "0" ||
+            erc20Loading ||
+            !erc20Ready) && (
             <Card className="relative overflow-hidden">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">USDG</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${balances.usdg}</div>
+                <div className="text-2xl font-bold">
+                  $
+                  {erc20Loading || !erc20Ready ? "..." : formattedBalances.usdg}
+                </div>
                 {claimable.usdg !== "0" && (
                   <div className="mt-2">
                     <div className="text-xs text-muted-foreground">
@@ -349,14 +238,19 @@ export default function View() {
             </Card>
           )}
 
-          {/* GLOW Card */}
-          {(hasGlow || claimable.glow !== "0") && (
+          {/* GLOW Card - Show if has balance, claimable, or still loading */}
+          {(hasGlow ||
+            claimable.glow !== "0" ||
+            erc20Loading ||
+            !erc20Ready) && (
             <Card className="relative overflow-hidden">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">GLOW</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{balances.glow}</div>
+                <div className="text-2xl font-bold">
+                  {erc20Loading || !erc20Ready ? "..." : formattedBalances.glow}
+                </div>
                 {claimable.glow !== "0" && (
                   <div className="mt-2">
                     <div className="text-xs text-muted-foreground">
@@ -376,238 +270,37 @@ export default function View() {
             </Card>
           )}
 
-          {/* GCTL Card */}
-          {hasGctl && (
-            <Card className="relative overflow-hidden">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">GCTL</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      Wallet
-                    </span>
-                    <span className="font-semibold">{balances.gctl}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      Staked
-                    </span>
-                    <span className="font-semibold text-green-600">
-                      {balances.gctlStaked}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      Unstaking
-                    </span>
-                    <span className="font-semibold text-orange-600">
-                      {balances.gctlUnstaking}
-                    </span>
-                  </div>
-                  <div className="pt-2 text-xs text-muted-foreground">
-                    Non-transferable during Phase I
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* impact credits Card */}
-          {impactEntries.length > 0 && (
-            <Card className="relative overflow-hidden col-span-2">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">impact credits</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-                    {impactEntries.map(([region, amt]) => (
-                      <div
-                        key={region}
-                        className="flex items-center justify-between rounded-md border p-3"
-                      >
-                        <span className="text-xs text-muted-foreground">
-                          {region}
-                        </span>
-                        <span className="ml-auto font-medium">
-                          {Number(amt).toLocaleString()} credits
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* B. Swap & Send */}
-        {/* <Card className="mb-8 max-w-screen-md mx-auto">
-          <CardHeader>
-            <CardTitle>Swap</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-       
-              <div className="space-y-2">
-                <label className="text-sm font-medium">From</label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    value={swapAmount}
-                    onChange={(e) => setSwapAmount(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Select value={swapFrom} onValueChange={setSwapFrom}>
-                    <SelectTrigger className="w-[140px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {fromOptions.map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-       
-              <div className="flex justify-center">
-                <div className="bg-background border-4 border-border rounded-full p-2">
-                  <ArrowDownUp className="w-4 h-4" />
-                </div>
-              </div>
-
-        
-              <div className="space-y-2">
-                <label className="text-sm font-medium">To</label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    readOnly
-                    value={
-                      swapAmount
-                        ? (parseFloat(swapAmount) * 0.82).toFixed(2)
-                        : ""
-                    }
-                    className="flex-1"
-                  />
-                  <Select value={swapTo} onValueChange={setSwapTo}>
-                    <SelectTrigger className="w-[140px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {toOptions.map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-     
-              <div className="bg-muted/50 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Info className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Route Preview</span>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {getRoutePreview()}
-                </div>
-              </div>
-
-              <Button className="w-full" onClick={handleSwap}>
-                Swap Now
-              </Button>
-            </div>
-          </CardContent>
-        </Card> */}
-
-        {/* C. GCTL Staking */}
-        {(balances.gctl !== "0" || balances.gctlStaked !== "0") && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>GCTL Staking</CardTitle>
-              <CardDescription>
-                Manage your staked GCTL across regions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* Snapshot Row */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div>
-                  <div className="text-sm text-muted-foreground">
-                    Total GCTL
-                  </div>
+          {/* GCTL Card - Always show when connected */}
+          {hasGctl ||
+            (isGctlBalanceLoading && (
+              <Card className="relative overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">GCTL</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <div className="text-2xl font-bold">
-                    {(
-                      parseFloat(balances.gctl.replace(/,/g, "")) +
-                      parseFloat(balances.gctlStaked.replace(/,/g, "")) +
-                      parseFloat(balances.gctlUnstaking.replace(/,/g, ""))
-                    ).toLocaleString()}
+                    {isGctlBalanceLoading ? "..." : formattedBalances.gctl}
                   </div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Staked</div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {balances.gctlStaked}
+                  <div className="flex items-center gap-2 mt-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        window.open(
+                          "https://impact.glow.org",
+                          "_blank",
+                          "noopener,noreferrer"
+                        );
+                      }}
+                    >
+                      <ExternalLink className="w-3 h-3 mr-1" />
+                      Manage Staking
+                    </Button>
                   </div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Unstaking</div>
-                  <div className="text-2xl font-bold text-orange-600">
-                    {balances.gctlUnstaking}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <div className="text-sm text-muted-foreground">Wallet</div>
-                    <div className="font-semibold">{balances.gctl}</div>
-                  </div>
-                  {hasUnstaking && (
-                    <Badge variant="secondary">Dripping 1%/wk</Badge>
-                  )}
-                </div>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsUnstakeOpen(true)}
-                >
-                  <Minus className="w-4 h-4 mr-2" />
-                  Unstake
-                </Button>
-                <Button onClick={() => setIsRestakeOpen(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Restake
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => setIsRestakeOpen(true)}
-                  className="ml-auto"
-                >
-                  Manage by Region
-                </Button>
-              </div>
-              {hasUnstaking && (
-                <div className="text-xs text-muted-foreground mt-3">
-                  An active unstake is in progress. New schedules will drip 1%
-                  weekly.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+                </CardContent>
+              </Card>
+            ))}
+        </div>
 
         {/* D. Claims Panel */}
         <ClaimsPanel
@@ -649,7 +342,7 @@ export default function View() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => toast.info("Opening marketplace")}
+                      onClick={() => toast.info("Opening glow launchpad")}
                     >
                       <ChevronRight className="w-4 h-4" />
                     </Button>
@@ -661,21 +354,11 @@ export default function View() {
         )}
 
         {/* F. Recent Activity */}
-        <RecentActivity activities={recentActivity} />
+        {/* <RecentActivity activities={recentActivity} /> */}
       </div>
 
-      {/* Restake Assistant Modal */}
-      <RestakeAssistant
-        isOpen={isRestakeOpen}
-        onClose={() => setIsRestakeOpen(false)}
-        regionYields={regionYields}
-      />
-      <UnstakeDialog
-        isOpen={isUnstakeOpen}
-        onClose={() => setIsUnstakeOpen(false)}
-        regionYields={regionYields}
-        gctlUnstaking={balances.gctlUnstaking}
-      />
+      {/* Send Dialog */}
+      <SendDialog open={sendDialogOpen} onOpenChange={setSendDialogOpen} />
     </div>
   );
 }

@@ -6,7 +6,7 @@ import {
   type AuctionApplication,
   type PaymentCurrency,
   calculateProtocolDepositAmount,
-} from "./useMiningMarketplace";
+} from "./useGlowLaunchpad";
 
 const CONTROL_API_URL = process.env.NEXT_PUBLIC_CONTROL_API_URL;
 

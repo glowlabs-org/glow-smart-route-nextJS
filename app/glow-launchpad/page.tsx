@@ -15,7 +15,7 @@ import { useQueryState } from "nuqs";
 import { formatNumber } from "./utils";
 import { getDisplayDecimals } from "@/lib/currency";
 import {
-  useMiningMarketplace,
+  useGlowLaunchpad,
   useAvailableZones,
   calculateProtocolDepositAmount,
   getAvailableCurrencies,
@@ -23,7 +23,7 @@ import {
   type SortBy,
   type SortOrder,
   type AuctionApplication,
-} from "@/hooks/useMiningMarketplace";
+} from "@/hooks/useGlowLaunchpad";
 import {
   useRewardScore,
   getRewardScoreForApplication,
@@ -39,7 +39,7 @@ import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { formatUnits, parseUnits } from "viem";
 import Link from "next/link";
 
-export default function MiningMarketplacePage() {
+export default function GlowLaunchpadPage() {
   // return notFound();
 
   const [zoneParam, setZoneParam] = useQueryState("zone");
@@ -61,7 +61,7 @@ export default function MiningMarketplacePage() {
   const selectedSortOrder = sortOrderParam as SortOrder;
 
   // Fetch applications with current filters
-  const { applications, isLoading, isError, error } = useMiningMarketplace({
+  const { applications, isLoading, isError, error } = useGlowLaunchpad({
     filters: {
       zoneId: selectedZoneId,
       sortBy: selectedSort,
@@ -94,7 +94,7 @@ export default function MiningMarketplacePage() {
             <div className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <h1 className="text-xl font-semibold">Mining Marketplace</h1>
+                  <h1 className="text-xl font-semibold">Glow Launchpad</h1>
                   <p className="text-sm text-muted-foreground mt-1">
                     Sponsor solar farms and earn weekly GLW rewards
                   </p>
@@ -112,7 +112,7 @@ export default function MiningMarketplacePage() {
             <Tabs defaultValue="market" className="w-full">
               <div className="p-6">
                 <TabsList className="grid w-fit grid-cols-2">
-                  <TabsTrigger value="market">Marketplace</TabsTrigger>
+                  <TabsTrigger value="market">Launchpad</TabsTrigger>
                   <TabsTrigger value="activity">Activity</TabsTrigger>
                 </TabsList>
               </div>

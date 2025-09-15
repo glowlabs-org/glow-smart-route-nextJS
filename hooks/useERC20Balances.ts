@@ -1,7 +1,7 @@
 import { useContracts } from "./useContracts";
 import { Result, Ok, Err } from "ts-results";
-
-import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { JsonRpcSigner } from "ethers";
 
 export type SYMBOLS = "GLOW" | "IMPACT POWER POINTS" | "USDG" | "USDC";
@@ -11,15 +11,84 @@ export enum GetBalanceError {
   SIGNER_NOT_AVAILABLE = "Signer not available",
 }
 
+// Query Keys
+const QUERY_KEYS = {
+  erc20Balances: (address?: string) => ["erc20-balances", address],
+  usdcBalance: (address?: string) => ["usdc-balance", address],
+  usdgBalance: (address?: string) => ["usdg-balance", address],
+  glowBalance: (address?: string) => ["glow-balance", address],
+} as const;
+
 export const useER20Balances = ({
   signer,
 }: {
   signer: JsonRpcSigner | undefined | null;
 }) => {
   const { usdg, glow, usdc, isReady } = useContracts(signer);
-  const [usdcBalance, setUsdcBalance] = useState<bigint | null>(null);
-  const [usdgBalance, setUsdgBalance] = useState<bigint | null>(null);
-  const [glowBalance, setGlowBalance] = useState<bigint | null>(null);
+  const queryClient = useQueryClient();
+
+  // Get wallet address
+  const getWalletAddress = useCallback(async (): Promise<string | null> => {
+    if (!signer) return null;
+    try {
+      return await signer.getAddress();
+    } catch {
+      return null;
+    }
+  }, [signer]);
+
+  // USDC Balance Query
+  const {
+    data: usdcBalance = null,
+    isLoading: isUsdcLoading,
+    refetch: refetchUsdcBalance,
+  } = useQuery({
+    queryKey: QUERY_KEYS.usdcBalance(signer ? "pending" : undefined),
+    queryFn: async () => {
+      if (!signer || !usdc || !isReady) return null;
+      const address = await signer.getAddress();
+      return await usdc.balanceOf(address);
+    },
+    enabled: !!signer && !!usdc && isReady,
+    staleTime: 10 * 1000, // 10 seconds
+    retry: 2,
+  });
+
+  // USDG Balance Query
+  const {
+    data: usdgBalance = null,
+    isLoading: isUsdgLoading,
+    refetch: refetchUsdgBalance,
+  } = useQuery({
+    queryKey: QUERY_KEYS.usdgBalance(signer ? "pending" : undefined),
+    queryFn: async () => {
+      if (!signer || !usdg || !isReady) return null;
+      const address = await signer.getAddress();
+      return await usdg.balanceOf(address);
+    },
+    enabled: !!signer && !!usdg && isReady,
+    staleTime: 10 * 1000, // 10 seconds
+    retry: 2,
+  });
+
+  // GLOW Balance Query
+  const {
+    data: glowBalance = null,
+    isLoading: isGlowLoading,
+    refetch: refetchGlowBalance,
+  } = useQuery({
+    queryKey: QUERY_KEYS.glowBalance(signer ? "pending" : undefined),
+    queryFn: async () => {
+      if (!signer || !glow || !isReady) return null;
+      const address = await signer.getAddress();
+      return await glow.balanceOf(address);
+    },
+    enabled: !!signer && !!glow && isReady,
+    staleTime: 10 * 1000, // 10 seconds
+    retry: 2,
+  });
+
+  const isLoading = isUsdcLoading || isUsdgLoading || isGlowLoading;
 
   /**
    * @param getBalance ~ Returns the balance for the desired token
@@ -29,74 +98,55 @@ export const useER20Balances = ({
     Result<{ glow: bigint; usdg: bigint; usdc: bigint }, GetBalanceError>
   > {
     if (!signer) return new Err(GetBalanceError.SIGNER_NOT_AVAILABLE);
-    const address = await signer.getAddress();
     if (!glow || !usdg || !usdc)
       return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
-    const [g, u, c] = await Promise.all([
-      glow.balanceOf(address),
-      usdg.balanceOf(address),
-      usdc.balanceOf(address),
-    ]);
-    return new Ok({ glow: g, usdg: u, usdc: c });
+
+    try {
+      const address = await signer.getAddress();
+      const [g, u, c] = await Promise.all([
+        glow.balanceOf(address),
+        usdg.balanceOf(address),
+        usdc.balanceOf(address),
+      ]);
+      return new Ok({ glow: g, usdg: u, usdc: c });
+    } catch (error) {
+      console.error("Error fetching balances:", error);
+      return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
+    }
   }
 
-  const setUsdcBalanceForSigner = async () => {
-    if (!signer) return new Err(GetBalanceError.SIGNER_NOT_AVAILABLE);
-    if (!usdc) return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
+  // Legacy functions for backward compatibility
+  const setUsdcBalanceForSigner = useCallback(async () => {
+    await refetchUsdcBalance();
+  }, [refetchUsdcBalance]);
 
-    const address = await signer.getAddress();
-    const balance = await usdc.balanceOf(address);
-    setUsdcBalance(balance);
-  };
+  const setUsdgBalanceForSigner = useCallback(async () => {
+    await refetchUsdgBalance();
+  }, [refetchUsdgBalance]);
 
-  const setUsdgBalanceForSigner = async () => {
-    if (!signer) return new Err(GetBalanceError.SIGNER_NOT_AVAILABLE);
-    if (!usdg) return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
+  const setGlowBalanceForSigner = useCallback(async () => {
+    await refetchGlowBalance();
+  }, [refetchGlowBalance]);
 
-    const address = await signer.getAddress();
-    const balance = await usdg.balanceOf(address);
-    setUsdgBalance(balance);
-  };
-
-  const setGlowBalanceForSigner = async () => {
-    if (!signer) return new Err(GetBalanceError.SIGNER_NOT_AVAILABLE);
-    if (!glow) return new Err(GetBalanceError.CONTRACTS_NOT_AVAILABLE);
-
-    const address = await signer.getAddress();
-    const balance = await glow.balanceOf(address);
-    setGlowBalance(balance);
-  };
-
-  const refreshBalances = async () => {
-    if (!isReady) return;
+  const refreshBalances = useCallback(async () => {
+    if (!isReady || !signer) return;
     await Promise.all([
-      setUsdcBalanceForSigner(),
-      setUsdgBalanceForSigner(),
-      setGlowBalanceForSigner(),
+      refetchUsdcBalance(),
+      refetchUsdgBalance(),
+      refetchGlowBalance(),
     ]);
-  };
-
-  useEffect(() => {
-    if (isReady) {
-      setUsdcBalanceForSigner();
-    }
-  }, [isReady, usdc]);
-
-  useEffect(() => {
-    if (isReady) {
-      setUsdgBalanceForSigner();
-    }
-  }, [isReady, usdg]);
-
-  useEffect(() => {
-    if (isReady) {
-      setGlowBalanceForSigner();
-    }
-  }, [isReady, glow]);
+  }, [
+    isReady,
+    signer,
+    refetchUsdcBalance,
+    refetchUsdgBalance,
+    refetchGlowBalance,
+  ]);
 
   return {
     getBalances,
     isReady,
+    isLoading,
     usdcBalance,
     usdgBalance,
     setUsdgBalanceForSigner,
