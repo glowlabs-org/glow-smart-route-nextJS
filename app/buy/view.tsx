@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { Result } from "ts-results";
 import { useSwap } from "@/hooks/useSwap";
 import { Input } from "@/components/ui/input";
-import { useAccount } from "wagmi";
+import { useAccount, useDisconnect, useConnect } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
 import { useForwarder } from "@glowlabs-org/utils/browser";
 import { CHAIN_ID } from "@/web3/constants";
@@ -43,6 +43,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SendTab } from "./send-tab";
 import { useQueryState } from "nuqs";
 import Decimal from "decimal.js";
+import { forceDisconnect } from "@/utils/forceDisconnect";
 
 import { addresses } from "@/web3/constants/addresses";
 import { MaxUint256 } from "ethers";
@@ -132,10 +133,12 @@ export default function View({
   const [slippageTolerance, setSlippageTolerance] = useState("1");
   const [pendingTx, setPendingTx] = useState<boolean>(false);
   const [tokenSellBalance, setTokenSellBalance] = useState<string>("0");
-  const { address, isConnected, isConnecting, isReconnecting } = useAccount();
+  const { address, isConnected, isConnecting } = useAccount();
+  const { disconnect } = useDisconnect();
+  const { connectors } = useConnect();
 
   // Add a general loading state check
-  const isWalletLoading = isConnecting || isReconnecting;
+  const isWalletLoading = isConnecting;
 
   const [smartBalancingAmounts, setSmartBalancingAmounts] = useState<
     SmartBalancingAmounts & {
@@ -217,9 +220,15 @@ export default function View({
     setUsdgBalanceForSigner,
     refreshBalances,
     glowBalance,
+    hasError: erc20HasError,
+    hasSigner,
   } = useER20Balances({
     signer,
   });
+
+  // Network status check
+  const hasNetworkIssues = erc20HasError || (!hasSigner && isConnected);
+
   const { run: debouncedEstimate, cancel: cancelEstimate } = useDebouncedAsync<
     string,
     void
@@ -275,6 +284,15 @@ export default function View({
   }
 
   function computeButtonProps() {
+    if (hasNetworkIssues) {
+      return {
+        label: `Reconnect Wallet`,
+        disabled: false,
+        callback: () => {
+          forceDisconnect(disconnect, connectors);
+        },
+      };
+    }
     if (Number(amountToSell) === 0) {
       return {
         label: `Enter an amount`,
@@ -1242,17 +1260,17 @@ export default function View({
 
                     {/* Enhanced Swap Button */}
                     <div className="pt-8">
-                      {!isConnected && !isWalletLoading ? (
-                        <ConnectButton variant="default" />
-                      ) : isWalletLoading ? (
+                      {!isConnected || isConnecting ? (
                         <ConnectButton variant="default" />
                       ) : (
                         <Button
                           disabled={
-                            buttonProps.disabled ||
-                            pendingTx ||
-                            isEstimateLoading ||
-                            balancesLoading
+                            hasNetworkIssues
+                              ? false // Never disable the Reconnect Wallet button
+                              : buttonProps.disabled ||
+                                pendingTx ||
+                                isEstimateLoading ||
+                                balancesLoading
                           }
                           onClick={buttonProps.callback}
                           className="w-full h-12 lg:h-16"

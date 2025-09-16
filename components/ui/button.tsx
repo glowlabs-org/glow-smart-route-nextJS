@@ -12,7 +12,7 @@ const buttonVariants = cva(
         default:
           "bg-foreground text-background border border-foreground/20 dark:bg-transparent dark:text-zinc-100 dark:border-zinc-700 hover:-translate-y-0.5 hover:bg-background hover:text-zinc-900 dark:hover:bg-foreground dark:hover:text-background",
         orange:
-          "bg-[var(--color-glow-orange)] text-white font-semibold tracking-wide hover:scale-105 hover:-translate-y-0.5",
+          "bg-glow-orange dark:bg-glow-orange/30 text-foreground font-semibold tracking-wide hover:scale-105 hover:-translate-y-0.5 border border-foreground",
         success: "bg-[#16a34a] text-white hover:bg-[#15803d]",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
@@ -59,6 +59,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       isLoading = false,
       children,
       disabled,
+      type: typeAttr = "button",
       ...props
     },
     ref
@@ -77,7 +78,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         <Comp
           className={cn(buttonVariants({ variant, size, className }))}
           ref={ref}
-          disabled={isLoading || disabled}
           {...props}
         >
           <span>{buttonContent}</span>
@@ -90,6 +90,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         disabled={isLoading || disabled}
+        type={typeAttr}
         {...props}
       >
         {buttonContent}

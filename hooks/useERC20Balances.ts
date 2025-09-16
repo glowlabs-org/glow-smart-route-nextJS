@@ -3,6 +3,7 @@ import { Result, Ok, Err } from "ts-results";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { JsonRpcSigner } from "ethers";
+import React from "react";
 
 export type SYMBOLS = "GLOW" | "IMPACT POWER POINTS" | "USDG" | "USDC";
 
@@ -27,6 +28,25 @@ export const useER20Balances = ({
   const { usdg, glow, usdc, isReady } = useContracts(signer);
   const queryClient = useQueryClient();
 
+  // Get wallet address synchronously for query keys
+  const [walletAddress, setWalletAddress] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (signer) {
+      signer
+        .getAddress()
+        .then((addr) => {
+          setWalletAddress(addr);
+        })
+        .catch((error) => {
+          console.error("Failed to get wallet address:", error);
+          setWalletAddress(null);
+        });
+    } else {
+      setWalletAddress(null);
+    }
+  }, [signer]);
+
   // Get wallet address
   const getWalletAddress = useCallback(async (): Promise<string | null> => {
     if (!signer) return null;
@@ -41,15 +61,16 @@ export const useER20Balances = ({
   const {
     data: usdcBalance = null,
     isLoading: isUsdcLoading,
+    isError: isUsdcError,
+    error: usdcError,
     refetch: refetchUsdcBalance,
   } = useQuery({
-    queryKey: QUERY_KEYS.usdcBalance(signer ? "pending" : undefined),
+    queryKey: QUERY_KEYS.usdcBalance(walletAddress || undefined),
     queryFn: async () => {
-      if (!signer || !usdc || !isReady) return null;
-      const address = await signer.getAddress();
-      return await usdc.balanceOf(address);
+      if (!walletAddress || !usdc) return null;
+      return await usdc.balanceOf(walletAddress);
     },
-    enabled: !!signer && !!usdc && isReady,
+    enabled: !!walletAddress && !!usdc,
     staleTime: 10 * 1000, // 10 seconds
     retry: 2,
   });
@@ -58,15 +79,28 @@ export const useER20Balances = ({
   const {
     data: usdgBalance = null,
     isLoading: isUsdgLoading,
+    isError: isUsdgError,
+    error: usdgError,
     refetch: refetchUsdgBalance,
   } = useQuery({
-    queryKey: QUERY_KEYS.usdgBalance(signer ? "pending" : undefined),
+    queryKey: QUERY_KEYS.usdgBalance(walletAddress || undefined),
     queryFn: async () => {
-      if (!signer || !usdg || !isReady) return null;
-      const address = await signer.getAddress();
-      return await usdg.balanceOf(address);
+      if (!walletAddress) {
+        return null;
+      }
+      try {
+        if (!usdg) {
+          throw new Error("USDG contract not available");
+        }
+        const balance = await usdg.balanceOf(walletAddress);
+        return balance;
+      } catch (error) {
+        console.error("Error fetching USDG balance:", error);
+        // Re-throw to let React Query handle it
+        throw error;
+      }
     },
-    enabled: !!signer && !!usdg && isReady,
+    enabled: !!walletAddress && !!usdg,
     staleTime: 10 * 1000, // 10 seconds
     retry: 2,
   });
@@ -75,21 +109,25 @@ export const useER20Balances = ({
   const {
     data: glowBalance = null,
     isLoading: isGlowLoading,
+    isError: isGlowError,
+    error: glowError,
     refetch: refetchGlowBalance,
   } = useQuery({
-    queryKey: QUERY_KEYS.glowBalance(signer ? "pending" : undefined),
+    queryKey: QUERY_KEYS.glowBalance(walletAddress || undefined),
     queryFn: async () => {
-      if (!signer || !glow || !isReady) return null;
-      const address = await signer.getAddress();
-      return await glow.balanceOf(address);
+      if (!walletAddress) return null;
+      if (!glow) {
+        throw new Error("GLOW contract not available");
+      }
+      return await glow.balanceOf(walletAddress);
     },
-    enabled: !!signer && !!glow && isReady,
+    enabled: !!walletAddress && !!glow,
     staleTime: 10 * 1000, // 10 seconds
     retry: 2,
   });
 
   const isLoading = isUsdcLoading || isUsdgLoading || isGlowLoading;
-
+  const hasError = isUsdcError || isUsdgError || isGlowError;
   /**
    * @param getBalance ~ Returns the balance for the desired token
    * @return Result<BigNumber, GetBalanceError> ~ Returns the balance for the desired token
@@ -145,8 +183,13 @@ export const useER20Balances = ({
 
   return {
     getBalances,
-    isReady,
+    isReady: !!walletAddress && (!!usdc || !!usdg || !!glow), // Ready when we have address and at least one contract
     isLoading,
+    hasError,
+    hasSigner: !!signer,
+    isUsdcError,
+    isUsdgError,
+    isGlowError,
     usdcBalance,
     usdgBalance,
     setUsdgBalanceForSigner,

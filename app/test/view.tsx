@@ -10,7 +10,7 @@ import {
   useChainId,
   useWalletClient,
 } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { ConnectButton } from "@/components/connect-button";
 import { formatUnits, parseUnits, parseAbi, erc20Abi, zeroAddress } from "viem";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
@@ -669,7 +669,7 @@ export default function TestView() {
               Refresh All
             </Button>
           </div>
-          <ConnectButton />
+          <ConnectButton variant="default" />
         </div>
 
         <Card>

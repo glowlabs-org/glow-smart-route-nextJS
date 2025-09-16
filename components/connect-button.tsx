@@ -1,10 +1,17 @@
-import { ConnectButton as RainbowKitConnectButton } from "@rainbow-me/rainbowkit";
 import { Button } from "./ui/button";
-import { Loader2 } from "lucide-react";
-import { useAccount } from "wagmi";
+import { Loader2, Wallet } from "lucide-react";
+import { useAccount, useConnect, useDisconnect, useChainId } from "wagmi";
 import clsx from "clsx";
 import * as React from "react";
 import { useEffect, useState, useRef } from "react";
+import { WalletOptions } from "./wallet-options";
+import { Account } from "./account";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const ConnectButton = ({
   className,
@@ -17,7 +24,13 @@ export const ConnectButton = ({
   size?: "small" | "medium" | "large";
   onConnect?: () => void;
 }) => {
-  const { isConnecting, isReconnecting } = useAccount();
+  const { address, isConnected, isConnecting, isReconnecting } = useAccount();
+  const { isPending, reset } = useConnect();
+  const { disconnect } = useDisconnect();
+  const chainId = useChainId();
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isStuckConnecting, setIsStuckConnecting] = useState(false);
   const connectingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -30,7 +43,7 @@ export const ConnectButton = ({
 
   // Handle stuck connection state (especially in Safari)
   useEffect(() => {
-    if (isConnecting || isReconnecting) {
+    if (isConnecting || isReconnecting || isPending) {
       // Clear any existing timeout
       if (connectingTimeoutRef.current) {
         clearTimeout(connectingTimeoutRef.current);
@@ -60,10 +73,30 @@ export const ConnectButton = ({
         clearTimeout(connectingTimeoutRef.current);
       }
     };
-  }, [isConnecting, isReconnecting, isSafari]);
+  }, [isConnecting, isReconnecting, isPending, isSafari]);
+
+  // Close modal when connected
+  useEffect(() => {
+    if (isConnected) {
+      setIsModalOpen(false);
+      onConnect?.();
+    }
+  }, [isConnected, onConnect]);
+
+  // Debug connection state
+  useEffect(() => {
+    console.log("ConnectButton state:", {
+      isConnected,
+      address,
+      isConnecting,
+      isReconnecting,
+      isPending,
+      chainId,
+    });
+  }, [isConnected, address, isConnecting, isReconnecting, isPending, chainId]);
 
   const isWalletLoading =
-    (isConnecting || isReconnecting) && !isStuckConnecting;
+    (isConnecting || isReconnecting || isPending) && !isStuckConnecting;
 
   const getSizeClasses = () => {
     switch (size) {
@@ -77,110 +110,99 @@ export const ConnectButton = ({
     }
   };
 
+  // Check if on wrong network (assuming mainnet or sepolia are supported)
+  const isWrongNetwork =
+    isConnected && chainId && ![1, 11155111].includes(chainId);
+
+  const getDisplayName = () => {
+    if (!address) return "";
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  const handleOpenConnectModal = () => {
+    // Reset any previous connection errors
+    disconnect();
+    reset();
+    setIsModalOpen(true);
+  };
   return (
-    <RainbowKitConnectButton.Custom>
-      {({
-        account,
-        chain,
-        openAccountModal,
-        openChainModal,
-        openConnectModal,
-        authenticationStatus,
-        mounted,
-      }) => {
-        const ready = mounted && authenticationStatus !== "loading";
-        const connected =
-          ready &&
-          account &&
-          chain &&
-          (!authenticationStatus || authenticationStatus === "authenticated");
-        console.log({ ready, connected, account, chain, authenticationStatus });
-        return (
-          <div
-            className={clsx("flex justify-center", className)}
-            {...(!ready && {
-              "aria-hidden": true,
-              style: {
-                pointerEvents: "none",
-                userSelect: "none",
-              },
-            })}
-          >
-            {(() => {
-              if (!ready) {
-                return (
-                  <Button
-                    variant={variant}
-                    disabled
-                    type="button"
-                    className={`w-full ${getSizeClasses()} font-semibold`}
-                  >
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Loading...
-                  </Button>
-                );
-              }
+    <>
+      <div className={clsx("flex justify-center", className)}>
+        {(() => {
+          if (isWalletLoading) {
+            return (
+              <Button
+                variant={variant}
+                disabled
+                type="button"
+                className={`w-full ${getSizeClasses()} font-semibold`}
+              >
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isConnecting
+                  ? "Connecting..."
+                  : isPending
+                  ? "Connecting..."
+                  : "Reconnecting..."}
+              </Button>
+            );
+          }
 
-              if (isWalletLoading) {
-                return (
-                  <Button
-                    variant={variant}
-                    disabled
-                    type="button"
-                    className={`w-full ${getSizeClasses()} font-semibold`}
-                  >
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {isConnecting ? "Connecting..." : "Reconnecting..."}
-                  </Button>
-                );
-              }
+          if (isWrongNetwork) {
+            return (
+              <Button
+                variant="destructive"
+                onClick={() => disconnect()}
+                type="button"
+                className={`w-full ${getSizeClasses()} font-semibold`}
+              >
+                <Loader2 className="mr-2 h-4 w-4" />
+                Wrong Network
+              </Button>
+            );
+          }
 
-              if (!connected) {
-                return (
-                  <Button
-                    variant={variant}
-                    onClick={() => {
-                      openConnectModal();
-                      onConnect?.();
-                    }}
-                    type="button"
-                    className={`w-full ${getSizeClasses()} font-semibold`}
-                  >
-                    Connect Wallet
-                  </Button>
-                );
-              }
+          if (!isConnected) {
+            return (
+              <div className="space-y-2 w-full">
+                <Button
+                  variant={variant}
+                  onClick={handleOpenConnectModal}
+                  type="button"
+                  className={`w-full ${getSizeClasses()} font-semibold`}
+                >
+                  <Wallet className="mr-2 h-4 w-4" />
+                  Connect Wallet
+                </Button>
+              </div>
+            );
+          }
 
-              if (chain?.unsupported) {
-                return (
-                  <Button
-                    variant={variant}
-                    onClick={openChainModal}
-                    type="button"
-                    className={`w-full ${getSizeClasses()} font-semibold bg-destructive hover:bg-destructive/90`}
-                  >
-                    <Loader2 className="mr-2 h-4 w-4" />
-                    Wrong Network
-                  </Button>
-                );
-              }
+          return (
+            <Button
+              variant={variant}
+              onClick={() => setIsAccountModalOpen(true)}
+              type="button"
+              className={`w-full ${getSizeClasses()} font-semibold`}
+            >
+              {getDisplayName()}
+            </Button>
+          );
+        })()}
+      </div>
 
-              return (
-                <div style={{ display: "flex", gap: 12 }}>
-                  <Button
-                    variant={variant}
-                    onClick={openAccountModal}
-                    type="button"
-                    className={`w-full ${getSizeClasses()} font-semibold`}
-                  >
-                    {account?.displayName}
-                  </Button>
-                </div>
-              );
-            })()}
-          </div>
-        );
-      }}
-    </RainbowKitConnectButton.Custom>
+      {/* Connect Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-[500px] w-full border-border shadow-2xl overflow-hidden">
+          <WalletOptions />
+        </DialogContent>
+      </Dialog>
+
+      {/* Account Modal */}
+      <Dialog open={isAccountModalOpen} onOpenChange={setIsAccountModalOpen}>
+        <DialogContent className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-[500px] w-full border-border shadow-2xl overflow-hidden">
+          <Account />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

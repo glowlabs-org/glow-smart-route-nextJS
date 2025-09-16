@@ -168,3 +168,128 @@ export function useMultipleFractionSplits(
     refetch: () => Promise.all(queries.map((query) => query.refetch())),
   };
 }
+
+// Types for refundable fractions
+export interface RefundableFraction {
+  fraction: {
+    id: string;
+    applicationId: string;
+    status: string;
+    createdBy: string;
+    owner: string;
+    token: string;
+    step: string;
+    totalSteps: number;
+    splitsSold: number;
+    expirationAt: string;
+    isCommittedOnChain: boolean;
+    txHash: string | null;
+  };
+  userPurchaseData: {
+    walletAddress: string;
+    totalStepsPurchased: number;
+    totalAmountSpent: string;
+    purchaseCount: number;
+  };
+  refundDetails: {
+    user: string;
+    creator: string;
+    fractionId: string;
+    estimatedRefundAmount: string;
+  };
+}
+
+export interface RefundableFractionsResponse {
+  walletAddress: string;
+  refundableFractions: RefundableFraction[];
+  summary: {
+    totalRefundableFractions: number;
+    totalRefundableAmount: string;
+    totalStepsPurchased: number;
+    byStatus: {
+      expired: number;
+      cancelled: number;
+    };
+  };
+}
+
+export interface UseRefundableFractionsParams {
+  walletAddress: string | null;
+  enabled?: boolean;
+  refetchInterval?: number;
+}
+
+export function useRefundableFractions(params: UseRefundableFractionsParams) {
+  const {
+    walletAddress,
+    enabled = true,
+    refetchInterval = 30_000, // 30 seconds - less frequent than other queries
+  } = params;
+
+  const queryKey = ["refundable-fractions", walletAddress];
+
+  const query = useQuery({
+    queryKey,
+    queryFn: async (): Promise<RefundableFractionsResponse | null> => {
+      if (!walletAddress) {
+        return null;
+      }
+
+      const searchParams = new URLSearchParams({
+        walletAddress,
+      });
+
+      const url = `${HUB_URL}/fractions/refundable-by-wallet?${searchParams.toString()}`;
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        // If 404, return empty response instead of throwing
+        if (response.status === 404) {
+          return {
+            walletAddress,
+            refundableFractions: [],
+            summary: {
+              totalRefundableFractions: 0,
+              totalRefundableAmount: "0",
+              totalStepsPurchased: 0,
+              byStatus: {
+                expired: 0,
+                cancelled: 0,
+              },
+            },
+          };
+        }
+
+        const errorText = await response.text();
+        throw new Error(
+          `Failed to fetch refundable fractions: ${response.status} - ${errorText}`
+        );
+      }
+
+      const data = await response.json();
+      return data as RefundableFractionsResponse;
+    },
+    enabled: enabled && Boolean(walletAddress),
+    refetchInterval,
+    refetchOnWindowFocus: true,
+    staleTime: 10_000, // 10 seconds
+  });
+
+  return {
+    refundableFractions: query.data?.refundableFractions || [],
+    summary: query.data?.summary || {
+      totalRefundableFractions: 0,
+      totalRefundableAmount: "0",
+      totalStepsPurchased: 0,
+      byStatus: {
+        expired: 0,
+        cancelled: 0,
+      },
+    },
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}

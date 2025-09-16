@@ -1,6 +1,5 @@
 import { useWalletClient } from "wagmi";
 import React from "react";
-import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { BrowserProvider, JsonRpcSigner } from "ethers";
 import type { WalletClient } from "viem";
 
@@ -15,7 +14,6 @@ async function walletClientToSigner(
 /** Hook to convert a viem Wallet Client to an ethers v6 Signer. */
 export function useEthersSigner({ chainId }: { chainId?: number } = {}) {
   const { data: walletClient } = useWalletClient({ chainId });
-  const { openConnectModal } = useConnectModal();
   const [signer, setSigner] = React.useState<JsonRpcSigner | undefined>(
     undefined
   );
@@ -43,6 +41,5 @@ export function useEthersSigner({ chainId }: { chainId?: number } = {}) {
 
   return {
     signer,
-    reconnect: openConnectModal || (() => {}),
   };
 }

@@ -34,7 +34,7 @@ interface SendTabProps {
 }
 
 export function SendTab({ tokens }: SendTabProps) {
-  const { isConnected, isConnecting, isReconnecting } = useAccount();
+  const { isConnected, isConnecting } = useAccount();
   const { signer } = useEthersSigner();
 
   // Get balances using the hook directly
@@ -48,7 +48,7 @@ export function SendTab({ tokens }: SendTabProps) {
   } = useER20Balances({ signer });
 
   // Add a general loading state check
-  const isWalletLoading = isConnecting || isReconnecting;
+  const isWalletLoading = isConnecting;
   const balancesLoading = erc20Loading;
   const { sendTokens, isReady: isSendTokensReady } = useERC20({ signer });
   const [amountToSend, setAmountToSend] = useState<string>("0");
@@ -228,9 +228,7 @@ export function SendTab({ tokens }: SendTabProps) {
 
       {/* Enhanced Send Button */}
       <div className="pt-4">
-        {!isConnected && !isWalletLoading ? (
-          <ConnectButton variant="default" />
-        ) : isWalletLoading ? (
+        {!isConnected || isConnecting ? (
           <ConnectButton variant="default" />
         ) : (
           <Button

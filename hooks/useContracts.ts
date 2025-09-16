@@ -155,6 +155,11 @@ export function useContracts(_signer: any) {
   }, [walletClient]);
 
   useEffect(() => {
+    console.log("useContracts - walletClient state:", {
+      hasWalletClient: !!walletClient,
+      walletClientAccount: walletClient?.account?.address,
+      isReady: Boolean(walletClient),
+    });
     setIsReady(Boolean(walletClient));
   }, [walletClient]);
 

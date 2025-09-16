@@ -24,7 +24,8 @@ import {
   useOffchainFractions,
 } from "@glowlabs-org/utils/browser";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
-import { useAccount } from "wagmi";
+import { useAccount, useWalletClient } from "wagmi";
+import { publicClient } from "@/web3/web3/clients/publicClient";
 import { ConnectButton } from "@/components/connect-button";
 import {
   useSponsorApplication,
@@ -75,6 +76,7 @@ export function DepositDialog({
 
   // Hooks
   const { signer } = useEthersSigner();
+  const { data: walletClient } = useWalletClient();
   const [signerAddress, setSignerAddress] = React.useState<
     string | undefined
   >();
@@ -96,7 +98,8 @@ export function DepositDialog({
 
   // Initialize offchain fractions hook
   const fractions = useOffchainFractions(
-    signer,
+    walletClient,
+    publicClient,
     parseInt(process.env.NEXT_PUBLIC_CHAIN_ID!)
   );
 
@@ -221,11 +224,6 @@ export function DepositDialog({
       const userAddress = await signer.getAddress();
       const { activeFraction } = application;
 
-      console.log(
-        `Buying ${stepsToBuy} shares for application ${application.id}`
-      );
-      console.log(`Share price: ${activeFraction.step} GLW`);
-
       // Calculate total GLW needed
       const totalGlwNeeded = BigInt(activeFraction.step) * BigInt(stepsToBuy);
 
@@ -251,9 +249,6 @@ export function DepositDialog({
       );
 
       if (currentAllowance < totalGlwNeeded) {
-        console.log("Approving GLW tokens...");
-        toast.info("Approving GLW tokens...");
-
         try {
           await fractions.approveToken(fractions.addresses.GLW, totalGlwNeeded);
 
@@ -280,15 +275,14 @@ export function DepositDialog({
         }
       }
 
-      // Buy fractions
-      console.log("Buying fractions...");
-      toast.info("Processing share purchase...");
-
       const txHash = await fractions.buyFractions({
         creator: activeFraction.owner,
         id: activeFraction.id,
         stepsToBuy: BigInt(stepsToBuy),
         minStepsToBuy: BigInt(stepsToBuy), // Same as stepsToBuy for now
+        refundTo: userAddress,
+        creditTo: userAddress,
+        useCounterfactualAddressForRefund: false,
       });
 
       setTxHash(txHash);
@@ -337,10 +331,6 @@ export function DepositDialog({
           "Unable to confirm transaction - provider not available"
         );
       }
-
-      // Wait for splits polling to confirm the purchase
-      console.log("Waiting for splits confirmation...");
-      toast.info("Waiting for purchase confirmation...");
 
       // Refresh splits immediately to start polling
       await refetchSplits();
@@ -446,6 +436,65 @@ export function DepositDialog({
     toast.error("Only fraction-based applications are supported");
   }
 
+  // Get reward score for display (must be before any early returns to keep hook order stable)
+  const rewardScore = application
+    ? getRewardScoreForApplication(rewardScoreMap, application.id)
+    : null;
+
+  // Estimated weekly rewards for selected shares (keep hooks unconditionally executed)
+  const { estimatedWeeklyGlwForSelection, estimatedWeeklyUsdForSelection } =
+    React.useMemo(() => {
+      try {
+        if (!application?.activeFraction || !rewardScore) {
+          return {
+            estimatedWeeklyGlwForSelection: null,
+            estimatedWeeklyUsdForSelection: null,
+          };
+        }
+
+        const totalShares = application.activeFraction.totalSteps || 0;
+        if (!totalShares) {
+          return {
+            estimatedWeeklyGlwForSelection: null,
+            estimatedWeeklyUsdForSelection: null,
+          };
+        }
+
+        const glwRewards = parseFloat(
+          formatUnits(
+            BigInt(rewardScore.userWeeklyGlwRewards || "0"),
+            DECIMALS_BY_TOKEN["GLW"]
+          )
+        );
+        const pdRewards = parseFloat(
+          formatUnits(
+            BigInt(rewardScore.userWeeklyPdRewards || "0"),
+            DECIMALS_BY_TOKEN["GLW"]
+          )
+        );
+        const totalGlw = glwRewards + pdRewards;
+        const glwPerShare = totalGlw / totalShares;
+
+        const totalUsd = parseFloat(
+          formatUnits(BigInt(rewardScore.userEstimatedWeeklyCash || "0"), 6)
+        );
+        const usdPerShare = totalUsd / totalShares;
+
+        const estimatedWeeklyGlwForSelection = glwPerShare * stepsToBuy;
+        const estimatedWeeklyUsdForSelection = usdPerShare * stepsToBuy;
+
+        return {
+          estimatedWeeklyGlwForSelection,
+          estimatedWeeklyUsdForSelection,
+        };
+      } catch {
+        return {
+          estimatedWeeklyGlwForSelection: null,
+          estimatedWeeklyUsdForSelection: null,
+        };
+      }
+    }, [application?.activeFraction, rewardScore, stepsToBuy]);
+
   // Early return conditions - check these in render
   if (!application) return null;
 
@@ -464,11 +513,6 @@ export function DepositDialog({
       isConnected &&
       acknowledged;
 
-  // Get reward score for display
-  const rewardScore = application
-    ? getRewardScoreForApplication(rewardScoreMap, application.id)
-    : null;
-
   // Transaction details
   const transactionDetails: TransactionDetail[] = application.activeFraction
     ? [
@@ -476,10 +520,7 @@ export function DepositDialog({
           label: "Location",
           value: application.zone.name,
         },
-        {
-          label: "Shares to Buy",
-          value: stepsToBuy.toString(),
-        },
+
         {
           label: "Price per Share",
           value: formatNumber(
@@ -614,6 +655,30 @@ export function DepositDialog({
           </div>
         </div>
       )}
+
+      {/* Estimated rewards for selected shares */}
+      {application.activeFraction &&
+        estimatedWeeklyGlwForSelection !== null && (
+          <div className="bg-muted/50 border border-border rounded-lg p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                Est. Weekly Rewards for {stepsToBuy} share
+                {stepsToBuy !== 1 ? "s" : ""}
+              </span>
+              <div className="text-right">
+                <span className="text-sm font-mono">
+                  {formatNumber(estimatedWeeklyGlwForSelection || 0, 2)}
+                </span>
+                <span className="text-xs text-muted-foreground ml-1">GLW</span>
+                {estimatedWeeklyUsdForSelection !== null && (
+                  <div className="text-xs text-muted-foreground">
+                    ≈ ${formatNumber(estimatedWeeklyUsdForSelection || 0, 2)}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
       {/* Quote Expiry */}
       {/* <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
@@ -751,7 +816,14 @@ export function DepositDialog({
             />
             <span className="text-foreground leading-relaxed">
               {application.activeFraction
-                ? `I understand that I am purchasing ${stepsToBuy} shares of this solar farm and will receive ${application.activeFraction.sponsorSplitPercent}% of the weekly GLW rewards for each share owned`
+                ? `I understand that I am purchasing ${stepsToBuy} shares of this solar farm and will receive ${(
+                    (application.activeFraction.sponsorSplitPercent *
+                      stepsToBuy) /
+                    (application.activeFraction.totalSteps || 1)
+                  ).toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}% of the weekly GLW rewards for each share owned`
                 : `I understand that I am sponsoring this solar farm and will receive ${application.sponsorSplitPercent}% of the weekly GLW rewards generated`}
             </span>
           </label>

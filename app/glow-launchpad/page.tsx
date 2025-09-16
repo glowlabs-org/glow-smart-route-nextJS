@@ -34,10 +34,70 @@ import { SponsoredFarmsActivity } from "./sponsored-farms-activity";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Header } from "@/components/header";
+import { GlowSymbol } from "@/components/glow-symbol";
 import { notFound } from "next/navigation";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { formatUnits, parseUnits } from "viem";
 import Link from "next/link";
+import { useAccount } from "wagmi";
+import { useFractionSplits } from "@/hooks/useFractionSplits";
+
+// Component to show owned fractions for a specific application
+function OwnedFractionsDisplay({
+  application,
+  walletAddress,
+}: {
+  application: AuctionApplication;
+  walletAddress: string;
+}) {
+  const { summary, isLoading } = useFractionSplits({
+    walletAddress,
+    fractionId: application.activeFraction?.id || null,
+    enabled: Boolean(walletAddress && application.activeFraction?.id),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
+        <div
+          className="text-sm text-muted-foreground mb-2"
+          style={{ fontFamily: "Söhne, sans-serif", fontWeight: 400 }}
+        >
+          Your shares
+        </div>
+        <div className="space-y-2">
+          <div className="h-5 w-40 bg-muted rounded" />
+        </div>
+      </div>
+    );
+  }
+
+  if (summary.totalStepsPurchased === 0) return null;
+
+  const totalSteps = application.activeFraction?.totalSteps || 0;
+  const percent =
+    totalSteps > 0
+      ? ((summary.totalStepsPurchased / totalSteps) * 100).toFixed(2)
+      : "0.00";
+
+  return (
+    <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
+      <div
+        className="text-sm text-muted-foreground mb-2"
+        style={{ fontFamily: "Söhne, sans-serif", fontWeight: 400 }}
+      >
+        Your shares
+      </div>
+      <div
+        className="text-lg lg:text-xl text-black dark:text-white"
+        style={{ fontFamily: "Söhne, sans-serif", fontWeight: 600 }}
+      >
+        {summary.totalStepsPurchased.toLocaleString()} of{" "}
+        {totalSteps.toLocaleString()} ({percent}%)
+      </div>
+    </div>
+  );
+}
 
 export default function GlowLaunchpadPage() {
   // return notFound();
@@ -53,6 +113,9 @@ export default function GlowLaunchpadPage() {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [selectedApplicationForDeposit, setSelectedApplicationForDeposit] =
     React.useState<AuctionApplication | null>(null);
+
+  // Get wallet connection status
+  const { address, isConnected } = useAccount();
 
   const selectedZoneId = zoneParam ? parseInt(zoneParam) : undefined; // TODO: Add back in
   // const selectedZoneId = 1;
@@ -264,13 +327,37 @@ export default function GlowLaunchpadPage() {
                       </p>
                     </div>
                   ) : applications.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground text-sm">
-                        No applications match your filters.
-                      </p>
-                      <p className="text-muted-foreground text-xs mt-1">
-                        Try adjusting your search criteria
-                      </p>
+                    <div className="flex flex-col items-center justify-center py-16 px-4">
+                      <div className="mb-6 opacity-20">
+                        <GlowSymbol className="w-16 h-16" />
+                      </div>
+                      <div className="text-center max-w-md">
+                        <h3
+                          className="text-lg font-semibold mb-2"
+                          style={{
+                            fontFamily: "Söhne, sans-serif",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {selectedZoneId
+                            ? "No applications in this zone"
+                            : "No applications available"}
+                        </h3>
+                        <p className="text-muted-foreground text-sm">
+                          {selectedZoneId
+                            ? "Try selecting a different zone or check back later for new farm applications."
+                            : "Check back later for new solar farm sponsorship opportunities."}
+                        </p>
+                        {selectedZoneId && (
+                          <Button
+                            variant="outline"
+                            className="mt-4"
+                            onClick={() => setZoneParam(null)}
+                          >
+                            View All Zones
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
@@ -498,9 +585,7 @@ export default function GlowLaunchpadPage() {
                                         fontWeight: 400,
                                       }}
                                     >
-                                      Est. Weekly Rewards for{" "}
-                                      {application.activeFraction?.totalSteps}{" "}
-                                      shares
+                                      Est. Weekly Rewards per share
                                     </div>
                                     <div>
                                       <div
@@ -511,7 +596,8 @@ export default function GlowLaunchpadPage() {
                                         }}
                                       >
                                         {rewardScore?.userWeeklyGlwRewards &&
-                                        rewardScore?.userWeeklyPdRewards
+                                        rewardScore?.userWeeklyPdRewards &&
+                                        application.activeFraction?.totalSteps
                                           ? (() => {
                                               const glwRewards = parseFloat(
                                                 formatUnits(
@@ -531,11 +617,16 @@ export default function GlowLaunchpadPage() {
                                               );
                                               const totalRewards =
                                                 glwRewards + pdRewards;
-                                              return `${totalRewards.toLocaleString(
+                                              const totalShares =
+                                                application.activeFraction
+                                                  .totalSteps;
+                                              const rewardsPerShare =
+                                                totalRewards / totalShares;
+                                              return `${rewardsPerShare.toLocaleString(
                                                 undefined,
                                                 {
-                                                  minimumFractionDigits: 0,
-                                                  maximumFractionDigits: 0,
+                                                  minimumFractionDigits: 2,
+                                                  maximumFractionDigits: 2,
                                                 }
                                               )} GLW`;
                                             })()
@@ -544,18 +635,30 @@ export default function GlowLaunchpadPage() {
                                           : "0 GLW"}
                                         <span className="text-base text-gray-500 dark:text-gray-500 ml-2 font-normal">
                                           ≈
-                                          {rewardScore?.userEstimatedWeeklyCash
-                                            ? `$${parseFloat(
-                                                formatUnits(
-                                                  BigInt(
-                                                    rewardScore.userEstimatedWeeklyCash
-                                                  ),
-                                                  6 // USDC decimals for cash estimates
-                                                )
-                                              ).toLocaleString(undefined, {
-                                                minimumFractionDigits: 0,
-                                                maximumFractionDigits: 0,
-                                              })}`
+                                          {rewardScore?.userEstimatedWeeklyCash &&
+                                          application.activeFraction?.totalSteps
+                                            ? (() => {
+                                                const totalCash = parseFloat(
+                                                  formatUnits(
+                                                    BigInt(
+                                                      rewardScore.userEstimatedWeeklyCash
+                                                    ),
+                                                    6 // USDC decimals for cash estimates
+                                                  )
+                                                );
+                                                const totalShares =
+                                                  application.activeFraction
+                                                    .totalSteps;
+                                                const cashPerShare =
+                                                  totalCash / totalShares;
+                                                return `$${cashPerShare.toLocaleString(
+                                                  undefined,
+                                                  {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2,
+                                                  }
+                                                )}`;
+                                              })()
                                             : isRewardScoresLoading
                                             ? "..."
                                             : "$0"}
@@ -564,6 +667,14 @@ export default function GlowLaunchpadPage() {
                                     </div>
                                   </div>
                                 </div>
+
+                                {/* Owned Fractions Display */}
+                                {isConnected && address && (
+                                  <OwnedFractionsDisplay
+                                    application={application}
+                                    walletAddress={address}
+                                  />
+                                )}
 
                                 {/* CTAs */}
                                 <div className="flex items-center gap-3">

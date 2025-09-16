@@ -115,7 +115,10 @@ export function TransactionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden">
+      <DialogContent
+        className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader className="sr-only">
           <DialogTitle>
             {isSuccess ? successTitle : isError ? errorTitle : title}
