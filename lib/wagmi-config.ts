@@ -35,7 +35,9 @@ export const wagmiConfig = createConfig({
     storage: cookieStorage, // works with SSR hydration; avoids `window` access during render
   }),
   connectors: [
-    metaMask({}),
+    injected({
+      shimDisconnect: true,
+    }),
     walletConnect({
       projectId,
       // metadata improves WC session restore on mobile wallets

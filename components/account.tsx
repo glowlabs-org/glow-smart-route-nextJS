@@ -74,7 +74,7 @@ export function Account() {
   };
 
   return (
-    <div className="px-8 py-12 max-h-[80vh] overflow-y-auto">
+    <div className="px-2 md:px-8 py-12 max-h-[80vh] overflow-y-auto">
       <div className="text-center">
         {/* Success Icon */}
         <div className="mb-6">
