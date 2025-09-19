@@ -320,25 +320,27 @@ export function SmartAccountWarningDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="md:max-w-lg">
-        <DialogHeader className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-destructive/10 rounded-full">
-              <AlertTriangle className="w-6 h-6 text-destructive" />
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="space-y-3 pb-4">
+          <div className="flex items-start gap-3 sm:items-center">
+            <div className="p-2 bg-destructive/10 rounded-full flex-shrink-0">
+              <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-destructive" />
             </div>
-            <DialogTitle className="text-destructive text-xl font-semibold">
-              {content.title}
-            </DialogTitle>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-destructive text-lg sm:text-xl font-semibold leading-tight">
+                {content.title}
+              </DialogTitle>
+            </div>
           </div>
-          <DialogDescription className="text-base">
+          <DialogDescription className="text-sm sm:text-base text-left">
             {content.description}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Detected issues */}
           {issues.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="text-sm font-medium text-foreground">
                 Detected issues
               </div>
@@ -346,10 +348,10 @@ export function SmartAccountWarningDialog({
                 {issues.map((label, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-3 p-3 bg-muted/50 border border-border rounded-lg"
+                    className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-muted/50 border border-border rounded-lg"
                   >
-                    <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
-                    <span className="text-sm text-foreground font-medium">
+                    <div className="w-2 h-2 bg-destructive rounded-full animate-pulse flex-shrink-0" />
+                    <span className="text-xs sm:text-sm text-foreground font-medium">
                       {label}
                     </span>
                   </div>
@@ -362,20 +364,24 @@ export function SmartAccountWarningDialog({
           <div className="space-y-4">
             {/* MetaMask path (smart account on MetaMask) */}
             {showMetaMaskPath && (
-              <div className="rounded-xl border p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Wallet className="w-4 h-4" />
+              <div className="rounded-xl border p-3 sm:p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Wallet className="w-4 h-4 flex-shrink-0" />
                   <div className="text-sm font-semibold">MetaMask steps</div>
                 </div>
-                <ol className="text-sm text-muted-foreground list-decimal ml-5 space-y-1">
+                <ol className="text-xs sm:text-sm text-muted-foreground list-decimal ml-4 sm:ml-5 space-y-1 sm:space-y-2">
                   {content.directivesMetaMask.map((s, i) => (
-                    <li key={i}>{s}</li>
+                    <li key={i} className="leading-relaxed">
+                      {s}
+                    </li>
                   ))}
                 </ol>
 
-                <div className="flex flex-wrap gap-2 mt-3">
+                <div className="flex flex-col sm:flex-row gap-2 mt-3 sm:mt-4">
                   <Button
                     variant="secondary"
+                    size="sm"
+                    className="w-full sm:w-auto"
                     onClick={() =>
                       window.open(
                         metamaskDocsUrl,
@@ -384,16 +390,23 @@ export function SmartAccountWarningDialog({
                       )
                     }
                   >
-                    <ExternalLink className="w-4 h-4 mr-2" />
+                    <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                     MetaMask Guide
                   </Button>
 
                   <Button
                     variant="default"
+                    size="sm"
+                    className="w-full sm:w-auto"
                     onClick={recheckNow}
                     disabled={isRechecking}
                   >
-                    <RefreshCw className="w-4 h-4 mr-2" />
+                    <RefreshCw
+                      className={cn(
+                        "w-3 h-3 sm:w-4 sm:h-4 mr-2",
+                        isRechecking && "animate-spin"
+                      )}
+                    />
                     Recheck now
                   </Button>
                 </div>
@@ -402,34 +415,45 @@ export function SmartAccountWarningDialog({
 
             {/* Generic path (other wallets / connectors) */}
             {!showMetaMaskPath && (
-              <div className="rounded-xl border p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Wallet className="w-4 h-4" />
+              <div className="rounded-xl border p-3 sm:p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Wallet className="w-4 h-4 flex-shrink-0" />
                   <div className="text-sm font-semibold">Other wallets</div>
                 </div>
-                <ol className="text-sm text-muted-foreground list-decimal ml-5 space-y-1">
+                <ol className="text-xs sm:text-sm text-muted-foreground list-decimal ml-4 sm:ml-5 space-y-1 sm:space-y-2">
                   {content.directivesGeneric.map((s, i) => (
-                    <li key={i}>{s}</li>
+                    <li key={i} className="leading-relaxed">
+                      {s}
+                    </li>
                   ))}
                 </ol>
-                <div className="flex flex-wrap gap-2 mt-3">
+                <div className="flex flex-col sm:flex-row gap-2 mt-3 sm:mt-4">
                   <Button
                     variant="default"
+                    size="sm"
+                    className="w-full sm:w-auto"
                     onClick={recheckNow}
                     disabled={isRechecking}
                   >
-                    <RefreshCw className="w-4 h-4 mr-2" />
+                    <RefreshCw
+                      className={cn(
+                        "w-3 h-3 sm:w-4 sm:h-4 mr-2",
+                        isRechecking && "animate-spin"
+                      )}
+                    />
                     Recheck now
                   </Button>
                   <Button
                     variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto"
                     onClick={() => {
                       // If you have a wallet modal, trigger it here instead:
                       // openConnectModal?.()
                       toast({
                         title: "Tip",
                         description:
-                          "If you’re using a contract/AA wallet, switch to a regular personal account (EOA).",
+                          "If you're using a contract/AA wallet, switch to a regular personal account (EOA).",
                       });
                     }}
                   >
@@ -438,41 +462,36 @@ export function SmartAccountWarningDialog({
                 </div>
               </div>
             )}
-
-            {/* Success hint */}
-            <div className="flex items-start gap-2 text-xs text-muted-foreground">
-              <CheckCircle2 className="w-4 h-4 mt-0.5" />
-              <span>
-                When everything is correct, this dialog will close automatically
-                after a successful recheck.
-              </span>
-            </div>
           </div>
 
-          {/* Don’t warn again */}
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          {/* Don't warn again */}
+          <label className="flex items-start gap-3 text-xs sm:text-sm text-muted-foreground cursor-pointer">
             <input
               type="checkbox"
-              className="accent-foreground"
+              className="accent-foreground mt-0.5 flex-shrink-0"
               checked={dontWarnAgain}
               onChange={(e) => setDontWarnAgain(e.target.checked)}
             />
-            Don’t warn me again for this address on this chain (this session)
+            <span className="leading-relaxed">
+              Don't warn me again for this address on this chain (this session)
+            </span>
           </label>
         </div>
 
-        <DialogFooter className="flex-col gap-3 sm:flex-row">
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-3 pt-4 border-t">
           <Button
             variant="outline"
+            size="sm"
             onClick={() => handleClose(false)}
             type="button"
             disabled={isDeactivating || isRechecking}
-            className="order-2 sm:order-1"
+            className="w-full sm:w-auto"
           >
             Dismiss
           </Button>
           <Button
             variant="ghost"
+            size="sm"
             onClick={() => {
               window.open(
                 "https://glow.org/blog/glow-guarded-launch",
@@ -480,8 +499,9 @@ export function SmartAccountWarningDialog({
               );
             }}
             type="button"
-            className="order-1 sm:order-2"
+            className="w-full sm:w-auto"
           >
+            <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
             Learn more
           </Button>
         </DialogFooter>

@@ -400,7 +400,7 @@ export const GlowToUsdcDialog: FC<{
   const reviewContent = (
     <div className="space-y-6 mb-8">
       {/* Token swap visualization */}
-      <div className="space-y-3">
+      <div className="relative space-y-4">
         <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-4">
           <div className="flex items-center justify-between text-left">
             <div>
@@ -417,8 +417,9 @@ export const GlowToUsdcDialog: FC<{
           </div>
         </div>
 
-        <div className="flex justify-center">
-          <div className="bg-background rounded-full p-2 border border-border">
+        {/* Absolutely positioned arrow */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+          <div className="bg-background rounded-full p-2 border border-border shadow-sm">
             <ArrowDown className="size-6 text-muted-foreground" />
           </div>
         </div>

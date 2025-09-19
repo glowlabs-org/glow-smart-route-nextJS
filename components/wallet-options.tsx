@@ -80,7 +80,7 @@ export function WalletOptions() {
         {/* Header */}
         <div className="mb-6">
           <GlowSymbol className="size-16 mb-2 mx-auto" />
-          <div className="text-4xl font-bold text-foreground mb-2">
+          <div className="text-2xl md:text-4xl font-bold text-foreground mb-2">
             Connect wallet
           </div>
           <div className="text-muted-foreground text-sm">

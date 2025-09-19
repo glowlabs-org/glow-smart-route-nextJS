@@ -1273,23 +1273,24 @@ export default function View({
                               Transaction Details
                             </span>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <div className="text-xs text-muted-foreground">
-                                Uniswap Route
+                          {/* Only show route details if using both Uniswap and Bonding Curve */}
+                          {Number(smartBalancingAmounts?.amount_out_glow) >
+                            0 && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <div className="text-xs text-muted-foreground">
+                                  Uniswap Route
+                                </div>
+                                <div className="text-sm font-medium">
+                                  {isEstimateLoading ? (
+                                    <Skeleton className="w-16 h-4" />
+                                  ) : (
+                                    `${Number(
+                                      smartBalancingAmounts?.amount_out_uni
+                                    ).toFixed(6)} GLOW`
+                                  )}
+                                </div>
                               </div>
-                              <div className="text-sm font-medium">
-                                {isEstimateLoading ? (
-                                  <Skeleton className="w-16 h-4" />
-                                ) : (
-                                  `${Number(
-                                    smartBalancingAmounts?.amount_out_uni
-                                  ).toFixed(6)} GLOW`
-                                )}
-                              </div>
-                            </div>
-                            {Number(smartBalancingAmounts?.amount_out_glow) >
-                              0 && (
                               <div className="space-y-2">
                                 <div className="text-xs text-muted-foreground">
                                   Bonding Curve
@@ -1304,8 +1305,8 @@ export default function View({
                                   )}
                                 </div>
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
                           <div className="pt-3 border-t border-border/20">
                             <div className="flex items-center justify-between">
                               <span className="text-xs lg:text-sm text-muted-foreground">
