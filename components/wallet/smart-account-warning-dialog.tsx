@@ -31,40 +31,6 @@ import {
 } from "@/web3/web3/utils/detectSmartAccount";
 import { cn } from "@/lib/utils";
 
-// ---------- storage helpers ----------
-function getDismissStorageKey(address?: string, chainId?: number) {
-  const addr = address?.toLowerCase() ?? "unknown";
-  const chain = chainId ?? 0;
-  return `smart-account-warning-dismissed:${addr}:${chain}`;
-}
-function wasDismissed(address?: string, chainId?: number) {
-  if (typeof window === "undefined") return false;
-  const key = getDismissStorageKey(address, chainId);
-  return window.sessionStorage.getItem(key) === "true";
-}
-function setDismissed(address?: string, chainId?: number, value = true) {
-  if (typeof window === "undefined") return;
-  const key = getDismissStorageKey(address, chainId);
-  window.sessionStorage.setItem(key, value ? "true" : "false");
-}
-
-// ---------- wallet helpers ----------
-function getAnyWalletRequest(
-  walletClient: ReturnType<typeof useWalletClient>["data"]
-) {
-  const wcAny = walletClient as any;
-  if (wcAny?.transport && typeof wcAny.transport.request === "function") {
-    return wcAny.transport.request as (args: any) => Promise<any>;
-  }
-  if (typeof window !== "undefined") {
-    const eth: any = (window as any).ethereum;
-    if (eth && typeof eth.request === "function" && eth.isMetaMask) {
-      return eth.request.bind(eth) as (args: any) => Promise<any>;
-    }
-  }
-  return undefined;
-}
-
 function detectWalletBrand(
   walletClient: ReturnType<typeof useWalletClient>["data"]
 ):
@@ -105,7 +71,6 @@ export function SmartAccountWarningDialog({
     useState<SmartAccountStatus | null>(null);
   const [isDeactivating, setIsDeactivating] = useState(false);
   const [isRechecking, setIsRechecking] = useState(false);
-  const [dontWarnAgain, setDontWarnAgain] = useState(false);
 
   const hasToastedErrorRef = useRef(false);
 
@@ -124,7 +89,6 @@ export function SmartAccountWarningDialog({
   // ---------- effects ----------
   useEffect(() => {
     if (!isConnected || !address || !chainId) return;
-    if (wasDismissed(address, chainId)) return;
 
     let cancelled = false;
     (async () => {
@@ -303,9 +267,6 @@ export function SmartAccountWarningDialog({
 
   function handleClose(next: boolean) {
     setOpen(next);
-    if (!next && dontWarnAgain) {
-      setDismissed(address, chainId, true);
-    }
   }
 
   if (!open) return null;
@@ -463,19 +424,6 @@ export function SmartAccountWarningDialog({
               </div>
             )}
           </div>
-
-          {/* Don't warn again */}
-          <label className="flex items-start gap-3 text-xs sm:text-sm text-muted-foreground cursor-pointer">
-            <input
-              type="checkbox"
-              className="accent-foreground mt-0.5 flex-shrink-0"
-              checked={dontWarnAgain}
-              onChange={(e) => setDontWarnAgain(e.target.checked)}
-            />
-            <span className="leading-relaxed">
-              Don't warn me again for this address on this chain (this session)
-            </span>
-          </label>
         </div>
 
         <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-3 pt-4 border-t">
