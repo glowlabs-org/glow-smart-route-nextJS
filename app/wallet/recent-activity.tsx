@@ -26,8 +26,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useWallets } from "@/hooks/useWallets";
-import { useMultipleFractionSplits } from "@/hooks/useFractionSplits";
 import { useRegions } from "@/hooks/useRegions";
+import { useSplitsActivity } from "@/hooks/useGlowLaunchpad";
 import { formatUnits } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 
@@ -62,6 +62,14 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
     enabled: Boolean(walletAddress),
     limit: 10, // Limit to recent 10 events
   });
+
+  // Fetch splits activity data
+  const { activity: splitsActivity, isLoading: isSplitsActivityLoading } =
+    useSplitsActivity({
+      walletAddress,
+      enabled: Boolean(walletAddress),
+      limit: 10, // Limit to recent 10 events
+    });
 
   // Fetch regions for mapping region IDs to names
   const { regions } = useRegions();
@@ -108,11 +116,31 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
       });
     });
 
+    // Add splits activity (fraction purchases)
+    splitsActivity.forEach((split) => {
+      allActivities.push({
+        type: "fraction-purchase",
+        time: new Date(split.timestamp * 1000).toLocaleDateString(),
+        amount: parseFloat(
+          formatUnits(BigInt(split.amount), DECIMALS_BY_TOKEN.GLW)
+        ).toFixed(2),
+        token: "GLW",
+        shares: split.stepsPurchased,
+        applicationId: split.applicationId,
+        fractionId: split.fractionId,
+        fractionStatus: split.fractionStatus,
+        progressPercent: split.progressPercent,
+        txHash: split.transactionHash,
+        timestamp: split.timestamp * 1000, // Convert to milliseconds
+      });
+    });
+
     // Sort by timestamp (newest first)
     return allActivities.sort((a, b) => b.timestamp - a.timestamp);
-  }, [mintedEvents, stakeEvents, regions]);
+  }, [mintedEvents, stakeEvents, splitsActivity, regions]);
 
-  const isLoading = isMintedEventsLoading || isStakeEventsLoading;
+  const isLoading =
+    isMintedEventsLoading || isStakeEventsLoading || isSplitsActivityLoading;
   const getActivityIcon = (type: string) => {
     switch (type) {
       case "swap":
@@ -227,13 +255,14 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
       case "fraction-purchase":
         return (
           <div className="flex items-center gap-2">
-            <span>Purchased</span>
+            <span>Sponsored</span>
             <span className="font-medium">{activity.shares} shares</span>
             <span className="text-muted-foreground">for</span>
             <span className="font-medium">{activity.amount} GLW</span>
-            {activity.region && (
-              <Badge variant="secondary">{activity.region}</Badge>
-            )}
+
+            <span className="text-xs text-muted-foreground">
+              {activity.progressPercent}% filled
+            </span>
           </div>
         );
       case "unstake":

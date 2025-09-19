@@ -101,7 +101,7 @@ export default function View() {
   });
 
   // Regions data for mapping region IDs to names
-  const { regions, isRegionsLoading } = useRegions();
+  const { regions } = useRegions();
 
   // Helper functions to format balances
   function formatBalance(

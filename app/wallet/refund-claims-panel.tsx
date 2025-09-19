@@ -29,6 +29,7 @@ import {
   useRefundableFractions,
   type RefundableFraction,
 } from "@/hooks/useFractionSplits";
+import { usePolling } from "@/utils/use-polling";
 
 interface RefundClaimsPanelProps {
   walletAddress: string | undefined;
@@ -68,6 +69,40 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
     }
   }
 
+  // Use polling hook for checking refund status
+  const { startPolling, stopPolling, isPolling } = usePolling({
+    pollFn: async () => {
+      const { data } = await refetch();
+      return data;
+    },
+    pollInterval: 10000, // 10 seconds
+    maxDuration: 120, // 2 minutes max
+    shouldStopPolling: (data) => {
+      if (!data) return false;
+      // Stop polling when the refund is no longer in the list
+      const processingFractionIds = Array.from(processingRefunds);
+      if (processingFractionIds.length === 0) return false;
+
+      const stillExists = data.refundableFractions.some((refund) =>
+        processingFractionIds.includes(refund.fraction.id)
+      );
+      return !stillExists;
+    },
+    onSuccess: (data) => {
+      // Show success toast when refund is confirmed removed
+      toast.success("Refund claimed successfully!", {
+        description: "Your GLW tokens have been refunded to your wallet",
+      });
+    },
+    onError: (error) => {
+      console.error("Polling timeout:", error);
+      toast.warning("Refund processing is taking longer than expected", {
+        description:
+          "Your refund may still be processing. Please check your wallet.",
+      });
+    },
+  });
+
   // Handle individual refund claim
   async function handleClaimRefund(refundableFraction: RefundableFraction) {
     if (!walletClient) {
@@ -83,6 +118,7 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
       refundableFraction.refundDetails.creator,
       refundableFraction.refundDetails.fractionId
     );
+
     try {
       const txHash = await claimRefund(
         refundableFraction.refundDetails.user,
@@ -90,7 +126,8 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
         refundableFraction.refundDetails.fractionId
       );
 
-      toast.success("Refund claimed successfully!", {
+      // Show initial transaction submitted toast
+      toast.info("Refund transaction submitted", {
         description: `Transaction: ${txHash}`,
         action: {
           label: "View",
@@ -99,14 +136,15 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
         },
       });
 
-      // Refresh the refundable fractions data
-      refetch();
+      // Start polling to check when refund is removed from the list
+      startPolling();
     } catch (error: any) {
       console.error("Failed to claim refund:", error);
       toast.error("Failed to claim refund", {
         description: error?.message || "Please try again",
       });
-    } finally {
+
+      // Remove from processing on error
       setProcessingRefunds((prev) => {
         const newSet = new Set(prev);
         newSet.delete(fractionId);
@@ -114,6 +152,14 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
       });
     }
   }
+
+  // Clean up processing refunds when polling stops
+  React.useEffect(() => {
+    if (!isPolling && processingRefunds.size > 0) {
+      // Clear all processing refunds when polling stops
+      setProcessingRefunds(new Set());
+    }
+  }, [isPolling, processingRefunds.size]);
 
   // Handle claim all refunds
   async function handleClaimAllRefunds() {
@@ -166,12 +212,23 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
             {refundableFractions.length > 1 && (
               <Button
                 onClick={handleClaimAllRefunds}
-                disabled={isProcessing || processingRefunds.size > 0}
+                disabled={
+                  isProcessing || processingRefunds.size > 0 || isPolling
+                }
               >
-                Claim All
-                <Badge variant="secondary" className="ml-2">
-                  {refundableFractions.length} refunds
-                </Badge>
+                {isPolling ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Confirming...
+                  </>
+                ) : (
+                  <>
+                    Claim All
+                    <Badge variant="secondary" className="ml-2">
+                      {refundableFractions.length} refunds
+                    </Badge>
+                  </>
+                )}
               </Button>
             )}
             <Button
@@ -295,12 +352,16 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
                       size="sm"
                       variant="default"
                       onClick={() => handleClaimRefund(refundableFraction)}
-                      disabled={isProcessingThis || isProcessing}
+                      disabled={isProcessingThis || isProcessing || isPolling}
                     >
-                      {isProcessingThis ? (
+                      {isProcessingThis ||
+                      (isPolling &&
+                        processingRefunds.has(
+                          refundableFraction.fraction.id
+                        )) ? (
                         <>
                           <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                          Processing...
+                          {isPolling ? "Confirming..." : "Processing..."}
                         </>
                       ) : (
                         "Claim"

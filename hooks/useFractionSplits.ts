@@ -105,70 +105,6 @@ export function useFractionSplits(params: UseFractionSplitsParams) {
   };
 }
 
-// Helper hook to get splits for multiple fractions
-export interface UseMultipleFractionSplitsParams {
-  walletAddress: string | null;
-  fractionIds: string[];
-  enabled?: boolean;
-  refetchInterval?: number;
-}
-
-export function useMultipleFractionSplits(
-  params: UseMultipleFractionSplitsParams
-) {
-  const {
-    walletAddress,
-    fractionIds,
-    enabled = true,
-    refetchInterval = 10_000,
-  } = params;
-
-  const queries = fractionIds.map((fractionId) =>
-    useFractionSplits({
-      walletAddress,
-      fractionId,
-      enabled,
-      refetchInterval,
-    })
-  );
-
-  const allSplits = queries.flatMap((query) => query.splits);
-  const isLoading = queries.some((query) => query.isLoading);
-  const isError = queries.some((query) => query.isError);
-  const errors = queries
-    .filter((query) => query.error)
-    .map((query) => query.error);
-
-  const totalSummary = {
-    totalTransactions: queries.reduce(
-      (sum, query) => sum + query.summary.totalTransactions,
-      0
-    ),
-    totalStepsPurchased: queries.reduce(
-      (sum, query) => sum + query.summary.totalStepsPurchased,
-      0
-    ),
-    totalAmountSpent: queries
-      .reduce((sum, query) => {
-        try {
-          return sum + BigInt(query.summary.totalAmountSpent);
-        } catch {
-          return sum;
-        }
-      }, BigInt(0))
-      .toString(),
-  };
-
-  return {
-    allSplits,
-    totalSummary,
-    isLoading,
-    isError,
-    errors,
-    refetch: () => Promise.all(queries.map((query) => query.refetch())),
-  };
-}
-
 // Types for refundable fractions
 export interface RefundableFraction {
   fraction: {
@@ -223,7 +159,7 @@ export function useRefundableFractions(params: UseRefundableFractionsParams) {
   const {
     walletAddress,
     enabled = true,
-    refetchInterval = 30_000, // 30 seconds - less frequent than other queries
+    refetchInterval = 60_000, // 60 seconds
   } = params;
 
   const queryKey = ["refundable-fractions", walletAddress];

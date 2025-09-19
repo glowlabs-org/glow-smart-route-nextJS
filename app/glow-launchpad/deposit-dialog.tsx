@@ -7,16 +7,8 @@ import {
 } from "@/components/dialogs/transaction-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getCurrencyDecimals, getDisplayDecimals } from "@/lib/currency";
 import { formatNumber } from "./utils";
 import { toast } from "sonner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { formatUnits, parseUnits } from "viem";
 import {
