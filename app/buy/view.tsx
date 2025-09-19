@@ -14,7 +14,13 @@ import { toast } from "sonner";
 import { Result } from "ts-results";
 import { useSwap } from "@/hooks/useSwap";
 import { Input } from "@/components/ui/input";
-import { useAccount, useDisconnect, useConnect } from "wagmi";
+import {
+  useAccount,
+  useDisconnect,
+  useConnect,
+  useWalletClient,
+  usePublicClient,
+} from "wagmi";
 import { formatUnits, parseUnits } from "viem";
 import { useForwarder } from "@glowlabs-org/utils/browser";
 import { CHAIN_ID } from "@/web3/constants";
@@ -56,6 +62,8 @@ import { RestakeAssistant } from "@/app/wallet/restake-assistant";
 import { UnstakeDialog } from "@/app/wallet/unstake-dialog";
 import { ContributeDialog } from "@/components/dialogs/ContributeDialog";
 import { StatsSidebar } from "./stats-sidebar";
+import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
+import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 
 export const tokens = {
   USDG: {
@@ -136,6 +144,8 @@ export default function View({
   const { address, isConnected, isConnecting } = useAccount();
   const { disconnect } = useDisconnect();
   const { connectors } = useConnect();
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
 
   // Add a general loading state check
   const isWalletLoading = isConnecting;
@@ -166,6 +176,8 @@ export default function View({
   const [isRestakeOpen, setIsRestakeOpen] = useState(false);
   const [isUnstakeOpen, setIsUnstakeOpen] = useState(false);
   const [isContributeOpen, setIsContributeOpen] = useState(false);
+  const [isSmartAccountWarningOpen, setIsSmartAccountWarningOpen] =
+    useState(false);
 
   // -------------------------------------------------------------------
   // URL PARAM STATE (txId)
@@ -196,6 +208,35 @@ export default function View({
     signer as any,
     chainIdNum
   );
+
+  // Smart account check function
+  const checkSmartAccountBeforeSwap = async (): Promise<boolean> => {
+    if (!address || !walletClient) return false;
+
+    try {
+      const status = await getSmartAccountStatus({
+        address: address as `0x${string}`,
+        walletClient,
+        getBytecode: publicClient?.getBytecode,
+      });
+      console.log("status", status);
+      const isSmartAccount =
+        status &&
+        (status.isContractWallet ||
+          status.isEip7702Delegated ||
+          status.hasWalletAABatching);
+
+      if (isSmartAccount) {
+        setIsSmartAccountWarningOpen(true);
+        return true; // Block the swap
+      }
+
+      return false; // Allow the swap
+    } catch (error) {
+      console.error("Smart account check failed:", error);
+      return false; // Allow the swap if check fails
+    }
+  };
 
   // const { gctlPrice, gctlPriceNumber, isGctlPriceLoading } =
   //   useGctlApi(address);
@@ -393,7 +434,12 @@ export default function View({
           return {
             label: `SWAP`,
             disabled: false,
-            callback: () => {
+            callback: async () => {
+              // Check for smart account before proceeding
+              const isSmartAccount = await checkSmartAccountBeforeSwap();
+              if (isSmartAccount) {
+                return; // Block the swap if smart account is detected
+              }
               setIsDialogOpen(true);
             },
           };
@@ -412,7 +458,12 @@ export default function View({
         return {
           label: `SWAP`,
           disabled: false,
-          callback: () => {
+          callback: async () => {
+            // Check for smart account before proceeding
+            const isSmartAccount = await checkSmartAccountBeforeSwap();
+            if (isSmartAccount) {
+              return; // Block the swap if smart account is detected
+            }
             setIsDialogOpen(true);
           },
         };
@@ -423,7 +474,12 @@ export default function View({
         return {
           label: `SWAP`,
           disabled: false,
-          callback: () => {
+          callback: async () => {
+            // Check for smart account before proceeding
+            const isSmartAccount = await checkSmartAccountBeforeSwap();
+            if (isSmartAccount) {
+              return; // Block the swap if smart account is detected
+            }
             setIsDialogOpen(true);
           },
         };
@@ -445,7 +501,12 @@ export default function View({
         return {
           label: `SWAP`,
           disabled: false,
-          callback: () => {
+          callback: async () => {
+            // Check for smart account before proceeding
+            const isSmartAccount = await checkSmartAccountBeforeSwap();
+            if (isSmartAccount) {
+              return; // Block the swap if smart account is detected
+            }
             setIsGlowToUsdcDialogOpen(true);
           },
         };
@@ -462,6 +523,12 @@ export default function View({
   }
 
   const handleBuy = async () => {
+    // Check for smart account before proceeding
+    const isSmartAccount = await checkSmartAccountBeforeSwap();
+    if (isSmartAccount) {
+      return; // Block the swap if smart account is detected
+    }
+
     const amountIn = toUnitsDecimal(amountToSell, selectedTokenSell.decimals);
 
     try {
@@ -1464,6 +1531,13 @@ export default function View({
         open={isContributeOpen}
         onOpenChange={setIsContributeOpen}
       /> */}
+
+      {/* Smart Account Warning Dialog */}
+      <SmartAccountWarningDialog
+        open={isSmartAccountWarningOpen}
+        onOpenChange={setIsSmartAccountWarningOpen}
+        triggerCheck={false}
+      />
     </div>
   );
 }

@@ -17,71 +17,38 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+import {
+  AlertTriangle,
+  ExternalLink,
+  CheckCircle2,
+  Wallet,
+  RefreshCw,
+  ShieldAlert,
+} from "lucide-react";
+import {
+  getSmartAccountStatus,
+  SmartAccountStatus,
+} from "@/web3/web3/utils/detectSmartAccount";
+import { cn } from "@/lib/utils";
 
+// ---------- storage helpers ----------
 function getDismissStorageKey(address?: string, chainId?: number) {
   const addr = address?.toLowerCase() ?? "unknown";
   const chain = chainId ?? 0;
   return `smart-account-warning-dismissed:${addr}:${chain}`;
 }
-
 function wasDismissed(address?: string, chainId?: number) {
   if (typeof window === "undefined") return false;
   const key = getDismissStorageKey(address, chainId);
   return window.sessionStorage.getItem(key) === "true";
 }
-
-function setDismissed(address?: string, chainId?: number) {
+function setDismissed(address?: string, chainId?: number, value = true) {
   if (typeof window === "undefined") return;
   const key = getDismissStorageKey(address, chainId);
-  window.sessionStorage.setItem(key, "true");
+  window.sessionStorage.setItem(key, value ? "true" : "false");
 }
 
-function stringifySafe(value: unknown) {
-  try {
-    return JSON.stringify(value).toLowerCase();
-  } catch {
-    return "";
-  }
-}
-
-function includesSmartAccountHints(payload: unknown) {
-  console.log("payload", payload);
-  const str = stringifySafe(payload);
-  if (!str) return false;
-  // Broad hints across MetaMask EIP-7702 / Delegator and EIP-5792 batching
-  return (
-    str.includes("smart account") ||
-    str.includes("smartaccount") ||
-    str.includes("eip-7702") ||
-    str.includes("7702") ||
-    str.includes("delegator") ||
-    // Capabilities often list wallet_sendcalls when AA is enabled in MetaMask
-    str.includes("wallet_sendcalls")
-  );
-}
-
-async function requestWalletCapabilities(params: {
-  address?: `0x${string}`;
-  request?: (args: any) => Promise<any>;
-}) {
-  const { address, request } = params;
-  if (!request) return null;
-
-  // Try address-scoped first, then global
-  try {
-    return await request({
-      method: "wallet_getCapabilities",
-      params: address ? [address] : [],
-    });
-  } catch {
-    try {
-      return await request({ method: "wallet_getCapabilities" });
-    } catch {
-      return null;
-    }
-  }
-}
-
+// ---------- wallet helpers ----------
 function getAnyWalletRequest(
   walletClient: ReturnType<typeof useWalletClient>["data"]
 ) {
@@ -98,151 +65,424 @@ function getAnyWalletRequest(
   return undefined;
 }
 
-async function isContractWallet(
-  address?: `0x${string}`,
-  getBytecode?: (args: {
-    address: `0x${string}`;
-  }) => Promise<`0x${string}` | null | undefined>
-) {
-  if (!address || !getBytecode) return false;
-  try {
-    const bytecode = await getBytecode({ address });
-    return Boolean(bytecode && bytecode !== "0x");
-  } catch {
-    return false;
+function detectWalletBrand(
+  walletClient: ReturnType<typeof useWalletClient>["data"]
+):
+  | { brand: "metamask"; isMetaMask: true }
+  | { brand: "unknown"; isMetaMask: false } {
+  // Try to infer brand from provider flags
+  const eth =
+    typeof window !== "undefined" ? (window as any).ethereum : undefined;
+  if (
+    eth?.isMetaMask ||
+    (walletClient as any)?.transport?.name?.toLowerCase?.().includes("metamask")
+  ) {
+    return { brand: "metamask", isMetaMask: true };
   }
+  return { brand: "unknown", isMetaMask: false };
 }
 
-// export async function get7702Delegation(
-//   address: `0x${string}`
-// ): Promise<
-//   | { kind: "none" }
-//   | { kind: "eip7702"; implementation: `0x${string}` }
-//   | { kind: "contract" }
-// > {
-//   const code = await client.getBytecode({ address });
-//   if (!code || code === "0x") return { kind: "none" };
+// ---------- props ----------
+interface SmartAccountWarningDialogProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  triggerCheck?: boolean;
+}
 
-//   // 7702 designator is: 0xef0100 || <20-byte implementation address>
-//   const prefix = code.slice(0, 8).toLowerCase(); // "0x" + "ef0100" = 8 chars
-//   if (prefix === "0xef0100") {
-//     const implHex = "0x" + code.slice(8, 8 + 40); // next 20 bytes
-//     if (isHex(implHex) && implHex.length === 42) {
-//       return {
-//         kind: "eip7702",
-//         implementation: getAddress(implHex as `0x${string}`),
-//       };
-//     }
-//   }
-//   return { kind: "contract" };
-// }
-
-export function SmartAccountWarningDialog() {
+// ---------- component ----------
+export function SmartAccountWarningDialog({
+  open: controlledOpen,
+  onOpenChange,
+  triggerCheck = false,
+}: SmartAccountWarningDialogProps = {}) {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
 
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const [smartAccountStatus, setSmartAccountStatus] =
+    useState<SmartAccountStatus | null>(null);
+  const [isDeactivating, setIsDeactivating] = useState(false);
+  const [isRechecking, setIsRechecking] = useState(false);
+  const [dontWarnAgain, setDontWarnAgain] = useState(false);
+
   const hasToastedErrorRef = useRef(false);
 
-  const docsUrl = useMemo(
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = onOpenChange || setInternalOpen;
+
+  const walletBrand = detectWalletBrand(walletClient);
+
+  // Official MetaMask guide for 7702 “revert to EOAs”
+  const metamaskDocsUrl = useMemo(
     () =>
       "https://support.metamask.io/configure/accounts/switch-to-or-revert-from-a-smart-account/",
     []
   );
 
+  // ---------- effects ----------
   useEffect(() => {
+    if (!isConnected || !address || !chainId) return;
+    if (wasDismissed(address, chainId)) return;
+
     let cancelled = false;
-
-    async function detect() {
-      if (!isConnected || !address) {
-        setOpen(false);
-        return;
-      }
-
-      if (wasDismissed(address, chainId)) {
-        setOpen(false);
-        return;
-      }
-
+    (async () => {
       try {
-        const request = getAnyWalletRequest(walletClient);
-        const caps = request
-          ? await requestWalletCapabilities({
-              address: address as `0x${string}`,
-              request,
-            })
-          : null;
+        const status = await getSmartAccountStatus({
+          address,
+          walletClient,
+          getBytecode: publicClient?.getBytecode,
+        });
+        if (cancelled) return;
+        setSmartAccountStatus(status);
 
-        const smartByCapabilities = includesSmartAccountHints(caps);
-        const smartByBytecode = await isContractWallet(
-          address as `0x${string}`,
-          publicClient?.getBytecode
-        );
-        console.log("smartByCapabilities", smartByCapabilities);
-        console.log("smartByBytecode", smartByBytecode);
+        const isSmartish =
+          status.isEip7702Delegated ||
+          status.hasWalletAABatching ||
+          status.isContractWallet;
 
-        if (!cancelled)
-          setOpen(Boolean(smartByCapabilities || smartByBytecode));
-      } catch (error: any) {
+        if (triggerCheck && isSmartish) setOpen(true);
+      } catch (err) {
         if (!hasToastedErrorRef.current) {
-          hasToastedErrorRef.current = true;
           toast({
-            title: "Wallet capability check failed",
+            title: "Smart account check failed",
             description:
-              error?.message ||
-              "We couldn't verify MetaMask smart account status. If trading fails, try disabling Smart Account.",
+              "We couldn’t verify your account type. You may experience errors when trading.",
             variant: "destructive",
           });
+          hasToastedErrorRef.current = true;
         }
-        if (!cancelled) setOpen(false);
       }
-    }
-
-    detect();
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [address, chainId, isConnected, walletClient]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [triggerCheck, isConnected, address, chainId]);
+
+  // ---------- derived content ----------
+  function getDialogContent() {
+    if (smartAccountStatus?.isEip7702Delegated) {
+      return {
+        title: "EIP-7702 Delegation Detected",
+        description:
+          "Delegated (smart) accounts cannot interact with Glow contracts.",
+        why: [
+          "Delegation changes how transactions are authorized and can break on-chain assumptions.",
+          "Some calls require a plain EOA signer; delegation introduces a contract-based dispatcher.",
+        ],
+        directivesMetaMask: [
+          "Open MetaMask → Account Details.",
+          "Select your delegated account.",
+          "Toggle off `Enable smart contract account`.",
+          "wait for the transaction to be confirmed",
+          "Return here and press “Recheck now”.",
+        ],
+        directivesGeneric: [
+          "Open your wallet settings.",
+          "Disable the smart/delegated account mode for this address.",
+          "Reconnect as a plain EOA.",
+          "Return here and press “Recheck now”.",
+        ],
+      };
+    }
+    if (smartAccountStatus?.hasWalletAABatching) {
+      return {
+        title: "Account Abstraction / Batching Enabled",
+        description:
+          "Bundled or sponsored transactions (AA) are not supported by Glow for this flow.",
+        why: [
+          "Bundlers alter nonce/fee semantics and can reorder calls.",
+          "Some contract calls require user-paid, non-batched txs.",
+        ],
+        directivesMetaMask: [
+          "Open MetaMask → Settings.",
+          "Disable any Smart Account or batching features for this account.",
+          "Reconnect as a plain EOA.",
+          "Return here and press “Recheck now”.",
+        ],
+        directivesGeneric: [
+          "Open your wallet settings (Rabby/OKX/etc.).",
+          "Disable account abstraction / batching / sponsored tx features.",
+          "Reconnect with a plain EOA (no bundler).",
+          "Return here and press “Recheck now”.",
+        ],
+      };
+    }
+    if (smartAccountStatus?.isContractWallet) {
+      return {
+        title: "Contract Wallet Detected",
+        description:
+          "Contract wallets (e.g., Safe) are not compatible with this action.",
+        why: [
+          "Some calls require an EOA signer and predictable nonce handling.",
+          "Multisig or module-based execution can block required call patterns.",
+        ],
+        directivesMetaMask: [
+          "Disconnect the Safe/contract account in MetaMask.",
+          "Select a personal account (EOA).",
+          "Reconnect to Glow.",
+          "Return here and press “Recheck now”.",
+        ],
+        directivesGeneric: [
+          "Disconnect your Safe/contract wallet.",
+          "Connect with a personal EOA (regular wallet address).",
+          "Reconnect to Glow.",
+          "Return here and press “Recheck now”.",
+        ],
+      };
+    }
+    // Fallback when we know it’s “smart” but not which flavor
+    return {
+      title: "Smart Account Features Detected",
+      description:
+        "Smart/delegated modes are not supported for this action. Use a plain EOA.",
+      why: [
+        "Smart routing can change transaction semantics.",
+        "We require direct EOA signing for some calls.",
+      ],
+      directivesMetaMask: [
+        "Open MetaMask settings.",
+        "Disable Smart Account features or revert to EOA.",
+        "Reconnect to Glow.",
+        "Return here and press “Recheck now”.",
+      ],
+      directivesGeneric: [
+        "Open your wallet settings.",
+        "Disable smart/delegated/AA features.",
+        "Reconnect as a plain EOA.",
+        "Return here and press “Recheck now”.",
+      ],
+    };
+  }
+
+  const content = getDialogContent();
+
+  // ---------- actions ----------
+  async function recheckNow() {
+    if (!address) return;
+    setIsRechecking(true);
+    try {
+      const status = await getSmartAccountStatus({
+        address,
+        walletClient,
+        getBytecode: publicClient?.getBytecode,
+      });
+      console.log("status", status);
+      setSmartAccountStatus(status);
+      const stillBlocked =
+        status.isEip7702Delegated ||
+        status.hasWalletAABatching ||
+        status.isContractWallet;
+      if (!stillBlocked) {
+        toast({
+          title: "All set",
+          description: "We no longer detect smart account features.",
+        });
+        handleClose(false);
+      } else {
+        toast({
+          title: "Still blocked",
+          description:
+            "Smart account features are still detected. Follow the steps and try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (e) {
+      toast({
+        title: "Recheck failed",
+        description: "Could not verify your account status.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRechecking(false);
+    }
+  }
 
   function handleClose(next: boolean) {
     setOpen(next);
-    if (!next) setDismissed(address, chainId);
+    if (!next && dontWarnAgain) {
+      setDismissed(address, chainId, true);
+    }
   }
 
   if (!open) return null;
 
+  const showMetaMaskPath = walletBrand.isMetaMask;
+
+  const issues = [
+    smartAccountStatus?.isEip7702Delegated && "EIP-7702 delegation active",
+    smartAccountStatus?.hasWalletAABatching && "AA / batching enabled",
+    smartAccountStatus?.isContractWallet && "Contract wallet in use",
+  ].filter(Boolean) as string[];
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>MetaMask Smart Account detected</DialogTitle>
-          <DialogDescription>
-            To trade Glow assets on this app, please disable MetaMask Smart
-            Account (EIP-7702) for the current network.
+      <DialogContent className="md:max-w-lg">
+        <DialogHeader className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-destructive/10 rounded-full">
+              <AlertTriangle className="w-6 h-6 text-destructive" />
+            </div>
+            <DialogTitle className="text-destructive text-xl font-semibold">
+              {content.title}
+            </DialogTitle>
+          </div>
+          <DialogDescription className="text-base">
+            {content.description}
           </DialogDescription>
         </DialogHeader>
-        <div className="text-sm text-muted-foreground">
-          You can revert to a standard account in MetaMask settings. Follow the
-          official guide below.
+
+        <div className="space-y-6">
+          {/* Detected issues */}
+          {issues.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-foreground">
+                Detected issues
+              </div>
+              <div className="grid gap-2">
+                {issues.map((label, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 p-3 bg-muted/50 border border-border rounded-lg"
+                  >
+                    <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
+                    <span className="text-sm text-foreground font-medium">
+                      {label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Action blocks */}
+          <div className="space-y-4">
+            {/* MetaMask path (smart account on MetaMask) */}
+            {showMetaMaskPath && (
+              <div className="rounded-xl border p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Wallet className="w-4 h-4" />
+                  <div className="text-sm font-semibold">MetaMask steps</div>
+                </div>
+                <ol className="text-sm text-muted-foreground list-decimal ml-5 space-y-1">
+                  {content.directivesMetaMask.map((s, i) => (
+                    <li key={i}>{s}</li>
+                  ))}
+                </ol>
+
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <Button
+                    variant="secondary"
+                    onClick={() =>
+                      window.open(
+                        metamaskDocsUrl,
+                        "_blank",
+                        "noopener,noreferrer"
+                      )
+                    }
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    MetaMask Guide
+                  </Button>
+
+                  <Button
+                    variant="default"
+                    onClick={recheckNow}
+                    disabled={isRechecking}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Recheck now
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Generic path (other wallets / connectors) */}
+            {!showMetaMaskPath && (
+              <div className="rounded-xl border p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Wallet className="w-4 h-4" />
+                  <div className="text-sm font-semibold">Other wallets</div>
+                </div>
+                <ol className="text-sm text-muted-foreground list-decimal ml-5 space-y-1">
+                  {content.directivesGeneric.map((s, i) => (
+                    <li key={i}>{s}</li>
+                  ))}
+                </ol>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <Button
+                    variant="default"
+                    onClick={recheckNow}
+                    disabled={isRechecking}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Recheck now
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      // If you have a wallet modal, trigger it here instead:
+                      // openConnectModal?.()
+                      toast({
+                        title: "Tip",
+                        description:
+                          "If you’re using a contract/AA wallet, switch to a regular personal account (EOA).",
+                      });
+                    }}
+                  >
+                    Switch wallet
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Success hint */}
+            <div className="flex items-start gap-2 text-xs text-muted-foreground">
+              <CheckCircle2 className="w-4 h-4 mt-0.5" />
+              <span>
+                When everything is correct, this dialog will close automatically
+                after a successful recheck.
+              </span>
+            </div>
+          </div>
+
+          {/* Don’t warn again */}
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              className="accent-foreground"
+              checked={dontWarnAgain}
+              onChange={(e) => setDontWarnAgain(e.target.checked)}
+            />
+            Don’t warn me again for this address on this chain (this session)
+          </label>
         </div>
-        <DialogFooter>
+
+        <DialogFooter className="flex-col gap-3 sm:flex-row">
           <Button
             variant="outline"
             onClick={() => handleClose(false)}
             type="button"
+            disabled={isDeactivating || isRechecking}
+            className="order-2 sm:order-1"
           >
             Dismiss
           </Button>
           <Button
+            variant="ghost"
             onClick={() => {
-              window.open(docsUrl, "_blank", "noopener,noreferrer");
+              window.open(
+                "https://glow.org/blog/glow-guarded-launch",
+                "_blank"
+              );
             }}
             type="button"
+            className="order-1 sm:order-2"
           >
-            Open MetaMask guide
+            Learn more
           </Button>
         </DialogFooter>
       </DialogContent>

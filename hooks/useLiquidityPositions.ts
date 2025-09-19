@@ -79,8 +79,6 @@ interface ApiPositionsResponse {
   totalAccruedLiquidityProviderFees?: string;
 }
 
-const DEFAULT_POSITIONS: Position[] = [];
-
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
   throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
 }

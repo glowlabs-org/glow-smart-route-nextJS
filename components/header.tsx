@@ -4,7 +4,16 @@ import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { Menu, X, Wallet, ChevronDown, Copy, LogOut, User } from "lucide-react";
+import {
+  Menu,
+  X,
+  Wallet,
+  ChevronDown,
+  Copy,
+  LogOut,
+  User,
+  AlertTriangle,
+} from "lucide-react";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -20,7 +29,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAccount, useDisconnect, useConnect } from "wagmi";
+import {
+  useAccount,
+  useDisconnect,
+  useConnect,
+  useChainId,
+  useSwitchChain,
+} from "wagmi";
+import { mainnet } from "wagmi/chains";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
@@ -86,6 +102,8 @@ export function Header({
   const { connectors } = useConnect();
   const { signer } = useEthersSigner();
   const router = useRouter();
+  const chainId = useChainId();
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
 
   // Use ERC20 balance hook to check for network issues
   const { hasError, hasSigner } = useER20Balances({ signer });
@@ -97,9 +115,21 @@ export function Header({
   });
 
   const hasNetworkIssues = hasError || (!hasSigner && isConnected);
+  const isWrongNetwork =
+    isConnected && chainId !== parseInt(process.env.NEXT_PUBLIC_CHAIN_ID!);
 
   const handleForceDisconnect = () => {
     forceDisconnect(disconnect, connectors);
+  };
+
+  const handleSwitchToMainnet = async () => {
+    try {
+      await switchChain({ chainId: mainnet.id });
+      toast.success("Switched to Ethereum Mainnet");
+    } catch (error: any) {
+      console.error("Failed to switch network:", error);
+      toast.error(error?.message || "Failed to switch network");
+    }
   };
 
   // Clean up localStorage for claimed refunds and show toast for new refunds
@@ -234,9 +264,9 @@ export function Header({
                       >
                         Add liquidity to the GLW/USDG pool and earn rewards
                       </ListItem>
-                      <ListItem href="/glow-launchpad" title="Glow Launchpad">
+                      {/* <ListItem href="/glow-launchpad" title="Glow Launchpad">
                         Sponsor solar farms and earn weekly GLW rewards
-                      </ListItem>
+                      </ListItem> */}
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
@@ -256,12 +286,12 @@ export function Header({
                       >
                         See the list of infrastructure projects
                       </ListItem>
-                      <ListItem
+                      {/* <ListItem
                         href="https://impact.glow.org/new-campaign"
                         title="Create a Region"
                       >
                         Create a new infrastructure project
-                      </ListItem>
+                      </ListItem> */}
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
@@ -382,6 +412,23 @@ export function Header({
                   >
                     Reconnect Wallet
                   </Button>
+                ) : isWrongNetwork ? (
+                  <Button
+                    size={"sm"}
+                    variant={"orange"}
+                    onClick={handleSwitchToMainnet}
+                    disabled={isSwitchingChain}
+                    className="flex items-center gap-2"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    {isSwitchingChain
+                      ? "Switching..."
+                      : `Switch to ${
+                          process.env.NEXT_PUBLIC_CHAIN_ID === "11155111"
+                            ? "Sepolia"
+                            : "Mainnet"
+                        }`}
+                  </Button>
                 ) : (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -422,11 +469,11 @@ export function Header({
                         <Copy className="w-4 h-4 mr-2" /> Copy address
                       </DropdownMenuItem>
 
-                      <DropdownMenuItem asChild className="cursor-pointer">
+                      {/* <DropdownMenuItem asChild className="cursor-pointer">
                         <Link href={`/wallet`} rel="noreferrer">
                           <User className="w-4 h-4 mr-2" /> My Wallet
                         </Link>
-                      </DropdownMenuItem>
+                      </DropdownMenuItem> */}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onSelect={(e) => {
@@ -557,7 +604,7 @@ export function Header({
                               >
                                 Infrastructure projects
                               </Link>
-                              <DrawerClose asChild>
+                              {/* <DrawerClose asChild>
                                 <Link
                                   href="https://impact.glow.org/new-campaign"
                                   target="_blank"
@@ -565,7 +612,7 @@ export function Header({
                                 >
                                   Create a Region
                                 </Link>
-                              </DrawerClose>
+                              </DrawerClose> */}
                             </DrawerClose>
                           </div>
                         </div>
@@ -763,64 +810,78 @@ export function Header({
                 {/* Footer CTA */}
                 <div className="border-t border-border bg-muted p-4">
                   {isConnected && address ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="w-full inline-flex items-center justify-between rounded-2xl border px-4 py-3 bg-background/95 backdrop-blur-xl hover:bg-muted/30 hover:border-border/60 transition-all duration-200"
-                          aria-label="Wallet menu"
-                          title={address}
-                        >
-                          <span className="inline-flex items-center gap-2">
-                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-foreground/10 backdrop-blur-sm">
-                              <Wallet className="w-3.5 h-3.5" />
-                            </span>
-                            <span
-                              style={{ fontFamily: "Söhne, sans-serif" }}
-                              className="font-medium"
-                            >
-                              {address.slice(0, 6)}...{address.slice(-4)}
-                            </span>
-                          </span>
-                          <ChevronDown className="w-4 h-4 opacity-60" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        className="w-72 backdrop-blur-xl bg-background/95 border-border"
+                    isWrongNetwork ? (
+                      <Button
+                        onClick={handleSwitchToMainnet}
+                        disabled={isSwitchingChain}
+                        className="w-full flex items-center gap-2"
+                        variant="orange"
                       >
-                        <DropdownMenuItem
-                          onSelect={async (e) => {
-                            e.preventDefault();
-                            try {
-                              await navigator.clipboard.writeText(address);
-                              toast.success("Address copied");
-                            } catch {
-                              toast.error("Failed to copy");
-                            }
-                          }}
-                          className="cursor-pointer"
+                        <AlertTriangle className="w-4 h-4" />
+                        {isSwitchingChain
+                          ? "Switching..."
+                          : "Switch to Mainnet"}
+                      </Button>
+                    ) : (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="w-full inline-flex items-center justify-between rounded-2xl border px-4 py-3 bg-background/95 backdrop-blur-xl hover:bg-muted/30 hover:border-border/60 transition-all duration-200"
+                            aria-label="Wallet menu"
+                            title={address}
+                          >
+                            <span className="inline-flex items-center gap-2">
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-foreground/10 backdrop-blur-sm">
+                                <Wallet className="w-3.5 h-3.5" />
+                              </span>
+                              <span
+                                style={{ fontFamily: "Söhne, sans-serif" }}
+                                className="font-medium"
+                              >
+                                {address.slice(0, 6)}...{address.slice(-4)}
+                              </span>
+                            </span>
+                            <ChevronDown className="w-4 h-4 opacity-60" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-72 backdrop-blur-xl bg-background/95 border-border"
                         >
-                          <Copy className="w-4 h-4 mr-2" /> Copy address
-                        </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={async (e) => {
+                              e.preventDefault();
+                              try {
+                                await navigator.clipboard.writeText(address);
+                                toast.success("Address copied");
+                              } catch {
+                                toast.error("Failed to copy");
+                              }
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Copy className="w-4 h-4 mr-2" /> Copy address
+                          </DropdownMenuItem>
 
-                        <DropdownMenuItem asChild className="cursor-pointer">
-                          <Link href={`/wallet`} rel="noreferrer">
-                            <User className="w-4 h-4 mr-2" /> My Wallet
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            disconnect();
-                          }}
-                          className="cursor-pointer text-destructive focus:text-destructive"
-                        >
-                          <LogOut className="w-4 h-4 mr-2" /> Disconnect
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          {/* <DropdownMenuItem asChild className="cursor-pointer">
+                            <Link href={`/wallet`} rel="noreferrer">
+                              <User className="w-4 h-4 mr-2" /> My Wallet
+                            </Link>
+                          </DropdownMenuItem> */}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              disconnect();
+                            }}
+                            className="cursor-pointer text-destructive focus:text-destructive"
+                          >
+                            <LogOut className="w-4 h-4 mr-2" /> Disconnect
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )
                   ) : (
                     <DrawerClose asChild>
                       <div>
