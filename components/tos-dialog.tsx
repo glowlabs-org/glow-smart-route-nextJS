@@ -210,13 +210,13 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
       }}
     >
       <DialogContent
-        className="max-w-3xl max-h-[90vh] p-0 z-[100]"
+        className="max-w-3xl md:max-h-[90vh] p-0 z-[100]"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader className="p-6 border-b">
-          <DialogTitle className="text-3xl font-bold text-accent">
+          <DialogTitle className="text-xl md:text-3xl font-bold text-accent">
             Terms of Service
           </DialogTitle>
         </DialogHeader>
