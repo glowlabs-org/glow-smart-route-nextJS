@@ -25,7 +25,7 @@ export function StatsSidebar({
   isUsdcInRedemptionLoading,
   isWalletLoading,
 }: StatsSidebarProps) {
-  const { gctlPrice, isGctlPriceLoading } = useGctlApi();
+  const { gctlPriceNumber, isGctlPriceLoading } = useGctlApi();
 
   return (
     <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
@@ -76,7 +76,9 @@ export function StatsSidebar({
                 {isGctlPriceLoading ? (
                   <Skeleton className="w-20 h-6 inline-block" />
                 ) : (
-                  Number(gctlPrice).toFixed(2)
+                  gctlPriceNumber.toLocaleString("en-US", {
+                    maximumFractionDigits: 2,
+                  })
                 )}
               </span>
             </div>
