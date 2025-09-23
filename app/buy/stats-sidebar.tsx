@@ -25,7 +25,7 @@ export function StatsSidebar({
   isUsdcInRedemptionLoading,
   isWalletLoading,
 }: StatsSidebarProps) {
-  // const { gctlPrice, isGctlPriceLoading } = useGctlApi();
+  const { gctlPrice, isGctlPriceLoading } = useGctlApi();
 
   return (
     <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
@@ -68,7 +68,7 @@ export function StatsSidebar({
             </div>
           </div>
 
-          {/* <div className="bg-muted/30 rounded-xl border border-border p-4">
+          <div className="bg-muted/30 rounded-xl border border-border p-4">
             <div className="text-xs text-muted-foreground mb-2">GCTL Price</div>
             <div className="flex items-baseline gap-2">
               <span className="text-xl font-extrabold tabular-nums">
@@ -80,7 +80,7 @@ export function StatsSidebar({
                 )}
               </span>
             </div>
-          </div> */}
+          </div>
 
           {usdcInRedemption > 0 &&
             (!isUsdcInRedemptionLoading || !isWalletLoading) && (

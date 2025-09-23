@@ -32,7 +32,7 @@ import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { SendDialog } from "@/components/send-dialog";
 import { UsdcToTokenDialog } from "@/components/usdc-to-token-dialog";
 import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
-import { addresses } from "@/web3/constants/addresses";
+import { addresses, SDKAddresses } from "@/web3/constants/addresses";
 import { useWalletFarms } from "@/hooks/useWalletFarms";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRegions } from "@/hooks/useRegions";
@@ -44,16 +44,16 @@ import { forceDisconnect } from "@/utils/forceDisconnect";
 export const tokens = {
   USDC: {
     label: "USDC",
-    address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" as `0x${string}`,
+    address: SDKAddresses.USDC as `0x${string}`,
     decimals: 6,
-    allowedPairs: ["GLOW", "USDG"],
+    allowedPairs: ["GLOW", "USDG", "GCTL"],
     toFixed: 6,
   },
   USDG: {
     label: "USDG",
-    address: addresses.usdg,
+    address: SDKAddresses.USDG,
     decimals: 6,
-    allowedPairs: ["GLOW", "USDC"],
+    allowedPairs: ["GLOW", "USDC", "GCTL"],
     toFixed: 6,
   },
 } as const;

@@ -264,9 +264,9 @@ export function Header({
                       >
                         Add liquidity to the GLW/USDG pool and earn rewards
                       </ListItem>
-                      {/* <ListItem href="/glow-launchpad" title="Glow Launchpad">
+                      <ListItem href="/glow-launchpad" title="Glow Launchpad">
                         Sponsor solar farms and earn weekly GLW rewards
-                      </ListItem> */}
+                      </ListItem>
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
@@ -286,12 +286,12 @@ export function Header({
                       >
                         See the list of infrastructure projects
                       </ListItem>
-                      {/* <ListItem
+                      <ListItem
                         href="https://impact.glow.org/new-campaign"
                         title="Create a Region"
                       >
                         Create a new infrastructure project
-                      </ListItem> */}
+                      </ListItem>
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
@@ -469,11 +469,11 @@ export function Header({
                         <Copy className="w-4 h-4 mr-2" /> Copy address
                       </DropdownMenuItem>
 
-                      {/* <DropdownMenuItem asChild className="cursor-pointer">
+                      <DropdownMenuItem asChild className="cursor-pointer">
                         <Link href={`/wallet`} rel="noreferrer">
                           <User className="w-4 h-4 mr-2" /> My Wallet
                         </Link>
-                      </DropdownMenuItem> */}
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onSelect={(e) => {
@@ -604,7 +604,7 @@ export function Header({
                               >
                                 Infrastructure projects
                               </Link>
-                              {/* <DrawerClose asChild>
+                              <DrawerClose asChild>
                                 <Link
                                   href="https://impact.glow.org/new-campaign"
                                   target="_blank"
@@ -612,7 +612,7 @@ export function Header({
                                 >
                                   Create a Region
                                 </Link>
-                              </DrawerClose> */}
+                              </DrawerClose>
                             </DrawerClose>
                           </div>
                         </div>
@@ -864,11 +864,11 @@ export function Header({
                             <Copy className="w-4 h-4 mr-2" /> Copy address
                           </DropdownMenuItem>
 
-                          {/* <DropdownMenuItem asChild className="cursor-pointer">
+                          <DropdownMenuItem asChild className="cursor-pointer">
                             <Link href={`/wallet`} rel="noreferrer">
                               <User className="w-4 h-4 mr-2" /> My Wallet
                             </Link>
-                          </DropdownMenuItem> */}
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onSelect={(e) => {

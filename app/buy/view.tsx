@@ -22,7 +22,7 @@ import {
   usePublicClient,
 } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
-import { useForwarder } from "@glowlabs-org/utils/browser";
+import { getAddresses, useForwarder } from "@glowlabs-org/utils/browser";
 import { CHAIN_ID } from "@/web3/constants";
 import { ProcessingModal } from "@/components/buy-gctl/processing-modal";
 import { ArrowDownUp, Info } from "lucide-react";
@@ -51,7 +51,7 @@ import { useQueryState } from "nuqs";
 import Decimal from "decimal.js";
 import { forceDisconnect } from "@/utils/forceDisconnect";
 
-import { addresses } from "@/web3/constants/addresses";
+import { addresses, SDKAddresses } from "@/web3/constants/addresses";
 import { MaxUint256 } from "ethers";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
@@ -68,23 +68,23 @@ import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 export const tokens = {
   USDG: {
     label: "USDG",
-    address: addresses.usdg,
+    address: SDKAddresses.USDG,
     decimals: 6,
-    allowedPairs: ["GLOW", "USDC"],
+    allowedPairs: ["GLOW", "USDC", "GCTL"],
     toFixed: 6,
   },
   GLOW: {
     label: "GLOW",
-    address: addresses.glow,
+    address: SDKAddresses.GLW,
     decimals: 18,
     allowedPairs: ["USDG", "USDC"],
     toFixed: 6,
   },
   USDC: {
     label: "USDC",
-    address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" as `0x${string}`,
+    address: SDKAddresses.USDC as `0x${string}`,
     decimals: 6,
-    allowedPairs: ["GLOW", "USDG"],
+    allowedPairs: ["GLOW", "USDG", "GCTL"],
     toFixed: 6,
   },
   GCTL: {
@@ -238,8 +238,8 @@ export default function View({
     }
   };
 
-  // const { gctlPrice, gctlPriceNumber, isGctlPriceLoading } =
-  //   useGctlApi(address);
+  const { gctlPrice, gctlPriceNumber, isGctlPriceLoading } =
+    useGctlApi(address);
 
   const {
     purchaseGlowEarlyLiquidity,
@@ -942,18 +942,16 @@ export default function View({
       ) {
         if (
           !amountStr ||
-          Number(amountStr) <= 0
-          //TODO: add gctl price
-          // ||
-          // isGctlPriceLoading ||
-          // Number(gctlPrice) === 0
+          Number(amountStr) <= 0 ||
+          isGctlPriceLoading ||
+          Number(gctlPrice) === 0
         ) {
           setEstimatedOutputAmount(defaultTokensEstimate);
           return;
         }
-        //TODO: add gctl price
-        // const estimatedGctl = Number(amountToSell) / gctlPriceNumber;
-        const estimatedGctl = 0;
+
+        const estimatedGctl = Number(amountToSell) / gctlPriceNumber;
+
         if (signal.aborted) return; // stale
         setEstimatedOutputAmount({
           ...defaultTokensEstimate,
