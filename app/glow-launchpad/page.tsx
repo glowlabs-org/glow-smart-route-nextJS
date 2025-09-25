@@ -10,6 +10,11 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { useQueryState } from "nuqs";
 import { formatNumber } from "./utils";
@@ -360,7 +365,7 @@ export default function GlowLaunchpadPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
                       {applications.map((application) => {
                         const displayCurrency = selectedCurrency || "USDG";
                         const depositAmountInCurrency =
@@ -369,9 +374,6 @@ export default function GlowLaunchpadPage() {
                             application.applicationPriceQuotes,
                             displayCurrency
                           );
-                        const availableCurrencies = getAvailableCurrencies(
-                          application.applicationPriceQuotes
-                        );
 
                         const rewardScore = getRewardScoreForApplication(
                           rewardScoreMap,
@@ -441,7 +443,7 @@ export default function GlowLaunchpadPage() {
                                 )}
                               </div>
 
-                              <div className="p-6 space-y-5">
+                              <div className="p-6 space-y-2">
                                 {/* Header with Fractions Available and Reward Score */}
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1 min-w-0">
@@ -481,10 +483,10 @@ export default function GlowLaunchpadPage() {
                                         fontWeight: 300,
                                       }}
                                     >
-                                      {rewardScore?.rewardScore
-                                        ? rewardScore.rewardScore.toFixed(0)
-                                        : isRewardScoresLoading
-                                        ? "..."
+                                      {application.activeFraction?.rewardScore
+                                        ? application.activeFraction.rewardScore.toFixed(
+                                            0
+                                          )
                                         : "0"}
                                     </div>
                                     <div
@@ -499,7 +501,7 @@ export default function GlowLaunchpadPage() {
                                   </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-2 gap-2">
                                   {/* Step Price - Left Column */}
                                   <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
                                     <div
@@ -577,24 +579,103 @@ export default function GlowLaunchpadPage() {
                                     )}
                                   </div>
 
-                                  <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
-                                    <div
-                                      className="text-sm text-gray-600 dark:text-gray-400 mb-2"
-                                      style={{
-                                        fontFamily: "Söhne, sans-serif",
-                                        fontWeight: 400,
-                                      }}
-                                    >
-                                      Est. Weekly Rewards per share
-                                    </div>
-                                    <div>
-                                      <div
-                                        className="text-lg lg:text-xl text-black dark:text-white"
-                                        style={{
-                                          fontFamily: "Söhne, sans-serif",
-                                          fontWeight: 600,
-                                        }}
-                                      >
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 cursor-help">
+                                        <div
+                                          className="text-sm text-gray-600 dark:text-gray-400 mb-2"
+                                          style={{
+                                            fontFamily: "Söhne, sans-serif",
+                                            fontWeight: 400,
+                                          }}
+                                        >
+                                          Est. Weekly Rewards per share
+                                        </div>
+                                        <div>
+                                          <div
+                                            className="text-lg lg:text-xl text-black dark:text-white"
+                                            style={{
+                                              fontFamily: "Söhne, sans-serif",
+                                              fontWeight: 600,
+                                            }}
+                                          >
+                                            {rewardScore?.userWeeklyGlwRewards &&
+                                            rewardScore?.userWeeklyPdRewards &&
+                                            application.activeFraction
+                                              ?.totalSteps
+                                              ? (() => {
+                                                  const glwRewards = parseFloat(
+                                                    formatUnits(
+                                                      BigInt(
+                                                        rewardScore.userWeeklyGlwRewards
+                                                      ),
+                                                      DECIMALS_BY_TOKEN["GLW"]
+                                                    )
+                                                  );
+                                                  const pdRewards = parseFloat(
+                                                    formatUnits(
+                                                      BigInt(
+                                                        rewardScore.userWeeklyPdRewards
+                                                      ),
+                                                      DECIMALS_BY_TOKEN["GLW"] // Assuming PD rewards are also in GLW
+                                                    )
+                                                  );
+                                                  const totalRewards =
+                                                    glwRewards + pdRewards;
+                                                  const totalShares =
+                                                    application.activeFraction
+                                                      .totalSteps;
+                                                  const rewardsPerShare =
+                                                    totalRewards / totalShares;
+                                                  return `${rewardsPerShare.toLocaleString(
+                                                    undefined,
+                                                    {
+                                                      minimumFractionDigits: 2,
+                                                      maximumFractionDigits: 2,
+                                                    }
+                                                  )} GLW`;
+                                                })()
+                                              : isRewardScoresLoading
+                                              ? "..."
+                                              : "0 GLW"}
+                                            <span className="text-base text-gray-500 dark:text-gray-500 ml-2 font-normal">
+                                              ≈
+                                              {rewardScore?.userEstimatedWeeklyCash &&
+                                              application.activeFraction
+                                                ?.totalSteps
+                                                ? (() => {
+                                                    const totalCash =
+                                                      parseFloat(
+                                                        formatUnits(
+                                                          BigInt(
+                                                            rewardScore.userEstimatedWeeklyCash
+                                                          ),
+                                                          6 // USDC decimals for cash estimates
+                                                        )
+                                                      );
+                                                    const totalShares =
+                                                      application.activeFraction
+                                                        .totalSteps;
+                                                    const cashPerShare =
+                                                      totalCash / totalShares;
+                                                    return `$${cashPerShare.toLocaleString(
+                                                      undefined,
+                                                      {
+                                                        minimumFractionDigits: 2,
+                                                        maximumFractionDigits: 2,
+                                                      }
+                                                    )}`;
+                                                  })()
+                                                : isRewardScoresLoading
+                                                ? "..."
+                                                : "$0"}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <div className="text-sm">
                                         {rewardScore?.userWeeklyGlwRewards &&
                                         rewardScore?.userWeeklyPdRewards &&
                                         application.activeFraction?.totalSteps
@@ -612,60 +693,51 @@ export default function GlowLaunchpadPage() {
                                                   BigInt(
                                                     rewardScore.userWeeklyPdRewards
                                                   ),
-                                                  DECIMALS_BY_TOKEN["GLW"] // Assuming PD rewards are also in GLW
+                                                  DECIMALS_BY_TOKEN["GLW"]
                                                 )
                                               );
-                                              const totalRewards =
-                                                glwRewards + pdRewards;
                                               const totalShares =
                                                 application.activeFraction
                                                   .totalSteps;
-                                              const rewardsPerShare =
-                                                totalRewards / totalShares;
-                                              return `${rewardsPerShare.toLocaleString(
-                                                undefined,
-                                                {
-                                                  minimumFractionDigits: 2,
-                                                  maximumFractionDigits: 2,
-                                                }
-                                              )} GLW`;
+                                              const glwPerShare =
+                                                glwRewards / totalShares;
+                                              const pdPerShare =
+                                                pdRewards / totalShares;
+
+                                              return (
+                                                <div className="space-y-1">
+                                                  <div>
+                                                    <strong>
+                                                      Reward Breakdown:
+                                                    </strong>
+                                                  </div>
+                                                  <div>
+                                                    {pdPerShare.toLocaleString(
+                                                      undefined,
+                                                      {
+                                                        minimumFractionDigits: 2,
+                                                        maximumFractionDigits: 2,
+                                                      }
+                                                    )}{" "}
+                                                    GLW from PDs
+                                                  </div>
+                                                  <div>
+                                                    {glwPerShare.toLocaleString(
+                                                      undefined,
+                                                      {
+                                                        minimumFractionDigits: 2,
+                                                        maximumFractionDigits: 2,
+                                                      }
+                                                    )}{" "}
+                                                    GLW from mining share
+                                                  </div>
+                                                </div>
+                                              );
                                             })()
-                                          : isRewardScoresLoading
-                                          ? "..."
-                                          : "0 GLW"}
-                                        <span className="text-base text-gray-500 dark:text-gray-500 ml-2 font-normal">
-                                          ≈
-                                          {rewardScore?.userEstimatedWeeklyCash &&
-                                          application.activeFraction?.totalSteps
-                                            ? (() => {
-                                                const totalCash = parseFloat(
-                                                  formatUnits(
-                                                    BigInt(
-                                                      rewardScore.userEstimatedWeeklyCash
-                                                    ),
-                                                    6 // USDC decimals for cash estimates
-                                                  )
-                                                );
-                                                const totalShares =
-                                                  application.activeFraction
-                                                    .totalSteps;
-                                                const cashPerShare =
-                                                  totalCash / totalShares;
-                                                return `$${cashPerShare.toLocaleString(
-                                                  undefined,
-                                                  {
-                                                    minimumFractionDigits: 2,
-                                                    maximumFractionDigits: 2,
-                                                  }
-                                                )}`;
-                                              })()
-                                            : isRewardScoresLoading
-                                            ? "..."
-                                            : "$0"}
-                                        </span>
+                                          : "Calculating rewards..."}
                                       </div>
-                                    </div>
-                                  </div>
+                                    </TooltipContent>
+                                  </Tooltip>
                                 </div>
 
                                 {/* Owned Fractions Display */}

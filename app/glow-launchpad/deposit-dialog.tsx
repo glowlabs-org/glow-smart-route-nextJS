@@ -549,12 +549,6 @@ export function DepositDialog({
           ),
           unit: "GLW",
         },
-        {
-          label: "Farm",
-          value:
-            application.enquiryFields?.farmOwnerName ||
-            `Farm ${application.id.slice(0, 8)}`,
-        },
       ]
     : [];
 
@@ -815,7 +809,7 @@ export function DepositDialog({
                   ).toLocaleString("en-US", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
-                  })}% of the weekly GLW rewards for each share owned`
+                  })}% of the weekly GLW rewards generated`
                 : `I understand that I am sponsoring this solar farm and will receive ${application.sponsorSplitPercent}% of the weekly GLW rewards generated`}
             </span>
           </label>

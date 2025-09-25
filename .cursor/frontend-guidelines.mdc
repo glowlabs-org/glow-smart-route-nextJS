@@ -1,0 +1,203 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+# Intuitive Navigation & Visual Hierarchy — Implementation Playbook
+
+_A compact, tool‑agnostic standard for AI agents building slick frontends._  
+**Scope:** Navigation, Information Architecture (IA), wayfinding, and visual hierarchy **only** (no feature‑specific flows).  
+**Targets:** Desktop & mobile web apps. Minimum WCAG 2.1 AA intent for readability and affordances.
+
+---
+
+## 1) Information Architecture (IA) — before pixels
+
+**Goal:** Users find what they seek in ≤3 clicks/taps without cognitive strain.
+
+- **Card‑sorting¹**: Group features/content by user intent, not org chart. Prefer “Jobs to be done” categories over internal module names.
+- **Mutual exclusivity / collective exhaustiveness (MECE):** Top‑level nav items don’t overlap; together they cover the product.
+- **Depth limit:** 1 global nav → 1 local nav (tabs/sections) → content pane. Avoid 3+ stacked nav tiers.
+- **Name things by outcome:** _Dashboard, Projects, Activity, Settings_ > _Home, Modules, Utilities_.
+- **Sitemaps:** Keep a single source of truth. Each page has exactly one canonical path.
+- **Search as a first‑class citizen** where content volume is high. Don’t make search the only path.
+
+> **Litmus:** A new user can sketch your sitemap from memory after a 60‑second tour.
+
+---
+
+## 2) Global Navigation — clarity, not cleverness
+
+**Goal:** Obvious wayfinding and instant sense of place.
+
+- **Persistent global nav:** Top bar or left rail (do not hide on scroll). Always visible “You are here” indicator.
+- **5±2 rule:** 3–7 primary nav items. Collapse the rest under **More** with typed search inside.
+- **Predictable placement:** Brand left, primary nav center/left, account/help right. Mobile: hamburger → sheet.
+- **Labels over icons:** Use words. Icons may accompany, not replace, labels (except universally recognized ones: ⚙, 🔍, ❓).
+- **Current location states:** Active item = bold + high‑contrast pill/underline + ARIA `aria-current="page"`.
+- **Breadcrumbs** for any depth >1: _Section / Subsection / Current_. Each crumb is a link except the last.
+- **Escape hatches:** Global search, Home, and “Back to list” persistently available.
+
+**Anti‑patterns to avoid**
+
+- Hiding primary navigation behind tooltips, progressive hovers, or mystery‑meat icons.
+- Re‑labeling the same page differently across contexts.
+- Auto‑collapsing nav without an explicit user action.
+
+---
+
+## 3) Local Navigation — tabs, sub‑sections, and lists
+
+**Goal:** Make neighbors and boundaries obvious inside a section.
+
+- **Tabs for peers, accordions for depth.** Tabs switch datasets; accordions reveal details.
+- **Left align tabs; prevent overflow** with scrollable “ink bar” and visible first/last affordances.
+- **Keep tab count ≤6.** If more, replace with segmented control or sub‑menu.
+- **Sticky sub‑nav on scroll** so users retain orientation in long documents.
+- **List/Detail pattern:** Lists own the left; detail owns the right (desktop). Mobile uses master→detail push with “Back to list”.
+- **Collection empty‑states** explain what belongs here + CTA to create/import. Don’t show empty tables.
+
+---
+
+## 4) Visual Hierarchy — make scanning effortless
+
+**Goal:** Users extract the gist in 3 seconds; details on demand.
+
+### 4.1 Typographic scale (baseline)
+
+- **Base size:** 16px body (1.0–1.5rem fluid), 1.5 line‑height.
+- **Scale:** `H1 32–40`, `H2 24–28`, `H3 20–22`, `H4 18`, `Body 16`, `Caption 12–14`.
+- **Weight strategy:** Use weight, not color, for emphasis (e.g., 600/700 for headings, 500 for labels).
+- **One font family** for UI copy; max two with restraint (UI + numeric/mono).
+
+### 4.2 Spacing rhythm
+
+- **8‑pt system:** Space in multiples of 4/8 (`4, 8, 12, 16, 24, 32…`). Consistency > perfection.
+- **Section padding:** `24–32` desktop, `16–24` mobile.
+- **Density switch:** Offer `comfortable | compact` modes; never reduce line-height below 1.3 in compact.
+
+### 4.3 Color & emphasis
+
+- **Contrast:** WCAG AA text contrast (≥4.5:1); interactive states meet ≥3:1.
+- **Color is secondary:** Use color to _reinforce_, not to encode alone; pair with icons/labels.
+- **Focus & selection:** Highly visible focus rings; selected row/card has a background elevation, not just a border.
+
+### 4.4 Layout & flow
+
+- **F‑ and Z‑patterns:** Key content at left/top; primary action aligned with the reading flow.
+- **One primary action per view** (prominent button); others demoted to secondary/tertiary.
+- **Chunking:** Group related controls into cards/sections with clear headings and 2–5 items each.
+- **Above‑the‑fold contract:** Users must see page purpose + primary CTA without scrolling on typical laptop widths.
+
+---
+
+## 5) Wayfinding & State — “where am I, what can I do?”
+
+**Goal:** Continuous orientation and system status visibility.
+
+- **Page titles match nav labels** and `<title>`; first H1 equals the nav item.
+- **Persistent context bars** in complex areas (filters active, scope, count of results).
+- **Loading skeletons** (not spinners) for lists/cards; replace in ≤300ms where possible.
+- **Empty, loading, error, and success** states are distinct, instructive, and reversible where safe.
+- **Inline validation** on forms with actionable messages (“Use at least 8 characters”) — never modal walls of errors.
+- **Undo > confirm:** Prefer reversible actions + toast with _Undo_ over modal confirmations.
+
+---
+
+## 6) Navigation Patterns — choose deliberately
+
+**Pick one primary pattern and stick to it across the app.**
+
+1. **Top bar + sticky sub‑nav** (content‑heavy sites).
+2. **Left rail + content pane** (tools, dashboards, CRUD).
+3. **Card index → detail drill‑in** (collections/marketplaces).
+
+**Do not mix patterns** within sibling sections. Consistency reduces mental parsing cost.
+
+---
+
+## 7) Scannability Heuristics — for short attention spans
+
+**Goal:** Make every page “glance‑able.”
+
+- **Rule of 3s:** Max three key numbers, three primary blocks, three prominent CTAs per page.
+- **First sentence first:** Put the most important info in the first line of a paragraph/card.
+- **Icon + label pairs:** Small, meaningful icons accelerate scanning; never icon‑only.
+- **Table affordances:** First column is the entity; right edge holds actions. Sticky header + first column.
+- **Progressive disclosure:** Default collapsed details; expand on interaction. Avoid always‑expanded advanced settings.
+- **Micro‑copy:** 6–12 words max per helper hint. Replace jargon with plain language.
+
+---
+
+## 8) Mobile Navigation — parity without pain
+
+**Goal:** Same mental model; optimized interactions.
+
+- **Single‑column flow**; collapsible sections; sticky primary CTA at bottom when relevant.
+- **Hamburger → full‑height sheet** with search at top; active item highlighted.
+- **Bottom “utility bar”** for most‑used actions (max 5). Label each icon.
+- **Touch targets ≥40×40px**; min 12px gaps; no nested hover menus.
+- **Back to list** persists on detail views; don’t rely on browser back only.
+
+---
+
+## 9) Copy & Labeling — the cheapest UX win
+
+**Goal:** Users never guess what a thing means.
+
+- **Nouns for places, verbs for actions.** _Projects, Activity, Settings_ vs. _Projectize_.
+- **Avoid internal jargon.** If a term is domain‑specific, add a tooltip definition.
+- **Consistent casing:** Title case for nav, sentence case for labels helps scan patterns.
+- **CTA verbs are concrete:** _Create project_, _Invite member_, _Export CSV_. No “Proceed”/“OK”.
+
+---
+
+## 10) Measurement & Guardrails — keep yourself honest
+
+**Ship with checks; do not rely on vibes.**
+
+- **Findability test:** 5 users, 5 tasks, target success ≥90% in ≤3 clicks/taps each.
+- **Nav comprehension:** Tree‑testing with 20 participants; mis‑routes <15%.
+- **Scroll depth:** ≥80% of users see the primary CTA within 5s on a cold load.
+- **Time‑to‑gist:** New users can state page purpose in ≤10s (interview prompt).
+- **Heatmaps:** Nav items with <5% clicks after 30 days get merged/retired.
+- **A11y spot‑check:** Keyboard‑only traversal of a full task succeeds end‑to‑end.
+
+---
+
+## 11) Do/Don’t Gallery (quick reference)
+
+**Do**
+
+- Keep primary nav visible and labeled.
+- Use one hierarchy of emphasis: size → weight → color → position.
+- Surface page purpose + primary action above the fold.
+- Provide breadcrumbs for depth and search for breadth.
+
+**Don’t**
+
+- Hide nav behind hover reveals or icon‑only toolbars.
+- Use multiple conflicting button styles on one page.
+- Over‑segment content into too many cards with single items.
+- Change labels for the same destination in different contexts.
+
+---
+
+## 13) Pre‑Ship Checklist (copy/paste)
+
+- [ ] Global nav visible, 3–7 items, labeled; active state clear.
+- [ ] page titles match nav and H1.
+- [ ] Primary CTA visible above the fold at common widths (1280×800).
+- [ ] Tab/section structure consistent; ≤6 tabs; sticky sub‑nav on scroll.
+- [ ] Typographic scale and 8‑pt spacing applied consistently.
+- [ ] Lists have sticky header/first-col; actions aligned right; empty‑states instructive.
+- [ ] Keyboard traversal covers nav → content → actions without traps.
+- [ ] Mobile: single column, reachable primary CTA, hamburger sheet with search.
+- [ ] Copy uses nouns for places, verbs for actions; icons always have labels.
+
+---
+
+### Footnotes
+
+1. Card sorting/tree testing can be lightweight with internal users or a quick remote tool; do it once before design and once after shipping the first IA to validate.

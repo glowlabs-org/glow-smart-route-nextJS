@@ -40,7 +40,6 @@ export interface ApplicationPriceQuote {
 
 export interface EnquiryFields {
   address: string | null;
-  farmOwnerName: string | null;
   lat: number | null;
   lng: number | null;
   estimatedKWhGeneratedPerYear: number | null;
@@ -93,6 +92,7 @@ export interface ActiveFraction {
   remainingSteps: number | null;
   amountRaised: string | null;
   totalAmountNeeded: string | null;
+  rewardScore: number | null;
 }
 
 export interface AuctionApplication {
@@ -300,6 +300,7 @@ export interface SplitActivity {
   fractionStatus: string;
   isFilled: boolean;
   progressPercent: number;
+  rewardScore: number | null;
 
   // Purchase value calculation
   stepPrice: string; // BigInt as string

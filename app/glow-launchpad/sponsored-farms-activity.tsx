@@ -27,7 +27,7 @@ export function SponsoredFarmsActivity({
   className,
 }: SponsoredFarmsActivityProps) {
   const { activity, summary, isLoading, isError, error } = useSplitsActivity({
-    limit: 20, // Show recent 20 purchases
+    limit: 50, // Show recent 50 purchases
   });
 
   if (isLoading) {
@@ -103,10 +103,25 @@ export function SponsoredFarmsActivity({
       <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-            Total Purchases
+            Avg Reward Score
           </div>
           <div className="text-2xl font-semibold text-black dark:text-white">
-            {formatNumber(summary.totalTransactions, 0)}
+            {(() => {
+              const validRewardScores = activity.filter(
+                (purchase) =>
+                  purchase.rewardScore !== null &&
+                  purchase.rewardScore !== undefined
+              );
+              if (validRewardScores.length === 0) return "—";
+
+              const totalRewardScore = validRewardScores.reduce(
+                (sum, purchase) => sum + (purchase.rewardScore || 0),
+                0
+              );
+              const avgRewardScore =
+                totalRewardScore / validRewardScores.length;
+              return formatNumber(avgRewardScore, 0);
+            })()}
           </div>
         </div>
         <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
@@ -147,7 +162,7 @@ export function SponsoredFarmsActivity({
               <TableHead>Date</TableHead>
               <TableHead>Buyer</TableHead>
               <TableHead className="text-right">Shares</TableHead>
-
+              <TableHead className="text-right">Reward Score</TableHead>
               <TableHead className="text-right">Total Paid</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
@@ -197,7 +212,14 @@ export function SponsoredFarmsActivity({
                       {formatNumber(purchase.stepsPurchased, 0)}
                     </div>
                   </TableCell>
-
+                  <TableCell className="text-right">
+                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      {purchase.rewardScore !== null &&
+                      purchase.rewardScore !== undefined
+                        ? formatNumber(purchase.rewardScore, 0)
+                        : "—"}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                       {formatNumber(parseFloat(purchaseAmount), 2)} GLW
