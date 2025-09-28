@@ -27,6 +27,7 @@ import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { useGctlApi } from "@/hooks/useGctlApi";
 import { formatUnits } from "ethers";
+import { formatUnits as formatUnitsViem } from "viem";
 import { Header } from "@/components/header";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { SendDialog } from "@/components/send-dialog";
@@ -88,7 +89,12 @@ export default function View() {
   } = useER20Balances({ signer });
 
   // GCTL balance and API
-  const { gctlBalance, isGctlBalanceLoading } = useGctlApi(address);
+  const {
+    gctlBalance,
+    isGctlBalanceLoading,
+    glwPriceNumber,
+    isGlwPriceLoading,
+  } = useGctlApi(address);
 
   // Wallet farms (purchased farms)
   const {
@@ -436,6 +442,28 @@ export default function View() {
                         </span>
                       )}
                     </div>
+                    {/* USD Value Estimate */}
+                    {!hasNetworkIssues && glowBalance && (
+                      <div className="text-sm text-muted-foreground mt-1">
+                        {isGlwPriceLoading ? (
+                          <Skeleton className="h-4 w-20" />
+                        ) : glwPriceNumber > 0 ? (
+                          <>
+                            ≈ $
+                            {(
+                              parseFloat(formatUnitsViem(glowBalance, 18)) *
+                              glwPriceNumber
+                            ).toLocaleString("en-US", {
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0,
+                            })}{" "}
+                            USD
+                          </>
+                        ) : (
+                          "Price unavailable"
+                        )}
+                      </div>
+                    )}
                     {claimable.glow !== "0" && (
                       <div className="mt-2">
                         <div className="text-xs text-muted-foreground">
@@ -571,7 +599,7 @@ export default function View() {
                   </p>
                   <Button
                     size="sm"
-                    onClick={() => (window.location.href = "/glow-launchpad")}
+                    onClick={() => (window.location.href = "/?tab=launchpad")}
                   >
                     Explore Farms
                   </Button>
@@ -667,7 +695,7 @@ export default function View() {
                                     GLW/week
                                   </span>
                                 </div>
-                                {formattedFarm.otherRewards !== "0" && (
+                                {Number(formattedFarm.otherRewards) !== 0 && (
                                   <div className="text-sm text-muted-foreground">
                                     + {formattedFarm.otherRewards}{" "}
                                     {formattedFarm.otherRewardsAmount}/week

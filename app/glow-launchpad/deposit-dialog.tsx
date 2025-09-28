@@ -23,10 +23,6 @@ import {
   useSponsorApplication,
   type AuctionApplication,
 } from "@/hooks/useGlowLaunchpad";
-import {
-  useRewardScore,
-  getRewardScoreForApplication,
-} from "@/hooks/useRewardScore";
 import { useFractionSplits } from "@/hooks/useFractionSplits";
 import Decimal from "decimal.js";
 
@@ -34,7 +30,19 @@ interface DepositDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   application: AuctionApplication | null;
-  selectedCurrency: "GLW"; // Only GLW is supported for fractions
+  selectedCurrency: "GLW" | "USDC"; // GLW for launchpad, USDC for mining center
+  rewardScore?:
+    | {
+        userWeeklyGlwRewards: string;
+        userWeeklyPdRewards: string;
+        userEstimatedWeeklyCash: string;
+      }
+    | {
+        miningScore: number;
+        weeklyGlwRewards?: string;
+        weeklyGlwRewardsUsd?: string;
+      }
+    | null;
   onSuccess?: () => void;
 }
 
@@ -45,14 +53,15 @@ export function DepositDialog({
   onOpenChange,
   application,
   selectedCurrency,
+  rewardScore,
   onSuccess,
 }: DepositDialogProps) {
   const { isConnected } = useAccount();
   // const [quoteId, setQuoteId] = React.useState<string>(generateQuoteId());
   const [lockedAtMs, setLockedAtMs] = React.useState<number>(Date.now());
   const [nowMs, setNowMs] = React.useState<number>(Date.now());
-  // Only GLW is supported for fractions
-  const currency = "GLW";
+  // Use the selectedCurrency from props
+  const currency = selectedCurrency;
   const [acknowledged, setAcknowledged] = React.useState(false);
   const [stepsToBuy, setStepsToBuy] = React.useState(1);
 
@@ -81,13 +90,6 @@ export function DepositDialog({
 
   const sponsorMutation = useSponsorApplication();
 
-  // Get reward score for the application
-  const { rewardScoreMap } = useRewardScore({
-    applications: application ? [application] : [],
-    paymentCurrency: currency,
-    enabled: Boolean(application && open),
-  });
-
   // Initialize offchain fractions hook
   const fractions = useOffchainFractions(
     walletClient,
@@ -105,7 +107,11 @@ export function DepositDialog({
   } = useQuery({
     queryKey: ["token-balance", "GLW", signerAddress],
     enabled: Boolean(
-      signer && fractions.isSignerAvailable && open && signerAddress
+      signer &&
+        fractions.isSignerAvailable &&
+        open &&
+        signerAddress &&
+        currency === "GLW"
     ),
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
@@ -118,6 +124,37 @@ export function DepositDialog({
           fractions.addresses.GLW
         );
         return formatUnits(bal, DECIMALS_BY_TOKEN.GLW);
+      } catch (e) {
+        return null;
+      }
+    },
+  });
+
+  // USDC balance query
+  const {
+    data: usdcBalance,
+    isLoading: isUsdcLoading,
+    refetch: refetchUsdcBalance,
+  } = useQuery({
+    queryKey: ["token-balance", "USDC", signerAddress],
+    enabled: Boolean(
+      signer &&
+        fractions.isSignerAvailable &&
+        open &&
+        signerAddress &&
+        currency === "USDC"
+    ),
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      try {
+        if (!signer || !fractions.isSignerAvailable) return null;
+        const userAddress = await signer.getAddress();
+        const bal = await fractions.checkTokenBalance(
+          userAddress,
+          fractions.addresses.USDC
+        );
+        return formatUnits(bal, DECIMALS_BY_TOKEN.USDC);
       } catch (e) {
         return null;
       }
@@ -147,22 +184,20 @@ export function DepositDialog({
   // Get user balance for selected currency
   const userBalance = React.useMemo(() => {
     try {
-      // Only GLW is supported for fractions
-      if (application?.activeFraction) {
+      if (currency === "USDC") {
+        return new Decimal(usdcBalance || "0").toNumber();
+      } else {
         return new Decimal(glwBalance || "0").toNumber();
       }
-
-      // Legacy support for non-fraction applications (though these are no longer supported)
-      return new Decimal(glwBalance || "0").toNumber();
     } catch {
       return 0;
     }
-  }, [glwBalance, application?.activeFraction]);
+  }, [glwBalance, usdcBalance, currency]);
 
   const hasInsufficientBalance = depositAmountNumber > userBalance;
 
-  // For fractions, display currency is always GLW
-  const displayCurrency = "GLW";
+  // Display currency is based on the selected currency
+  const displayCurrency = currency;
 
   // Reset states when dialog opens/closes
   React.useEffect(() => {
@@ -216,33 +251,49 @@ export function DepositDialog({
       const userAddress = await signer.getAddress();
       const { activeFraction } = application;
 
-      // Calculate total GLW needed
-      const totalGlwNeeded = BigInt(activeFraction.step) * BigInt(stepsToBuy);
+      // Determine which token and price to use
+      const isUSDC = currency === "USDC";
+      const tokenAddress = isUSDC
+        ? fractions.addresses.USDC
+        : fractions.addresses.GLW;
+      const tokenDecimals = isUSDC
+        ? DECIMALS_BY_TOKEN.USDC
+        : DECIMALS_BY_TOKEN.GLW;
+      const tokenSymbol = isUSDC ? "USDC" : "GLW";
 
-      // Check GLW balance
-      const glwBalance = await fractions.checkTokenBalance(
+      // Calculate total needed based on currency
+      // For USDC (mining center), use stepPrice; for GLW (launchpad), use step
+      const pricePerStep = BigInt(activeFraction.stepPrice);
+
+      const totalNeeded = pricePerStep * BigInt(stepsToBuy);
+
+      // Check token balance
+      const tokenBalance = await fractions.checkTokenBalance(
         userAddress,
-        fractions.addresses.GLW
+        tokenAddress
       );
 
-      if (glwBalance < totalGlwNeeded) {
+      if (tokenBalance < totalNeeded) {
         throw new Error(
-          `Insufficient GLW balance. Need ${formatUnits(
-            totalGlwNeeded,
-            DECIMALS_BY_TOKEN.GLW
-          )} GLW, have ${formatUnits(glwBalance, DECIMALS_BY_TOKEN.GLW)} GLW`
+          `Insufficient ${tokenSymbol} balance. Need ${formatUnits(
+            totalNeeded,
+            tokenDecimals
+          )} ${tokenSymbol}, have ${formatUnits(
+            tokenBalance,
+            tokenDecimals
+          )} ${tokenSymbol}`
         );
       }
 
-      // Check and approve GLW allowance if needed
+      // Check and approve token allowance if needed
       const currentAllowance = await fractions.checkTokenAllowance(
         userAddress,
-        fractions.addresses.GLW
+        tokenAddress
       );
 
-      if (currentAllowance < totalGlwNeeded) {
+      if (currentAllowance < totalNeeded) {
         try {
-          await fractions.approveToken(fractions.addresses.GLW, totalGlwNeeded);
+          await fractions.approveToken(tokenAddress, totalNeeded);
 
           // Wait a bit for approval to be indexed
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -250,10 +301,10 @@ export function DepositDialog({
           // Verify approval was successful
           const newAllowance = await fractions.checkTokenAllowance(
             userAddress,
-            fractions.addresses.GLW
+            tokenAddress
           );
 
-          if (newAllowance < totalGlwNeeded) {
+          if (newAllowance < totalNeeded) {
             throw new Error("Token approval failed. Please try again.");
           }
         } catch (approvalError: any) {
@@ -368,15 +419,19 @@ export function DepositDialog({
       setIsSuccess(true);
 
       // Refresh balances
-      await refetchGlwBalance();
+      if (isUSDC) {
+        await refetchUsdcBalance();
+      } else {
+        await refetchGlwBalance();
+      }
 
       toast.success(`Successfully purchased ${stepsToBuy} shares!`);
 
       // Trigger the mutation to invalidate queries
       await sponsorMutation.mutateAsync({
         applicationId: application.id,
-        amount: totalGlwNeeded,
-        currency: "GLW",
+        amount: totalNeeded,
+        currency: tokenSymbol,
         txHash: txHash,
         onSuccess: onSuccess,
       });
@@ -390,7 +445,8 @@ export function DepositDialog({
       // Handle specific error types based on OffchainFractionsError enum
       if (
         error.message?.includes("Insufficient balance") ||
-        error.message?.includes("Insufficient GLW balance")
+        error.message?.includes("Insufficient GLW balance") ||
+        error.message?.includes("Insufficient USDC balance")
       ) {
         message = error.message;
       } else if (
@@ -428,11 +484,6 @@ export function DepositDialog({
     toast.error("Only fraction-based applications are supported");
   }
 
-  // Get reward score for display (must be before any early returns to keep hook order stable)
-  const rewardScore = application
-    ? getRewardScoreForApplication(rewardScoreMap, application.id)
-    : null;
-
   // Estimated weekly rewards for selected shares (keep hooks unconditionally executed)
   const { estimatedWeeklyGlwForSelection, estimatedWeeklyUsdForSelection } =
     React.useMemo(() => {
@@ -452,25 +503,47 @@ export function DepositDialog({
           };
         }
 
-        const glwRewards = parseFloat(
-          formatUnits(
-            BigInt(rewardScore.userWeeklyGlwRewards || "0"),
-            DECIMALS_BY_TOKEN["GLW"]
-          )
-        );
-        const pdRewards = parseFloat(
-          formatUnits(
-            BigInt(rewardScore.userWeeklyPdRewards || "0"),
-            DECIMALS_BY_TOKEN["GLW"]
-          )
-        );
-        const totalGlw = glwRewards + pdRewards;
-        const glwPerShare = totalGlw / totalShares;
+        let glwPerShare = 0;
+        let usdPerShare = 0;
 
-        const totalUsd = parseFloat(
-          formatUnits(BigInt(rewardScore.userEstimatedWeeklyCash || "0"), 6)
-        );
-        const usdPerShare = totalUsd / totalShares;
+        // Check if this is a reward score (launchpad) or mining score (mining center)
+        if ("userWeeklyGlwRewards" in rewardScore) {
+          // Reward score from launchpad
+          const glwRewards = parseFloat(
+            formatUnits(
+              BigInt(rewardScore.userWeeklyGlwRewards || "0"),
+              DECIMALS_BY_TOKEN["GLW"]
+            )
+          );
+          const pdRewards = parseFloat(
+            formatUnits(
+              BigInt(rewardScore.userWeeklyPdRewards || "0"),
+              DECIMALS_BY_TOKEN["GLW"]
+            )
+          );
+          const totalGlw = glwRewards + pdRewards;
+          glwPerShare = totalGlw / totalShares;
+
+          const totalUsd = parseFloat(
+            formatUnits(BigInt(rewardScore.userEstimatedWeeklyCash || "0"), 6)
+          );
+          usdPerShare = totalUsd / totalShares;
+        } else if ("miningScore" in rewardScore) {
+          // Mining score from mining center
+          if (rewardScore.weeklyGlwRewards) {
+            const totalGlw = parseFloat(
+              formatUnits(
+                BigInt(rewardScore.weeklyGlwRewards),
+                DECIMALS_BY_TOKEN["GLW"]
+              )
+            );
+            glwPerShare = totalGlw / totalShares;
+          }
+          if (rewardScore.weeklyGlwRewardsUsd) {
+            const totalUsd = parseFloat(rewardScore.weeklyGlwRewardsUsd);
+            usdPerShare = totalUsd / totalShares;
+          }
+        }
 
         const estimatedWeeklyGlwForSelection = glwPerShare * stepsToBuy;
         const estimatedWeeklyUsdForSelection = usdPerShare * stepsToBuy;
@@ -518,13 +591,13 @@ export function DepositDialog({
           value: formatNumber(
             parseFloat(
               formatUnits(
-                BigInt(application.activeFraction.step),
-                DECIMALS_BY_TOKEN["GLW"]
+                BigInt(application.activeFraction.stepPrice),
+                DECIMALS_BY_TOKEN[currency]
               )
             ),
             0
           ),
-          unit: "GLW",
+          unit: currency,
         },
       ]
     : [];
@@ -537,17 +610,18 @@ export function DepositDialog({
           value: stepsToBuy.toString(),
         },
         {
-          label: "Total GLW Paid",
+          label: `Total ${currency} Paid`,
           value: formatNumber(
             parseFloat(
               formatUnits(
-                BigInt(application.activeFraction.step) * BigInt(stepsToBuy),
-                DECIMALS_BY_TOKEN["GLW"]
+                BigInt(application.activeFraction.stepPrice) *
+                  BigInt(stepsToBuy),
+                DECIMALS_BY_TOKEN[currency]
               )
             ),
             0
           ),
-          unit: "GLW",
+          unit: currency,
         },
       ]
     : [];
@@ -628,15 +702,21 @@ export function DepositDialog({
         </div>
       )}
 
-      {/* GLW Balance Info for Step Purchases */}
+      {/* Token Balance Info for Step Purchases */}
       {application.activeFraction && (
         <div className="bg-muted/50 border border-border rounded-lg p-3">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">
-              Your GLW Balance
+              Your {currency} Balance
             </span>
             <span className="text-sm font-mono">
-              {formatNumber(parseFloat(glwBalance || "0"), 2)} GLW
+              {formatNumber(
+                currency === "USDC"
+                  ? parseFloat(usdcBalance || "0")
+                  : parseFloat(glwBalance || "0"),
+                2
+              )}{" "}
+              {currency}
             </span>
           </div>
         </div>
@@ -708,21 +788,28 @@ export function DepositDialog({
         </div>
       )}
 
-      {/* Insufficient GLW Balance Warning for Step Purchases */}
+      {/* Insufficient Token Balance Warning for Step Purchases */}
       {application.activeFraction &&
-        parseFloat(glwBalance || "0") <
-          parseFloat(
-            formatUnits(
-              BigInt(application.activeFraction.step) * BigInt(stepsToBuy),
-              DECIMALS_BY_TOKEN["GLW"]
-            )
-          ) && (
-          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
-            <div className="text-sm text-destructive">
-              Insufficient GLW balance for {stepsToBuy} shares
+        (() => {
+          const pricePerStep = BigInt(application.activeFraction.stepPrice);
+          const totalCost = pricePerStep * BigInt(stepsToBuy);
+          const tokenDecimals = DECIMALS_BY_TOKEN[currency];
+          const currentBalance =
+            currency === "USDC"
+              ? parseFloat(usdcBalance || "0")
+              : parseFloat(glwBalance || "0");
+          const requiredAmount = parseFloat(
+            formatUnits(totalCost, tokenDecimals)
+          );
+
+          return currentBalance < requiredAmount ? (
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+              <div className="text-sm text-destructive">
+                Insufficient {currency} balance for {stepsToBuy} shares
+              </div>
             </div>
-          </div>
-        )}
+          ) : null;
+        })()}
     </div>
   );
 
@@ -827,16 +914,16 @@ export function DepositDialog({
                   {formatNumber(
                     parseFloat(
                       formatUnits(
-                        BigInt(application.activeFraction.step) *
+                        BigInt(application.activeFraction.stepPrice) *
                           BigInt(stepsToBuy),
-                        DECIMALS_BY_TOKEN["GLW"]
+                        DECIMALS_BY_TOKEN[currency]
                       )
                     ),
-                    0
+                    currency === "USDC" ? 2 : 0
                   )}
                 </span>
                 <span className="text-base font-semibold text-muted-foreground ml-1">
-                  GLW
+                  {currency}
                 </span>
               </div>
             </div>

@@ -107,7 +107,7 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
         time: new Date(event.ts).toLocaleDateString(),
         amount: parseFloat(
           formatUnits(BigInt(event.amount), DECIMALS_BY_TOKEN.GCTL)
-        ).toFixed(2),
+        ).toFixed(0),
         token: "GCTL",
         region: event.regionName || `Region ${event.regionId}`,
         regionId: event.regionId,
@@ -122,9 +122,9 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
         type: "fraction-purchase",
         time: new Date(split.timestamp * 1000).toLocaleDateString(),
         amount: parseFloat(
-          formatUnits(BigInt(split.amount), DECIMALS_BY_TOKEN.GLW)
-        ).toFixed(2),
-        token: "GLW",
+          formatUnits(BigInt(split.amount), DECIMALS_BY_TOKEN[split.currency])
+        ).toFixed(0),
+        token: split.currency,
         shares: split.stepsPurchased,
         applicationId: split.applicationId,
         fractionId: split.fractionId,
@@ -258,7 +258,9 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
             <span>Sponsored</span>
             <span className="font-medium">{activity.shares} shares</span>
             <span className="text-muted-foreground">for</span>
-            <span className="font-medium">{activity.amount} GLW</span>
+            <span className="font-medium">
+              {activity.amount} {activity.token}
+            </span>
 
             <span className="text-xs text-muted-foreground">
               {activity.progressPercent}% filled

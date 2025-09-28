@@ -4,6 +4,84 @@ import { Toaster } from "sonner";
 import { WagmiWrapper } from "./providers/wagmiWrapper";
 import { ThemeProvider } from "./providers/theme-provider";
 import { Analytics } from "@vercel/analytics/next";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Glow Mining - Solar Farm Sponsorship & GLW Token Rewards",
+  description:
+    "Participate in Glow's decentralized solar mining ecosystem. Sponsor solar farms through the Glow Launchpad, earn GLW tokens through the Mining Center, and support renewable energy infrastructure while earning rewards.",
+  keywords: [
+    "Glow mining",
+    "solar mining",
+    "GLW tokens",
+    "solar farm sponsorship",
+    "renewable energy",
+    "DeFi mining",
+    "protocol deposits",
+    "carbon credits",
+    "green energy",
+    "sustainability",
+    "blockchain solar",
+    "Glow Launchpad",
+    "Mining Center",
+    "deposit mining",
+    "solar farm installer",
+    "climate finance",
+    "clean energy rewards",
+    "solar infrastructure",
+    "Glow protocol",
+  ],
+  authors: [{ name: "Glow Labs" }],
+  creator: "Glow Labs",
+  publisher: "Glow Labs",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  metadataBase: new URL("https://app.glow.org"),
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "Glow Mining - Solar Farm Sponsorship & GLW Token Rewards",
+    description:
+      "Join Glow's decentralized solar mining ecosystem. Sponsor competitive solar farms, earn GLW tokens, and support renewable energy infrastructure through the Glow Launchpad and Mining Center.",
+    url: "https://app.glow.org",
+    siteName: "Glow Mining Platform",
+    images: [
+      {
+        url: "/Chrome_512x512.png",
+        width: 512,
+        height: 512,
+        alt: "Glow Mining - Solar Farm Sponsorship Platform",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Glow Mining - Sponsor Solar Farms & Earn GLW Tokens",
+    description:
+      "Participate in decentralized solar mining. Sponsor solar farms through the Glow Launchpad, earn GLW tokens through the Mining Center, and support renewable energy while earning rewards.",
+    images: ["/Chrome_512x512.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  verification: {
+    google: "google-site-verification-code",
+  },
+};
 export default function RootLayout({
   children,
 }: Readonly<{

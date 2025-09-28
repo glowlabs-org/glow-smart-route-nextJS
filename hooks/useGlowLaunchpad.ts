@@ -39,7 +39,6 @@ export interface ApplicationPriceQuote {
 }
 
 export interface EnquiryFields {
-  address: string | null;
   lat: number | null;
   lng: number | null;
   estimatedKWhGeneratedPerYear: number | null;
@@ -84,6 +83,7 @@ export interface ActiveFraction {
   isFilled: boolean;
   totalSteps: number;
   splitsSold: number;
+  stepPrice: string;
   step: string; // Price per step in GLW
   token: string;
   owner: string;
@@ -100,6 +100,7 @@ export interface AuctionApplication {
   userId: string;
   status: string;
   createdAt: string;
+  farmId: string | null;
   isPublishedOnAuction: boolean;
   publishedOnAuctionTimestamp: string;
   sponsorSplitPercent: number;
@@ -131,8 +132,6 @@ export interface UseGlowLaunchpadParams {
 if (!process.env.NEXT_PUBLIC_CONTROL_API_URL) {
   throw new Error("NEXT_PUBLIC_CONTROL_API_URL is not set");
 }
-
-const farmsRouter = FarmsRouter(process.env.NEXT_PUBLIC_CONTROL_API_URL);
 
 export function useGlowLaunchpad(params: UseGlowLaunchpadParams = {}) {
   const { filters = {}, enabled = true } = params;
@@ -298,6 +297,7 @@ export interface SplitActivity {
   fractionId: string;
   applicationId: string;
   fractionStatus: string;
+  currency: PaymentCurrency;
   isFilled: boolean;
   progressPercent: number;
   rewardScore: number | null;
@@ -404,6 +404,9 @@ export function useSponsorApplication() {
       // Invalidate all glow launchpad queries to refresh the list
       queryClient.invalidateQueries({ queryKey: ["glow-launchpad"] });
       queryClient.invalidateQueries({ queryKey: ["splits-activity"] });
+      queryClient.invalidateQueries({ queryKey: ["mining-scores"] });
+      queryClient.invalidateQueries({ queryKey: ["reward-scores"] });
+      queryClient.invalidateQueries({ queryKey: ["mining-center"] });
 
       // Call the onSuccess callback if provided
       if (variables.onSuccess) {

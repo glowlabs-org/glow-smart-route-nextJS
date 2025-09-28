@@ -179,16 +179,15 @@ export function SmartAccountWarningDialog({
       return {
         title: "Contract Wallet Detected",
         description:
-          "Contract wallets (e.g., Safe) are not compatible with this action.",
+          "Contract wallets (e.g., Safe and Coinbase) are not compatible with this action.",
         why: [
           "Some calls require an EOA signer and predictable nonce handling.",
           "Multisig or module-based execution can block required call patterns.",
         ],
         directivesMetaMask: [
-          "Disconnect the Safe/contract account in MetaMask.",
+          "Disconnect the Safe/contract account in your wallet.",
           "Select a personal account (EOA).",
           "Reconnect to Glow.",
-          "Return here and press “Recheck now”.",
         ],
         directivesGeneric: [
           "Disconnect your Safe/contract wallet.",

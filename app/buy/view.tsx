@@ -20,6 +20,7 @@ import {
   useConnect,
   useWalletClient,
   usePublicClient,
+  useChainId,
 } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
 import { getAddresses, useForwarder } from "@glowlabs-org/utils/browser";
@@ -146,6 +147,7 @@ export default function View({
   const { connectors } = useConnect();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
+  const chainId = useChainId();
 
   // Add a general loading state check
   const isWalletLoading = isConnecting;
@@ -179,6 +181,10 @@ export default function View({
   const [isSmartAccountWarningOpen, setIsSmartAccountWarningOpen] =
     useState(false);
 
+  // Test USDC minting state (Sepolia only)
+  const [isMintingTestUSDC, setIsMintingTestUSDC] = useState(false);
+  const isOnSepolia = chainId === 11155111;
+
   // -------------------------------------------------------------------
   // URL PARAM STATE (txId)
   // -------------------------------------------------------------------
@@ -204,10 +210,8 @@ export default function View({
   const { signer } = useEthersSigner();
   // Forwarder & GCTL helpers
   const chainIdNum = parseInt(CHAIN_ID.toString());
-  const { mintGCTL, checkTokenAllowance, approveToken } = useForwarder(
-    signer as any,
-    chainIdNum
-  );
+  const { mintGCTL, checkTokenAllowance, approveToken, mintTestUSDC } =
+    useForwarder(signer as any, chainIdNum);
 
   // Smart account check function
   const checkSmartAccountBeforeSwap = async (): Promise<boolean> => {
@@ -240,6 +244,36 @@ export default function View({
 
   const { gctlPrice, gctlPriceNumber, isGctlPriceLoading } =
     useGctlApi(address);
+
+  // Mint test USDC function (Sepolia only)
+  const handleMintTestUSDC = async () => {
+    if (!address || !isOnSepolia) return;
+
+    try {
+      setIsMintingTestUSDC(true);
+      const amount = parseUnits("100000", 6); // Mint 1000 test USDC
+      const txHash = await mintTestUSDC(amount, address);
+
+      toast.success(
+        `Successfully minted 100000 test USDC! Transaction: ${txHash.slice(
+          0,
+          10
+        )}...`
+      );
+
+      // Refresh balances after minting
+      await Promise.all([
+        setUsdcBalanceForSigner(),
+        getTokenSellBalance(),
+        refreshBalances(),
+      ]);
+    } catch (error: any) {
+      console.error("Failed to mint test USDC:", error);
+      toast.error(error?.message || "Failed to mint test USDC");
+    } finally {
+      setIsMintingTestUSDC(false);
+    }
+  };
 
   const {
     purchaseGlowEarlyLiquidity,
@@ -1144,24 +1178,44 @@ export default function View({
                                 )}
                               </span>
                             </span>
-                            <Button
-                              variant="outline"
-                              className="h-7 px-2 py-0 text-xs"
-                              disabled={
-                                !isConnected ||
-                                isWalletLoading ||
-                                balancesLoading
-                              }
-                              onClick={() => {
-                                const maxVal = toFixedTruncate(
-                                  Number(tokenSellBalance || 0),
-                                  selectedTokenSell.toFixed
-                                );
-                                setAmountToSell(maxVal);
-                              }}
-                            >
-                              Max
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="outline"
+                                className="h-7 px-2 py-0 text-xs"
+                                disabled={
+                                  !isConnected ||
+                                  isWalletLoading ||
+                                  balancesLoading
+                                }
+                                onClick={() => {
+                                  const maxVal = toFixedTruncate(
+                                    Number(tokenSellBalance || 0),
+                                    selectedTokenSell.toFixed
+                                  );
+                                  setAmountToSell(maxVal);
+                                }}
+                              >
+                                Max
+                              </Button>
+                              {/* Test USDC Mint Button - Sepolia Only */}
+                              {isOnSepolia &&
+                                selectedTokenSell.label === "USDC" && (
+                                  <Button
+                                    variant="outline"
+                                    className="h-7 px-2 py-0 text-xs"
+                                    disabled={
+                                      !isConnected ||
+                                      isWalletLoading ||
+                                      isMintingTestUSDC
+                                    }
+                                    onClick={handleMintTestUSDC}
+                                  >
+                                    {isMintingTestUSDC
+                                      ? "Minting..."
+                                      : "Mint Test USDC"}
+                                  </Button>
+                                )}
+                            </div>
                           </div>
                         )}
                       </div>

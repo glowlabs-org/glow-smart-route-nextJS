@@ -1,137 +1,193 @@
-import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
-import View from "./buy/view";
-import { getHeadlineStats } from "@/web3/web3/queries/getHeadlineStats";
-import { Error } from "@/components/loading";
-import { PageWrapper } from "./components/page-wrapper";
-import { Metadata } from "next";
+"use client";
+
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { useQueryState } from "nuqs";
+import {
+  type PaymentCurrency,
+  type SortBy,
+  type SortOrder,
+  type AuctionApplication,
+} from "@/hooks/useGlowLaunchpad";
+import { DepositDialog } from "./glow-launchpad/deposit-dialog";
+import { SponsoredFarmsActivity } from "./glow-launchpad/sponsored-farms-activity";
+import { MiningCenterView } from "./glow-launchpad/mining-center-view";
+import { LaunchpadView } from "./glow-launchpad/launchpad-view";
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Header } from "@/components/header";
+import Link from "next/link";
 
-export const revalidate = 36;
+export default function GlowLaunchpadPage() {
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [selectedApplicationForDeposit, setSelectedApplicationForDeposit] =
+    React.useState<AuctionApplication | null>(null);
+  const [selectedApplicationType, setSelectedApplicationType] = React.useState<
+    "launchpad" | "mining-center"
+  >("launchpad");
+  const [selectedRewardScore, setSelectedRewardScore] = React.useState<
+    | {
+        userWeeklyGlwRewards: string;
+        userWeeklyPdRewards: string;
+        userEstimatedWeeklyCash: string;
+      }
+    | {
+        miningScore: number;
+        weeklyGlwRewards?: string;
+        weeklyGlwRewardsUsd?: string;
+      }
+    | null
+  >(null);
 
-export const metadata: Metadata = {
-  title: "app.glow.org - Swap GLOW, USDG, USDC & Provide Liquidity",
-  description:
-    "Trade and swap Glow tokens. Buy GLOW with USDG or USDC, provide liquidity to the GLOW/USDG Uniswap pool, and participate in the Glow ecosystem's guarded launch.",
-  keywords: [
-    "Glow token",
-    "GLOW",
-    "USDG",
-    "USDC",
-    "DeFi",
-    "token swap",
-    "decentralized exchange",
-    "liquidity provision",
-    "liquidity pool",
-    "yield farming",
-    "Ethereum",
-    "blockchain",
-    "cryptocurrency",
-    "Uniswap",
-    "guarded launch",
-  ],
-  authors: [{ name: "Nero" }],
-  creator: "Nero",
-  publisher: "Nero",
-  formatDetection: {
-    email: false,
-    address: false,
-    telephone: false,
-  },
-  metadataBase: new URL("https://app.glow.org"),
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
-    title: "app.glow.org - Swap GLOW, USDG, USDC & Provide Liquidity",
-    description:
-      "Trade and swap Glow tokens. Buy GLOW with USDG or USDC, provide liquidity to the GLOW/USDG Uniswap pool, and participate in the Glow ecosystem's guarded launch.",
-    url: "https://app.glow.org",
-    siteName: "app.glow.org",
-    images: [
-      {
-        url: "/Chrome_512x512.png",
-        width: 512,
-        height: 512,
-        alt: "app.glow.org - Decentralized Token Exchange",
-      },
-    ],
-    locale: "en_US",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Glow Token App - Swap GLOW, USDG, USDC & Provide Liquidity",
-    description:
-      "Trade and swap Glow tokens on the decentralized exchange. Buy GLOW with USDG or USDC, provide liquidity to earn rewards, and participate in the Glow ecosystem's guarded launch.",
-    images: ["/Chrome_512x512.png"],
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
-  verification: {
-    google: "google-site-verification-code",
-  },
-};
+  // Use query state for tab management with default to "launchpad"
+  const [activeTab, setActiveTab] = useQueryState("tab", {
+    defaultValue: "launchpad",
+    clearOnDefault: false,
+  });
 
-interface PageContentProps {
-  glowPrice: string;
-  earlyLiquidityCurrentPrice: string;
-  marketCap: string;
-  ethPriceInUSD: number | null;
-  usdcRewardPool: string;
-}
-
-function PageContent(props: PageContentProps) {
-  return (
-    <div className="min-h-screen bg-background">
-      <Header />
-
-      <View
-        glowPrice={props.glowPrice}
-        earlyLiquidityCurrentPrice={props.earlyLiquidityCurrentPrice}
-        marketCap={props.marketCap}
-        ethPriceInUSD={props.ethPriceInUSD}
-        usdcRewardPool={props.usdcRewardPool}
-      />
-    </div>
-  );
-}
-
-export default async function Page() {
-  try {
-    const [glowStats, ethPriceInUSD] = await Promise.all([
-      getHeadlineStats(),
-      getEthPriceInUSD(),
-    ]);
-
-    const glowPrice = glowStats.lowestGlowPrice.toString();
-    const earlyLiquidityCurrentPrice = glowStats.earlyLiquidityPrice.toString();
-    const marketCap = glowStats.marketCap.toString();
-    const usdcRewardPool = glowStats.usdcRewardPool;
-
-    return (
-      <PageWrapper>
-        <PageContent
-          glowPrice={glowPrice}
-          earlyLiquidityCurrentPrice={earlyLiquidityCurrentPrice}
-          marketCap={marketCap}
-          ethPriceInUSD={ethPriceInUSD}
-          usdcRewardPool={usdcRewardPool}
-        />
-      </PageWrapper>
-    );
-  } catch (error) {
-    console.error("Error fetching data:", error);
-    return (
-      <Error message="Failed to load market data. Please check your connection and try again." />
-    );
+  function onPayDeposit(
+    application: AuctionApplication,
+    type: "launchpad" | "mining-center",
+    scoreData?:
+      | {
+          userWeeklyGlwRewards: string;
+          userWeeklyPdRewards: string;
+          userEstimatedWeeklyCash: string;
+        }
+      | {
+          miningScore: number;
+          weeklyGlwRewards?: string;
+          weeklyGlwRewardsUsd?: string;
+        }
+      | null
+  ) {
+    setSelectedApplicationForDeposit(application);
+    setSelectedApplicationType(type);
+    setSelectedRewardScore(scoreData || null);
+    setDialogOpen(true);
   }
+
+  return (
+    <>
+      <Header />
+      {/* Schema.org structured data for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            name: "Glow Mining Platform",
+            description:
+              "Decentralized solar mining ecosystem for sponsoring solar farms and earning GLW tokens",
+            url: "https://app.glow.org",
+            applicationCategory: "FinanceApplication",
+            operatingSystem: "Web Browser",
+            offers: {
+              "@type": "Offer",
+              category: "Solar Mining",
+              description:
+                "Sponsor solar farms and earn GLW token rewards through specialized mining roles",
+            },
+            provider: {
+              "@type": "Organization",
+              name: "Glow Labs",
+              url: "https://glow.org",
+            },
+            mainEntity: [
+              {
+                "@type": "Service",
+                name: "Glow Launchpad",
+                description:
+                  "Platform for deposit miners to sponsor competitive solar farms and earn GLW tokens",
+              },
+              {
+                "@type": "Service",
+                name: "Mining Center",
+                description:
+                  "Pre-balanced mining opportunities with fixed costs and transparent GLW token returns",
+              },
+            ],
+          }),
+        }}
+      />
+      <div className="min-h-screen relative overflow-hidden pt-20">
+        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto lg:px-8 py-8">
+          <div className="bg-muted/30 backdrop-blur-xl rounded-3xl border border-border overflow-hidden mb-6">
+            <div className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h1 className="text-2xl font-bold">Glow Mining Platform</h1>
+                  <p className="text-sm text-muted-foreground mt-2 max-w-md">
+                    Sponsor competitive solar farms, earn GLW tokens, and
+                    support renewable energy infrastructure through specialized
+                    mining roles designed for maximum efficiency and returns.
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <Button variant="outline" asChild>
+                    <Link href="https://impact.glow.org" target="_blank">
+                      See Regions Dashboard
+                    </Link>
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <Link href="/token">Swap</Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="w-full"
+            >
+              <div className="p-6">
+                <TabsList className="grid w-fit grid-cols-3">
+                  <TabsTrigger value="launchpad">Launchpad</TabsTrigger>
+                  <TabsTrigger value="mining-center">Mining Center</TabsTrigger>
+                  <TabsTrigger value="activity">Activity</TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="launchpad" className="mt-0">
+                <LaunchpadView
+                  onPayDeposit={(app, rewardScore) =>
+                    onPayDeposit(app, "launchpad", rewardScore)
+                  }
+                />
+              </TabsContent>
+
+              <TabsContent value="mining-center" className="mt-0">
+                <MiningCenterView
+                  onPayDeposit={(app, miningScoreData) =>
+                    onPayDeposit(app, "mining-center", miningScoreData)
+                  }
+                />
+              </TabsContent>
+
+              <TabsContent value="activity" className="mt-0">
+                <SponsoredFarmsActivity />
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Deposit Dialog */}
+          <DepositDialog
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+            application={selectedApplicationForDeposit}
+            selectedCurrency={
+              selectedApplicationType === "mining-center"
+                ? "USDC" // Mining center uses USDC
+                : "GLW" // Launchpad uses GLW
+            }
+            rewardScore={selectedRewardScore}
+          />
+        </div>
+      </div>
+    </>
+  );
 }

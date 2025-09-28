@@ -264,7 +264,7 @@ export function Header({
                       >
                         Add liquidity to the GLW/USDG pool and earn rewards
                       </ListItem>
-                      <ListItem href="/glow-launchpad" title="Glow Launchpad">
+                      <ListItem href="/?tab=launchpad" title="Glow Launchpad">
                         Sponsor solar farms and earn weekly GLW rewards
                       </ListItem>
                     </ul>

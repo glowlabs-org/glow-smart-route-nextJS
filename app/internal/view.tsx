@@ -62,8 +62,6 @@ export default function BuyGctlView() {
     usePendingTransfers();
   const { data: failedOperations, isLoading: isFailedOperationsLoading } =
     useFailedOperations();
-  const { data: regionStake, isLoading: isRegionStakeLoading } =
-    useRegionStake(1);
   const { data: stakeEvents, isLoading: isStakedEventsLoading } =
     useStakeEvents();
 
