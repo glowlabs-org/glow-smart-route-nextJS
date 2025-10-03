@@ -47,7 +47,7 @@ export interface EnquiryFields {
 export interface AuditFields {
   systemWattageOutput: number | null;
   averageSunlightHoursPerDay: number | null;
-  adjustedWeeklyCarbonCredits: number | null;
+  expectedWeeklyCarbonCredits: number | null;
 }
 
 export interface Document {

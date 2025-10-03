@@ -62,7 +62,7 @@ export function useRewardScore({
 
           if (
             !protocolDepositAmount ||
-            !app.auditFields?.adjustedWeeklyCarbonCredits
+            !app.auditFields?.expectedWeeklyCarbonCredits
           ) {
             return null;
           }
@@ -77,8 +77,8 @@ export function useRewardScore({
             sponsorSplitPercent: app.sponsorSplitPercent,
             protocolDepositAmount: protocolDepositAmountBigInt.toString(),
             paymentCurrency,
-            adjustedWeeklyCarbonCredits:
-              app.auditFields.adjustedWeeklyCarbonCredits,
+            expectedWeeklyCarbonCredits:
+              app.auditFields.expectedWeeklyCarbonCredits,
             regionId: app.zone.id,
           };
         })

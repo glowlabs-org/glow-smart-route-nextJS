@@ -62,7 +62,6 @@ export function DepositDialog({
   const [nowMs, setNowMs] = React.useState<number>(Date.now());
   // Use the selectedCurrency from props
   const currency = selectedCurrency;
-  const [acknowledged, setAcknowledged] = React.useState(false);
   const [stepsToBuy, setStepsToBuy] = React.useState(1);
 
   // Transaction states
@@ -208,7 +207,6 @@ export function DepositDialog({
       setIsError(false);
       setErrorMessage(null);
       setTxHash(null);
-      setAcknowledged(false);
       setNetworkCostUSD("");
     } else {
       // setQuoteId(generateQuoteId());
@@ -569,14 +567,9 @@ export function DepositDialog({
       !isProcessing &&
       stepsToBuy > 0 &&
       stepsToBuy <= (application.activeFraction.remainingSteps || 0) &&
-      isConnected &&
-      acknowledged
+      isConnected
     : // For full sponsorship
-      !isSubmitting &&
-      !isProcessing &&
-      !hasInsufficientBalance &&
-      isConnected &&
-      acknowledged;
+      !isSubmitting && !isProcessing && !hasInsufficientBalance && isConnected;
 
   // Transaction details
   const transactionDetails: TransactionDetail[] = application.activeFraction
@@ -669,8 +662,26 @@ export function DepositDialog({
               </Button>
             </div>
           </div>
-          <div className="text-xs text-muted-foreground text-right">
-            Max: {application.activeFraction.remainingSteps} shares available
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-muted-foreground">
+              Max: {application.activeFraction.remainingSteps} shares available
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setStepsToBuy(application.activeFraction?.remainingSteps || 1)
+              }
+              disabled={
+                stepsToBuy >=
+                  (application.activeFraction?.remainingSteps || 0) ||
+                isSubmitting ||
+                (application.activeFraction?.remainingSteps || 0) <= 0
+              }
+              className="h-7 px-2 py-0 text-xs"
+            >
+              Max
+            </Button>
           </div>
         </div>
       ) : (
@@ -876,32 +887,6 @@ export function DepositDialog({
   const customFooter =
     !isSubmitting && !isProcessing ? (
       <>
-        <div className="mb-6 mt-4 p-4 bg-muted/50 border border-border rounded-xl">
-          <label
-            htmlFor="ack-sponsor"
-            className="flex items-start gap-3 text-sm cursor-pointer"
-          >
-            <Checkbox
-              id="ack-sponsor"
-              checked={acknowledged}
-              onCheckedChange={(v) => setAcknowledged(Boolean(v))}
-              className="mt-0.5 border-accent size-5"
-            />
-            <span className="text-foreground leading-relaxed">
-              {application.activeFraction
-                ? `I understand that I am purchasing ${stepsToBuy} shares of this solar farm and will receive ${(
-                    (application.activeFraction.sponsorSplitPercent *
-                      stepsToBuy) /
-                    (application.activeFraction.totalSteps || 1)
-                  ).toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}% of the weekly GLW rewards generated`
-                : `I understand that I am sponsoring this solar farm and will receive ${application.sponsorSplitPercent}% of the weekly GLW rewards generated`}
-            </span>
-          </label>
-        </div>
-
         {/* Prominent Total Cost Row - only for fractions */}
         {application.activeFraction && (
           <div className="mb-6 p-4 bg-accent/5 border-2 border-accent/20 rounded-xl">

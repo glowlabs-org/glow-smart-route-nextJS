@@ -35,10 +35,12 @@ import { UsdcToTokenDialog } from "@/components/usdc-to-token-dialog";
 import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
 import { addresses, SDKAddresses } from "@/web3/constants/addresses";
 import { useWalletFarms } from "@/hooks/useWalletFarms";
+import { useWallets } from "@/hooks/useWallets";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRegions } from "@/hooks/useRegions";
 import { RecentActivity } from "./recent-activity";
 import { RefundClaimsPanel } from "./refund-claims-panel";
+import { MigrationClaimPanel } from "./migration-claim-panel";
 import { forceDisconnect } from "@/utils/forceDisconnect";
 
 // Token definitions matching buy view structure
@@ -108,6 +110,17 @@ export default function View() {
 
   // Regions data for mapping region IDs to names
   const { regions } = useRegions();
+
+  // Migration data
+  const {
+    migrationData,
+    isMigrationLoading,
+    migrationError,
+    refetchMigrationAmount,
+  } = useWallets({
+    walletAddress: address,
+    enabled: isConnected,
+  });
 
   // Helper functions to format balances
   function formatBalance(
@@ -553,10 +566,23 @@ export default function View() {
           onClaimAll={handleClaimAll}
         />
 
-        {/* E. Refund Claims Panel */}
+        {/* E. Migration Claims Panel */}
+        <MigrationClaimPanel
+          walletAddress={address}
+          migrationData={migrationData}
+          isLoading={isMigrationLoading}
+          isError={!!migrationError}
+          onClaim={() => {
+            // Cache invalidation is handled by the mutation
+            // This callback can be used for additional UI updates if needed
+            console.log("Migration claim completed");
+          }}
+        />
+
+        {/* F. Refund Claims Panel */}
         <RefundClaimsPanel walletAddress={address} />
 
-        {/* F. Farms Earning Rewards */}
+        {/* G. Farms Earning Rewards */}
         {(purchasedFarms.length > 0 || isPurchasedFarmsLoading) && (
           <Card className="mb-8 bg-transparent">
             <CardHeader>
@@ -725,7 +751,7 @@ export default function View() {
           </Card>
         )}
 
-        {/* G. Recent Activity */}
+        {/* H. Recent Activity */}
         <RecentActivity walletAddress={address} />
       </div>
 

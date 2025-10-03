@@ -2,139 +2,34 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
+import {
+  WalletsRouter,
+  type ControlWallet,
+  type WalletDetails,
+  type MintedEvent,
+  type StakedEvent,
+  type MigrationAmountResponse,
+  ControlRouter,
+} from "@glowlabs-org/utils/browser";
 
-// Types based on the WalletsRouter
-export interface ControlWallet {
-  address: string;
-  [key: string]: any;
-}
+const CONTROL_API_URL = process.env.NEXT_PUBLIC_CONTROL_API_URL;
 
-export interface WalletsResponse {
-  wallets: ControlWallet[];
-}
-
-export interface WalletDetails {
-  address: string;
-  [key: string]: any;
-}
-
-export interface MintedEvent {
-  txId: string;
-  epoch: number;
-  wallet: string;
-  amountRaw: string;
-  currency: string;
-  gctlMinted: string;
-  ts: string;
-}
-
-export interface StakedEvent {
-  id: string;
-  epoch: number;
-  wallet: string;
-  regionId: number;
-  regionName?: string;
-  amount: string;
-  direction: "stake" | "unstake";
-  ts: string;
-}
-
-if (!process.env.NEXT_PUBLIC_CONTROL_API_URL) {
+if (!CONTROL_API_URL) {
   throw new Error("NEXT_PUBLIC_CONTROL_API_URL is not set");
 }
 
-function parseApiError(error: unknown): string {
-  if (!error) return "Unknown error";
-  if (error instanceof Error) return error.message;
-  const possible: any = error;
-  return possible?.error?.message ?? possible?.message ?? "Unknown error";
-}
+// Initialize Wallets API client from SDK
+const walletsRouter = WalletsRouter(CONTROL_API_URL);
+const controlRouter = ControlRouter(CONTROL_API_URL);
 
-function WalletsRouter(baseUrl: string) {
-  if (!baseUrl) throw new Error("CONTROL API base URL is not set");
-
-  const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
-    const res = await fetch(`${baseUrl}${path}`, init);
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData?.error || `Request to ${path} failed`);
-    }
-    return (await res.json()) as T;
-  };
-
-  const buildPaginationQuery = (page?: number, limit?: number) => {
-    const p = page ?? 1;
-    const l = limit ?? 50;
-    return `?page=${p}&limit=${l}`;
-  };
-
-  const fetchAllWallets = async (): Promise<ControlWallet[]> => {
-    try {
-      const data = await request<WalletsResponse>(`/wallets/all`);
-      return data.wallets ?? [];
-    } catch (error) {
-      throw new Error(parseApiError(error));
-    }
-  };
-
-  const fetchWalletByAddress = async (
-    wallet: string
-  ): Promise<WalletDetails> => {
-    try {
-      return await request<WalletDetails>(
-        `/wallets/address/${encodeURIComponent(wallet)}`
-      );
-    } catch (error) {
-      throw new Error(parseApiError(error));
-    }
-  };
-
-  const fetchWalletMintedEvents = async (
-    wallet: string,
-    page?: number,
-    limit?: number
-  ): Promise<MintedEvent[]> => {
-    try {
-      const data = await request<{ events: MintedEvent[] }>(
-        `/wallets/address/${encodeURIComponent(
-          wallet
-        )}/events/minted${buildPaginationQuery(page, limit)}`
-      );
-      return data.events ?? [];
-    } catch (error) {
-      throw new Error(parseApiError(error));
-    }
-  };
-
-  const fetchWalletStakeEvents = async (
-    wallet: string,
-    page?: number,
-    limit?: number,
-    regionId?: number
-  ): Promise<StakedEvent[]> => {
-    try {
-      const base = `/wallets/address/${encodeURIComponent(
-        wallet
-      )}/events/stake${buildPaginationQuery(page, limit)}`;
-      const query =
-        typeof regionId === "number" ? `${base}&regionId=${regionId}` : base;
-      const data = await request<{ events: StakedEvent[] }>(query);
-      return data.events ?? [];
-    } catch (error) {
-      throw new Error(parseApiError(error));
-    }
-  };
-
-  return {
-    fetchAllWallets,
-    fetchWalletByAddress,
-    fetchWalletMintedEvents,
-    fetchWalletStakeEvents,
-  } as const;
-}
-
-// Initialize Wallets API client
-const walletsRouter = WalletsRouter(process.env.NEXT_PUBLIC_CONTROL_API_URL);
+// Re-export types for convenience
+export type {
+  ControlWallet,
+  WalletDetails,
+  MintedEvent,
+  StakedEvent,
+  MigrationAmountResponse,
+};
 
 // Query Keys
 const QUERY_KEYS = {
@@ -151,6 +46,7 @@ const QUERY_KEYS = {
     limit?: number,
     regionId?: number
   ) => ["wallet-stake-events", wallet, page, limit, regionId],
+  migrationAmount: (wallet?: string) => ["migration-amount", wallet],
   allWallets: () => ["all-wallets"],
 } as const;
 
@@ -223,6 +119,20 @@ export function useWallets({
     retry: 2,
   });
 
+  // Migration Amount Query
+  const {
+    data: migrationData,
+    isLoading: isMigrationLoading,
+    error: migrationError,
+    refetch: refetchMigrationAmount,
+  } = useQuery({
+    queryKey: QUERY_KEYS.migrationAmount(walletAddress),
+    queryFn: () => controlRouter.fetchMigrationAmount(walletAddress!),
+    enabled: enabled && Boolean(walletAddress),
+    staleTime: 60 * 1000, // 1 minute (migration data changes less frequently)
+    retry: 2,
+  });
+
   // All Wallets Query (for admin purposes)
   const {
     data: allWallets = [],
@@ -265,34 +175,44 @@ export function useWallets({
     []
   );
 
+  const fetchMigrationAmount = useCallback(
+    (wallet: string) => controlRouter.fetchMigrationAmount(wallet),
+    []
+  );
+
   return {
     // Data
     walletDetails,
     mintedEvents,
     stakeEvents,
+    migrationData,
     allWallets,
 
     // Loading states
     isWalletDetailsLoading,
     isMintedEventsLoading,
     isStakeEventsLoading,
+    isMigrationLoading,
     isAllWalletsLoading,
 
     // Errors
     walletDetailsError,
     mintedEventsError,
     stakeEventsError,
+    migrationError,
     allWalletsError,
 
     // Refetch functions
     refetchWalletDetails,
     refetchMintedEvents,
     refetchStakeEvents,
+    refetchMigrationAmount,
     refetchAllWallets,
 
     // Helper functions
     fetchWalletDetails,
     fetchWalletMintedEvents,
     fetchWalletStakeEvents,
+    fetchMigrationAmount,
   } as const;
 }
