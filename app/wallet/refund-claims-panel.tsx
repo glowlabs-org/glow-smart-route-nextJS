@@ -196,25 +196,26 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
   }
 
   return (
-    <Card className="mb-8">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-orange-500" />
+    <Card className="mb-8 bg-transparent">
+      <CardHeader className="pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="flex-1">
+            <CardTitle className="flex items-center gap-2 text-2xl font-bold">
+              <AlertTriangle className="w-6 h-6 text-orange-500" />
               Available Refunds
             </CardTitle>
-            <CardDescription className="mt-2">
+            <CardDescription className="mt-2 text-base">
               Claim refunds from expired or cancelled farm sponsorships
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {refundableFractions.length > 1 && (
               <Button
                 onClick={handleClaimAllRefunds}
                 disabled={
                   isProcessing || processingRefunds.size > 0 || isPolling
                 }
+                className="w-full sm:w-auto"
               >
                 {isPolling ? (
                   <>
@@ -225,7 +226,7 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
                   <>
                     Claim All
                     <Badge variant="secondary" className="ml-2">
-                      {refundableFractions.length} refunds
+                      {refundableFractions.length}
                     </Badge>
                   </>
                 )}
@@ -233,9 +234,10 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
             )}
             <Button
               variant="outline"
-              size="sm"
+              size="default"
               onClick={() => refetch()}
               disabled={isLoading}
+              className="w-full sm:w-auto"
             >
               <RefreshCw
                 className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
@@ -247,33 +249,33 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="flex items-center justify-between p-4 rounded-lg border bg-orange-50 dark:bg-orange-950/20"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 md:p-6 rounded-xl border bg-orange-50 dark:bg-orange-950/20"
               >
-                <div className="flex items-center gap-3">
-                  <Skeleton className="h-8 w-8 rounded-full" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-48" />
-                    <Skeleton className="h-3 w-32" />
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-5 w-48" />
+                    <Skeleton className="h-4 w-32" />
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right space-y-1">
-                    <Skeleton className="h-5 w-16" />
-                    <Skeleton className="h-3 w-8" />
+                <div className="flex items-center justify-between sm:justify-end gap-4">
+                  <div className="text-right space-y-2">
+                    <Skeleton className="h-6 w-20" />
+                    <Skeleton className="h-3 w-12" />
                   </div>
-                  <Skeleton className="h-8 w-16" />
+                  <Skeleton className="h-10 w-20" />
                 </div>
               </div>
             ))}
           </div>
         ) : isError ? (
-          <div className="text-center py-12 px-4 rounded-xl bg-destructive/5 border border-destructive/20">
+          <div className="text-center py-12 px-4 md:px-6 rounded-xl bg-destructive/5 border border-destructive/20">
             <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
-            <p className="text-muted-foreground mb-4">
+            <p className="text-muted-foreground text-base mb-4">
               Failed to load refundable fractions. Please try refreshing.
             </p>
             <Button variant="outline" onClick={() => refetch()}>
@@ -281,8 +283,8 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
             </Button>
           </div>
         ) : refundableFractions.length === 0 ? (
-          <div className="text-center py-12 px-4 rounded-xl bg-muted/50 border border-border">
-            <p className="text-muted-foreground">
+          <div className="text-center py-12 px-4 md:px-6 rounded-xl bg-muted/50 border border-border">
+            <p className="text-muted-foreground text-base">
               No refunds available at this time
             </p>
           </div>
@@ -298,17 +300,17 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
                 <div
                   key={refundableFraction.fraction.id}
                   className={cn(
-                    "flex items-center justify-between p-4 rounded-lg border",
+                    "flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 md:p-6 rounded-xl border",
                     "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800"
                   )}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-full bg-background text-orange-600">
-                      <Sparkles className="w-4 h-4" />
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="p-2 rounded-full bg-background text-orange-600 flex-shrink-0">
+                      <Sparkles className="w-5 h-5" />
                     </div>
-                    <div>
-                      <div className="font-medium flex items-center gap-2">
-                        Farm Sponsorship
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold flex flex-wrap items-center gap-2 mb-1">
+                        <span>Farm Sponsorship</span>
                         <Badge
                           variant={
                             refundableFraction.fraction.status === "expired"
@@ -334,25 +336,27 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
                         {
                           refundableFraction.userPurchaseData
                             .totalStepsPurchased
-                        }{" "}
-                        shares
+                        }
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between sm:justify-end gap-4">
                     <div className="text-right">
-                      <div className="font-bold text-lg">
+                      <div className="font-bold text-xl tracking-tight">
                         {formatRefundAmount(
                           refundableFraction.refundDetails.estimatedRefundAmount
                         )}
                       </div>
-                      <div className="text-xs text-muted-foreground">GLW</div>
+                      <div className="text-xs text-muted-foreground font-medium">
+                        GLW
+                      </div>
                     </div>
                     <Button
-                      size="sm"
+                      size="default"
                       variant="default"
                       onClick={() => handleClaimRefund(refundableFraction)}
                       disabled={isProcessingThis || isProcessing || isPolling}
+                      className="flex-shrink-0"
                     >
                       {isProcessingThis ||
                       (isPolling &&
@@ -360,7 +364,7 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
                           refundableFraction.fraction.id
                         )) ? (
                         <>
-                          <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                           {isPolling ? "Confirming..." : "Processing..."}
                         </>
                       ) : (
@@ -373,16 +377,18 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
             })}
 
             {/* Info Section */}
-            <div className="mt-4 p-3 rounded-lg bg-muted/50">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
-                <div className="text-xs text-muted-foreground">
-                  <div className="font-medium mb-1">About Refunds</div>
-                  <div>
+            <div className="mt-6 p-4 md:p-6 rounded-xl bg-muted/50 border border-border">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-muted-foreground">
+                  <div className="font-semibold mb-2">About Refunds</div>
+                  <div className="leading-relaxed">
                     Total refundable:{" "}
-                    {formatRefundAmount(summary.totalRefundableAmount)} GLW from{" "}
-                    {summary.totalRefundableFractions} failed sponsorships (
-                    {summary.byStatus.expired} expired,{" "}
+                    <span className="font-medium text-foreground">
+                      {formatRefundAmount(summary.totalRefundableAmount)} GLW
+                    </span>{" "}
+                    from {summary.totalRefundableFractions} failed sponsorships
+                    ({summary.byStatus.expired} expired,{" "}
                     {summary.byStatus.cancelled} cancelled).
                   </div>
                 </div>

@@ -123,7 +123,10 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
         time: new Date(split.timestamp * 1000).toLocaleDateString(),
         amount: parseFloat(
           formatUnits(BigInt(split.amount), DECIMALS_BY_TOKEN[split.currency])
-        ).toFixed(0),
+        ).toLocaleString("en-US", {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }),
         token: split.currency,
         shares: split.stepsPurchased,
         applicationId: split.applicationId,
@@ -144,23 +147,23 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
   const getActivityIcon = (type: string) => {
     switch (type) {
       case "swap":
-        return <ArrowDownUp className="w-4 h-4" />;
+        return <ArrowDownUp className="w-4 h-4 md:w-6 md:h-6" />;
       case "send":
-        return <Send className="w-4 h-4" />;
+        return <Send className="w-4 h-4 md:w-6 md:h-6" />;
       case "claim":
-        return <Gift className="w-4 h-4" />;
+        return <Gift className="w-4 h-4 md:w-6 md:h-6" />;
       case "stake":
-        return <TrendingUp className="w-4 h-4" />;
+        return <TrendingUp className="w-4 h-4 md:w-6 md:h-6" />;
       case "unstake":
-        return <TrendingDown className="w-4 h-4" />;
+        return <TrendingDown className="w-4 h-4 md:w-6 md:h-6" />;
       case "mint":
-        return <Sparkles className="w-4 h-4" />;
+        return <Sparkles className="w-4 h-4 md:w-6 md:h-6" />;
       case "fraction-purchase":
-        return <ShoppingCart className="w-4 h-4" />;
+        return <ShoppingCart className="w-4 h-4 md:w-6 md:h-6" />;
       case "impact-redemption":
-        return <Sparkles className="w-4 h-4" />;
+        return <Sparkles className="w-4 h-4 md:w-6 md:h-6" />;
       default:
-        return <Clock className="w-4 h-4" />;
+        return <Clock className="w-4 h-4 md:w-6 md:h-6" />;
     }
   };
 
@@ -191,34 +194,34 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
     switch (activity.type) {
       case "swap":
         return (
-          <div className="flex items-center gap-2">
-            <span className="font-medium">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold">
               {activity.amount} {activity.from}
             </span>
-            <ArrowRight className="w-3 h-3 text-muted-foreground" />
-            <span className="font-medium">
+            <ArrowRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <span className="font-semibold">
               {activity.received} {activity.to}
             </span>
           </div>
         );
       case "send":
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span>Sent</span>
-            <span className="font-medium">
+            <span className="font-semibold">
               {activity.amount} {activity.token}
             </span>
             <span className="text-muted-foreground">to</span>
-            <code className="text-xs bg-muted px-1 py-0.5 rounded">
+            <code className="text-xs bg-muted px-2 py-0.5 rounded">
               {activity.to}
             </code>
           </div>
         );
       case "claim":
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span>Claimed</span>
-            <span className="font-medium">
+            <span className="font-semibold">
               {activity.amount} {activity.token}
             </span>
             {activity.region && (
@@ -230,9 +233,9 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
         );
       case "stake":
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span>Staked</span>
-            <span className="font-medium">
+            <span className="font-semibold">
               {activity.amount} {activity.token}
             </span>
             <span className="text-muted-foreground">in</span>
@@ -241,50 +244,49 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
         );
       case "mint":
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span>Minted</span>
-            <span className="font-medium">
+            <span className="font-semibold">
               {activity.amount} {activity.token}
             </span>
             <span className="text-muted-foreground">from</span>
-            <span className="font-medium">
+            <span className="font-semibold">
               {activity.originalAmount} {activity.originalCurrency}
             </span>
           </div>
         );
       case "fraction-purchase":
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span>Sponsored</span>
-            <span className="font-medium">{activity.shares} shares</span>
+            <span className="font-semibold">{activity.shares}</span>
             <span className="text-muted-foreground">for</span>
-            <span className="font-medium">
+            <span className="font-semibold">
               {activity.amount} {activity.token}
             </span>
-
-            <span className="text-xs text-muted-foreground">
+            <Badge variant="secondary" className="text-xs">
               {activity.progressPercent}% filled
-            </span>
+            </Badge>
           </div>
         );
       case "unstake":
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span>Started unstaking</span>
-            <span className="font-medium">{activity.amount} GCTL</span>
+            <span className="font-semibold">{activity.amount} GCTL</span>
             <span className="text-muted-foreground">from</span>
             <Badge variant="secondary">{activity.region}</Badge>
           </div>
         );
       case "impact-redemption":
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span>Redeemed</span>
-            <span className="font-medium">
+            <span className="font-semibold">
               {activity.amount} Impact ({activity.region})
             </span>
-            <ArrowRight className="w-3 h-3 text-muted-foreground" />
-            <span className="font-medium">{activity.received}</span>
+            <ArrowRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <span className="font-semibold">{activity.received}</span>
           </div>
         );
       default:
@@ -303,62 +305,66 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Recent Activity</CardTitle>
-        <CardDescription>
+    <Card className="bg-transparent">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-2xl font-bold">Recent Activity</CardTitle>
+        <CardDescription className="text-base mt-2">
           Your latest transactions and actions across Glow
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="max-h-[400px] pr-4">
+        <ScrollArea className="max-h-[500px] pr-4">
           {isLoading ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}
-                  className="flex items-start gap-3 p-3 rounded-lg border animate-pulse"
+                  className="flex items-start gap-4 p-4 md:p-6 rounded-xl border animate-pulse"
                 >
-                  <div className="w-10 h-10 rounded-full bg-muted" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 w-3/4 bg-muted rounded" />
-                    <div className="h-3 w-1/2 bg-muted rounded" />
+                  <div className="w-12 h-12 rounded-full bg-muted flex-shrink-0" />
+                  <div className="flex-1 space-y-3">
+                    <div className="h-5 w-3/4 bg-muted rounded" />
+                    <div className="h-4 w-1/2 bg-muted rounded" />
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {activities.map((activity, idx) => (
                 <div
                   key={idx}
-                  className="group flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/30 transition-colors"
+                  className="group flex items-start gap-4 p-4 md:p-6 rounded-xl border bg-muted dark:bg-muted/30 hover:bg-transparent hover:dark:bg-transparent transition-colors cursor-pointer"
+                  onClick={() => handleViewTransaction(activity)}
                 >
                   <div
                     className={cn(
-                      "p-2 rounded-full",
+                      "p-2.5 rounded-full flex-shrink-0",
                       getActivityColor(activity.type)
                     )}
                   >
                     {getActivityIcon(activity.type)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <div className="text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-2 flex-1">
+                        <div className="text-sm md:text-base">
                           {getActivityDescription(activity)}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs md:text-sm text-muted-foreground">
                           {activity.time}
                         </div>
                       </div>
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => handleViewTransaction(activity)}
+                        size="icon"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewTransaction(activity);
+                        }}
                       >
-                        <ExternalLink className="w-3 h-3" />
+                        <ExternalLink className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
@@ -368,12 +374,12 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
           )}
 
           {!isLoading && activities.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <div className="text-sm">No recent activity</div>
-              <div className="text-xs mt-1">
-                Your transactions will appear here
+            <div className="text-center py-16 px-4 text-muted-foreground">
+              <Clock className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <div className="text-base font-medium mb-2">
+                No recent activity
               </div>
+              <div className="text-sm">Your transactions will appear here</div>
             </div>
           )}
         </ScrollArea>

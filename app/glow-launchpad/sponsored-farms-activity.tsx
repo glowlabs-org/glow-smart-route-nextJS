@@ -101,7 +101,7 @@ export function SponsoredFarmsActivity({
     <div className={cn(className, "p-4")}>
       {/* Summary Stats */}
       <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
+        <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
             Avg Reward Score
           </div>
@@ -124,15 +124,15 @@ export function SponsoredFarmsActivity({
             })()}
           </div>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
+        <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-            Shares Purchased
+            Amount Purchased
           </div>
           <div className="text-2xl font-semibold text-black dark:text-white">
             {formatNumber(summary.totalStepsPurchased, 0)}
           </div>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
+        <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
             Total Spent
           </div>
@@ -144,7 +144,7 @@ export function SponsoredFarmsActivity({
             <span className="text-lg font-normal">GLW</span>
           </div>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
+        <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
             Farms
           </div>
@@ -161,7 +161,7 @@ export function SponsoredFarmsActivity({
             <TableRow>
               <TableHead>Date</TableHead>
               <TableHead>Buyer</TableHead>
-              <TableHead className="text-right">Shares</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
               <TableHead className="text-right">Reward Score</TableHead>
               <TableHead className="text-right">Total Paid</TableHead>
               <TableHead>Status</TableHead>
@@ -196,6 +196,7 @@ export function SponsoredFarmsActivity({
               return (
                 <TableRow
                   key={`${purchase.transactionHash}-${purchase.fractionId}`}
+                  className="h-14"
                 >
                   <TableCell>
                     <div className="text-sm text-gray-900 dark:text-gray-100">

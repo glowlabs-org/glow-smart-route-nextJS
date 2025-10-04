@@ -237,7 +237,7 @@ export function DepositDialog({
       !signer ||
       !fractions.isSignerAvailable
     ) {
-      toast.error("Missing required information for share purchase");
+      toast.error("Missing required information for delegation");
       return;
     }
 
@@ -397,7 +397,7 @@ export function DepositDialog({
         ) {
           purchaseConfirmed = true;
           console.log(
-            `Purchase confirmed! User now owns ${latestSplits.summary.totalStepsPurchased} total shares`
+            `Delegation confirmed! User now owns ${latestSplits.summary.totalStepsPurchased} total`
           );
           break;
         }
@@ -405,14 +405,14 @@ export function DepositDialog({
 
       if (!purchaseConfirmed) {
         console.warn(
-          "Purchase confirmation timeout - transaction may still be processing"
+          "Delegation confirmation timeout - transaction may still be processing"
         );
-        toast.warning(
-          "Purchase may still be processing. Check your wallet for updates."
+        throw new Error(
+          "Delegation confirmation timeout. The transaction was submitted but we couldn't confirm it completed. Please check your wallet and contact support if needed."
         );
       }
 
-      // Only set success after confirmation (or timeout)
+      // Only set success after confirmation
       setIsProcessing(false);
       setIsSuccess(true);
 
@@ -422,8 +422,6 @@ export function DepositDialog({
       } else {
         await refetchGlwBalance();
       }
-
-      toast.success(`Successfully purchased ${stepsToBuy} shares!`);
 
       // Trigger the mutation to invalidate queries
       await sponsorMutation.mutateAsync({
@@ -438,7 +436,7 @@ export function DepositDialog({
       setIsProcessing(false);
       setIsError(true);
 
-      let message = "Share purchase failed";
+      let message = "Delegation failed";
 
       // Handle specific error types based on OffchainFractionsError enum
       if (
@@ -578,9 +576,8 @@ export function DepositDialog({
           label: "Location",
           value: application.zone.name,
         },
-
         {
-          label: "Price per Share",
+          label: "Price",
           value: formatNumber(
             parseFloat(
               formatUnits(
@@ -599,7 +596,7 @@ export function DepositDialog({
   const successDetails: TransactionDetail[] = application.activeFraction
     ? [
         {
-          label: "Shares Purchased",
+          label: "Quantity",
           value: stepsToBuy.toString(),
         },
         {
@@ -626,7 +623,7 @@ export function DepositDialog({
       {application.activeFraction ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Shares to Buy</span>
+            <span className="text-sm text-muted-foreground">Quantity</span>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -664,7 +661,7 @@ export function DepositDialog({
           </div>
           <div className="flex items-center justify-between">
             <div className="text-xs text-muted-foreground">
-              Max: {application.activeFraction.remainingSteps} shares available
+              Max: {application.activeFraction.remainingSteps} available
             </div>
             <Button
               variant="outline"
@@ -739,8 +736,7 @@ export function DepositDialog({
           <div className="bg-muted/50 border border-border rounded-lg p-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
-                Est. Weekly Rewards for {stepsToBuy} share
-                {stepsToBuy !== 1 ? "s" : ""}
+                Est. Weekly Rewards
               </span>
               <div className="text-right">
                 <span className="text-sm font-mono">
@@ -816,7 +812,7 @@ export function DepositDialog({
           return currentBalance < requiredAmount ? (
             <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
               <div className="text-sm text-destructive">
-                Insufficient {currency} balance for {stepsToBuy} shares
+                Insufficient {currency} balance for {stepsToBuy}
               </div>
             </div>
           ) : null;
@@ -889,7 +885,7 @@ export function DepositDialog({
       <>
         {/* Prominent Total Cost Row - only for fractions */}
         {application.activeFraction && (
-          <div className="mb-6 p-4 bg-accent/5 border-2 border-accent/20 rounded-xl">
+          <div className="my-6 p-4 bg-accent/5 border-2 border-accent/20 rounded-xl">
             <div className="flex items-center justify-between">
               <span className="text-base font-semibold text-foreground">
                 Total Cost
@@ -930,7 +926,7 @@ export function DepositDialog({
               className="flex-1"
             >
               {application.activeFraction
-                ? `Buy ${stepsToBuy} Shares`
+                ? `Delegate GLW`
                 : "Confirm Sponsorship"}
             </Button>
           ) : (
@@ -953,39 +949,37 @@ export function DepositDialog({
       isSuccess={isSuccess}
       isError={isError}
       title={
-        application.activeFraction ? "Buy Farm Shares" : "Confirm Sponsorship"
+        application.activeFraction ? "Delegate GLW" : "Confirm Sponsorship"
       }
       successTitle={
-        application.activeFraction ? "Shares Purchased!" : "Farm Sponsored!"
+        application.activeFraction ? "Delegation Complete!" : "Farm Sponsored!"
       }
       errorTitle={
-        application.activeFraction
-          ? "Share Purchase Failed"
-          : "Sponsorship Failed"
+        application.activeFraction ? "Delegation Failed" : "Sponsorship Failed"
       }
       processingTitle={
         isProcessing
           ? "Confirming Transaction"
           : application.activeFraction
-          ? "Processing Share Purchase"
+          ? "Processing Delegation"
           : "Processing Sponsorship"
       }
       description={
         application.activeFraction
-          ? "Review your share purchase details"
+          ? "Review your delegation details"
           : "Review your sponsorship details"
       }
       processingDescription={
         isProcessing
           ? "Confirming transaction and updating records..."
           : application.activeFraction
-          ? "Please wait while we process your share purchase"
+          ? "Please wait while we process your delegation"
           : "Please wait while we process your sponsorship"
       }
       errorDescription={
         errorMessage ||
         (application.activeFraction
-          ? "Failed to purchase shares"
+          ? "Failed to delegate"
           : "Failed to sponsor the farm")
       }
       transactionDetails={transactionDetails}

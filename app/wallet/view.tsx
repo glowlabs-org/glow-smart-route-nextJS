@@ -10,7 +10,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Send, ChevronRight, RefreshCw, ExternalLink } from "lucide-react";
+import {
+  Send,
+  ChevronRight,
+  RefreshCw,
+  ExternalLink,
+  ArrowDown,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -42,6 +48,7 @@ import { RecentActivity } from "./recent-activity";
 import { RefundClaimsPanel } from "./refund-claims-panel";
 import { MigrationClaimPanel } from "./migration-claim-panel";
 import { forceDisconnect } from "@/utils/forceDisconnect";
+import { useLiquidityPositions } from "@/hooks/useLiquidityPositions";
 
 // Token definitions matching buy view structure
 export const tokens = {
@@ -98,6 +105,9 @@ export default function View() {
     isGlwPriceLoading,
   } = useGctlApi(address);
 
+  // Liquidity positions for spot price
+  const { priceRatio: glowSpotPrice } = useLiquidityPositions();
+
   // Wallet farms (purchased farms)
   const {
     farms: purchasedFarms,
@@ -112,12 +122,7 @@ export default function View() {
   const { regions } = useRegions();
 
   // Migration data
-  const {
-    migrationData,
-    isMigrationLoading,
-    migrationError,
-    refetchMigrationAmount,
-  } = useWallets({
+  const { migrationData, isMigrationLoading, migrationError } = useWallets({
     walletAddress: address,
     enabled: isConnected,
   });
@@ -278,333 +283,147 @@ export default function View() {
     setUsdcToUsdgDialogOpen(true);
   };
 
-  const handleForceDisconnect = () => {
-    forceDisconnect(disconnect, connectors, activeConnector);
-  };
-
   // Network status check
   const hasNetworkIssues = erc20HasError || (!hasSigner && isConnected);
 
+  // Determine if we're in initial loading state
+  const isInitialLoading =
+    !erc20Ready || isGctlBalanceLoading || isPurchasedFarmsLoading;
+
   return (
-    <div className="min-h-screen bg-background ">
+    <div className="min-h-screen bg-background">
       <Header />
-      <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 xl:px-16 py-8 pt-24">
-        {/* Page Header with Scenario Selector */}
-        <div className="flex items-start justify-between mb-8">
+      <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 xl:px-16 py-6 md:py-8 pt-20 md:pt-24">
+        {/* Page Header - 8pt spacing system */}
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6 md:mb-8">
           <div>
-            <h1 className="text-3xl font-bold">Power Wallet</h1>
-            <p className="text-muted-foreground mt-2">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              Power Wallet
+            </h1>
+            <p className="text-muted-foreground mt-2 text-base">
               Your all-in-one wallet for Glow
             </p>
           </div>
           <Button
             variant="outline"
-            size="sm"
+            size="default"
             onClick={() => {
               console.log("Manual refresh triggered");
               refreshBalances();
             }}
-            disabled={erc20Loading}
+            disabled={erc20Loading || isInitialLoading}
+            className="w-full sm:w-auto"
           >
             <RefreshCw
-              className={`w-4 h-4 mr-2 ${erc20Loading ? "animate-spin" : ""}`}
+              className={`w-4 h-4 mr-2 ${
+                erc20Loading || isInitialLoading ? "animate-spin" : ""
+              }`}
             />
             Refresh Balances
           </Button>
         </div>
 
-        {/* Network banner moved to header; keeping this block empty intentionally */}
+        {isInitialLoading ? (
+          <>
+            {/* Skeleton for Balances - 8pt spacing: gap-4 (16px), mb-8 (32px) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
+              {[1, 2, 3, 4].map((i) => (
+                <Card
+                  key={i}
+                  className="relative overflow-hidden bg-muted/30 border border-border"
+                >
+                  <CardHeader className="pb-3">
+                    <Skeleton className="h-5 w-16" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-8 w-24 mb-4" />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Skeleton className="h-10 w-20" />
+                      <Skeleton className="h-10 w-32" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
 
-        {/* A. Balances & Claims Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          {/* USDC Card - Always show when connected */}
-          <Card className="relative overflow-hidden bg-muted/30 border border-border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">USDC</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {erc20Loading && erc20Ready ? (
-                <div>
-                  <Skeleton className="h-8 w-24 mb-3" />
-                  <div className="flex items-center gap-2">
-                    <Skeleton className="h-9 w-20" />
-                    <Skeleton className="h-9 w-32" />
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="text-2xl font-bold">
-                    ${hasNetworkIssues ? "0.00" : formattedBalances.usdc}
-                    {hasNetworkIssues && (
-                      <span className="text-xs text-yellow-600 dark:text-yellow-400 ml-2">
-                        (Network Issue)
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 mt-3">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setSendDialogOpen(true)}
-                    >
-                      <Send className="w-3 h-3 mr-1" />
-                      Send
-                    </Button>
-                    {hasUsdc && (
-                      <Button size="sm" onClick={handleSwapUsdcToUsdg}>
-                        Convert to USDG
-                      </Button>
-                    )}
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* USDG Card - Show if has balance, claimable, or still loading */}
-          {(hasUsdg ||
-            claimable.usdg !== "0" ||
-            erc20Loading ||
-            !erc20Ready) && (
-            <Card className="relative overflow-hidden bg-muted/30 border border-border">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">USDG</CardTitle>
+            {/* Skeleton for Claims Panel - consistent spacing */}
+            <Card className="mb-8 bg-transparent">
+              <CardHeader className="pb-4">
+                <Skeleton className="h-7 w-48" />
+                <Skeleton className="h-4 w-64 mt-2" />
               </CardHeader>
               <CardContent>
-                {erc20Loading && erc20Ready ? (
-                  <div>
-                    <Skeleton className="h-8 w-24 mb-3" />
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-9 w-20" />
-                      <Skeleton className="h-9 w-32" />
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="text-2xl font-bold">
-                      ${hasNetworkIssues ? "0.00" : formattedBalances.usdg}
-                      {hasNetworkIssues && (
-                        <span className="text-xs text-yellow-600 dark:text-yellow-400 ml-2">
-                          (Network Issue)
-                        </span>
-                      )}
-                    </div>
-                    {claimable.usdg !== "0" && (
-                      <div className="mt-2">
-                        <div className="text-xs text-muted-foreground">
-                          Claimable: ${claimable.usdg}
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 mt-3">
-                      {claimable.usdg !== "0" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleClaim("USDG")}
-                        >
-                          Claim
-                        </Button>
-                      )}
-                      {hasUsdg && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setSendDialogOpen(true)}
-                          >
-                            <Send className="w-3 h-3 mr-1" />
-                            Send
-                          </Button>
-                          <Button size="sm" onClick={handleSwapUsdgToUsdc}>
-                            Swap for USDC
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* GLOW Card - Show if has balance, claimable, or still loading */}
-          {(hasGlow ||
-            claimable.glow !== "0" ||
-            erc20Loading ||
-            !erc20Ready) && (
-            <Card className="relative overflow-hidden bg-muted/30 border border-border">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">GLOW</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {erc20Loading && erc20Ready ? (
-                  <div>
-                    <Skeleton className="h-8 w-24 mb-3" />
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-9 w-20" />
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="text-2xl font-bold">
-                      {hasNetworkIssues ? "0.00" : formattedBalances.glow}
-                      {hasNetworkIssues && (
-                        <span className="text-xs text-yellow-600 dark:text-yellow-400 ml-2">
-                          (Network Issue)
-                        </span>
-                      )}
-                    </div>
-                    {/* USD Value Estimate */}
-                    {!hasNetworkIssues && glowBalance && (
-                      <div className="text-sm text-muted-foreground mt-1">
-                        {isGlwPriceLoading ? (
-                          <Skeleton className="h-4 w-20" />
-                        ) : glwPriceNumber > 0 ? (
-                          <>
-                            ≈ $
-                            {(
-                              parseFloat(formatUnitsViem(glowBalance, 18)) *
-                              glwPriceNumber
-                            ).toLocaleString("en-US", {
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 0,
-                            })}{" "}
-                            USD
-                          </>
-                        ) : (
-                          "Price unavailable"
-                        )}
-                      </div>
-                    )}
-                    {claimable.glow !== "0" && (
-                      <div className="mt-2">
-                        <div className="text-xs text-muted-foreground">
-                          Claimable: {claimable.glow}
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 mt-3">
-                      {claimable.glow !== "0" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleClaim("GLOW")}
-                        >
-                          Claim
-                        </Button>
-                      )}
-                      {hasGlow && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSendDialogOpen(true)}
-                        >
-                          <Send className="w-3 h-3 mr-1" />
-                          Send
-                        </Button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* GCTL Card - Always show when connected */}
-          {hasGctl ||
-            (isGctlBalanceLoading && (
-              <Card className="relative overflow-hidden bg-muted/30 border border-border">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">GCTL</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isGctlBalanceLoading ? (
-                    <div>
-                      <Skeleton className="h-8 w-24 mb-3" />
-                      <div className="flex items-center gap-2">
-                        <Skeleton className="h-9 w-32" />
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="text-2xl font-bold">
-                        {hasNetworkIssues ? "0.00" : formattedBalances.gctl}
-                        {hasNetworkIssues && (
-                          <span className="text-xs text-yellow-600 dark:text-yellow-400 ml-2">
-                            (Network Issue)
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-3">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            window.open(
-                              "https://impact.glow.org",
-                              "_blank",
-                              "noopener,noreferrer"
-                            );
-                          }}
-                        >
-                          <ExternalLink className="w-3 h-3 mr-1" />
-                          Manage Staking
-                        </Button>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-        </div>
-
-        {/* D. Claims Panel */}
-        <ClaimsPanel
-          claimable={claimable}
-          onClaim={handleClaim}
-          onClaimAll={handleClaimAll}
-        />
-
-        {/* E. Migration Claims Panel */}
-        <MigrationClaimPanel
-          walletAddress={address}
-          migrationData={migrationData}
-          isLoading={isMigrationLoading}
-          isError={!!migrationError}
-          onClaim={() => {
-            // Cache invalidation is handled by the mutation
-            // This callback can be used for additional UI updates if needed
-            console.log("Migration claim completed");
-          }}
-        />
-
-        {/* F. Refund Claims Panel */}
-        <RefundClaimsPanel walletAddress={address} />
-
-        {/* G. Farms Earning Rewards */}
-        {(purchasedFarms.length > 0 || isPurchasedFarmsLoading) && (
-          <Card className="mb-8 bg-transparent">
-            <CardHeader>
-              <CardTitle>Farms Earning Rewards</CardTitle>
-              <CardDescription>
-                Solar farms where you're earning weekly rewards
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isPurchasedFarmsLoading ? (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
                     <div
                       key={i}
-                      className="p-4 rounded-xl bg-background/50 border border-border"
+                      className="p-4 md:p-6 rounded-xl bg-background/50 border border-border"
                     >
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-center justify-between">
                         <div className="space-y-2">
                           <Skeleton className="h-5 w-32" />
                           <Skeleton className="h-4 w-24" />
                         </div>
-                        <div className="text-right space-y-2">
+                        <Skeleton className="h-10 w-20" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Skeleton for Farms - increased gap for visual hierarchy */}
+            <Card className="mb-8 bg-transparent">
+              <CardHeader className="pb-4">
+                <Skeleton className="h-7 w-48" />
+                <Skeleton className="h-4 w-64 mt-2" />
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                  {[1, 2, 3].map((i) => (
+                    <Card
+                      key={i}
+                      className="bg-white dark:bg-black rounded-2xl border border-gray-200 dark:border-gray-800"
+                    >
+                      <CardContent className="p-0">
+                        <Skeleton className="w-full h-48" />
+                        <div className="p-5 space-y-4">
+                          <div className="space-y-2">
+                            <Skeleton className="h-5 w-32" />
+                            <Skeleton className="h-4 w-24" />
+                          </div>
+                          <Skeleton className="h-20 w-full rounded-xl" />
+                          <div className="flex items-center justify-between pt-2">
+                            <Skeleton className="h-4 w-20" />
+                            <Skeleton className="h-5 w-5" />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Skeleton for Recent Activity */}
+            <Card className="bg-transparent">
+              <CardHeader className="pb-4">
+                <Skeleton className="h-7 w-48" />
+                <Skeleton className="h-4 w-64 mt-2" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div
+                      key={i}
+                      className="p-4 md:p-6 rounded-xl bg-background/50 border border-border"
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="space-y-2 flex-1">
+                          <Skeleton className="h-5 w-48" />
+                          <Skeleton className="h-4 w-32" />
+                        </div>
+                        <div className="space-y-2 text-right">
                           <Skeleton className="h-5 w-20 ml-auto" />
                           <Skeleton className="h-4 w-16 ml-auto" />
                         </div>
@@ -612,147 +431,388 @@ export default function View() {
                     </div>
                   ))}
                 </div>
-              ) : isPurchasedFarmsError ? (
-                <div className="text-center py-12 px-4 rounded-xl bg-destructive/5 border border-destructive/20">
-                  <p className="text-muted-foreground">
-                    Failed to load your farms. Please try refreshing the page.
-                  </p>
-                </div>
-              ) : purchasedFarms.length === 0 ? (
-                <div className="text-center py-12 px-4 rounded-xl bg-muted/50 border border-border">
-                  <p className="text-muted-foreground mb-4">
-                    You're not earning rewards from any farms yet
-                  </p>
-                  <Button
-                    size="sm"
-                    onClick={() => (window.location.href = "/?tab=launchpad")}
-                  >
-                    Explore Farms
-                  </Button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {purchasedFarms.map((farm, idx) => {
-                    const formattedFarm = formatFarmData(farm);
-                    return (
-                      <Card
-                        key={farm.farmId || idx}
-                        className="bg-white dark:bg-black rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200 overflow-hidden cursor-pointer group pt-0"
-                        onClick={() =>
-                          (window.location.href = `https://glow.org/audits/${farm.farmId}`)
-                        }
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          <>
+            {/* A. Balances & Claims Overview - consistent card grid spacing */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
+              {/* USDC Card - Always show when connected */}
+              <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-xl md:text-2xl font-semibold">
+                    USDC
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-3xl font-bold tracking-tight">
+                    ${hasNetworkIssues ? "0.00" : formattedBalances.usdc}
+                    {hasNetworkIssues && (
+                      <span className="text-xs text-yellow-600 dark:text-yellow-400 ml-2 font-normal">
+                        (Network Issue)
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="default"
+                      variant="outline"
+                      onClick={() => setSendDialogOpen(true)}
+                      className="flex-1 sm:flex-initial"
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      Send
+                    </Button>
+                    {hasUsdc && (
+                      <Button
+                        size="default"
+                        onClick={handleSwapUsdcToUsdg}
+                        className="flex-1 sm:flex-initial"
                       >
-                        <CardContent className="p-0">
-                          {/* Farm Images */}
-                          <div className="relative">
-                            {/* Region Badge */}
-                            <div className="absolute top-3 left-3 z-10">
-                              <div className="bg-black/80 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-medium">
-                                {formattedFarm.region}
-                              </div>
-                            </div>
+                        Convert to USDG
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
-                            {farm.afterInstallPictures &&
-                            farm.afterInstallPictures.length > 0 ? (
-                              <div className="grid grid-cols-2 gap-1">
-                                <div className="col-span-2 relative">
-                                  <img
-                                    src={
-                                      farm.afterInstallPictures[0]?.url ||
-                                      "/images/sections/residential.jpg"
-                                    }
-                                    alt={`${formattedFarm.farm} main`}
-                                    className="w-full h-48 object-cover"
-                                  />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-                                </div>
-                                <img
-                                  src={
-                                    farm.afterInstallPictures[1]?.url ||
-                                    "/images/sections/residential.jpg"
-                                  }
-                                  alt={`${formattedFarm.farm} alt 1`}
-                                  className="w-full h-24 object-cover"
-                                />
-                                <img
-                                  src={
-                                    farm.afterInstallPictures[2]?.url ||
-                                    "/images/sections/residential.jpg"
-                                  }
-                                  alt={`${formattedFarm.farm} alt 2`}
-                                  className="w-full h-24 object-cover"
-                                />
-                              </div>
+              {/* USDG Card - Show if has balance or claimable */}
+              {(hasUsdg || claimable.usdg !== "0") && (
+                <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-xl md:text-2xl font-semibold">
+                      USDG
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <div className="text-3xl font-bold tracking-tight">
+                        ${hasNetworkIssues ? "0.00" : formattedBalances.usdg}
+                        {hasNetworkIssues && (
+                          <span className="text-xs text-yellow-600 dark:text-yellow-400 ml-2 font-normal">
+                            (Network Issue)
+                          </span>
+                        )}
+                      </div>
+                      {claimable.usdg !== "0" && (
+                        <div className="mt-2">
+                          <div className="text-sm text-muted-foreground">
+                            Claimable: ${claimable.usdg}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {claimable.usdg !== "0" && (
+                        <Button
+                          size="default"
+                          variant="outline"
+                          onClick={() => handleClaim("USDG")}
+                          className="flex-1 sm:flex-initial"
+                        >
+                          Claim
+                        </Button>
+                      )}
+                      {hasUsdg && (
+                        <>
+                          <Button
+                            size="default"
+                            variant="outline"
+                            onClick={() => setSendDialogOpen(true)}
+                            className="flex-1 sm:flex-initial"
+                          >
+                            <Send className="w-4 h-4 mr-2" />
+                            Send
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* GLOW Card - Show if has balance or claimable */}
+              {(hasGlow || claimable.glow !== "0") && (
+                <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-xl md:text-2xl font-semibold">
+                      GLOW
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <div className="text-3xl font-bold tracking-tight">
+                        {hasNetworkIssues ? "0.00" : formattedBalances.glow}
+                        {hasNetworkIssues && (
+                          <span className="text-xs text-yellow-600 dark:text-yellow-400 ml-2 font-normal">
+                            (Network Issue)
+                          </span>
+                        )}
+                        {/* USD Value Estimate */}
+                        {!hasNetworkIssues && glowBalance && (
+                          <span className="text-base text-muted-foreground mt-2">
+                            {glowSpotPrice > 0 ? (
+                              <>
+                                {" "}
+                                ≈ $
+                                {(
+                                  parseFloat(formatUnitsViem(glowBalance, 18)) *
+                                  glowSpotPrice
+                                ).toLocaleString("en-US", {
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 0,
+                                })}{" "}
+                              </>
                             ) : (
-                              <div className="grid grid-cols-2 gap-1">
-                                <div className="col-span-2 relative">
-                                  <div className="w-full h-48 bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
-                                    <span className="text-gray-400 text-sm">
-                                      No images available
-                                    </span>
+                              "Price unavailable"
+                            )}
+                          </span>
+                        )}
+                      </div>
+
+                      {claimable.glow !== "0" && (
+                        <div className="mt-2">
+                          <div className="text-sm text-muted-foreground">
+                            Claimable: {claimable.glow}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {claimable.glow !== "0" && (
+                        <Button
+                          size="default"
+                          variant="outline"
+                          onClick={() => handleClaim("GLOW")}
+                          className="flex-1 sm:flex-initial"
+                        >
+                          Claim
+                        </Button>
+                      )}
+                      {hasGlow && (
+                        <Button
+                          size="default"
+                          variant="outline"
+                          onClick={() => setSendDialogOpen(true)}
+                          className="flex-1 sm:flex-initial"
+                        >
+                          <Send className="w-4 h-4 mr-2" />
+                          Send
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* GCTL Card - Show if has balance */}
+              {hasGctl && (
+                <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-xl md:text-2xl font-semibold">
+                      GCTL
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="text-3xl font-bold tracking-tight">
+                      {hasNetworkIssues ? "0.00" : formattedBalances.gctl}
+                      {hasNetworkIssues && (
+                        <span className="text-xs text-yellow-600 dark:text-yellow-400 ml-2 font-normal">
+                          (Network Issue)
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="default"
+                        variant="outline"
+                        onClick={() => {
+                          window.open(
+                            "https://impact.glow.org",
+                            "_blank",
+                            "noopener,noreferrer"
+                          );
+                        }}
+                        className="w-full sm:w-auto"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Manage Staking
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* D. Claims Panel */}
+            <ClaimsPanel
+              claimable={claimable}
+              onClaim={handleClaim}
+              onClaimAll={handleClaimAll}
+            />
+
+            {/* E. Migration Claims Panel */}
+            <MigrationClaimPanel
+              walletAddress={address}
+              migrationData={migrationData}
+              isLoading={isMigrationLoading}
+              isError={!!migrationError}
+              onClaim={() => {
+                // Cache invalidation is handled by the mutation
+                // This callback can be used for additional UI updates if needed
+                console.log("Migration claim completed");
+              }}
+            />
+
+            {/* F. Refund Claims Panel */}
+            <RefundClaimsPanel walletAddress={address} />
+
+            {/* G. Farms Earning Rewards */}
+            {purchasedFarms.length > 0 && (
+              <Card className="mb-8 bg-transparent">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-2xl font-bold">
+                    Farms Earning Rewards
+                  </CardTitle>
+                  <CardDescription className="text-base mt-2">
+                    Solar farms where you're earning weekly rewards
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isPurchasedFarmsError ? (
+                    <div className="text-center py-12 px-4 md:px-6 rounded-xl bg-destructive/5 border border-destructive/20">
+                      <p className="text-muted-foreground text-base">
+                        Failed to load your farms. Please try refreshing the
+                        page.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                      {purchasedFarms.map((farm, idx) => {
+                        const formattedFarm = formatFarmData(farm);
+                        return (
+                          <Card
+                            key={farm.farmId || idx}
+                            className="bg-white dark:bg-black rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200 overflow-hidden cursor-pointer group pt-0"
+                            onClick={() =>
+                              (window.location.href = `https://glow.org/audits/${farm.farmId}`)
+                            }
+                          >
+                            <CardContent className="p-0">
+                              {/* Farm Images */}
+                              <div className="relative">
+                                {/* Region Badge */}
+                                <div className="absolute top-3 left-3 z-10">
+                                  <div className="bg-black/80 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-medium">
+                                    {formattedFarm.region}
                                   </div>
                                 </div>
-                                <div className="w-full h-24 bg-gray-100 dark:bg-gray-900"></div>
-                                <div className="w-full h-24 bg-gray-100 dark:bg-gray-900"></div>
-                              </div>
-                            )}
-                          </div>
 
-                          {/* Farm Details */}
-                          <div className="p-5 space-y-4">
-                            {/* Farm Name and Location */}
-                            <div className="space-y-1">
-                              <h3 className="font-semibold text-lg text-foreground leading-tight">
-                                {formattedFarm.farm}
-                              </h3>
-                              <p className="text-sm text-muted-foreground">
-                                {formattedFarm.region}
-                              </p>
-                            </div>
-
-                            {/* Rewards Display */}
-                            <div className="bg-muted/50 rounded-xl p-4">
-                              <div className="text-center">
-                                <div className="flex items-baseline justify-center gap-1 mb-1">
-                                  <span className="text-2xl font-bold text-foreground">
-                                    {formattedFarm.weeklyGlow}
-                                  </span>
-                                  <span className="text-sm text-muted-foreground">
-                                    GLW/week
-                                  </span>
-                                </div>
-                                {Number(formattedFarm.otherRewards) !== 0 && (
-                                  <div className="text-sm text-muted-foreground">
-                                    + {formattedFarm.otherRewards}{" "}
-                                    {formattedFarm.otherRewardsAmount}/week
+                                {farm.afterInstallPictures &&
+                                farm.afterInstallPictures.length > 0 ? (
+                                  <div className="grid grid-cols-2 gap-1">
+                                    <div className="col-span-2 relative">
+                                      <img
+                                        src={
+                                          farm.afterInstallPictures[0]?.url ||
+                                          "/images/sections/residential.jpg"
+                                        }
+                                        alt={`${formattedFarm.farm} main`}
+                                        className="w-full h-48 object-cover"
+                                      />
+                                      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                                    </div>
+                                    <img
+                                      src={
+                                        farm.afterInstallPictures[1]?.url ||
+                                        "/images/sections/residential.jpg"
+                                      }
+                                      alt={`${formattedFarm.farm} alt 1`}
+                                      className="w-full h-24 object-cover"
+                                    />
+                                    <img
+                                      src={
+                                        farm.afterInstallPictures[2]?.url ||
+                                        "/images/sections/residential.jpg"
+                                      }
+                                      alt={`${formattedFarm.farm} alt 2`}
+                                      className="w-full h-24 object-cover"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="grid grid-cols-2 gap-1">
+                                    <div className="col-span-2 relative">
+                                      <div className="w-full h-48 bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+                                        <span className="text-gray-400 text-sm">
+                                          No images available
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="w-full h-24 bg-gray-100 dark:bg-gray-900"></div>
+                                    <div className="w-full h-24 bg-gray-100 dark:bg-gray-900"></div>
                                   </div>
                                 )}
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  Weekly Rewards
+                              </div>
+
+                              {/* Farm Details */}
+                              <div className="p-5 md:p-6 space-y-4">
+                                {/* Farm Name and Location */}
+                                <div className="space-y-1">
+                                  <h3 className="font-semibold text-lg text-foreground leading-tight">
+                                    {formattedFarm.farm}
+                                  </h3>
+                                  <p className="text-sm text-muted-foreground">
+                                    {formattedFarm.region}
+                                  </p>
+                                </div>
+
+                                {/* Rewards Display */}
+                                <div className="bg-muted/50 rounded-xl p-4">
+                                  <div className="text-center">
+                                    <div className="flex items-baseline justify-center gap-2 mb-1">
+                                      <span className="text-2xl font-bold text-foreground tracking-tight">
+                                        {formattedFarm.weeklyGlow}
+                                      </span>
+                                      <span className="text-sm text-muted-foreground font-medium">
+                                        GLW/week
+                                      </span>
+                                    </div>
+                                    {Number(formattedFarm.otherRewards) !==
+                                      0 && (
+                                      <div className="text-sm text-muted-foreground mt-1">
+                                        + {formattedFarm.otherRewards}{" "}
+                                        {formattedFarm.otherRewardsAmount}/week
+                                      </div>
+                                    )}
+                                    <div className="text-xs text-muted-foreground mt-2">
+                                      Weekly Rewards
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Action Area */}
+                                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                                  <div className="text-sm text-muted-foreground font-medium">
+                                    View Audit
+                                  </div>
+                                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
                                 </div>
                               </div>
-                            </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
-                            {/* Action Area */}
-                            <div className="flex items-center justify-between pt-2">
-                              <div className="text-sm text-muted-foreground">
-                                View Audit
-                              </div>
-                              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            {/* H. Recent Activity */}
+            <RecentActivity walletAddress={address} />
+          </>
         )}
-
-        {/* H. Recent Activity */}
-        <RecentActivity walletAddress={address} />
       </div>
 
       {/* Amount Input Dialog */}
@@ -760,49 +820,112 @@ export default function View() {
         open={amountInputDialogOpen}
         onOpenChange={setAmountInputDialogOpen}
       >
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>Convert USDC to USDG</DialogTitle>
-            <DialogDescription>
-              Enter the amount of USDC you want to convert to USDG (1:1 ratio).
+            <DialogTitle className="text-2xl font-bold">
+              Convert USDC to USDG
+            </DialogTitle>
+            <DialogDescription className="text-base">
+              Enter the amount you want to convert. The exchange rate is 1:1.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="amount">Amount (USDC)</Label>
-              <Input
-                id="amount"
-                type="number"
-                placeholder="0.00"
-                value={inputAmount}
-                onChange={(e) => setInputAmount(e.target.value)}
-                min="0"
-                step="0.000001"
-              />
-              <div className="text-sm text-muted-foreground">
-                Available: ${formattedBalances.usdc} USDC
+
+          <div className="space-y-6 py-6">
+            {/* Input Section */}
+            <div className="space-y-4">
+              <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="amount"
+                      className="text-sm font-medium text-muted-foreground"
+                    >
+                      You pay
+                    </Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const maxAmount = usdcBalance
+                          ? formatUnits(usdcBalance, DECIMALS_BY_TOKEN.USDC)
+                          : "0";
+                        setInputAmount(maxAmount);
+                      }}
+                      className="h-auto p-0 text-xs font-medium hover:bg-transparent"
+                    >
+                      MAX
+                    </Button>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <Input
+                      id="amount"
+                      type="number"
+                      placeholder="0.00"
+                      value={inputAmount}
+                      onChange={(e) => setInputAmount(e.target.value)}
+                      min="0"
+                      step="0.000001"
+                      className="text-3xl font-bold border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                    <span className="text-xl font-medium text-muted-foreground">
+                      USDC
+                    </span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Available: {formattedBalances.usdc} USDC
+                  </div>
+                </div>
+              </div>
+
+              {/* Arrow Down Icon */}
+              <div className="flex justify-center">
+                <div className="bg-background rounded-full p-2 border border-border shadow-sm">
+                  <ArrowDown className="w-5 h-5 text-muted-foreground" />
+                </div>
+              </div>
+
+              {/* Output Preview */}
+              <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+                <div className="space-y-3">
+                  <div className="text-sm font-medium text-muted-foreground">
+                    You receive
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <div className="text-3xl font-bold">
+                      {inputAmount && Number(inputAmount) > 0
+                        ? Number(inputAmount).toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 6,
+                          })
+                        : "0.00"}
+                    </div>
+                    <span className="text-xl font-medium text-muted-foreground">
+                      USDG
+                    </span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    1 USDC = 1 USDG
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-          <DialogFooter className="gap-2">
+
+          <DialogFooter className="gap-2 sm:gap-2">
             <Button
               variant="outline"
               onClick={() => setAmountInputDialogOpen(false)}
+              className="flex-1"
             >
               Cancel
             </Button>
             <Button
-              variant="outline"
-              onClick={() => {
-                const maxAmount = usdcBalance
-                  ? formatUnits(usdcBalance, DECIMALS_BY_TOKEN.USDC)
-                  : "0";
-                setInputAmount(maxAmount);
-              }}
+              onClick={handleConfirmAmount}
+              disabled={!inputAmount || Number(inputAmount) <= 0}
+              className="flex-1"
             >
-              Max
+              Continue
             </Button>
-            <Button onClick={handleConfirmAmount}>Continue</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

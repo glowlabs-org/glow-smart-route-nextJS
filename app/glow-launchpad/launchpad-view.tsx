@@ -55,12 +55,12 @@ function OwnedFractionsDisplay({
 
   if (isLoading) {
     return (
-      <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
+      <div className="bg-muted/50 border border-border rounded-xl p-4">
         <div
           className="text-sm text-muted-foreground mb-2"
           style={{ fontFamily: "Söhne, sans-serif", fontWeight: 400 }}
         >
-          Your shares
+          Your balance
         </div>
         <div className="space-y-2">
           <div className="h-5 w-40 bg-muted rounded" />
@@ -78,12 +78,12 @@ function OwnedFractionsDisplay({
       : "0.00";
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
+    <div className="bg-muted/50 border border-border rounded-xl p-4">
       <div
         className="text-sm text-muted-foreground mb-2"
         style={{ fontFamily: "Söhne, sans-serif", fontWeight: 400 }}
       >
-        Your shares
+        Your balance
       </div>
       <div
         className="text-lg lg:text-xl text-black dark:text-white"
@@ -145,12 +145,10 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
   });
 
   return (
-    <div className="p-6 pt-4">
+    <div className="p-6">
       {/* Filters */}
-      <div className="bg-muted/30 rounded-2xl border border-border p-4 mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-lg font-semibold">Filters</h3>
-        </div>
+      <div className="bg-muted/30 rounded-2xl border border-border p-6 mb-6">
+        <h3 className="text-lg font-semibold mb-4">Filters</h3>
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-muted-foreground">
@@ -225,7 +223,7 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                   <Skeleton className="w-full h-28" />
                   <Skeleton className="w-full h-28" />
                 </div>
-                <div className="p-6 space-y-5">
+                <div className="p-6 space-y-4">
                   <div className="flex justify-between items-start">
                     <div className="space-y-2">
                       <Skeleton className="h-6 w-32" />
@@ -243,7 +241,6 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                   </div>
                   <div className="flex gap-3">
                     <Skeleton className="h-11 flex-1 rounded-full" />
-                    <Skeleton className="h-11 flex-1 rounded-full" />
                   </div>
                 </div>
               </CardContent>
@@ -260,13 +257,13 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
           </p>
         </div>
       ) : applications.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 px-4">
-          <div className="mb-6 opacity-20">
+        <div className="flex flex-col items-center justify-center py-24 px-6">
+          <div className="mb-8 opacity-20">
             <GlowSymbol className="w-16 h-16" />
           </div>
           <div className="text-center max-w-md">
             <h3
-              className="text-lg font-semibold mb-2"
+              className="text-lg font-semibold mb-3"
               style={{
                 fontFamily: "Söhne, sans-serif",
                 fontWeight: 600,
@@ -284,7 +281,7 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
             {selectedZoneId && (
               <Button
                 variant="outline"
-                className="mt-4"
+                className="mt-6"
                 onClick={() => setZoneParam(null)}
               >
                 View All Zones
@@ -293,7 +290,7 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
           {applications.map((application) => {
             const displayCurrency = selectedCurrency || "USDG";
             const depositAmountInCurrency = calculateProtocolDepositAmount(
@@ -316,8 +313,8 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                   {/* Images */}
                   <div className="relative">
                     {/* Zone Badge */}
-                    <div className="absolute top-3 left-3 z-10">
-                      <div className="bg-black/80 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-medium">
+                    <div className="absolute top-4 left-4 z-10">
+                      <div className="bg-black/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-medium">
                         {application.zone.name}
                       </div>
                     </div>
@@ -367,12 +364,12 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                     )}
                   </div>
 
-                  <div className="p-6 space-y-2">
+                  <div className="p-6 space-y-4">
                     {/* Header with Fractions Available and Reward Score */}
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <div
-                          className="text-3xl lg:text-4xl leading-none mb-1"
+                          className="text-3xl lg:text-4xl leading-none mb-2"
                           style={{
                             fontFamily: "Duplicate Slab, serif",
                             fontWeight: 300,
@@ -391,13 +388,13 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                             fontWeight: 600,
                           }}
                         >
-                          Shares Available
+                          Available
                         </div>
                       </div>
                       {/* Reward Score */}
-                      <div className="text-right ml-4">
+                      <div className="text-right ml-6">
                         <div
-                          className="text-3xl lg:text-4xl leading-none mb-1"
+                          className="text-3xl lg:text-4xl leading-none mb-2"
                           style={{
                             fontFamily: "Duplicate Slab, serif",
                             fontWeight: 300,
@@ -419,9 +416,9 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-3">
                       {/* Step Price - Left Column */}
-                      <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
+                      <div className="bg-muted/50 border border-border rounded-xl p-4">
                         <div
                           className="text-sm text-gray-600 dark:text-gray-400 mb-2"
                           style={{
@@ -429,7 +426,7 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                             fontWeight: 400,
                           }}
                         >
-                          Price per share
+                          Price
                         </div>
                         {application.activeFraction?.step ? (
                           <div>
@@ -481,10 +478,10 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                           </div>
                         ) : (
                           <div
-                            className="text-lg text-gray-500"
+                            className="text-base text-gray-500"
                             style={{
                               fontFamily: "Söhne, sans-serif",
-                              fontWeight: 300,
+                              fontWeight: 400,
                             }}
                           >
                             Price not available
@@ -494,7 +491,7 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
 
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 cursor-help">
+                          <div className="bg-muted/50 border border-border rounded-xl p-4 cursor-help">
                             <div
                               className="text-sm text-gray-600 dark:text-gray-400 mb-2"
                               style={{
@@ -502,7 +499,7 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                                 fontWeight: 400,
                               }}
                             >
-                              Est. Weekly Rewards per share
+                              Est. Weekly Rewards
                             </div>
                             <div>
                               <div
@@ -664,8 +661,8 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                             ? "Fully Funded"
                             : (application.activeFraction?.remainingSteps ||
                                 0) <= 0
-                            ? "No Shares Available"
-                            : "Buy Shares"}
+                            ? "None Available"
+                            : "Delegate"}
                         </span>
                       </Button>
                     </div>
