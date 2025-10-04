@@ -255,17 +255,26 @@ export function Header({
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
                     <ul className="grid gap-3 p-6 md:w-[300px]">
-                      <ListItem href="https://app.glow.org?swap" title="Swap">
+                      <ListItem href="/?tab=launchpad" title="Glow Launchpad">
+                        Delegate GLW to solar farms and earn weekly rewards
+                      </ListItem>
+                      <ListItem
+                        href="/?tab=mining-center"
+                        title="Mining Center"
+                      >
+                        Buy miners with USDC and earn weekly GLW rewards
+                      </ListItem>
+                      <ListItem href="/glow-swap?tab=swap" title="Swap">
                         Swap GLW, USDG, and more
                       </ListItem>
                       <ListItem
-                        href="https://app.glow.org?liquidity"
+                        href="/glow-swap?tab=liquidity"
                         title="Liquidity"
                       >
                         Add liquidity to the GLW/USDG pool and earn rewards
                       </ListItem>
-                      <ListItem href="/?tab=launchpad" title="Glow Launchpad">
-                        Sponsor solar farms and earn weekly GLW rewards
+                      <ListItem href="/wallet" title="Wallet">
+                        View your balances, delegations, and claim rewards
                       </ListItem>
                     </ul>
                   </NavigationMenuContent>
@@ -552,9 +561,39 @@ export function Header({
                           <div className="ml-4 space-y-1">
                             <DrawerClose asChild>
                               <Link
-                                href="https://app.glow.org?swap"
-                                target="_blank"
-                                rel="noreferrer"
+                                href="/?tab=launchpad"
+                                onClick={() => {
+                                  setTimeout(() => {
+                                    window.scrollTo({
+                                      top: 0,
+                                      behavior: "smooth",
+                                    });
+                                  }, 100);
+                                }}
+                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                              >
+                                Glow Launchpad
+                              </Link>
+                            </DrawerClose>
+                            <DrawerClose asChild>
+                              <Link
+                                href="/?tab=mining-center"
+                                onClick={() => {
+                                  setTimeout(() => {
+                                    window.scrollTo({
+                                      top: 0,
+                                      behavior: "smooth",
+                                    });
+                                  }, 100);
+                                }}
+                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                              >
+                                Mining Center
+                              </Link>
+                            </DrawerClose>
+                            <DrawerClose asChild>
+                              <Link
+                                href="/glow-swap?tab=swap"
                                 onClick={() => {
                                   setTimeout(() => {
                                     window.scrollTo({
@@ -570,9 +609,7 @@ export function Header({
                             </DrawerClose>
                             <DrawerClose asChild>
                               <Link
-                                href="https://app.glow.org?liquidity"
-                                target="_blank"
-                                rel="noreferrer"
+                                href="/glow-swap?tab=liquidity"
                                 onClick={() => {
                                   setTimeout(() => {
                                     window.scrollTo({
@@ -584,6 +621,22 @@ export function Header({
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
                                 Liquidity
+                              </Link>
+                            </DrawerClose>
+                            <DrawerClose asChild>
+                              <Link
+                                href="/wallet"
+                                onClick={() => {
+                                  setTimeout(() => {
+                                    window.scrollTo({
+                                      top: 0,
+                                      behavior: "smooth",
+                                    });
+                                  }, 100);
+                                }}
+                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                              >
+                                Wallet
                               </Link>
                             </DrawerClose>
                           </div>

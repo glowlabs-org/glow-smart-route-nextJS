@@ -27,6 +27,7 @@ export function SponsoredFarmsActivity({
   className,
 }: SponsoredFarmsActivityProps) {
   const { activity, summary, isLoading, isError, error } = useSplitsActivity({
+    fractionType: "launchpad",
     limit: 50, // Show recent 50 purchases
   });
 

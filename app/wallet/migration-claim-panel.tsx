@@ -70,7 +70,7 @@ export function MigrationClaimPanel({
   // Don't render if loading and no data
   if (isLoading && !migrationData) {
     return (
-      <Card className="mb-8 bg-transparent">
+      <Card className="mb-8 ">
         <CardHeader>
           <div className="flex items-center gap-2">
             <Gift className="w-5 h-5" />
@@ -147,7 +147,7 @@ export function MigrationClaimPanel({
     : "0.00";
 
   return (
-    <Card className="mb-8 bg-transparent">
+    <Card className="mb-8 ">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>

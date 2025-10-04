@@ -131,6 +131,7 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
         shares: split.stepsPurchased,
         applicationId: split.applicationId,
         fractionId: split.fractionId,
+        fractionType: split.fractionType,
         fractionStatus: split.fractionStatus,
         progressPercent: split.progressPercent,
         txHash: split.transactionHash,
@@ -256,14 +257,26 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
           </div>
         );
       case "fraction-purchase":
+        const isMiningCenter = activity.fractionType === "mining-center";
         return (
           <div className="flex flex-wrap items-center gap-2">
-            <span>Sponsored</span>
-            <span className="font-semibold">{activity.shares}</span>
-            <span className="text-muted-foreground">for</span>
-            <span className="font-semibold">
-              {activity.amount} {activity.token}
-            </span>
+            {isMiningCenter ? (
+              <>
+                <span>Purchased</span>
+                <span className="font-semibold">{activity.shares}</span>
+                <span className="text-muted-foreground">miners for</span>
+                <span className="font-semibold">
+                  {activity.amount} {activity.token}
+                </span>
+              </>
+            ) : (
+              <>
+                <span>Delegated</span>
+                <span className="font-semibold">
+                  {activity.amount} {activity.token}
+                </span>
+              </>
+            )}
             <Badge variant="secondary" className="text-xs">
               {activity.progressPercent}% filled
             </Badge>
@@ -305,7 +318,7 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
   };
 
   return (
-    <Card className="bg-transparent">
+    <Card>
       <CardHeader className="pb-4">
         <CardTitle className="text-2xl font-bold">Recent Activity</CardTitle>
         <CardDescription className="text-base mt-2">

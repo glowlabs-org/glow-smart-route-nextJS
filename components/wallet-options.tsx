@@ -35,30 +35,9 @@ export function WalletOptions() {
     return filtered;
   }, [connectors]);
 
-  // Debug connectors
-  React.useEffect(() => {
-    console.log(
-      "Available connectors:",
-      connectors.map((c) => ({
-        name: c.name,
-        uid: c.uid,
-        type: c.type,
-      }))
-    );
-    console.log(
-      "Filtered connectors:",
-      uniqueConnectors.map((c) => ({
-        name: c.name,
-        uid: c.uid,
-        type: c.type,
-      }))
-    );
-  }, [connectors, uniqueConnectors]);
-
   // Clear any existing connections before showing options
   React.useEffect(() => {
     if (error?.message.includes("already connected")) {
-      console.log("Resetting due to already connected error");
       reset();
     }
   }, [error, reset]);
@@ -67,7 +46,6 @@ export function WalletOptions() {
     try {
       // Reset any previous errors
       reset();
-      console.log("Attempting to connect with:", connector.name);
       connect({ connector });
     } catch (err) {
       console.error("Connection error:", err);
@@ -143,10 +121,9 @@ function WalletOption({
     (async () => {
       try {
         const provider = await connector.getProvider();
-        console.log(`${connector.name} provider check:`, !!provider);
         setReady(!!provider);
       } catch (err) {
-        console.log(`${connector.name} provider check failed:`, err);
+        console.error(`${connector.name} provider check failed:`, err);
         // For some connectors, getProvider might fail but they're still usable
         // Set ready to true for injected and WalletConnect as they're usually available
         const isBasicConnector =
@@ -196,12 +173,6 @@ function WalletOption({
   const isDisabled = !ready || isPending;
 
   const handleClick = () => {
-    console.log("Wallet option clicked:", {
-      name: connector.name,
-      ready,
-      isPending,
-      isDisabled,
-    });
     if (!isDisabled) {
       onClick();
     }

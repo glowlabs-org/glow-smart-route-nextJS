@@ -49,6 +49,7 @@ import { RefundClaimsPanel } from "./refund-claims-panel";
 import { MigrationClaimPanel } from "./migration-claim-panel";
 import { forceDisconnect } from "@/utils/forceDisconnect";
 import { useLiquidityPositions } from "@/hooks/useLiquidityPositions";
+import Link from "next/link";
 
 // Token definitions matching buy view structure
 export const tokens = {
@@ -234,20 +235,6 @@ export default function View() {
     });
   };
 
-  const handleSwapUsdgToUsdc = () => {
-    try {
-      if (!hasUsdg) {
-        toast.info("No USDG available to swap");
-        return;
-      }
-      //TODO: open swap modal
-      toast.info("Swap modal would open");
-      toast.success("Prepared USDG → USDC swap (1:1)");
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to prepare swap");
-    }
-  };
-
   const handleSwapUsdcToUsdg = () => {
     try {
       if (!hasUsdc) {
@@ -304,23 +291,25 @@ export default function View() {
               Your all-in-one wallet for Glow
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="default"
-            onClick={() => {
-              console.log("Manual refresh triggered");
-              refreshBalances();
-            }}
-            disabled={erc20Loading || isInitialLoading}
-            className="w-full sm:w-auto"
-          >
-            <RefreshCw
-              className={`w-4 h-4 mr-2 ${
-                erc20Loading || isInitialLoading ? "animate-spin" : ""
-              }`}
-            />
-            Refresh Balances
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+            <Button
+              size="default"
+              asChild
+              disabled={erc20Loading || isInitialLoading}
+              className="w-full sm:w-auto"
+            >
+              <Link href="/">Launchpad</Link>
+            </Button>
+            <Button
+              variant="outline"
+              size="default"
+              asChild
+              disabled={erc20Loading || isInitialLoading}
+              className="w-full sm:w-auto"
+            >
+              <Link href="/glow-swap">GlowSwap</Link>
+            </Button>
+          </div>
         </div>
 
         {isInitialLoading ? (
@@ -347,7 +336,7 @@ export default function View() {
             </div>
 
             {/* Skeleton for Claims Panel - consistent spacing */}
-            <Card className="mb-8 bg-transparent">
+            <Card className="mb-8">
               <CardHeader className="pb-4">
                 <Skeleton className="h-7 w-48" />
                 <Skeleton className="h-4 w-64 mt-2" />
@@ -373,7 +362,7 @@ export default function View() {
             </Card>
 
             {/* Skeleton for Farms - increased gap for visual hierarchy */}
-            <Card className="mb-8 bg-transparent">
+            <Card className="mb-8">
               <CardHeader className="pb-4">
                 <Skeleton className="h-7 w-48" />
                 <Skeleton className="h-4 w-64 mt-2" />
@@ -406,7 +395,7 @@ export default function View() {
             </Card>
 
             {/* Skeleton for Recent Activity */}
-            <Card className="bg-transparent">
+            <Card className="">
               <CardHeader className="pb-4">
                 <Skeleton className="h-7 w-48" />
                 <Skeleton className="h-4 w-64 mt-2" />
@@ -467,6 +456,7 @@ export default function View() {
                     {hasUsdc && (
                       <Button
                         size="default"
+                        variant="outline"
                         onClick={handleSwapUsdcToUsdg}
                         className="flex-1 sm:flex-initial"
                       >
@@ -537,7 +527,7 @@ export default function View() {
                 <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-xl md:text-2xl font-semibold">
-                      GLOW
+                      GLW
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -670,7 +660,7 @@ export default function View() {
 
             {/* G. Farms Earning Rewards */}
             {purchasedFarms.length > 0 && (
-              <Card className="mb-8 bg-transparent">
+              <Card className="mb-8">
                 <CardHeader className="pb-4">
                   <CardTitle className="text-2xl font-bold">
                     Farms Earning Rewards
@@ -694,7 +684,7 @@ export default function View() {
                         return (
                           <Card
                             key={farm.farmId || idx}
-                            className="bg-white dark:bg-black rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200 overflow-hidden cursor-pointer group pt-0"
+                            className="bg-white dark:bg-black rounded-2xl border  transition-all duration-200 overflow-hidden cursor-pointer group pt-0"
                             onClick={() =>
                               (window.location.href = `https://glow.org/audits/${farm.farmId}`)
                             }

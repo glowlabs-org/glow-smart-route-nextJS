@@ -175,9 +175,6 @@ export default function View({
   const [showSuccess, setShowSuccess] = useState<boolean>(false);
   const [processedGctlAmount, setProcessedGctlAmount] = useState<string>("0");
 
-  const [isRestakeOpen, setIsRestakeOpen] = useState(false);
-  const [isUnstakeOpen, setIsUnstakeOpen] = useState(false);
-  const [isContributeOpen, setIsContributeOpen] = useState(false);
   const [isSmartAccountWarningOpen, setIsSmartAccountWarningOpen] =
     useState(false);
 
@@ -223,7 +220,7 @@ export default function View({
         walletClient,
         getBytecode: publicClient?.getBytecode,
       });
-      console.log("status", status);
+
       const isSmartAccount =
         status &&
         (status.isContractWallet ||
@@ -1063,6 +1060,15 @@ export default function View({
 
   const buttonProps = computeButtonProps();
 
+  // Intercept top-level tab changes to navigate to the homepage tabs
+  const handleTopTabsChange = (value: string) => {
+    if (value === "launchpad" || value === "mining-center") {
+      router.push(`/?tab=${value}`);
+      return;
+    }
+    setTab(value);
+  };
+
   // Fetch only the sell token balance when sell token or wallet readiness changes
   useEffect(() => {
     if (selectedTokenSell && signer && isReady) {
@@ -1139,11 +1145,17 @@ export default function View({
 
       <div className="relative overflow-hidden min-h-screen flex flex-col justify-center items-center py-20 xl:pt-24">
         <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 lg:px-6 py-2 w-full">
-          <Tabs value={tab} onValueChange={setTab} className="lg:items-center">
+          <Tabs
+            value={tab}
+            onValueChange={handleTopTabsChange}
+            className="lg:items-center"
+          >
             <TabsList className="self-center bg-background backdrop-blur-xl rounded-full p-6 border border-border overflow-hidden mx-auto w-fit flex">
               <TabsTrigger value="swap">Swap</TabsTrigger>
               <TabsTrigger value="send">Send</TabsTrigger>
               <TabsTrigger value="liquidity">Liquidity</TabsTrigger>
+              <TabsTrigger value="launchpad">Launchpad</TabsTrigger>
+              <TabsTrigger value="mining-center">Mining Center</TabsTrigger>
             </TabsList>
 
             <TabsContent value="swap">
@@ -1567,23 +1579,6 @@ export default function View({
           setSmartBalancingAmounts(undefined);
         }}
       />
-
-      {/* Wallet Tab Modals */}
-      {/* <RestakeAssistant
-        isOpen={isRestakeOpen}
-        onClose={() => setIsRestakeOpen(false)}
-        regionYields={[]}
-      />
-      <UnstakeDialog
-        isOpen={isUnstakeOpen}
-        onClose={() => setIsUnstakeOpen(false)}
-        regionYields={[]}
-        gctlUnstaking={"0"}
-      />
-      <ContributeDialog
-        open={isContributeOpen}
-        onOpenChange={setIsContributeOpen}
-      /> */}
 
       {/* Smart Account Warning Dialog */}
       <SmartAccountWarningDialog

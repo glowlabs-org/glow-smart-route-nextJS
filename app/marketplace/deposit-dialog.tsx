@@ -237,7 +237,11 @@ export function DepositDialog({
       !signer ||
       !fractions.isSignerAvailable
     ) {
-      toast.error("Missing required information for delegation");
+      toast.error(
+        currency === "USDC"
+          ? "Missing required information for purchase"
+          : "Missing required information for delegation"
+      );
       return;
     }
 
@@ -396,19 +400,18 @@ export function DepositDialog({
           latestSplits.summary.totalStepsPurchased > initialStepsPurchased
         ) {
           purchaseConfirmed = true;
-          console.log(
-            `Delegation confirmed! User now owns ${latestSplits.summary.totalStepsPurchased} total`
-          );
+
           break;
         }
       }
 
       if (!purchaseConfirmed) {
+        const action = currency === "USDC" ? "Purchase" : "Delegation";
         console.warn(
-          "Delegation confirmation timeout - transaction may still be processing"
+          `${action} confirmation timeout - transaction may still be processing`
         );
         throw new Error(
-          "Delegation confirmation timeout. The transaction was submitted but we couldn't confirm it completed. Please check your wallet and contact support if needed."
+          `${action} confirmation timeout. The transaction was submitted but we couldn't confirm it completed. Please check your wallet and contact support if needed.`
         );
       }
 
@@ -436,7 +439,8 @@ export function DepositDialog({
       setIsProcessing(false);
       setIsError(true);
 
-      let message = "Delegation failed";
+      let message =
+        currency === "USDC" ? "Purchase failed" : "Delegation failed";
 
       // Handle specific error types based on OffchainFractionsError enum
       if (
@@ -632,10 +636,11 @@ export function DepositDialog({
           </div>
         </div>
       ))}
-      <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 my-4">
-        <div className="text-sm text-primary">
-          Your delegation has been confirmed on-chain. It may take up to 1
-          minute to appear on your power wallet page due to backend processing.
+      <div className="bg-accent/10 border border-accent/20 rounded-lg p-3 my-4">
+        <div className="text-sm">
+          Your {currency === "USDC" ? "purchase" : "delegation"} has been
+          confirmed on-chain. It may take up to 1 minute to appear on your power
+          wallet page due to backend processing.
         </div>
       </div>
     </div>
@@ -951,7 +956,9 @@ export function DepositDialog({
               className="flex-1"
             >
               {application.activeFraction
-                ? `Delegate GLW`
+                ? currency === "USDC"
+                  ? "Buy Miners"
+                  : "Delegate GLW"
                 : "Confirm Sponsorship"}
             </Button>
           ) : (
@@ -974,37 +981,57 @@ export function DepositDialog({
       isSuccess={isSuccess}
       isError={isError}
       title={
-        application.activeFraction ? "Delegate GLW" : "Confirm Sponsorship"
+        application.activeFraction
+          ? currency === "USDC"
+            ? "Buy Miners"
+            : "Delegate GLW"
+          : "Confirm Sponsorship"
       }
       successTitle={
-        application.activeFraction ? "Delegation Complete!" : "Farm Sponsored!"
+        application.activeFraction
+          ? currency === "USDC"
+            ? "Purchase Complete!"
+            : "Delegation Complete!"
+          : "Farm Sponsored!"
       }
       errorTitle={
-        application.activeFraction ? "Delegation Failed" : "Sponsorship Failed"
+        application.activeFraction
+          ? currency === "USDC"
+            ? "Purchase Failed"
+            : "Delegation Failed"
+          : "Sponsorship Failed"
       }
       processingTitle={
         isProcessing
           ? "Confirming Transaction"
           : application.activeFraction
-          ? "Processing Delegation"
+          ? currency === "USDC"
+            ? "Processing Miners Purchase"
+            : "Processing Delegation"
           : "Processing Sponsorship"
       }
       description={
         application.activeFraction
-          ? "Review your delegation details"
+          ? currency === "USDC"
+            ? "Review your purchase details"
+            : "Review your delegation details"
           : "Review your sponsorship details"
       }
       processingDescription={
         isProcessing
           ? "Confirming transaction and updating records..."
           : application.activeFraction
-          ? "Please wait while we process your delegation"
+          ? currency === "USDC"
+            ? "Please wait while we process your purchase"
+            : "Please wait while we process your delegation"
           : "Please wait while we process your sponsorship"
       }
       errorDescription={
         errorMessage ||
         (application.activeFraction
-          ? "Failed to delegate"
+          ? currency === "USDC"
+            ? "Failed to purchase miners"
+            : "Failed to delegate"
           : "Failed to sponsor the farm")
       }
       transactionDetails={transactionDetails}

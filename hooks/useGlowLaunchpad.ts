@@ -296,6 +296,7 @@ export interface SplitActivity {
   // Fraction context
   fractionId: string;
   applicationId: string;
+  fractionType?: "mining-center" | "launchpad";
   fractionStatus: string;
   currency: PaymentCurrency;
   isFilled: boolean;
@@ -309,6 +310,7 @@ export interface SplitActivity {
 
 export interface SplitsActivityResponse {
   activity: SplitActivity[];
+  fractionType?: "mining-center" | "launchpad";
   summary: {
     totalTransactions: number;
     totalStepsPurchased: number;
@@ -321,6 +323,7 @@ export interface SplitsActivityResponse {
 export interface UseSplitsActivityParams {
   limit?: number;
   walletAddress?: string;
+  fractionType?: "mining-center" | "launchpad";
   enabled?: boolean;
 }
 
@@ -335,9 +338,9 @@ export interface SponsorApplicationParams {
 
 // Hook to fetch splits activity
 export function useSplitsActivity(params: UseSplitsActivityParams = {}) {
-  const { limit = 50, walletAddress, enabled = true } = params;
+  const { limit = 50, walletAddress, fractionType, enabled = true } = params;
 
-  const queryKey = ["splits-activity", limit, walletAddress];
+  const queryKey = ["splits-activity", limit, walletAddress, fractionType];
 
   const query = useQuery({
     queryKey,
@@ -350,8 +353,15 @@ export function useSplitsActivity(params: UseSplitsActivityParams = {}) {
       if (walletAddress) {
         searchParams.append("walletAddress", walletAddress);
       }
+      if (fractionType) {
+        searchParams.append("fractionType", fractionType);
+      }
 
-      const url = `${HUB_URL}/fractions/splits-activity?${searchParams.toString()}`;
+      // Use the new endpoint when fractionType is specified
+      const endpoint = fractionType
+        ? "/fractions/splits-activity-by-type"
+        : "/fractions/splits-activity";
+      const url = `${HUB_URL}${endpoint}?${searchParams.toString()}`;
 
       const response = await fetch(url);
 

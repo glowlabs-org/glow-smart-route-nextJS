@@ -25,7 +25,6 @@ const a: Record<Key, `0x${string}`> = {
   impactCatalyst: "0x552Fbb4E0269fd5036daf72Ec006AAF6C958F4Fa",
   carbonCreditAuction: "0x85fbB04DEBBDEa052a6422E74bFeA57B17e50A80",
 };
-//TODO: Add USDG Address and Pairs
 export const addresses = a;
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {

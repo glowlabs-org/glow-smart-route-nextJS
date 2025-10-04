@@ -9,10 +9,10 @@ import {
   type SortOrder,
   type AuctionApplication,
 } from "@/hooks/useGlowLaunchpad";
-import { DepositDialog } from "./glow-launchpad/deposit-dialog";
-import { SponsoredFarmsActivity } from "./glow-launchpad/sponsored-farms-activity";
-import { MiningCenterView } from "./glow-launchpad/mining-center-view";
-import { LaunchpadView } from "./glow-launchpad/launchpad-view";
+import { DepositDialog } from "./marketplace/deposit-dialog";
+import { SponsoredFarmsActivity } from "./marketplace/sponsored-farms-activity";
+import { MiningCenterView } from "./marketplace/mining-center-view";
+import { LaunchpadView } from "./marketplace/launchpad-view";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Header } from "@/components/header";
@@ -44,6 +44,27 @@ export default function GlowLaunchpadPage() {
     defaultValue: "launchpad",
     clearOnDefault: false,
   });
+
+  const tabContent = {
+    launchpad: {
+      title: "Glow Launchpad",
+      description:
+        "Delegate GLW to competitive solar farms in exchange for a portion of their rewards.",
+    },
+    "mining-center": {
+      title: "Mining Center",
+      description:
+        "Pre-balanced mining opportunities with fixed costs and transparent GLW token returns. Buy miners and earn passive rewards.",
+    },
+    activity: {
+      title: "Activity",
+      description:
+        "View all sales from the launchpad and see average reward scores to help you evaluate what's a good score to buy or list at.",
+    },
+  };
+
+  const currentContent =
+    tabContent[activeTab as keyof typeof tabContent] || tabContent.launchpad;
 
   function onPayDeposit(
     application: AuctionApplication,
@@ -112,43 +133,66 @@ export default function GlowLaunchpadPage() {
         }}
       />
       <div className="min-h-screen relative overflow-hidden pt-20">
-        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto lg:px-8 py-8">
-          <div className="bg-muted/30 backdrop-blur-xl rounded-3xl border border-border overflow-hidden mb-6">
-            <div className="p-6">
-              <div className="flex items-center justify-between">
+        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 lg:px-8 py-4 md:py-8">
+          <div className="bg-muted/30 backdrop-blur-xl rounded-2xl md:rounded-3xl border border-border overflow-hidden mb-4 md:mb-6">
+            <div className="p-4 md:p-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div className="flex-1">
-                  <h1 className="text-2xl font-bold">Glow Mining Platform</h1>
-                  <p className="text-sm text-muted-foreground mt-2 max-w-md">
-                    Sponsor competitive solar farms, earn GLW tokens, and
-                    support renewable energy infrastructure through specialized
-                    mining roles designed for maximum efficiency and returns.
+                  <h1 className="text-xl md:text-2xl font-bold">
+                    {currentContent.title}
+                  </h1>
+                  <p className="text-xs md:text-sm text-muted-foreground mt-2 max-w-md">
+                    {currentContent.description}
                   </p>
                 </div>
-                <div className="flex gap-3">
-                  <Button variant="outline" asChild>
+                <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
+                  <Button
+                    variant="outline"
+                    asChild
+                    size="sm"
+                    className="md:h-10"
+                  >
                     <Link href="https://impact.glow.org" target="_blank">
-                      See Regions Dashboard
+                      <span className="hidden sm:inline">
+                        See Regions Dashboard
+                      </span>
+                      <span className="sm:hidden">Regions</span>
                     </Link>
                   </Button>
-                  <Button variant="outline" asChild>
-                    <Link href="/token">Swap</Link>
+                  <Button
+                    variant="outline"
+                    asChild
+                    size="sm"
+                    className="md:h-10"
+                  >
+                    <Link href="/glow-swap">GlowSwap</Link>
                   </Button>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
+          <div className="bg-background backdrop-blur-xl rounded-2xl md:rounded-3xl border border-border overflow-hidden">
             <Tabs
               value={activeTab}
               onValueChange={setActiveTab}
               className="w-full"
             >
-              <div className="p-6">
-                <TabsList className="grid w-fit grid-cols-3">
-                  <TabsTrigger value="launchpad">Launchpad</TabsTrigger>
-                  <TabsTrigger value="mining-center">Mining Center</TabsTrigger>
-                  <TabsTrigger value="activity">Activity</TabsTrigger>
+              <div className="p-3 md:p-6">
+                <TabsList className="grid w-full sm:w-fit grid-cols-3 h-9 md:h-10">
+                  <TabsTrigger value="launchpad" className="text-xs md:text-sm">
+                    Launchpad
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="mining-center"
+                    className="text-xs md:text-sm"
+                  >
+                    <span className="hidden sm:inline">Mining Center</span>
+                    <span className="sm:hidden">Mining</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="activity" className="text-xs md:text-sm">
+                    Activity
+                  </TabsTrigger>
                 </TabsList>
               </div>
 

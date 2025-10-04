@@ -8,14 +8,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Copy, ExternalLink, XCircle } from "lucide-react";
+import { Copy, ExternalLink, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useGctlApi } from "@/hooks/useGctlApi";
 import { SuccessState } from "@/components/buy-gctl/success-state";
-import { formatUnits } from "viem";
 import { useQueryState } from "nuqs";
-import { LumaSpinner } from "../icons/luma-spinner";
 import { GlowSymbolAnimated } from "../glow-symbol-animated";
+import { usePolling } from "@/utils/use-polling";
+import type { PendingTransfer } from "@glowlabs-org/utils/browser";
 
 interface ProcessingModalProps {
   isOpen: boolean;
@@ -24,7 +24,7 @@ interface ProcessingModalProps {
 }
 
 const POLL_INTERVAL = 10_000;
-const DEFAULT_TIME_REMAINING = 45_000; // 45 seconds in milliseconds
+const MAX_DURATION = 120; // 120 seconds
 
 export function ProcessingModal({
   isOpen,
@@ -43,125 +43,84 @@ export function ProcessingModal({
     return `${hash.slice(0, 6)}...${hash.slice(-6)}`;
   };
 
-  const formatTimeRemaining = (ms: number): string => {
-    if (ms <= 0) return "Processing should complete soon";
-    const minutes = Math.floor(ms / (1000 * 60));
-    const seconds = Math.floor((ms % (1000 * 60)) / 1000);
-    return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
-  };
-
   // ---------------------- API & polling ----------------------
-  // const { fetchTransferDetails, gctlPriceNumber, gctlPrice } = useGctlApi();
+  const { fetchTransferDetails, gctlPriceNumber, gctlPrice } = useGctlApi();
 
   const [status, setStatus] = useState<"processing" | "success" | "error">(
     "processing"
   );
   const [processedAmount, setProcessedAmount] = useState<string>("0");
-  const [timeRemaining, setTimeRemaining] = useState<number>(
-    DEFAULT_TIME_REMAINING
-  );
-  const [isInitialFetching, setIsInitialFetching] = useState<boolean>(false);
-  const [hasInitialResponse, setHasInitialResponse] = useState<boolean>(false);
-  const failureInfoRef = useRef<any | null>(null);
+  const failureInfoRef = useRef<PendingTransfer | null>(null);
 
   const [txIdParam, setTxIdParam] = useQueryState("txId", {
     defaultValue: "",
     clearOnDefault: true,
   });
 
-  // Countdown timer effect
-  useEffect(() => {
-    if (!isOpen || !hasInitialResponse || status !== "processing") return;
-
-    const timer = setInterval(() => {
-      setTimeRemaining((prev) => Math.max(0, prev - 1000));
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isOpen, hasInitialResponse, status]);
+  // Use polling hook
+  const {
+    data: transferData,
+    isPolling,
+    countdown,
+    startPolling,
+    stopPolling,
+    reset: resetPolling,
+  } = usePolling<PendingTransfer>({
+    pollFn: async () => {
+      if (!trackingTxHash) throw new Error("No transaction hash");
+      const result = await fetchTransferDetails(trackingTxHash);
+      if (result.ok) {
+        return result.val;
+      }
+      throw new Error("Failed to fetch transfer details");
+    },
+    pollInterval: POLL_INTERVAL,
+    maxDuration: MAX_DURATION,
+    enabled: isOpen && !!trackingTxHash,
+    shouldStopPolling: (data) => {
+      return data.status === "confirmed" || data.status === "failed";
+    },
+    onSuccess: (data) => {
+      if (data.status === "confirmed") {
+        setStatus("success");
+        setProcessedAmount(
+          (BigInt(data.amountRaw) / BigInt(gctlPrice)).toString()
+        );
+      } else if (data.status === "failed") {
+        setStatus("error");
+        failureInfoRef.current = data;
+      }
+    },
+    onError: (error) => {
+      console.error("Polling error:", error);
+    },
+  });
 
   // Reset state when modal opens with new transaction
   useEffect(() => {
     if (isOpen && trackingTxHash) {
       setTxIdParam(trackingTxHash);
-      setTimeRemaining(DEFAULT_TIME_REMAINING);
-      setHasInitialResponse(false);
-      setIsInitialFetching(false);
       setStatus("processing");
+      setProcessedAmount("0");
+      failureInfoRef.current = null;
+      resetPolling();
+      startPolling();
     } else if (!isOpen) {
       setTxIdParam("");
+      stopPolling();
     }
-  }, [isOpen, trackingTxHash, setTxIdParam]);
-
-  //TODO: add gctl price
-  // // Initial fetch and periodic refetch
-  // useEffect(() => {
-  //   if (!isOpen || !trackingTxHash) return;
-
-  //   let isMounted = true;
-  //   let isFirstFetch = true;
-
-  //   const poll = async () => {
-  //     if (!trackingTxHash) return;
-
-  //     try {
-  //       if (isFirstFetch) {
-  //         setIsInitialFetching(true);
-  //       }
-
-  //       const pendingRes = await fetchTransferDetails(trackingTxHash);
-
-  //       if (!isMounted) return;
-
-  //       if (isFirstFetch) {
-  //         setIsInitialFetching(false);
-  //         isFirstFetch = false;
-  //       }
-
-  //       if (pendingRes.ok) {
-  //         setHasInitialResponse(true);
-  //         const transfer = pendingRes.val;
-  //         console.log(transfer);
-
-  //         console.log(transfer.status);
-  //         if (transfer.status === "confirmed") {
-  //           setStatus("success");
-  //           setProcessedAmount(
-  //             (BigInt(transfer.amountRaw) / BigInt(gctlPrice)).toString()
-  //           );
-  //         } else if (transfer.status === "failed") {
-  //           setStatus("error");
-  //           failureInfoRef.current = transfer;
-  //         }
-  //       } else {
-  //         // No response - show default countdown
-  //         setHasInitialResponse(true);
-  //       }
-  //     } catch (error) {
-  //       console.error("Error fetching transfer details:", error);
-  //       if (isFirstFetch) {
-  //         setIsInitialFetching(false);
-  //         setHasInitialResponse(true);
-  //       }
-  //     }
-  //   };
-
-  //   // First poll immediately
-  //   poll();
-  //   const id = setInterval(poll, POLL_INTERVAL);
-
-  //   return () => {
-  //     isMounted = false;
-  //     clearInterval(id);
-  //   };
-  // }, [isOpen, trackingTxHash, fetchTransferDetails]);
+  }, [
+    isOpen,
+    trackingTxHash,
+    setTxIdParam,
+    resetPolling,
+    startPolling,
+    stopPolling,
+  ]);
 
   const progressPercentage = Math.max(
     0,
-    Math.min(
-      100,
-      ((DEFAULT_TIME_REMAINING - timeRemaining) / DEFAULT_TIME_REMAINING) * 100
-    )
+    Math.min(100, ((MAX_DURATION - countdown) / MAX_DURATION) * 100)
   );
 
   // ---------------------- Render shortcuts ------------------
@@ -178,8 +137,7 @@ export function ProcessingModal({
             handleClose={onClose}
             processedAmount={processedAmount}
             trackingTxHash={trackingTxHash ?? undefined}
-            //TODO: add gctl price
-            gctlPrice={0}
+            gctlPrice={gctlPriceNumber}
           />
         </DialogContent>
       </Dialog>
@@ -187,7 +145,7 @@ export function ProcessingModal({
   }
 
   if (status === "error") {
-    const failureInfo: any | null = failureInfoRef.current;
+    const failureInfo = failureInfoRef.current;
     return (
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="bg-card/90 backdrop-blur-sm rounded-3xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden">
@@ -204,8 +162,8 @@ export function ProcessingModal({
                 Transaction Failed
               </div>
               <div className="text-muted-foreground text-sm max-w-sm">
-                {failureInfo?.errorMessage ||
-                  failureInfo?.errorDetails ||
+                {(failureInfo as any)?.errorMessage ||
+                  (failureInfo as any)?.errorDetails ||
                   "We were unable to process your transaction. Please try again or contact support."}
               </div>
             </div>
@@ -267,23 +225,26 @@ export function ProcessingModal({
               Processing Purchase
             </div>
             <div className="text-muted-foreground text-sm">
-              {isInitialFetching
+              {!transferData && isPolling
                 ? "Checking transaction status..."
                 : "Your USDC has been sent. GCTL will be credited shortly."}
             </div>
           </div>
 
-          {/* Status Badge with Timer - only show after initial fetch */}
-          {hasInitialResponse && !isInitialFetching && (
+          {/* Status Badge with Timer */}
+          {transferData && isPolling && (
             <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full mb-8">
               <span className="text-foreground text-sm font-medium">
-                ETA: {formatTimeRemaining(timeRemaining)}
+                ETA:{" "}
+                {countdown > 0
+                  ? `${countdown}s`
+                  : "Processing should complete soon"}
               </span>
             </div>
           )}
 
-          {/* Progress Bar - only show after initial fetch */}
-          {hasInitialResponse && !isInitialFetching && (
+          {/* Progress Bar */}
+          {transferData && isPolling && (
             <div className="mb-8">
               <div className="w-full bg-muted rounded-full h-2 mb-4 overflow-hidden">
                 <div
@@ -303,7 +264,7 @@ export function ProcessingModal({
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground text-sm">Status</span>
               <span className="text-foreground text-sm font-medium">
-                {isInitialFetching ? "Checking..." : "Processing"}
+                {!transferData && isPolling ? "Checking..." : "Processing"}
               </span>
             </div>
 

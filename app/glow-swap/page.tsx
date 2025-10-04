@@ -39,13 +39,13 @@ export const metadata: Metadata = {
   },
   metadataBase: new URL("https://app.glow.org"),
   alternates: {
-    canonical: "/token",
+    canonical: "/glow-swap",
   },
   openGraph: {
     title: "Token Exchange - Swap GLOW, USDG, USDC & Provide Liquidity",
     description:
       "Trade and swap Glow tokens. Buy GLOW with USDG or USDC, provide liquidity to the GLOW/USDG Uniswap pool, and participate in the Glow ecosystem's guarded launch.",
-    url: "https://app.glow.org/token",
+    url: "https://app.glow.org/glow-swap",
     siteName: "app.glow.org",
     images: [
       {
