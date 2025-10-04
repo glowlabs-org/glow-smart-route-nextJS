@@ -205,7 +205,7 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
               Available Refunds
             </CardTitle>
             <CardDescription className="mt-2 text-base">
-              Claim refunds from expired or cancelled farm sponsorships
+              Claim refunds from expired or cancelled listings
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -310,7 +310,7 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold flex flex-wrap items-center gap-2 mb-1">
-                        <span>Farm Sponsorship</span>
+                        <span>Quantity</span>
                         <Badge
                           variant={
                             refundableFraction.fraction.status === "expired"
@@ -387,8 +387,8 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
                     <span className="font-medium text-foreground">
                       {formatRefundAmount(summary.totalRefundableAmount)} GLW
                     </span>{" "}
-                    from {summary.totalRefundableFractions} failed sponsorships
-                    ({summary.byStatus.expired} expired,{" "}
+                    from {summary.totalRefundableFractions} failed listings (
+                    {summary.byStatus.expired} expired,{" "}
                     {summary.byStatus.cancelled} cancelled).
                   </div>
                 </div>

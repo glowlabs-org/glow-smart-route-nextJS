@@ -616,6 +616,31 @@ export function DepositDialog({
       ]
     : [];
 
+  // Custom success content with processing delay notice
+  const customSuccessContent = (
+    <div className="space-y-4">
+      {successDetails.map((detail, index) => (
+        <div key={index} className="flex justify-between items-center">
+          <span className="text-sm text-muted-foreground">{detail.label}</span>
+          <div className="text-right">
+            <span className="text-sm font-mono">{detail.value}</span>
+            {detail.unit && (
+              <span className="text-xs text-muted-foreground ml-2">
+                {detail.unit}
+              </span>
+            )}
+          </div>
+        </div>
+      ))}
+      <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 my-4">
+        <div className="text-sm text-primary">
+          Your delegation has been confirmed on-chain. It may take up to 1
+          minute to appear on your power wallet page due to backend processing.
+        </div>
+      </div>
+    </div>
+  );
+
   // Custom review content
   const reviewContent = (
     <div className="space-y-4">
@@ -987,6 +1012,7 @@ export function DepositDialog({
       txHash={txHash}
       isNetworkFeeLoading={isNetworkCostLoading}
       reviewContent={isProcessing ? processingContent : reviewContent}
+      successContent={customSuccessContent}
       errorContent={customErrorContent}
       footer={customFooter}
       confirmDisabled={!canConfirm}
