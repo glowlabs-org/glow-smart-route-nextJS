@@ -24,7 +24,7 @@ interface ProcessingModalProps {
 }
 
 const POLL_INTERVAL = 10_000;
-const MAX_DURATION = 120; // 120 seconds
+const MAX_DURATION = 80; // 80 seconds
 
 export function ProcessingModal({
   isOpen,
@@ -232,7 +232,7 @@ export function ProcessingModal({
           </div>
 
           {/* Status Badge with Timer */}
-          {transferData && isPolling && (
+          {isPolling && (
             <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full mb-8">
               <span className="text-foreground text-sm font-medium">
                 ETA:{" "}
@@ -244,7 +244,7 @@ export function ProcessingModal({
           )}
 
           {/* Progress Bar */}
-          {transferData && isPolling && (
+          {isPolling && (
             <div className="mb-8">
               <div className="w-full bg-muted rounded-full h-2 mb-4 overflow-hidden">
                 <div

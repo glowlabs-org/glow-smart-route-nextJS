@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Connector, useConnect } from "wagmi";
 import { Button } from "@/components/ui/button";
-import { Loader2, Wallet, ExternalLink, Shield, Chrome } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GlowSymbol } from "./glow-symbol";
 import Image from "next/image";
@@ -170,6 +170,12 @@ function WalletOption({
     return "Connect with this wallet";
   };
 
+  const getWalletLabel = (name: string) => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes("injected")) return "Recommended";
+    return name;
+  };
+
   const isDisabled = !ready || isPending;
 
   const handleClick = () => {
@@ -223,7 +229,9 @@ function WalletOption({
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="font-medium text-sm">{connector.name}</div>
+          <div className="font-medium text-sm">
+            {getWalletLabel(connector.name)}
+          </div>
           <div className="text-xs text-muted-foreground mt-0.5">
             {getWalletDescription(connector.name)}
           </div>

@@ -1,19 +1,12 @@
 // app/providers.tsx
 "use client";
 
-import {
-  WagmiProvider,
-  cookieStorage,
-  createStorage,
-  createConfig,
-  http,
-} from "wagmi";
+import { cookieStorage, createStorage, createConfig, http } from "wagmi";
 import { mainnet, sepolia } from "wagmi/chains";
 import {
   injected,
   walletConnect,
   coinbaseWallet,
-  safe,
   metaMask,
 } from "wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -34,13 +27,11 @@ export const wagmiConfig = createConfig({
   storage: createStorage({
     storage: cookieStorage, // works with SSR hydration; avoids `window` access during render
   }),
+  // Restrict to these four connectors only and control ordering for the UI
   connectors: [
-    injected({
-      shimDisconnect: true,
-    }),
+    injected({ shimDisconnect: true }),
     walletConnect({
       projectId,
-      // metadata improves WC session restore on mobile wallets
       metadata: {
         name: "Glow",
         description: "Glow app",
@@ -48,9 +39,8 @@ export const wagmiConfig = createConfig({
         icons: ["https://app.glow.org/icon.png"],
       },
     }),
-    coinbaseWallet({
-      appName: "app.glow.org",
-    }),
+    coinbaseWallet({ appName: "app.glow.org" }),
+    metaMask(),
   ],
   transports: {
     [mainnet.id]: http(process.env.NEXT_PUBLIC_MAINNET_RPC_URL),

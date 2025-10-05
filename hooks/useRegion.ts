@@ -64,20 +64,6 @@ export function useRegion() {
 
   // ----------------------- Mutation hooks --------------------------------
 
-  // Create Region Mutation
-  const createRegionMutation = useMutation({
-    mutationFn: async (payload: CreateRegionPayload) => {
-      return await regionRouter.createRegion(payload);
-    },
-    onSuccess: () => {
-      // Invalidate regions list to refresh
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.regions() });
-    },
-    onError: (error) => {
-      console.error("Create region mutation error:", error);
-    },
-  });
-
   // ----------------------- Derived functions -----------------------------
 
   // Get region by code (synchronous, from cached data)
@@ -123,18 +109,6 @@ export function useRegion() {
     [queryClient]
   );
 
-  const createRegion = useCallback(
-    async (payload: CreateRegionPayload): Promise<Result<void, string>> => {
-      try {
-        await createRegionMutation.mutateAsync(payload);
-        return new Ok(undefined);
-      } catch (error) {
-        return new Err(parseApiError(error));
-      }
-    },
-    [createRegionMutation]
-  );
-
   // --------------------------- Exports -----------------------------------
   return {
     // Data
@@ -142,7 +116,6 @@ export function useRegion() {
 
     // Loading states
     isRegionsLoading,
-    isCreatingRegion: createRegionMutation.isPending,
 
     // Functions
     getRegionByCode,
@@ -150,12 +123,8 @@ export function useRegion() {
     // Legacy functions (for backward compatibility)
     fetchRegions,
     fetchActivationConfig,
-    createRegion,
 
     // React Query hook for conditional usage
     useActivationConfig,
-
-    // Direct access to mutation for advanced usage
-    createRegionMutation,
   } as const;
 }

@@ -40,6 +40,10 @@ import { InstructionsDialog } from "@/components/instructions-dialog";
 import { UsdcToTokenDialog } from "@/components/usdc-to-token-dialog";
 import { GlowToUsdcDialog } from "@/components/glow-to-usdc-dialog";
 import { UsdgToUsdcRedemptionDialog } from "@/components/usdg-to-usdc-redemption-dialog";
+import {
+  TransactionDialog,
+  type TransactionDetail,
+} from "@/components/dialogs/transaction-dialog";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
 import { useDebouncedAsync } from "@/hooks/useDebouncedAsync";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -177,6 +181,13 @@ export default function View({
 
   const [isSmartAccountWarningOpen, setIsSmartAccountWarningOpen] =
     useState(false);
+
+  // Pre-transaction modal for GCTL (approval + submit)
+  const [isGctlPreTxDialogOpen, setIsGctlPreTxDialogOpen] =
+    useState<boolean>(false);
+  const [isGctlPreTxSubmitting, setIsGctlPreTxSubmitting] =
+    useState<boolean>(false);
+  const [gctlPreTxError, setGctlPreTxError] = useState<string | null>(null);
 
   // Test USDC minting state (Sepolia only)
   const [isMintingTestUSDC, setIsMintingTestUSDC] = useState(false);
@@ -404,9 +415,9 @@ export default function View({
         }
         // fix ux show a modal or error instead
         return {
-          label: `Insufficient Funds: Click Here To Buy USDC on Uniswap`,
-          disabled: false,
-          callback: () => window.open("https://app.uniswap.org/swap", "_blank"),
+          label: `Insufficient Funds`,
+          disabled: true,
+          callback: () => {},
         };
       } else if (
         selectedTokenSell.label !== "USDG" &&
@@ -627,6 +638,11 @@ export default function View({
           selectedTokenSell.label === "USDG")
       ) {
         try {
+          // Open pre-transaction dialog while approving and submitting
+          setIsGctlPreTxDialogOpen(true);
+          setIsGctlPreTxSubmitting(true);
+          setGctlPreTxError(null);
+
           const amountToSpend = BigInt(
             parseUnits(amountToSell, selectedTokenSell.decimals).toString()
           );
@@ -651,6 +667,12 @@ export default function View({
                 ? approveError.message
                 : "Failed to approve token spending"
             );
+            setIsGctlPreTxSubmitting(false);
+            setGctlPreTxError(
+              approveError instanceof Error
+                ? approveError.message
+                : "Failed to approve token spending"
+            );
             setIsProcessingTransaction(false);
             setPendingTx(false);
             return;
@@ -663,9 +685,18 @@ export default function View({
             selectedTokenSell.label === "USDC" ? "USDC" : "USDG"
           );
 
+          // Close pre-transaction dialog once tx is sent
+          setIsGctlPreTxSubmitting(false);
+          setIsGctlPreTxDialogOpen(false);
+
           setTrackingTxHash(txHash);
           setTxIdParam(txHash); // persist txId to URL
           setProcessedGctlAmount(estimatedOutputAmount[selectedTokenBuy.label]);
+
+          // Ensure any other transaction dialogs are closed while processing GCTL
+          setIsDialogOpen(false);
+          setIsGlowToUsdcDialogOpen(false);
+          setIsUsdgToUsdcRedemptionDialogOpen(false);
 
           // Start processing modal
           setIsProcessingTransaction(true);
@@ -683,6 +714,8 @@ export default function View({
         } catch (error: any) {
           console.error("Failed to mint GCTL:", error);
           toast.error(error?.message || "Failed to purchase GCTL");
+          setIsGctlPreTxSubmitting(false);
+          setGctlPreTxError(error?.message || "Failed to purchase GCTL");
           setIsProcessingTransaction(false);
           setPendingTx(false);
           return;
@@ -1432,10 +1465,7 @@ export default function View({
                 {/* Desktop Sidebar - Hidden on mobile, visible on lg and up */}
                 <aside className="lg:sticky lg:top-4 h-fit space-y-4">
                   <StatsSidebar
-                    glowPrice={glowPrice}
                     marketCap={marketCap}
-                    ethPriceInUSD={ethPriceInUSD}
-                    usdcRewardPool={usdcRewardPool}
                     usdcInRedemption={usdcInRedemption}
                     statsLoading={false}
                     isUsdcInRedemptionLoading={isUsdcInRedemptionLoading}
@@ -1459,10 +1489,7 @@ export default function View({
                 {/* Desktop Sidebar for Send Tab - Hidden on mobile */}
                 <aside className="lg:sticky lg:top-4 h-fit space-y-4">
                   <StatsSidebar
-                    glowPrice={glowPrice}
                     marketCap={marketCap}
-                    ethPriceInUSD={ethPriceInUSD}
-                    usdcRewardPool={usdcRewardPool}
                     usdcInRedemption={usdcInRedemption}
                     statsLoading={false}
                     isUsdcInRedemptionLoading={isUsdcInRedemptionLoading}
@@ -1565,6 +1592,39 @@ export default function View({
             startTransition(router.refresh);
           }
         }}
+      />
+      {/* GCTL Pre-transaction Dialog (approvals + mint submit) */}
+      <TransactionDialog
+        open={isGctlPreTxDialogOpen}
+        onOpenChange={(open) => {
+          setIsGctlPreTxDialogOpen(open);
+          if (!open) setGctlPreTxError(null);
+        }}
+        isSubmitting={isGctlPreTxSubmitting}
+        isError={!!gctlPreTxError}
+        title="Prepare Purchase"
+        processingTitle="Submitting Transaction"
+        description="Approve token spending and confirm the transaction in your wallet."
+        processingDescription="Please approve and wait while we submit your transaction."
+        transactionDetails={
+          [
+            {
+              label: "You Pay",
+              value: Number(amountToSell || "0").toLocaleString("en-US", {
+                maximumFractionDigits: 6,
+              }),
+              unit: selectedTokenSell.label,
+            },
+            {
+              label: "You Receive",
+              value: Number(
+                estimatedOutputAmount[selectedTokenBuy.label] || "0"
+              ).toLocaleString("en-US", { maximumFractionDigits: 6 }),
+              unit: "GCTL",
+            },
+          ] as TransactionDetail[]
+        }
+        errorDescription={gctlPreTxError || undefined}
       />
       {/* GCTL Processing & Success Modals */}
       <ProcessingModal

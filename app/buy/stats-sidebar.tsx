@@ -3,12 +3,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { NumberTicker } from "@/components/ui/number-ticker";
 import { useGctlApi } from "@/hooks/useGctlApi";
 import { ExternalLink } from "lucide-react";
+import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 
 interface StatsSidebarProps {
-  glowPrice: string;
   marketCap: string;
-  ethPriceInUSD: number | null;
-  usdcRewardPool: string;
   usdcInRedemption: number;
   statsLoading: boolean;
   isUsdcInRedemptionLoading: boolean;
@@ -16,16 +14,14 @@ interface StatsSidebarProps {
 }
 
 export function StatsSidebar({
-  glowPrice,
   marketCap,
-  ethPriceInUSD,
-  usdcRewardPool,
   usdcInRedemption,
   statsLoading,
   isUsdcInRedemptionLoading,
   isWalletLoading,
 }: StatsSidebarProps) {
   const { gctlPriceNumber, isGctlPriceLoading } = useGctlApi();
+  const { spotPrice, isLoading: isSpotPriceLoading } = useGlowSpotPrice();
 
   return (
     <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
@@ -59,10 +55,10 @@ export function StatsSidebar({
             <div className="flex items-baseline gap-2">
               <span className="text-base lg:text-xl font-extrabold tabular-nums">
                 ${" "}
-                {statsLoading ? (
+                {statsLoading || isSpotPriceLoading ? (
                   <Skeleton className="w-20 h-6 inline-block" />
                 ) : (
-                  <NumberTicker value={Number(glowPrice)} decimalPlaces={2} />
+                  <NumberTicker value={Number(spotPrice)} decimalPlaces={2} />
                 )}
               </span>
             </div>
@@ -108,22 +104,6 @@ export function StatsSidebar({
                 )}
               </div>
             )}
-
-          <div className="bg-muted/30 rounded-xl border border-border p-3 lg:p-4 ">
-            <div className="text-xs text-muted-foreground mb-1 lg:mb-2">
-              ETH Price
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-base lg:text-xl font-extrabold tabular-nums">
-                $
-                {ethPriceInUSD
-                  ? ethPriceInUSD.toLocaleString("en-US", {
-                      maximumFractionDigits: 0,
-                    })
-                  : "-"}
-              </span>
-            </div>
-          </div>
 
           {/* Trading Activity Link */}
           <div className="bg-muted/30 rounded-xl border border-border p-3 lg:p-4 col-span-2 lg:col-span-1">
