@@ -19,6 +19,26 @@ if (!CONTROL_API_URL) {
 
 const farmsRouter = FarmsRouter(CONTROL_API_URL);
 
+// Generate a random valid Ethereum address for mining score estimation
+// when wallet is not connected (useful for Safari and initial load)
+function generateRandomEthAddress(): string {
+  const bytes = new Uint8Array(20);
+  if (typeof window !== "undefined" && window.crypto) {
+    window.crypto.getRandomValues(bytes);
+  } else {
+    // Fallback for environments without crypto
+    for (let i = 0; i < 20; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return (
+    "0x" +
+    Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+  );
+}
+
 export interface UseMiningScoreParams {
   applications: AuctionApplication[];
   enabled?: boolean;
@@ -61,18 +81,25 @@ export function useMiningScore({
       try {
         // Prepare batch request with proper mining score params
         const farmParams: MiningScoreParams[] = applicationsWithFarmIds.map(
-          (app) => ({
-            farmId: app.farmId!,
-            userId: app.userId,
-            dollarCostOfMiner: String(app.activeFraction?.stepPrice || "0"), // Use stepPrice from activeFraction (USD with 6 decimals)
-            numberOfMiners: app.activeFraction?.totalSteps || 0,
-            minerRewardSplit: app.activeFraction?.sponsorSplitPercent
-              ? parseUnits(
-                  String(app.activeFraction?.sponsorSplitPercent),
-                  4
-                ).toString()
-              : "0",
-          })
+          (app) => {
+            // Use a random address for estimation if userId not available
+            // This allows mining score display to work on Safari and during initial load
+            const userIdForEstimation =
+              app.userId || generateRandomEthAddress();
+
+            return {
+              farmId: app.farmId!,
+              userId: userIdForEstimation,
+              dollarCostOfMiner: String(app.activeFraction?.stepPrice || "0"), // Use stepPrice from activeFraction (USD with 6 decimals)
+              numberOfMiners: app.activeFraction?.totalSteps || 0,
+              minerRewardSplit: app.activeFraction?.sponsorSplitPercent
+                ? parseUnits(
+                    String(app.activeFraction?.sponsorSplitPercent),
+                    4
+                  ).toString()
+                : "0",
+            };
+          }
         );
 
         const response = (await farmsRouter.calculateMiningScoresBatch({

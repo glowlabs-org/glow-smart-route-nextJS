@@ -2,6 +2,7 @@
 
 import { DECIMALS_BY_TOKEN, FarmsRouter } from "@glowlabs-org/utils/browser";
 import { useQuery } from "@tanstack/react-query";
+import Decimal from "decimal.js";
 import {
   type AuctionApplication,
   type PaymentCurrency,
@@ -15,6 +16,26 @@ if (!CONTROL_API_URL) {
 }
 
 const farmsRouter = FarmsRouter(CONTROL_API_URL);
+
+// Generate a random valid Ethereum address for reward estimation
+// when wallet is not connected (useful for Safari and initial load)
+function generateRandomEthAddress(): string {
+  const bytes = new Uint8Array(20);
+  if (typeof window !== "undefined" && window.crypto) {
+    window.crypto.getRandomValues(bytes);
+  } else {
+    // Fallback for environments without crypto
+    for (let i = 0; i < 20; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return (
+    "0x" +
+    Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+  );
+}
 
 export interface RewardScoreParams {
   applications: AuctionApplication[];
@@ -53,20 +74,9 @@ export function useRewardScore({
     queryFn: async (): Promise<ApplicationRewardScore[]> => {
       if (!applications.length) return [];
 
-      // If we don't have a valid wallet, skip querying and return zeros
-      if (!walletAddress) {
-        return applications.map((app) => ({
-          applicationId: app.id,
-          rewardScore: 0,
-          userWeeklyGlwRewards: "0",
-          userWeeklyGlwValueUsd: "0",
-          userWeeklyPdRewards: "0",
-          userWeeklyPdRewardsUsd: "0",
-          userEstimatedWeeklyCash: "0",
-          userProtocolDeposit: "0",
-          error: "Missing wallet address for reward estimate",
-        }));
-      }
+      // Use a random address for estimation if wallet not connected
+      // This allows reward score display to work on Safari and during initial load
+      const addressForEstimation = walletAddress || generateRandomEthAddress();
 
       // Build request list preserving application association for stable mapping
       const requestList = applications
@@ -85,15 +95,23 @@ export function useRewardScore({
             return null;
           }
 
-          const protocolDepositAmountBigInt = BigInt(
-            Number(protocolDepositAmount) *
-              10 ** DECIMALS_BY_TOKEN[paymentCurrency]
-          );
+          // Convert to BigInt safely using Decimal to avoid floating point issues
+          // This is critical for Safari which is stricter about BigInt conversion
+          const decimals = DECIMALS_BY_TOKEN[paymentCurrency];
+          const protocolDepositAmountBigInt = (() => {
+            const amount = Number(protocolDepositAmount);
+            if (!Number.isFinite(amount)) return BigInt(0);
+            const base = new Decimal(10).pow(decimals);
+            const scaled = new Decimal(amount)
+              .mul(base)
+              .toFixed(0, Decimal.ROUND_DOWN);
+            return BigInt(scaled);
+          })();
 
           return {
             applicationId: app.id,
             params: {
-              userId: walletAddress,
+              userId: addressForEstimation,
               sponsorSplitPercent: app.sponsorSplitPercent,
               protocolDepositAmount: protocolDepositAmountBigInt.toString(),
               paymentCurrency,
