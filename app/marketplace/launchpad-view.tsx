@@ -1,6 +1,19 @@
 "use client";
 
 import React from "react";
+
+// Image proxy helper for optimized caching with compression
+function getProxiedImageUrl(url: string, width?: number, quality: number = 75) {
+  if (!url || url.startsWith("/images/")) {
+    return url;
+  }
+  const params = new URLSearchParams({
+    url,
+    ...(width && { w: width.toString() }),
+    q: quality.toString(),
+  });
+  return `/api/image-proxy?${params.toString()}`;
+}
 import {
   Select,
   SelectContent,
@@ -519,30 +532,42 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                         <div className="grid grid-cols-2 gap-1">
                           <div className="col-span-2 relative">
                             <img
-                              src={
+                              src={getProxiedImageUrl(
                                 application.afterInstallPictures[0]?.url ||
-                                "/images/sections/residential.jpg"
-                              }
+                                  "/images/sections/residential.jpg",
+                                900,
+                                70
+                              )}
                               alt={`${application.zone.name} main`}
                               className="w-full h-56 object-cover"
+                              loading="lazy"
+                              decoding="async"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                           </div>
                           <img
-                            src={
+                            src={getProxiedImageUrl(
                               application.afterInstallPictures[1]?.url ||
-                              "/images/sections/residential.jpg"
-                            }
+                                "/images/sections/residential.jpg",
+                              450,
+                              65
+                            )}
                             alt={`${application.zone.name} alt 1`}
                             className="w-full h-28 object-cover"
+                            loading="lazy"
+                            decoding="async"
                           />
                           <img
-                            src={
+                            src={getProxiedImageUrl(
                               application.afterInstallPictures[2]?.url ||
-                              "/images/sections/residential.jpg"
-                            }
+                                "/images/sections/residential.jpg",
+                              450,
+                              65
+                            )}
                             alt={`${application.zone.name} alt 2`}
                             className="w-full h-28 object-cover"
+                            loading="lazy"
+                            decoding="async"
                           />
                         </div>
                       ) : (

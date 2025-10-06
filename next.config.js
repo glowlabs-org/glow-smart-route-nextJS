@@ -1,6 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
+    // Broaden support and tune optimization behavior
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 60 * 60 * 24, // 24h CDN cache for optimized images
+    deviceSizes: [320, 640, 768, 1024, 1280, 1536],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    domains: [
+      "images.unsplash.com",
+      "lh3.googleusercontent.com",
+      "pub-e71c2d06062242109db2bdd6b0bb5ee0.r2.dev",
+    ],
     remotePatterns: [
       {
         protocol: "https",
@@ -9,6 +19,15 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
+      },
+      {
+        protocol: "https",
+        hostname: "pub-e71c2d06062242109db2bdd6b0bb5ee0.r2.dev",
+      },
+      // Optional wildcard to support other R2 public buckets if needed
+      {
+        protocol: "https",
+        hostname: "**.r2.dev",
       },
     ],
   },
@@ -59,8 +78,19 @@ const { withSentryConfig } = require("@sentry/nextjs");
 
 module.exports = (phase) => {
   const isProdBuild = phase === PHASE_PRODUCTION_BUILD;
+
+  // Disable image optimization only in development to avoid local 500s;
+  // production keeps full Next/Image optimization and caching.
+  const phasedConfig = {
+    ...nextConfig,
+    images: {
+      ...nextConfig.images,
+      unoptimized: !isProdBuild,
+    },
+  };
+
   return isProdBuild
-    ? withSentryConfig(nextConfig, {
+    ? withSentryConfig(phasedConfig, {
         // For all available options, see:
         // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 
@@ -91,5 +121,5 @@ module.exports = (phase) => {
         // https://vercel.com/docs/cron-jobs
         automaticVercelMonitors: true,
       })
-    : nextConfig;
+    : phasedConfig;
 };

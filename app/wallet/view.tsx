@@ -51,6 +51,19 @@ import { forceDisconnect } from "@/utils/forceDisconnect";
 import { useLiquidityPositions } from "@/hooks/useLiquidityPositions";
 import Link from "next/link";
 
+// Image proxy helper for optimized caching with compression
+function getProxiedImageUrl(url: string, width?: number, quality: number = 75) {
+  if (!url || url.startsWith("/images/")) {
+    return url;
+  }
+  const params = new URLSearchParams({
+    url,
+    ...(width && { w: width.toString() }),
+    q: quality.toString(),
+  });
+  return `/api/image-proxy?${params.toString()}`;
+}
+
 // Token definitions matching buy view structure
 export const tokens = {
   USDC: {
@@ -704,30 +717,45 @@ export default function View() {
                                   <div className="grid grid-cols-2 gap-1">
                                     <div className="col-span-2 relative">
                                       <img
-                                        src={
+                                        src={getProxiedImageUrl(
                                           farm.afterInstallPictures[0]?.url ||
-                                          "/images/sections/residential.jpg"
-                                        }
+                                            "/images/sections/residential.jpg",
+                                          800,
+                                          70
+                                        )}
                                         alt={`${formattedFarm.farm} main`}
                                         className="w-full h-48 object-cover"
+                                        loading={idx < 3 ? "eager" : "lazy"}
+                                        decoding="async"
+                                        fetchPriority={
+                                          idx < 3 ? "high" : "auto"
+                                        }
                                       />
                                       <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                                     </div>
                                     <img
-                                      src={
+                                      src={getProxiedImageUrl(
                                         farm.afterInstallPictures[1]?.url ||
-                                        "/images/sections/residential.jpg"
-                                      }
+                                          "/images/sections/residential.jpg",
+                                        400,
+                                        65
+                                      )}
                                       alt={`${formattedFarm.farm} alt 1`}
                                       className="w-full h-24 object-cover"
+                                      loading="lazy"
+                                      decoding="async"
                                     />
                                     <img
-                                      src={
+                                      src={getProxiedImageUrl(
                                         farm.afterInstallPictures[2]?.url ||
-                                        "/images/sections/residential.jpg"
-                                      }
+                                          "/images/sections/residential.jpg",
+                                        400,
+                                        65
+                                      )}
                                       alt={`${formattedFarm.farm} alt 2`}
                                       className="w-full h-24 object-cover"
+                                      loading="lazy"
+                                      decoding="async"
                                     />
                                   </div>
                                 ) : (

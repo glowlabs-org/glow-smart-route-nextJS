@@ -1,6 +1,19 @@
 "use client";
 
 import React from "react";
+
+// Image proxy helper for optimized caching with compression
+function getProxiedImageUrl(url: string, width?: number, quality: number = 75) {
+  if (!url || url.startsWith("/images/")) {
+    return url;
+  }
+  const params = new URLSearchParams({
+    url,
+    ...(width && { w: width.toString() }),
+    q: quality.toString(),
+  });
+  return `/api/image-proxy?${params.toString()}`;
+}
 import {
   Select,
   SelectContent,
@@ -529,12 +542,16 @@ export function MiningCenterView({ onPayDeposit }: MiningCenterViewProps) {
 
                           {application.afterInstallPictures.length > 0 ? (
                             <img
-                              src={
+                              src={getProxiedImageUrl(
                                 application.afterInstallPictures[0]?.url ||
-                                "/images/sections/residential.jpg"
-                              }
+                                  "/images/sections/residential.jpg",
+                                600,
+                                70
+                              )}
                               alt={`${application.zone.name}`}
                               className="w-full h-64 lg:h-full object-cover rounded-lg"
+                              loading="lazy"
+                              decoding="async"
                             />
                           ) : (
                             <div className="w-full h-64 lg:h-full bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
