@@ -1,5 +1,6 @@
 "use client"; // Error components must be Client Components
 
+import { GlowSymbol } from "@/components/glow-symbol";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { useEffect } from "react";
@@ -18,7 +19,7 @@ export default function Error({
 
   return (
     <div className="flex h-screen justify-center items-center flex-col">
-      <Image src="/error.png" alt="Error" width={300} priority height={300} />
+      <GlowSymbol className="size-16 mb-2 mx-auto" />
       <h2>Something went wrong!</h2>
       <Button
         className="mt-4 w-44"

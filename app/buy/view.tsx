@@ -1188,7 +1188,6 @@ export default function View({
               <TabsTrigger value="send">Send</TabsTrigger>
               <TabsTrigger value="liquidity">Liquidity</TabsTrigger>
               <TabsTrigger value="launchpad">Launchpad</TabsTrigger>
-              <TabsTrigger value="mining-center">Mining Center</TabsTrigger>
             </TabsList>
 
             <TabsContent value="swap">

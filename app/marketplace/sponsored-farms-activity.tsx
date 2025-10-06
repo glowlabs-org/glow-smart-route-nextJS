@@ -156,28 +156,33 @@ export function SponsoredFarmsActivity({
       </div>
 
       {/* Activity Table */}
-      <div className="bg-white dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800">
+      <div className="bg-white dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Buyer</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead className="text-right">Reward Score</TableHead>
-              <TableHead className="text-right">Total Paid</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="min-w-[120px]">Date</TableHead>
+              <TableHead className="text-right min-w-[100px]">Amount</TableHead>
+              <TableHead className="text-right min-w-[120px]">
+                Reward Score
+              </TableHead>
+              <TableHead className="text-right min-w-[120px]">
+                Total Paid
+              </TableHead>
+              <TableHead className="min-w-[100px] hidden md:table-cell">
+                Status
+              </TableHead>
+              <TableHead className="min-w-[100px] hidden lg:table-cell">
+                Buyer
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {activity.map((purchase) => {
-              // Format purchase amount
               const purchaseAmount = formatUnits(
                 BigInt(purchase.totalValue),
                 18
               );
-              const stepPrice = formatUnits(BigInt(purchase.stepPrice), 18);
 
-              // Format purchase date
               const purchaseDate = new Date(
                 purchase.purchaseDate
               ).toLocaleDateString("en-US", {
@@ -188,7 +193,6 @@ export function SponsoredFarmsActivity({
                 minute: "2-digit",
               });
 
-              // Format buyer address for display
               const buyerDisplay = `${purchase.buyer.slice(
                 0,
                 6
@@ -200,22 +204,17 @@ export function SponsoredFarmsActivity({
                   className="h-14"
                 >
                   <TableCell>
-                    <div className="text-sm text-gray-900 dark:text-gray-100">
+                    <div className="text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">
                       {purchaseDate}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="text-sm font-mono text-gray-900 dark:text-gray-100">
-                      {buyerDisplay}
-                    </div>
-                  </TableCell>
                   <TableCell className="text-right">
-                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
                       {formatNumber(purchase.stepsPurchased, 0)}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
                       {purchase.rewardScore !== null &&
                       purchase.rewardScore !== undefined
                         ? formatNumber(purchase.rewardScore, 0)
@@ -223,13 +222,18 @@ export function SponsoredFarmsActivity({
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
                       {formatNumber(parseFloat(purchaseAmount), 2)} GLW
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded-full text-xs font-medium inline-block">
+                  <TableCell className="hidden md:table-cell">
+                    <div className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded-full text-xs font-medium inline-block whitespace-nowrap">
                       Confirmed
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    <div className="text-sm font-mono text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                      {buyerDisplay}
                     </div>
                   </TableCell>
                 </TableRow>

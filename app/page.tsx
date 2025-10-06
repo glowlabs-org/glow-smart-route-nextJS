@@ -148,25 +148,26 @@ export default function GlowLaunchpadPage() {
                 <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
                   <Button
                     variant="outline"
-                    asChild
                     size="sm"
                     className="md:h-10"
+                    onClick={() =>
+                      window.open("https://impact.glow.org", "_blank")
+                    }
                   >
-                    <Link href="https://impact.glow.org" target="_blank">
-                      <span className="hidden sm:inline">
-                        See Regions Dashboard
-                      </span>
-                      <span className="sm:hidden">Regions</span>
-                    </Link>
+                    <span className="hidden sm:inline">
+                      See Regions Dashboard
+                    </span>
+                    <span className="sm:hidden">Regions</span>
                   </Button>
-                  <Button
-                    variant="outline"
-                    asChild
-                    size="sm"
-                    className="md:h-10"
-                  >
-                    <Link href="/glow-swap">GlowSwap</Link>
-                  </Button>
+                  <Link href="/glow-swap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="md:h-10 w-full"
+                    >
+                      GlowSwap
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </div>

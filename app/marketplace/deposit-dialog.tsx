@@ -580,19 +580,6 @@ export function DepositDialog({
           label: "Location",
           value: application.zone.name,
         },
-        {
-          label: "Price",
-          value: formatNumber(
-            parseFloat(
-              formatUnits(
-                BigInt(application.activeFraction.stepPrice),
-                DECIMALS_BY_TOKEN[currency]
-              )
-            ),
-            0
-          ),
-          unit: currency,
-        },
       ]
     : [];
 
