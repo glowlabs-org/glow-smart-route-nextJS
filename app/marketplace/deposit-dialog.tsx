@@ -25,6 +25,7 @@ import {
 } from "@/hooks/useGlowLaunchpad";
 import { useFractionSplits } from "@/hooks/useFractionSplits";
 import Decimal from "decimal.js";
+import Link from "next/link";
 
 interface DepositDialogProps {
   open: boolean;
@@ -827,10 +828,21 @@ export function DepositDialog({
           );
 
           return currentBalance < requiredAmount ? (
-            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-2">
               <div className="text-sm text-destructive">
-                Insufficient {currency} balance for {stepsToBuy}
+                Insufficient {currency} balance
               </div>
+              {currency === "GLW" && (
+                <Link href="/glow-swap">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-destructive/20 hover:bg-destructive/20"
+                  >
+                    Buy GLW
+                  </Button>
+                </Link>
+              )}
             </div>
           ) : null;
         })()}

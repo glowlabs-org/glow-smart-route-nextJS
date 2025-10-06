@@ -5,11 +5,29 @@
 import { configureSentry } from "@glowlabs-org/utils/browser";
 import * as Sentry from "@sentry/nextjs";
 
+if (
+  !process.env.NEXT_PUBLIC_CONTROL_API_URL ||
+  !process.env.NEXT_PUBLIC_HUB_URL
+) {
+  throw new Error("Missing environment variables");
+}
+
 Sentry.init({
   dsn: "https://1334fda901e8976224deb1286b64c68f@o4507374658846720.ingest.us.sentry.io/4510134559375360",
 
   // Add optional integrations for additional features
-  integrations: [Sentry.replayIntegration()],
+  integrations: [
+    Sentry.replayIntegration({
+      networkDetailAllowUrls: [
+        process.env.NEXT_PUBLIC_CONTROL_API_URL,
+        process.env.NEXT_PUBLIC_HUB_URL,
+      ],
+      networkRequestHeaders: ["Authorization"],
+      networkResponseHeaders: ["Authorization"],
+      maskAllText: false,
+      blockAllMedia: false,
+    }),
+  ],
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: 1,
