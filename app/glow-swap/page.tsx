@@ -29,9 +29,9 @@ export const metadata: Metadata = {
     "Uniswap",
     "guarded launch",
   ],
-  authors: [{ name: "Nero" }],
-  creator: "Nero",
-  publisher: "Nero",
+  authors: [{ name: "Glow Labs" }],
+  creator: "Glow Labs",
+  publisher: "Glow Labs",
   formatDetection: {
     email: false,
     address: false,
@@ -47,14 +47,6 @@ export const metadata: Metadata = {
       "Trade and swap Glow tokens. Buy GLOW with USDG or USDC, provide liquidity to the GLOW/USDG Uniswap pool, and participate in the Glow ecosystem's guarded launch.",
     url: "https://app.glow.org/glow-swap",
     siteName: "app.glow.org",
-    images: [
-      {
-        url: "/Chrome_512x512.png",
-        width: 512,
-        height: 512,
-        alt: "Glow Token Exchange",
-      },
-    ],
     locale: "en_US",
     type: "website",
   },
@@ -63,7 +55,6 @@ export const metadata: Metadata = {
     title: "Glow Token Exchange - Swap GLOW, USDG, USDC & Provide Liquidity",
     description:
       "Trade and swap Glow tokens on the decentralized exchange. Buy GLOW with USDG or USDC, provide liquidity to earn rewards, and participate in the Glow ecosystem's guarded launch.",
-    images: ["/Chrome_512x512.png"],
   },
   robots: {
     index: true,

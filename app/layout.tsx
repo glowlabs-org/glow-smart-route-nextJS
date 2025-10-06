@@ -49,14 +49,6 @@ export const metadata: Metadata = {
       "Join Glow's decentralized solar mining ecosystem. Sponsor competitive solar farms, earn GLW tokens, and support renewable energy infrastructure through the Glow Launchpad and Mining Center.",
     url: "https://app.glow.org",
     siteName: "Glow Mining Platform",
-    images: [
-      {
-        url: "/Chrome_192x192.png",
-        width: 192,
-        height: 192,
-        alt: "Glow Mining - Solar Farm Sponsorship Platform",
-      },
-    ],
     locale: "en_US",
     type: "website",
   },
@@ -65,7 +57,6 @@ export const metadata: Metadata = {
     title: "Glow Mining - Sponsor Solar Farms & Earn GLW Tokens",
     description:
       "Participate in decentralized solar mining. Sponsor solar farms through the Glow Launchpad, earn GLW tokens through the Mining Center, and support renewable energy while earning rewards.",
-    images: ["/Chrome_192x192.png"],
   },
   robots: {
     index: true,
