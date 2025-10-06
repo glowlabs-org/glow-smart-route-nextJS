@@ -571,8 +571,8 @@ export function MiningCenterView({ onPayDeposit }: MiningCenterViewProps) {
                                 <div
                                   className="text-2xl lg:text-3xl xl:text-4xl leading-none mb-2"
                                   style={{
-                                    fontFamily: "Duplicate Slab, serif",
-                                    fontWeight: 300,
+                                    fontFamily: "Söhne, sans-serif",
+                                    fontWeight: 600,
                                   }}
                                 >
                                   {application.activeFraction
@@ -610,7 +610,7 @@ export function MiningCenterView({ onPayDeposit }: MiningCenterViewProps) {
                                   Est. Weekly Rewards per miner
                                 </div>
                                 <div
-                                  className="text-base lg:text-lg text-black dark:text-white"
+                                  className="text-base lg:text-2xl text-black dark:text-white"
                                   style={{
                                     fontFamily: "Söhne, sans-serif",
                                     fontWeight: 600,
@@ -696,8 +696,8 @@ export function MiningCenterView({ onPayDeposit }: MiningCenterViewProps) {
                             <div
                               className="text-4xl md:text-5xl xl:text-6xl 2xl:text-7xl text-black dark:text-white"
                               style={{
-                                fontFamily: "Duplicate Slab, serif",
-                                fontWeight: 300,
+                                fontFamily: "Söhne, sans-serif",
+                                fontWeight: 600,
                               }}
                             >
                               {application.activeFraction?.stepPrice

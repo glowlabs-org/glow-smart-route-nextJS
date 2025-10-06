@@ -21,15 +21,20 @@ import { cn } from "@/lib/utils";
 
 interface SponsoredFarmsActivityProps {
   className?: string;
+  fractionType?: "mining-center" | "launchpad";
 }
 
 export function SponsoredFarmsActivity({
   className,
+  fractionType,
 }: SponsoredFarmsActivityProps) {
   const { activity, summary, isLoading, isError, error } = useSplitsActivity({
-    fractionType: "launchpad",
     limit: 50, // Show recent 50 purchases
+    fractionType,
   });
+
+  // Determine if we should show reward scores (only for launchpad)
+  const showRewardScore = !fractionType || fractionType === "launchpad";
 
   if (isLoading) {
     return (
@@ -101,30 +106,39 @@ export function SponsoredFarmsActivity({
   return (
     <div className={cn(className, "p-4")}>
       {/* Summary Stats */}
-      <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-            Avg Reward Score
-          </div>
-          <div className="text-2xl font-semibold text-black dark:text-white">
-            {(() => {
-              const validRewardScores = activity.filter(
-                (purchase) =>
-                  purchase.rewardScore !== null &&
-                  purchase.rewardScore !== undefined
-              );
-              if (validRewardScores.length === 0) return "—";
+      <div
+        className={cn(
+          "mb-6 grid gap-4",
+          showRewardScore
+            ? "grid-cols-2 md:grid-cols-4"
+            : "grid-cols-1 md:grid-cols-3"
+        )}
+      >
+        {showRewardScore && (
+          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
+            <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+              Avg Reward Score
+            </div>
+            <div className="text-2xl font-semibold text-black dark:text-white">
+              {(() => {
+                const validRewardScores = activity.filter(
+                  (purchase) =>
+                    purchase.rewardScore !== null &&
+                    purchase.rewardScore !== undefined
+                );
+                if (validRewardScores.length === 0) return "—";
 
-              const totalRewardScore = validRewardScores.reduce(
-                (sum, purchase) => sum + (purchase.rewardScore || 0),
-                0
-              );
-              const avgRewardScore =
-                totalRewardScore / validRewardScores.length;
-              return formatNumber(avgRewardScore, 0);
-            })()}
+                const totalRewardScore = validRewardScores.reduce(
+                  (sum, purchase) => sum + (purchase.rewardScore || 0),
+                  0
+                );
+                const avgRewardScore =
+                  totalRewardScore / validRewardScores.length;
+                return formatNumber(avgRewardScore, 0);
+              })()}
+            </div>
           </div>
-        </div>
+        )}
         <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
             Amount Purchased
@@ -138,16 +152,31 @@ export function SponsoredFarmsActivity({
             Total Spent
           </div>
           <div className="text-2xl font-semibold text-black dark:text-white">
-            {formatNumber(
-              parseFloat(formatUnits(BigInt(summary.totalAmountSpent), 18)),
-              0
-            )}{" "}
-            <span className="text-lg font-normal">GLW</span>
+            {(() => {
+              const decimals = fractionType === "mining-center" ? 6 : 18;
+              const currency =
+                fractionType === "mining-center" ? "USDC" : "GLW";
+              return (
+                <>
+                  {formatNumber(
+                    parseFloat(
+                      formatUnits(BigInt(summary.totalAmountSpent), decimals)
+                    ),
+                    0
+                  )}{" "}
+                  <span className="text-lg font-normal">{currency}</span>
+                </>
+              );
+            })()}
           </div>
         </div>
         <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-            Farms
+            {fractionType === "mining-center"
+              ? "Miners"
+              : fractionType === "launchpad"
+              ? "Farms"
+              : "Farms"}
           </div>
           <div className="text-2xl font-semibold text-black dark:text-white">
             {formatNumber(summary.uniqueFractions, 0)}
@@ -162,14 +191,16 @@ export function SponsoredFarmsActivity({
             <TableRow>
               <TableHead className="min-w-[120px]">Date</TableHead>
               <TableHead className="text-right min-w-[100px]">Amount</TableHead>
-              <TableHead className="text-right min-w-[120px]">
-                Reward Score
-              </TableHead>
+              {showRewardScore && (
+                <TableHead className="text-right min-w-[120px]">
+                  Reward Score
+                </TableHead>
+              )}
               <TableHead className="text-right min-w-[120px]">
                 Total Paid
               </TableHead>
               <TableHead className="min-w-[100px] hidden md:table-cell">
-                Status
+                Type
               </TableHead>
               <TableHead className="min-w-[100px] hidden lg:table-cell">
                 Buyer
@@ -178,9 +209,15 @@ export function SponsoredFarmsActivity({
           </TableHeader>
           <TableBody>
             {activity.map((purchase) => {
+              // Mining centers use USDC (6 decimals), launchpad uses GLW (18 decimals)
+              const decimals =
+                purchase.fractionType === "mining-center" ? 6 : 18;
+              const currency =
+                purchase.fractionType === "mining-center" ? "USDC" : "GLW";
+
               const purchaseAmount = formatUnits(
                 BigInt(purchase.totalValue),
-                18
+                decimals
               );
 
               const purchaseDate = new Date(
@@ -213,22 +250,33 @@ export function SponsoredFarmsActivity({
                       {formatNumber(purchase.stepsPurchased, 0)}
                     </div>
                   </TableCell>
+                  {showRewardScore && (
+                    <TableCell className="text-right">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                        {purchase.rewardScore !== null &&
+                        purchase.rewardScore !== undefined
+                          ? formatNumber(purchase.rewardScore, 0)
+                          : "—"}
+                      </div>
+                    </TableCell>
+                  )}
                   <TableCell className="text-right">
                     <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                      {purchase.rewardScore !== null &&
-                      purchase.rewardScore !== undefined
-                        ? formatNumber(purchase.rewardScore, 0)
-                        : "—"}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                      {formatNumber(parseFloat(purchaseAmount), 2)} GLW
+                      {formatNumber(parseFloat(purchaseAmount), 2)} {currency}
                     </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    <div className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded-full text-xs font-medium inline-block whitespace-nowrap">
-                      Confirmed
+                    <div
+                      className={cn(
+                        "px-2 py-1 rounded-full text-xs font-medium inline-block whitespace-nowrap",
+                        purchase.fractionType === "mining-center"
+                          ? "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
+                          : "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
+                      )}
+                    >
+                      {purchase.fractionType === "mining-center"
+                        ? "Mining Center"
+                        : "Launchpad"}
                     </div>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">

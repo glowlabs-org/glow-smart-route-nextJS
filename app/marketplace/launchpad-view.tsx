@@ -523,7 +523,7 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                     <div className="relative">
                       {/* Zone Badge */}
                       <div className="absolute top-4 left-4 z-10">
-                        <div className="bg-black/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-medium">
+                        <div className="bg-background text-foreground backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium">
                           {application.zone.name}
                         </div>
                       </div>
@@ -585,15 +585,15 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                       )}
                     </div>
 
-                    <div className="p-6 space-y-4">
+                    <div className="p-6 pb-0 space-y-4">
                       {/* Header with Fractions Available and Reward Score */}
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
                           <div
                             className="text-3xl lg:text-4xl leading-none mb-2"
                             style={{
-                              fontFamily: "Duplicate Slab, serif",
-                              fontWeight: 300,
+                              fontFamily: "Söhne, sans-serif",
+                              fontWeight: 600,
                             }}
                           >
                             {application.activeFraction
@@ -617,8 +617,8 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                           <div
                             className="text-3xl lg:text-4xl leading-none mb-2"
                             style={{
-                              fontFamily: "Duplicate Slab, serif",
-                              fontWeight: 300,
+                              fontFamily: "Söhne, sans-serif",
+                              fontWeight: 600,
                             }}
                           >
                             {rewardScore?.rewardScore
@@ -726,7 +726,7 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                               </div>
                               <div>
                                 <div
-                                  className="text-lg lg:text-xl text-black dark:text-white"
+                                  className="text-lg lg:text-3xl text-black dark:text-white"
                                   style={{
                                     fontFamily: "Söhne, sans-serif",
                                     fontWeight: 600,

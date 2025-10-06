@@ -53,7 +53,7 @@ export default function GlowLaunchpadPage() {
     activity: {
       title: "Activity",
       description:
-        "View all sales from the launchpad and see average reward scores to help you evaluate what's a good score to buy or list at.",
+        "View all sales from the launchpad and mining center. Track average reward scores and USDC/GLW payments to help you evaluate market activity.",
     },
   };
 
