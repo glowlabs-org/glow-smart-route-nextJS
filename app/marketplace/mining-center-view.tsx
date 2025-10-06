@@ -537,7 +537,7 @@ export function MiningCenterView({ onPayDeposit }: MiningCenterViewProps) {
                         {/* Middle: Content */}
                         <div className="flex-1 p-4 lg:p-5 xl:p-6">
                           <div className="space-y-3 lg:space-y-4">
-                            {/* Miners Available and Mining Score */}
+                            {/* Miners Available */}
                             <div className="flex items-start gap-4 lg:gap-6 xl:gap-8">
                               <div>
                                 <div
@@ -564,28 +564,6 @@ export function MiningCenterView({ onPayDeposit }: MiningCenterViewProps) {
                                   }}
                                 >
                                   Miners Available
-                                </div>
-                              </div>
-                              <div>
-                                <div
-                                  className="text-2xl lg:text-3xl xl:text-4xl leading-none mb-2"
-                                  style={{
-                                    fontFamily: "Duplicate Slab, serif",
-                                    fontWeight: 300,
-                                  }}
-                                >
-                                  {miningScoreData?.miningScore
-                                    ? miningScoreData.miningScore.toFixed(0)
-                                    : "0"}
-                                </div>
-                                <div
-                                  className="text-xs uppercase tracking-wider text-gray-500"
-                                  style={{
-                                    fontFamily: "Söhne, sans-serif",
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  Mining Score
                                 </div>
                               </div>
                             </div>

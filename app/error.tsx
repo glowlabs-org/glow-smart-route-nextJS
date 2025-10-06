@@ -2,6 +2,7 @@
 
 import { GlowSymbol } from "@/components/glow-symbol";
 import { Button } from "@/components/ui/button";
+import * as Sentry from "@sentry/nextjs";
 import Image from "next/image";
 import { useEffect } from "react";
 
@@ -15,6 +16,7 @@ export default function Error({
   useEffect(() => {
     // Log the error to an error reporting service
     console.error(error);
+    Sentry.captureException(error);
   }, [error]);
 
   return (

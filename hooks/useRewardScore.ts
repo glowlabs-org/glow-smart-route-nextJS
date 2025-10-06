@@ -20,6 +20,7 @@ export interface RewardScoreParams {
   applications: AuctionApplication[];
   paymentCurrency: PaymentCurrency;
   enabled?: boolean;
+  walletAddress?: string | null;
 }
 
 export interface ApplicationRewardScore {
@@ -38,11 +39,13 @@ export function useRewardScore({
   applications,
   paymentCurrency,
   enabled = true,
+  walletAddress,
 }: RewardScoreParams) {
   const queryKey = [
     "reward-scores",
     applications.map((app) => app.id),
     paymentCurrency,
+    walletAddress || null,
   ];
 
   const query = useQuery({
@@ -50,8 +53,23 @@ export function useRewardScore({
     queryFn: async (): Promise<ApplicationRewardScore[]> => {
       if (!applications.length) return [];
 
-      // Prepare batch request parameters
-      const batchParams = applications
+      // If we don't have a valid wallet, skip querying and return zeros
+      if (!walletAddress) {
+        return applications.map((app) => ({
+          applicationId: app.id,
+          rewardScore: 0,
+          userWeeklyGlwRewards: "0",
+          userWeeklyGlwValueUsd: "0",
+          userWeeklyPdRewards: "0",
+          userWeeklyPdRewardsUsd: "0",
+          userEstimatedWeeklyCash: "0",
+          userProtocolDeposit: "0",
+          error: "Missing wallet address for reward estimate",
+        }));
+      }
+
+      // Build request list preserving application association for stable mapping
+      const requestList = applications
         .map((app) => {
           // Calculate protocol deposit amount for the selected currency
           const protocolDepositAmount = calculateProtocolDepositAmount(
@@ -62,7 +80,7 @@ export function useRewardScore({
 
           if (
             !protocolDepositAmount ||
-            !app.auditFields?.expectedWeeklyCarbonCredits
+            !app.auditFields?.netCarbonCreditEarningWeekly
           ) {
             return null;
           }
@@ -73,17 +91,24 @@ export function useRewardScore({
           );
 
           return {
-            userId: app.id,
-            sponsorSplitPercent: app.sponsorSplitPercent,
-            protocolDepositAmount: protocolDepositAmountBigInt.toString(),
-            paymentCurrency,
-            expectedWeeklyCarbonCredits:
-              app.auditFields.expectedWeeklyCarbonCredits,
-            regionId: app.zone.id,
-          };
+            applicationId: app.id,
+            params: {
+              userId: walletAddress,
+              sponsorSplitPercent: app.sponsorSplitPercent,
+              protocolDepositAmount: protocolDepositAmountBigInt.toString(),
+              paymentCurrency,
+              expectedWeeklyCarbonCredits:
+                app.auditFields.netCarbonCreditEarningWeekly,
+              regionId: app.zone.id,
+            },
+          } as const;
         })
-        .filter((param): param is NonNullable<typeof param> => param !== null);
+        .filter(
+          (entry): entry is { applicationId: string; params: any } =>
+            entry !== null
+        );
 
+      const batchParams = requestList.map((r) => r.params);
       if (!batchParams.length) {
         return applications.map((app) => ({
           applicationId: app.id,
@@ -103,34 +128,45 @@ export function useRewardScore({
           farms: batchParams,
         });
 
-        // Map the batch response back to applications
-        return applications.map((app) => {
-          const result = response.results.find(
-            (r) =>
-              r.success &&
-              r.data &&
-              batchParams.some((p) => p && p.userId === app.id)
-          );
+        // Map the batch response back to applications by index alignment
+        const resultByApplicationId = new Map<string, ApplicationRewardScore>();
 
-          if (result && result.success) {
-            return {
-              applicationId: app.id,
-              rewardScore: result.data.rewardScore,
-              userWeeklyGlwRewards: result.data.userWeeklyGlwRewards,
-              userWeeklyGlwValueUsd: result.data.userWeeklyGlwValueUsd,
-              userWeeklyPdRewards: result.data.userWeeklyPdRewards,
-              userWeeklyPdRewardsUsd: result.data.userWeeklyPdRewardsUsd,
-              userEstimatedWeeklyCash: result.data.userEstimatedWeeklyCash,
-              userProtocolDeposit: result.data.userProtocolDeposit,
-            };
+        // Fill success/error for all request entries in order
+        requestList.forEach((req, idx) => {
+          const res = response.results[idx];
+          if (res && (res as any).success) {
+            const data = (res as any).data;
+            resultByApplicationId.set(req.applicationId, {
+              applicationId: req.applicationId,
+              rewardScore: data.rewardScore,
+              userWeeklyGlwRewards: data.userWeeklyGlwRewards,
+              userWeeklyGlwValueUsd: data.userWeeklyGlwValueUsd,
+              userWeeklyPdRewards: data.userWeeklyPdRewards,
+              userWeeklyPdRewardsUsd: data.userWeeklyPdRewardsUsd,
+              userEstimatedWeeklyCash: data.userEstimatedWeeklyCash,
+              userProtocolDeposit: data.userProtocolDeposit,
+            });
+          } else {
+            const err =
+              (res as any)?.error || "Failed to calculate reward score";
+            resultByApplicationId.set(req.applicationId, {
+              applicationId: req.applicationId,
+              rewardScore: 0,
+              userWeeklyGlwRewards: "0",
+              userWeeklyGlwValueUsd: "0",
+              userWeeklyPdRewards: "0",
+              userWeeklyPdRewardsUsd: "0",
+              userEstimatedWeeklyCash: "0",
+              userProtocolDeposit: "0",
+              error: String(err),
+            });
           }
+        });
 
-          // Find error result
-          const errorResult = response.results.find(
-            (r) =>
-              !r.success && batchParams.some((p) => p && p.userId === app.id)
-          );
-
+        // Prepare final list preserving original applications order
+        return applications.map((app) => {
+          const found = resultByApplicationId.get(app.id);
+          if (found) return found;
           return {
             applicationId: app.id,
             rewardScore: 0,
@@ -140,10 +176,7 @@ export function useRewardScore({
             userWeeklyPdRewardsUsd: "0",
             userEstimatedWeeklyCash: "0",
             userProtocolDeposit: "0",
-            error:
-              errorResult && !errorResult.success
-                ? errorResult.error
-                : "Failed to calculate reward score",
+            error: "Missing required data for calculation",
           };
         });
       } catch (error) {

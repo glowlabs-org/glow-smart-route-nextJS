@@ -249,7 +249,9 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
     applications,
     paymentCurrency: selectedCurrency || "GLW",
     enabled: applications.length > 0,
+    walletAddress: address || null,
   });
+  console.log(rewardScoreMap);
 
   const filterBarProps = {
     selectedZoneId,
