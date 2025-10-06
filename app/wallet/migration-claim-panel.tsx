@@ -74,9 +74,9 @@ export function MigrationClaimPanel({
         <CardHeader>
           <div className="flex items-center gap-2">
             <Gift className="w-5 h-5" />
-            <CardTitle>GCTL Migration</CardTitle>
+            <CardTitle>GCTL Allocation</CardTitle>
           </div>
-          <CardDescription>Checking for available GCTL tokens</CardDescription>
+          <CardDescription>Checking your V1 GCTL allocation</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -114,12 +114,12 @@ export function MigrationClaimPanel({
 
   const handleOpenConfirmDialog = () => {
     if (migrationData?.claimed) {
-      toast.info("GCTL has already been claimed");
+      toast.info("GCTL allocation already claimed");
       return;
     }
 
     if (!migrationData?.eligible) {
-      toast.info("No GCTL amount available");
+      toast.info("No GCTL allocation available to unstake");
       return;
     }
 
@@ -154,8 +154,8 @@ export function MigrationClaimPanel({
             <CardTitle>GCTL Allocation</CardTitle>
             <CardDescription className="mt-2">
               {migrationData?.claimed || isClaimSuccess
-                ? "GCTL claimed successfully"
-                : "Claim your GCTL tokens from the CGP"}
+                ? "GCTL claimed (unstaked) successfully"
+                : "Your V1 GCTL allocation is staked to the Clan Grid Project by default. Claim to unstake to your wallet."}
             </CardDescription>
           </div>
           {(migrationData?.claimed || isClaimSuccess) && (
@@ -193,7 +193,7 @@ export function MigrationClaimPanel({
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm text-muted-foreground mb-1">
-                    Available GCTL
+                    GCTL available to unstake
                   </div>
                   <div className="text-3xl font-bold">
                     {migrationAmountFormatted} GCTL
@@ -230,7 +230,7 @@ export function MigrationClaimPanel({
                     ) : (
                       <>
                         <Gift className="w-4 h-4 mr-2" />
-                        Claim GCTL
+                        Unstake and claim GCTL
                       </>
                     )}
                   </Button>
@@ -245,8 +245,9 @@ export function MigrationClaimPanel({
                   <div className="text-sm text-green-700 dark:text-green-300">
                     <div className="font-medium mb-1">Claim Successful!</div>
                     <div className="text-green-600 dark:text-green-400">
-                      Your GCTL tokens have been transferred to your wallet.
-                      Balances will update automatically.
+                      Your GCTL allocation has been unstaked from the Clan Grid
+                      Project and transferred to your wallet. Balances will
+                      update automatically.
                     </div>
                   </div>
                 </div>
@@ -256,8 +257,8 @@ export function MigrationClaimPanel({
             {/* Info for claimed migrations */}
             {migrationData?.claimed && !isClaimSuccess && (
               <div className="text-sm text-muted-foreground">
-                This GCTL has been successfully claimed and transferred to your
-                wallet.
+                This allocation has been claimed (unstaked) and transferred to
+                your wallet.
               </div>
             )}
           </div>
@@ -268,10 +269,11 @@ export function MigrationClaimPanel({
       <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
         <DialogContent className="md:max-w-md">
           <DialogHeader>
-            <DialogTitle>Claim GCTL Allocation</DialogTitle>
+            <DialogTitle>Unstake and claim GCTL</DialogTitle>
             <DialogDescription>
-              Confirm that you want to claim your GCTL tokens from the CGP
-              (Carbon Glow Protocol).
+              Your V1 GCTL allocation from prior contributions is currently
+              staked to the Clan Grid Project. Confirm to unstake and transfer
+              it to your wallet. This action can only be done once.
             </DialogDescription>
           </DialogHeader>
 
@@ -294,8 +296,9 @@ export function MigrationClaimPanel({
               <div className="flex items-start gap-2">
                 <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                 <div className="text-sm text-blue-700 dark:text-blue-300">
-                  This will transfer your allocated GCTL tokens to your wallet
-                  balance. This action can only be done once.
+                  This will unstake your allocated GCTL from the Clan Grid
+                  Project and transfer it to your wallet. This action can only
+                  be done once.
                 </div>
               </div>
             </div>
@@ -318,7 +321,7 @@ export function MigrationClaimPanel({
               ) : (
                 <>
                   <Gift className="w-4 h-4 mr-2" />
-                  Confirm Claim
+                  Confirm unstake and claim
                 </>
               )}
             </Button>

@@ -9,7 +9,11 @@ import {
   type SortOrder,
   type AuctionApplication,
 } from "@/hooks/useGlowLaunchpad";
-import { DepositDialog } from "./marketplace/deposit-dialog";
+import {
+  DepositDialog,
+  type LaunchpadRewardScore,
+  type MiningCenterScore,
+} from "./marketplace/deposit-dialog";
 import { SponsoredFarmsActivity } from "./marketplace/sponsored-farms-activity";
 import { MiningCenterView } from "./marketplace/mining-center-view";
 import { LaunchpadView } from "./marketplace/launchpad-view";
@@ -26,16 +30,7 @@ export default function GlowLaunchpadPage() {
     "launchpad" | "mining-center"
   >("launchpad");
   const [selectedRewardScore, setSelectedRewardScore] = React.useState<
-    | {
-        userWeeklyGlwRewards: string;
-        userWeeklyPdRewards: string;
-      }
-    | {
-        miningScore: number;
-        weeklyGlwRewards?: string;
-        weeklyGlwRewardsUsd?: string;
-      }
-    | null
+    LaunchpadRewardScore | MiningCenterScore | null
   >(null);
 
   // Use query state for tab management with default to "launchpad"
@@ -68,17 +63,7 @@ export default function GlowLaunchpadPage() {
   function onPayDeposit(
     application: AuctionApplication,
     type: "launchpad" | "mining-center",
-    scoreData?:
-      | {
-          userWeeklyGlwRewards: string;
-          userWeeklyPdRewards: string;
-        }
-      | {
-          miningScore: number;
-          weeklyGlwRewards?: string;
-          weeklyGlwRewardsUsd?: string;
-        }
-      | null
+    scoreData?: LaunchpadRewardScore | MiningCenterScore | null
   ) {
     setSelectedApplicationForDeposit(application);
     setSelectedApplicationType(type);
@@ -218,17 +203,23 @@ export default function GlowLaunchpadPage() {
           </div>
 
           {/* Deposit Dialog */}
-          <DepositDialog
-            open={dialogOpen}
-            onOpenChange={setDialogOpen}
-            application={selectedApplicationForDeposit}
-            selectedCurrency={
-              selectedApplicationType === "mining-center"
-                ? "USDC" // Mining center uses USDC
-                : "GLW" // Launchpad uses GLW
-            }
-            rewardScore={selectedRewardScore}
-          />
+          {selectedApplicationType === "mining-center" ? (
+            <DepositDialog
+              open={dialogOpen}
+              onOpenChange={setDialogOpen}
+              application={selectedApplicationForDeposit}
+              selectedCurrency="USDC"
+              rewardScore={selectedRewardScore as MiningCenterScore | null}
+            />
+          ) : (
+            <DepositDialog
+              open={dialogOpen}
+              onOpenChange={setDialogOpen}
+              application={selectedApplicationForDeposit}
+              selectedCurrency="GLW"
+              rewardScore={selectedRewardScore as LaunchpadRewardScore | null}
+            />
+          )}
         </div>
       </div>
     </>

@@ -44,6 +44,7 @@ import { useAccount } from "wagmi";
 import { useFractionSplits } from "@/hooks/useFractionSplits";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SlidersHorizontal, X } from "lucide-react";
+import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 
 // Component to show owned fractions for a specific mining center application
 function OwnedFractionsDisplay({
@@ -289,12 +290,22 @@ export function MiningCenterView({ onPayDeposit }: MiningCenterViewProps) {
     },
   });
 
-  const { zones } = useAvailableZones(applications);
+  const { applications: allApplications } = useMiningCenter({
+    filters: {
+      sortBy: selectedSort,
+      sortOrder: selectedSortOrder,
+      paymentCurrency: selectedCurrency,
+    },
+  });
+
+  const { zones } = useAvailableZones(allApplications);
 
   const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
     applications,
     enabled: applications.length > 0,
   });
+
+  const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
 
   const filterBarProps = {
     selectedZoneId,
@@ -588,10 +599,9 @@ export function MiningCenterView({ onPayDeposit }: MiningCenterViewProps) {
                                     fontWeight: 600,
                                   }}
                                 >
-                                  {miningScoreData?.weeklyGlwRewards &&
-                                  application.activeFraction?.totalSteps
+                                  {miningScoreData?.weeklyGlwRewards
                                     ? (() => {
-                                        const totalRewards = parseFloat(
+                                        const rewardsPerMiner = parseFloat(
                                           formatUnits(
                                             BigInt(
                                               miningScoreData.weeklyGlwRewards
@@ -599,11 +609,8 @@ export function MiningCenterView({ onPayDeposit }: MiningCenterViewProps) {
                                             DECIMALS_BY_TOKEN["GLW"]
                                           )
                                         );
-                                        const totalShares =
-                                          application.activeFraction.totalSteps;
-                                        const rewardsPerShare =
-                                          totalRewards / totalShares;
-                                        return `${rewardsPerShare.toLocaleString(
+
+                                        return `${rewardsPerMiner.toLocaleString(
                                           undefined,
                                           {
                                             minimumFractionDigits: 2,
@@ -616,18 +623,20 @@ export function MiningCenterView({ onPayDeposit }: MiningCenterViewProps) {
                                     : "0 GLW"}
                                   <span className="text-base text-gray-500 dark:text-gray-500 ml-2 font-normal">
                                     ≈
-                                    {miningScoreData?.weeklyGlwRewardsUsd &&
-                                    application.activeFraction?.totalSteps
+                                    {miningScoreData?.weeklyGlwRewards &&
+                                    glwSpotPrice > 0
                                       ? (() => {
-                                          const totalUsd = parseFloat(
-                                            miningScoreData.weeklyGlwRewardsUsd
+                                          const rewardsPerMiner = parseFloat(
+                                            formatUnits(
+                                              BigInt(
+                                                miningScoreData.weeklyGlwRewards
+                                              ),
+                                              DECIMALS_BY_TOKEN["GLW"]
+                                            )
                                           );
-                                          const totalShares =
-                                            application.activeFraction
-                                              .totalSteps;
-                                          const usdPerShare =
-                                            totalUsd / totalShares;
-                                          return `$${usdPerShare.toLocaleString(
+                                          const usdPerMiner =
+                                            rewardsPerMiner * glwSpotPrice;
+                                          return `$${usdPerMiner.toLocaleString(
                                             undefined,
                                             {
                                               minimumFractionDigits: 2,

@@ -243,7 +243,15 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
     },
   });
 
-  const { zones } = useAvailableZones(applications);
+  const { applications: allApplications } = useGlowLaunchpad({
+    filters: {
+      sortBy: selectedSort,
+      sortOrder: selectedSortOrder,
+      paymentCurrency: selectedCurrency,
+    },
+  });
+
+  const { zones } = useAvailableZones(allApplications);
 
   const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
     applications,
@@ -251,7 +259,6 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
     enabled: applications.length > 0,
     walletAddress: address || null,
   });
-  console.log(rewardScoreMap);
 
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
 
@@ -712,7 +719,7 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                                             DECIMALS_BY_TOKEN["GLW"]
                                           )
                                         );
-                                        console.log({ glwRewards });
+
                                         const pdRewards = parseFloat(
                                           formatUnits(
                                             BigInt(

@@ -28,24 +28,34 @@ import { useFractionSplits } from "@/hooks/useFractionSplits";
 import Decimal from "decimal.js";
 import Link from "next/link";
 
-interface DepositDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  application: AuctionApplication | null;
-  selectedCurrency: "GLW" | "USDC"; // GLW for launchpad, USDC for mining center
-  rewardScore?:
-    | {
-        userWeeklyGlwRewards: string;
-        userWeeklyPdRewards: string;
-      }
-    | {
-        miningScore: number;
-        weeklyGlwRewards?: string;
-        weeklyGlwRewardsUsd?: string;
-      }
-    | null;
-  onSuccess?: () => void;
-}
+export type LaunchpadRewardScore = {
+  userWeeklyGlwRewards: string;
+  userWeeklyPdRewards: string;
+};
+
+export type MiningCenterScore = {
+  miningScore: number;
+  weeklyGlwRewards?: string;
+  weeklyGlwRewardsUsd?: string;
+};
+
+type DepositDialogProps =
+  | {
+      open: boolean;
+      onOpenChange: (open: boolean) => void;
+      application: AuctionApplication | null;
+      selectedCurrency: "GLW";
+      rewardScore?: LaunchpadRewardScore | null;
+      onSuccess?: () => void;
+    }
+  | {
+      open: boolean;
+      onOpenChange: (open: boolean) => void;
+      application: AuctionApplication | null;
+      selectedCurrency: "USDC";
+      rewardScore?: MiningCenterScore | null;
+      onSuccess?: () => void;
+    };
 
 // const QUOTE_LOCK_MINUTES = 60;
 
@@ -535,11 +545,11 @@ export function DepositDialog({
                 DECIMALS_BY_TOKEN["GLW"]
               )
             );
-            glwPerShare = totalGlw / totalShares;
+            glwPerShare = totalGlw;
           }
           if (rewardScore.weeklyGlwRewardsUsd) {
             const totalUsd = parseFloat(rewardScore.weeklyGlwRewardsUsd);
-            usdPerShare = totalUsd / totalShares;
+            usdPerShare = totalUsd;
           }
         }
 
