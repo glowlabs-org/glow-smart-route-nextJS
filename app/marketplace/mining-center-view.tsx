@@ -454,8 +454,8 @@ export function MiningCenterView({ onPayDeposit }: MiningCenterViewProps) {
                   }}
                 >
                   {selectedZoneId
-                    ? "No mining centers in this zone"
-                    : "No mining centers available"}
+                    ? "No miners in this zone"
+                    : "No miners available"}
                 </h3>
                 <p className="text-muted-foreground text-sm">
                   {selectedZoneId

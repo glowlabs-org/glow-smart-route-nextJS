@@ -11,11 +11,13 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    Sentry.captureException(error);
+    if (typeof window !== "undefined") {
+      Sentry.captureException(error);
+    }
   }, [error]);
 
   return (
-    <html>
+    <html suppressHydrationWarning>
       <body className="min-h-screen flex items-center justify-center">
         <div className="text-center px-6 py-4">
           <h2 className="text-lg font-semibold">Something went wrong</h2>

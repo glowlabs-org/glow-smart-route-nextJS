@@ -38,6 +38,7 @@ import {
   useRewardScore,
   getRewardScoreForApplication,
 } from "@/hooks/useRewardScore";
+import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowSymbol } from "@/components/glow-symbol";
@@ -211,7 +212,6 @@ interface LaunchpadViewProps {
     rewardScore?: {
       userWeeklyGlwRewards: string;
       userWeeklyPdRewards: string;
-      userEstimatedWeeklyCash: string;
     } | null
   ) => void;
 }
@@ -252,6 +252,8 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
     walletAddress: address || null,
   });
   console.log(rewardScoreMap);
+
+  const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
 
   const filterBarProps = {
     selectedZoneId,
@@ -587,10 +589,10 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                               fontWeight: 300,
                             }}
                           >
-                            {application.activeFraction?.rewardScore
-                              ? application.activeFraction.rewardScore.toFixed(
-                                  0
-                                )
+                            {rewardScore?.rewardScore
+                              ? rewardScore.rewardScore.toFixed(0)
+                              : isRewardScoresLoading
+                              ? "..."
                               : "0"}
                           </div>
                           <div
@@ -710,6 +712,7 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                                             DECIMALS_BY_TOKEN["GLW"]
                                           )
                                         );
+                                        console.log({ glwRewards });
                                         const pdRewards = parseFloat(
                                           formatUnits(
                                             BigInt(
@@ -718,6 +721,7 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                                             DECIMALS_BY_TOKEN["GLW"] // Assuming PD rewards are also in GLW
                                           )
                                         );
+
                                         const totalRewards =
                                           glwRewards + pdRewards;
                                         const totalShares =
@@ -737,22 +741,36 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                                     : "0 GLW"}
                                   <span className="text-base text-gray-500 dark:text-gray-500 ml-2 font-normal">
                                     ≈
-                                    {rewardScore?.userEstimatedWeeklyCash &&
-                                    application.activeFraction?.totalSteps
+                                    {rewardScore?.userWeeklyGlwRewards &&
+                                    rewardScore?.userWeeklyPdRewards &&
+                                    application.activeFraction?.totalSteps &&
+                                    glwSpotPrice > 0
                                       ? (() => {
-                                          const totalCash = parseFloat(
+                                          const glwRewards = parseFloat(
                                             formatUnits(
                                               BigInt(
-                                                rewardScore.userEstimatedWeeklyCash
+                                                rewardScore.userWeeklyGlwRewards
                                               ),
-                                              6 // USDC decimals for cash estimates
+                                              DECIMALS_BY_TOKEN["GLW"]
                                             )
                                           );
+                                          const pdRewards = parseFloat(
+                                            formatUnits(
+                                              BigInt(
+                                                rewardScore.userWeeklyPdRewards
+                                              ),
+                                              DECIMALS_BY_TOKEN["GLW"]
+                                            )
+                                          );
+                                          const totalRewards =
+                                            glwRewards + pdRewards;
                                           const totalShares =
                                             application.activeFraction
                                               .totalSteps;
+                                          const rewardsPerShare =
+                                            totalRewards / totalShares;
                                           const cashPerShare =
-                                            totalCash / totalShares;
+                                            rewardsPerShare * glwSpotPrice;
                                           return `$${cashPerShare.toLocaleString(
                                             undefined,
                                             {
@@ -861,7 +879,7 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
                               : (application.activeFraction?.remainingSteps ||
                                   0) <= 0
                               ? "None Available"
-                              : "Delegate"}
+                              : "Delegate GLW"}
                           </span>
                         </Button>
                       </div>

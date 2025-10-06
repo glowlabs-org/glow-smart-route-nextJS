@@ -12,47 +12,51 @@ if (
   throw new Error("Missing environment variables");
 }
 
-Sentry.init({
-  dsn: "https://1334fda901e8976224deb1286b64c68f@o4507374658846720.ingest.us.sentry.io/4510134559375360",
+if (typeof window !== "undefined") {
+  Sentry.init({
+    dsn: "https://1334fda901e8976224deb1286b64c68f@o4507374658846720.ingest.us.sentry.io/4510134559375360",
 
-  // Add optional integrations for additional features
-  integrations: [
-    Sentry.replayIntegration({
-      networkDetailAllowUrls: [
-        process.env.NEXT_PUBLIC_CONTROL_API_URL,
-        process.env.NEXT_PUBLIC_HUB_URL,
-      ],
-      networkRequestHeaders: ["Authorization"],
-      networkResponseHeaders: ["Authorization"],
-      maskAllText: false,
-      blockAllMedia: false,
-    }),
-  ],
+    // Add optional integrations for additional features
+    integrations: [
+      Sentry.replayIntegration({
+        networkDetailAllowUrls: [
+          process.env.NEXT_PUBLIC_CONTROL_API_URL,
+          process.env.NEXT_PUBLIC_HUB_URL,
+        ],
+        networkRequestHeaders: ["Authorization"],
+        networkResponseHeaders: ["Authorization"],
+        maskAllText: false,
+        blockAllMedia: false,
+      }),
+    ],
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
-  // Enable logs to be sent to Sentry
-  enableLogs: true,
+    // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
+    tracesSampleRate: 1,
+    // Enable logs to be sent to Sentry
+    enableLogs: true,
 
-  // Define how likely Replay events are sampled.
-  // This sets the sample rate to be 10%. You may want this to be 100% while
-  // in development and sample at a lower rate in production
-  replaysSessionSampleRate: 0.1,
+    // Define how likely Replay events are sampled.
+    // This sets the sample rate to be 10%. You may want this to be 100% while
+    // in development and sample at a lower rate in production
+    replaysSessionSampleRate: 0.1,
 
-  // Define how likely Replay events are sampled when an error occurs.
-  replaysOnErrorSampleRate: 1.0,
+    // Define how likely Replay events are sampled when an error occurs.
+    replaysOnErrorSampleRate: 1.0,
 
-  // Setting this option to true will print useful information to the console while you're setting up Sentry.
-  debug: false,
-});
+    // Setting this option to true will print useful information to the console while you're setting up Sentry.
+    debug: false,
+  });
 
-configureSentry({
-  enabled: true,
-  client: Sentry as unknown as Parameters<typeof configureSentry>[0]["client"],
-  defaultContext: {
-    app: "web",
-    env: process.env.NEXT_PUBLIC_CHAIN_ID === "1" ? "mainnet" : "sepolia",
-  },
-});
+  configureSentry({
+    enabled: true,
+    client: Sentry as unknown as Parameters<
+      typeof configureSentry
+    >[0]["client"],
+    defaultContext: {
+      app: "web",
+      env: process.env.NEXT_PUBLIC_CHAIN_ID === "1" ? "mainnet" : "sepolia",
+    },
+  });
+}
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

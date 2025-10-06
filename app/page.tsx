@@ -29,7 +29,6 @@ export default function GlowLaunchpadPage() {
     | {
         userWeeklyGlwRewards: string;
         userWeeklyPdRewards: string;
-        userEstimatedWeeklyCash: string;
       }
     | {
         miningScore: number;
@@ -73,7 +72,6 @@ export default function GlowLaunchpadPage() {
       | {
           userWeeklyGlwRewards: string;
           userWeeklyPdRewards: string;
-          userEstimatedWeeklyCash: string;
         }
       | {
           miningScore: number;

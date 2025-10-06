@@ -19,6 +19,7 @@ import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useAccount, useWalletClient } from "wagmi";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { ConnectButton } from "@/components/connect-button";
+import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import {
   useSponsorApplication,
   type AuctionApplication,
@@ -36,7 +37,6 @@ interface DepositDialogProps {
     | {
         userWeeklyGlwRewards: string;
         userWeeklyPdRewards: string;
-        userEstimatedWeeklyCash: string;
       }
     | {
         miningScore: number;
@@ -81,6 +81,7 @@ export function DepositDialog({
   const [signerAddress, setSignerAddress] = React.useState<
     string | undefined
   >();
+  const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
 
   React.useEffect(() => {
     if (signer) {
@@ -524,11 +525,7 @@ export function DepositDialog({
           );
           const totalGlw = glwRewards + pdRewards;
           glwPerShare = totalGlw / totalShares;
-
-          const totalUsd = parseFloat(
-            formatUnits(BigInt(rewardScore.userEstimatedWeeklyCash || "0"), 6)
-          );
-          usdPerShare = totalUsd / totalShares;
+          usdPerShare = glwPerShare * glwSpotPrice;
         } else if ("miningScore" in rewardScore) {
           // Mining score from mining center
           if (rewardScore.weeklyGlwRewards) {
@@ -559,7 +556,7 @@ export function DepositDialog({
           estimatedWeeklyUsdForSelection: null,
         };
       }
-    }, [application?.activeFraction, rewardScore, stepsToBuy]);
+    }, [application?.activeFraction, rewardScore, stepsToBuy, glwSpotPrice]);
 
   // Early return conditions - check these in render
   if (!application) return null;
@@ -917,7 +914,7 @@ export function DepositDialog({
           <div className="my-6 p-4 bg-accent/5 border-2 border-accent/20 rounded-xl">
             <div className="flex items-center justify-between">
               <span className="text-base font-semibold text-foreground">
-                Total Cost
+                Total {currency === "USDC" ? "Cost" : "Delegation"}
               </span>
               <div className="text-right">
                 <span className="text-xl font-bold text-foreground">
