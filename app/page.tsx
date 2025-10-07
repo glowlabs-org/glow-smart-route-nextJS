@@ -151,6 +151,15 @@ export default function GlowLaunchpadPage() {
                       GlowSwap
                     </Button>
                   </Link>
+                  <Link href="/wallet" className="hidden md:block">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="md:h-10 w-full"
+                    >
+                      My Wallet
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </div>
