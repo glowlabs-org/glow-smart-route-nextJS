@@ -170,18 +170,49 @@ export function SponsoredFarmsActivity({
             })()}
           </div>
         </div>
-        <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-            {fractionType === "mining-center"
-              ? "Miners"
-              : fractionType === "launchpad"
-              ? "Farms"
-              : "Farms"}
+        {fractionType === "mining-center" ? (
+          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
+            <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+              Miners
+            </div>
+            <div className="text-2xl font-semibold text-black dark:text-white">
+              {formatNumber(summary.uniqueFractions, 0)}
+            </div>
           </div>
-          <div className="text-2xl font-semibold text-black dark:text-white">
-            {formatNumber(summary.uniqueFractions, 0)}
+        ) : fractionType === "launchpad" ? (
+          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
+            <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+              Farms
+            </div>
+            <div className="text-2xl font-semibold text-black dark:text-white">
+              {formatNumber(summary.uniqueFractions, 0)}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
+            <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+              USDC Spent by Miners
+            </div>
+            <div className="text-2xl font-semibold text-black dark:text-white">
+              {(() => {
+                const usdc = activity
+                  .filter((p) => p.fractionType === "mining-center")
+                  .reduce((sum, p) => {
+                    const value = parseFloat(
+                      formatUnits(BigInt(p.totalValue), 6)
+                    );
+                    return sum + value;
+                  }, 0);
+                return (
+                  <>
+                    {formatNumber(usdc, 0)}{" "}
+                    <span className="text-lg font-normal">USDC</span>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Activity Table */}

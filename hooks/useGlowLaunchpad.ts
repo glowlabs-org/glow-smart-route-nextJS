@@ -379,7 +379,7 @@ export function useSplitsActivity(params: UseSplitsActivityParams = {}) {
     enabled,
     staleTime: 2 * 60 * 1000, // 2 minutes - shorter than sponsored farms since this is more dynamic
     refetchOnWindowFocus: true,
-    refetchInterval: 30_000, // Refetch every 30 seconds for real-time activity
+    refetchInterval: 10_000, // Refetch every 10 seconds for real-time activity
   });
 
   return {
