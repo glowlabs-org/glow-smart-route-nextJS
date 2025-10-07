@@ -210,7 +210,7 @@ export function RecentActivity({
               {activity.amount} {activity.token}
             </span>
             <span className="text-muted-foreground">to</span>
-            <code className="text-xs bg-muted px-2 py-0.5 rounded">
+            <code className="text-xs bg-muted px-2 py-0.5 rounded break-all">
               {activity.to}
             </code>
           </div>
@@ -323,7 +323,7 @@ export function RecentActivity({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="max-h-[500px] pr-4">
+        <ScrollArea className="max-h-[800px] pr-4">
           {isLoading ? (
             <div className="space-y-4">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -357,8 +357,8 @@ export function RecentActivity({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-2 flex-1">
-                        <div className="text-sm md:text-base">
+                      <div className="space-y-2 flex-1 min-w-0">
+                        <div className="text-sm md:text-base break-words">
                           {getActivityDescription(activity)}
                         </div>
                         <div className="text-xs md:text-sm text-muted-foreground">
