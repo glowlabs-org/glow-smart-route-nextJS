@@ -105,6 +105,22 @@ export function DepositDialog({
     setQuantityInput(String(stepsToBuy));
   }, [stepsToBuy]);
 
+  // Clamp steps to available range when remaining steps changes
+  React.useEffect(() => {
+    if (!application?.activeFraction) return;
+    const maxSteps = application.activeFraction.remainingSteps ?? 0;
+    const minBound = maxSteps > 0 ? 1 : 0;
+    if (stepsToBuy > maxSteps || stepsToBuy < minBound) {
+      const clamped = Math.min(Math.max(stepsToBuy, minBound), maxSteps);
+      setStepsToBuy(clamped);
+      setQuantityInput(String(clamped));
+    }
+  }, [
+    application?.activeFraction?.remainingSteps,
+    application?.activeFraction,
+    stepsToBuy,
+  ]);
+
   const sponsorMutation = useSponsorApplication();
 
   // Initialize offchain fractions hook
@@ -636,24 +652,44 @@ export function DepositDialog({
                 type="number"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                min={1}
-                max={application.activeFraction?.remainingSteps || 1}
+                min={
+                  application.activeFraction?.remainingSteps &&
+                  application.activeFraction.remainingSteps > 0
+                    ? 1
+                    : 0
+                }
+                max={application.activeFraction?.remainingSteps ?? 0}
                 step={1}
                 className="h-8 w-16 text-center font-mono"
                 value={quantityInput}
                 onChange={(e) => {
                   const val = e.target.value;
-                  setQuantityInput(val);
-                  const parsed = parseInt(val, 10);
-                  if (!Number.isNaN(parsed)) {
-                    setStepsToBuy(parsed);
+                  if (val === "") {
+                    setQuantityInput(val);
+                    return;
                   }
+                  const parsed = parseInt(val, 10);
+                  if (Number.isNaN(parsed)) {
+                    setQuantityInput(val);
+                    return;
+                  }
+                  const maxSteps =
+                    application.activeFraction?.remainingSteps ?? 0;
+                  const minBound = maxSteps > 0 ? 1 : 0;
+                  const clamped = Math.min(
+                    Math.max(parsed, minBound),
+                    maxSteps
+                  );
+                  setQuantityInput(String(clamped));
+                  setStepsToBuy(clamped);
                 }}
                 onBlur={() => {
                   const maxSteps =
-                    application.activeFraction?.remainingSteps || 1;
+                    application.activeFraction?.remainingSteps ?? 0;
+                  const minBound = maxSteps > 0 ? 1 : 0;
                   let parsed = parseInt(quantityInput, 10);
-                  if (Number.isNaN(parsed) || parsed < 1) parsed = 1;
+                  if (Number.isNaN(parsed)) parsed = minBound;
+                  if (parsed < minBound) parsed = minBound;
                   if (parsed > maxSteps) parsed = maxSteps;
                   setStepsToBuy(parsed);
                   setQuantityInput(String(parsed));
