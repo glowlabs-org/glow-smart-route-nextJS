@@ -7,6 +7,7 @@ import {
 } from "@/components/dialogs/transaction-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { formatNumber } from "./utils";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -74,6 +75,7 @@ export function DepositDialog({
   // Use the selectedCurrency from props
   const currency = selectedCurrency;
   const [stepsToBuy, setStepsToBuy] = React.useState(1);
+  const [quantityInput, setQuantityInput] = React.useState<string>("1");
 
   // Transaction states
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -98,6 +100,10 @@ export function DepositDialog({
       signer.getAddress().then(setSignerAddress);
     }
   }, [signer]);
+
+  React.useEffect(() => {
+    setQuantityInput(String(stepsToBuy));
+  }, [stepsToBuy]);
 
   const sponsorMutation = useSponsorApplication();
 
@@ -626,9 +632,34 @@ export function DepositDialog({
               >
                 -
               </Button>
-              <span className="text-sm font-mono w-12 text-center">
-                {stepsToBuy}
-              </span>
+              <Input
+                type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                min={1}
+                max={application.activeFraction?.remainingSteps || 1}
+                step={1}
+                className="h-8 w-16 text-center font-mono"
+                value={quantityInput}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setQuantityInput(val);
+                  const parsed = parseInt(val, 10);
+                  if (!Number.isNaN(parsed)) {
+                    setStepsToBuy(parsed);
+                  }
+                }}
+                onBlur={() => {
+                  const maxSteps =
+                    application.activeFraction?.remainingSteps || 1;
+                  let parsed = parseInt(quantityInput, 10);
+                  if (Number.isNaN(parsed) || parsed < 1) parsed = 1;
+                  if (parsed > maxSteps) parsed = maxSteps;
+                  setStepsToBuy(parsed);
+                  setQuantityInput(String(parsed));
+                }}
+                disabled={isSubmitting}
+              />
               <Button
                 variant="outline"
                 size="sm"
