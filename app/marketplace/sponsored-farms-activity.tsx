@@ -44,7 +44,7 @@ export function SponsoredFarmsActivity({
     isError: fetchedIsError,
     error: fetchedError,
   } = useSplitsActivity({
-    limit: 50, // Show recent 50 purchases
+    limit: 100, // Show recent 50 purchases
     fractionType,
     walletAddress,
     enabled: !(activityOverride && summaryOverride),
