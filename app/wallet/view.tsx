@@ -305,23 +305,25 @@ export default function View() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-            <Button
-              size="default"
-              asChild
-              disabled={erc20Loading || isInitialLoading}
-              className="w-full sm:w-auto"
-            >
-              <Link href="/">Launchpad</Link>
-            </Button>
-            <Button
-              variant="outline"
-              size="default"
-              asChild
-              disabled={erc20Loading || isInitialLoading}
-              className="w-full sm:w-auto"
-            >
-              <Link href="/glow-swap">GlowSwap</Link>
-            </Button>
+            <Link href="/">
+              <Button
+                size="default"
+                disabled={erc20Loading || isInitialLoading}
+                className="w-full sm:w-auto"
+              >
+                Launchpad
+              </Button>
+            </Link>
+            <Link href="/glow-swap">
+              <Button
+                variant="outline"
+                size="default"
+                disabled={erc20Loading || isInitialLoading}
+                className="w-full sm:w-auto"
+              >
+                GlowSwap
+              </Button>
+            </Link>
           </div>
         </div>
 
