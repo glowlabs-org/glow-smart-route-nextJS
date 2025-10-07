@@ -61,8 +61,6 @@ import { useAccount } from "wagmi";
 import { useFractionSplits } from "@/hooks/useFractionSplits";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SlidersHorizontal, X } from "lucide-react";
-import { LaunchCountdown } from "@/components/launch-countdown";
-import { useSearchParams } from "next/navigation";
 
 // Component to show owned fractions for a specific application
 function OwnedFractionsDisplay({
@@ -930,40 +928,5 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
 }
 
 export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
-  const searchParams = useSearchParams();
-  // Compute today's 5:00 PM ET in the user's local timezone
-  const targetDate = React.useMemo(() => {
-    const now = new Date();
-    const nowInET = new Date(
-      now.toLocaleString("en-US", { timeZone: "America/New_York" })
-    );
-    const offsetMs = now.getTime() - nowInET.getTime();
-
-    const fivePmETLocal = new Date(nowInET);
-    fivePmETLocal.setHours(17, 0, 0, 0);
-
-    return new Date(fivePmETLocal.getTime() + offsetMs);
-  }, []);
-
-  const [now, setNow] = React.useState<number>(() => Date.now());
-
-  React.useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const bypassTimer = searchParams?.has("0xSimbo");
-  const isLaunched = bypassTimer || now >= targetDate.getTime();
-
-  if (!isLaunched) {
-    return (
-      <LaunchCountdown
-        target={targetDate}
-        title="Technical Difficulties have been resolved."
-        subtitle="We'll be live at 5pm ET"
-      />
-    );
-  }
-
   return <LaunchpadViewContent onPayDeposit={onPayDeposit} />;
 }
