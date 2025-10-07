@@ -638,7 +638,7 @@ export function DepositDialog({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Quantity</span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Button
                 variant="outline"
                 size="sm"
@@ -649,18 +649,13 @@ export function DepositDialog({
                 -
               </Button>
               <Input
-                type="number"
+                type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                min={
-                  application.activeFraction?.remainingSteps &&
-                  application.activeFraction.remainingSteps > 0
-                    ? 1
-                    : 0
-                }
-                max={application.activeFraction?.remainingSteps ?? 0}
-                step={1}
-                className="h-8 w-16 text-center font-mono"
+                autoComplete="off"
+                enterKeyHint="done"
+                aria-label="Quantity"
+                className="h-10 w-24 text-center font-mono"
                 value={quantityInput}
                 onChange={(e) => {
                   const val = e.target.value;
