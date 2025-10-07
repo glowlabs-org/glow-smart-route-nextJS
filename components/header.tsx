@@ -36,7 +36,7 @@ import {
   useChainId,
   useSwitchChain,
 } from "wagmi";
-import { mainnet } from "wagmi/chains";
+import { mainnet, sepolia } from "wagmi/chains";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
@@ -124,8 +124,13 @@ export function Header({
 
   const handleSwitchToMainnet = async () => {
     try {
-      await switchChain({ chainId: mainnet.id });
-      toast.success("Switched to Ethereum Mainnet");
+      if (process.env.NEXT_PUBLIC_CHAIN_ID === "1") {
+        await switchChain({ chainId: mainnet.id });
+        toast.success("Switched to Ethereum Mainnet");
+      } else {
+        await switchChain({ chainId: sepolia.id });
+        toast.success("Switched to Sepolia Testnet");
+      }
     } catch (error: any) {
       console.error("Failed to switch network:", error);
       toast.error(error?.message || "Failed to switch network");

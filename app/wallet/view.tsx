@@ -50,6 +50,8 @@ import { MigrationClaimPanel } from "./migration-claim-panel";
 import { forceDisconnect } from "@/utils/forceDisconnect";
 import { useLiquidityPositions } from "@/hooks/useLiquidityPositions";
 import Link from "next/link";
+import { Progress } from "@/components/ui/progress";
+import { useGlowLaunchpad, useSplitsActivity } from "@/hooks/useGlowLaunchpad";
 
 // Image proxy helper for optimized caching with compression
 function getProxiedImageUrl(url: string, width?: number, quality: number = 75) {
@@ -140,6 +142,57 @@ export default function View() {
     walletAddress: address,
     enabled: isConnected,
   });
+
+  // User launchpad sponsorship activity (fractions) and sponsor listings
+  const { activity: splitsActivity, isLoading: isSplitsLoading } =
+    useSplitsActivity({
+      walletAddress: address,
+      fractionType: "launchpad",
+      enabled: Boolean(isConnected && address),
+      limit: 100,
+    });
+
+  const { applications: sponsorListings, isLoading: isSponsorListingsLoading } =
+    useGlowLaunchpad({ enabled: true });
+
+  // Compute sponsorships that are not yet filled, grouped by application
+  const sponsorshipsInProgress = React.useMemo(() => {
+    if (!splitsActivity || splitsActivity.length === 0)
+      return [] as Array<{
+        applicationId: string;
+        application: any | null;
+        userSteps: number;
+        progressPercent: number;
+      }>;
+
+    const byApp = new Map<
+      string,
+      { application: any | null; userSteps: number; progressPercent: number }
+    >();
+
+    for (const evt of splitsActivity) {
+      if (evt.fractionType !== "launchpad") continue;
+      const app = sponsorListings.find((a: any) => a.id === evt.applicationId);
+      const isFilled = app?.activeFraction?.isFilled ?? evt.isFilled;
+      if (isFilled) continue;
+
+      const key = evt.applicationId;
+      const existing = byApp.get(key);
+      const progress =
+        app?.activeFraction?.progressPercent ?? evt.progressPercent ?? 0;
+      const next = {
+        application: app || null,
+        userSteps: (existing?.userSteps || 0) + (evt.stepsPurchased || 0),
+        progressPercent: progress,
+      };
+      byApp.set(key, next);
+    }
+
+    return Array.from(byApp.entries()).map(([applicationId, data]) => ({
+      applicationId,
+      ...data,
+    }));
+  }, [splitsActivity, sponsorListings]);
 
   // Helper functions to format balances
   function formatBalance(
@@ -672,6 +725,84 @@ export default function View() {
 
             {/* F. Refund Claims Panel */}
             <RefundClaimsPanel walletAddress={address} />
+
+            {/* G. Sponsorships In Progress */}
+            {sponsorshipsInProgress.length > 0 && (
+              <Card className="mb-8">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-2xl font-bold">
+                    Sponsorships In Progress
+                  </CardTitle>
+                  <CardDescription className="text-base mt-2">
+                    Sponsor listings you've delegated to that are not yet filled
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                    {sponsorshipsInProgress.map((item, idx) => {
+                      const app = item.application;
+                      const zoneName = app?.zone?.name || "Launchpad";
+                      const mainImg =
+                        app?.afterInstallPictures?.[0]?.url ||
+                        "/images/sections/residential.jpg";
+                      const remainingSteps =
+                        app?.activeFraction?.remainingSteps ?? null;
+                      const totalSteps =
+                        app?.activeFraction?.totalSteps ?? null;
+                      const progress = Math.max(
+                        0,
+                        Math.min(100, Number(item.progressPercent || 0))
+                      );
+
+                      return (
+                        <Card
+                          key={item.applicationId || idx}
+                          className="bg-white dark:bg-black rounded-2xl border transition-all duration-200 overflow-hidden pt-0"
+                        >
+                          <CardContent className="p-0">
+                            <div className="relative">
+                              <div className="absolute top-3 left-3 z-10">
+                                <div className="bg-black/80 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-medium">
+                                  {zoneName}
+                                </div>
+                              </div>
+                              <img
+                                src={getProxiedImageUrl(mainImg, 800, 70)}
+                                alt={`${zoneName} main`}
+                                className="w-full h-48 object-cover"
+                                loading={idx < 3 ? "eager" : "lazy"}
+                                decoding="async"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                            </div>
+
+                            <div className="p-5 md:p-6 space-y-4">
+                              <div className="space-y-1">
+                                {typeof totalSteps === "number" &&
+                                  typeof remainingSteps === "number" && (
+                                    <p className="text-sm text-muted-foreground">
+                                      {totalSteps - remainingSteps} /{" "}
+                                      {totalSteps} filled
+                                    </p>
+                                  )}
+                              </div>
+
+                              <div className="space-y-2">
+                                <Progress value={progress} />
+                                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                                  <span>{progress}% filled</span>
+                                  <span>Your steps: {item.userSteps}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* G. Farms Earning Rewards */}
             {purchasedFarms.length > 0 && (
