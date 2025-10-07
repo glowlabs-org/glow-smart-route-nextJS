@@ -763,7 +763,7 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
 }
 
 export function MiningCenterView({ onPayDeposit }: MiningCenterViewProps) {
-  const targetDate = React.useMemo(() => new Date("2025-10-06T20:00:00Z"), []);
+  const targetDate = React.useMemo(() => new Date("2025-10-07T20:00:00Z"), []);
   const [now, setNow] = React.useState<number>(() => Date.now());
 
   React.useEffect(() => {

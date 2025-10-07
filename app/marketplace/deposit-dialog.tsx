@@ -688,22 +688,33 @@ export function DepositDialog({
             <div className="text-xs text-muted-foreground">
               Max: {application.activeFraction.remainingSteps} available
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setStepsToBuy(application.activeFraction?.remainingSteps || 1)
-              }
-              disabled={
-                stepsToBuy >=
-                  (application.activeFraction?.remainingSteps || 0) ||
-                isSubmitting ||
-                (application.activeFraction?.remainingSteps || 0) <= 0
-              }
-              className="h-7 px-2 py-0 text-xs"
-            >
-              Max
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setStepsToBuy(1)}
+                disabled={stepsToBuy <= 1 || isSubmitting}
+                className="h-7 px-2 py-0 text-xs"
+              >
+                Min
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setStepsToBuy(application.activeFraction?.remainingSteps || 1)
+                }
+                disabled={
+                  stepsToBuy >=
+                    (application.activeFraction?.remainingSteps || 0) ||
+                  isSubmitting ||
+                  (application.activeFraction?.remainingSteps || 0) <= 0
+                }
+                className="h-7 px-2 py-0 text-xs"
+              >
+                Max
+              </Button>
+            </div>
           </div>
         </div>
       ) : (

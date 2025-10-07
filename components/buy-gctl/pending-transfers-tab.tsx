@@ -68,8 +68,8 @@ function CopyableAddress({
 
   const etherscanUrl =
     type === "tx"
-      ? `https://sepolia.etherscan.io/tx/${address}`
-      : `https://sepolia.etherscan.io/address/${address}`;
+      ? `https://etherscan.io/tx/${address}`
+      : `https://etherscan.io/address/${address}`;
 
   const displayText =
     type === "tx"

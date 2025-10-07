@@ -299,7 +299,7 @@ export function ProcessingModal({
                     Explorer
                   </span>
                   <a
-                    href={`https://sepolia.etherscan.io/tx/${trackingTxHash}`}
+                    href={`https://etherscan.io/tx/${trackingTxHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center space-x-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"

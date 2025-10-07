@@ -41,7 +41,7 @@ export function Account() {
       const explorerUrl =
         chainId === 1
           ? `https://etherscan.io/address/${address}`
-          : `https://sepolia.etherscan.io/address/${address}`;
+          : `https://etherscan.io/address/${address}`;
       window.open(explorerUrl, "_blank", "noopener,noreferrer");
     }
   };
