@@ -82,7 +82,7 @@ export function SuccessState({
         <div className="flex justify-between items-center">
           <span className="text-muted-foreground text-sm">Network</span>
           <span className="text-foreground text-sm font-medium">
-            Ethereum Sepolia
+            Ethereum Mainnet
           </span>
         </div>
 
