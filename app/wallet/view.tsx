@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -39,19 +40,24 @@ import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { SendDialog } from "@/components/send-dialog";
 import { UsdcToTokenDialog } from "@/components/usdc-to-token-dialog";
 import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
+import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { addresses, SDKAddresses } from "@/web3/constants/addresses";
 import { useWalletFarms } from "@/hooks/useWalletFarms";
 import { useWallets } from "@/hooks/useWallets";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRegions } from "@/hooks/useRegions";
-import { RecentActivity } from "./recent-activity";
 import { RefundClaimsPanel } from "./refund-claims-panel";
 import { MigrationClaimPanel } from "./migration-claim-panel";
 import { forceDisconnect } from "@/utils/forceDisconnect";
-import { useLiquidityPositions } from "@/hooks/useLiquidityPositions";
 import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
 import { useGlowLaunchpad, useSplitsActivity } from "@/hooks/useGlowLaunchpad";
+
+// Lazy-load RecentActivity to defer its network work off the critical path
+const RecentActivity = dynamic(
+  () => import("./recent-activity").then((m) => m.RecentActivity),
+  { ssr: false }
+);
 
 // Image proxy helper for optimized caching with compression
 function getProxiedImageUrl(url: string, width?: number, quality: number = 75) {
@@ -121,8 +127,8 @@ export default function View() {
     isGlwPriceLoading,
   } = useGctlApi(address);
 
-  // Liquidity positions for spot price
-  const { priceRatio: glowSpotPrice } = useLiquidityPositions();
+  // Lightweight GLW spot price
+  const { spotPrice: glowSpotPrice } = useGlowSpotPrice();
 
   // Wallet farms (purchased farms)
   const {
@@ -137,11 +143,12 @@ export default function View() {
   // Regions data for mapping region IDs to names
   const { regions } = useRegions();
 
-  // Migration data
-  const { migrationData, isMigrationLoading, migrationError } = useWallets({
-    walletAddress: address,
-    enabled: isConnected,
-  });
+  // Migration data and wallet details (includes staked GCTL)
+  const { migrationData, isMigrationLoading, migrationError, walletDetails } =
+    useWallets({
+      walletAddress: address,
+      enabled: isConnected,
+    });
 
   // User launchpad sponsorship activity (fractions) and sponsor listings
   const { activity: splitsActivity, isLoading: isSplitsLoading } =
@@ -152,8 +159,11 @@ export default function View() {
       limit: 100,
     });
 
-  const { applications: sponsorListings, isLoading: isSponsorListingsLoading } =
-    useGlowLaunchpad({ enabled: true });
+  const { applications: sponsorListings } = useGlowLaunchpad({
+    enabled: Boolean(
+      isConnected && address && splitsActivity && splitsActivity.length > 0
+    ),
+  });
 
   // Compute sponsorships that are not yet filled, grouped by application
   const sponsorshipsInProgress = React.useMemo(() => {
@@ -340,8 +350,7 @@ export default function View() {
   const hasNetworkIssues = erc20HasError || (!hasSigner && isConnected);
 
   // Determine if we're in initial loading state
-  const isInitialLoading =
-    !erc20Ready || isGctlBalanceLoading || isPurchasedFarmsLoading;
+  const isInitialLoading = !erc20Ready;
 
   return (
     <div className="min-h-screen bg-background">
@@ -665,42 +674,52 @@ export default function View() {
               )}
 
               {/* GCTL Card - Show if has balance */}
-              {hasGctl && (
-                <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-xl md:text-2xl font-semibold">
-                      GCTL
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="text-3xl font-bold tracking-tight">
-                      {hasNetworkIssues ? "0.00" : formattedBalances.gctl}
-                      {hasNetworkIssues && (
-                        <span className="text-xs text-yellow-600 dark:text-yellow-400 ml-2 font-normal">
-                          (Network Issue)
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="default"
-                        variant="outline"
-                        onClick={() => {
-                          window.open(
-                            "https://impact.glow.org",
-                            "_blank",
-                            "noopener,noreferrer"
-                          );
-                        }}
-                        className="w-full sm:w-auto"
-                      >
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Manage Staking
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              {hasGctl ||
+                (walletDetails?.stakedControl !== "0" && (
+                  <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-xl md:text-2xl font-semibold">
+                        GCTL
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <div className="text-3xl font-bold tracking-tight">
+                          {hasNetworkIssues ? "0.00" : formattedBalances.gctl}
+                          {hasNetworkIssues && (
+                            <span className="text-xs text-yellow-600 dark:text-yellow-400 ml-2 font-normal">
+                              (Network Issue)
+                            </span>
+                          )}
+                        </div>
+                        {!hasNetworkIssues && walletDetails?.stakedControl && (
+                          <div className="mt-2 text-sm text-muted-foreground">
+                            Staked:{" "}
+                            {formatGctlBalance(walletDetails.stakedControl)}{" "}
+                            GCTL
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="default"
+                          variant="outline"
+                          onClick={() => {
+                            window.open(
+                              "https://impact.glow.org",
+                              "_blank",
+                              "noopener,noreferrer"
+                            );
+                          }}
+                          className="w-full sm:w-auto"
+                        >
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          Manage Staking
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
             </div>
 
             {/* D. Claims Panel */}
@@ -791,7 +810,34 @@ export default function View() {
                                 <Progress value={progress} />
                                 <div className="flex items-center justify-between text-sm text-muted-foreground">
                                   <span>{progress}% filled</span>
-                                  <span>Your steps: {item.userSteps}</span>
+                                  <span>
+                                    Your delegations:{" "}
+                                    {(() => {
+                                      const stepAmount =
+                                        app?.activeFraction?.step;
+                                      if (!stepAmount)
+                                        return `${item.userSteps} steps`;
+                                      try {
+                                        const glwPerStep = parseFloat(
+                                          formatUnits(
+                                            BigInt(stepAmount),
+                                            DECIMALS_BY_TOKEN["GLW"]
+                                          )
+                                        );
+                                        const totalGLW =
+                                          glwPerStep * item.userSteps;
+                                        return `${totalGLW.toLocaleString(
+                                          undefined,
+                                          {
+                                            minimumFractionDigits: 0,
+                                            maximumFractionDigits: 0,
+                                          }
+                                        )} GLW`;
+                                      } catch {
+                                        return `${item.userSteps} steps`;
+                                      }
+                                    })()}
+                                  </span>
                                 </div>
                               </div>
                             </div>

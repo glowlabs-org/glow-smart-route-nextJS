@@ -61,6 +61,7 @@ import { useAccount } from "wagmi";
 import { useFractionSplits } from "@/hooks/useFractionSplits";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SlidersHorizontal, X } from "lucide-react";
+import { HowItWorks } from "@/components/how-it-works";
 
 // Component to show owned fractions for a specific application
 function OwnedFractionsDisplay({
@@ -923,6 +924,19 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
           </div>
         )}
       </div>
+
+      <HowItWorks
+        featuredCasestudy={{
+          tags: "GUIDES",
+          title: "A Guide to Delegating GLW",
+          subtitle:
+            "How token holders earn rewards by delegating their GLW to solar farms",
+          image: `https://glow.org/_next/image?url=${encodeURIComponent(
+            "/images/blog/guide-to-delegating-glow/header.jpg"
+          )}&w=3840&q=75`,
+          link: "https://glow.org/blog/guide-to-delegating-glow",
+        }}
+      />
     </div>
   );
 }

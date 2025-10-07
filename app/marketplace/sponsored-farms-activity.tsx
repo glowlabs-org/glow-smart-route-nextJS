@@ -16,22 +16,45 @@ import { formatNumber } from "./utils";
 import {
   useSplitsActivity,
   type SplitActivity,
+  type SplitsActivityResponse,
 } from "@/hooks/useGlowLaunchpad";
 import { cn } from "@/lib/utils";
 
 interface SponsoredFarmsActivityProps {
   className?: string;
   fractionType?: "mining-center" | "launchpad";
+  activityOverride?: SplitActivity[];
+  summaryOverride?: SplitsActivityResponse["summary"];
+  isLoadingOverride?: boolean;
+  walletAddress?: string;
 }
 
 export function SponsoredFarmsActivity({
   className,
   fractionType,
+  activityOverride,
+  summaryOverride,
+  isLoadingOverride,
+  walletAddress,
 }: SponsoredFarmsActivityProps) {
-  const { activity, summary, isLoading, isError, error } = useSplitsActivity({
+  const {
+    activity: fetchedActivity,
+    summary: fetchedSummary,
+    isLoading: fetchedIsLoading,
+    isError: fetchedIsError,
+    error: fetchedError,
+  } = useSplitsActivity({
     limit: 50, // Show recent 50 purchases
     fractionType,
+    walletAddress,
+    enabled: !(activityOverride && summaryOverride),
   });
+
+  const activity = activityOverride ?? fetchedActivity;
+  const summary = summaryOverride ?? fetchedSummary;
+  const isLoading = isLoadingOverride ?? fetchedIsLoading;
+  const isError = fetchedIsError && !(activityOverride && summaryOverride);
+  const error = fetchedError;
 
   // Determine if we should show reward scores (only for launchpad)
   const showRewardScore = !fractionType || fractionType === "launchpad";
