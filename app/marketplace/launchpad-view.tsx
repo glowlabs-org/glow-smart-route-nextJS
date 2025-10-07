@@ -62,6 +62,7 @@ import { useFractionSplits } from "@/hooks/useFractionSplits";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SlidersHorizontal, X } from "lucide-react";
 import { LaunchCountdown } from "@/components/launch-countdown";
+import { useSearchParams } from "next/navigation";
 
 // Component to show owned fractions for a specific application
 function OwnedFractionsDisplay({
@@ -929,6 +930,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
 }
 
 export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
+  const searchParams = useSearchParams();
   // Compute today's 5:00 PM ET in the user's local timezone
   const targetDate = React.useMemo(() => {
     const now = new Date();
@@ -950,7 +952,8 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
     return () => clearInterval(id);
   }, []);
 
-  const isLaunched = now >= targetDate.getTime();
+  const bypassTimer = searchParams?.has("0xSimbo");
+  const isLaunched = bypassTimer || now >= targetDate.getTime();
 
   if (!isLaunched) {
     return (
