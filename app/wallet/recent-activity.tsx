@@ -27,7 +27,6 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useWallets } from "@/hooks/useWallets";
 import { useRegions } from "@/hooks/useRegions";
-import { useSplitsActivity } from "@/hooks/useGlowLaunchpad";
 import { formatUnits } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 
@@ -48,9 +47,13 @@ interface Activity {
 
 interface RecentActivityProps {
   walletAddress?: string;
+  splitsActivity: any[];
 }
 
-export function RecentActivity({ walletAddress }: RecentActivityProps) {
+export function RecentActivity({
+  walletAddress,
+  splitsActivity,
+}: RecentActivityProps) {
   // Fetch wallet events data
   const {
     mintedEvents,
@@ -62,14 +65,6 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
     enabled: Boolean(walletAddress),
     limit: 10, // Limit to recent 10 events
   });
-
-  // Fetch splits activity data
-  const { activity: splitsActivity, isLoading: isSplitsActivityLoading } =
-    useSplitsActivity({
-      walletAddress,
-      enabled: Boolean(walletAddress),
-      limit: 10, // Limit to recent 10 events
-    });
 
   // Fetch regions for mapping region IDs to names
   const { regions } = useRegions();
@@ -118,11 +113,14 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
 
     // Add splits activity (fraction purchases)
     splitsActivity.forEach((split) => {
+      const decimals =
+        DECIMALS_BY_TOKEN[split.currency as keyof typeof DECIMALS_BY_TOKEN] ||
+        18;
       allActivities.push({
         type: "fraction-purchase",
         time: new Date(split.timestamp * 1000).toLocaleDateString(),
         amount: parseFloat(
-          formatUnits(BigInt(split.amount), DECIMALS_BY_TOKEN[split.currency])
+          formatUnits(BigInt(split.amount), decimals)
         ).toLocaleString("en-US", {
           minimumFractionDigits: 0,
           maximumFractionDigits: 0,
@@ -143,8 +141,7 @@ export function RecentActivity({ walletAddress }: RecentActivityProps) {
     return allActivities.sort((a, b) => b.timestamp - a.timestamp);
   }, [mintedEvents, stakeEvents, splitsActivity, regions]);
 
-  const isLoading =
-    isMintedEventsLoading || isStakeEventsLoading || isSplitsActivityLoading;
+  const isLoading = isMintedEventsLoading || isStakeEventsLoading;
   const getActivityIcon = (type: string) => {
     switch (type) {
       case "swap":

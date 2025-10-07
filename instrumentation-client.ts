@@ -5,24 +5,25 @@
 import { configureSentry } from "@glowlabs-org/utils/browser";
 import * as Sentry from "@sentry/nextjs";
 
-if (
-  !process.env.NEXT_PUBLIC_CONTROL_API_URL ||
-  !process.env.NEXT_PUBLIC_HUB_URL
-) {
-  throw new Error("Missing environment variables");
+if (process.env.NODE_ENV === "production") {
+  if (
+    !process.env.NEXT_PUBLIC_CONTROL_API_URL ||
+    !process.env.NEXT_PUBLIC_HUB_URL
+  ) {
+    throw new Error("Missing environment variables");
+  }
 }
 
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
+  const controlApiUrl = process.env.NEXT_PUBLIC_CONTROL_API_URL!;
+  const hubUrl = process.env.NEXT_PUBLIC_HUB_URL!;
   Sentry.init({
     dsn: "https://1334fda901e8976224deb1286b64c68f@o4507374658846720.ingest.us.sentry.io/4510134559375360",
 
     // Add optional integrations for additional features
     integrations: [
       Sentry.replayIntegration({
-        networkDetailAllowUrls: [
-          process.env.NEXT_PUBLIC_CONTROL_API_URL,
-          process.env.NEXT_PUBLIC_HUB_URL,
-        ],
+        networkDetailAllowUrls: [controlApiUrl, hubUrl],
         networkRequestHeaders: ["Authorization"],
         networkResponseHeaders: ["Authorization"],
         maskAllText: false,
@@ -59,4 +60,7 @@ if (typeof window !== "undefined") {
   });
 }
 
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+export const onRouterTransitionStart =
+  process.env.NODE_ENV === "production"
+    ? Sentry.captureRouterTransitionStart
+    : (..._args: unknown[]) => {};

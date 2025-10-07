@@ -151,13 +151,11 @@ export default function View() {
     });
 
   // User launchpad sponsorship activity (fractions) and sponsor listings
-  const { activity: splitsActivity, isLoading: isSplitsLoading } =
-    useSplitsActivity({
-      walletAddress: address,
-      fractionType: "launchpad",
-      enabled: Boolean(isConnected && address),
-      limit: 100,
-    });
+  const { activity: splitsActivity } = useSplitsActivity({
+    walletAddress: address,
+    enabled: Boolean(isConnected && address),
+    limit: 100,
+  });
 
   const { applications: sponsorListings } = useGlowLaunchpad({
     enabled: Boolean(
@@ -198,10 +196,12 @@ export default function View() {
       byApp.set(key, next);
     }
 
-    return Array.from(byApp.entries()).map(([applicationId, data]) => ({
-      applicationId,
-      ...data,
-    }));
+    return Array.from(byApp.entries())
+      .map(([applicationId, data]) => ({
+        applicationId,
+        ...data,
+      }))
+      .filter((item) => item.userSteps > 0);
   }, [splitsActivity, sponsorListings]);
 
   // Helper functions to format balances
@@ -1007,7 +1007,10 @@ export default function View() {
             )}
 
             {/* H. Recent Activity */}
-            <RecentActivity walletAddress={address} />
+            <RecentActivity
+              walletAddress={address}
+              splitsActivity={splitsActivity || []}
+            />
           </>
         )}
       </div>
