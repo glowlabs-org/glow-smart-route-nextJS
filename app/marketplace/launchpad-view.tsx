@@ -61,7 +61,6 @@ import { useAccount } from "wagmi";
 import { useFractionSplits } from "@/hooks/useFractionSplits";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SlidersHorizontal, X } from "lucide-react";
-import { LaunchCountdown } from "@/components/launch-countdown";
 
 // Component to show owned fractions for a specific application
 function OwnedFractionsDisplay({
@@ -929,25 +928,5 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
 }
 
 export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
-  const targetDate = React.useMemo(() => new Date("2025-10-07T20:00:00Z"), []);
-  const [now, setNow] = React.useState<number>(() => Date.now());
-
-  React.useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const isLaunched = now >= targetDate.getTime();
-
-  if (!isLaunched) {
-    return (
-      <LaunchCountdown
-        target={targetDate}
-        title="Launchpad Launch"
-        subtitle="Delegation opens soon. Get ready to allocate your GLW."
-      />
-    );
-  }
-
   return <LaunchpadViewContent onPayDeposit={onPayDeposit} />;
 }

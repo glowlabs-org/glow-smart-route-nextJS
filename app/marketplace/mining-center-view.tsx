@@ -58,7 +58,6 @@ import { useFractionSplits } from "@/hooks/useFractionSplits";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SlidersHorizontal, X } from "lucide-react";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
-import { LaunchCountdown } from "@/components/launch-countdown";
 
 // Component to show owned fractions for a specific mining center application
 function OwnedFractionsDisplay({
@@ -763,25 +762,5 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
 }
 
 export function MiningCenterView({ onPayDeposit }: MiningCenterViewProps) {
-  const targetDate = React.useMemo(() => new Date("2025-10-07T20:00:00Z"), []);
-  const [now, setNow] = React.useState<number>(() => Date.now());
-
-  React.useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const isLaunched = now >= targetDate.getTime();
-
-  if (!isLaunched) {
-    return (
-      <LaunchCountdown
-        target={targetDate}
-        title="Mining Center Launch"
-        subtitle="Buy miners soon. Check back at launch."
-      />
-    );
-  }
-
   return <MiningCenterViewContent onPayDeposit={onPayDeposit} />;
 }
