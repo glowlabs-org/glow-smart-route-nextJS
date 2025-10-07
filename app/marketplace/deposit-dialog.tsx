@@ -299,39 +299,6 @@ export function DepositDialog({
         );
       }
 
-      // Check and approve token allowance if needed
-      const currentAllowance = await fractions.checkTokenAllowance(
-        userAddress,
-        tokenAddress
-      );
-
-      if (currentAllowance < totalNeeded) {
-        try {
-          await fractions.approveToken(tokenAddress, totalNeeded);
-
-          // Wait a bit for approval to be indexed
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-
-          // Verify approval was successful
-          const newAllowance = await fractions.checkTokenAllowance(
-            userAddress,
-            tokenAddress
-          );
-
-          if (newAllowance < totalNeeded) {
-            throw new Error("Token approval failed. Please try again.");
-          }
-        } catch (approvalError: any) {
-          if (
-            approvalError.message?.includes("User rejected") ||
-            approvalError.message?.includes("User denied")
-          ) {
-            throw new Error("Token approval was rejected");
-          }
-          throw approvalError;
-        }
-      }
-
       const txHash = await fractions.buyFractions({
         creator: activeFraction.owner,
         id: activeFraction.id,
