@@ -956,8 +956,8 @@ export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
     return (
       <LaunchCountdown
         target={targetDate}
-        title="Technical difficulties"
-        subtitle="We’re experiencing technical difficulties. Expected availability by 5:00 PM ET."
+        title="Technical Difficulties have been resolved."
+        subtitle="We'll be live at 5pm ET"
       />
     );
   }
