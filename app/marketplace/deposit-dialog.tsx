@@ -28,6 +28,8 @@ import {
 import { useFractionSplits } from "@/hooks/useFractionSplits";
 import Decimal from "decimal.js";
 import Link from "next/link";
+import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
+import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 
 export type LaunchpadRewardScore = {
   userWeeklyGlwRewards: string;
@@ -94,6 +96,10 @@ export function DepositDialog({
     string | undefined
   >();
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
+  const [isSmartAccountWarningOpen, setIsSmartAccountWarningOpen] =
+    React.useState(false);
+  const [isCheckingSmartAccount, setIsCheckingSmartAccount] =
+    React.useState(false);
 
   React.useEffect(() => {
     if (signer) {
@@ -476,6 +482,32 @@ export function DepositDialog({
   }
 
   async function handleConfirm() {
+    // Block if smart/delegated account detected
+    setIsCheckingSmartAccount(true);
+    try {
+      if (signerAddress && walletClient) {
+        const status = await getSmartAccountStatus({
+          address: signerAddress as `0x${string}`,
+          walletClient,
+          getBytecode: publicClient?.getBytecode,
+        });
+
+        const isSmartAccount =
+          status &&
+          (status.isContractWallet ||
+            status.isEip7702Delegated ||
+            status.hasWalletAABatching);
+        if (isSmartAccount) {
+          setIsSmartAccountWarningOpen(true);
+          return; // Do not proceed
+        }
+      }
+    } catch (error) {
+      console.error("Smart account check failed:", error);
+      // If the check fails, allow proceeding to avoid blocking legitimate users
+    } finally {
+      setIsCheckingSmartAccount(false);
+    }
     // Only handle step-based purchasing for fractions
     if (application?.activeFraction) {
       return handleStepPurchase();
@@ -1026,6 +1058,7 @@ export function DepositDialog({
             <Button
               onClick={handleConfirm}
               disabled={!canConfirm}
+              isLoading={isCheckingSmartAccount}
               className="flex-1"
             >
               {application.activeFraction
@@ -1047,84 +1080,90 @@ export function DepositDialog({
     ) : null;
 
   return (
-    <TransactionDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      isSubmitting={isSubmitting || isProcessing}
-      isSuccess={isSuccess}
-      isError={isError}
-      title={
-        application.activeFraction
-          ? currency === "USDC"
-            ? "Buy Miners"
-            : "Delegate GLW"
-          : "Confirm Sponsorship"
-      }
-      successTitle={
-        application.activeFraction
-          ? currency === "USDC"
-            ? "Purchase Complete!"
-            : "Delegation Complete!"
-          : "Farm Sponsored!"
-      }
-      errorTitle={
-        application.activeFraction
-          ? currency === "USDC"
-            ? "Purchase Failed"
-            : "Delegation Failed"
-          : "Sponsorship Failed"
-      }
-      processingTitle={
-        isProcessing
-          ? "Confirming Transaction"
-          : application.activeFraction
-          ? currency === "USDC"
-            ? "Processing Miners Purchase"
-            : "Processing Delegation"
-          : "Processing Sponsorship"
-      }
-      description={
-        application.activeFraction
-          ? currency === "USDC"
-            ? "Review your purchase details"
-            : "Review your delegation details"
-          : "Review your sponsorship details"
-      }
-      processingDescription={
-        isProcessing
-          ? "Confirming transaction and updating records..."
-          : application.activeFraction
-          ? currency === "USDC"
-            ? "Please wait while we process your purchase"
-            : "Please wait while we process your delegation"
-          : "Please wait while we process your sponsorship"
-      }
-      errorDescription={
-        errorMessage ||
-        (application.activeFraction
-          ? currency === "USDC"
-            ? "Failed to purchase miners"
-            : "Failed to delegate"
-          : "Failed to sponsor the farm")
-      }
-      transactionDetails={transactionDetails}
-      successDetails={successDetails}
-      txHash={txHash}
-      isNetworkFeeLoading={isNetworkCostLoading}
-      reviewContent={isProcessing ? processingContent : reviewContent}
-      successContent={customSuccessContent}
-      errorContent={customErrorContent}
-      footer={customFooter}
-      successFooter={
-        application.activeFraction && currency === "GLW" ? (
-          <Button variant="outline" className="flex-1" asChild>
-            <Link href="/wallet">See Power Wallet</Link>
-          </Button>
-        ) : null
-      }
-      showProcessingProgress={isProcessing}
-      processingMaxSeconds={90}
-      confirmDisabled={!canConfirm}
-    />
+    <>
+      <SmartAccountWarningDialog
+        open={isSmartAccountWarningOpen}
+        onOpenChange={setIsSmartAccountWarningOpen}
+      />
+      <TransactionDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        isSubmitting={isSubmitting || isProcessing}
+        isSuccess={isSuccess}
+        isError={isError}
+        title={
+          application.activeFraction
+            ? currency === "USDC"
+              ? "Buy Miners"
+              : "Delegate GLW"
+            : "Confirm Sponsorship"
+        }
+        successTitle={
+          application.activeFraction
+            ? currency === "USDC"
+              ? "Purchase Complete!"
+              : "Delegation Complete!"
+            : "Farm Sponsored!"
+        }
+        errorTitle={
+          application.activeFraction
+            ? currency === "USDC"
+              ? "Purchase Failed"
+              : "Delegation Failed"
+            : "Sponsorship Failed"
+        }
+        processingTitle={
+          isProcessing
+            ? "Confirming Transaction"
+            : application.activeFraction
+            ? currency === "USDC"
+              ? "Processing Miners Purchase"
+              : "Processing Delegation"
+            : "Processing Sponsorship"
+        }
+        description={
+          application.activeFraction
+            ? currency === "USDC"
+              ? "Review your purchase details"
+              : "Review your delegation details"
+            : "Review your sponsorship details"
+        }
+        processingDescription={
+          isProcessing
+            ? "Confirming transaction and updating records..."
+            : application.activeFraction
+            ? currency === "USDC"
+              ? "Please wait while we process your purchase"
+              : "Please wait while we process your delegation"
+            : "Please wait while we process your sponsorship"
+        }
+        errorDescription={
+          errorMessage ||
+          (application.activeFraction
+            ? currency === "USDC"
+              ? "Failed to purchase miners"
+              : "Failed to delegate"
+            : "Failed to sponsor the farm")
+        }
+        transactionDetails={transactionDetails}
+        successDetails={successDetails}
+        txHash={txHash}
+        isNetworkFeeLoading={isNetworkCostLoading}
+        reviewContent={isProcessing ? processingContent : reviewContent}
+        successContent={customSuccessContent}
+        errorContent={customErrorContent}
+        footer={customFooter}
+        successFooter={
+          application.activeFraction && currency === "GLW" ? (
+            <Button variant="outline" className="flex-1" asChild>
+              <Link href="/wallet">See Power Wallet</Link>
+            </Button>
+          ) : null
+        }
+        showProcessingProgress={isProcessing}
+        processingMaxSeconds={90}
+        confirmDisabled={!canConfirm}
+      />
+    </>
   );
 }

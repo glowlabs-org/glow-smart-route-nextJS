@@ -280,38 +280,41 @@ export function SmartAccountWarningDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="space-y-3 pb-4">
-          <div className="flex items-start gap-3 sm:items-center">
-            <div className="p-2 bg-destructive/10 rounded-full flex-shrink-0">
-              <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-destructive" />
+      <DialogContent className="sm:max-w-[540px] md:max-w-[600px] lg:max-w-[680px] max-h-[85vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="space-y-3 pb-4 px-4 sm:px-6 pt-6 border-b">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-destructive/10 rounded-lg flex-shrink-0">
+              <ShieldAlert className="w-5 h-5 sm:w-6 sm:h-6 text-destructive" />
             </div>
             <div className="min-w-0 flex-1">
-              <DialogTitle className="text-destructive text-lg sm:text-xl font-semibold leading-tight">
+              <DialogTitle className="text-destructive text-base sm:text-lg md:text-xl font-semibold leading-tight mb-2">
                 {content.title}
               </DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm md:text-base text-left text-muted-foreground">
+                {content.description}
+              </DialogDescription>
             </div>
           </div>
-          <DialogDescription className="text-sm sm:text-base text-left">
-            {content.description}
-          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 sm:space-y-6">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-5">
           {/* Detected issues */}
           {issues.length > 0 && (
             <div className="space-y-3">
-              <div className="text-sm font-medium text-foreground">
-                Detected issues
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-destructive" />
+                <h3 className="text-sm font-semibold text-foreground">
+                  Detected Issues
+                </h3>
               </div>
               <div className="grid gap-2">
                 {issues.map((label, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-muted/50 border border-border rounded-lg"
+                    className="flex items-center gap-3 p-3 bg-destructive/5 border border-destructive/20 rounded-lg transition-colors hover:bg-destructive/10"
                   >
                     <div className="w-2 h-2 bg-destructive rounded-full animate-pulse flex-shrink-0" />
-                    <span className="text-xs sm:text-sm text-foreground font-medium">
+                    <span className="text-xs sm:text-sm text-foreground font-medium leading-tight">
                       {label}
                     </span>
                   </div>
@@ -324,110 +327,123 @@ export function SmartAccountWarningDialog({
           <div className="space-y-4">
             {/* MetaMask path (smart account on MetaMask) */}
             {showMetaMaskPath && (
-              <div className="rounded-xl border p-3 sm:p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Wallet className="w-4 h-4 flex-shrink-0" />
-                  <div className="text-sm font-semibold">MetaMask steps</div>
+              <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
+                <div className="bg-muted/40 px-4 py-3 border-b">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-primary flex-shrink-0" />
+                    <h3 className="text-sm font-semibold text-foreground">
+                      MetaMask Steps
+                    </h3>
+                  </div>
                 </div>
-                <ol className="text-xs sm:text-sm text-muted-foreground list-decimal ml-4 sm:ml-5 space-y-1 sm:space-y-2">
-                  {content.directivesMetaMask.map((s, i) => (
-                    <li key={i} className="leading-relaxed">
-                      {s}
-                    </li>
-                  ))}
-                </ol>
+                <div className="p-4">
+                  <ol className="text-xs sm:text-sm text-muted-foreground list-decimal ml-5 space-y-2.5">
+                    {content.directivesMetaMask.map((s, i) => (
+                      <li key={i} className="leading-relaxed pl-1">
+                        {s}
+                      </li>
+                    ))}
+                  </ol>
 
-                <div className="flex flex-col sm:flex-row gap-2 mt-3 sm:mt-4">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="w-full sm:w-auto"
-                    onClick={() =>
-                      window.open(
-                        metamaskDocsUrl,
-                        "_blank",
-                        "noopener,noreferrer"
-                      )
-                    }
-                  >
-                    <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                    MetaMask Guide
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full sm:flex-1"
+                      onClick={() =>
+                        window.open(
+                          metamaskDocsUrl,
+                          "_blank",
+                          "noopener,noreferrer"
+                        )
+                      }
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      MetaMask Guide
+                    </Button>
 
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="w-full sm:w-auto"
-                    onClick={recheckNow}
-                    disabled={isRechecking}
-                  >
-                    <RefreshCw
-                      className={cn(
-                        "w-3 h-3 sm:w-4 sm:h-4 mr-2",
-                        isRechecking && "animate-spin"
-                      )}
-                    />
-                    Recheck now
-                  </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-full sm:flex-1"
+                      onClick={recheckNow}
+                      disabled={isRechecking}
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "w-4 h-4 mr-2",
+                          isRechecking && "animate-spin"
+                        )}
+                      />
+                      {isRechecking ? "Checking..." : "Recheck Now"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* Generic path (other wallets / connectors) */}
             {!showMetaMaskPath && (
-              <div className="rounded-xl border p-3 sm:p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Wallet className="w-4 h-4 flex-shrink-0" />
-                  <div className="text-sm font-semibold">Other wallets</div>
+              <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
+                <div className="bg-muted/40 px-4 py-3 border-b">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-primary flex-shrink-0" />
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Resolution Steps
+                    </h3>
+                  </div>
                 </div>
-                <ol className="text-xs sm:text-sm text-muted-foreground list-decimal ml-4 sm:ml-5 space-y-1 sm:space-y-2">
-                  {content.directivesGeneric.map((s, i) => (
-                    <li key={i} className="leading-relaxed">
-                      {s}
-                    </li>
-                  ))}
-                </ol>
-                <div className="flex flex-col sm:flex-row gap-2 mt-3 sm:mt-4">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="w-full sm:w-auto"
-                    onClick={recheckNow}
-                    disabled={isRechecking}
-                  >
-                    <RefreshCw
-                      className={cn(
-                        "w-3 h-3 sm:w-4 sm:h-4 mr-2",
-                        isRechecking && "animate-spin"
-                      )}
-                    />
-                    Recheck now
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full sm:w-auto"
-                    onClick={() => {
-                      // If you have a wallet modal, trigger it here instead:
-                      // openConnectModal?.()
-                      toast({
-                        title: "Tip",
-                        description:
-                          "If you're using a contract/AA wallet, switch to a regular personal account (EOA).",
-                      });
-                    }}
-                  >
-                    Switch wallet
-                  </Button>
+                <div className="p-4">
+                  <ol className="text-xs sm:text-sm text-muted-foreground list-decimal ml-5 space-y-2.5">
+                    {content.directivesGeneric.map((s, i) => (
+                      <li key={i} className="leading-relaxed pl-1">
+                        {s}
+                      </li>
+                    ))}
+                  </ol>
+                  <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-full sm:flex-1"
+                      onClick={recheckNow}
+                      disabled={isRechecking}
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "w-4 h-4 mr-2",
+                          isRechecking && "animate-spin"
+                        )}
+                      />
+                      {isRechecking ? "Checking..." : "Recheck Now"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full sm:flex-1"
+                      onClick={() => {
+                        // If you have a wallet modal, trigger it here instead:
+                        // openConnectModal?.()
+                        toast({
+                          title: "Tip",
+                          description:
+                            "If you're using a contract/AA wallet, switch to a regular personal account (EOA).",
+                        });
+                      }}
+                    >
+                      <Wallet className="w-4 h-4 mr-2" />
+                      Switch Wallet
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-3 pt-4 border-t">
+        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 px-4 sm:px-6 py-4 border-t bg-muted/20">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={() => handleClose(false)}
             type="button"
@@ -437,7 +453,7 @@ export function SmartAccountWarningDialog({
             Dismiss
           </Button>
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={() => {
               window.open(
@@ -448,8 +464,8 @@ export function SmartAccountWarningDialog({
             type="button"
             className="w-full sm:w-auto"
           >
-            <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-            Learn more
+            <ExternalLink className="w-4 h-4 mr-2" />
+            Learn More
           </Button>
         </DialogFooter>
       </DialogContent>
