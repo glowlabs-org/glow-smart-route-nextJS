@@ -17,7 +17,7 @@ interface Casestudy5Props {
 
 export const HowItWorks = ({ featuredCasestudy }: Casestudy5Props) => {
   return (
-    <section className="px-6 py-8 md:pb-16 lg:pb-24 xl:pb-32">
+    <section className="px-6 py-8 ">
       <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto w-full">
         <div className="border border-border rounded-xl">
           <a

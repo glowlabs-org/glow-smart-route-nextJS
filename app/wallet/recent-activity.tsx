@@ -308,9 +308,10 @@ export function RecentActivity({
     if (activity.txHash) {
       const etherscanUrl = `https://etherscan.io/tx/${activity.txHash}`;
       window.open(etherscanUrl, "_blank", "noopener,noreferrer");
-      toast.success("Opening transaction on Etherscan");
     } else {
-      toast.info("Transaction hash not available");
+      toast.info(
+        "Transaction hash not available, this is an off-chain activity"
+      );
     }
   };
 

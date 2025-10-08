@@ -60,8 +60,10 @@ import { formatUnits } from "viem";
 import { useAccount } from "wagmi";
 import { useFractionSplits } from "@/hooks/useFractionSplits";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X, Info } from "lucide-react";
 import { HowItWorks } from "@/components/how-it-works";
+import { useEthersSigner } from "@/hooks/useEthersSigner";
+import { useER20Balances } from "@/hooks/useERC20Balances";
 
 // Component to show owned fractions for a specific application
 function OwnedFractionsDisplay({
@@ -276,6 +278,25 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
 
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
 
+  // Wallet GLW balance
+  const { signer } = useEthersSigner();
+  const { glowBalance, isLoading: erc20Loading } = useER20Balances({ signer });
+  const glowBalanceFormatted = React.useMemo(() => {
+    if (glowBalance == null) return null;
+    const amount = parseFloat(
+      formatUnits(glowBalance, DECIMALS_BY_TOKEN["GLW"])
+    );
+    return amount.toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+  }, [glowBalance]);
+  const hasMoreThanOneGlw = React.useMemo(() => {
+    if (glowBalance == null) return false;
+    const oneGlwInBaseUnits = BigInt(10) ** BigInt(DECIMALS_BY_TOKEN["GLW"]);
+    return glowBalance > oneGlwInBaseUnits;
+  }, [glowBalance]);
+
   const filterBarProps = {
     selectedZoneId,
     selectedSort,
@@ -418,6 +439,30 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
             </span>
           </Button>
         </div>
+
+        {/* GLW Wallet Balance */}
+        {isConnected && hasMoreThanOneGlw && (
+          <div className="my-4">
+            <div className="bg-muted/30 rounded-2xl border border-border p-4 flex items-center justify-between">
+              <span
+                className="text-sm text-muted-foreground"
+                style={{ fontFamily: "Söhne, sans-serif", fontWeight: 600 }}
+              >
+                Your GLW
+              </span>
+              <div
+                className="text-xl text-black dark:text-white"
+                style={{ fontFamily: "Söhne, sans-serif", fontWeight: 600 }}
+              >
+                {erc20Loading
+                  ? "..."
+                  : glowBalanceFormatted
+                  ? `${glowBalanceFormatted} GLW`
+                  : "0 GLW"}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* List */}
         {isLoading ? (
@@ -628,14 +673,42 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                               ? "..."
                               : "0"}
                           </div>
-                          <div
-                            className="text-xs uppercase tracking-wider text-gray-500"
-                            style={{
-                              fontFamily: "Söhne, sans-serif",
-                              fontWeight: 600,
-                            }}
-                          >
-                            Reward Score
+                          <div className="flex items-center justify-end gap-1">
+                            <div
+                              className="text-xs uppercase tracking-wider text-gray-500"
+                              style={{
+                                fontFamily: "Söhne, sans-serif",
+                                fontWeight: 600,
+                              }}
+                            >
+                              Reward Score
+                            </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <a
+                                  href="https://glow.org/blog/guide-to-delegating-glow"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  aria-label="Learn about Reward Score"
+                                  className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                                >
+                                  <Info className="h-3.5 w-3.5" />
+                                </a>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p>
+                                  The Reward Score is a tool that combines both
+                                  revenue streams (deposit recovery and GLW
+                                  inflation) into a single metric representing
+                                  expected rewards per dollar delegated. Higher
+                                  Reward Scores generally indicate better
+                                  delegation opportunities, but do not guarantee
+                                  realized performance, since a farm's actual
+                                  competitiveness and rewards may shift as new
+                                  farms join its region
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
                         </div>
                       </div>
@@ -650,7 +723,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                               fontWeight: 400,
                             }}
                           >
-                            Price
+                            Amount
                           </div>
                           {application.activeFraction?.step ? (
                             <div>

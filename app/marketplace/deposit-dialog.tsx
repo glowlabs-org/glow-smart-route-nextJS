@@ -657,6 +657,33 @@ export function DepositDialog({
                 aria-label="Quantity"
                 className="h-10 w-24 text-center font-mono"
                 value={quantityInput}
+                onKeyDown={(e) => {
+                  const allowedKeys = [
+                    "Backspace",
+                    "Delete",
+                    "ArrowLeft",
+                    "ArrowRight",
+                    "ArrowUp",
+                    "ArrowDown",
+                    "Tab",
+                    "Home",
+                    "End",
+                    "Enter",
+                  ];
+                  if (e.ctrlKey || e.metaKey || e.altKey) {
+                    return;
+                  }
+                  if (allowedKeys.includes(e.key)) return;
+                  if (!/^\d$/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
+                onPaste={(e) => {
+                  const pasted = e.clipboardData.getData("text");
+                  if (!/^\d+$/.test(pasted)) {
+                    e.preventDefault();
+                  }
+                }}
                 onChange={(e) => {
                   const val = e.target.value;
                   if (val === "") {
