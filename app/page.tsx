@@ -57,8 +57,11 @@ export default function GlowLaunchpadPage() {
     },
   };
 
+  const validTabs = ["launchpad", "mining-center", "activity"];
+  const validatedTab = validTabs.includes(activeTab) ? activeTab : "launchpad";
+
   const currentContent =
-    tabContent[activeTab as keyof typeof tabContent] || tabContent.launchpad;
+    tabContent[validatedTab as keyof typeof tabContent] || tabContent.launchpad;
 
   function onPayDeposit(
     application: AuctionApplication,
@@ -167,7 +170,7 @@ export default function GlowLaunchpadPage() {
 
           <div className="bg-background backdrop-blur-xl rounded-2xl md:rounded-3xl border border-border overflow-hidden">
             <Tabs
-              value={activeTab}
+              value={validatedTab}
               onValueChange={setActiveTab}
               className="w-full"
             >
