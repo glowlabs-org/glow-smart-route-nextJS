@@ -120,12 +120,7 @@ export default function View() {
   } = useER20Balances({ signer });
 
   // GCTL balance and API
-  const {
-    gctlBalance,
-    isGctlBalanceLoading,
-    glwPriceNumber,
-    isGlwPriceLoading,
-  } = useGctlApi(address);
+  const { gctlBalance } = useGctlApi(address);
 
   // Lightweight GLW spot price
   const { spotPrice: glowSpotPrice } = useGlowSpotPrice();
@@ -151,17 +146,19 @@ export default function View() {
     });
 
   // User launchpad sponsorship activity (fractions) and sponsor listings
-  const { activity: splitsActivity } = useSplitsActivity({
-    walletAddress: address,
-    enabled: Boolean(isConnected && address),
-    limit: 100,
-  });
+  const { activity: splitsActivity, isLoading: isSplitsActivityLoading } =
+    useSplitsActivity({
+      walletAddress: address,
+      enabled: Boolean(isConnected && address),
+      limit: 100,
+    });
 
-  const { applications: sponsorListings } = useGlowLaunchpad({
-    enabled: Boolean(
-      isConnected && address && splitsActivity && splitsActivity.length > 0
-    ),
-  });
+  const { applications: sponsorListings, isLoading: isSponsorListingsLoading } =
+    useGlowLaunchpad({
+      enabled: Boolean(
+        isConnected && address && splitsActivity && splitsActivity.length > 0
+      ),
+    });
 
   // Compute sponsorships that are not yet filled, grouped by application
   const sponsorshipsInProgress = React.useMemo(() => {
@@ -349,9 +346,6 @@ export default function View() {
   // Network status check
   const hasNetworkIssues = erc20HasError || (!hasSigner && isConnected);
 
-  // Determine if we're in initial loading state
-  const isInitialLoading = !erc20Ready;
-
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -367,10 +361,22 @@ export default function View() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+            <Button
+              variant="outline"
+              size="default"
+              onClick={refreshBalances}
+              disabled={erc20Loading}
+              className="w-full sm:w-auto"
+            >
+              <RefreshCw
+                className={`w-4 h-4 mr-2 ${erc20Loading ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </Button>
             <Link href="/">
               <Button
                 size="default"
-                disabled={erc20Loading || isInitialLoading}
+                disabled={erc20Loading}
                 className="w-full sm:w-auto"
               >
                 Launchpad
@@ -380,7 +386,7 @@ export default function View() {
               <Button
                 variant="outline"
                 size="default"
-                disabled={erc20Loading || isInitialLoading}
+                disabled={erc20Loading}
                 className="w-full sm:w-auto"
               >
                 GlowSwap
@@ -389,135 +395,43 @@ export default function View() {
           </div>
         </div>
 
-        {isInitialLoading ? (
-          <>
-            {/* Skeleton for Balances - 8pt spacing: gap-4 (16px), mb-8 (32px) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
-              {[1, 2, 3, 4].map((i) => (
-                <Card
-                  key={i}
-                  className="relative overflow-hidden bg-muted/30 border border-border"
-                >
-                  <CardHeader className="pb-3">
-                    <Skeleton className="h-5 w-16" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-8 w-24 mb-4" />
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Skeleton className="h-10 w-20" />
-                      <Skeleton className="h-10 w-32" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Skeleton for Claims Panel - consistent spacing */}
-            <Card className="mb-8">
-              <CardHeader className="pb-4">
-                <Skeleton className="h-7 w-48" />
-                <Skeleton className="h-4 w-64 mt-2" />
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="p-4 md:p-6 rounded-xl bg-background/50 border border-border"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-2">
-                          <Skeleton className="h-5 w-32" />
-                          <Skeleton className="h-4 w-24" />
-                        </div>
-                        <Skeleton className="h-10 w-20" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Skeleton for Farms - increased gap for visual hierarchy */}
-            <Card className="mb-8">
-              <CardHeader className="pb-4">
-                <Skeleton className="h-7 w-48" />
-                <Skeleton className="h-4 w-64 mt-2" />
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                  {[1, 2, 3].map((i) => (
-                    <Card
-                      key={i}
-                      className="bg-white dark:bg-black rounded-2xl border border-gray-200 dark:border-gray-800"
-                    >
-                      <CardContent className="p-0">
-                        <Skeleton className="w-full h-48" />
-                        <div className="p-5 space-y-4">
-                          <div className="space-y-2">
-                            <Skeleton className="h-5 w-32" />
-                            <Skeleton className="h-4 w-24" />
-                          </div>
-                          <Skeleton className="h-20 w-full rounded-xl" />
-                          <div className="flex items-center justify-between pt-2">
-                            <Skeleton className="h-4 w-20" />
-                            <Skeleton className="h-5 w-5" />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Skeleton for Recent Activity */}
-            <Card className="">
-              <CardHeader className="pb-4">
-                <Skeleton className="h-7 w-48" />
-                <Skeleton className="h-4 w-64 mt-2" />
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div
-                      key={i}
-                      className="p-4 md:p-6 rounded-xl bg-background/50 border border-border"
-                    >
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="space-y-2 flex-1">
-                          <Skeleton className="h-5 w-48" />
-                          <Skeleton className="h-4 w-32" />
-                        </div>
-                        <div className="space-y-2 text-right">
-                          <Skeleton className="h-5 w-20 ml-auto" />
-                          <Skeleton className="h-4 w-16 ml-auto" />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </>
-        ) : (
-          <>
-            {/* A. Balances & Claims Overview - consistent card grid spacing */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
-              {/* USDC Card - Always show when connected */}
-              <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-xl md:text-2xl font-semibold">
-                    USDC
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+        {/* A. Balances & Claims Overview - consistent card grid spacing */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
+          {/* USDC Card - Always show when connected */}
+          <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-xl md:text-2xl font-semibold">
+                USDC
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {erc20Loading ? (
+                <>
+                  <Skeleton className="h-10 w-32 mb-4" />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Skeleton className="h-10 w-24" />
+                    <Skeleton className="h-10 w-36" />
+                  </div>
+                </>
+              ) : (
+                <>
                   <div className="text-3xl font-bold tracking-tight">
                     ${hasNetworkIssues ? "0.00" : formattedBalances.usdc}
                     {hasNetworkIssues && (
-                      <span className="text-xs text-yellow-600 dark:text-yellow-400 ml-2 font-normal">
-                        (Network Issue)
-                      </span>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs text-yellow-600 dark:text-yellow-400 font-normal">
+                          Network Issue
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={refreshBalances}
+                          className="h-6 px-2 text-xs"
+                        >
+                          <RefreshCw className="w-3 h-3 mr-1" />
+                          Retry
+                        </Button>
+                      </div>
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -541,18 +455,31 @@ export default function View() {
                       </Button>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </>
+              )}
+            </CardContent>
+          </Card>
 
-              {/* USDG Card - Show if has balance or claimable */}
-              {(hasUsdg || claimable.usdg !== "0") && (
-                <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-xl md:text-2xl font-semibold">
-                      USDG
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+          {/* USDG Card - Show if has balance or claimable */}
+          {(hasUsdg || claimable.usdg !== "0" || erc20Loading) && (
+            <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl md:text-2xl font-semibold">
+                  USDG
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {erc20Loading ? (
+                  <>
+                    <Skeleton className="h-10 w-32 mb-2" />
+                    <Skeleton className="h-4 w-28" />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Skeleton className="h-10 w-20" />
+                      <Skeleton className="h-10 w-24" />
+                    </div>
+                  </>
+                ) : (
+                  <>
                     <div>
                       <div className="text-3xl font-bold tracking-tight">
                         ${hasNetworkIssues ? "0.00" : formattedBalances.usdg}
@@ -595,19 +522,32 @@ export default function View() {
                         </>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-              {/* GLOW Card - Show if has balance or claimable */}
-              {(hasGlow || claimable.glow !== "0") && (
-                <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-xl md:text-2xl font-semibold">
-                      GLW
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+          {/* GLOW Card - Show if has balance or claimable */}
+          {(hasGlow || claimable.glow !== "0" || erc20Loading) && (
+            <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl md:text-2xl font-semibold">
+                  GLW
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {erc20Loading ? (
+                  <>
+                    <Skeleton className="h-10 w-32 mb-2" />
+                    <Skeleton className="h-4 w-28" />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Skeleton className="h-10 w-20" />
+                      <Skeleton className="h-10 w-24" />
+                    </div>
+                  </>
+                ) : (
+                  <>
                     <div>
                       <div className="text-3xl font-bold tracking-tight">
                         {hasNetworkIssues ? "0.00" : formattedBalances.glow}
@@ -669,350 +609,402 @@ export default function View() {
                         </Button>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-              {/* GCTL Card - Show if has balance */}
-              {hasGctl ||
-                (walletDetails?.stakedControl !== "0" && (
-                  <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-xl md:text-2xl font-semibold">
-                        GCTL
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <div className="text-3xl font-bold tracking-tight">
-                          {hasNetworkIssues ? "0.00" : formattedBalances.gctl}
-                          {hasNetworkIssues && (
-                            <span className="text-xs text-yellow-600 dark:text-yellow-400 ml-2 font-normal">
-                              (Network Issue)
-                            </span>
-                          )}
-                        </div>
-                        {!hasNetworkIssues && walletDetails?.stakedControl && (
-                          <div className="mt-2 text-sm text-muted-foreground">
-                            Staked:{" "}
-                            {formatGctlBalance(walletDetails.stakedControl)}{" "}
-                            GCTL
-                          </div>
+          {/* GCTL Card - Show if has balance */}
+          {(hasGctl ||
+            walletDetails?.stakedControl !== "0" ||
+            isMigrationLoading) && (
+            <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl md:text-2xl font-semibold">
+                  GCTL
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isMigrationLoading ? (
+                  <>
+                    <Skeleton className="h-10 w-32 mb-2" />
+                    <Skeleton className="h-4 w-36" />
+                    <Skeleton className="h-10 w-40" />
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <div className="text-3xl font-bold tracking-tight">
+                        {hasNetworkIssues ? "0.00" : formattedBalances.gctl}
+                        {hasNetworkIssues && (
+                          <span className="text-xs text-yellow-600 dark:text-yellow-400 ml-2 font-normal">
+                            (Network Issue)
+                          </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="default"
-                          variant="outline"
-                          onClick={() => {
-                            window.open(
-                              "https://impact.glow.org",
-                              "_blank",
-                              "noopener,noreferrer"
-                            );
-                          }}
-                          className="w-full sm:w-auto"
-                        >
-                          <ExternalLink className="w-4 h-4 mr-2" />
-                          Manage Staking
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-            </div>
+                      {!hasNetworkIssues && walletDetails?.stakedControl && (
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          Staked:{" "}
+                          {formatGctlBalance(walletDetails.stakedControl)} GCTL
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="default"
+                        variant="outline"
+                        onClick={() => {
+                          window.open(
+                            "https://impact.glow.org",
+                            "_blank",
+                            "noopener,noreferrer"
+                          );
+                        }}
+                        className="w-full sm:w-auto"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Manage Staking
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
-            {/* D. Claims Panel */}
-            <ClaimsPanel
-              claimable={claimable}
-              onClaim={handleClaim}
-              onClaimAll={handleClaimAll}
-            />
+        {/* D. Claims Panel */}
+        <ClaimsPanel
+          claimable={claimable}
+          onClaim={handleClaim}
+          onClaimAll={handleClaimAll}
+        />
 
-            {/* E. Migration Claims Panel */}
-            <MigrationClaimPanel
-              walletAddress={address}
-              migrationData={migrationData}
-              isLoading={isMigrationLoading}
-              isError={!!migrationError}
-              onClaim={() => {
-                // Cache invalidation is handled by the mutation
-                // This callback can be used for additional UI updates if needed
-                console.log("Migration claim completed");
-              }}
-            />
+        {/* E. Migration Claims Panel */}
+        <MigrationClaimPanel
+          walletAddress={address}
+          migrationData={migrationData}
+          isLoading={isMigrationLoading}
+          isError={!!migrationError}
+          onClaim={() => {
+            // Cache invalidation is handled by the mutation
+            // This callback can be used for additional UI updates if needed
+            console.log("Migration claim completed");
+          }}
+        />
 
-            {/* F. Refund Claims Panel */}
-            <RefundClaimsPanel walletAddress={address} />
+        {/* F. Refund Claims Panel */}
+        <RefundClaimsPanel walletAddress={address} />
 
-            {/* G. Sponsorships In Progress */}
-            {sponsorshipsInProgress.length > 0 && (
-              <Card className="mb-8">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-2xl font-bold">
-                    Sponsorships In Progress
-                  </CardTitle>
-                  <CardDescription className="text-base mt-2">
-                    Sponsor listings you've delegated to that are not yet filled
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                    {sponsorshipsInProgress.map((item, idx) => {
-                      const app = item.application;
-                      const zoneName = app?.zone?.name || "Launchpad";
-                      const mainImg =
-                        app?.afterInstallPictures?.[0]?.url ||
-                        "/images/sections/residential.jpg";
-                      const remainingSteps =
-                        app?.activeFraction?.remainingSteps ?? null;
-                      const totalSteps =
-                        app?.activeFraction?.totalSteps ?? null;
-                      const progress = Math.max(
-                        0,
-                        Math.min(100, Number(item.progressPercent || 0))
-                      );
+        {/* G. Sponsorships In Progress */}
+        {(sponsorshipsInProgress.length > 0 || isSplitsActivityLoading) && (
+          <Card className="mb-8">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-2xl font-bold">
+                Sponsorships In Progress
+              </CardTitle>
+              <CardDescription className="text-base mt-2">
+                Sponsor listings you've delegated to that are not yet filled
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isSplitsActivityLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                  {[1, 2, 3].map((i) => (
+                    <Card
+                      key={i}
+                      className="bg-white dark:bg-black rounded-2xl border transition-all duration-200 overflow-hidden"
+                    >
+                      <CardContent className="p-0">
+                        <Skeleton className="w-full h-48" />
+                        <div className="p-5 md:p-6 space-y-4">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-2 w-full rounded-full" />
+                          <div className="flex items-center justify-between">
+                            <Skeleton className="h-4 w-20" />
+                            <Skeleton className="h-4 w-28" />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                  {sponsorshipsInProgress.map((item, idx) => {
+                    const app = item.application;
+                    const zoneName = app?.zone?.name || "Launchpad";
+                    const mainImg =
+                      app?.afterInstallPictures?.[0]?.url ||
+                      "/images/sections/residential.jpg";
+                    const remainingSteps =
+                      app?.activeFraction?.remainingSteps ?? null;
+                    const totalSteps = app?.activeFraction?.totalSteps ?? null;
+                    const progress = Math.max(
+                      0,
+                      Math.min(100, Number(item.progressPercent || 0))
+                    );
 
-                      return (
-                        <Card
-                          key={item.applicationId || idx}
-                          className="bg-white dark:bg-black rounded-2xl border transition-all duration-200 overflow-hidden pt-0"
-                        >
-                          <CardContent className="p-0">
-                            <div className="relative">
-                              <div className="absolute top-3 left-3 z-10">
-                                <div className="bg-black/80 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-medium">
-                                  {zoneName}
-                                </div>
+                    return (
+                      <Card
+                        key={item.applicationId || idx}
+                        className="bg-white dark:bg-black rounded-2xl border transition-all duration-200 overflow-hidden pt-0"
+                      >
+                        <CardContent className="p-0">
+                          <div className="relative">
+                            <div className="absolute top-3 left-3 z-10">
+                              <div className="bg-black/80 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-medium">
+                                {zoneName}
                               </div>
-                              <img
-                                src={getProxiedImageUrl(mainImg, 800, 70)}
-                                alt={`${zoneName} main`}
-                                className="w-full h-48 object-cover"
-                                loading={idx < 3 ? "eager" : "lazy"}
-                                decoding="async"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                            </div>
+                            <img
+                              src={getProxiedImageUrl(mainImg, 800, 70)}
+                              alt={`${zoneName} main`}
+                              className="w-full h-48 object-cover"
+                              loading={idx < 3 ? "eager" : "lazy"}
+                              decoding="async"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                          </div>
+
+                          <div className="p-5 md:p-6 space-y-4">
+                            <div className="space-y-1">
+                              {typeof totalSteps === "number" &&
+                                typeof remainingSteps === "number" && (
+                                  <p className="text-sm text-muted-foreground">
+                                    {totalSteps - remainingSteps} / {totalSteps}{" "}
+                                    filled
+                                  </p>
+                                )}
                             </div>
 
-                            <div className="p-5 md:p-6 space-y-4">
-                              <div className="space-y-1">
-                                {typeof totalSteps === "number" &&
-                                  typeof remainingSteps === "number" && (
-                                    <p className="text-sm text-muted-foreground">
-                                      {totalSteps - remainingSteps} /{" "}
-                                      {totalSteps} filled
-                                    </p>
-                                  )}
+                            <div className="space-y-2">
+                              <Progress value={progress} />
+                              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                                <span>{progress}% filled</span>
+                                <span>
+                                  Your delegations:{" "}
+                                  {(() => {
+                                    const stepAmount =
+                                      app?.activeFraction?.step;
+                                    if (!stepAmount)
+                                      return `${item.userSteps} steps`;
+                                    try {
+                                      const glwPerStep = parseFloat(
+                                        formatUnits(
+                                          BigInt(stepAmount),
+                                          DECIMALS_BY_TOKEN["GLW"]
+                                        )
+                                      );
+                                      const totalGLW =
+                                        glwPerStep * item.userSteps;
+                                      return `${totalGLW.toLocaleString(
+                                        undefined,
+                                        {
+                                          minimumFractionDigits: 0,
+                                          maximumFractionDigits: 0,
+                                        }
+                                      )} GLW`;
+                                    } catch {
+                                      return `${item.userSteps} steps`;
+                                    }
+                                  })()}
+                                </span>
                               </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-                              <div className="space-y-2">
-                                <Progress value={progress} />
-                                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                                  <span>{progress}% filled</span>
-                                  <span>
-                                    Your delegations:{" "}
-                                    {(() => {
-                                      const stepAmount =
-                                        app?.activeFraction?.step;
-                                      if (!stepAmount)
-                                        return `${item.userSteps} steps`;
-                                      try {
-                                        const glwPerStep = parseFloat(
-                                          formatUnits(
-                                            BigInt(stepAmount),
-                                            DECIMALS_BY_TOKEN["GLW"]
-                                          )
-                                        );
-                                        const totalGLW =
-                                          glwPerStep * item.userSteps;
-                                        return `${totalGLW.toLocaleString(
-                                          undefined,
-                                          {
-                                            minimumFractionDigits: 0,
-                                            maximumFractionDigits: 0,
-                                          }
-                                        )} GLW`;
-                                      } catch {
-                                        return `${item.userSteps} steps`;
-                                      }
-                                    })()}
+        {/* H. Farms Earning Rewards */}
+        {(purchasedFarms.length > 0 || isPurchasedFarmsLoading) && (
+          <Card className="mb-8">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-2xl font-bold">
+                Farms Earning Rewards
+              </CardTitle>
+              <CardDescription className="text-base mt-2">
+                Solar farms where you're earning weekly rewards
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isPurchasedFarmsLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                  {[1, 2, 3].map((i) => (
+                    <Card
+                      key={i}
+                      className="bg-white dark:bg-black rounded-2xl border border-gray-200 dark:border-gray-800"
+                    >
+                      <CardContent className="p-0">
+                        <Skeleton className="w-full h-48" />
+                        <div className="p-5 space-y-4">
+                          <div className="space-y-2">
+                            <Skeleton className="h-5 w-32" />
+                            <Skeleton className="h-4 w-24" />
+                          </div>
+                          <Skeleton className="h-20 w-full rounded-xl" />
+                          <div className="flex items-center justify-between pt-2">
+                            <Skeleton className="h-4 w-20" />
+                            <Skeleton className="h-5 w-5" />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : isPurchasedFarmsError ? (
+                <div className="text-center py-12 px-4 md:px-6 rounded-xl bg-destructive/5 border border-destructive/20">
+                  <p className="text-muted-foreground text-base">
+                    Failed to load your farms. Please try refreshing the page.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                  {purchasedFarms.map((farm, idx) => {
+                    const formattedFarm = formatFarmData(farm);
+                    return (
+                      <Card
+                        key={farm.farmId || idx}
+                        className="bg-white dark:bg-black rounded-2xl border  transition-all duration-200 overflow-hidden cursor-pointer group pt-0"
+                        onClick={() =>
+                          (window.location.href = `https://glow.org/audits/${farm.farmId}`)
+                        }
+                      >
+                        <CardContent className="p-0">
+                          {/* Farm Images */}
+                          <div className="relative">
+                            {/* Region Badge */}
+                            <div className="absolute top-3 left-3 z-10">
+                              <div className="bg-black/80 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-medium">
+                                {formattedFarm.region}
+                              </div>
+                            </div>
+
+                            {farm.afterInstallPictures &&
+                            farm.afterInstallPictures.length > 0 ? (
+                              <div className="grid grid-cols-2 gap-1">
+                                <div className="col-span-2 relative">
+                                  <img
+                                    src={getProxiedImageUrl(
+                                      farm.afterInstallPictures[0]?.url ||
+                                        "/images/sections/residential.jpg",
+                                      800,
+                                      70
+                                    )}
+                                    alt={`${formattedFarm.farm} main`}
+                                    className="w-full h-48 object-cover"
+                                    loading={idx < 3 ? "eager" : "lazy"}
+                                    decoding="async"
+                                    fetchPriority={idx < 3 ? "high" : "auto"}
+                                  />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                                </div>
+                                <img
+                                  src={getProxiedImageUrl(
+                                    farm.afterInstallPictures[1]?.url ||
+                                      "/images/sections/residential.jpg",
+                                    400,
+                                    65
+                                  )}
+                                  alt={`${formattedFarm.farm} alt 1`}
+                                  className="w-full h-24 object-cover"
+                                  loading="lazy"
+                                  decoding="async"
+                                />
+                                <img
+                                  src={getProxiedImageUrl(
+                                    farm.afterInstallPictures[2]?.url ||
+                                      "/images/sections/residential.jpg",
+                                    400,
+                                    65
+                                  )}
+                                  alt={`${formattedFarm.farm} alt 2`}
+                                  className="w-full h-24 object-cover"
+                                  loading="lazy"
+                                  decoding="async"
+                                />
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-1">
+                                <div className="col-span-2 relative">
+                                  <div className="w-full h-48 bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+                                    <span className="text-gray-400 text-sm">
+                                      No images available
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="w-full h-24 bg-gray-100 dark:bg-gray-900"></div>
+                                <div className="w-full h-24 bg-gray-100 dark:bg-gray-900"></div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Farm Details */}
+                          <div className="p-5 md:p-6 space-y-4">
+                            {/* Farm Name and Location */}
+                            <div className="space-y-1">
+                              <h3 className="font-semibold text-lg text-foreground leading-tight">
+                                {formattedFarm.farm}
+                              </h3>
+                              <p className="text-sm text-muted-foreground">
+                                {formattedFarm.region}
+                              </p>
+                            </div>
+
+                            {/* Rewards Display */}
+                            <div className="bg-muted/50 rounded-xl p-4">
+                              <div className="text-center">
+                                <div className="flex items-baseline justify-center gap-2 mb-1">
+                                  <span className="text-2xl font-bold text-foreground tracking-tight">
+                                    {formattedFarm.weeklyGlow}
+                                  </span>
+                                  <span className="text-sm text-muted-foreground font-medium">
+                                    GLW/week
                                   </span>
                                 </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* G. Farms Earning Rewards */}
-            {purchasedFarms.length > 0 && (
-              <Card className="mb-8">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-2xl font-bold">
-                    Farms Earning Rewards
-                  </CardTitle>
-                  <CardDescription className="text-base mt-2">
-                    Solar farms where you're earning weekly rewards
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isPurchasedFarmsError ? (
-                    <div className="text-center py-12 px-4 md:px-6 rounded-xl bg-destructive/5 border border-destructive/20">
-                      <p className="text-muted-foreground text-base">
-                        Failed to load your farms. Please try refreshing the
-                        page.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                      {purchasedFarms.map((farm, idx) => {
-                        const formattedFarm = formatFarmData(farm);
-                        return (
-                          <Card
-                            key={farm.farmId || idx}
-                            className="bg-white dark:bg-black rounded-2xl border  transition-all duration-200 overflow-hidden cursor-pointer group pt-0"
-                            onClick={() =>
-                              (window.location.href = `https://glow.org/audits/${farm.farmId}`)
-                            }
-                          >
-                            <CardContent className="p-0">
-                              {/* Farm Images */}
-                              <div className="relative">
-                                {/* Region Badge */}
-                                <div className="absolute top-3 left-3 z-10">
-                                  <div className="bg-black/80 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-medium">
-                                    {formattedFarm.region}
-                                  </div>
-                                </div>
-
-                                {farm.afterInstallPictures &&
-                                farm.afterInstallPictures.length > 0 ? (
-                                  <div className="grid grid-cols-2 gap-1">
-                                    <div className="col-span-2 relative">
-                                      <img
-                                        src={getProxiedImageUrl(
-                                          farm.afterInstallPictures[0]?.url ||
-                                            "/images/sections/residential.jpg",
-                                          800,
-                                          70
-                                        )}
-                                        alt={`${formattedFarm.farm} main`}
-                                        className="w-full h-48 object-cover"
-                                        loading={idx < 3 ? "eager" : "lazy"}
-                                        decoding="async"
-                                        fetchPriority={
-                                          idx < 3 ? "high" : "auto"
-                                        }
-                                      />
-                                      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-                                    </div>
-                                    <img
-                                      src={getProxiedImageUrl(
-                                        farm.afterInstallPictures[1]?.url ||
-                                          "/images/sections/residential.jpg",
-                                        400,
-                                        65
-                                      )}
-                                      alt={`${formattedFarm.farm} alt 1`}
-                                      className="w-full h-24 object-cover"
-                                      loading="lazy"
-                                      decoding="async"
-                                    />
-                                    <img
-                                      src={getProxiedImageUrl(
-                                        farm.afterInstallPictures[2]?.url ||
-                                          "/images/sections/residential.jpg",
-                                        400,
-                                        65
-                                      )}
-                                      alt={`${formattedFarm.farm} alt 2`}
-                                      className="w-full h-24 object-cover"
-                                      loading="lazy"
-                                      decoding="async"
-                                    />
-                                  </div>
-                                ) : (
-                                  <div className="grid grid-cols-2 gap-1">
-                                    <div className="col-span-2 relative">
-                                      <div className="w-full h-48 bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
-                                        <span className="text-gray-400 text-sm">
-                                          No images available
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <div className="w-full h-24 bg-gray-100 dark:bg-gray-900"></div>
-                                    <div className="w-full h-24 bg-gray-100 dark:bg-gray-900"></div>
+                                {Number(formattedFarm.otherRewards) !== 0 && (
+                                  <div className="text-sm text-muted-foreground mt-1">
+                                    + {formattedFarm.otherRewards}{" "}
+                                    {formattedFarm.otherRewardsAmount}/week
                                   </div>
                                 )}
-                              </div>
-
-                              {/* Farm Details */}
-                              <div className="p-5 md:p-6 space-y-4">
-                                {/* Farm Name and Location */}
-                                <div className="space-y-1">
-                                  <h3 className="font-semibold text-lg text-foreground leading-tight">
-                                    {formattedFarm.farm}
-                                  </h3>
-                                  <p className="text-sm text-muted-foreground">
-                                    {formattedFarm.region}
-                                  </p>
-                                </div>
-
-                                {/* Rewards Display */}
-                                <div className="bg-muted/50 rounded-xl p-4">
-                                  <div className="text-center">
-                                    <div className="flex items-baseline justify-center gap-2 mb-1">
-                                      <span className="text-2xl font-bold text-foreground tracking-tight">
-                                        {formattedFarm.weeklyGlow}
-                                      </span>
-                                      <span className="text-sm text-muted-foreground font-medium">
-                                        GLW/week
-                                      </span>
-                                    </div>
-                                    {Number(formattedFarm.otherRewards) !==
-                                      0 && (
-                                      <div className="text-sm text-muted-foreground mt-1">
-                                        + {formattedFarm.otherRewards}{" "}
-                                        {formattedFarm.otherRewardsAmount}/week
-                                      </div>
-                                    )}
-                                    <div className="text-xs text-muted-foreground mt-2">
-                                      Weekly Rewards
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Action Area */}
-                                <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                                  <div className="text-sm text-muted-foreground font-medium">
-                                    View Audit
-                                  </div>
-                                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                                <div className="text-xs text-muted-foreground mt-2">
+                                  Weekly Rewards
                                 </div>
                               </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+                            </div>
 
-            {/* H. Recent Activity */}
-            <RecentActivity
-              walletAddress={address}
-              splitsActivity={splitsActivity || []}
-            />
-          </>
+                            {/* Action Area */}
+                            <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                              <div className="text-sm text-muted-foreground font-medium">
+                                View Audit
+                              </div>
+                              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         )}
+
+        {/* H. Recent Activity */}
+        <RecentActivity
+          walletAddress={address}
+          splitsActivity={splitsActivity || []}
+        />
       </div>
 
       {/* Amount Input Dialog */}

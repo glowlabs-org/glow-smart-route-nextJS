@@ -42,7 +42,6 @@ export function SendTab({ tokens }: SendTabProps) {
     usdcBalance,
     usdgBalance,
     glowBalance,
-    isReady: erc20Ready,
     isLoading: erc20Loading,
     refreshBalances,
   } = useER20Balances({ signer });

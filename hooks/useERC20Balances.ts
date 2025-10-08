@@ -26,7 +26,6 @@ export const useER20Balances = ({
   signer: JsonRpcSigner | undefined | null;
 }) => {
   const { usdg, glow, usdc, isReady } = useContracts(signer);
-  const queryClient = useQueryClient();
 
   // Get wallet address synchronously for query keys
   const [walletAddress, setWalletAddress] = React.useState<string | null>(null);
@@ -47,87 +46,55 @@ export const useER20Balances = ({
     }
   }, [signer]);
 
-  // Get wallet address
-  const getWalletAddress = useCallback(async (): Promise<string | null> => {
-    if (!signer) return null;
-    try {
-      return await signer.getAddress();
-    } catch {
-      return null;
-    }
-  }, [signer]);
-
-  // USDC Balance Query
+  // Single optimized query that fetches all balances at once
   const {
-    data: usdcBalance = null,
-    isLoading: isUsdcLoading,
-    isError: isUsdcError,
-    error: usdcError,
-    refetch: refetchUsdcBalance,
+    data: balances,
+    isLoading,
+    isError: hasError,
+    error,
+    refetch,
   } = useQuery({
-    queryKey: QUERY_KEYS.usdcBalance(walletAddress || undefined),
+    queryKey: QUERY_KEYS.erc20Balances(walletAddress || undefined),
     queryFn: async () => {
-      if (!walletAddress || !usdc) return null;
-      return await usdc.balanceOf(walletAddress);
-    },
-    enabled: !!walletAddress && !!usdc,
-    staleTime: 10 * 1000, // 10 seconds
-    retry: 2,
-  });
-
-  // USDG Balance Query
-  const {
-    data: usdgBalance = null,
-    isLoading: isUsdgLoading,
-    isError: isUsdgError,
-    error: usdgError,
-    refetch: refetchUsdgBalance,
-  } = useQuery({
-    queryKey: QUERY_KEYS.usdgBalance(walletAddress || undefined),
-    queryFn: async () => {
-      if (!walletAddress) {
-        return null;
+      if (!walletAddress || !usdc || !usdg || !glow) {
+        return { usdc: null, usdg: null, glow: null };
       }
+
       try {
-        if (!usdg) {
-          throw new Error("USDG contract not available");
-        }
-        const balance = await usdg.balanceOf(walletAddress);
-        return balance;
+        // Fetch all balances in parallel for maximum efficiency
+        const [usdcBal, usdgBal, glowBal] = await Promise.all([
+          usdc.balanceOf(walletAddress),
+          usdg.balanceOf(walletAddress),
+          glow.balanceOf(walletAddress),
+        ]);
+
+        return {
+          usdc: usdcBal,
+          usdg: usdgBal,
+          glow: glowBal,
+        };
       } catch (error) {
-        console.error("Error fetching USDG balance:", error);
-        // Re-throw to let React Query handle it
+        console.error("Error fetching balances:", error);
         throw error;
       }
     },
-    enabled: !!walletAddress && !!usdg,
-    staleTime: 10 * 1000, // 10 seconds
+    enabled: !!walletAddress && !!usdc && !!usdg && !!glow,
+    staleTime: 10 * 1000, // 10 seconds - data considered fresh
+    gcTime: 5 * 60 * 1000, // 5 minutes - keep in cache for stale-while-revalidate
+    refetchOnWindowFocus: true, // Refresh when user returns to tab
+    refetchOnMount: true, // Always fetch fresh data on mount
     retry: 2,
   });
 
-  // GLOW Balance Query
-  const {
-    data: glowBalance = null,
-    isLoading: isGlowLoading,
-    isError: isGlowError,
-    error: glowError,
-    refetch: refetchGlowBalance,
-  } = useQuery({
-    queryKey: QUERY_KEYS.glowBalance(walletAddress || undefined),
-    queryFn: async () => {
-      if (!walletAddress) return null;
-      if (!glow) {
-        throw new Error("GLOW contract not available");
-      }
-      return await glow.balanceOf(walletAddress);
-    },
-    enabled: !!walletAddress && !!glow,
-    staleTime: 10 * 1000, // 10 seconds
-    retry: 2,
-  });
+  // Extract individual balances for backward compatibility
+  const usdcBalance = balances?.usdc ?? null;
+  const usdgBalance = balances?.usdg ?? null;
+  const glowBalance = balances?.glow ?? null;
 
-  const isLoading = isUsdcLoading || isUsdgLoading || isGlowLoading;
-  const hasError = isUsdcError || isUsdgError || isGlowError;
+  // Individual error states
+  const isUsdcError = hasError;
+  const isUsdgError = hasError;
+  const isGlowError = hasError;
   /**
    * @param getBalance ~ Returns the balance for the desired token
    * @return Result<BigNumber, GetBalanceError> ~ Returns the balance for the desired token
@@ -153,33 +120,23 @@ export const useER20Balances = ({
     }
   }
 
-  // Legacy functions for backward compatibility
+  // Optimized refetch functions - all use the same single query
   const setUsdcBalanceForSigner = useCallback(async () => {
-    await refetchUsdcBalance();
-  }, [refetchUsdcBalance]);
+    await refetch();
+  }, [refetch]);
 
   const setUsdgBalanceForSigner = useCallback(async () => {
-    await refetchUsdgBalance();
-  }, [refetchUsdgBalance]);
+    await refetch();
+  }, [refetch]);
 
   const setGlowBalanceForSigner = useCallback(async () => {
-    await refetchGlowBalance();
-  }, [refetchGlowBalance]);
+    await refetch();
+  }, [refetch]);
 
   const refreshBalances = useCallback(async () => {
     if (!isReady || !signer) return;
-    await Promise.all([
-      refetchUsdcBalance(),
-      refetchUsdgBalance(),
-      refetchGlowBalance(),
-    ]);
-  }, [
-    isReady,
-    signer,
-    refetchUsdcBalance,
-    refetchUsdgBalance,
-    refetchGlowBalance,
-  ]);
+    await refetch();
+  }, [isReady, signer, refetch]);
 
   return {
     getBalances,
