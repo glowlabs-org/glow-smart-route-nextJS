@@ -349,7 +349,7 @@ export default function View() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 xl:px-16 py-6 md:py-8 pt-20 md:pt-24">
+      <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 xl:px-16 py-6 md:py-24 pt-20">
         {/* Page Header - 8pt spacing system */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6 md:mb-8">
           <div>

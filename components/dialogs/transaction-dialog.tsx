@@ -52,6 +52,11 @@ export interface TransactionDialogProps {
   successContent?: React.ReactNode;
   errorContent?: React.ReactNode;
   footer?: React.ReactNode;
+  successFooter?: React.ReactNode;
+
+  // Processing progress
+  showProcessingProgress?: boolean;
+  processingMaxSeconds?: number;
 
   // Actions
   onConfirm?: () => void | Promise<void>;
@@ -98,6 +103,9 @@ export function TransactionDialog({
   successContent,
   errorContent,
   footer,
+  successFooter,
+  showProcessingProgress = false,
+  processingMaxSeconds = 60,
   onConfirm,
   confirmDisabled,
   confirmLabel = "Confirm",
@@ -112,6 +120,50 @@ export function TransactionDialog({
 
   const displayDetails =
     isSuccess && successDetails ? successDetails : transactionDetails;
+
+  // Processing progress state (minimal effects; derived values via useMemo)
+  const [processingStartMs, setProcessingStartMs] = React.useState<
+    number | null
+  >(null);
+  const [nowMs, setNowMs] = React.useState<number>(Date.now());
+
+  React.useEffect(() => {
+    if (isSubmitting && showProcessingProgress) {
+      setProcessingStartMs((prev) => (prev === null ? Date.now() : prev));
+    } else {
+      setProcessingStartMs(null);
+    }
+  }, [isSubmitting, showProcessingProgress]);
+
+  React.useEffect(() => {
+    if (!open || !isSubmitting || !showProcessingProgress) return;
+    const interval = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [open, isSubmitting, showProcessingProgress]);
+
+  const processingElapsedSeconds = React.useMemo(() => {
+    if (!processingStartMs) return 0;
+    return Math.max(0, Math.floor((nowMs - processingStartMs) / 1000));
+  }, [nowMs, processingStartMs]);
+
+  const processingCountdown = React.useMemo(
+    () => Math.max(0, processingMaxSeconds - processingElapsedSeconds),
+    [processingElapsedSeconds, processingMaxSeconds]
+  );
+
+  const processingProgressPercentage = React.useMemo(
+    () =>
+      Math.max(
+        0,
+        Math.min(
+          100,
+          ((processingMaxSeconds - processingCountdown) /
+            processingMaxSeconds) *
+            100
+        )
+      ),
+    [processingCountdown, processingMaxSeconds]
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -197,10 +249,22 @@ export function TransactionDialog({
                 </div>
               )}
 
-              {/* Close Button */}
-              <Button onClick={() => onOpenChange(false)} className="w-full">
-                Close
-              </Button>
+              {/* Success Footer / Actions */}
+              {successFooter ? (
+                <div className="flex gap-3">
+                  {successFooter}
+                  <Button
+                    onClick={() => onOpenChange(false)}
+                    className="flex-1"
+                  >
+                    Close
+                  </Button>
+                </div>
+              ) : (
+                <Button onClick={() => onOpenChange(false)} className="w-full">
+                  Close
+                </Button>
+              )}
             </div>
           ) : isError ? (
             <div className="px-1 text-center space-y-8">
@@ -282,6 +346,32 @@ export function TransactionDialog({
                   <span className="text-foreground text-sm font-medium animate-pulse">
                     Submitting transaction...
                   </span>
+                </div>
+              )}
+
+              {/* Processing ETA + Progress Bar */}
+              {isSubmitting && showProcessingProgress && (
+                <div className="mb-8">
+                  <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full mb-6">
+                    <span className="text-foreground text-sm font-medium">
+                      ETA:{" "}
+                      {processingCountdown > 0
+                        ? `${processingCountdown}s`
+                        : "Processing should complete soon"}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="w-full bg-muted rounded-full h-2 mb-4 overflow-hidden">
+                      <div
+                        className="h-full glow-gradient-a transition-all duration-300 ease-out"
+                        style={{ width: `${processingProgressPercentage}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {Math.round(processingProgressPercentage)}% complete •
+                      Checking status every 5s
+                    </div>
+                  </div>
                 </div>
               )}
 

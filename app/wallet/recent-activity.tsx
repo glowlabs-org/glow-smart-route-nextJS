@@ -324,7 +324,7 @@ export function RecentActivity({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="max-h-[800px] pr-4">
+        <div className="">
           {isLoading ? (
             <div className="space-y-4">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -393,7 +393,7 @@ export function RecentActivity({
               <div className="text-sm">Your transactions will appear here</div>
             </div>
           )}
-        </ScrollArea>
+        </div>
       </CardContent>
     </Card>
   );

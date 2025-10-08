@@ -1115,6 +1115,15 @@ export function DepositDialog({
       successContent={customSuccessContent}
       errorContent={customErrorContent}
       footer={customFooter}
+      successFooter={
+        application.activeFraction && currency === "GLW" ? (
+          <Button variant="outline" className="flex-1" asChild>
+            <Link href="/wallet">See Power Wallet</Link>
+          </Button>
+        ) : null
+      }
+      showProcessingProgress={isProcessing}
+      processingMaxSeconds={60}
       confirmDisabled={!canConfirm}
     />
   );
