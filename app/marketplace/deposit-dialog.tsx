@@ -1123,7 +1123,7 @@ export function DepositDialog({
         ) : null
       }
       showProcessingProgress={isProcessing}
-      processingMaxSeconds={60}
+      processingMaxSeconds={90}
       confirmDisabled={!canConfirm}
     />
   );
