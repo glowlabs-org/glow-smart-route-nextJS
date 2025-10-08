@@ -64,6 +64,8 @@ import { SlidersHorizontal, X, Info } from "lucide-react";
 import { HowItWorks } from "@/components/how-it-works";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
+import { LaunchCountdown } from "@/components/launch-countdown";
+import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
 
 // Component to show owned fractions for a specific application
 function OwnedFractionsDisplay({
@@ -512,38 +514,13 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
             </p>
           </div>
         ) : applications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 px-6">
-            <div className="mb-8 opacity-20">
-              <GlowSymbol className="w-16 h-16" />
-            </div>
-            <div className="text-center max-w-md">
-              <h3
-                className="text-lg font-semibold mb-3"
-                style={{
-                  fontFamily: "Söhne, sans-serif",
-                  fontWeight: 600,
-                }}
-              >
-                {selectedZoneId
-                  ? "No applications in this zone"
-                  : "No applications available"}
-              </h3>
-              <p className="text-muted-foreground text-sm">
-                {selectedZoneId
-                  ? "Try selecting a different zone or check back later for new farm applications."
-                  : "Check back later for new solar farm sponsorship opportunities."}
-              </p>
-              {selectedZoneId && (
-                <Button
-                  variant="outline"
-                  className="mt-6"
-                  onClick={() => setZoneParam(null)}
-                >
-                  View All Zones
-                </Button>
-              )}
-            </div>
-          </div>
+          <>
+            <LaunchCountdown
+              target={getNextTuesdayAt1pmET()}
+              title="Launchpad"
+              subtitle="The next batch of farms will be available soon"
+            />
+          </>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
             {applications.map((application) => {

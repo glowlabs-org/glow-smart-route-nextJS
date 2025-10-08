@@ -58,6 +58,8 @@ import { useFractionSplits } from "@/hooks/useFractionSplits";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SlidersHorizontal, X } from "lucide-react";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
+import { LaunchCountdown } from "@/components/launch-countdown";
+import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
 
 // Component to show owned fractions for a specific mining center application
 function OwnedFractionsDisplay({
@@ -465,41 +467,13 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
               </p>
             </div>
           ) : applications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 md:py-24 px-4 md:px-6">
-              <div className="mb-6 md:mb-8 opacity-20">
-                <GlowSymbol className="w-12 h-12 md:w-16 md:h-16" />
-              </div>
-              <div className="text-center max-w-md">
-                <h3
-                  className="text-base md:text-lg font-semibold mb-2 md:mb-3"
-                  style={{
-                    fontFamily: "Söhne, sans-serif",
-                    fontWeight: 600,
-                  }}
-                >
-                  {selectedZoneId
-                    ? "No miners in this zone"
-                    : "No miners available"}
-                </h3>
-                <p className="text-muted-foreground text-sm">
-                  {selectedZoneId
-                    ? "Try selecting a different zone or check back later for new mining center opportunities."
-                    : "Check back later for new mining center sponsorship opportunities."}
-                </p>
-                {selectedZoneId && (
-                  <Button
-                    variant="outline"
-                    className="mt-4 md:mt-6"
-                    onClick={() => {
-                      setZoneParam(null);
-                      setIsDrawerOpen(false);
-                    }}
-                  >
-                    View All Zones
-                  </Button>
-                )}
-              </div>
-            </div>
+            <>
+              <LaunchCountdown
+                target={getNextTuesdayAt1pmET()}
+                title="Mining Center"
+                subtitle="The next batch of miners will be available soon"
+              />
+            </>
           ) : (
             <div className="space-y-4">
               {applications.map((application) => {
