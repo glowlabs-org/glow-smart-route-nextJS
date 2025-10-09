@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { useMigrationClaim } from "@/hooks/useMigrationClaim";
 import { useRegions } from "@/hooks/useRegions";
-import Image from "next/image";
+import FallbackImage from "@/components/ui/fallback-image";
 
 interface MigrationData {
   wallet: string;
@@ -331,12 +331,13 @@ export function MigrationClaimPanel({
                           className="group relative overflow-hidden rounded-lg border border-border hover:border-primary/50 transition-all duration-200 hover:shadow-lg bg-background"
                         >
                           <div className="relative w-full aspect-[16/9]">
-                            <Image
+                            <FallbackImage
                               src={region.bannerUrl}
                               alt={region.name}
-                              fill
-                              sizes="(max-width: 640px) 100vw, 50vw"
-                              className="object-cover"
+                              loading="lazy"
+                              decoding="async"
+                              disableProxy
+                              className="absolute inset-0 h-full w-full object-cover"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                             <div className="absolute bottom-2 left-3 right-3 flex items-end justify-between">
@@ -495,12 +496,13 @@ export function MigrationClaimPanel({
                           className="group relative overflow-hidden rounded-lg border border-border hover:border-primary/50 transition-all duration-200 hover:shadow-lg bg-background"
                         >
                           <div className="relative w-full aspect-[16/9]">
-                            <Image
+                            <FallbackImage
                               src={region.bannerUrl}
                               alt={region.name}
-                              fill
-                              sizes="(max-width: 640px) 100vw, 50vw"
-                              className="object-cover"
+                              loading="lazy"
+                              decoding="async"
+                              disableProxy
+                              className="absolute inset-0 h-full w-full object-cover"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                             <div className="absolute bottom-2 left-3 right-3 flex items-end justify-between">

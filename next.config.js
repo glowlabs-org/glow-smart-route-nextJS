@@ -24,6 +24,14 @@ const nextConfig = {
         protocol: "https",
         hostname: "pub-e71c2d06062242109db2bdd6b0bb5ee0.r2.dev",
       },
+      {
+        protocol: "https",
+        hostname: "silver-managerial-rook-988.mypinata.cloud",
+      },
+      {
+        protocol: "https",
+        hostname: "*.mypinata.cloud",
+      },
       // Optional wildcard to support other R2 public buckets if needed
       {
         protocol: "https",
