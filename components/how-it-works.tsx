@@ -1,5 +1,6 @@
 import { MoveRight } from "lucide-react";
 import React from "react";
+import { FallbackImage } from "@/components/ui/fallback-image";
 
 import { GlowSymbol } from "./glow-symbol";
 
@@ -48,8 +49,9 @@ export const HowItWorks = ({ featuredCasestudy }: Casestudy5Props) => {
             <div className="relative isolate py-8 md:py-16">
               <div className="relative isolate h-full border border-border bg-background p-2 rounded-2xl">
                 <div className="h-full overflow-hidden">
-                  <img
+                  <FallbackImage
                     src={featuredCasestudy.image}
+                    disableProxy
                     alt="placeholder"
                     className="aspect-[14/9] h-full w-full object-cover rounded-xl"
                   />

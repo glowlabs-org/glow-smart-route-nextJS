@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { FallbackImage } from "@/components/ui/fallback-image";
 
 // Image proxy helper for optimized caching with compression
 function getProxiedImageUrl(url: string, width?: number, quality: number = 75) {
@@ -515,13 +516,13 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                           )}
 
                           {application.afterInstallPictures.length > 0 ? (
-                            <img
-                              src={getProxiedImageUrl(
+                            <FallbackImage
+                              src={
                                 application.afterInstallPictures[0]?.url ||
-                                  "/images/sections/residential.jpg",
-                                600,
-                                70
-                              )}
+                                "/images/sections/residential.jpg"
+                              }
+                              widthForProxy={600}
+                              quality={70}
                               alt={`${application.zone.name}`}
                               className="w-full h-64 lg:h-full object-cover rounded-lg"
                               loading="lazy"

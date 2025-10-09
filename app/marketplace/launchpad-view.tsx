@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { FallbackImage } from "@/components/ui/fallback-image";
 
 // Image proxy helper for optimized caching with compression
 function getProxiedImageUrl(url: string, width?: number, quality: number = 75) {
@@ -554,13 +555,13 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                       {application.afterInstallPictures.length > 0 ? (
                         <div className="grid grid-cols-2 gap-1">
                           <div className="col-span-2 relative">
-                            <img
-                              src={getProxiedImageUrl(
+                            <FallbackImage
+                              src={
                                 application.afterInstallPictures[0]?.url ||
-                                  "/images/sections/residential.jpg",
-                                900,
-                                70
-                              )}
+                                "/images/sections/residential.jpg"
+                              }
+                              widthForProxy={900}
+                              quality={70}
                               alt={`${application.zone.name} main`}
                               className="w-full h-56 object-cover"
                               loading="lazy"
@@ -568,25 +569,25 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                           </div>
-                          <img
-                            src={getProxiedImageUrl(
+                          <FallbackImage
+                            src={
                               application.afterInstallPictures[1]?.url ||
-                                "/images/sections/residential.jpg",
-                              450,
-                              65
-                            )}
+                              "/images/sections/residential.jpg"
+                            }
+                            widthForProxy={450}
+                            quality={65}
                             alt={`${application.zone.name} alt 1`}
                             className="w-full h-28 object-cover"
                             loading="lazy"
                             decoding="async"
                           />
-                          <img
-                            src={getProxiedImageUrl(
+                          <FallbackImage
+                            src={
                               application.afterInstallPictures[2]?.url ||
-                                "/images/sections/residential.jpg",
-                              450,
-                              65
-                            )}
+                              "/images/sections/residential.jpg"
+                            }
+                            widthForProxy={450}
+                            quality={65}
                             alt={`${application.zone.name} alt 2`}
                             className="w-full h-28 object-cover"
                             loading="lazy"

@@ -51,6 +51,7 @@ import { MigrationClaimPanel } from "./migration-claim-panel";
 import { forceDisconnect } from "@/utils/forceDisconnect";
 import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
+import { FallbackImage } from "@/components/ui/fallback-image";
 import { useGlowLaunchpad, useSplitsActivity } from "@/hooks/useGlowLaunchpad";
 
 // Lazy-load RecentActivity to defer its network work off the critical path
@@ -682,17 +683,19 @@ export default function View() {
         />
 
         {/* E. Migration Claims Panel */}
-        <MigrationClaimPanel
-          walletAddress={address}
-          migrationData={migrationData}
-          isLoading={isMigrationLoading}
-          isError={!!migrationError}
-          onClaim={() => {
-            // Cache invalidation is handled by the mutation
-            // This callback can be used for additional UI updates if needed
-            console.log("Migration claim completed");
-          }}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
+          <MigrationClaimPanel
+            walletAddress={address}
+            migrationData={migrationData}
+            isLoading={isMigrationLoading}
+            isError={!!migrationError}
+            onClaim={() => {
+              // Cache invalidation is handled by the mutation
+              // This callback can be used for additional UI updates if needed
+              console.log("Migration claim completed");
+            }}
+          />
+        </div>
 
         {/* F. Refund Claims Panel */}
         <RefundClaimsPanel walletAddress={address} />
@@ -758,8 +761,10 @@ export default function View() {
                                 {zoneName}
                               </div>
                             </div>
-                            <img
-                              src={getProxiedImageUrl(mainImg, 800, 70)}
+                            <FallbackImage
+                              src={mainImg}
+                              widthForProxy={800}
+                              quality={70}
                               alt={`${zoneName} main`}
                               className="w-full h-48 object-cover"
                               loading={idx < 3 ? "eager" : "lazy"}
@@ -892,13 +897,13 @@ export default function View() {
                             farm.afterInstallPictures.length > 0 ? (
                               <div className="grid grid-cols-2 gap-1">
                                 <div className="col-span-2 relative">
-                                  <img
-                                    src={getProxiedImageUrl(
+                                  <FallbackImage
+                                    src={
                                       farm.afterInstallPictures[0]?.url ||
-                                        "/images/sections/residential.jpg",
-                                      800,
-                                      70
-                                    )}
+                                      "/images/sections/residential.jpg"
+                                    }
+                                    widthForProxy={800}
+                                    quality={70}
                                     alt={`${formattedFarm.farm} main`}
                                     className="w-full h-48 object-cover"
                                     loading={idx < 3 ? "eager" : "lazy"}
@@ -907,25 +912,25 @@ export default function View() {
                                   />
                                   <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                                 </div>
-                                <img
-                                  src={getProxiedImageUrl(
+                                <FallbackImage
+                                  src={
                                     farm.afterInstallPictures[1]?.url ||
-                                      "/images/sections/residential.jpg",
-                                    400,
-                                    65
-                                  )}
+                                    "/images/sections/residential.jpg"
+                                  }
+                                  widthForProxy={400}
+                                  quality={65}
                                   alt={`${formattedFarm.farm} alt 1`}
                                   className="w-full h-24 object-cover"
                                   loading="lazy"
                                   decoding="async"
                                 />
-                                <img
-                                  src={getProxiedImageUrl(
+                                <FallbackImage
+                                  src={
                                     farm.afterInstallPictures[2]?.url ||
-                                      "/images/sections/residential.jpg",
-                                    400,
-                                    65
-                                  )}
+                                    "/images/sections/residential.jpg"
+                                  }
+                                  widthForProxy={400}
+                                  quality={65}
                                   alt={`${formattedFarm.farm} alt 2`}
                                   className="w-full h-24 object-cover"
                                   loading="lazy"
