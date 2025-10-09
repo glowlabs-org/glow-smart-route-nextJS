@@ -164,7 +164,7 @@ export function SponsoredFarmsActivity({
         )}
         <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-            Amount Purchased
+            Amount
           </div>
           <div className="text-2xl font-semibold text-black dark:text-white">
             {formatNumber(summary.totalStepsPurchased, 0)}
@@ -172,7 +172,7 @@ export function SponsoredFarmsActivity({
         </div>
         <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-            Total Spent
+            Total
           </div>
           <div className="text-2xl font-semibold text-black dark:text-white">
             {(() => {
@@ -250,14 +250,12 @@ export function SponsoredFarmsActivity({
                   Reward Score
                 </TableHead>
               )}
-              <TableHead className="text-right min-w-[120px]">
-                Total Paid
-              </TableHead>
+              <TableHead className="text-right min-w-[120px]">Total</TableHead>
               <TableHead className="min-w-[100px] hidden md:table-cell">
                 Type
               </TableHead>
               <TableHead className="min-w-[100px] hidden lg:table-cell">
-                Buyer
+                Wallet
               </TableHead>
             </TableRow>
           </TableHeader>
