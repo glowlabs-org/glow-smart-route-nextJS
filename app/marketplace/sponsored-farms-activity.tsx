@@ -172,7 +172,7 @@ export function SponsoredFarmsActivity({
         </div>
         <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-            Total
+            Total GLW Delegated
           </div>
           <div className="text-2xl font-semibold text-black dark:text-white">
             {(() => {
