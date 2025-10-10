@@ -633,7 +633,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                               fontWeight: 600,
                             }}
                           >
-                            Available
+                            Delegations Available
                           </div>
                         </div>
                         {/* Reward Score */}
@@ -701,7 +701,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                               fontWeight: 400,
                             }}
                           >
-                            Amount
+                            Amount per Delegation
                           </div>
                           {application.activeFraction?.step ? (
                             <div>
@@ -774,7 +774,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                   fontWeight: 400,
                                 }}
                               >
-                                Est. Weekly Rewards
+                                Est. Weekly Rewards per Delegation
                               </div>
                               <div>
                                 <div

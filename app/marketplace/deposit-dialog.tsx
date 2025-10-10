@@ -687,7 +687,7 @@ export function DepositDialog({
                 autoComplete="off"
                 enterKeyHint="done"
                 aria-label="Quantity"
-                className="h-10 w-24 text-center font-mono"
+                className="h-10 w-24 text-center font-mono border-accent"
                 value={quantityInput}
                 onKeyDown={(e) => {
                   const allowedKeys = [
