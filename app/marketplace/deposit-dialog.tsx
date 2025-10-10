@@ -341,13 +341,6 @@ export function DepositDialog({
       setIsSubmitting(false);
       setIsProcessing(true);
 
-      // Validate that we actually got a transaction hash
-      if (!txHash) {
-        throw new Error(
-          "No transaction hash received. Transaction may not have been submitted."
-        );
-      }
-
       // Poll for transaction confirmation
       const provider = signer.provider;
       let receipt = null;
