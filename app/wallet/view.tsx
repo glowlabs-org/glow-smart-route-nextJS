@@ -53,6 +53,10 @@ import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
 import { FallbackImage } from "@/components/ui/fallback-image";
 import { useGlowLaunchpad, useSplitsActivity } from "@/hooks/useGlowLaunchpad";
+import {
+  useRewardScore,
+  getRewardScoreForApplication,
+} from "@/hooks/useRewardScore";
 
 // Lazy-load RecentActivity to defer its network work off the critical path
 const RecentActivity = dynamic(
@@ -201,6 +205,20 @@ export default function View() {
       }))
       .filter((item) => item.userSteps > 0);
   }, [splitsActivity, sponsorListings]);
+
+  // Get reward scores for applications in progress
+  const applicationsForRewards = React.useMemo(() => {
+    return sponsorshipsInProgress
+      .map((item) => item.application)
+      .filter((app): app is any => app !== null);
+  }, [sponsorshipsInProgress]);
+
+  const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
+    applications: applicationsForRewards,
+    paymentCurrency: "GLW",
+    enabled: applicationsForRewards.length > 0,
+    walletAddress: address || null,
+  });
 
   // Helper functions to format balances
   function formatBalance(
@@ -705,10 +723,11 @@ export default function View() {
           <Card className="mb-8">
             <CardHeader className="pb-4">
               <CardTitle className="text-2xl font-bold">
-                Sponsorships In Progress
+                Delegations In Progress
               </CardTitle>
               <CardDescription className="text-base mt-2">
-                Sponsor listings you've delegated to that are not yet filled
+                Farms you've delegated GLW to that are waiting for full funding
+                to start earning rewards
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -789,30 +808,63 @@ export default function View() {
                               <div className="flex items-center justify-between text-sm text-muted-foreground">
                                 <span>{progress}% filled</span>
                                 <span>
-                                  Your delegations:{" "}
+                                  Est. Weekly Rewards:{" "}
                                   {(() => {
-                                    const stepAmount =
-                                      app?.activeFraction?.step;
-                                    if (!stepAmount)
-                                      return `${item.userSteps} steps`;
+                                    if (!app || !app.id) return "...";
+
+                                    const rewardScore =
+                                      getRewardScoreForApplication(
+                                        rewardScoreMap,
+                                        app.id
+                                      );
+
+                                    if (
+                                      !rewardScore?.userWeeklyGlwRewards ||
+                                      !rewardScore?.userWeeklyPdRewards ||
+                                      !app?.activeFraction?.totalSteps
+                                    ) {
+                                      return isRewardScoresLoading
+                                        ? "..."
+                                        : "0 GLW";
+                                    }
+
                                     try {
-                                      const glwPerStep = parseFloat(
-                                        formatUnits(
-                                          BigInt(stepAmount),
+                                      const glwRewards = parseFloat(
+                                        formatUnitsViem(
+                                          BigInt(
+                                            rewardScore.userWeeklyGlwRewards
+                                          ),
                                           DECIMALS_BY_TOKEN["GLW"]
                                         )
                                       );
-                                      const totalGLW =
-                                        glwPerStep * item.userSteps;
-                                      return `${totalGLW.toLocaleString(
+
+                                      const pdRewards = parseFloat(
+                                        formatUnitsViem(
+                                          BigInt(
+                                            rewardScore.userWeeklyPdRewards
+                                          ),
+                                          DECIMALS_BY_TOKEN["GLW"]
+                                        )
+                                      );
+
+                                      const totalRewards =
+                                        glwRewards + pdRewards;
+                                      const totalShares =
+                                        app.activeFraction.totalSteps;
+                                      const rewardsPerShare =
+                                        totalRewards / totalShares;
+                                      const userRewards =
+                                        rewardsPerShare * item.userSteps;
+
+                                      return `${userRewards.toLocaleString(
                                         undefined,
                                         {
-                                          minimumFractionDigits: 0,
-                                          maximumFractionDigits: 0,
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
                                         }
                                       )} GLW`;
                                     } catch {
-                                      return `${item.userSteps} steps`;
+                                      return "0 GLW";
                                     }
                                   })()}
                                 </span>
