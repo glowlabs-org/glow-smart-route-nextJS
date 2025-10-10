@@ -57,6 +57,7 @@ import {
   useRewardScore,
   getRewardScoreForApplication,
 } from "@/hooks/useRewardScore";
+import { Badge } from "@/components/ui/badge";
 
 // Lazy-load RecentActivity to defer its network work off the critical path
 const RecentActivity = dynamic(
@@ -662,12 +663,43 @@ export default function View() {
                           </span>
                         )}
                       </div>
-                      {!hasNetworkIssues && walletDetails?.stakedControl && (
-                        <div className="mt-2 text-sm text-muted-foreground">
-                          Staked:{" "}
-                          {formatGctlBalance(walletDetails.stakedControl)} GCTL
-                        </div>
-                      )}
+                      {!hasNetworkIssues &&
+                        walletDetails?.regions &&
+                        walletDetails.regions.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            <div className="text-sm text-muted-foreground">
+                              Staked by region:
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {walletDetails.regions
+                                .filter(
+                                  (regionStake) =>
+                                    BigInt(regionStake.totalStaked) > BigInt(0)
+                                )
+                                .map((regionStake) => {
+                                  const regionName =
+                                    regionStake.region?.name ||
+                                    regions.find(
+                                      (r) => r.id === regionStake.regionId
+                                    )?.name ||
+                                    `Region ${regionStake.regionId}`;
+                                  const stakedAmount = formatGctlBalance(
+                                    regionStake.totalStaked
+                                  );
+
+                                  return (
+                                    <Badge
+                                      key={regionStake.regionId}
+                                      variant="secondary"
+                                      className="text-lg"
+                                    >
+                                      {regionName}: {stakedAmount} GCTL
+                                    </Badge>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -691,17 +723,8 @@ export default function View() {
               </CardContent>
             </Card>
           )}
-        </div>
 
-        {/* D. Claims Panel */}
-        <ClaimsPanel
-          claimable={claimable}
-          onClaim={handleClaim}
-          onClaimAll={handleClaimAll}
-        />
-
-        {/* E. Migration Claims Panel */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
+          {/* Migration Claims Panel */}
           <MigrationClaimPanel
             walletAddress={address}
             migrationData={migrationData}
@@ -715,10 +738,17 @@ export default function View() {
           />
         </div>
 
-        {/* F. Refund Claims Panel */}
+        {/* D. Claims Panel */}
+        <ClaimsPanel
+          claimable={claimable}
+          onClaim={handleClaim}
+          onClaimAll={handleClaimAll}
+        />
+
+        {/* E. Refund Claims Panel */}
         <RefundClaimsPanel walletAddress={address} />
 
-        {/* G. Sponsorships In Progress */}
+        {/* F. Sponsorships In Progress */}
         {(sponsorshipsInProgress.length > 0 || isSplitsActivityLoading) && (
           <Card className="mb-8">
             <CardHeader className="pb-4">
@@ -881,7 +911,7 @@ export default function View() {
           </Card>
         )}
 
-        {/* H. Farms Earning Rewards */}
+        {/* G. Farms Earning Rewards */}
         {(purchasedFarms.length > 0 || isPurchasedFarmsLoading) && (
           <Card className="mb-8">
             <CardHeader className="pb-4">

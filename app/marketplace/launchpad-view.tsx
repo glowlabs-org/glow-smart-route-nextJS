@@ -633,7 +633,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                               fontWeight: 600,
                             }}
                           >
-                            Delegations Available
+                            Available
                           </div>
                         </div>
                         {/* Reward Score */}
@@ -706,7 +706,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                           {application.activeFraction?.step ? (
                             <div>
                               <div
-                                className="text-2xl lg:text-3xl text-black dark:text-white"
+                                className="text-3xl lg:text-4xl xl:text-5xl text-black dark:text-white"
                                 style={{
                                   fontFamily: "Söhne, sans-serif",
                                   fontWeight: 600,
@@ -786,43 +786,57 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                 >
                                   {rewardScore?.userWeeklyGlwRewards &&
                                   rewardScore?.userWeeklyPdRewards &&
-                                  application.activeFraction?.totalSteps
-                                    ? (() => {
-                                        const glwRewards = parseFloat(
-                                          formatUnits(
-                                            BigInt(
-                                              rewardScore.userWeeklyGlwRewards
-                                            ),
-                                            DECIMALS_BY_TOKEN["GLW"]
-                                          )
-                                        );
+                                  application.activeFraction?.totalSteps ? (
+                                    (() => {
+                                      const glwRewards = parseFloat(
+                                        formatUnits(
+                                          BigInt(
+                                            rewardScore.userWeeklyGlwRewards
+                                          ),
+                                          DECIMALS_BY_TOKEN["GLW"]
+                                        )
+                                      );
 
-                                        const pdRewards = parseFloat(
-                                          formatUnits(
-                                            BigInt(
-                                              rewardScore.userWeeklyPdRewards
-                                            ),
-                                            DECIMALS_BY_TOKEN["GLW"] // Assuming PD rewards are also in GLW
-                                          )
-                                        );
+                                      const pdRewards = parseFloat(
+                                        formatUnits(
+                                          BigInt(
+                                            rewardScore.userWeeklyPdRewards
+                                          ),
+                                          DECIMALS_BY_TOKEN["GLW"] // Assuming PD rewards are also in GLW
+                                        )
+                                      );
 
-                                        const totalRewards =
-                                          glwRewards + pdRewards;
-                                        const totalShares =
-                                          application.activeFraction.totalSteps;
-                                        const rewardsPerShare =
-                                          totalRewards / totalShares;
-                                        return `${rewardsPerShare.toLocaleString(
-                                          undefined,
-                                          {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          }
-                                        )} GLW`;
-                                      })()
-                                    : isRewardScoresLoading
-                                    ? "..."
-                                    : "0 GLW"}
+                                      const totalRewards =
+                                        glwRewards + pdRewards;
+                                      const totalShares =
+                                        application.activeFraction.totalSteps;
+                                      const rewardsPerShare =
+                                        totalRewards / totalShares;
+                                      return (
+                                        <>
+                                          {rewardsPerShare.toLocaleString(
+                                            undefined,
+                                            {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                            }
+                                          )}{" "}
+                                          <span className="text-lg font-normal">
+                                            GLW
+                                          </span>
+                                        </>
+                                      );
+                                    })()
+                                  ) : isRewardScoresLoading ? (
+                                    "..."
+                                  ) : (
+                                    <>
+                                      0{" "}
+                                      <span className="text-lg font-normal">
+                                        GLW
+                                      </span>
+                                    </>
+                                  )}
                                   <span className="text-base text-gray-500 dark:text-gray-500 ml-2 font-normal">
                                     ≈
                                     {rewardScore?.userWeeklyGlwRewards &&
@@ -873,6 +887,12 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                           </TooltipTrigger>
                           <TooltipContent>
                             <div className="text-sm">
+                              <div className="mb-2 text-background/80">
+                                This is an estimate of your weekly rewards per
+                                delegation.
+                                <br /> You will earn rewards every week for 100
+                                weeks.
+                              </div>
                               {rewardScore?.userWeeklyGlwRewards &&
                               rewardScore?.userWeeklyPdRewards &&
                               application.activeFraction?.totalSteps
@@ -900,7 +920,9 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                     return (
                                       <div className="space-y-1">
                                         <div>
-                                          <strong>Reward Breakdown:</strong>
+                                          <strong>
+                                            Weekly reward breakdown:
+                                          </strong>
                                         </div>
                                         <div>
                                           {pdPerShare.toLocaleString(
