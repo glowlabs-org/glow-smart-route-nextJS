@@ -341,42 +341,6 @@ export function DepositDialog({
       setIsSubmitting(false);
       setIsProcessing(true);
 
-      // Poll for transaction confirmation
-      const provider = signer.provider;
-      let receipt = null;
-
-      if (provider) {
-        let attempts = 0;
-        const maxAttempts = 60; // 60 attempts with 1 second delay = 1 minute max
-
-        while (!receipt && attempts < maxAttempts) {
-          try {
-            receipt = await provider.getTransactionReceipt(txHash);
-            if (receipt) {
-              if (receipt.status === 0) {
-                throw new Error("Transaction failed on-chain");
-              }
-              break;
-            }
-          } catch (e) {
-            console.log("Waiting for transaction confirmation...");
-          }
-
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          attempts++;
-        }
-
-        if (!receipt) {
-          throw new Error(
-            "Transaction confirmation timeout. Please check your wallet for the transaction status."
-          );
-        }
-      } else {
-        throw new Error(
-          "Unable to confirm transaction - provider not available"
-        );
-      }
-
       // Refresh splits immediately to start polling
       await refetchSplits();
 
@@ -443,7 +407,10 @@ export function DepositDialog({
         currency === "USDC" ? "Purchase failed" : "Delegation failed";
 
       // Handle specific error types based on OffchainFractionsError enum
-      if (
+      if (error.message === "TRANSACTION_SUBMISSION_TIMEOUT") {
+        message =
+          "Transaction submission timed out. The transaction may still be processing. Please refresh the page and check your wallet.";
+      } else if (
         error.message?.includes("Insufficient balance") ||
         error.message?.includes("Insufficient GLW balance") ||
         error.message?.includes("Insufficient USDC balance")
