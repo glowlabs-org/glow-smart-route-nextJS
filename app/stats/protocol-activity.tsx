@@ -14,16 +14,30 @@ import {
   useFractionsSummary,
   type FractionsSummaryResponse,
 } from "@/hooks/useFractionsSummary";
-import { useFractionsAvailability } from "@/hooks/useFractionsAvailability";
-import { useSplitsActivity } from "@/hooks/useGlowLaunchpad";
+import {
+  useGlowLaunchpad,
+  useSplitsActivity,
+  calculateProtocolDepositAmount,
+  type AuctionApplication,
+} from "@/hooks/useGlowLaunchpad";
+import { useMiningCenter } from "@/hooks/useMiningCenter";
+import {
+  useRewardScore,
+  getRewardScoreForApplication,
+} from "@/hooks/useRewardScore";
+import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
+import {
+  useMiningScore,
+  getMiningScoreForApplication,
+} from "@/hooks/useMiningScore";
+import { formatNumber } from "@/app/marketplace/utils";
+import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
+import { formatUnits } from "viem";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
 import {
   parseFractionsSummary,
-  parseFractionsAvailability,
-  formatRemainingInventory,
   formatDelegationEvents,
   formatMinerEvents,
-  type InventoryItem,
 } from "@/lib/fractions";
 import { useToast } from "@/hooks/use-toast";
 import { MiniCountdown } from "./mini-countdown";
@@ -37,6 +51,20 @@ export interface ProtocolEventRowProps {
   token: string;
   totalValueFormatted: string;
   timestamp: string;
+}
+
+interface InventoryItem {
+  id: string;
+  applicationId: string;
+  token: string;
+  remainingStepsFormatted: string;
+  remainingValueFormatted: string;
+  remainingPercentFormatted: string;
+  stepPriceFormatted: string;
+  type: "launchpad" | "mining-center";
+  rewardScore?: number | null;
+  miningScore?: number | null;
+  weeklyGlwRewards?: string | null;
 }
 
 interface DelegationCardState {
@@ -137,7 +165,7 @@ function InventoryList({
             className="block"
           >
             <div className="cursor-pointer rounded-xl border border-border bg-muted/50 p-4 transition-all hover:border-gray-300 hover:bg-muted dark:hover:border-gray-700">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start justify-between gap-4 mb-3">
                 <div className="min-w-0 flex-1">
                   <div className="mb-2 text-sm font-semibold">
                     {item.applicationId}
@@ -158,6 +186,37 @@ function InventoryList({
                   </div>
                 </div>
               </div>
+              {item.type === "launchpad" &&
+                item.rewardScore !== null &&
+                item.rewardScore !== undefined && (
+                  <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                    <span className="text-xs text-muted-foreground">
+                      Reward Score
+                    </span>
+                    <span className="text-sm font-semibold">
+                      {item.rewardScore.toFixed(0)}
+                    </span>
+                  </div>
+                )}
+              {item.type === "mining-center" && item.weeklyGlwRewards && (
+                <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                  <span className="text-xs text-muted-foreground">
+                    Weekly Rewards/Miner
+                  </span>
+                  <span className="text-sm font-semibold">
+                    {formatNumber(
+                      parseFloat(
+                        formatUnits(
+                          BigInt(item.weeklyGlwRewards),
+                          DECIMALS_BY_TOKEN["GLW"]
+                        )
+                      ),
+                      2
+                    )}{" "}
+                    GLW
+                  </span>
+                </div>
+              )}
             </div>
           </Link>
         ))}
@@ -286,12 +345,49 @@ export function ProtocolActivity({
     isError: summaryError,
   } = useFractionsSummary({ enabled: shouldLoad });
 
+  // Fetch launchpad applications (GLW delegations)
   const {
-    data: availability,
-    isLoading: availabilityLoading,
-    isFetching: availabilityFetching,
-    isError: availabilityError,
-  } = useFractionsAvailability({ enabled: shouldLoad });
+    applications: launchpadApplications,
+    isLoading: launchpadLoading,
+    isError: launchpadError,
+  } = useGlowLaunchpad({
+    filters: {
+      sortBy: "publishedOnAuctionTimestamp",
+      sortOrder: "desc",
+      paymentCurrency: "GLW",
+    },
+    enabled: shouldLoad,
+  });
+
+  // Fetch mining center applications (USDC purchases)
+  const {
+    applications: miningApplications,
+    isLoading: miningLoading,
+    isError: miningError,
+  } = useMiningCenter({
+    filters: {
+      sortBy: "publishedOnAuctionTimestamp",
+      sortOrder: "desc",
+      paymentCurrency: "USDC",
+    },
+    enabled: shouldLoad,
+  });
+
+  // Get reward scores for launchpad
+  const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
+    applications: launchpadApplications,
+    paymentCurrency: "GLW",
+    enabled: shouldLoad && launchpadApplications.length > 0,
+    walletAddress: null,
+  });
+
+  // Get mining scores for mining center
+  const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
+    applications: miningApplications,
+    enabled: shouldLoad && miningApplications.length > 0,
+  });
+
+  const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
 
   const { activity: allSplitsActivity, isLoading: allSplitsLoading } =
     useSplitsActivity({ enabled: shouldLoad, limit: 100 });
@@ -323,29 +419,103 @@ export function ProtocolActivity({
 
   React.useEffect(() => {
     if (!shouldLoad) return;
-    if (availabilityError) {
+    if (launchpadError || miningError) {
       toast({
         title: "Failed to load availability",
         description: "Please try again later",
         variant: "destructive",
       });
     }
-  }, [shouldLoad, availabilityError, toast]);
+  }, [shouldLoad, launchpadError, miningError, toast]);
 
-  const { launchpad, miningCenter } = React.useMemo(() => {
-    if (!availability) {
-      return { launchpad: null, miningCenter: null };
-    }
-    return parseFractionsAvailability(availability);
-  }, [availability]);
+  // Transform launchpad applications into inventory items
+  const launchpadInventory = React.useMemo(() => {
+    return launchpadApplications
+      .filter((app) => app.activeFraction && !app.activeFraction.isFilled)
+      .map((app) => {
+        const fraction = app.activeFraction!;
+        const remainingSteps = fraction.remainingSteps || 0;
+        const totalSteps = fraction.totalSteps;
 
-  const { launchpadInventory, miningCenterInventory } = React.useMemo(() => {
-    const launchpadInventory = formatRemainingInventory(launchpad ?? null);
-    const miningCenterInventory = formatRemainingInventory(
-      miningCenter ?? null
-    );
-    return { launchpadInventory, miningCenterInventory };
-  }, [launchpad, miningCenter]);
+        // Calculate remaining value
+        const stepPriceBigInt = BigInt(fraction.step);
+        const remainingValueBigInt = stepPriceBigInt * BigInt(remainingSteps);
+
+        const remainingValueFormatted = formatNumber(
+          parseFloat(
+            formatUnits(remainingValueBigInt, DECIMALS_BY_TOKEN["GLW"])
+          ),
+          0
+        );
+
+        const rewardScore = getRewardScoreForApplication(
+          rewardScoreMap,
+          app.id
+        );
+
+        return {
+          id: fraction.id,
+          applicationId: app.id,
+          token: "GLW",
+          remainingStepsFormatted: remainingSteps.toLocaleString(),
+          remainingValueFormatted: `${remainingValueFormatted} GLW`,
+          remainingPercentFormatted: `${Math.round(
+            (remainingSteps / totalSteps) * 100
+          )}%`,
+          stepPriceFormatted: `${formatNumber(
+            parseFloat(formatUnits(stepPriceBigInt, DECIMALS_BY_TOKEN["GLW"])),
+            0
+          )} GLW`,
+          type: "launchpad" as const,
+          rewardScore: rewardScore?.rewardScore || null,
+        };
+      });
+  }, [launchpadApplications, rewardScoreMap]);
+
+  // Transform mining center applications into inventory items
+  const miningCenterInventory = React.useMemo(() => {
+    return miningApplications
+      .filter((app) => app.activeFraction && !app.activeFraction.isFilled)
+      .map((app) => {
+        const fraction = app.activeFraction!;
+        const remainingSteps = fraction.remainingSteps || 0;
+        const totalSteps = fraction.totalSteps;
+
+        // Calculate remaining value
+        const stepPriceBigInt = BigInt(fraction.stepPrice);
+        const remainingValueBigInt = stepPriceBigInt * BigInt(remainingSteps);
+
+        const remainingValueFormatted = formatNumber(
+          parseFloat(
+            formatUnits(remainingValueBigInt, DECIMALS_BY_TOKEN["USDC"])
+          ),
+          0
+        );
+
+        const miningScoreData = getMiningScoreForApplication(
+          miningScoreMap,
+          app.id
+        );
+
+        return {
+          id: fraction.id,
+          applicationId: app.id,
+          token: "USDC",
+          remainingStepsFormatted: remainingSteps.toLocaleString(),
+          remainingValueFormatted: `$${remainingValueFormatted}`,
+          remainingPercentFormatted: `${Math.round(
+            (remainingSteps / totalSteps) * 100
+          )}%`,
+          stepPriceFormatted: `$${formatNumber(
+            parseFloat(formatUnits(stepPriceBigInt, DECIMALS_BY_TOKEN["USDC"])),
+            0
+          )}`,
+          type: "mining-center" as const,
+          miningScore: miningScoreData?.miningScore || null,
+          weeklyGlwRewards: miningScoreData?.weeklyGlwRewards || null,
+        };
+      });
+  }, [miningApplications, miningScoreMap]);
 
   const delegationEvents = React.useMemo(
     () => formatDelegationEvents(allSplitsActivity),
@@ -382,15 +552,18 @@ export function ProtocolActivity({
   const isProtocolActivityLoading =
     summaryLoading ||
     summaryFetching ||
-    availabilityLoading ||
-    availabilityFetching ||
+    launchpadLoading ||
+    miningLoading ||
+    isRewardScoresLoading ||
+    isMiningScoresLoading ||
     allSplitsLoading ||
     launchpadSplitsLoading ||
     miningSplitsLoading;
 
   const isInitialLoading =
     (summaryLoading && !summary) ||
-    (availabilityLoading && !availability) ||
+    (launchpadLoading && launchpadApplications.length === 0) ||
+    (miningLoading && miningApplications.length === 0) ||
     (allSplitsLoading && allSplitsActivity.length === 0) ||
     (launchpadSplitsLoading && launchpadSplitsActivity.length === 0) ||
     (miningSplitsLoading && miningSplitsActivity.length === 0);

@@ -26,7 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Area, AreaChart, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { useGlowPrices } from "@/hooks/useGlowPrices";
 
 interface TickerCardProps {
@@ -123,14 +123,16 @@ function TickerCard({
       <Card className="group relative overflow-hidden transition-all duration-300">
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="p-6">
-              <Skeleton className="mb-3 h-4 w-32" />
-              <Skeleton className="mb-3 h-10 w-40" />
-              <Skeleton className="mb-6 h-4 w-24" />
-              <div className="border-t border-border/60 pt-6">
-                <Skeleton className="h-44 w-full" />
+            <>
+              <div className="p-6">
+                <Skeleton className="mb-3 h-4 w-32" />
+                <Skeleton className="mb-3 h-10 w-40" />
+                <Skeleton className="h-4 w-24" />
               </div>
-            </div>
+              <div className="border-t border-border/60 p-6 pt-4">
+                <Skeleton className="h-32 w-full" />
+              </div>
+            </>
           ) : (
             <>
               <div className="p-6 pb-4">
@@ -224,69 +226,36 @@ function TickerCard({
               </div>
 
               {chartData.length > 0 ? (
-                <div className="border-t border-border/60">
-                  <ChartContainer
-                    config={chartConfig}
-                    className="aspect-[2/1] w-full"
-                  >
+                <div className="border-t border-border/60 p-6 pt-4">
+                  <ChartContainer config={chartConfig}>
                     <AreaChart
                       accessibilityLayer
                       data={chartData}
-                      margin={{ top: 10, right: 10, bottom: 0, left: 0 }}
+                      margin={{
+                        left: 0,
+                        right: 0,
+                      }}
                     >
-                      <defs>
-                        <linearGradient
-                          id={`gradient-${title.replace(/\s/g, "-")}`}
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <stop
-                            offset="0%"
-                            stopColor="var(--color-value)"
-                            stopOpacity={0.3}
-                          />
-                          <stop
-                            offset="100%"
-                            stopColor="var(--color-value)"
-                            stopOpacity={0}
-                          />
-                        </linearGradient>
-                      </defs>
+                      <CartesianGrid vertical={false} />
                       <XAxis
                         dataKey="axisLabel"
-                        tick={{
-                          fontSize: 11,
-                          fill: "hsl(var(--muted-foreground))",
-                        }}
                         tickLine={false}
                         axisLine={false}
                         tickMargin={8}
                       />
                       <YAxis
-                        tick={{
-                          fontSize: 11,
-                          fill: "hsl(var(--muted-foreground))",
-                        }}
                         tickLine={false}
                         axisLine={false}
-                        orientation="right"
-                        tickMargin={8}
+                        tickMargin={4}
                         tickFormatter={(value: number) =>
                           `$${Number(value).toFixed(2)}`
                         }
                       />
-                      <Area
-                        type="monotone"
-                        dataKey="value"
-                        stroke="var(--color-value)"
-                        fill={`url(#gradient-${title.replace(/\s/g, "-")})`}
-                        strokeWidth={2}
-                      />
                       <ChartTooltip
+                        cursor={false}
                         content={
                           <ChartTooltipContent
+                            indicator="line"
                             labelFormatter={(value) => value}
                             formatter={(value) => [
                               `$${Number(value as number).toFixed(
@@ -294,9 +263,16 @@ function TickerCard({
                               )}`,
                               title,
                             ]}
-                            className="min-w-[140px]"
                           />
                         }
+                      />
+                      <Area
+                        dataKey="value"
+                        type="natural"
+                        fill="var(--color-value)"
+                        fillOpacity={0.4}
+                        stroke="var(--color-value)"
+                        strokeWidth={2}
                       />
                     </AreaChart>
                   </ChartContainer>
@@ -373,7 +349,6 @@ export function MarketTickers({ shouldLoad = true }: MarketTickersProps) {
             url: "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d?maker=0x5abcfde6bc010138f65e8dc088927473c49867e4&preferredQuoteTokenAddress=0xf4fbc617a5733eaaf9af08e1ab816b103388d8b6&cache=f235f&quoteToken=token1",
             label: "View pair on Defined.fi",
           }}
-          source="Uniswap"
         />
         <TickerCard
           title="GLW Edgap Price"

@@ -132,7 +132,7 @@ function CompletedTimelineRow({ row }: { row: CompletedFarmRow }) {
     <>
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10">
-          <Building className="h-5 w-5 text-primary" />
+          <Sun className="h-5 w-5 text-primary" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold">{row.name}</div>
