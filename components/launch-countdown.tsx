@@ -37,9 +37,9 @@ export function LaunchCountdown({
 
   return (
     <div className="w-full flex items-center justify-center py-16 md:py-24">
-      <div className="text-center max-w-2xl px-6">
+      <div className="text-center max-w-2xl px-0 md:px-6">
         <div
-          className="text-3xl md:text-4xl mb-4"
+          className="text-2xl sm:text-3xl md:text-4xl mb-4"
           style={{ fontFamily: "Duplicate Slab, serif", fontWeight: 300 }}
         >
           {title || "Coming Soon"}
@@ -55,7 +55,7 @@ export function LaunchCountdown({
         <div className="grid grid-cols-4 gap-3 md:gap-4 place-items-center">
           <div className="bg-muted/50 border border-border rounded-xl p-4 w-full">
             <div
-              className="text-3xl md:text-5xl"
+              className="text-2xl sm:text-3xl md:text-5xl"
               style={{ fontFamily: "Söhne, sans-serif", fontWeight: 600 }}
             >
               {days}
@@ -69,7 +69,7 @@ export function LaunchCountdown({
           </div>
           <div className="bg-muted/50 border border-border rounded-xl p-4 w-full">
             <div
-              className="text-3xl md:text-5xl"
+              className="text-2xl sm:text-3xl md:text-5xl"
               style={{ fontFamily: "Söhne, sans-serif", fontWeight: 600 }}
             >
               {pad2(hours)}
@@ -83,7 +83,7 @@ export function LaunchCountdown({
           </div>
           <div className="bg-muted/50 border border-border rounded-xl p-4 w-full">
             <div
-              className="text-3xl md:text-5xl"
+              className="text-2xl sm:text-3xl md:text-5xl"
               style={{ fontFamily: "Söhne, sans-serif", fontWeight: 600 }}
             >
               {pad2(minutes)}
@@ -97,7 +97,7 @@ export function LaunchCountdown({
           </div>
           <div className="bg-muted/50 border border-border rounded-xl p-4 w-full">
             <div
-              className="text-3xl md:text-5xl"
+              className="text-2xl sm:text-3xl md:text-5xl"
               style={{ fontFamily: "Söhne, sans-serif", fontWeight: 600 }}
             >
               {pad2(seconds)}

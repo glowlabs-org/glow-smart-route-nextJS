@@ -1,6 +1,5 @@
 "use client";
 
-import { FarmsRouter } from "@glowlabs-org/utils/browser";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Decimal from "decimal.js";
 
@@ -297,6 +296,7 @@ export interface SplitActivity {
   // Fraction context
   fractionId: string;
   applicationId: string;
+  farmName: string;
   fractionType?: "mining-center" | "launchpad";
   fractionStatus: string;
   currency: PaymentCurrency;

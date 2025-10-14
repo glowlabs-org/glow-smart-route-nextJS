@@ -1,0 +1,388 @@
+"use client";
+
+import React from "react";
+import Link from "next/link";
+
+import {
+  Activity,
+  ArrowDown,
+  ArrowUp,
+  ExternalLink,
+  HelpCircle,
+} from "lucide-react";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Area, AreaChart, XAxis, YAxis } from "recharts";
+
+interface TickerCardProps {
+  title: string;
+  price: string;
+  delta?: number | null;
+  deltaPercent?: number | null;
+  tooltip: string;
+  sparkline?: number[];
+  isLoading?: boolean;
+  source?: string;
+  updateFrequency?: string;
+  externalLink?: { url: string; label: string };
+}
+
+interface MarketTickersProps {
+  spot: {
+    price: string;
+    delta?: number | null;
+    deltaPercent?: number | null;
+    sparkline?: number[];
+    isLoading: boolean;
+    updateFrequency: string;
+    externalLink: { url: string; label: string };
+  };
+  edgap: {
+    price: string;
+    delta?: number | null;
+    deltaPercent?: number | null;
+    sparkline?: number[];
+    isLoading: boolean;
+    updateFrequency: string;
+  };
+  gctl: {
+    price: string;
+    delta?: number | null;
+    deltaPercent?: number | null;
+    sparkline?: number[];
+    isLoading: boolean;
+    updateFrequency: string;
+  };
+}
+
+function buildChartConfig(title: string, deltaPercent?: number | null) {
+  const isPositive = (deltaPercent ?? 0) >= 0;
+  return {
+    value: {
+      label: title,
+      color: isPositive
+        ? "hsl(142, 71%, 45%)"
+        : deltaPercent !== undefined && deltaPercent !== null
+        ? "hsl(0, 84%, 60%)"
+        : "hsl(var(--primary))",
+    },
+  } satisfies ChartConfig;
+}
+
+function getChartData(title: string, sparkline: number[] | undefined) {
+  if (!sparkline || sparkline.length === 0) return [];
+
+  const totalPoints = sparkline.length;
+  const hoursPerPoint = (7 * 24) / totalPoints;
+  const now = Date.now();
+
+  return sparkline.map((value, index) => {
+    const hoursAgo = Math.round((totalPoints - index - 1) * hoursPerPoint);
+    const timestamp = now - hoursAgo * 60 * 60 * 1000;
+    const date = new Date(timestamp);
+    const daysAgo = Math.floor(hoursAgo / 24);
+    const remainingHours = hoursAgo % 24;
+
+    let timeLabel: string;
+    if (hoursAgo === 0) timeLabel = "Now";
+    else if (hoursAgo < 24) timeLabel = `${hoursAgo}h ago`;
+    else if (remainingHours === 0) timeLabel = `${daysAgo}d ago`;
+    else timeLabel = `${daysAgo}d ${remainingHours}h ago`;
+
+    const axisLabel = date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+
+    return {
+      time: timeLabel,
+      axisLabel,
+      value,
+      timestamp,
+      date,
+      index,
+    };
+  });
+}
+
+function TickerCard({
+  title,
+  price,
+  delta,
+  deltaPercent,
+  tooltip,
+  sparkline,
+  isLoading,
+  source,
+  updateFrequency,
+  externalLink,
+}: TickerCardProps) {
+  const isPositive = (delta ?? 0) >= 0;
+  const chartData = React.useMemo(
+    () => getChartData(title, sparkline),
+    [title, sparkline]
+  );
+  const chartConfig = React.useMemo(
+    () => buildChartConfig(title, deltaPercent ?? undefined),
+    [title, deltaPercent]
+  );
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Card className="group relative overflow-hidden transition-all duration-300">
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="p-6">
+              <Skeleton className="mb-3 h-4 w-32" />
+              <Skeleton className="mb-3 h-10 w-40" />
+              <Skeleton className="mb-6 h-4 w-24" />
+              <div className="border-t border-border/60 pt-6">
+                <Skeleton className="h-44 w-full" />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="p-6 pb-4">
+                <div className="mb-3 flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <div>
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="text-sm font-medium text-muted-foreground">
+                          {title}
+                        </span>
+                        {tooltip ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                className="text-muted-foreground transition-colors hover:text-primary"
+                                aria-label={`Info about ${title}`}
+                              >
+                                <HelpCircle className="h-4 w-4" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="text-xs leading-relaxed">
+                                {tooltip}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : null}
+                      </div>
+                      {source ? (
+                        <Badge variant="outline" className="h-5 px-2 text-xs">
+                          <Activity className="mr-1 h-3 w-3" />
+                          {source}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    {externalLink ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link
+                            href={externalLink.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-muted-foreground transition-colors hover:text-primary"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">{externalLink.label}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : null}
+                  </div>
+                  {updateFrequency ? (
+                    <Badge variant="secondary" className="text-xs">
+                      {updateFrequency}
+                    </Badge>
+                  ) : null}
+                </div>
+
+                <div className="mb-3 text-4xl font-bold tracking-tight">
+                  {price}
+                </div>
+
+                {typeof deltaPercent === "number" ? (
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`flex items-center gap-1 rounded-md px-2 py-1 text-sm font-semibold ${
+                        isPositive
+                          ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                          : "bg-red-500/10 text-red-700 dark:text-red-400"
+                      }`}
+                    >
+                      {isPositive ? (
+                        <ArrowUp className="h-4 w-4" />
+                      ) : (
+                        <ArrowDown className="h-4 w-4" />
+                      )}
+                      <span>
+                        {isPositive ? "+" : ""}
+                        {deltaPercent.toFixed(2)}%
+                      </span>
+                    </div>
+                    <span className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
+                      7d
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+
+              {chartData.length > 0 ? (
+                <div className="border-t border-border/60">
+                  <ChartContainer
+                    config={chartConfig}
+                    className="aspect-[2/1] w-full"
+                  >
+                    <AreaChart
+                      accessibilityLayer
+                      data={chartData}
+                      margin={{ top: 10, right: 10, bottom: 0, left: 0 }}
+                    >
+                      <defs>
+                        <linearGradient
+                          id={`gradient-${title.replace(/\s/g, "-")}`}
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="0%"
+                            stopColor="var(--color-value)"
+                            stopOpacity={0.3}
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="var(--color-value)"
+                            stopOpacity={0}
+                          />
+                        </linearGradient>
+                      </defs>
+                      <XAxis
+                        dataKey="axisLabel"
+                        tick={{
+                          fontSize: 11,
+                          fill: "hsl(var(--muted-foreground))",
+                        }}
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                      />
+                      <YAxis
+                        tick={{
+                          fontSize: 11,
+                          fill: "hsl(var(--muted-foreground))",
+                        }}
+                        tickLine={false}
+                        axisLine={false}
+                        orientation="right"
+                        tickMargin={8}
+                        tickFormatter={(value: number) =>
+                          `$${Number(value).toFixed(2)}`
+                        }
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="value"
+                        stroke="var(--color-value)"
+                        fill={`url(#gradient-${title.replace(/\s/g, "-")})`}
+                        strokeWidth={2}
+                      />
+                      <ChartTooltip
+                        content={
+                          <ChartTooltipContent
+                            labelFormatter={(value) => value}
+                            formatter={(value) => [
+                              `$${Number(value as number).toFixed(
+                                title.includes("GCTL") ? 2 : 4
+                              )}`,
+                              title,
+                            ]}
+                            className="min-w-[140px]"
+                          />
+                        }
+                      />
+                    </AreaChart>
+                  </ChartContainer>
+                </div>
+              ) : null}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </TooltipProvider>
+  );
+}
+
+export function MarketTickers({ spot, edgap, gctl }: MarketTickersProps) {
+  return (
+    <section className="py-12">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Market Tickers</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Real-time pricing data for GLW and GCTL tokens
+          </p>
+        </div>
+        <Badge variant="outline" className="hidden md:flex">
+          <Activity className="mr-1 h-3 w-3" />
+          Live
+        </Badge>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <TickerCard
+          title="GLW Spot Price"
+          price={spot.price}
+          delta={spot.delta ?? undefined}
+          deltaPercent={spot.deltaPercent ?? undefined}
+          tooltip="Real-time market price from Uniswap pool. This is the current trading price where you can buy or sell GLW tokens on the open market."
+          sparkline={spot.sparkline}
+          isLoading={spot.isLoading}
+          updateFrequency={spot.updateFrequency}
+          externalLink={spot.externalLink}
+          source="Uniswap"
+        />
+        <TickerCard
+          title="GLW Edgap Price"
+          price={edgap.price}
+          delta={edgap.delta ?? undefined}
+          deltaPercent={edgap.deltaPercent ?? undefined}
+          tooltip="Exponentially-Decayed, liquidity-aware price. A smoothed, stable price signal used by the protocol for GCTL pricing. Reacts to market changes but filters out short-term noise."
+          sparkline={edgap.sparkline}
+          isLoading={edgap.isLoading}
+          updateFrequency={edgap.updateFrequency}
+        />
+        <TickerCard
+          title="GCTL Mint Price"
+          price={gctl.price}
+          delta={gctl.delta ?? undefined}
+          deltaPercent={gctl.deltaPercent ?? undefined}
+          tooltip="Dynamic price to mint new GCTL tokens = ceil(√GLW Price / $0.05) × $0.05. The price is the square root of GLW price, rounded up to the nearest 5 cents."
+          sparkline={gctl.sparkline}
+          isLoading={gctl.isLoading}
+          updateFrequency={gctl.updateFrequency}
+        />
+      </div>
+    </section>
+  );
+}
