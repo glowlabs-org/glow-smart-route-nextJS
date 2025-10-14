@@ -185,9 +185,7 @@ export function StakedEventsTab({
                   <TableHead className="font-semibold text-foreground whitespace-nowrap">
                     Region
                   </TableHead>
-                  <TableHead className="font-semibold text-foreground whitespace-nowrap">
-                    Epoch
-                  </TableHead>
+
                   <TableHead className="font-semibold text-foreground whitespace-nowrap">
                     Date
                   </TableHead>
@@ -263,9 +261,6 @@ export function StakedEventsTab({
                               <div className="text-sm font-medium text-foreground">
                                 {region.name}
                               </div>
-                              <div className="text-xs text-muted-foreground">
-                                #{event.regionId || "?"}
-                              </div>
                             </div>
                           </div>
                         ) : (
@@ -274,15 +269,7 @@ export function StakedEventsTab({
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="py-4">
-                        {event.epoch ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-md bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs font-mono">
-                            #{event.epoch}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
+
                       <TableCell className="py-4">
                         {event.ts ? (
                           <div className="space-y-1">

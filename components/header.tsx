@@ -281,6 +281,9 @@ export function Header({
                       <ListItem href="/wallet" title="Wallet">
                         View your balances, delegations, and claim rewards
                       </ListItem>
+                      <ListItem href="/stats" title="Protocol Stats">
+                        Real-time protocol metrics and market data
+                      </ListItem>
                     </ul>
                   </NavigationMenuContent>
                 </NavigationMenuItem>
@@ -642,6 +645,22 @@ export function Header({
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
                                 Wallet
+                              </Link>
+                            </DrawerClose>
+                            <DrawerClose asChild>
+                              <Link
+                                href="/stats"
+                                onClick={() => {
+                                  setTimeout(() => {
+                                    window.scrollTo({
+                                      top: 0,
+                                      behavior: "smooth",
+                                    });
+                                  }, 100);
+                                }}
+                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                              >
+                                Protocol Stats
                               </Link>
                             </DrawerClose>
                           </div>

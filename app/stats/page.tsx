@@ -4,7 +4,7 @@ import StatsView from "./view";
 export default function StatsPage() {
   return (
     <>
-      <Header withIsScrolled={false} />
+      <Header withIsScrolled={true} />
       <StatsView />
     </>
   );

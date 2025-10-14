@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { MarketTickers } from "./market-tickers";
 import {
@@ -266,19 +267,38 @@ export default function StatsView() {
                 All minting and staking transactions across the network
               </p>
             </div>
-            <div className="space-y-6">
-              <MintedEventsTab
-                mintedEvents={mintedEvents}
-                dataLoading={eventsLoading}
-                onRefresh={loadEvents}
-              />
-              <StakedEventsTab
-                stakedEvents={stakedEvents}
-                dataLoading={eventsLoading}
-                regions={regions}
-                isRegionsLoading={isRegionsLoading}
-              />
-            </div>
+            <Tabs defaultValue="minted" className="w-full">
+              <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
+                <TabsTrigger value="minted" className="flex items-center gap-2">
+                  <Receipt className="w-4 h-4" />
+                  Minted Events
+                  <Badge variant="secondary" className="ml-1 h-5 px-2 text-xs">
+                    {mintedEvents.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="staked" className="flex items-center gap-2">
+                  <Zap className="w-4 h-4" />
+                  Staking Events
+                  <Badge variant="secondary" className="ml-1 h-5 px-2 text-xs">
+                    {stakedEvents.length}
+                  </Badge>
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="minted" className="mt-0">
+                <MintedEventsTab
+                  mintedEvents={mintedEvents}
+                  dataLoading={eventsLoading}
+                />
+              </TabsContent>
+              <TabsContent value="staked" className="mt-0">
+                <StakedEventsTab
+                  stakedEvents={stakedEvents}
+                  dataLoading={eventsLoading}
+                  regions={regions}
+                  isRegionsLoading={isRegionsLoading}
+                />
+              </TabsContent>
+            </Tabs>
           </section>
         </div>
       </div>

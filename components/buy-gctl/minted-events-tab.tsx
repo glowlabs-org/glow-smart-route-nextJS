@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -9,15 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import {
-  Loader2,
-  ExternalLink,
-  Copy,
-  Check,
-  ArrowUpRight,
-  Clock,
-  RefreshCw,
-} from "lucide-react";
+import { Loader2, ExternalLink, Copy, Check, ArrowUpRight } from "lucide-react";
 import { formatUnits } from "viem";
 import { toast } from "sonner";
 import { getCurrencyDecimals, getDisplayDecimals } from "@/lib/currency";
@@ -26,7 +18,6 @@ import { MintedEvent } from "@glowlabs-org/utils/browser";
 interface MintedEventsTabProps {
   mintedEvents: MintedEvent[];
   dataLoading: boolean;
-  onRefresh?: () => Promise<void>;
 }
 
 function CopyableAddress({
@@ -91,91 +82,19 @@ function CopyableAddress({
   );
 }
 
-// Countdown component for auto-refresh
-const RefreshCountdown = ({
-  onRefresh,
-  isRefreshing,
-}: {
-  onRefresh?: () => Promise<void>;
-  isRefreshing: boolean;
-}) => {
-  const [countdown, setCountdown] = useState<number>(30);
-  const [isManualRefreshing, setIsManualRefreshing] = useState<boolean>(false);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          return 30; // Reset to 30 seconds
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleManualRefresh = async () => {
-    if (!onRefresh || isManualRefreshing) return;
-
-    setIsManualRefreshing(true);
-    try {
-      await onRefresh();
-      setCountdown(30); // Reset countdown after manual refresh
-      toast.success("Data refreshed successfully");
-    } catch (error) {
-      toast.error("Failed to refresh data");
-    } finally {
-      setIsManualRefreshing(false);
-    }
-  };
-
-  return (
-    <div className="flex items-center space-x-3">
-      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-        <Clock className="w-4 h-4" />
-        <span>Auto-refresh in {countdown}s</span>
-      </div>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleManualRefresh}
-        disabled={isManualRefreshing || isRefreshing}
-        className="h-8 px-3 text-xs hover:bg-primary/10 hover:border-primary/50"
-      >
-        {isManualRefreshing || isRefreshing ? (
-          <>
-            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-            Refreshing...
-          </>
-        ) : (
-          <>
-            <RefreshCw className="w-3 h-3 mr-1" />
-            Refresh
-          </>
-        )}
-      </Button>
-    </div>
-  );
-};
-
 export function MintedEventsTab({
   mintedEvents,
   dataLoading,
-  onRefresh,
 }: MintedEventsTabProps) {
   return (
     <Card className="border border-border bg-card/90 backdrop-blur-sm">
       <CardHeader className="border-b">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-xl font-bold text-foreground flex items-center">
-            Recent Minted Events
-            <span className="ml-3 text-sm font-normal text-muted-foreground bg-card px-3 py-1 rounded-full border border-border">
-              {mintedEvents.length} events
-            </span>
-          </CardTitle>
-          <RefreshCountdown onRefresh={onRefresh} isRefreshing={dataLoading} />
-        </div>
+        <CardTitle className="text-xl font-bold text-foreground flex items-center">
+          Recent Minted Events
+          <span className="ml-3 text-sm font-normal text-muted-foreground bg-card px-3 py-1 rounded-full border border-border">
+            {mintedEvents.length} events
+          </span>
+        </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         {dataLoading ? (
@@ -227,9 +146,7 @@ export function MintedEventsTab({
                   <TableHead className="font-semibold text-foreground whitespace-nowrap">
                     Currency
                   </TableHead>
-                  <TableHead className="font-semibold text-foreground whitespace-nowrap">
-                    Epoch
-                  </TableHead>
+
                   <TableHead className="font-semibold text-foreground whitespace-nowrap">
                     Date
                   </TableHead>
@@ -288,11 +205,7 @@ export function MintedEventsTab({
                         {event.currency}
                       </span>
                     </TableCell>
-                    <TableCell className="py-4">
-                      <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
-                        #{event.epoch}
-                      </span>
-                    </TableCell>
+
                     <TableCell className="py-4">
                       <div className="text-sm font-medium text-foreground">
                         {new Date(event.ts).toLocaleDateString(undefined, {
