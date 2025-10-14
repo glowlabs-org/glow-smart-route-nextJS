@@ -9,7 +9,8 @@ import { useGctlApi } from "@/hooks/useGctlApi";
 import { useGctlHoldersCount } from "@/hooks/useGctlHoldersCount";
 import { useActiveRegionsSummary } from "@/hooks/useActiveRegionsSummary";
 import { useEndowmentLPPosition } from "@/hooks/useEndowmentLPPosition";
-// removed unused heavy price hook and unused helper
+import { useFractionsSummary } from "@/hooks/useFractionsSummary";
+import { parseFractionsSummary } from "@/lib/fractions";
 
 interface EconomyOverviewProps {
   shouldLoad?: boolean;
@@ -49,8 +50,16 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
     isLoading: isEndowmentLoading,
   } = useEndowmentLPPosition({ enabled: shouldLoad });
 
+  const { summary: fractionsSummary, isLoading: isFractionsSummaryLoading } =
+    useFractionsSummary({ enabled: shouldLoad });
+
   const totalStakedAcrossRegions = activeSummary?.totalGctlStaked ?? 0;
-  const totalGlwDelegated = activeSummary?.totalGlwRewards ?? 0;
+
+  const { totalDelegatedGlw } = React.useMemo(
+    () => parseFractionsSummary(fractionsSummary),
+    [fractionsSummary]
+  );
+  const totalGlwDelegated = totalDelegatedGlw;
 
   const percentGlwDelegated = React.useMemo(() => {
     if (!circulatingSupply || circulatingSupply === 0) return 0;
@@ -58,7 +67,8 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
   }, [totalGlwDelegated, circulatingSupply]);
 
   const usdcLiquidity = poolReserves.usdg || 0;
-  const isGlwDataLoading = isCirculatingSupplyLoading || isPoolLoading;
+  const isGlwDataLoading =
+    isCirculatingSupplyLoading || isPoolLoading || isFractionsSummaryLoading;
   const isGctlDataLoading =
     isGctlPriceLoading ||
     isGctlPriceFetching ||
@@ -70,7 +80,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
   const gctlMarketCap = gctlCirculatingSupplyNumber * gctlPriceNumber;
 
   const isInitialLoading =
-    (isGlwDataLoading && !circulatingSupply) ||
+    (isGlwDataLoading && !circulatingSupply && !fractionsSummary) ||
     (isGctlDataLoading && !gctlCirculatingSupplyNumber) ||
     (isEndowmentLoading && endowmentLpBalance === 0 && endowmentUsdg === 0);
 

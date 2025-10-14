@@ -54,6 +54,8 @@ interface FarmsChartDatum {
 
 interface LifetimeFarmsProps {
   shouldLoad?: boolean;
+  totalGlwDelegated?: number;
+  isGlwDataLoading?: boolean;
 }
 
 function formatPayment(
@@ -205,7 +207,11 @@ function CompletedTimelineRow({ row }: { row: CompletedFarmRow }) {
   );
 }
 
-export function LifetimeFarms({ shouldLoad = true }: LifetimeFarmsProps) {
+export function LifetimeFarms({
+  shouldLoad = true,
+  totalGlwDelegated,
+  isGlwDataLoading = false,
+}: LifetimeFarmsProps) {
   const { farms: completedFarms, isLoading: completedLoading } =
     useCompletedFarms({ enabled: shouldLoad });
 
@@ -364,32 +370,7 @@ export function LifetimeFarms({ shouldLoad = true }: LifetimeFarmsProps) {
 
   return (
     <div className="grid gap-6">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-border bg-muted/30 p-6">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Total Onboarded
-          </div>
-          <div className="text-4xl font-bold tracking-tight">
-            {totalFarms.toLocaleString()}
-          </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Lifetime farms with completed audits
-          </p>
-        </div>
-        <div className="rounded-xl border border-border bg-muted/30 p-6">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Added This Month
-          </div>
-          <div className="text-4xl font-bold tracking-tight">
-            {farmsThisMonth.toLocaleString()}
-          </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Audits finalized since {currentMonthLabel} 1
-          </p>
-        </div>
-      </div>
-
-      <Card className="overflow-hidden">
+      {/* <Card className="overflow-hidden">
         <CardHeader className="border-b border-border/50 bg-muted/30">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -456,36 +437,65 @@ export function LifetimeFarms({ shouldLoad = true }: LifetimeFarmsProps) {
             </ChartContainer>
           )}
         </CardContent>
-      </Card>
+      </Card> */}
 
       <Card className="overflow-hidden">
         <CardContent className="p-4 sm:p-6">
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold">Completed Timeline</div>
-            <Badge variant="outline" className="shrink-0 text-xs">
-              <Activity className="mr-1 h-3 w-3" />
-              Live
-            </Badge>
-          </div>
-          {completedRows.length === 0 ? (
-            <div className="rounded-xl border-2 border-dashed border-border bg-muted/30 py-12 text-center sm:py-16">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                <Sun className="h-8 w-8 text-muted-foreground" />
+          <div className="pb-6 grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-border/50">
+            <div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Total Onboarded
               </div>
-              <p className="mb-1 text-sm font-medium text-foreground">
-                No completed farms yet
-              </p>
-              <p className="mx-auto max-w-sm px-4 text-sm text-muted-foreground">
-                Completed farms will appear here once audits are finalized.
+              <div className="text-4xl font-bold tracking-tight">
+                {totalFarms.toLocaleString()}
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Lifetime farms with completed audits
               </p>
             </div>
-          ) : (
-            <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
-              {completedRows.map((row) => (
-                <CompletedTimelineRow key={row.id} row={row} />
-              ))}
+            <div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Total GLW Delegated
+              </div>
+              <div className="text-4xl font-bold tracking-tight">
+                {isGlwDataLoading || totalGlwDelegated === undefined
+                  ? "--"
+                  : totalGlwDelegated.toLocaleString()}{" "}
+                <span className="text-2xl text-muted-foreground">GLW</span>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Delegated to solar farms
+              </p>
             </div>
-          )}
+          </div>
+          <div className="pt-6">
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <div className="text-sm font-semibold">Completed Timeline</div>
+              <Badge variant="outline" className="shrink-0 text-xs">
+                <Activity className="mr-1 h-3 w-3" />
+                Live
+              </Badge>
+            </div>
+            {completedRows.length === 0 ? (
+              <div className="rounded-xl border-2 border-dashed border-border bg-muted/30 py-12 text-center sm:py-16">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                  <Sun className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <p className="mb-1 text-sm font-medium text-foreground">
+                  No completed farms yet
+                </p>
+                <p className="mx-auto max-w-sm px-4 text-sm text-muted-foreground">
+                  Completed farms will appear here once audits are finalized.
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
+                {completedRows.map((row) => (
+                  <CompletedTimelineRow key={row.id} row={row} />
+                ))}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

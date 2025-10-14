@@ -337,14 +337,14 @@ export function RegionsStaking({ shouldLoad = true }: RegionsStakingProps) {
                     </div>
                   </div>
 
-                  {aggregate && (
+                  {/* {aggregate && (
                     <div>
                       <div className="text-sm text-muted-foreground mb-3">
                         Staking trend
                       </div>
                       <RegionChart region={region} aggregate={aggregate} />
                     </div>
-                  )}
+                  )} */}
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-muted/50 rounded-lg p-4 border border-border">

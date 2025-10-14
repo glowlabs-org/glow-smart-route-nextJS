@@ -339,10 +339,10 @@ export function MarketTickers({ shouldLoad = true }: MarketTickersProps) {
         <TickerCard
           title="GLW Spot Price"
           price={spotPriceLabel}
-          delta={spotDelta ?? undefined}
-          deltaPercent={spotDeltaPercent ?? undefined}
+          // delta={spotDelta ?? undefined}
+          // deltaPercent={spotDeltaPercent ?? undefined}
           tooltip="Real-time market price from Uniswap pool. This is the current trading price where you can buy or sell GLW tokens on the open market."
-          sparkline={spotSparkline}
+          // sparkline={spotSparkline}
           isLoading={!shouldLoad || spotPriceLoading || poolActivityLoading}
           updateFrequency="~30s"
           externalLink={{
@@ -353,20 +353,20 @@ export function MarketTickers({ shouldLoad = true }: MarketTickersProps) {
         <TickerCard
           title="GLW Edgap Price"
           price={edgapPriceLabel}
-          delta={edgapDelta ?? undefined}
-          deltaPercent={edgapDeltaPercent ?? undefined}
+          // delta={edgapDelta ?? undefined}
+          // deltaPercent={edgapDeltaPercent ?? undefined}
           tooltip="Exponentially-Decayed, liquidity-aware price. A smoothed, stable price signal used by the protocol for GCTL pricing. Reacts to market changes but filters out short-term noise."
-          sparkline={edgapSparkline}
+          // sparkline={edgapSparkline}
           isLoading={!shouldLoad || edgapPriceLoading}
           updateFrequency="~1m"
         />
         <TickerCard
           title="GCTL Mint Price"
           price={gctlPriceLabel}
-          delta={gctlMintDelta ?? undefined}
-          deltaPercent={gctlMintDeltaPercent ?? undefined}
+          // delta={gctlMintDelta ?? undefined}
+          // deltaPercent={gctlMintDeltaPercent ?? undefined}
           tooltip="Dynamic price to mint new GCTL tokens = ceil(√GLW Price / $0.05) × $0.05. The price is the square root of GLW price, rounded up to the nearest 5 cents."
-          sparkline={gctlMintSparkline}
+          // sparkline={gctlMintSparkline}
           isLoading={!shouldLoad || edgapPriceLoading}
           updateFrequency="~1m"
         />

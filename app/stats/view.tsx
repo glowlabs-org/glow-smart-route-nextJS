@@ -9,6 +9,7 @@ import {
   Zap,
   DollarSign,
   Sun,
+  Receipt,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,12 @@ import {
 import { LifetimeFarms } from "./lifetime-farms";
 import { EconomyOverview } from "./economy-overview";
 import { RegionsStaking } from "./regions-staking";
+import { MintedEventsTab } from "@/components/buy-gctl/minted-events-tab";
+import { StakedEventsTab } from "@/components/buy-gctl/staked-events-tab";
+import { useGctlApi } from "@/hooks/useGctlApi";
+import { useRegion } from "@/hooks/useRegion";
+import { useFractionsSummary } from "@/hooks/useFractionsSummary";
+import { parseFractionsSummary } from "@/lib/fractions";
 
 export default function StatsView() {
   const [activeTab, setActiveTab] = React.useState("t0");
@@ -43,6 +50,22 @@ export default function StatsView() {
   const [minerEvents, setMinerEvents] = React.useState<ProtocolEventRowProps[]>(
     []
   );
+  const [mintedEvents, setMintedEvents] = React.useState<any[]>([]);
+  const [stakedEvents, setStakedEvents] = React.useState<any[]>([]);
+  const [eventsLoading, setEventsLoading] = React.useState(false);
+
+  const { fetchMintedEvents, fetchStakedEvents } = useGctlApi();
+  const { regions, isRegionsLoading } = useRegion();
+  const {
+    summary,
+    isLoading: summaryLoading,
+    isFetching: summaryFetching,
+  } = useFractionsSummary({ enabled: shouldLoadRest });
+
+  const { totalDelegatedGlw } = React.useMemo(
+    () => parseFractionsSummary(summary),
+    [summary]
+  );
 
   const sectionRefs = React.useMemo(
     () => ({
@@ -50,6 +73,7 @@ export default function StatsView() {
       t1: React.createRef<HTMLDivElement>(),
       t2: React.createRef<HTMLDivElement>(),
       t3: React.createRef<HTMLDivElement>(),
+      t4: React.createRef<HTMLDivElement>(),
     }),
     []
   );
@@ -105,6 +129,33 @@ export default function StatsView() {
     return () => window.removeEventListener("scroll", onScroll);
   }, [shouldLoadRest]);
 
+  const loadEvents = React.useCallback(async () => {
+    setEventsLoading(true);
+    try {
+      const [mintedResult, stakedResult] = await Promise.all([
+        fetchMintedEvents(),
+        fetchStakedEvents({ limit: 100 }),
+      ]);
+
+      if (mintedResult.ok) {
+        setMintedEvents(mintedResult.val);
+      }
+      if (stakedResult.ok) {
+        setStakedEvents(stakedResult.val);
+      }
+    } catch (error) {
+      console.error("Failed to load events:", error);
+    } finally {
+      setEventsLoading(false);
+    }
+  }, [fetchMintedEvents, fetchStakedEvents]);
+
+  React.useEffect(() => {
+    if (shouldLoadRest) {
+      loadEvents();
+    }
+  }, [shouldLoadRest, loadEvents]);
+
   const scrollToSection = (id: string) => {
     if (id !== "t0" && !shouldLoadRest) setShouldLoadRest(true);
     setActiveTab(id);
@@ -153,6 +204,7 @@ export default function StatsView() {
                 { id: "t1", label: "Activity", icon: Activity },
                 { id: "t2", label: "Regions", icon: Sun },
                 { id: "t3", label: "Economy", icon: Coins },
+                { id: "t4", label: "Events", icon: Receipt },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -178,7 +230,7 @@ export default function StatsView() {
 
           <section id="t1" ref={sectionRefs.t1} className="py-12 scroll-mt-36">
             <ProtocolActivity
-              shouldLoad={shouldLoadRest}
+              shouldLoad={true}
               onSeeAllDelegation={(events) => {
                 setDelegationEvents(events);
                 setIsDelegationDialogOpen(true);
@@ -188,19 +240,45 @@ export default function StatsView() {
                 setIsMinerDialogOpen(true);
               }}
             />
-            <LifetimeFarms shouldLoad={shouldLoadRest} />
+            <LifetimeFarms
+              shouldLoad={shouldLoadRest}
+              totalGlwDelegated={totalDelegatedGlw}
+              isGlwDataLoading={summaryLoading || summaryFetching}
+            />
           </section>
 
           <section id="t2" ref={sectionRefs.t2} className="py-12 scroll-mt-36">
             <RegionsStaking shouldLoad={shouldLoadRest} />
           </section>
 
+          <section id="t3" ref={sectionRefs.t3} className="py-12 scroll-mt-36">
+            <EconomyOverview shouldLoad={shouldLoadRest} />
+          </section>
+
           <section
-            id="t3"
-            ref={sectionRefs.t3}
+            id="t4"
+            ref={sectionRefs.t4}
             className="py-12 pb-24 scroll-mt-36"
           >
-            <EconomyOverview shouldLoad={shouldLoadRest} />
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold">Protocol Events</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                All minting and staking transactions across the network
+              </p>
+            </div>
+            <div className="space-y-6">
+              <MintedEventsTab
+                mintedEvents={mintedEvents}
+                dataLoading={eventsLoading}
+                onRefresh={loadEvents}
+              />
+              <StakedEventsTab
+                stakedEvents={stakedEvents}
+                dataLoading={eventsLoading}
+                regions={regions}
+                isRegionsLoading={isRegionsLoading}
+              />
+            </div>
           </section>
         </div>
       </div>

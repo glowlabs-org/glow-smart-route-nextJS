@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FallbackImage } from "@/components/ui/fallback-image";
 
 import {
   useFractionsSummary,
@@ -65,6 +66,9 @@ interface InventoryItem {
   rewardScore?: number | null;
   miningScore?: number | null;
   weeklyGlwRewards?: string | null;
+  imageUrl?: string;
+  zoneName?: string;
+  totalDelegatedFormatted?: string;
 }
 
 interface DelegationCardState {
@@ -161,62 +165,98 @@ function InventoryList({
             key={item.id}
             href={`/?tab=${
               item.type === "launchpad" ? "launchpad" : "mining-center"
-            }&fractionId=${item.id}`}
+            }`}
             className="block"
           >
-            <div className="cursor-pointer rounded-xl border border-border bg-muted/50 p-4 transition-all hover:border-gray-300 hover:bg-muted dark:hover:border-gray-700">
-              <div className="flex items-start justify-between gap-4 mb-3">
-                <div className="min-w-0 flex-1">
-                  <div className="mb-2 text-sm font-semibold">
-                    {item.applicationId}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                    <Badge variant="secondary" className="h-5">
-                      {item.token}
-                    </Badge>
-                    <span>Remaining {item.remainingStepsFormatted}</span>
-                  </div>
+            <div className="cursor-pointer rounded-xl border border-border bg-muted/50 overflow-hidden transition-all hover:border-gray-300 hover:bg-muted dark:hover:border-gray-700">
+              <div className="flex gap-3">
+                {/* Farm Image */}
+                <div className="relative w-24 h-24 flex-shrink-0">
+                  {item.imageUrl ? (
+                    <FallbackImage
+                      src={item.imageUrl}
+                      widthForProxy={200}
+                      quality={70}
+                      alt={item.zoneName || "Farm"}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-muted flex items-center justify-center">
+                      <Building className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  )}
+                  {item.zoneName && (
+                    <div className="absolute bottom-1 left-1 right-1">
+                      <div className="bg-black/80 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[10px] font-medium truncate">
+                        {item.zoneName}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="text-right">
-                  <div className="text-lg font-bold">
-                    {item.remainingValueFormatted}
+
+                {/* Content */}
+                <div className="flex-1 py-3 pr-3 min-w-0">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="secondary" className="h-5 text-xs">
+                          {item.token}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {item.remainingStepsFormatted} available
+                        </span>
+                      </div>
+                      <div className="text-sm font-semibold">
+                        {item.totalDelegatedFormatted}{" "}
+                        {item.type === "launchpad" ? "delegated" : "sold"}
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="text-base font-bold">
+                        {item.remainingValueFormatted}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        Remaining
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    Inventory value
+
+                  {/* Metrics row */}
+                  <div className="flex items-center gap-3 text-xs">
+                    {item.type === "launchpad" &&
+                      item.rewardScore !== null &&
+                      item.rewardScore !== undefined && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-muted-foreground">Score:</span>
+                          <span className="font-semibold">
+                            {item.rewardScore.toFixed(0)}
+                          </span>
+                        </div>
+                      )}
+                    {item.type === "mining-center" && item.weeklyGlwRewards && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-muted-foreground">
+                          Weekly/Miner:
+                        </span>
+                        <span className="font-semibold">
+                          {formatNumber(
+                            parseFloat(
+                              formatUnits(
+                                BigInt(item.weeklyGlwRewards),
+                                DECIMALS_BY_TOKEN["GLW"]
+                              )
+                            ),
+                            2
+                          )}{" "}
+                          GLW
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-              {item.type === "launchpad" &&
-                item.rewardScore !== null &&
-                item.rewardScore !== undefined && (
-                  <div className="flex items-center justify-between pt-3 border-t border-border/50">
-                    <span className="text-xs text-muted-foreground">
-                      Reward Score
-                    </span>
-                    <span className="text-sm font-semibold">
-                      {item.rewardScore.toFixed(0)}
-                    </span>
-                  </div>
-                )}
-              {item.type === "mining-center" && item.weeklyGlwRewards && (
-                <div className="flex items-center justify-between pt-3 border-t border-border/50">
-                  <span className="text-xs text-muted-foreground">
-                    Weekly Rewards/Miner
-                  </span>
-                  <span className="text-sm font-semibold">
-                    {formatNumber(
-                      parseFloat(
-                        formatUnits(
-                          BigInt(item.weeklyGlwRewards),
-                          DECIMALS_BY_TOKEN["GLW"]
-                        )
-                      ),
-                      2
-                    )}{" "}
-                    GLW
-                  </span>
-                </div>
-              )}
             </div>
           </Link>
         ))}
@@ -436,6 +476,7 @@ export function ProtocolActivity({
         const fraction = app.activeFraction!;
         const remainingSteps = fraction.remainingSteps || 0;
         const totalSteps = fraction.totalSteps;
+        const splitsSold = fraction.splitsSold || 0;
 
         // Calculate remaining value
         const stepPriceBigInt = BigInt(fraction.step);
@@ -444,6 +485,15 @@ export function ProtocolActivity({
         const remainingValueFormatted = formatNumber(
           parseFloat(
             formatUnits(remainingValueBigInt, DECIMALS_BY_TOKEN["GLW"])
+          ),
+          0
+        );
+
+        // Calculate total delegated so far
+        const totalDelegatedBigInt = stepPriceBigInt * BigInt(splitsSold);
+        const totalDelegatedFormatted = formatNumber(
+          parseFloat(
+            formatUnits(totalDelegatedBigInt, DECIMALS_BY_TOKEN["GLW"])
           ),
           0
         );
@@ -468,6 +518,9 @@ export function ProtocolActivity({
           )} GLW`,
           type: "launchpad" as const,
           rewardScore: rewardScore?.rewardScore || null,
+          imageUrl: app.afterInstallPictures?.[0]?.url || undefined,
+          zoneName: app.zone?.name || undefined,
+          totalDelegatedFormatted: `${totalDelegatedFormatted} GLW`,
         };
       });
   }, [launchpadApplications, rewardScoreMap]);
@@ -480,6 +533,7 @@ export function ProtocolActivity({
         const fraction = app.activeFraction!;
         const remainingSteps = fraction.remainingSteps || 0;
         const totalSteps = fraction.totalSteps;
+        const splitsSold = fraction.splitsSold || 0;
 
         // Calculate remaining value
         const stepPriceBigInt = BigInt(fraction.stepPrice);
@@ -488,6 +542,15 @@ export function ProtocolActivity({
         const remainingValueFormatted = formatNumber(
           parseFloat(
             formatUnits(remainingValueBigInt, DECIMALS_BY_TOKEN["USDC"])
+          ),
+          0
+        );
+
+        // Calculate total purchased so far
+        const totalPurchasedBigInt = stepPriceBigInt * BigInt(splitsSold);
+        const totalPurchasedFormatted = formatNumber(
+          parseFloat(
+            formatUnits(totalPurchasedBigInt, DECIMALS_BY_TOKEN["USDC"])
           ),
           0
         );
@@ -513,6 +576,9 @@ export function ProtocolActivity({
           type: "mining-center" as const,
           miningScore: miningScoreData?.miningScore || null,
           weeklyGlwRewards: miningScoreData?.weeklyGlwRewards || null,
+          imageUrl: app.afterInstallPictures?.[0]?.url || undefined,
+          zoneName: app.zone?.name || undefined,
+          totalDelegatedFormatted: `$${totalPurchasedFormatted}`,
         };
       });
   }, [miningApplications, miningScoreMap]);
@@ -618,7 +684,7 @@ export function ProtocolActivity({
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-xl">
-                      Total GLW Delegated
+                      GLW Farm Delegation
                     </CardTitle>
                     <p className="mt-1 text-sm text-muted-foreground">
                       Community-backed solar farms
@@ -634,13 +700,6 @@ export function ProtocolActivity({
                 </div>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="mb-6 text-4xl font-bold tracking-tight">
-                  {pendingProps.summaryLoading
-                    ? "--"
-                    : pendingProps.totalGlwDelegated.toLocaleString()}{" "}
-                  <span className="text-2xl text-muted-foreground">GLW</span>
-                </div>
-
                 <InventoryList
                   items={pendingProps.availableFarms}
                   emptyLabel="Farms"
@@ -683,9 +742,9 @@ export function ProtocolActivity({
               <CardHeader className="border-b border-border/50 bg-muted/30 pt-8">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-xl">Total Miners Sold</CardTitle>
+                    <CardTitle className="text-xl">Glow Miners</CardTitle>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Mining infrastructure investments
+                      Mining infrastructure
                     </p>
                   </div>
                   <Badge variant="secondary" className="gap-1">
@@ -696,12 +755,6 @@ export function ProtocolActivity({
                 </div>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="mb-6 text-4xl font-bold tracking-tight">
-                  {minerProps.summaryLoading
-                    ? "--"
-                    : `$${minerProps.totalMinersSold.toLocaleString()}`}
-                </div>
-
                 <InventoryList
                   items={minerProps.availableMiners}
                   emptyLabel="Miners"
