@@ -18,14 +18,8 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-
-interface RegionSnapshot {
-  epoch: number;
-  gctlStaked: number;
-  pendingUnstake: number;
-  pendingRestakeOut: number;
-  pendingRestakeIn: number;
-}
+import { useActiveRegionsSummary } from "@/hooks/useActiveRegionsSummary";
+import { useToast } from "@/hooks/use-toast";
 
 interface RegionData {
   id: string | number;
@@ -35,79 +29,146 @@ interface RegionData {
   glwPerWeek: number;
   stakedGctl: number;
   churnEpoch: number;
-  snapshots?: RegionSnapshot[];
+  history: Array<{
+    timestamp: number;
+    gctlStaked: number;
+  }>;
 }
 
 interface RegionsStakingProps {
-  regions: RegionData[];
-  totalStakedGctl: number;
-  isLoading: boolean;
-  isError: boolean;
+  shouldLoad?: boolean;
 }
 
-function ChurnBar({ percent }: { percent: number }) {
-  const getChurnLabel = (p: number) => {
-    if (p <= 5) return { label: "Calm", color: "bg-green-500" };
-    if (p <= 20) return { label: "Shifting", color: "bg-yellow-500" };
-    return { label: "High", color: "bg-red-500" };
-  };
+const GCTL_SCALE = 1_000_000;
 
-  const { label, color } = getChurnLabel(percent);
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="cursor-help">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs text-muted-foreground">{label}</span>
-              <span className="text-sm font-semibold">{percent}%</span>
-            </div>
-            <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-              <div
-                className={`h-full ${color} transition-all`}
-                style={{ width: `${Math.min(percent, 100)}%` }}
-              />
-            </div>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Restaking/unbonding started in last 72 hours</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+function toGctl(amount: string | number | null | undefined): number {
+  if (amount === null || amount === undefined) return 0;
+  const numeric = typeof amount === "number" ? amount : Number(amount);
+  if (!Number.isFinite(numeric)) return 0;
+  return numeric / GCTL_SCALE;
 }
 
 interface RegionChartProps {
-  snapshots: RegionSnapshot[];
-  regionName: string;
+  region?: RegionData;
+  aggregate?: {
+    epochs: number[];
+    timestamps: number[];
+    totalGctlStaked: string[];
+    eventTypes: string[];
+    regionIds: number[];
+  };
 }
 
-function RegionChart({ snapshots, regionName }: RegionChartProps) {
-  const chartData = React.useMemo(() => {
-    if (!snapshots || snapshots.length === 0) return [];
+function RegionChart({ region, aggregate }: RegionChartProps) {
+  const regionId = React.useMemo(
+    () => (region ? Number(region.id) : undefined),
+    [region]
+  );
 
-    // Process snapshots and sort by epoch
-    return (
-      snapshots
-        .map((snapshot) => ({
-          epoch: snapshot.epoch,
-          // Round to 2 decimals
-          staked: Math.round(snapshot.gctlStaked * 100) / 100,
-          // Format epoch for display (you might want to convert to date)
-          epochLabel: `Epoch ${snapshot.epoch}`,
-        }))
-        .sort((a, b) => a.epoch - b.epoch)
-        // Take last 10 epochs for better visibility
-        .slice(-10)
-    );
-  }, [snapshots]);
+  const historySeries = React.useMemo(() => {
+    if (!region?.history || region.history.length === 0) return [];
+    return region.history
+      .map((point) => ({
+        timestamp: point.timestamp * 1000,
+        staked: Number(point.gctlStaked.toFixed(2)),
+      }))
+      .sort((a, b) => a.timestamp - b.timestamp);
+  }, [region?.history]);
+
+  const chartData = React.useMemo(() => {
+    if (!regionId) return [];
+
+    const events: Array<{ timestamp: number; staked: number }> = [];
+
+    if (aggregate && aggregate.timestamps.length > 0) {
+      const pointByTimestamp = new Map<number, number>();
+
+      for (let index = 0; index < aggregate.timestamps.length; index += 1) {
+        if (aggregate.regionIds[index] !== regionId) continue;
+        const timestamp = aggregate.timestamps[index] * 1000;
+        const staked = Number(
+          toGctl(aggregate.totalGctlStaked[index]).toFixed(2)
+        );
+        pointByTimestamp.set(timestamp, staked);
+      }
+
+      Array.from(pointByTimestamp.entries())
+        .sort((a, b) => a[0] - b[0])
+        .forEach(([timestamp, staked]) => {
+          events.push({ timestamp, staked });
+        });
+    }
+
+    if (events.length === 0) {
+      return historySeries.map(({ timestamp, staked }) => {
+        const date = new Date(timestamp);
+        return {
+          timestamp,
+          staked,
+          dateLabel: date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+          fullDate: date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          }),
+        };
+      });
+    }
+
+    const series: Array<{ timestamp: number; staked: number }> = [...events];
+    const firstEventTimestamp =
+      events[0]?.timestamp ?? Number.POSITIVE_INFINITY;
+    const lastEventTimestamp =
+      events[events.length - 1]?.timestamp ?? Number.NEGATIVE_INFINITY;
+
+    if (historySeries.length > 0) {
+      const baseline = historySeries
+        .filter((point) => point.timestamp < firstEventTimestamp)
+        .pop();
+      if (baseline) {
+        series.unshift(baseline);
+      }
+
+      const trailing = historySeries
+        .filter((point) => point.timestamp > lastEventTimestamp)
+        .pop();
+      if (trailing) {
+        series.push(trailing);
+      }
+    }
+
+    return series
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .filter((point, index, array) => {
+        if (index === 0) return true;
+        return point.timestamp !== array[index - 1].timestamp;
+      })
+      .map(({ timestamp, staked }) => {
+        const date = new Date(timestamp);
+        return {
+          timestamp,
+          staked,
+          dateLabel: date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+          fullDate: date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          }),
+        };
+      })
+      .slice(-20);
+  }, [aggregate, historySeries, regionId]);
 
   const chartConfig = {
     staked: {
       label: "Staked GCTL",
-      color: "#303cae",
+      color: "var(--chart-1)",
     },
   } satisfies ChartConfig;
 
@@ -125,29 +186,40 @@ function RegionChart({ snapshots, regionName }: RegionChartProps) {
         accessibilityLayer
         data={chartData}
         margin={{
-          left: 0,
-          right: 0,
-          top: 5,
+          left: 12,
+          right: 12,
+          top: 12,
           bottom: 0,
         }}
       >
         <CartesianGrid vertical={false} strokeDasharray="3 3" />
         <XAxis
-          dataKey="epoch"
+          dataKey="dateLabel"
           tickLine={false}
           axisLine={false}
           tickMargin={8}
           minTickGap={32}
-          tickFormatter={(value) => `E${value}`}
         />
-        <YAxis hide domain={["dataMin - 5000", "dataMax + 1000"]} />
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          domain={["dataMin - 50000", "dataMax + 1000"]}
+          tickFormatter={(value) =>
+            value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value.toString()
+          }
+        />
         <ChartTooltip
           content={
             <ChartTooltipContent
               className="w-[150px]"
-              labelFormatter={(value) => `Epoch ${value}`}
+              labelFormatter={(_, payload) =>
+                payload?.[0]?.payload?.fullDate || ""
+              }
               formatter={(value: any) => [
-                `${value.toLocaleString()} GCTL`,
+                `${value.toLocaleString("en-US", {
+                  maximumFractionDigits: 0,
+                })} GCTL`,
                 "Staked",
               ]}
             />
@@ -155,7 +227,7 @@ function RegionChart({ snapshots, regionName }: RegionChartProps) {
         />
         <Area
           dataKey="staked"
-          type="natural"
+          type="linear"
           fill="var(--color-staked)"
           fillOpacity={0.2}
           stroke="var(--color-staked)"
@@ -166,12 +238,31 @@ function RegionChart({ snapshots, regionName }: RegionChartProps) {
   );
 }
 
-export function RegionsStaking({
-  regions,
-  totalStakedGctl,
-  isLoading,
-  isError,
-}: RegionsStakingProps) {
+export function RegionsStaking({ shouldLoad = true }: RegionsStakingProps) {
+  const { toast } = useToast();
+  const {
+    data: activeSummary,
+    isLoading,
+    isFetching,
+    isError,
+  } = useActiveRegionsSummary({ enabled: shouldLoad });
+
+  const totalStakedGctl = activeSummary?.totalGctlStaked ?? 0;
+  const regions = React.useMemo(
+    () => activeSummary?.regions ?? [],
+    [activeSummary]
+  );
+  const aggregate = activeSummary?.aggregate;
+
+  React.useEffect(() => {
+    if (!shouldLoad || !isError) return;
+    toast({
+      title: "Failed to load region summary",
+      description: "Please try again later",
+      variant: "destructive",
+    });
+  }, [shouldLoad, isError, toast]);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -183,7 +274,7 @@ export function RegionsStaking({
         </div>
       </div>
 
-      {isLoading ? (
+      {!shouldLoad || isLoading || isFetching ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="">
@@ -213,7 +304,7 @@ export function RegionsStaking({
           {regions
             .slice()
             .sort((a, b) => b.glwPerWeek - a.glwPerWeek)
-            .map((region, index) => (
+            .map((region) => (
               <Card
                 key={region.id}
                 className="group  hover:border-border hover:shadow-lg transition-all pt-0"
@@ -231,27 +322,9 @@ export function RegionsStaking({
                       </div>
                       <h3 className="text-xl font-bold">{region.name}</h3>
                     </div>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="text-center px-4 py-2 bg-primary/5 rounded-lg border border-primary/20">
-                            <div className="text-xs text-muted-foreground mb-0.5 font-semibold uppercase tracking-wider">
-                              Rank
-                            </div>
-                            <div className="text-2xl font-bold text-primary">
-                              #{index + 1}
-                            </div>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Ranked by GLW/week output</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
                   </div>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
-                  {/* GLW per week - Hero metric */}
                   <div>
                     <div className="text-sm text-muted-foreground mb-2">
                       GLW per week
@@ -264,38 +337,15 @@ export function RegionsStaking({
                     </div>
                   </div>
 
-                  {/* GCTL in Motion - Churn indicator */}
-                  <div>
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="text-sm text-muted-foreground">
-                          GCTL in motion
-                        </div>
-                      </div>
-                      <ChurnBar
-                        percent={
-                          Number.isFinite(region.churnEpoch)
-                            ? Math.round(region.churnEpoch)
-                            : 0
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* Historical Chart */}
-                  {region.snapshots && region.snapshots.length > 0 && (
+                  {aggregate && (
                     <div>
                       <div className="text-sm text-muted-foreground mb-3">
                         Staking trend
                       </div>
-                      <RegionChart
-                        snapshots={region.snapshots}
-                        regionName={region.name.replace(/\s+/g, "-")}
-                      />
+                      <RegionChart region={region} aggregate={aggregate} />
                     </div>
                   )}
 
-                  {/* Stats Grid */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-muted/50 rounded-lg p-4 border border-border">
                       <div className="text-xs text-muted-foreground mb-2">
@@ -322,7 +372,6 @@ export function RegionsStaking({
                     </div>
                   </div>
 
-                  {/* CTA */}
                   <a
                     href={`https://impact.glow.org/vcr/${region.slug}`}
                     target="_blank"

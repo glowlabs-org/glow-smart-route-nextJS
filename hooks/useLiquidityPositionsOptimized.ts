@@ -155,10 +155,11 @@ async function getPairAddressCached(): Promise<`0x${string}` | null> {
 // ============= SPLIT HOOKS FOR BETTER PERFORMANCE =============
 
 // 1. Pool Info Hook - Fetches pool reserves and price
-export function usePoolInfo() {
+export function usePoolInfo(options?: { enabled?: boolean }) {
+  const { enabled = true } = options ?? {};
   const chainId = useChainId();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ["pool-info", chainId],
     queryFn: async () => {
       const pairAddr = await getPairAddressCached();
@@ -187,9 +188,10 @@ export function usePoolInfo() {
 
       return { reserves: { glw, usdg }, price };
     },
+    enabled,
     staleTime: 15_000,
-    refetchInterval: 30_000,
-    refetchOnMount: true,
+    refetchInterval: enabled ? 30_000 : false,
+    refetchOnMount: enabled,
     refetchOnWindowFocus: false,
   });
 
@@ -197,6 +199,7 @@ export function usePoolInfo() {
     poolReserves: data?.reserves ?? { glw: 0, usdg: 0 },
     priceRatio: data?.price ?? 0,
     isLoading,
+    isFetching,
   };
 }
 

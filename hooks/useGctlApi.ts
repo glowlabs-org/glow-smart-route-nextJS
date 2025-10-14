@@ -78,7 +78,11 @@ const QUERY_KEYS = {
   glwPrice: () => ["glw-price"],
 } as const;
 
-export function useGctlApi(walletAddress?: string) {
+export function useGctlApi(
+  walletAddress?: string,
+  options?: { enabled?: boolean }
+) {
+  const { enabled = true } = options ?? {};
   const queryClient = useQueryClient();
 
   // ----------------------- React Query hooks -----------------------------
@@ -88,10 +92,11 @@ export function useGctlApi(walletAddress?: string) {
     data: latestNonce = "0",
     refetch: refetchLatestNonce,
     isLoading: isLatestNonceLoading,
+    isFetching: isLatestNonceFetching,
   } = useQuery({
     queryKey: QUERY_KEYS.latestNonce(walletAddress),
     queryFn: () => control.fetchLastNonce(walletAddress!),
-    enabled: !!walletAddress,
+    enabled: enabled && !!walletAddress,
     staleTime: 10 * 1000, // 10 seconds
     retry: 2,
   });
@@ -101,10 +106,11 @@ export function useGctlApi(walletAddress?: string) {
     data: gctlBalance = "0",
     refetch: refetchGctlBalance,
     isLoading: isGctlBalanceLoading,
+    isFetching: isGctlBalanceFetching,
   } = useQuery({
     queryKey: QUERY_KEYS.gctlBalance(walletAddress),
     queryFn: () => control.fetchGctlBalance(walletAddress!),
-    enabled: !!walletAddress,
+    enabled: enabled && !!walletAddress,
     staleTime: 10 * 1000, // 10 seconds
     retry: 2,
   });
@@ -114,9 +120,11 @@ export function useGctlApi(walletAddress?: string) {
     data: gctlPrice = "0",
     refetch: refetchGctlPrice,
     isLoading: isGctlPriceLoading,
+    isFetching: isGctlPriceFetching,
   } = useQuery({
     queryKey: QUERY_KEYS.gctlPrice(),
     queryFn: () => control.fetchGctlPrice(),
+    enabled,
     staleTime: 30 * 1000, // 30 seconds
     retry: 2,
   });
@@ -125,15 +133,17 @@ export function useGctlApi(walletAddress?: string) {
     data: glwPrice = "0",
     refetch: refetchGlwPrice,
     isLoading: isGlwPriceLoading,
+    isFetching: isGlwPriceFetching,
   } = useQuery({
     queryKey: QUERY_KEYS.glwPrice(),
     queryFn: () => control.fetchGlwPrice(),
+    enabled,
     staleTime: 60_000, // Cache for 1 minute
     gcTime: 5 * 60_000, // Garbage collect after 5 minutes
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    refetchInterval: 60_000, // Refetch every minute to stay up-to-date
+    refetchOnMount: enabled,
+    refetchOnWindowFocus: enabled,
+    refetchOnReconnect: enabled,
+    refetchInterval: enabled ? 60_000 : false, // Refetch every minute to stay up-to-date
     retry: 2,
   });
 
@@ -158,9 +168,11 @@ export function useGctlApi(walletAddress?: string) {
     data: gctlCirculatingSupply = "0",
     refetch: refetchGctlCirculatingSupply,
     isLoading: isGctlCirculatingSupplyLoading,
+    isFetching: isGctlCirculatingSupplyFetching,
   } = useQuery({
     queryKey: QUERY_KEYS.gctlCirculatingSupply(),
     queryFn: () => control.fetchCirculatingSupply(),
+    enabled,
     staleTime: 30 * 1000, // 30 seconds
     retry: 2,
   });
@@ -697,9 +709,13 @@ export function useGctlApi(walletAddress?: string) {
 
     // Loading states
     isGctlBalanceLoading,
+    isGctlBalanceFetching,
     isGctlPriceLoading,
+    isGctlPriceFetching,
     isGlwPriceLoading,
+    isGlwPriceFetching,
     isGctlCirculatingSupplyLoading,
+    isGctlCirculatingSupplyFetching,
     // Loading states for events/transfers are provided by conditional hooks
 
     // Legacy functions (for backward compatibility)
@@ -737,6 +753,7 @@ export function useGctlApi(walletAddress?: string) {
     isRestaking: restakeMutation.isPending,
     isRetryingFailedOperation: retryFailedOperationMutation.isPending,
     isLatestNonceLoading,
+    isLatestNonceFetching,
     invalidateAllQueries,
   } as const;
 }

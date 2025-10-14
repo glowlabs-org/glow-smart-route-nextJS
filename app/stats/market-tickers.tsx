@@ -27,6 +27,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Area, AreaChart, XAxis, YAxis } from "recharts";
+import { useGlowPrices } from "@/hooks/useGlowPrices";
 
 interface TickerCardProps {
   title: string;
@@ -42,31 +43,7 @@ interface TickerCardProps {
 }
 
 interface MarketTickersProps {
-  spot: {
-    price: string;
-    delta?: number | null;
-    deltaPercent?: number | null;
-    sparkline?: number[];
-    isLoading: boolean;
-    updateFrequency: string;
-    externalLink: { url: string; label: string };
-  };
-  edgap: {
-    price: string;
-    delta?: number | null;
-    deltaPercent?: number | null;
-    sparkline?: number[];
-    isLoading: boolean;
-    updateFrequency: string;
-  };
-  gctl: {
-    price: string;
-    delta?: number | null;
-    deltaPercent?: number | null;
-    sparkline?: number[];
-    isLoading: boolean;
-    updateFrequency: string;
-  };
+  shouldLoad?: boolean;
 }
 
 function buildChartConfig(title: string, deltaPercent?: number | null) {
@@ -333,7 +310,40 @@ function TickerCard({
   );
 }
 
-export function MarketTickers({ spot, edgap, gctl }: MarketTickersProps) {
+export function MarketTickers({ shouldLoad = true }: MarketTickersProps) {
+  const {
+    spotPrice,
+    spotPriceLoading,
+    spotSparkline,
+    spotDelta,
+    spotDeltaPercent,
+    edgapPrice,
+    edgapPriceLoading,
+    edgapSparkline,
+    edgapDelta,
+    edgapDeltaPercent,
+    gctlMintPrice,
+    gctlMintSparkline,
+    gctlMintDelta,
+    gctlMintDeltaPercent,
+    poolActivityLoading,
+  } = useGlowPrices({ enabled: shouldLoad });
+
+  const spotPriceLabel = React.useMemo(() => {
+    if (spotPrice === null || spotPrice === undefined) return "$--";
+    return `$${spotPrice.toFixed(4)}`;
+  }, [spotPrice]);
+
+  const edgapPriceLabel = React.useMemo(() => {
+    if (edgapPrice === null || edgapPrice === undefined) return "$--";
+    return `$${edgapPrice.toFixed(4)}`;
+  }, [edgapPrice]);
+
+  const gctlPriceLabel = React.useMemo(() => {
+    if (gctlMintPrice === null || gctlMintPrice === undefined) return "$--";
+    return `$${gctlMintPrice.toFixed(2)}`;
+  }, [gctlMintPrice]);
+
   return (
     <section className="py-12">
       <div className="mb-6 flex items-center justify-between">
@@ -352,35 +362,38 @@ export function MarketTickers({ spot, edgap, gctl }: MarketTickersProps) {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <TickerCard
           title="GLW Spot Price"
-          price={spot.price}
-          delta={spot.delta ?? undefined}
-          deltaPercent={spot.deltaPercent ?? undefined}
+          price={spotPriceLabel}
+          delta={spotDelta ?? undefined}
+          deltaPercent={spotDeltaPercent ?? undefined}
           tooltip="Real-time market price from Uniswap pool. This is the current trading price where you can buy or sell GLW tokens on the open market."
-          sparkline={spot.sparkline}
-          isLoading={spot.isLoading}
-          updateFrequency={spot.updateFrequency}
-          externalLink={spot.externalLink}
+          sparkline={spotSparkline}
+          isLoading={!shouldLoad || spotPriceLoading || poolActivityLoading}
+          updateFrequency="~30s"
+          externalLink={{
+            url: "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d?maker=0x5abcfde6bc010138f65e8dc088927473c49867e4&preferredQuoteTokenAddress=0xf4fbc617a5733eaaf9af08e1ab816b103388d8b6&cache=f235f&quoteToken=token1",
+            label: "View pair on Defined.fi",
+          }}
           source="Uniswap"
         />
         <TickerCard
           title="GLW Edgap Price"
-          price={edgap.price}
-          delta={edgap.delta ?? undefined}
-          deltaPercent={edgap.deltaPercent ?? undefined}
+          price={edgapPriceLabel}
+          delta={edgapDelta ?? undefined}
+          deltaPercent={edgapDeltaPercent ?? undefined}
           tooltip="Exponentially-Decayed, liquidity-aware price. A smoothed, stable price signal used by the protocol for GCTL pricing. Reacts to market changes but filters out short-term noise."
-          sparkline={edgap.sparkline}
-          isLoading={edgap.isLoading}
-          updateFrequency={edgap.updateFrequency}
+          sparkline={edgapSparkline}
+          isLoading={!shouldLoad || edgapPriceLoading}
+          updateFrequency="~1m"
         />
         <TickerCard
           title="GCTL Mint Price"
-          price={gctl.price}
-          delta={gctl.delta ?? undefined}
-          deltaPercent={gctl.deltaPercent ?? undefined}
+          price={gctlPriceLabel}
+          delta={gctlMintDelta ?? undefined}
+          deltaPercent={gctlMintDeltaPercent ?? undefined}
           tooltip="Dynamic price to mint new GCTL tokens = ceil(√GLW Price / $0.05) × $0.05. The price is the square root of GLW price, rounded up to the nearest 5 cents."
-          sparkline={gctl.sparkline}
-          isLoading={gctl.isLoading}
-          updateFrequency={gctl.updateFrequency}
+          sparkline={gctlMintSparkline}
+          isLoading={!shouldLoad || edgapPriceLoading}
+          updateFrequency="~1m"
         />
       </div>
     </section>

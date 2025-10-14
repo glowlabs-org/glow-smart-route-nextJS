@@ -15,11 +15,13 @@ if (!HUB_URL) {
   throw new Error("NEXT_PUBLIC_HUB_URL is not set");
 }
 
-export function useFractionsSummary() {
+export function useFractionsSummary(options?: { enabled?: boolean }) {
+  const { enabled = true } = options ?? {};
   const queryKey = ["fractions", "summary"] as const;
 
   const query = useQuery<FractionsSummaryResponse>({
     queryKey,
+    enabled,
     queryFn: async () => {
       const response = await fetch(`${HUB_URL}/fractions/summary`);
       if (!response.ok) {
@@ -31,13 +33,14 @@ export function useFractionsSummary() {
       return (await response.json()) as FractionsSummaryResponse;
     },
     staleTime: 60_000,
-    refetchInterval: 60_000,
+    refetchInterval: enabled ? 60_000 : false,
     refetchOnWindowFocus: false,
   });
 
   return {
     summary: query.data ?? null,
     isLoading: query.isLoading,
+    isFetching: query.isFetching,
     isError: query.isError,
     error: query.error,
     refetch: query.refetch,

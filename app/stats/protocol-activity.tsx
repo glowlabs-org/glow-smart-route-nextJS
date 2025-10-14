@@ -10,7 +10,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import type { InventoryItem } from "@/lib/fractions";
+import {
+  useFractionsSummary,
+  type FractionsSummaryResponse,
+} from "@/hooks/useFractionsSummary";
+import { useFractionsAvailability } from "@/hooks/useFractionsAvailability";
+import { useSplitsActivity } from "@/hooks/useGlowLaunchpad";
+import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
+import {
+  parseFractionsSummary,
+  parseFractionsAvailability,
+  formatRemainingInventory,
+  formatDelegationEvents,
+  formatMinerEvents,
+  type InventoryItem,
+} from "@/lib/fractions";
+import { useToast } from "@/hooks/use-toast";
 import { MiniCountdown } from "./mini-countdown";
 
 export interface ProtocolEventRowProps {
@@ -24,20 +39,19 @@ export interface ProtocolEventRowProps {
   timestamp: string;
 }
 
-interface DelegationCardProps {
+interface DelegationCardState {
   totalGlwDelegated: number;
   summaryLoading: boolean;
   delegatorsCount: number;
   availableFarms: InventoryItem[];
   farmsCountdownDate: Date;
   delegationPreviewEvents: ProtocolEventRowProps[];
-  isProtocolActivityLoading: boolean;
   hasDelegationPreview: boolean;
   shouldShowDelegationSeeAll: boolean;
   onSeeAllDelegation: () => void;
 }
 
-interface MinerCardProps {
+interface MinerCardState {
   totalMinersSold: number;
   summaryLoading: boolean;
   buyersCount: number;
@@ -51,10 +65,9 @@ interface MinerCardProps {
 }
 
 interface ProtocolActivityProps {
-  delegation: DelegationCardProps;
-  miners: MinerCardProps;
-  isProtocolActivityLoading?: boolean;
-  skeletonCount?: number;
+  shouldLoad?: boolean;
+  onSeeAllDelegation?: (events: ProtocolEventRowProps[]) => void;
+  onSeeAllMiners?: (events: ProtocolEventRowProps[]) => void;
 }
 
 function EmptyState({
@@ -240,165 +253,327 @@ function MinerEmptyState() {
   );
 }
 
+function ProtocolActivitySkeleton() {
+  return (
+    <div className="py-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {[0, 1].map((index) => (
+        <Card key={index} className="overflow-hidden pt-0">
+          <CardHeader className="border-b border-border/50 bg-muted/30 pt-8">
+            <Skeleton className="h-6 w-48" />
+          </CardHeader>
+          <CardContent className="p-6 space-y-4">
+            <Skeleton className="h-10 w-40" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-6 w-32" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 export function ProtocolActivity({
-  delegation,
-  miners,
-  isProtocolActivityLoading = false,
+  shouldLoad = true,
+  onSeeAllDelegation,
+  onSeeAllMiners,
 }: ProtocolActivityProps) {
-  const {
-    totalGlwDelegated,
-    summaryLoading,
-    delegatorsCount,
-    availableFarms,
-    farmsCountdownDate,
-    delegationPreviewEvents,
-    shouldShowDelegationSeeAll,
-    onSeeAllDelegation,
-  } = delegation;
+  const { toast } = useToast();
 
   const {
-    totalMinersSold,
-    buyersCount,
-    availableMiners,
-    minersCountdownDate,
+    summary,
+    isLoading: summaryLoading,
+    isFetching: summaryFetching,
+    isError: summaryError,
+  } = useFractionsSummary({ enabled: shouldLoad });
+
+  const {
+    data: availability,
+    isLoading: availabilityLoading,
+    isFetching: availabilityFetching,
+    isError: availabilityError,
+  } = useFractionsAvailability({ enabled: shouldLoad });
+
+  const { activity: allSplitsActivity, isLoading: allSplitsLoading } =
+    useSplitsActivity({ enabled: shouldLoad, limit: 100 });
+  const {
+    activity: launchpadSplitsActivity,
+    isLoading: launchpadSplitsLoading,
+  } = useSplitsActivity({
+    enabled: shouldLoad,
+    limit: 10,
+    fractionType: "launchpad",
+  });
+  const { activity: miningSplitsActivity, isLoading: miningSplitsLoading } =
+    useSplitsActivity({
+      enabled: shouldLoad,
+      limit: 10,
+      fractionType: "mining-center",
+    });
+
+  React.useEffect(() => {
+    if (!shouldLoad) return;
+    if (summaryError) {
+      toast({
+        title: "Failed to load fractions summary",
+        description: "Please try again later",
+        variant: "destructive",
+      });
+    }
+  }, [shouldLoad, summaryError, toast]);
+
+  React.useEffect(() => {
+    if (!shouldLoad) return;
+    if (availabilityError) {
+      toast({
+        title: "Failed to load availability",
+        description: "Please try again later",
+        variant: "destructive",
+      });
+    }
+  }, [shouldLoad, availabilityError, toast]);
+
+  const { launchpad, miningCenter } = React.useMemo(() => {
+    if (!availability) {
+      return { launchpad: null, miningCenter: null };
+    }
+    return parseFractionsAvailability(availability);
+  }, [availability]);
+
+  const { launchpadInventory, miningCenterInventory } = React.useMemo(() => {
+    const launchpadInventory = formatRemainingInventory(launchpad ?? null);
+    const miningCenterInventory = formatRemainingInventory(
+      miningCenter ?? null
+    );
+    return { launchpadInventory, miningCenterInventory };
+  }, [launchpad, miningCenter]);
+
+  const delegationEvents = React.useMemo(
+    () => formatDelegationEvents(allSplitsActivity),
+    [allSplitsActivity]
+  );
+  const minerEvents = React.useMemo(
+    () => formatMinerEvents(allSplitsActivity),
+    [allSplitsActivity]
+  );
+  const delegationPreviewEvents = React.useMemo(
+    () => formatDelegationEvents(launchpadSplitsActivity),
+    [launchpadSplitsActivity]
+  );
+  const minerPreviewEvents = React.useMemo(
+    () => formatMinerEvents(miningSplitsActivity),
+    [miningSplitsActivity]
+  );
+
+  const hasDelegationPreview = delegationPreviewEvents.length > 0;
+  const hasMinerPreview = minerPreviewEvents.length > 0;
+  const shouldShowDelegationSeeAll =
+    !allSplitsLoading &&
+    delegationEvents.length > delegationPreviewEvents.length;
+  const shouldShowMinerSeeAll =
+    !allSplitsLoading && minerEvents.length > minerPreviewEvents.length;
+
+  const {
+    totalDelegatedGlw,
+    totalMiningCenterValue,
+    launchpadContributors,
+    miningCenterContributors,
+  } = React.useMemo(() => parseFractionsSummary(summary), [summary]);
+
+  const isProtocolActivityLoading =
+    summaryLoading ||
+    summaryFetching ||
+    availabilityLoading ||
+    availabilityFetching ||
+    allSplitsLoading ||
+    launchpadSplitsLoading ||
+    miningSplitsLoading;
+
+  const isInitialLoading =
+    (summaryLoading && !summary) ||
+    (availabilityLoading && !availability) ||
+    (allSplitsLoading && allSplitsActivity.length === 0) ||
+    (launchpadSplitsLoading && launchpadSplitsActivity.length === 0) ||
+    (miningSplitsLoading && miningSplitsActivity.length === 0);
+
+  if (!shouldLoad) {
+    return <ProtocolActivitySkeleton />;
+  }
+
+  const pendingProps = {
+    totalGlwDelegated: totalDelegatedGlw,
+    summaryLoading: summaryLoading || summaryFetching,
+    delegatorsCount: launchpadContributors ?? 0,
+    availableFarms: launchpadInventory,
+    farmsCountdownDate: getNextTuesdayAt1pmET(),
+    delegationPreviewEvents,
+    hasDelegationPreview,
+    shouldShowDelegationSeeAll,
+    onSeeAllDelegation: () => onSeeAllDelegation?.(delegationEvents),
+  } satisfies DelegationCardState;
+
+  const minerProps = {
+    totalMinersSold: totalMiningCenterValue || 0,
+    summaryLoading: summaryLoading || summaryFetching,
+    buyersCount: miningCenterContributors ?? 0,
+    availableMiners: miningCenterInventory,
+    minersCountdownDate: getNextTuesdayAt1pmET(),
     minerPreviewEvents,
+    minerEvents,
     hasMinerPreview,
     shouldShowMinerSeeAll,
-    onSeeAllMiners,
-  } = miners;
+    onSeeAllMiners: () => onSeeAllMiners?.(minerEvents),
+  } satisfies MinerCardState;
 
   return (
     <div className="py-12">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Protocol Activity</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Real-time delegation and miner activity
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card className="overflow-hidden pt-0">
-          <CardHeader className="border-b border-border/50 bg-muted/30 pt-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xl">Total GLW Delegated</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Community-backed solar farms
-                </p>
-              </div>
-              <Badge variant="secondary" className="gap-1">
-                <Users className="h-3 w-3" />
-                {delegatorsCount}
-                {delegatorsCount === 1 ? " Delegator" : " Delegators"}
-              </Badge>
+      {isInitialLoading ? (
+        <ProtocolActivitySkeleton />
+      ) : (
+        <>
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">Protocol Activity</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Real-time delegation and miner activity
+              </p>
             </div>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="mb-6 text-4xl font-bold tracking-tight">
-              {summaryLoading ? "--" : totalGlwDelegated.toLocaleString()}{" "}
-              <span className="text-2xl text-muted-foreground">GLW</span>
-            </div>
+          </div>
 
-            <InventoryList
-              items={availableFarms}
-              emptyLabel="Farms"
-              countdownLabel="All farm slots are filled. Next batch available soon."
-              countdownDate={farmsCountdownDate}
-              badgeColor="green"
-            />
-
-            <div className="space-y-3">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="text-sm font-semibold">Delegation History</div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    <Activity className="mr-1 h-3 w-3" />
-                    Live
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card className="overflow-hidden pt-0">
+              <CardHeader className="border-b border-border/50 bg-muted/30 pt-8">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl">
+                      Total GLW Delegated
+                    </CardTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Community-backed solar farms
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="gap-1">
+                    <Users className="h-3 w-3" />
+                    {pendingProps.delegatorsCount}
+                    {pendingProps.delegatorsCount === 1
+                      ? " Delegator"
+                      : " Delegators"}
                   </Badge>
-                  {shouldShowDelegationSeeAll ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={onSeeAllDelegation}
-                    >
-                      See All
-                    </Button>
-                  ) : null}
                 </div>
-              </div>
-              <EventList
-                rows={delegationPreviewEvents}
-                empty={<DelegationEmptyState />}
-              />
-            </div>
-          </CardContent>
-        </Card>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="mb-6 text-4xl font-bold tracking-tight">
+                  {pendingProps.summaryLoading
+                    ? "--"
+                    : pendingProps.totalGlwDelegated.toLocaleString()}{" "}
+                  <span className="text-2xl text-muted-foreground">GLW</span>
+                </div>
 
-        <Card className="overflow-hidden pt-0">
-          <CardHeader className="border-b border-border/50 bg-muted/30 pt-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xl">Total Miners Sold</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Mining infrastructure investments
-                </p>
-              </div>
-              <Badge variant="secondary" className="gap-1">
-                <Building className="h-3 w-3" />
-                {buyersCount}
-                {buyersCount === 1 ? " Buyer" : " Buyers"}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="mb-6 text-4xl font-bold tracking-tight">
-              {summaryLoading ? "--" : `$${totalMinersSold.toLocaleString()}`}
-            </div>
+                <InventoryList
+                  items={pendingProps.availableFarms}
+                  emptyLabel="Farms"
+                  countdownLabel="All farm slots are filled. Next batch available soon."
+                  countdownDate={pendingProps.farmsCountdownDate}
+                  badgeColor="green"
+                />
 
-            <InventoryList
-              items={availableMiners}
-              emptyLabel="Miners"
-              countdownLabel="All miners are sold. Next batch available soon."
-              countdownDate={minersCountdownDate}
-              badgeColor="blue"
-            />
+                <div className="space-y-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-sm font-semibold">
+                      Delegation History
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        <Activity className="mr-1 h-3 w-3" />
+                        Live
+                      </Badge>
+                      {pendingProps.shouldShowDelegationSeeAll ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={pendingProps.onSeeAllDelegation}
+                        >
+                          See All
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                  <EventList
+                    rows={pendingProps.delegationPreviewEvents}
+                    empty={<DelegationEmptyState />}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-            <div className="space-y-3">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="text-sm font-semibold">Purchase History</div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    <Activity className="mr-1 h-3 w-3" />
-                    Live
+            <Card className="overflow-hidden pt-0">
+              <CardHeader className="border-b border-border/50 bg-muted/30 pt-8">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl">Total Miners Sold</CardTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Mining infrastructure investments
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="gap-1">
+                    <Building className="h-3 w-3" />
+                    {minerProps.buyersCount}
+                    {minerProps.buyersCount === 1 ? " Buyer" : " Buyers"}
                   </Badge>
-                  {shouldShowMinerSeeAll ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={onSeeAllMiners}
-                    >
-                      See All
-                    </Button>
-                  ) : null}
                 </div>
-              </div>
-              {hasMinerPreview ? (
-                <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
-                  {minerPreviewEvents.map((event) => (
-                    <MinerItem key={event.id} event={event} />
-                  ))}
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="mb-6 text-4xl font-bold tracking-tight">
+                  {minerProps.summaryLoading
+                    ? "--"
+                    : `$${minerProps.totalMinersSold.toLocaleString()}`}
                 </div>
-              ) : (
-                <MinerEmptyState />
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+
+                <InventoryList
+                  items={minerProps.availableMiners}
+                  emptyLabel="Miners"
+                  countdownLabel="All miners are sold. Next batch available soon."
+                  countdownDate={minerProps.minersCountdownDate}
+                  badgeColor="blue"
+                />
+
+                <div className="space-y-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-sm font-semibold">
+                      Purchase History
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        <Activity className="mr-1 h-3 w-3" />
+                        Live
+                      </Badge>
+                      {minerProps.shouldShowMinerSeeAll ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={minerProps.onSeeAllMiners}
+                        >
+                          See All
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                  {minerProps.hasMinerPreview ? (
+                    <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
+                      {minerProps.minerPreviewEvents.map((event) => (
+                        <MinerItem key={event.id} event={event} />
+                      ))}
+                    </div>
+                  ) : (
+                    <MinerEmptyState />
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
     </div>
   );
 }

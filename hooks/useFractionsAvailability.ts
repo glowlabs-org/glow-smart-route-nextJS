@@ -77,13 +77,14 @@ export function useFractionsAvailability(
         | FractionsAvailabilityGroupedResponse;
     },
     staleTime: 30_000,
-    refetchInterval: 30_000,
+    refetchInterval: enabled ? 30_000 : false,
     refetchOnWindowFocus: false,
   });
 
   return {
     data: query.data ?? null,
     isLoading: query.isLoading,
+    isFetching: query.isFetching,
     isError: query.isError,
     error: query.error,
     refetch: query.refetch,

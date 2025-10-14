@@ -118,13 +118,16 @@ async function fetchEdgapSeries(
   }
 }
 
-export function useGlowSpotPrice() {
-  const { data, isLoading, error } = useQuery({
+export function useGlowSpotPrice(options?: { enabled?: boolean }) {
+  const { enabled = true } = options ?? {};
+
+  const { data, isLoading, error, isFetching } = useQuery({
     queryKey: ["glow-spot-price"],
     queryFn: fetchSpotPrice,
+    enabled,
     staleTime: 30_000, // 30 seconds
-    refetchInterval: 60_000, // Refetch every 60 seconds
-    refetchOnMount: true,
+    refetchInterval: enabled ? 60_000 : false,
+    refetchOnMount: enabled,
     refetchOnWindowFocus: false,
   });
 
@@ -133,18 +136,22 @@ export function useGlowSpotPrice() {
   return {
     spotPrice: price,
     isLoading,
+    isFetching,
     error,
     indexingComplete: data?.indexingComplete ?? false,
   };
 }
 
-export function useGlowEdgapPrice() {
-  const { data, isLoading, error } = useQuery({
+export function useGlowEdgapPrice(options?: { enabled?: boolean }) {
+  const { enabled = true } = options ?? {};
+
+  const { data, isLoading, error, isFetching } = useQuery({
     queryKey: ["glow-edgap-price"],
     queryFn: fetchEdgapPrice,
+    enabled,
     staleTime: 10_000,
-    refetchInterval: 60_000, // Refetch every minute (edgap updates slower)
-    refetchOnMount: true,
+    refetchInterval: enabled ? 60_000 : false,
+    refetchOnMount: enabled,
     refetchOnWindowFocus: false,
   });
 
@@ -155,6 +162,7 @@ export function useGlowEdgapPrice() {
   return {
     edgapPrice: price,
     isLoading,
+    isFetching,
     error,
     indexingComplete: data?.indexingComplete ?? false,
   };
@@ -162,14 +170,18 @@ export function useGlowEdgapPrice() {
 
 export function usePoolActivity(
   range: "hour" | "day" | "7d" = "day",
-  interval: "15min" | "hour" | "day" = "hour"
+  interval: "15min" | "hour" | "day" = "hour",
+  options?: { enabled?: boolean }
 ) {
-  const { data, isLoading, error } = useQuery({
+  const { enabled = true } = options ?? {};
+
+  const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ["pool-activity", range, interval],
     queryFn: () => fetchPoolActivity(range, interval),
+    enabled,
     staleTime: 30_000,
-    refetchInterval: 60_000,
-    refetchOnMount: true,
+    refetchInterval: enabled ? 60_000 : false,
+    refetchOnMount: enabled,
     refetchOnWindowFocus: false,
   });
 
@@ -211,18 +223,25 @@ export function usePoolActivity(
     delta,
     deltaPercent,
     isLoading,
+    isFetching,
     error,
     indexingComplete: data?.indexingComplete ?? false,
   };
 }
 
-export function useEdgapSeries(range: "hour" | "day" | "7d" = "7d") {
-  const { data, isLoading, error } = useQuery({
+export function useEdgapSeries(
+  range: "hour" | "day" | "7d" = "7d",
+  options?: { enabled?: boolean }
+) {
+  const { enabled = true } = options ?? {};
+
+  const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ["edgap-series", range],
     queryFn: () => fetchEdgapSeries(range),
+    enabled,
     staleTime: 60_000,
-    refetchInterval: 60_000,
-    refetchOnMount: true,
+    refetchInterval: enabled ? 60_000 : false,
+    refetchOnMount: enabled,
     refetchOnWindowFocus: false,
   });
 
@@ -285,6 +304,7 @@ export function useEdgapSeries(range: "hour" | "day" | "7d" = "7d") {
     // Raw
     series,
     isLoading,
+    isFetching,
     error,
     indexingComplete: data?.indexingComplete ?? false,
 
@@ -303,11 +323,13 @@ export function useEdgapSeries(range: "hour" | "day" | "7d" = "7d") {
 }
 
 // Composite hook that returns all price data
-export function useGlowPrices() {
-  const spotData = useGlowSpotPrice();
-  const edgapData = useGlowEdgapPrice();
-  const poolActivity = usePoolActivity("7d", "15min");
-  const edgapSeries = useEdgapSeries("7d");
+export function useGlowPrices(options?: { enabled?: boolean }) {
+  const { enabled = true } = options ?? {};
+
+  const spotData = useGlowSpotPrice({ enabled });
+  const edgapData = useGlowEdgapPrice({ enabled });
+  const poolActivity = usePoolActivity("7d", "15min", { enabled });
+  const edgapSeries = useEdgapSeries("7d", { enabled });
 
   // Calculate GCTL mint price using protocol formula:
   // GCTL = ceil(sqrt(GLW_PRICE) / 0.05) * 0.05
@@ -330,11 +352,13 @@ export function useGlowPrices() {
     // Spot price
     spotPrice: spotData.spotPrice,
     spotPriceLoading: spotData.isLoading,
+    spotPriceFetching: spotData.isFetching,
     spotPriceIndexingComplete: spotData.indexingComplete,
 
     // Edgap price
     edgapPrice: edgapData.edgapPrice,
     edgapPriceLoading: edgapData.isLoading,
+    edgapPriceFetching: edgapData.isFetching,
     edgapPriceIndexingComplete: edgapData.indexingComplete,
     edgapSparkline: edgapSeries.edgapSparkline,
     edgapDelta: edgapSeries.edgapDelta,
@@ -351,6 +375,7 @@ export function useGlowPrices() {
     spotDelta: poolActivity.delta,
     spotDeltaPercent: poolActivity.deltaPercent,
     poolActivityLoading: poolActivity.isLoading,
+    poolActivityFetching: poolActivity.isFetching,
     poolActivityIndexingComplete: poolActivity.indexingComplete,
 
     // Overall loading state

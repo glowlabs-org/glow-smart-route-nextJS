@@ -34,19 +34,26 @@ export interface ActiveRegionSummaryDerived {
   pendingRestakeOut: number;
   pendingRestakeIn: number;
   churnEpoch: number;
-  snapshots: Array<{
-    epoch: number;
-    gctlStaked: number;
-    pendingUnstake: number;
-    pendingRestakeOut: number;
-    pendingRestakeIn: number;
-  }>;
+  history: ActiveRegionHistoryPoint[];
 }
 
 export interface ActiveRegionsSummaryData {
   totalGctlStaked: number;
   totalGlwRewards: number;
   regions: ActiveRegionSummaryDerived[];
+  aggregate?: {
+    epochs: number[];
+    timestamps: number[];
+    totalGctlStaked: string[];
+    eventTypes: string[];
+    regionIds: number[];
+  };
+}
+
+export interface ActiveRegionHistoryPoint {
+  epoch: number;
+  timestamp: number;
+  gctlStaked: number;
 }
 
 function parseNumber(value: string | number | null | undefined): number {
@@ -77,20 +84,20 @@ function parseGlwAmount(value: string | number | null | undefined): number {
 }
 
 function getChurnEpoch(
-  snapshots: ActiveRegionsSummaryResponse["regions"][number]["snapshots"],
+  data: ActiveRegionsSummaryResponse["regions"][number]["data"],
   currentStaked: number
 ): number {
-  if (!snapshots || snapshots.length < 2 || currentStaked === 0) return 0;
+  if (!data || data.length < 2 || currentStaked === 0) return 0;
 
   // Get the most recent snapshot and the one before it
-  const sortedSnapshots = [...snapshots].sort((a, b) => b.epoch - a.epoch);
-  const currentSnapshot = sortedSnapshots[0];
-  const previousSnapshot = sortedSnapshots[1];
+  const sortedData = [...data].sort((a, b) => b.epoch - a.epoch);
+  const currentSnapshot = sortedData[0];
+  const previousSnapshot = sortedData[1];
 
   if (!currentSnapshot || !previousSnapshot) return 0;
 
-  const currentGctl = parseGctlAmount(currentSnapshot.totals.gctlStaked);
-  const previousGctl = parseGctlAmount(previousSnapshot.totals.gctlStaked);
+  const currentGctl = parseGctlAmount(currentSnapshot.gctlStaked);
+  const previousGctl = parseGctlAmount(previousSnapshot.gctlStaked);
 
   const churn = Math.abs(currentGctl - previousGctl);
   return Math.min((churn / currentStaked) * 100, 100);
@@ -105,21 +112,35 @@ function mapSummary(
   const totalGlwRewards = parseGlwAmount(response.total.totalGlwRewards);
 
   const regions = response.regions.map((region) => {
-    const stakedGctl = parseGctlAmount(region.gctlStaked);
+    const stakedGctl = parseGctlAmount(region.currentGctlStaked);
     const glwPerWeek = parseGlwAmount(region.glwRewardPerWeek);
     const rewardSharePercent = parseNumber(region.rewardShare);
-    const pendingUnstake = parseGctlAmount(region.pendingUnstake);
-    const pendingRestakeOut = parseGctlAmount(region.pendingRestakeOut);
-    const pendingRestakeIn = parseGctlAmount(region.pendingRestakeIn);
-    const churnEpoch = getChurnEpoch(region.snapshots, stakedGctl);
 
-    const snapshots = region.snapshots.map((snapshot) => ({
-      epoch: snapshot.epoch,
-      gctlStaked: parseGctlAmount(snapshot.totals.gctlStaked),
-      pendingUnstake: parseGctlAmount(snapshot.totals.pendingUnstake),
-      pendingRestakeOut: parseGctlAmount(snapshot.totals.pendingRestakeOut),
-      pendingRestakeIn: parseGctlAmount(snapshot.totals.pendingRestakeIn),
-    }));
+    // Get the latest data point for pending values
+    const latestDataPoint =
+      region.data.length > 0
+        ? [...region.data].sort((a, b) => b.epoch - a.epoch)[0]
+        : null;
+
+    const pendingUnstake = latestDataPoint
+      ? parseGctlAmount(latestDataPoint.pendingUnstake)
+      : 0;
+    const pendingRestakeOut = latestDataPoint
+      ? parseGctlAmount(latestDataPoint.pendingRestakeOut)
+      : 0;
+    const pendingRestakeIn = latestDataPoint
+      ? parseGctlAmount(latestDataPoint.pendingRestakeIn)
+      : 0;
+
+    const churnEpoch = getChurnEpoch(region.data, stakedGctl);
+
+    const history: ActiveRegionHistoryPoint[] = region.data
+      .map((point) => ({
+        epoch: point.epoch,
+        timestamp: point.timestamp,
+        gctlStaked: parseGctlAmount(point.gctlStaked),
+      }))
+      .sort((a, b) => a.timestamp - b.timestamp);
 
     return {
       id: region.id,
@@ -134,7 +155,7 @@ function mapSummary(
       pendingRestakeOut,
       pendingRestakeIn,
       churnEpoch,
-      snapshots,
+      history,
     } satisfies ActiveRegionSummaryDerived;
   });
 
@@ -142,12 +163,15 @@ function mapSummary(
     totalGctlStaked,
     totalGlwRewards,
     regions,
+    aggregate: response.aggregate,
   } satisfies ActiveRegionsSummaryData;
 }
 
-export function useActiveRegionsSummary() {
+export function useActiveRegionsSummary(options?: { enabled?: boolean }) {
+  const { enabled = true } = options ?? {};
   const query = useQuery({
     queryKey: QUERY_KEYS.activeSummary(),
+    enabled,
     queryFn: async () => {
       try {
         const summary = await regionRouter.fetchActiveSummary();
@@ -167,5 +191,6 @@ export function useActiveRegionsSummary() {
   return {
     ...query,
     data: mapSummary(query.data),
+    isFetching: query.isFetching,
   } as const;
 }

@@ -1,37 +1,93 @@
-import { TrendingUp, Users, DollarSign, Coins, Zap } from "lucide-react";
+"use client";
+
+import React from "react";
+import { TrendingUp, Users, DollarSign, Coins } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
+import { usePoolInfo } from "@/hooks/useLiquidityPositionsOptimized";
+import { useGctlApi } from "@/hooks/useGctlApi";
+import { useGctlHoldersCount } from "@/hooks/useGctlHoldersCount";
+import { useActiveRegionsSummary } from "@/hooks/useActiveRegionsSummary";
+import { useEndowmentLPPosition } from "@/hooks/useEndowmentLPPosition";
+// removed unused heavy price hook and unused helper
 
 interface EconomyOverviewProps {
-  gctlCirculatingSupplyNumber: number;
-  isGctlCirculatingSupplyLoading?: boolean;
-  glwCirculatingSupply: number;
-  glwMarketCap: number;
-  totalGlwDelegated: number;
-  percentGlwDelegated: number;
-  usdcLiquidity: number;
-  glwInPool: number;
-  isGlwDataLoading?: boolean;
-  gctlPriceNumber: number;
-  totalStakedGctl: number;
-  gctlHoldersCount: number;
-  isGctlDataLoading?: boolean;
+  shouldLoad?: boolean;
 }
 
-export function EconomyOverview({
-  gctlCirculatingSupplyNumber,
-  isGctlCirculatingSupplyLoading,
-  glwCirculatingSupply,
-  glwMarketCap,
-  totalGlwDelegated,
-  percentGlwDelegated,
-  usdcLiquidity,
-  glwInPool,
-  isGlwDataLoading,
-  gctlPriceNumber,
-  totalStakedGctl,
-  gctlHoldersCount,
-  isGctlDataLoading,
-}: EconomyOverviewProps) {
+export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
+  const {
+    circulatingSupply,
+    marketCap,
+    isLoading: isCirculatingSupplyLoading,
+  } = useGlowCirculatingSupply({ enabled: shouldLoad });
+
+  const { poolReserves, isLoading: isPoolLoading } = usePoolInfo({
+    enabled: shouldLoad,
+  });
+
+  const {
+    gctlPriceNumber,
+    gctlCirculatingSupplyNumber,
+    glwPriceNumber,
+    isGctlPriceLoading,
+    isGctlPriceFetching,
+    isGctlCirculatingSupplyLoading,
+    isGctlCirculatingSupplyFetching,
+  } = useGctlApi(undefined, { enabled: shouldLoad });
+
+  const { holdersCount: gctlHoldersCount, isLoading: isGctlHoldersLoading } =
+    useGctlHoldersCount({ enabled: shouldLoad });
+
+  const { data: activeSummary, isLoading: isActiveSummaryLoading } =
+    useActiveRegionsSummary({ enabled: shouldLoad });
+
+  const {
+    endowmentGlw,
+    endowmentUsdg,
+    endowmentLpBalance,
+    isLoading: isEndowmentLoading,
+  } = useEndowmentLPPosition({ enabled: shouldLoad });
+
+  const totalStakedAcrossRegions = activeSummary?.totalGctlStaked ?? 0;
+  const totalGlwDelegated = activeSummary?.totalGlwRewards ?? 0;
+
+  const percentGlwDelegated = React.useMemo(() => {
+    if (!circulatingSupply || circulatingSupply === 0) return 0;
+    return (totalGlwDelegated / circulatingSupply) * 100;
+  }, [totalGlwDelegated, circulatingSupply]);
+
+  const usdcLiquidity = poolReserves.usdg || 0;
+  const isGlwDataLoading = isCirculatingSupplyLoading || isPoolLoading;
+  const isGctlDataLoading =
+    isGctlPriceLoading ||
+    isGctlPriceFetching ||
+    isGctlCirculatingSupplyLoading ||
+    isGctlCirculatingSupplyFetching ||
+    isGctlHoldersLoading ||
+    isActiveSummaryLoading;
+
+  const gctlMarketCap = gctlCirculatingSupplyNumber * gctlPriceNumber;
+
+  const isInitialLoading =
+    (isGlwDataLoading && !circulatingSupply) ||
+    (isGctlDataLoading && !gctlCirculatingSupplyNumber) ||
+    (isEndowmentLoading && endowmentLpBalance === 0 && endowmentUsdg === 0);
+
+  if (!shouldLoad || isInitialLoading) {
+    return (
+      <div className="grid gap-4">
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
+          <Card key={index}>
+            <CardContent className="p-6">
+              <div className="h-4 w-1/2 bg-muted rounded" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -43,11 +99,10 @@ export function EconomyOverview({
         </div>
       </div>
 
-      {/* Group 1: GLW Supply & Liquidity */}
       <div className="mb-8">
         <h3 className="text-lg font-semibold mb-4">GLW Supply & Liquidity</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm text-muted-foreground">
@@ -58,20 +113,20 @@ export function EconomyOverview({
               <div className="text-3xl font-bold mb-2">
                 {isGlwDataLoading
                   ? "--"
-                  : `$${(glwMarketCap / 1_000_000).toFixed(1)}M`}
+                  : `$${(marketCap / 1_000_000).toFixed(1)}M`}
               </div>
               <div className="text-xs text-muted-foreground">
                 Circulating:{" "}
                 {isGlwDataLoading
                   ? "--"
-                  : `${glwCirculatingSupply.toLocaleString(undefined, {
+                  : `${circulatingSupply.toLocaleString(undefined, {
                       maximumFractionDigits: 0,
                     })} GLW`}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm text-muted-foreground">
@@ -87,7 +142,7 @@ export function EconomyOverview({
                   ? "--"
                   : `${totalGlwDelegated.toLocaleString(undefined, {
                       maximumFractionDigits: 0,
-                    })} delegated / ${glwCirculatingSupply.toLocaleString(
+                    })} delegated / ${circulatingSupply.toLocaleString(
                       undefined,
                       {
                         maximumFractionDigits: 0,
@@ -97,7 +152,7 @@ export function EconomyOverview({
             </CardContent>
           </Card>
 
-          <Card className="">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm text-muted-foreground">
@@ -110,43 +165,53 @@ export function EconomyOverview({
                   ? "--"
                   : `$${usdcLiquidity.toLocaleString(undefined, {
                       maximumFractionDigits: 0,
-                      currency: "USD",
                     })}`}
               </div>
               <div className="text-xs text-muted-foreground">
                 {isGlwDataLoading
                   ? "--"
-                  : `Pool GLW: ${glwInPool.toLocaleString(undefined, {
+                  : `Pool GLW: ${poolReserves.glw.toLocaleString(undefined, {
                       maximumFractionDigits: 0,
                     })}`}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm text-muted-foreground">
-                  Endowment Value
+                  Liquidity Provided by Glow Endowment
                 </div>
                 <Coins className="w-4 h-4 text-muted-foreground" />
               </div>
-              <div className="text-3xl font-bold mb-2">-</div>
+              <div className="text-3xl font-bold mb-2">
+                {isEndowmentLoading
+                  ? "--"
+                  : endowmentLpBalance === 0
+                  ? "No LP tokens"
+                  : `${endowmentUsdg.toLocaleString(undefined, {
+                      maximumFractionDigits: 0,
+                    })} USDC`}
+              </div>
               <div className="text-xs text-muted-foreground">
-                All assets combined
+                and{" "}
+                {endowmentGlw.toLocaleString(undefined, {
+                  maximumFractionDigits: 0,
+                })}{" "}
+                GLW
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Group 2: GCTL Supply & Participation */}
       <div className="mb-8">
         <h3 className="text-lg font-semibold mb-4">
           GCTL Supply & Participation
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm text-muted-foreground">
@@ -155,7 +220,7 @@ export function EconomyOverview({
                 <Coins className="w-4 h-4 text-muted-foreground" />
               </div>
               <div className="text-3xl font-bold mb-2">
-                {isGctlDataLoading || isGctlCirculatingSupplyLoading
+                {isGctlDataLoading
                   ? "--"
                   : gctlCirculatingSupplyNumber.toLocaleString(undefined, {
                       maximumFractionDigits: 0,
@@ -167,7 +232,7 @@ export function EconomyOverview({
             </CardContent>
           </Card>
 
-          <Card className="">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm text-muted-foreground">
@@ -178,11 +243,8 @@ export function EconomyOverview({
               <div className="text-3xl font-bold mb-2">
                 {isGctlDataLoading
                   ? "--"
-                  : `$${(
-                      gctlCirculatingSupplyNumber * gctlPriceNumber
-                    ).toLocaleString(undefined, {
+                  : `$${gctlMarketCap.toLocaleString(undefined, {
                       maximumFractionDigits: 0,
-                      currency: "USD",
                     })}`}
               </div>
               <div className="text-xs text-muted-foreground">
@@ -191,7 +253,7 @@ export function EconomyOverview({
             </CardContent>
           </Card>
 
-          <Card className="">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm text-muted-foreground">
@@ -203,14 +265,14 @@ export function EconomyOverview({
                 {isGctlDataLoading || gctlCirculatingSupplyNumber === 0
                   ? "--"
                   : `${(
-                      (totalStakedGctl / gctlCirculatingSupplyNumber) *
+                      (totalStakedAcrossRegions / gctlCirculatingSupplyNumber) *
                       100
                     ).toFixed(1)}%`}
               </div>
               <div className="text-xs text-muted-foreground">
                 {isGctlDataLoading
                   ? "--"
-                  : `${totalStakedGctl.toLocaleString(undefined, {
+                  : `${totalStakedAcrossRegions.toLocaleString(undefined, {
                       maximumFractionDigits: 0,
                     })} staked / ${gctlCirculatingSupplyNumber.toLocaleString(
                       undefined,
@@ -222,7 +284,7 @@ export function EconomyOverview({
             </CardContent>
           </Card>
 
-          <Card className="">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm text-muted-foreground">

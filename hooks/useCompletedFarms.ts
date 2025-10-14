@@ -45,7 +45,7 @@ export function useCompletedFarms(params: UseCompletedFarmsParams = {}) {
     queryKey: ["completed-farms"],
     enabled,
     staleTime: 60_000,
-    refetchInterval: 60_000,
+    refetchInterval: enabled ? 60_000 : false,
     queryFn: async () => {
       const res = await fetch(COMPLETED_FARMS_URL, {
         headers: { "content-type": "application/json" },
@@ -61,6 +61,7 @@ export function useCompletedFarms(params: UseCompletedFarmsParams = {}) {
   return {
     farms: query.data || [],
     isLoading: query.isLoading,
+    isFetching: query.isFetching,
     isError: query.isError,
     error: query.error,
     refetch: query.refetch,
