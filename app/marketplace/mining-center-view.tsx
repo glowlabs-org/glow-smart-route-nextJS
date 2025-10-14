@@ -297,7 +297,7 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
   const selectedSort = sortParam as SortBy;
   const selectedSortOrder = sortOrderParam as SortOrder;
 
-  const { applications, isLoading, isError, error } = useMiningCenter({
+  const { applications, isLoading, isError, error, refetch } = useMiningCenter({
     filters: {
       zoneId: selectedZoneId,
       sortBy: selectedSort,
@@ -306,13 +306,14 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
     },
   });
 
-  const { applications: allApplications } = useMiningCenter({
-    filters: {
-      sortBy: selectedSort,
-      sortOrder: selectedSortOrder,
-      paymentCurrency: selectedCurrency,
-    },
-  });
+  const { applications: allApplications, refetch: refetchAll } =
+    useMiningCenter({
+      filters: {
+        sortBy: selectedSort,
+        sortOrder: selectedSortOrder,
+        paymentCurrency: selectedCurrency,
+      },
+    });
 
   const { zones } = useAvailableZones(allApplications);
 
@@ -322,6 +323,12 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
   });
 
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
+
+  const handleCountdownComplete = React.useCallback(() => {
+    // Refresh both queries when countdown completes
+    refetch();
+    refetchAll();
+  }, [refetch, refetchAll]);
 
   const filterBarProps = {
     selectedZoneId,
@@ -473,6 +480,7 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                 target={getNextTuesdayAt1pmET()}
                 title="Mining Center"
                 subtitle="The next batch of miners will be available soon"
+                onComplete={handleCountdownComplete}
               />
             </>
           ) : (

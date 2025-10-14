@@ -6,16 +6,19 @@ interface LaunchCountdownProps {
   target: Date;
   title?: string;
   subtitle?: string;
+  onComplete?: () => void;
 }
 
 export function LaunchCountdown({
   target,
   title,
   subtitle,
+  onComplete,
 }: LaunchCountdownProps) {
   const targetTimestamp = React.useMemo(() => target.getTime(), [target]);
 
   const [now, setNow] = React.useState<number>(() => Date.now());
+  const hasCompletedRef = React.useRef(false);
 
   React.useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -23,6 +26,14 @@ export function LaunchCountdown({
   }, []);
 
   const remaining = Math.max(targetTimestamp - now, 0);
+
+  // Trigger onComplete when countdown reaches zero
+  React.useEffect(() => {
+    if (remaining === 0 && !hasCompletedRef.current && onComplete) {
+      hasCompletedRef.current = true;
+      onComplete();
+    }
+  }, [remaining, onComplete]);
 
   const { days, hours, minutes, seconds } = React.useMemo(() => {
     const totalSeconds = Math.floor(remaining / 1000);

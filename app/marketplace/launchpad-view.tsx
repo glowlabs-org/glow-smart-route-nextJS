@@ -253,22 +253,25 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
   const selectedSort = sortParam as SortBy;
   const selectedSortOrder = sortOrderParam as SortOrder;
 
-  const { applications, isLoading, isError, error } = useGlowLaunchpad({
-    filters: {
-      zoneId: selectedZoneId,
-      sortBy: selectedSort,
-      sortOrder: selectedSortOrder,
-      paymentCurrency: selectedCurrency,
-    },
-  });
+  const { applications, isLoading, isError, error, refetch } = useGlowLaunchpad(
+    {
+      filters: {
+        zoneId: selectedZoneId,
+        sortBy: selectedSort,
+        sortOrder: selectedSortOrder,
+        paymentCurrency: selectedCurrency,
+      },
+    }
+  );
 
-  const { applications: allApplications } = useGlowLaunchpad({
-    filters: {
-      sortBy: selectedSort,
-      sortOrder: selectedSortOrder,
-      paymentCurrency: selectedCurrency,
-    },
-  });
+  const { applications: allApplications, refetch: refetchAll } =
+    useGlowLaunchpad({
+      filters: {
+        sortBy: selectedSort,
+        sortOrder: selectedSortOrder,
+        paymentCurrency: selectedCurrency,
+      },
+    });
 
   const { zones } = useAvailableZones(allApplications);
 
@@ -299,6 +302,12 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
     const oneGlwInBaseUnits = BigInt(10) ** BigInt(DECIMALS_BY_TOKEN["GLW"]);
     return glowBalance > oneGlwInBaseUnits;
   }, [glowBalance]);
+
+  const handleCountdownComplete = React.useCallback(() => {
+    // Refresh both queries when countdown completes
+    refetch();
+    refetchAll();
+  }, [refetch, refetchAll]);
 
   const filterBarProps = {
     selectedZoneId,
@@ -520,6 +529,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
               target={getNextTuesdayAt1pmET()}
               title="Launchpad"
               subtitle="The next batch of farms will be available soon"
+              onComplete={handleCountdownComplete}
             />
           </>
         ) : (
@@ -706,7 +716,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                           {application.activeFraction?.step ? (
                             <div>
                               <div
-                                className="text-3xl lg:text-4xl xl:text-5xl text-black dark:text-white"
+                                className="text-3xl xl:text-5xl text-black dark:text-white"
                                 style={{
                                   fontFamily: "Söhne, sans-serif",
                                   fontWeight: 600,
