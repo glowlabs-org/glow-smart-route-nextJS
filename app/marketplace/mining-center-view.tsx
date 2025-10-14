@@ -167,7 +167,7 @@ function OwnedFractionsBadge({
 
 interface FilterBarProps {
   selectedZoneId?: number;
-  selectedSort: SortBy;
+  selectedSort: SortBy | "pricePerMiner";
   selectedSortOrder: SortOrder;
   zones: any[];
   onZoneChange: (value: string | null) => void;
@@ -233,6 +233,7 @@ function FilterBar({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="pricePerMiner">Price per Miner</SelectItem>
             <SelectItem value="publishedOnAuctionTimestamp">
               Date Published
             </SelectItem>
@@ -282,7 +283,7 @@ interface MiningCenterViewProps {
 function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
   const [zoneParam, setZoneParam] = useQueryState("zone");
   const [sortParam, setSortParam] = useQueryState("sort", {
-    defaultValue: "publishedOnAuctionTimestamp",
+    defaultValue: "pricePerMiner",
   });
   const [sortOrderParam, setSortOrderParam] = useQueryState("order", {
     defaultValue: "desc",
@@ -294,14 +295,17 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
 
   const selectedZoneId = zoneParam ? parseInt(zoneParam) : undefined;
   const selectedCurrency = "USDC" as PaymentCurrency;
-  const selectedSort = sortParam as SortBy;
+  const selectedSort = sortParam as SortBy | "pricePerMiner";
   const selectedSortOrder = sortOrderParam as SortOrder;
 
   const { applications, isLoading, isError, error, refetch } = useMiningCenter({
     filters: {
       zoneId: selectedZoneId,
-      sortBy: selectedSort,
-      sortOrder: selectedSortOrder,
+      sortBy:
+        selectedSort === "pricePerMiner"
+          ? "publishedOnAuctionTimestamp"
+          : selectedSort,
+      sortOrder: selectedSort === "pricePerMiner" ? "desc" : selectedSortOrder,
       paymentCurrency: selectedCurrency,
     },
   });
@@ -309,8 +313,12 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
   const { applications: allApplications, refetch: refetchAll } =
     useMiningCenter({
       filters: {
-        sortBy: selectedSort,
-        sortOrder: selectedSortOrder,
+        sortBy:
+          selectedSort === "pricePerMiner"
+            ? "publishedOnAuctionTimestamp"
+            : selectedSort,
+        sortOrder:
+          selectedSort === "pricePerMiner" ? "desc" : selectedSortOrder,
         paymentCurrency: selectedCurrency,
       },
     });
@@ -485,7 +493,53 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
             </>
           ) : (
             <div className="space-y-4">
-              {applications.map((application) => {
+              {(() => {
+                // Sort applications by price per miner if needed
+                let sortedApplications = [...applications];
+
+                if (selectedSort === "pricePerMiner") {
+                  sortedApplications.sort((a, b) => {
+                    // Get price for application A
+                    const priceA = a.activeFraction?.stepPrice
+                      ? parseFloat(
+                          formatUnits(
+                            BigInt(a.activeFraction.stepPrice),
+                            DECIMALS_BY_TOKEN["USDC"]
+                          )
+                        )
+                      : parseFloat(
+                          calculateProtocolDepositAmount(
+                            a.finalProtocolFee,
+                            a.applicationPriceQuotes,
+                            selectedCurrency
+                          ) || "0"
+                        );
+
+                    // Get price for application B
+                    const priceB = b.activeFraction?.stepPrice
+                      ? parseFloat(
+                          formatUnits(
+                            BigInt(b.activeFraction.stepPrice),
+                            DECIMALS_BY_TOKEN["USDC"]
+                          )
+                        )
+                      : parseFloat(
+                          calculateProtocolDepositAmount(
+                            b.finalProtocolFee,
+                            b.applicationPriceQuotes,
+                            selectedCurrency
+                          ) || "0"
+                        );
+
+                    // Sort by price (most expensive first by default)
+                    return selectedSortOrder === "asc"
+                      ? priceA - priceB
+                      : priceB - priceA;
+                  });
+                }
+
+                return sortedApplications;
+              })().map((application) => {
                 const depositAmountInCurrency = calculateProtocolDepositAmount(
                   application.finalProtocolFee,
                   application.applicationPriceQuotes,
