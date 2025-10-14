@@ -67,6 +67,7 @@ import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { LaunchCountdown } from "@/components/launch-countdown";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
+import { ArrowRight, HelpCircle } from "lucide-react";
 
 // Component to show owned fractions for a specific application
 function OwnedFractionsDisplay({
@@ -330,6 +331,47 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
 
   return (
     <div>
+      {/* How It Works CTA */}
+      <div className="sticky top-0 z-50 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 backdrop-blur-md border-b border-border/60">
+        <a
+          href="https://glow.org/blog/guide-to-delegating-glow"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block group"
+        >
+          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="hidden md:block p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                <HelpCircle className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex flex-col md:flex-row md:items-center md:gap-2">
+                <span
+                  className="text-sm md:text-base font-semibold"
+                  style={{ fontFamily: "Söhne, sans-serif" }}
+                >
+                  New to GLW delegation?
+                </span>
+                <span
+                  className="text-xs md:text-sm text-muted-foreground"
+                  style={{ fontFamily: "Söhne, sans-serif" }}
+                >
+                  Learn how to earn rewards by delegating to solar farms
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-primary group-hover:translate-x-1 transition-transform">
+              <span
+                className="hidden md:inline text-sm font-medium"
+                style={{ fontFamily: "Söhne, sans-serif" }}
+              >
+                Read guide
+              </span>
+              <ArrowRight className="h-4 w-4" />
+            </div>
+          </div>
+        </a>
+      </div>
+
       {/* Mobile Filter Drawer */}
       <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
         <DrawerContent className="md:hidden max-h-[85vh]">

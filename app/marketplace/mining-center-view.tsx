@@ -57,10 +57,11 @@ import { formatUnits } from "viem";
 import { useAccount } from "wagmi";
 import { useFractionSplits } from "@/hooks/useFractionSplits";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X, ArrowRight, HelpCircle } from "lucide-react";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { LaunchCountdown } from "@/components/launch-countdown";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
+import { HowItWorks } from "@/components/how-it-works";
 
 // Component to show owned fractions for a specific mining center application
 function OwnedFractionsDisplay({
@@ -358,327 +359,345 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
   };
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
-      {/* Desktop Sidebar - Hidden on mobile */}
-      <aside className="hidden md:block w-70 flex-shrink-0 border-r border-border/60 bg-muted/30 rounded-r-lg sticky top-0 h-screen overflow-y-auto">
-        <div className="p-8">
-          <div className="mb-8">
-            <h3
-              className="text-2xl mb-2"
-              style={{
-                fontFamily: "Duplicate Slab, serif",
-                fontWeight: 300,
-              }}
-            >
-              Filter
-            </h3>
-            <p
-              className="text-sm text-muted-foreground"
-              style={{
-                fontFamily: "Söhne, sans-serif",
-                fontWeight: 400,
-              }}
-            >
-              Refine your search
-            </p>
+    <>
+      {/* How It Works CTA */}
+      <div className="sticky top-0 z-50 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 backdrop-blur-md border-b border-border/60">
+        <a
+          href="https://glow.org/blog/guide-to-glow-mining"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block group"
+        >
+          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="hidden md:block p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                <HelpCircle className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex flex-col md:flex-row md:items-center md:gap-2">
+                <span
+                  className="text-sm md:text-base font-semibold"
+                  style={{ fontFamily: "Söhne, sans-serif" }}
+                >
+                  New to Glow Mining?
+                </span>
+                <span
+                  className="text-xs md:text-sm text-muted-foreground"
+                  style={{ fontFamily: "Söhne, sans-serif" }}
+                >
+                  Learn how miners earn GLW by funding solar farms
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-primary group-hover:translate-x-1 transition-transform">
+              <span
+                className="hidden md:inline text-sm font-medium"
+                style={{ fontFamily: "Söhne, sans-serif" }}
+              >
+                Read guide
+              </span>
+              <ArrowRight className="h-4 w-4" />
+            </div>
           </div>
-          <FilterBar {...filterBarProps} />
-        </div>
-      </aside>
+        </a>
+      </div>
 
-      {/* Mobile Filter Drawer */}
-      <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-        <DrawerContent className="md:hidden max-h-[85vh]">
-          <DrawerHeader className="border-b border-border/60">
-            <div className="flex items-center justify-between">
-              <DrawerTitle
-                className="text-2xl"
+      <div className="flex min-h-screen flex-col md:flex-row">
+        {/* Desktop Sidebar - Hidden on mobile */}
+        <aside className="hidden md:block w-70 flex-shrink-0 border-r border-border/60 bg-muted/30 rounded-r-lg sticky top-0 h-screen overflow-y-auto">
+          <div className="p-8">
+            <div className="mb-8">
+              <h3
+                className="text-2xl mb-2"
                 style={{
                   fontFamily: "Duplicate Slab, serif",
                   fontWeight: 300,
                 }}
               >
                 Filter
-              </DrawerTitle>
-              <DrawerClose asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <X className="h-4 w-4" />
-                </Button>
-              </DrawerClose>
+              </h3>
+              <p
+                className="text-sm text-muted-foreground"
+                style={{
+                  fontFamily: "Söhne, sans-serif",
+                  fontWeight: 400,
+                }}
+              >
+                Refine your search
+              </p>
             </div>
-            <p
-              className="text-sm text-muted-foreground text-left mt-1"
-              style={{
-                fontFamily: "Söhne, sans-serif",
-                fontWeight: 400,
-              }}
-            >
-              Refine your search
-            </p>
-          </DrawerHeader>
-          <div className="overflow-y-auto p-6">
             <FilterBar {...filterBarProps} />
           </div>
-        </DrawerContent>
-      </Drawer>
+        </aside>
 
-      {/* Content Area */}
-      <div className="flex-1">
-        {/* Mobile Filter Button */}
-        <div className="md:hidden sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/60 p-4">
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => setIsDrawerOpen(true)}
-          >
-            <SlidersHorizontal className="mr-2 h-4 w-4" />
-            <span
-              style={{
-                fontFamily: "Söhne, sans-serif",
-                fontWeight: 500,
-              }}
-            >
-              Filter & Sort
-            </span>
-          </Button>
-        </div>
-
-        <div className="p-4 md:p-6">
-          {isLoading ? (
-            <div className="space-y-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Card
-                  key={i}
-                  className="bg-white dark:bg-black rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden"
+        {/* Mobile Filter Drawer */}
+        <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+          <DrawerContent className="md:hidden max-h-[85vh]">
+            <DrawerHeader className="border-b border-border/60">
+              <div className="flex items-center justify-between">
+                <DrawerTitle
+                  className="text-2xl"
+                  style={{
+                    fontFamily: "Duplicate Slab, serif",
+                    fontWeight: 300,
+                  }}
                 >
-                  <CardContent className="p-0">
-                    <div className="flex flex-col lg:flex-row">
-                      <Skeleton className="w-full lg:w-80 h-48 lg:h-64 flex-shrink-0" />
-                      <div className="flex-1 p-4 lg:p-6">
-                        <div className="space-y-4">
-                          <Skeleton className="h-8 w-48" />
-                          <Skeleton className="h-20 w-full" />
-                          <div className="flex gap-4">
-                            <Skeleton className="h-24 flex-1" />
-                            <Skeleton className="h-24 flex-1" />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="w-full lg:w-48 p-4 lg:p-6 flex flex-col justify-between items-start lg:items-end border-t lg:border-t-0 lg:border-l border-border">
-                        <Skeleton className="h-12 w-32" />
-                        <Skeleton className="h-11 w-full rounded-full" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : isError ? (
-            <div className="text-center py-8">
-              <p className="text-destructive text-sm">
-                Error loading mining center applications: {error?.message}
+                  Filter
+                </DrawerTitle>
+                <DrawerClose asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </DrawerClose>
+              </div>
+              <p
+                className="text-sm text-muted-foreground text-left mt-1"
+                style={{
+                  fontFamily: "Söhne, sans-serif",
+                  fontWeight: 400,
+                }}
+              >
+                Refine your search
               </p>
-              <p className="text-muted-foreground text-xs mt-1">
-                Please try again later
-              </p>
+            </DrawerHeader>
+            <div className="overflow-y-auto p-6">
+              <FilterBar {...filterBarProps} />
             </div>
-          ) : applications.length === 0 ? (
-            <>
-              <LaunchCountdown
-                target={getNextTuesdayAt1pmET()}
-                title="Mining Center"
-                subtitle="The next batch of miners will be available soon"
-                onComplete={handleCountdownComplete}
-              />
-            </>
-          ) : (
-            <div className="space-y-4">
-              {(() => {
-                // Sort applications by price per miner if needed
-                let sortedApplications = [...applications];
+          </DrawerContent>
+        </Drawer>
 
-                if (selectedSort === "pricePerMiner") {
-                  sortedApplications.sort((a, b) => {
-                    // Get price for application A
-                    const priceA = a.activeFraction?.stepPrice
-                      ? parseFloat(
-                          formatUnits(
-                            BigInt(a.activeFraction.stepPrice),
-                            DECIMALS_BY_TOKEN["USDC"]
-                          )
-                        )
-                      : parseFloat(
-                          calculateProtocolDepositAmount(
-                            a.finalProtocolFee,
-                            a.applicationPriceQuotes,
-                            selectedCurrency
-                          ) || "0"
-                        );
+        {/* Content Area */}
+        <div className="flex-1">
+          {/* Mobile Filter Button */}
+          <div className="md:hidden sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/60 p-4">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setIsDrawerOpen(true)}
+            >
+              <SlidersHorizontal className="mr-2 h-4 w-4" />
+              <span
+                style={{
+                  fontFamily: "Söhne, sans-serif",
+                  fontWeight: 500,
+                }}
+              >
+                Filter & Sort
+              </span>
+            </Button>
+          </div>
 
-                    // Get price for application B
-                    const priceB = b.activeFraction?.stepPrice
-                      ? parseFloat(
-                          formatUnits(
-                            BigInt(b.activeFraction.stepPrice),
-                            DECIMALS_BY_TOKEN["USDC"]
-                          )
-                        )
-                      : parseFloat(
-                          calculateProtocolDepositAmount(
-                            b.finalProtocolFee,
-                            b.applicationPriceQuotes,
-                            selectedCurrency
-                          ) || "0"
-                        );
-
-                    // Sort by price (most expensive first by default)
-                    return selectedSortOrder === "asc"
-                      ? priceA - priceB
-                      : priceB - priceA;
-                  });
-                }
-
-                return sortedApplications;
-              })().map((application) => {
-                const depositAmountInCurrency = calculateProtocolDepositAmount(
-                  application.finalProtocolFee,
-                  application.applicationPriceQuotes,
-                  selectedCurrency
-                );
-
-                const miningScoreData = getMiningScoreForApplication(
-                  miningScoreMap,
-                  application.id
-                );
-
-                return (
+          <div className="p-4 md:p-6">
+            {isLoading ? (
+              <div className="space-y-4">
+                {Array.from({ length: 3 }).map((_, i) => (
                   <Card
-                    key={application.id}
-                    className="bg-white dark:bg-black rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200 overflow-hidden"
+                    key={i}
+                    className="bg-white dark:bg-black rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden"
                   >
-                    <CardContent>
+                    <CardContent className="p-0">
                       <div className="flex flex-col lg:flex-row">
-                        {/* Left: Image */}
-                        <div className="relative w-full lg:w-56 xl:w-64 2xl:w-80 flex-shrink-0">
-                          {/* Zone Badge */}
-                          <div className="absolute top-4 left-4 z-10">
-                            <div className="bg-black/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-medium">
-                              {application.zone.name}
+                        <Skeleton className="w-full lg:w-80 h-48 lg:h-64 flex-shrink-0" />
+                        <div className="flex-1 p-4 lg:p-6">
+                          <div className="space-y-4">
+                            <Skeleton className="h-8 w-48" />
+                            <Skeleton className="h-20 w-full" />
+                            <div className="flex gap-4">
+                              <Skeleton className="h-24 flex-1" />
+                              <Skeleton className="h-24 flex-1" />
                             </div>
                           </div>
-
-                          {/* Your Miners Badge (lg and xl only) */}
-                          {isConnected && address && (
-                            <div className="hidden lg:block 2xl:hidden absolute bottom-4 right-4 z-10">
-                              <OwnedFractionsBadge
-                                application={application}
-                                walletAddress={address}
-                              />
-                            </div>
-                          )}
-
-                          {application.afterInstallPictures.length > 0 ? (
-                            <FallbackImage
-                              src={
-                                application.afterInstallPictures[0]?.url ||
-                                "/images/sections/residential.jpg"
-                              }
-                              widthForProxy={600}
-                              quality={70}
-                              alt={`${application.zone.name}`}
-                              className="w-full h-64 lg:h-full object-cover rounded-lg"
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          ) : (
-                            <div className="w-full h-64 lg:h-full bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
-                              <span className="text-gray-400">
-                                No images available
-                              </span>
-                            </div>
-                          )}
                         </div>
+                        <div className="w-full lg:w-48 p-4 lg:p-6 flex flex-col justify-between items-start lg:items-end border-t lg:border-t-0 lg:border-l border-border">
+                          <Skeleton className="h-12 w-32" />
+                          <Skeleton className="h-11 w-full rounded-full" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : isError ? (
+              <div className="text-center py-8">
+                <p className="text-destructive text-sm">
+                  Error loading mining center applications: {error?.message}
+                </p>
+                <p className="text-muted-foreground text-xs mt-1">
+                  Please try again later
+                </p>
+              </div>
+            ) : applications.length === 0 ? (
+              <>
+                <LaunchCountdown
+                  target={getNextTuesdayAt1pmET()}
+                  title="Mining Center"
+                  subtitle="The next batch of miners will be available soon"
+                  onComplete={handleCountdownComplete}
+                />
+              </>
+            ) : (
+              <div className="space-y-4">
+                {(() => {
+                  // Sort applications by price per miner if needed
+                  let sortedApplications = [...applications];
 
-                        {/* Middle: Content */}
-                        <div className="flex-1 p-4 lg:p-5 xl:p-6">
-                          <div className="space-y-3 lg:space-y-4">
-                            {/* Miners Available */}
-                            <div className="flex items-start gap-4 lg:gap-6 xl:gap-8">
-                              <div>
-                                <div
-                                  className="text-2xl lg:text-3xl xl:text-4xl leading-none mb-2"
-                                  style={{
-                                    fontFamily: "Söhne, sans-serif",
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {application.activeFraction
-                                    ? `${
-                                        application.activeFraction
-                                          .remainingSteps || 0
-                                      }/${
-                                        application.activeFraction.totalSteps
-                                      }`
-                                    : "0/0"}
-                                </div>
-                                <div
-                                  className="text-xs uppercase tracking-wider text-gray-500"
-                                  style={{
-                                    fontFamily: "Söhne, sans-serif",
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  Miners Available
-                                </div>
+                  if (selectedSort === "pricePerMiner") {
+                    sortedApplications.sort((a, b) => {
+                      // Get price for application A
+                      const priceA = a.activeFraction?.stepPrice
+                        ? parseFloat(
+                            formatUnits(
+                              BigInt(a.activeFraction.stepPrice),
+                              DECIMALS_BY_TOKEN["USDC"]
+                            )
+                          )
+                        : parseFloat(
+                            calculateProtocolDepositAmount(
+                              a.finalProtocolFee,
+                              a.applicationPriceQuotes,
+                              selectedCurrency
+                            ) || "0"
+                          );
+
+                      // Get price for application B
+                      const priceB = b.activeFraction?.stepPrice
+                        ? parseFloat(
+                            formatUnits(
+                              BigInt(b.activeFraction.stepPrice),
+                              DECIMALS_BY_TOKEN["USDC"]
+                            )
+                          )
+                        : parseFloat(
+                            calculateProtocolDepositAmount(
+                              b.finalProtocolFee,
+                              b.applicationPriceQuotes,
+                              selectedCurrency
+                            ) || "0"
+                          );
+
+                      // Sort by price (most expensive first by default)
+                      return selectedSortOrder === "asc"
+                        ? priceA - priceB
+                        : priceB - priceA;
+                    });
+                  }
+
+                  return sortedApplications;
+                })().map((application) => {
+                  const depositAmountInCurrency =
+                    calculateProtocolDepositAmount(
+                      application.finalProtocolFee,
+                      application.applicationPriceQuotes,
+                      selectedCurrency
+                    );
+
+                  const miningScoreData = getMiningScoreForApplication(
+                    miningScoreMap,
+                    application.id
+                  );
+
+                  return (
+                    <Card
+                      key={application.id}
+                      className="bg-white dark:bg-black rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200 overflow-hidden"
+                    >
+                      <CardContent>
+                        <div className="flex flex-col lg:flex-row">
+                          {/* Left: Image */}
+                          <div className="relative w-full lg:w-56 xl:w-64 2xl:w-80 flex-shrink-0">
+                            {/* Zone Badge */}
+                            <div className="absolute top-4 left-4 z-10">
+                              <div className="bg-black/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-medium">
+                                {application.zone.name}
                               </div>
                             </div>
 
-                            {/* Price, Rewards, and Owned Fractions */}
-                            <div className="grid grid-cols-1 lg:grid-cols-1 2xl:grid-cols-2 gap-3 lg:gap-4">
-                              {/* Weekly Rewards per miner */}
-                              <div className="bg-muted/50 border border-border rounded-xl p-3 lg:p-4 lg:col-span-1 2xl:col-span-1">
-                                <div
-                                  className="text-sm 2xl:text-xs text-gray-600 dark:text-gray-400 mb-2"
-                                  style={{
-                                    fontFamily: "Söhne, sans-serif",
-                                    fontWeight: 400,
-                                  }}
-                                >
-                                  Est. Weekly Rewards per miner
-                                </div>
-                                <div
-                                  className="text-base lg:text-2xl text-black dark:text-white"
-                                  style={{
-                                    fontFamily: "Söhne, sans-serif",
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {miningScoreData?.weeklyGlwRewards
-                                    ? (() => {
-                                        const rewardsPerMiner = parseFloat(
-                                          formatUnits(
-                                            BigInt(
-                                              miningScoreData.weeklyGlwRewards
-                                            ),
-                                            DECIMALS_BY_TOKEN["GLW"]
-                                          )
-                                        );
+                            {/* Your Miners Badge (lg and xl only) */}
+                            {isConnected && address && (
+                              <div className="hidden lg:block 2xl:hidden absolute bottom-4 right-4 z-10">
+                                <OwnedFractionsBadge
+                                  application={application}
+                                  walletAddress={address}
+                                />
+                              </div>
+                            )}
 
-                                        return `${rewardsPerMiner.toLocaleString(
-                                          undefined,
-                                          {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          }
-                                        )} GLW`;
-                                      })()
-                                    : isMiningScoresLoading
-                                    ? "..."
-                                    : "0 GLW"}
-                                  <span className="text-base text-gray-500 dark:text-gray-500 ml-2 font-normal">
-                                    ≈
-                                    {miningScoreData?.weeklyGlwRewards &&
-                                    glwSpotPrice > 0
+                            {application.afterInstallPictures.length > 0 ? (
+                              <FallbackImage
+                                src={
+                                  application.afterInstallPictures[0]?.url ||
+                                  "/images/sections/residential.jpg"
+                                }
+                                widthForProxy={600}
+                                quality={70}
+                                alt={`${application.zone.name}`}
+                                className="w-full h-64 lg:h-full object-cover rounded-lg"
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            ) : (
+                              <div className="w-full h-64 lg:h-full bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+                                <span className="text-gray-400">
+                                  No images available
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Middle: Content */}
+                          <div className="flex-1 p-4 lg:p-5 xl:p-6">
+                            <div className="space-y-3 lg:space-y-4">
+                              {/* Miners Available */}
+                              <div className="flex items-start gap-4 lg:gap-6 xl:gap-8">
+                                <div>
+                                  <div
+                                    className="text-2xl lg:text-3xl xl:text-4xl leading-none mb-2"
+                                    style={{
+                                      fontFamily: "Söhne, sans-serif",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {application.activeFraction
+                                      ? `${
+                                          application.activeFraction
+                                            .remainingSteps || 0
+                                        }/${
+                                          application.activeFraction.totalSteps
+                                        }`
+                                      : "0/0"}
+                                  </div>
+                                  <div
+                                    className="text-xs uppercase tracking-wider text-gray-500"
+                                    style={{
+                                      fontFamily: "Söhne, sans-serif",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    Miners Available
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Price, Rewards, and Owned Fractions */}
+                              <div className="grid grid-cols-1 lg:grid-cols-1 2xl:grid-cols-2 gap-3 lg:gap-4">
+                                {/* Weekly Rewards per miner */}
+                                <div className="bg-muted/50 border border-border rounded-xl p-3 lg:p-4 lg:col-span-1 2xl:col-span-1">
+                                  <div
+                                    className="text-sm 2xl:text-xs text-gray-600 dark:text-gray-400 mb-2"
+                                    style={{
+                                      fontFamily: "Söhne, sans-serif",
+                                      fontWeight: 400,
+                                    }}
+                                  >
+                                    Est. Weekly Rewards per miner
+                                  </div>
+                                  <div
+                                    className="text-base lg:text-2xl text-black dark:text-white"
+                                    style={{
+                                      fontFamily: "Söhne, sans-serif",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {miningScoreData?.weeklyGlwRewards
                                       ? (() => {
                                           const rewardsPerMiner = parseFloat(
                                             formatUnits(
@@ -688,113 +707,154 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                                               DECIMALS_BY_TOKEN["GLW"]
                                             )
                                           );
-                                          const usdPerMiner =
-                                            rewardsPerMiner * glwSpotPrice;
-                                          return `$${usdPerMiner.toLocaleString(
+
+                                          return `${rewardsPerMiner.toLocaleString(
                                             undefined,
                                             {
                                               minimumFractionDigits: 2,
                                               maximumFractionDigits: 2,
                                             }
-                                          )}`;
+                                          )} GLW`;
                                         })()
                                       : isMiningScoresLoading
                                       ? "..."
-                                      : "$0"}
-                                  </span>
+                                      : "0 GLW"}
+                                    <span className="text-base text-gray-500 dark:text-gray-500 ml-2 font-normal">
+                                      ≈
+                                      {miningScoreData?.weeklyGlwRewards &&
+                                      glwSpotPrice > 0
+                                        ? (() => {
+                                            const rewardsPerMiner = parseFloat(
+                                              formatUnits(
+                                                BigInt(
+                                                  miningScoreData.weeklyGlwRewards
+                                                ),
+                                                DECIMALS_BY_TOKEN["GLW"]
+                                              )
+                                            );
+                                            const usdPerMiner =
+                                              rewardsPerMiner * glwSpotPrice;
+                                            return `$${usdPerMiner.toLocaleString(
+                                              undefined,
+                                              {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                              }
+                                            )}`;
+                                          })()
+                                        : isMiningScoresLoading
+                                        ? "..."
+                                        : "$0"}
+                                    </span>
+                                  </div>
                                 </div>
+
+                                {/* Owned Fractions Display (2xl only) */}
+                                {isConnected && address && (
+                                  <div className="hidden 2xl:block">
+                                    <OwnedFractionsDisplay
+                                      application={application}
+                                      walletAddress={address}
+                                    />
+                                  </div>
+                                )}
                               </div>
-
-                              {/* Owned Fractions Display (2xl only) */}
-                              {isConnected && address && (
-                                <div className="hidden 2xl:block">
-                                  <OwnedFractionsDisplay
-                                    application={application}
-                                    walletAddress={address}
-                                  />
-                                </div>
-                              )}
                             </div>
                           </div>
-                        </div>
 
-                        {/* Right: Price and CTA */}
-                        <div className="w-full lg:w-48 xl:w-52 2xl:w-60 p-4 lg:p-5 xl:p-6 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-border">
-                          <div className="mb-4 lg:mb-0">
-                            <div
-                              className="text-sm text-muted-foreground mb-1"
-                              style={{
-                                fontFamily: "Söhne, sans-serif",
-                                fontWeight: 400,
-                              }}
-                            >
-                              Price per miner
+                          {/* Right: Price and CTA */}
+                          <div className="w-full lg:w-48 xl:w-52 2xl:w-60 p-4 lg:p-5 xl:p-6 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-border">
+                            <div className="mb-4 lg:mb-0">
+                              <div
+                                className="text-sm text-muted-foreground mb-1"
+                                style={{
+                                  fontFamily: "Söhne, sans-serif",
+                                  fontWeight: 400,
+                                }}
+                              >
+                                Price per miner
+                              </div>
+                              <div
+                                className="text-4xl md:text-5xl xl:text-6xl 2xl:text-7xl text-black dark:text-white"
+                                style={{
+                                  fontFamily: "Söhne, sans-serif",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {application.activeFraction?.stepPrice
+                                  ? `$${formatNumber(
+                                      parseFloat(
+                                        formatUnits(
+                                          BigInt(
+                                            application.activeFraction.stepPrice
+                                          ),
+                                          DECIMALS_BY_TOKEN["USDC"]
+                                        )
+                                      ),
+                                      0
+                                    )}`
+                                  : depositAmountInCurrency
+                                  ? `$${formatNumber(
+                                      parseFloat(depositAmountInCurrency),
+                                      0
+                                    )}`
+                                  : "N/A"}
+                              </div>
                             </div>
-                            <div
-                              className="text-4xl md:text-5xl xl:text-6xl 2xl:text-7xl text-black dark:text-white"
-                              style={{
-                                fontFamily: "Söhne, sans-serif",
-                                fontWeight: 600,
-                              }}
+                            <Button
+                              className="w-full rounded-full h-11"
+                              onClick={() =>
+                                onPayDeposit(
+                                  application,
+                                  miningScoreData || null
+                                )
+                              }
+                              disabled={
+                                application.activeFraction
+                                  ? application.activeFraction.isFilled ||
+                                    (application.activeFraction
+                                      .remainingSteps || 0) <= 0
+                                  : !depositAmountInCurrency
+                              }
                             >
-                              {application.activeFraction?.stepPrice
-                                ? `$${formatNumber(
-                                    parseFloat(
-                                      formatUnits(
-                                        BigInt(
-                                          application.activeFraction.stepPrice
-                                        ),
-                                        DECIMALS_BY_TOKEN["USDC"]
-                                      )
-                                    ),
-                                    0
-                                  )}`
-                                : depositAmountInCurrency
-                                ? `$${formatNumber(
-                                    parseFloat(depositAmountInCurrency),
-                                    0
-                                  )}`
-                                : "N/A"}
-                            </div>
+                              <span
+                                style={{
+                                  fontFamily: "Söhne, sans-serif",
+                                  fontWeight: 400,
+                                }}
+                              >
+                                {application.activeFraction?.isFilled
+                                  ? "Fully Funded"
+                                  : (application.activeFraction
+                                      ?.remainingSteps || 0) <= 0
+                                  ? "No Miners Available"
+                                  : "Buy Miners"}
+                              </span>
+                            </Button>
                           </div>
-                          <Button
-                            className="w-full rounded-full h-11"
-                            onClick={() =>
-                              onPayDeposit(application, miningScoreData || null)
-                            }
-                            disabled={
-                              application.activeFraction
-                                ? application.activeFraction.isFilled ||
-                                  (application.activeFraction.remainingSteps ||
-                                    0) <= 0
-                                : !depositAmountInCurrency
-                            }
-                          >
-                            <span
-                              style={{
-                                fontFamily: "Söhne, sans-serif",
-                                fontWeight: 400,
-                              }}
-                            >
-                              {application.activeFraction?.isFilled
-                                ? "Fully Funded"
-                                : (application.activeFraction?.remainingSteps ||
-                                    0) <= 0
-                                ? "No Miners Available"
-                                : "Buy Miners"}
-                            </span>
-                          </Button>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+      <HowItWorks
+        featuredCasestudy={{
+          tags: "GUIDES",
+          title: "A Guide to Glow Mining",
+          subtitle:
+            "How Glow Miners earn GLW tokens by providing cash incentives to solar farms",
+          image: `https://glow.org/_next/image?url=${encodeURIComponent(
+            "/images/blog/guide-to-glow-mining/header.jpg"
+          )}&w=3840&q=75`,
+          link: "https://glow.org/blog/guide-to-glow-mining",
+        }}
+      />
+    </>
   );
 }
 
