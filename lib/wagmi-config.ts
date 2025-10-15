@@ -9,7 +9,6 @@ import {
   coinbaseWallet,
   metaMask,
 } from "wagmi/connectors";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 if (!process.env.NEXT_PUBLIC_WALLET_CONNECT_ID)
   throw new Error("NEXT_PUBLIC_WALLET_CONNECT_ID is not set");
@@ -22,7 +21,7 @@ const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_ID;
 
 // IMPORTANT: ssr + cookieStorage so the selected connector persists across reloads in App Router.
 export const wagmiConfig = createConfig({
-  chains: [mainnet, sepolia],
+  chains: [process.env.NEXT_PUBLIC_CHAIN_ID === "1" ? mainnet : sepolia],
   ssr: true,
   storage: createStorage({
     storage: cookieStorage, // works with SSR hydration; avoids `window` access during render
