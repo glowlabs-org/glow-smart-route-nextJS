@@ -39,7 +39,13 @@ export const wagmiConfig = createConfig({
       },
     }),
     coinbaseWallet({ appName: "app.glow.org" }),
-    metaMask(),
+    metaMask({
+      dappMetadata: {
+        name: "Glow",
+        url: "https://app.glow.org",
+        iconUrl: "https://app.glow.org/icon.png",
+      },
+    }),
   ],
   transports: {
     [mainnet.id]: http(process.env.NEXT_PUBLIC_MAINNET_RPC_URL),

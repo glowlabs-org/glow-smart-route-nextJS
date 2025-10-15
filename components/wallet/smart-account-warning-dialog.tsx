@@ -298,31 +298,6 @@ export function SmartAccountWarningDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-5">
-          {/* Detected issues */}
-          {issues.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-destructive" />
-                <h3 className="text-sm font-semibold text-foreground">
-                  Detected Issues
-                </h3>
-              </div>
-              <div className="grid gap-2">
-                {issues.map((label, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-3 p-3 bg-destructive/5 border border-destructive/20 rounded-lg transition-colors hover:bg-destructive/10"
-                  >
-                    <div className="w-2 h-2 bg-destructive rounded-full animate-pulse flex-shrink-0" />
-                    <span className="text-xs sm:text-sm text-foreground font-medium leading-tight">
-                      {label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Action blocks */}
           <div className="space-y-4">
             {/* MetaMask path (smart account on MetaMask) */}
@@ -439,6 +414,30 @@ export function SmartAccountWarningDialog({
               </div>
             )}
           </div>
+          {/* Detected issues */}
+          {issues.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-destructive" />
+                <h3 className="text-sm font-semibold text-foreground">
+                  Detected Issues
+                </h3>
+              </div>
+              <div className="grid gap-2">
+                {issues.map((label, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 p-3 bg-destructive/5 border border-destructive/20 rounded-lg transition-colors hover:bg-destructive/10"
+                  >
+                    <div className="w-2 h-2 bg-destructive rounded-full animate-pulse flex-shrink-0" />
+                    <span className="text-xs sm:text-sm text-foreground font-medium leading-tight">
+                      {label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="flex-col-reverse sm:flex-row gap-2 px-4 sm:px-6 py-4 border-t bg-muted/20">
