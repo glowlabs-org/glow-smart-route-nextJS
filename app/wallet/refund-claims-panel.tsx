@@ -10,7 +10,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -190,8 +189,8 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
     }
   }
 
-  // Don't show the panel if there are no refunds and not loading
-  if (!isLoading && !isError && refundableFractions.length === 0) {
+  // Only show the panel if there are actual refunds
+  if (isLoading || isError || refundableFractions.length === 0) {
     return null;
   }
 
@@ -248,154 +247,107 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
+        <div className="space-y-4">
+          {/* Individual Refund Items */}
+          {refundableFractions.map((refundableFraction) => {
+            const isProcessingThis = processingRefunds.has(
+              refundableFraction.fraction.id
+            );
+
+            return (
               <div
-                key={i}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 md:p-6 rounded-xl border bg-orange-50 dark:bg-orange-950/20"
+                key={refundableFraction.fraction.id}
+                className={cn(
+                  "flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 md:p-6 rounded-xl border",
+                  "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800"
+                )}
               >
-                <div className="flex items-center gap-4">
-                  <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
-                  <div className="space-y-2 flex-1">
-                    <Skeleton className="h-5 w-48" />
-                    <Skeleton className="h-4 w-32" />
+                <div className="flex items-center gap-4 flex-1">
+                  <div className="p-2 rounded-full bg-background text-orange-600 flex-shrink-0">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold flex flex-wrap items-center gap-2 mb-1">
+                      <span>Quantity</span>
+                      <Badge
+                        variant={
+                          refundableFraction.fraction.status === "expired"
+                            ? "secondary"
+                            : "destructive"
+                        }
+                        className="text-xs"
+                      >
+                        {refundableFraction.fraction.status === "expired" ? (
+                          <>
+                            <Clock className="w-3 h-3 mr-1" />
+                            Expired
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Cancelled
+                          </>
+                        )}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {refundableFraction.userPurchaseData.totalStepsPurchased}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center justify-between sm:justify-end gap-4">
-                  <div className="text-right space-y-2">
-                    <Skeleton className="h-6 w-20" />
-                    <Skeleton className="h-3 w-12" />
+                  <div className="text-right">
+                    <div className="font-bold text-xl tracking-tight">
+                      {formatRefundAmount(
+                        refundableFraction.refundDetails.estimatedRefundAmount
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground font-medium">
+                      GLW
+                    </div>
                   </div>
-                  <Skeleton className="h-10 w-20" />
+                  <Button
+                    size="default"
+                    variant="default"
+                    onClick={() => handleClaimRefund(refundableFraction)}
+                    disabled={isProcessingThis || isProcessing || isPolling}
+                    className="flex-shrink-0"
+                  >
+                    {isProcessingThis ||
+                    (isPolling &&
+                      processingRefunds.has(refundableFraction.fraction.id)) ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        {isPolling ? "Confirming..." : "Processing..."}
+                      </>
+                    ) : (
+                      "Claim"
+                    )}
+                  </Button>
                 </div>
               </div>
-            ))}
-          </div>
-        ) : isError ? (
-          <div className="text-center py-12 px-4 md:px-6 rounded-xl bg-destructive/5 border border-destructive/20">
-            <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
-            <p className="text-muted-foreground text-base mb-4">
-              Failed to load refundable fractions. Please try refreshing.
-            </p>
-            <Button variant="outline" onClick={() => refetch()}>
-              Try Again
-            </Button>
-          </div>
-        ) : refundableFractions.length === 0 ? (
-          <div className="text-center py-12 px-4 md:px-6 rounded-xl bg-muted/50 border border-border">
-            <p className="text-muted-foreground text-base">
-              No refunds available at this time
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Individual Refund Items */}
-            {refundableFractions.map((refundableFraction) => {
-              const isProcessingThis = processingRefunds.has(
-                refundableFraction.fraction.id
-              );
+            );
+          })}
 
-              return (
-                <div
-                  key={refundableFraction.fraction.id}
-                  className={cn(
-                    "flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 md:p-6 rounded-xl border",
-                    "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800"
-                  )}
-                >
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="p-2 rounded-full bg-background text-orange-600 flex-shrink-0">
-                      <Sparkles className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold flex flex-wrap items-center gap-2 mb-1">
-                        <span>Quantity</span>
-                        <Badge
-                          variant={
-                            refundableFraction.fraction.status === "expired"
-                              ? "secondary"
-                              : "destructive"
-                          }
-                          className="text-xs"
-                        >
-                          {refundableFraction.fraction.status === "expired" ? (
-                            <>
-                              <Clock className="w-3 h-3 mr-1" />
-                              Expired
-                            </>
-                          ) : (
-                            <>
-                              <XCircle className="w-3 h-3 mr-1" />
-                              Cancelled
-                            </>
-                          )}
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {
-                          refundableFraction.userPurchaseData
-                            .totalStepsPurchased
-                        }
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between sm:justify-end gap-4">
-                    <div className="text-right">
-                      <div className="font-bold text-xl tracking-tight">
-                        {formatRefundAmount(
-                          refundableFraction.refundDetails.estimatedRefundAmount
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground font-medium">
-                        GLW
-                      </div>
-                    </div>
-                    <Button
-                      size="default"
-                      variant="default"
-                      onClick={() => handleClaimRefund(refundableFraction)}
-                      disabled={isProcessingThis || isProcessing || isPolling}
-                      className="flex-shrink-0"
-                    >
-                      {isProcessingThis ||
-                      (isPolling &&
-                        processingRefunds.has(
-                          refundableFraction.fraction.id
-                        )) ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          {isPolling ? "Confirming..." : "Processing..."}
-                        </>
-                      ) : (
-                        "Claim"
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Info Section */}
-            <div className="mt-6 p-4 md:p-6 rounded-xl bg-muted/50 border border-border">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-muted-foreground">
-                  <div className="font-semibold mb-2">About Refunds</div>
-                  <div className="leading-relaxed">
-                    Total refundable:{" "}
-                    <span className="font-medium text-foreground">
-                      {formatRefundAmount(summary.totalRefundableAmount)} GLW
-                    </span>{" "}
-                    from {summary.totalRefundableFractions} failed listings (
-                    {summary.byStatus.expired} expired,{" "}
-                    {summary.byStatus.cancelled} cancelled).
-                  </div>
+          {/* Info Section */}
+          <div className="mt-6 p-4 md:p-6 rounded-xl bg-muted/50 border border-border">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-muted-foreground">
+                <div className="font-semibold mb-2">About Refunds</div>
+                <div className="leading-relaxed">
+                  Total refundable:{" "}
+                  <span className="font-medium text-foreground">
+                    {formatRefundAmount(summary.totalRefundableAmount)} GLW
+                  </span>{" "}
+                  from {summary.totalRefundableFractions} failed listings (
+                  {summary.byStatus.expired} expired,{" "}
+                  {summary.byStatus.cancelled} cancelled).
                 </div>
               </div>
             </div>
           </div>
-        )}
+        </div>
       </CardContent>
     </Card>
   );

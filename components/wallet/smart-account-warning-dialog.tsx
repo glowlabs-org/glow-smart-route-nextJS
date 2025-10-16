@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   ExternalLink,
@@ -30,6 +30,12 @@ import {
   SmartAccountStatus,
 } from "@/web3/web3/utils/detectSmartAccount";
 import { cn } from "@/lib/utils";
+import {
+  encodeFunctionData,
+  type Hex,
+  parseTransaction,
+  serializeTransaction,
+} from "viem";
 
 function detectWalletBrand(
   walletClient: ReturnType<typeof useWalletClient>["data"]
@@ -69,7 +75,6 @@ export function SmartAccountWarningDialog({
   const [internalOpen, setInternalOpen] = useState(false);
   const [smartAccountStatus, setSmartAccountStatus] =
     useState<SmartAccountStatus | null>(null);
-  const [isDeactivating, setIsDeactivating] = useState(false);
   const [isRechecking, setIsRechecking] = useState(false);
 
   const hasToastedErrorRef = useRef(false);
@@ -109,11 +114,9 @@ export function SmartAccountWarningDialog({
         if (triggerCheck && isSmartish) setOpen(true);
       } catch (err) {
         if (!hasToastedErrorRef.current) {
-          toast({
-            title: "Smart account check failed",
+          toast.error("Smart account check failed", {
             description:
-              "We couldn’t verify your account type. You may experience errors when trading.",
-            variant: "destructive",
+              "We couldn't verify your account type. You may experience errors when trading.",
           });
           hasToastedErrorRef.current = true;
         }
@@ -130,7 +133,7 @@ export function SmartAccountWarningDialog({
   function getDialogContent() {
     if (smartAccountStatus?.isEip7702Delegated) {
       return {
-        title: "EIP-7702 Delegation Detected",
+        title: "Imcompatible wallet detected",
         description:
           "Delegated (smart) accounts cannot interact with Glow contracts.",
         why: [
@@ -138,17 +141,18 @@ export function SmartAccountWarningDialog({
           "Some calls require a plain EOA signer; delegation introduces a contract-based dispatcher.",
         ],
         directivesMetaMask: [
-          "Open MetaMask → Account Details.",
-          "Select your delegated account.",
-          "Toggle off `Enable smart contract account`.",
-          "wait for the transaction to be confirmed",
-          "Return here and press “Recheck now”.",
+          "Open MetaMask and click on your account name",
+          "Select 'Account details' from the 3 dots dropdown",
+          "Find 'Enable smart contract account' and toggle it OFF",
+          "Confirm the transaction and wait for it to complete",
+          "Return here and click 'Recheck Now' to verify",
         ],
         directivesGeneric: [
-          "Open your wallet settings.",
-          "Disable the smart/delegated account mode for this address.",
-          "Reconnect as a plain EOA.",
-          "Return here and press “Recheck now”.",
+          "Open your wallet settings",
+          "Look for smart account, AA, or delegation features",
+          "Disable these features for your current address",
+          "Save the changes and reconnect your wallet",
+          "Return here and click 'Recheck Now' to verify",
         ],
       };
     }
@@ -240,24 +244,19 @@ export function SmartAccountWarningDialog({
         status.hasWalletAABatching ||
         status.isContractWallet;
       if (!stillBlocked) {
-        toast({
-          title: "All set",
+        toast.success("All set!", {
           description: "We no longer detect smart account features.",
         });
         handleClose(false);
       } else {
-        toast({
-          title: "Still blocked",
+        toast.warning("Still blocked", {
           description:
             "Smart account features are still detected. Follow the steps and try again.",
-          variant: "destructive",
         });
       }
     } catch (e) {
-      toast({
-        title: "Recheck failed",
+      toast.error("Recheck failed", {
         description: "Could not verify your account status.",
-        variant: "destructive",
       });
     } finally {
       setIsRechecking(false);
@@ -283,11 +282,8 @@ export function SmartAccountWarningDialog({
       <DialogContent className="sm:max-w-[540px] md:max-w-[600px] lg:max-w-[680px] max-h-[85vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="space-y-3 pb-4 px-4 sm:px-6 pt-6 border-b">
           <div className="flex items-start gap-3">
-            <div className="p-2.5 bg-destructive/10 rounded-lg flex-shrink-0">
-              <ShieldAlert className="w-5 h-5 sm:w-6 sm:h-6 text-destructive" />
-            </div>
             <div className="min-w-0 flex-1">
-              <DialogTitle className="text-destructive text-base sm:text-lg md:text-xl font-semibold leading-tight mb-2">
+              <DialogTitle className="text-accent text-left text-base sm:text-lg md:text-xl font-semibold leading-tight mb-2">
                 {content.title}
               </DialogTitle>
               <DialogDescription className="text-xs sm:text-sm md:text-base text-left text-muted-foreground">
@@ -297,32 +293,37 @@ export function SmartAccountWarningDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-5">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 md:space-y-5">
           {/* Action blocks */}
           <div className="space-y-4">
             {/* MetaMask path (smart account on MetaMask) */}
             {showMetaMaskPath && (
               <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
-                <div className="bg-muted/40 px-4 py-3 border-b">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="w-4 h-4 text-primary flex-shrink-0" />
-                    <h3 className="text-sm font-semibold text-foreground">
-                      MetaMask Steps
-                    </h3>
+                <div className="p-4 space-y-4">
+                  <div className="bg-accent/5 rounded-lg p-4 border border-accent/20">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <h4 className="text-sm font-semibold text-foreground mb-2">
+                          How to Disable Smart Account in MetaMask
+                        </h4>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Follow these steps to revert to a standard account:
+                        </p>
+                        <ol className="text-xs sm:text-sm text-muted-foreground list-decimal ml-5 space-y-2.5">
+                          {content.directivesMetaMask.map((s, i) => (
+                            <li key={i} className="leading-relaxed pl-1">
+                              {s}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="p-4">
-                  <ol className="text-xs sm:text-sm text-muted-foreground list-decimal ml-5 space-y-2.5">
-                    {content.directivesMetaMask.map((s, i) => (
-                      <li key={i} className="leading-relaxed pl-1">
-                        {s}
-                      </li>
-                    ))}
-                  </ol>
 
-                  <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Button
-                      variant="outline"
+                      variant="default"
                       size="sm"
                       className="w-full sm:flex-1"
                       onClick={() =>
@@ -334,11 +335,11 @@ export function SmartAccountWarningDialog({
                       }
                     >
                       <ExternalLink className="w-4 h-4 mr-2" />
-                      MetaMask Guide
+                      Open MetaMask Guide
                     </Button>
 
                     <Button
-                      variant="default"
+                      variant="outline"
                       size="sm"
                       className="w-full sm:flex-1"
                       onClick={recheckNow}
@@ -399,8 +400,7 @@ export function SmartAccountWarningDialog({
                       onClick={() => {
                         // If you have a wallet modal, trigger it here instead:
                         // openConnectModal?.()
-                        toast({
-                          title: "Tip",
+                        toast.info("Tip", {
                           description:
                             "If you're using a contract/AA wallet, switch to a regular personal account (EOA).",
                         });
@@ -414,30 +414,6 @@ export function SmartAccountWarningDialog({
               </div>
             )}
           </div>
-          {/* Detected issues */}
-          {issues.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-destructive" />
-                <h3 className="text-sm font-semibold text-foreground">
-                  Detected Issues
-                </h3>
-              </div>
-              <div className="grid gap-2">
-                {issues.map((label, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-3 p-3 bg-destructive/5 border border-destructive/20 rounded-lg transition-colors hover:bg-destructive/10"
-                  >
-                    <div className="w-2 h-2 bg-destructive rounded-full animate-pulse flex-shrink-0" />
-                    <span className="text-xs sm:text-sm text-foreground font-medium leading-tight">
-                      {label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         <DialogFooter className="flex-col-reverse sm:flex-row gap-2 px-4 sm:px-6 py-4 border-t bg-muted/20">
@@ -446,25 +422,10 @@ export function SmartAccountWarningDialog({
             size="sm"
             onClick={() => handleClose(false)}
             type="button"
-            disabled={isDeactivating || isRechecking}
+            disabled={isRechecking}
             className="w-full sm:w-auto"
           >
             Dismiss
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              window.open(
-                "https://glow.org/blog/glow-guarded-launch",
-                "_blank"
-              );
-            }}
-            type="button"
-            className="w-full sm:w-auto"
-          >
-            <ExternalLink className="w-4 h-4 mr-2" />
-            Learn More
           </Button>
         </DialogFooter>
       </DialogContent>
