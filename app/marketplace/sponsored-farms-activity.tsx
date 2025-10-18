@@ -18,6 +18,8 @@ import {
   type SplitActivity,
   type SplitsActivityResponse,
 } from "@/hooks/useGlowLaunchpad";
+import { useFractionsSummary } from "@/hooks/useFractionsSummary";
+import { parseFractionsSummary } from "@/lib/fractions";
 import { cn } from "@/lib/utils";
 
 interface SponsoredFarmsActivityProps {
@@ -50,11 +52,26 @@ export function SponsoredFarmsActivity({
     enabled: !(activityOverride && summaryOverride),
   });
 
+  // Get fractions summary for total GLW delegated and USDC spent
+  const { summary: fractionsSummary, isLoading: fractionsSummaryLoading } =
+    useFractionsSummary({ enabled: !walletAddress });
+
   const activity = activityOverride ?? fetchedActivity;
   const summary = summaryOverride ?? fetchedSummary;
   const isLoading = isLoadingOverride ?? fetchedIsLoading;
   const isError = fetchedIsError && !(activityOverride && summaryOverride);
   const error = fetchedError;
+
+  // Parse fractions summary
+  const {
+    totalDelegatedGlw,
+    totalMiningCenterValue,
+    launchpadContributors,
+    miningCenterContributors,
+  } = React.useMemo(
+    () => parseFractionsSummary(fractionsSummary),
+    [fractionsSummary]
+  );
 
   // Determine if we should show reward scores (only for launchpad)
   const showRewardScore = !fractionType || fractionType === "launchpad";
@@ -222,33 +239,41 @@ export function SponsoredFarmsActivity({
         )}
         <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-            Amount
+            {fractionType === "mining-center"
+              ? "Buyers"
+              : fractionType === "launchpad"
+              ? "Delegators"
+              : "Contributors"}
           </div>
           <div className="text-2xl font-semibold text-black dark:text-white">
-            {formatNumber(summary.totalStepsPurchased, 0)}
+            {fractionType === "mining-center"
+              ? formatNumber(miningCenterContributors, 0)
+              : fractionType === "launchpad"
+              ? formatNumber(launchpadContributors, 0)
+              : formatNumber(
+                  launchpadContributors + miningCenterContributors,
+                  0
+                )}
           </div>
         </div>
         <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-            Total GLW Delegated
+            {fractionType === "mining-center"
+              ? "Total USDC Spent"
+              : "Total GLW Delegated"}
           </div>
           <div className="text-2xl font-semibold text-black dark:text-white">
-            {(() => {
-              const decimals = fractionType === "mining-center" ? 6 : 18;
-              const currency =
-                fractionType === "mining-center" ? "USDC" : "GLW";
-              return (
-                <>
-                  {formatNumber(
-                    parseFloat(
-                      formatUnits(BigInt(summary.totalAmountSpent), decimals)
-                    ),
-                    0
-                  )}{" "}
-                  <span className="text-lg font-normal">{currency}</span>
-                </>
-              );
-            })()}
+            {fractionType === "mining-center" ? (
+              <>
+                {formatNumber(totalMiningCenterValue, 0)}{" "}
+                <span className="text-lg font-normal">USDC</span>
+              </>
+            ) : (
+              <>
+                {formatNumber(totalDelegatedGlw, 0)}{" "}
+                <span className="text-lg font-normal">GLW</span>
+              </>
+            )}
           </div>
         </div>
         {fractionType === "mining-center" ? (
@@ -275,22 +300,8 @@ export function SponsoredFarmsActivity({
               USDC Spent by Miners
             </div>
             <div className="text-2xl font-semibold text-black dark:text-white">
-              {(() => {
-                const usdc = activity
-                  .filter((p) => p.fractionType === "mining-center")
-                  .reduce((sum, p) => {
-                    const value = parseFloat(
-                      formatUnits(BigInt(p.totalValue), 6)
-                    );
-                    return sum + value;
-                  }, 0);
-                return (
-                  <>
-                    {formatNumber(usdc, 0)}{" "}
-                    <span className="text-lg font-normal">USDC</span>
-                  </>
-                );
-              })()}
+              {formatNumber(totalMiningCenterValue, 0)}{" "}
+              <span className="text-lg font-normal">USDC</span>
             </div>
           </div>
         )}
