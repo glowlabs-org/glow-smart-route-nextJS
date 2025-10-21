@@ -8,6 +8,7 @@ import {
   type SortBy,
   type SortOrder,
   type AuctionApplication,
+  useGlowLaunchpad,
 } from "@/hooks/useGlowLaunchpad";
 import {
   DepositDialog,
@@ -33,11 +34,47 @@ export default function GlowLaunchpadPage() {
     LaunchpadRewardScore | MiningCenterScore | null
   >(null);
 
-  // Use query state for tab management with default to "launchpad"
+  // Fetch launchpad applications to check if all are sold out
+  const { applications: launchpadApplications, isLoading: isLoadingLaunchpad } =
+    useGlowLaunchpad({
+      filters: {
+        paymentCurrency: "GLW",
+      },
+    });
+
+  // Use query state for tab management
   const [activeTab, setActiveTab] = useQueryState("tab", {
     defaultValue: "launchpad",
     clearOnDefault: false,
   });
+
+  // Check if all launchpad listings are sold out
+  const allLaunchpadSoldOut = React.useMemo(() => {
+    if (isLoadingLaunchpad) return false;
+    if (launchpadApplications.length === 0) return true;
+
+    return launchpadApplications.every((app) => {
+      if (!app.activeFraction) return true;
+      return (
+        app.activeFraction.isFilled ||
+        (app.activeFraction.remainingSteps || 0) <= 0
+      );
+    });
+  }, [launchpadApplications, isLoadingLaunchpad]);
+
+  // Determine which tab to display: if all launchpad sold out and user hasn't explicitly chosen a tab, show mining-center
+  const displayTab = React.useMemo(() => {
+    const validTabs = ["launchpad", "mining-center", "activity"];
+    const isValidTab = validTabs.includes(activeTab);
+    const currentTab = isValidTab ? activeTab : "launchpad";
+
+    // If on launchpad tab and everything is sold out, show mining-center instead
+    if (currentTab === "launchpad" && allLaunchpadSoldOut) {
+      return "mining-center";
+    }
+
+    return currentTab;
+  }, [activeTab, allLaunchpadSoldOut]);
 
   const tabContent = {
     launchpad: {
@@ -57,11 +94,8 @@ export default function GlowLaunchpadPage() {
     },
   };
 
-  const validTabs = ["launchpad", "mining-center", "activity"];
-  const validatedTab = validTabs.includes(activeTab) ? activeTab : "launchpad";
-
   const currentContent =
-    tabContent[validatedTab as keyof typeof tabContent] || tabContent.launchpad;
+    tabContent[displayTab as keyof typeof tabContent] || tabContent.launchpad;
 
   function onPayDeposit(
     application: AuctionApplication,
@@ -170,7 +204,7 @@ export default function GlowLaunchpadPage() {
 
           <div className="bg-background backdrop-blur-xl rounded-2xl md:rounded-3xl border border-border overflow-hidden">
             <Tabs
-              value={validatedTab}
+              value={displayTab}
               onValueChange={setActiveTab}
               className="w-full"
             >
