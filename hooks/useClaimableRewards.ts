@@ -58,7 +58,7 @@ export function useClaimableRewards(
   walletAddress?: string
 ): UseClaimableRewardsResult {
   const currentEpoch = getCurrentEpoch();
-  const claimableUpToWeek = currentEpoch - 2; // 3-week finality rule
+  const claimableUpToWeek = currentEpoch - 3; // 3-week finality rule
 
   const {
     data: rewardsData,
