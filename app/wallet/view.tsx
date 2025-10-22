@@ -2,6 +2,7 @@
 
 import React from "react";
 import dynamic from "next/dynamic";
+import { useQueryState } from "nuqs";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -48,7 +49,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRegions } from "@/hooks/useRegions";
 import { RefundClaimsPanel } from "./refund-claims-panel";
 import { MigrationClaimPanel } from "./migration-claim-panel";
-import { forceDisconnect } from "@/utils/forceDisconnect";
 import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
 import { FallbackImage } from "@/components/ui/fallback-image";
@@ -103,6 +103,7 @@ export default function View() {
   const { disconnect } = useDisconnect();
   const { connectors } = useConnect();
   const { signer } = useEthersSigner();
+  const [password] = useQueryState("password");
   const [sendDialogOpen, setSendDialogOpen] = React.useState(false);
   const [usdcToUsdgDialogOpen, setUsdcToUsdgDialogOpen] = React.useState(false);
   const [amountInputDialogOpen, setAmountInputDialogOpen] =
@@ -267,13 +268,6 @@ export default function View() {
   const hasGlow = glowBalance && glowBalance > BigInt(0);
   const hasGctl = gctlBalance && BigInt(gctlBalance) > BigInt(0);
 
-  // Mock claimable data for now (TODO: implement real claimable data)
-  const claimable = {
-    usdg: "0",
-    glow: "0",
-    impactVested: "0",
-  };
-
   // Format farm data for display
   const formatFarmData = (farm: any) => {
     // Get the protocol deposit asset and determine decimals
@@ -314,18 +308,6 @@ export default function View() {
       otherRewards: isPdRewardsGlw ? "0" : pdRewards.toFixed(2),
       otherRewardsAmount: protocolAsset,
     };
-  };
-
-  const handleClaim = (token: string) => {
-    toast.success(`Claiming ${token}`, {
-      description: "Your tokens will be available shortly",
-    });
-  };
-
-  const handleClaimAll = () => {
-    toast.success("Claiming all available tokens", {
-      description: "Multiple transactions initiated",
-    });
   };
 
   const handleSwapUsdcToUsdg = () => {
@@ -480,8 +462,8 @@ export default function View() {
             </CardContent>
           </Card>
 
-          {/* USDG Card - Show if has balance or claimable */}
-          {(hasUsdg || claimable.usdg !== "0" || erc20Loading) && (
+          {/* USDG Card - Show if has balance */}
+          {(hasUsdg || erc20Loading) && (
             <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-xl md:text-2xl font-semibold">
@@ -509,25 +491,8 @@ export default function View() {
                           </span>
                         )}
                       </div>
-                      {claimable.usdg !== "0" && (
-                        <div className="mt-2">
-                          <div className="text-sm text-muted-foreground">
-                            Claimable: ${claimable.usdg}
-                          </div>
-                        </div>
-                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      {claimable.usdg !== "0" && (
-                        <Button
-                          size="default"
-                          variant="outline"
-                          onClick={() => handleClaim("USDG")}
-                          className="flex-1 sm:flex-initial"
-                        >
-                          Claim
-                        </Button>
-                      )}
                       {hasUsdg && (
                         <>
                           <Button
@@ -548,8 +513,8 @@ export default function View() {
             </Card>
           )}
 
-          {/* GLOW Card - Show if has balance or claimable */}
-          {(hasGlow || claimable.glow !== "0" || erc20Loading) && (
+          {/* GLOW Card - Show if has balance */}
+          {(hasGlow || erc20Loading) && (
             <Card className="relative overflow-hidden bg-muted dark:bg-muted/30 border border-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-xl md:text-2xl font-semibold">
@@ -597,26 +562,8 @@ export default function View() {
                           </span>
                         )}
                       </div>
-
-                      {claimable.glow !== "0" && (
-                        <div className="mt-2">
-                          <div className="text-sm text-muted-foreground">
-                            Claimable: {claimable.glow}
-                          </div>
-                        </div>
-                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      {claimable.glow !== "0" && (
-                        <Button
-                          size="default"
-                          variant="outline"
-                          onClick={() => handleClaim("GLOW")}
-                          className="flex-1 sm:flex-initial"
-                        >
-                          Claim
-                        </Button>
-                      )}
                       {hasGlow && (
                         <Button
                           size="default"
@@ -739,11 +686,7 @@ export default function View() {
         </div>
 
         {/* D. Claims Panel */}
-        <ClaimsPanel
-          claimable={claimable}
-          onClaim={handleClaim}
-          onClaimAll={handleClaimAll}
-        />
+        {password?.toLowerCase() === "0xsimbo" && <ClaimsPanel />}
 
         {/* E. Refund Claims Panel */}
         <RefundClaimsPanel walletAddress={address} />

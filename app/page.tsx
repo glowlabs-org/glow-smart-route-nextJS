@@ -42,12 +42,6 @@ export default function GlowLaunchpadPage() {
       },
     });
 
-  // Use query state for tab management
-  const [activeTab, setActiveTab] = useQueryState("tab", {
-    defaultValue: "launchpad",
-    clearOnDefault: false,
-  });
-
   // Check if all launchpad listings are sold out
   const allLaunchpadSoldOut = React.useMemo(() => {
     if (isLoadingLaunchpad) return false;
@@ -62,19 +56,18 @@ export default function GlowLaunchpadPage() {
     });
   }, [launchpadApplications, isLoadingLaunchpad]);
 
-  // Determine which tab to display: if all launchpad sold out and user hasn't explicitly chosen a tab, show mining-center
-  const displayTab = React.useMemo(() => {
-    const validTabs = ["launchpad", "mining-center", "activity"];
-    const isValidTab = validTabs.includes(activeTab);
-    const currentTab = isValidTab ? activeTab : "launchpad";
+  // Set default tab based on whether launchpad is sold out
+  const defaultTab = allLaunchpadSoldOut ? "mining-center" : "launchpad";
 
-    // If on launchpad tab and everything is sold out, show mining-center instead
-    if (currentTab === "launchpad" && allLaunchpadSoldOut) {
-      return "mining-center";
-    }
+  // Use query state for tab management with dynamic default
+  const [activeTab, setActiveTab] = useQueryState("tab", {
+    defaultValue: defaultTab,
+    clearOnDefault: false,
+  });
 
-    return currentTab;
-  }, [activeTab, allLaunchpadSoldOut]);
+  // Validate and use the active tab directly
+  const validTabs = ["launchpad", "mining-center", "activity"];
+  const displayTab = validTabs.includes(activeTab) ? activeTab : "launchpad";
 
   const tabContent = {
     launchpad: {
