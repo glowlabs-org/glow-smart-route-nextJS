@@ -252,6 +252,12 @@ export function Header({
           </Link>
 
           <nav className="hidden lg:flex items-center gap-2">
+            <Link
+              href="/glow-swap?tab=swap"
+              className="text-zinc-900 dark:text-zinc-100 transition-colors text-base px-4 py-2 rounded-xl hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 font-medium"
+            >
+              Swap
+            </Link>
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
@@ -289,6 +295,7 @@ export function Header({
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
+
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
@@ -516,6 +523,12 @@ export function Header({
 
           {/* Mobile controls */}
           <div className="flex items-center gap-4 lg:hidden">
+            <Link
+              href="/glow-swap?tab=swap"
+              className="text-zinc-900 dark:text-zinc-100 transition-colors text-sm font-medium px-3 py-2 rounded-xl hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100"
+            >
+              Swap
+            </Link>
             <ThemeToggle />
             <Drawer direction="right" shouldScaleBackground={false}>
               <DrawerTrigger asChild>

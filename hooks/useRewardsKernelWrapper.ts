@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useWalletClient, usePublicClient } from "wagmi";
 import { toast } from "sonner";
+import { getContract } from "viem";
 import {
   useRewardsKernel,
   type ClaimPayoutParams,
@@ -10,6 +11,8 @@ import {
   RewardsKernelError,
   getAddresses,
 } from "@glowlabs-org/utils/browser";
+import { MinerPoolAndGCAABI } from "@glowlabs-org/guarded-launch-abis";
+import { addresses } from "@/web3/constants/addresses";
 import type { ClaimableReward } from "./useClaimableRewards";
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
@@ -34,7 +37,8 @@ export interface UseRewardsKernelWrapperResult {
     rewards: ClaimableReward[],
     nonce: bigint,
     proof: `0x${string}`[],
-    fromAddress: `0x${string}`
+    fromAddress: `0x${string}`,
+    glwWeight?: string
   ) => Promise<string | null>;
   claimAllRewards: (
     weeklyData: Array<{
@@ -43,6 +47,7 @@ export interface UseRewardsKernelWrapperResult {
       nonce: bigint;
       proof: `0x${string}`[];
       fromAddress: `0x${string}`;
+      glwWeight?: string;
     }>
   ) => Promise<string[]>;
   isClaimingWeek: number | null;
@@ -65,6 +70,16 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
     publicClient || undefined,
     CHAIN_ID
   );
+
+  // MinerPoolAndGCA contract for GLW inflation claims
+  const minerPoolContract =
+    publicClient && walletClient
+      ? getContract({
+          address: addresses.gcaAndMinerPoolContract as `0x${string}`,
+          abi: MinerPoolAndGCAABI,
+          client: { wallet: walletClient, public: publicClient },
+        })
+      : null;
 
   // Helper to build claim parameters from rewards data
   const buildClaimParams = useCallback(
@@ -118,38 +133,102 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
     []
   );
 
-  // Claim rewards for a specific week
-  const claimWeekRewards = useCallback(
+  // Claim GLW inflation rewards from MinerPoolAndGCA contract
+  const claimGlwInflation = useCallback(
+    async (
+      week: number,
+      glwWeight: string,
+      proof: `0x${string}`[],
+      userAddress: `0x${string}`
+    ): Promise<string | null> => {
+      if (!minerPoolContract) {
+        toast.error("Contract not available");
+        return null;
+      }
+
+      try {
+        const bucketId = BigInt(week);
+
+        // Check if already claimed
+        const bitmap = (await minerPoolContract.read.bucketClaimBitmap([
+          bucketId,
+          userAddress,
+        ])) as bigint;
+        const alreadyClaimed =
+          (bitmap & (BigInt(1) << BigInt(week % 256))) > BigInt(0);
+
+        if (alreadyClaimed) {
+          return null; // Silently skip already claimed
+        }
+
+        // Check if bucket is finalized
+        const isFinalized = await minerPoolContract.read.isBucketFinalized([
+          bucketId,
+        ]);
+        if (!isFinalized) {
+          toast.error(`Week ${week} not yet finalized for GLW claims`);
+          return null;
+        }
+
+        // Execute claim (bucketId, glwWeight, usdcWeight, proof, index, user, claimFromInflation, signature)
+        const txHash = await minerPoolContract.write.claimRewardFromBucket([
+          bucketId,
+          BigInt(glwWeight),
+          BigInt(0), // usdcWeight is always 0 for v2
+          proof,
+          BigInt(0), // index is always 0 for current reports
+          userAddress,
+          true, // claimFromInflation
+          "0x", // no delegation signature
+        ]);
+
+        return txHash;
+      } catch (error: any) {
+        console.error("GLW inflation claim error:", error);
+
+        if (error.message?.includes("UserAlreadyClaimed")) {
+          return null; // Silently skip
+        } else if (error.message?.includes("BucketNotFinalized")) {
+          toast.error("GLW rewards not yet finalized");
+        } else if (error.message?.includes("InvalidProof")) {
+          toast.error("Invalid proof for GLW claim");
+        } else if (error.message?.includes("User rejected")) {
+          toast.info("Transaction cancelled");
+        } else {
+          toast.error("Failed to claim GLW inflation", {
+            description: error.message || "Unknown error",
+          });
+        }
+
+        return null;
+      }
+    },
+    [minerPoolContract]
+  );
+
+  // Claim protocol deposit rewards from RewardsKernel contract
+  const claimProtocolDeposits = useCallback(
     async (
       week: number,
       rewards: ClaimableReward[],
       nonce: bigint,
       proof: `0x${string}`[],
-      fromAddress: `0x${string}`
+      fromAddress: `0x${string}`,
+      toAddress: `0x${string}`
     ): Promise<string | null> => {
-      if (!walletClient?.account?.address) {
-        toast.error("Please connect your wallet");
-        return null;
-      }
-
-      setIsClaimingWeek(week);
+      if (rewards.length === 0) return null;
 
       try {
         // Check if already claimed
-        const isClaimed = await rewardsKernel.isClaimed(
-          walletClient.account.address as `0x${string}`,
-          nonce
-        );
-
+        const isClaimed = await rewardsKernel.isClaimed(toAddress, nonce);
         if (isClaimed) {
-          toast.error(`Week ${week} rewards already claimed`);
-          return null;
+          return null; // Silently skip already claimed
         }
 
         // Check if finalized
         const finalized = await rewardsKernel.isFinalized(nonce);
         if (!finalized) {
-          toast.error(`Week ${week} rewards not yet finalized`);
+          toast.error(`Week ${week} protocol deposits not yet finalized`);
           return null;
         }
 
@@ -159,43 +238,108 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           nonce,
           proof,
           fromAddress,
-          walletClient.account.address as `0x${string}`
+          toAddress
         );
 
         // Execute claim
         const txHash = await rewardsKernel.claimPayout(claimParams);
-
-        toast.success(`Successfully claimed week ${week} rewards`, {
-          description: `Transaction: ${txHash.slice(0, 8)}...${txHash.slice(
-            -6
-          )}`,
-        });
-
         return txHash;
       } catch (error: any) {
-        console.error("Claim error:", error);
+        console.error("Protocol deposit claim error:", error);
 
-        // Handle specific errors
         if (error.message?.includes(RewardsKernelError.ALREADY_CLAIMED)) {
-          toast.error("These rewards have already been claimed");
+          return null; // Silently skip
         } else if (error.message?.includes(RewardsKernelError.NOT_FINALIZED)) {
-          toast.error("These rewards are not yet finalized");
+          toast.error("Protocol deposits not yet finalized");
         } else if (error.message?.includes(RewardsKernelError.NONCE_REJECTED)) {
           toast.error("This reward distribution was rejected");
         } else if (error.message?.includes("User rejected")) {
           toast.info("Transaction cancelled");
         } else {
-          toast.error("Failed to claim rewards", {
+          toast.error("Failed to claim protocol deposits", {
             description: error.message || "Unknown error",
           });
         }
 
         return null;
+      }
+    },
+    [rewardsKernel, buildClaimParams]
+  );
+
+  // Claim rewards for a specific week (handles both GLW inflation and protocol deposits)
+  const claimWeekRewards = useCallback(
+    async (
+      week: number,
+      rewards: ClaimableReward[],
+      nonce: bigint,
+      proof: `0x${string}`[],
+      fromAddress: `0x${string}`,
+      glwWeight?: string
+    ): Promise<string | null> => {
+      if (!walletClient?.account?.address) {
+        toast.error("Please connect your wallet");
+        return null;
+      }
+
+      setIsClaimingWeek(week);
+
+      try {
+        const userAddress = walletClient.account.address as `0x${string}`;
+        const txHashes: string[] = [];
+
+        // Separate GLW inflation from protocol deposits
+        const glwInflationRewards = rewards.filter(
+          (r) => r.type === "glowInflation"
+        );
+        const protocolDepositRewards = rewards.filter(
+          (r) => r.type === "protocolDeposit"
+        );
+
+        // Claim GLW inflation if present
+        if (glwInflationRewards.length > 0 && glwWeight) {
+          const glwTxHash = await claimGlwInflation(
+            week,
+            glwWeight,
+            proof,
+            userAddress
+          );
+          if (glwTxHash) txHashes.push(glwTxHash);
+        }
+
+        // Claim protocol deposits if present
+        if (protocolDepositRewards.length > 0) {
+          const pdTxHash = await claimProtocolDeposits(
+            week,
+            protocolDepositRewards,
+            nonce,
+            proof,
+            fromAddress,
+            userAddress
+          );
+          if (pdTxHash) txHashes.push(pdTxHash);
+        }
+
+        if (txHashes.length > 0) {
+          toast.success(`Successfully claimed week ${week} rewards`, {
+            description: `${txHashes.length} transaction(s) completed`,
+          });
+          return txHashes[0]; // Return first tx hash for compatibility
+        } else {
+          toast.info(`Week ${week} rewards already claimed or unavailable`);
+          return null;
+        }
+      } catch (error: any) {
+        console.error("Claim error:", error);
+        toast.error("Failed to claim rewards", {
+          description: error.message || "Unknown error",
+        });
+        return null;
       } finally {
         setIsClaimingWeek(null);
       }
     },
-    [walletClient, rewardsKernel, buildClaimParams]
+    [walletClient, claimGlwInflation, claimProtocolDeposits]
   );
 
   // Claim all available rewards
@@ -207,6 +351,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         nonce: bigint;
         proof: `0x${string}`[];
         fromAddress: `0x${string}`;
+        glwWeight?: string;
       }>
     ): Promise<string[]> => {
       if (!walletClient?.account?.address) {
@@ -227,7 +372,8 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
               weekData.rewards,
               weekData.nonce,
               weekData.proof,
-              weekData.fromAddress
+              weekData.fromAddress,
+              weekData.glwWeight
             );
 
             if (txHash) {

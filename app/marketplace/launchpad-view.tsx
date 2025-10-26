@@ -68,6 +68,7 @@ import { useER20Balances } from "@/hooks/useERC20Balances";
 import { LaunchCountdown } from "@/components/launch-countdown";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
 import { ArrowRight, HelpCircle } from "lucide-react";
+import { LaunchpadStatsDialog } from "./launchpad-stats-dialog";
 
 // Component to show owned fractions for a specific application
 function OwnedFractionsDisplay({
@@ -128,100 +129,38 @@ function OwnedFractionsDisplay({
 
 interface FilterBarProps {
   selectedZoneId?: number;
-  selectedSort: SortBy;
-  selectedSortOrder: SortOrder;
   zones: any[];
   onZoneChange: (value: string | null) => void;
-  onSortChange: (value: string) => void;
-  onSortOrderChange: (value: string) => void;
 }
 
-function FilterBar({
-  selectedZoneId,
-  selectedSort,
-  selectedSortOrder,
-  zones,
-  onZoneChange,
-  onSortChange,
-  onSortOrderChange,
-}: FilterBarProps) {
+function FilterBar({ selectedZoneId, zones, onZoneChange }: FilterBarProps) {
   return (
-    <div className="space-y-6">
-      <div>
-        <label
-          className="text-sm mb-3 block font-medium"
-          style={{
-            fontFamily: "Söhne, sans-serif",
-            fontWeight: 600,
-          }}
-        >
-          Zone
-        </label>
-        <Select
-          value={selectedZoneId?.toString() || "all"}
-          onValueChange={(v) => onZoneChange(v === "all" ? null : v)}
-        >
-          <SelectTrigger className="w-full h-11 bg-background border-border/60 hover:border-border transition-colors">
-            <SelectValue placeholder="All zones" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All zones</SelectItem>
-            {zones.map((zone: any) => (
-              <SelectItem key={zone.id} value={zone.id.toString()}>
-                {zone.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="h-px bg-border/60" />
-
-      <div>
-        <label
-          className="text-sm mb-3 block font-medium"
-          style={{
-            fontFamily: "Söhne, sans-serif",
-            fontWeight: 600,
-          }}
-        >
-          Sort By
-        </label>
-        <Select value={selectedSort} onValueChange={onSortChange}>
-          <SelectTrigger className="w-full h-11 bg-background border-border/60 hover:border-border transition-colors">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="publishedOnAuctionTimestamp">
-              Date Published
+    <div>
+      <label
+        className="text-sm mb-3 block font-medium"
+        style={{
+          fontFamily: "Söhne, sans-serif",
+          fontWeight: 600,
+        }}
+      >
+        Zone
+      </label>
+      <Select
+        value={selectedZoneId?.toString() || "all"}
+        onValueChange={(v) => onZoneChange(v === "all" ? null : v)}
+      >
+        <SelectTrigger className="w-full h-11 bg-background border-border/60 hover:border-border transition-colors">
+          <SelectValue placeholder="All zones" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All zones</SelectItem>
+          {zones.map((zone: any) => (
+            <SelectItem key={zone.id} value={zone.id.toString()}>
+              {zone.name}
             </SelectItem>
-            <SelectItem value="finalProtocolFee">Protocol Deposit</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="h-px bg-border/60" />
-
-      <div>
-        <label
-          className="text-sm mb-3 block font-medium"
-          style={{
-            fontFamily: "Söhne, sans-serif",
-            fontWeight: 600,
-          }}
-        >
-          Order
-        </label>
-        <Select value={selectedSortOrder} onValueChange={onSortOrderChange}>
-          <SelectTrigger className="w-full h-11 bg-background border-border/60 hover:border-border transition-colors">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="desc">Descending</SelectItem>
-            <SelectItem value="asc">Ascending</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -245,6 +184,14 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
     defaultValue: "desc",
   });
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
+  const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
+  const [selectedApplicationForStats, setSelectedApplicationForStats] =
+    React.useState<AuctionApplication | null>(null);
+  const [selectedRewardScoreForStats, setSelectedRewardScoreForStats] =
+    React.useState<{
+      userWeeklyGlwRewards: string;
+      userWeeklyPdRewards: string;
+    } | null>(null);
 
   const isMobile = useIsMobile();
   const { address, isConnected } = useAccount();
@@ -312,66 +259,21 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
 
   const filterBarProps = {
     selectedZoneId,
-    selectedSort,
-    selectedSortOrder,
     zones,
     onZoneChange: (v: string | null) => {
       setZoneParam(v);
-      setIsDrawerOpen(false);
-    },
-    onSortChange: (v: string) => {
-      setSortParam(v);
-      setIsDrawerOpen(false);
-    },
-    onSortOrderChange: (v: string) => {
-      setSortOrderParam(v);
       setIsDrawerOpen(false);
     },
   };
 
   return (
     <div>
-      {/* How It Works CTA */}
-      <div className="sticky top-0 z-50 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 backdrop-blur-md border-b border-border/60">
-        <a
-          href="https://glow.org/blog/guide-to-delegating-glow"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block group"
-        >
-          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="hidden md:block p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-                <HelpCircle className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex flex-col md:flex-row md:items-center md:gap-2">
-                <span
-                  className="text-sm md:text-base font-semibold"
-                  style={{ fontFamily: "Söhne, sans-serif" }}
-                >
-                  New to GLW delegation?
-                </span>
-                <span
-                  className="text-xs md:text-sm text-muted-foreground"
-                  style={{ fontFamily: "Söhne, sans-serif" }}
-                >
-                  Learn how to earn rewards by delegating to solar farms
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-primary group-hover:translate-x-1 transition-transform">
-              <span
-                className="hidden md:inline text-sm font-medium"
-                style={{ fontFamily: "Söhne, sans-serif" }}
-              >
-                Read guide
-              </span>
-              <ArrowRight className="h-4 w-4" />
-            </div>
-          </div>
-        </a>
-      </div>
-
+      <LaunchpadStatsDialog
+        open={statsDialogOpen}
+        onOpenChange={setStatsDialogOpen}
+        application={selectedApplicationForStats}
+        rewardScore={selectedRewardScoreForStats}
+      />
       {/* Mobile Filter Drawer */}
       <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
         <DrawerContent className="md:hidden max-h-[85vh]">
@@ -412,7 +314,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
         {/* Filters - Desktop inline, Mobile button */}
         <div className="hidden md:block bg-muted/30 rounded-2xl border border-border p-6 mb-6">
           <h3 className="text-lg font-semibold mb-4">Filters</h3>
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-muted-foreground">
                 Zone
@@ -434,44 +336,28 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-muted-foreground">
-                Sort By
-              </span>
-              <Select
-                value={selectedSort}
-                onValueChange={(v) => setSortParam(v)}
-              >
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="publishedOnAuctionTimestamp">
-                    Date Published
-                  </SelectItem>
-                  <SelectItem value="finalProtocolFee">
-                    Protocol Deposit
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-muted-foreground">
-                Order
-              </span>
-              <Select
-                value={selectedSortOrder}
-                onValueChange={(v) => setSortOrderParam(v)}
-              >
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="desc">Desc</SelectItem>
-                  <SelectItem value="asc">Asc</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+
+            {/* GLW Balance - Desktop only */}
+            {isConnected && hasMoreThanOneGlw && (
+              <div className="flex items-center gap-3 bg-background/50 rounded-xl border border-border px-4 py-2">
+                <span
+                  className="text-sm text-muted-foreground"
+                  style={{ fontFamily: "Söhne, sans-serif", fontWeight: 600 }}
+                >
+                  Your GLW
+                </span>
+                <div
+                  className="text-lg text-black dark:text-white"
+                  style={{ fontFamily: "Söhne, sans-serif", fontWeight: 600 }}
+                >
+                  {erc20Loading
+                    ? "..."
+                    : glowBalanceFormatted
+                    ? `${glowBalanceFormatted} GLW`
+                    : "0 GLW"}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -494,9 +380,9 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
           </Button>
         </div>
 
-        {/* GLW Wallet Balance */}
+        {/* GLW Wallet Balance - Mobile only */}
         {isConnected && hasMoreThanOneGlw && (
-          <div className="my-4">
+          <div className="my-4 md:hidden">
             <div className="bg-muted/30 rounded-2xl border border-border p-4 flex items-center justify-between">
               <span
                 className="text-sm text-muted-foreground"
@@ -743,22 +629,22 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        {/* Step Price - Left Column */}
-                        <div className="bg-muted/50 border border-border rounded-xl p-4">
+                      <div className="grid md:grid-cols-2 gap-3">
+                        {/* Amount per Delegation - Left Column */}
+                        <div className="bg-muted/50 border border-border rounded-xl p-4 flex flex-col">
                           <div
-                            className="text-sm text-gray-600 dark:text-gray-400 mb-2"
+                            className="text-xs uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-3"
                             style={{
                               fontFamily: "Söhne, sans-serif",
-                              fontWeight: 400,
+                              fontWeight: 600,
                             }}
                           >
-                            Amount per Delegation
+                            Delegation Amount
                           </div>
                           {application.activeFraction?.step ? (
-                            <div>
+                            <div className="flex-1 flex flex-col justify-center">
                               <div
-                                className="text-3xl xl:text-5xl text-black dark:text-white"
+                                className="text-2xl lg:text-3xl text-black dark:text-white leading-tight"
                                 style={{
                                   fontFamily: "Söhne, sans-serif",
                                   fontWeight: 600,
@@ -772,12 +658,51 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                     )
                                   ),
                                   0
-                                )}{" "}
-                                <span className="text-lg font-normal">GLW</span>
+                                )}
+                                <span
+                                  className="text-base text-gray-600 dark:text-gray-400 ml-1"
+                                  style={{
+                                    fontFamily: "Söhne, sans-serif",
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  GLW
+                                </span>
+                              </div>
+
+                              {glwSpotPrice > 0 && (
+                                <div
+                                  className="text-sm text-gray-500 dark:text-gray-500 mt-2"
+                                  style={{
+                                    fontFamily: "Söhne, sans-serif",
+                                    fontWeight: 400,
+                                  }}
+                                >
+                                  ≈ $
+                                  {formatNumber(
+                                    parseFloat(
+                                      formatUnits(
+                                        BigInt(application.activeFraction.step),
+                                        DECIMALS_BY_TOKEN["GLW"]
+                                      )
+                                    ) * glwSpotPrice,
+                                    0
+                                  )}{" "}
+                                  USD
+                                </div>
+                              )}
+                              <div
+                                className="text-[10px] text-gray-400 dark:text-gray-600 italic mt-3"
+                                style={{
+                                  fontFamily: "Söhne, sans-serif",
+                                  fontWeight: 400,
+                                }}
+                              >
+                                Per Fraction.
                               </div>
                             </div>
                           ) : depositAmountInCurrency ? (
-                            <div>
+                            <div className="flex-1 flex flex-col justify-center">
                               <div
                                 className="text-2xl lg:text-3xl text-black dark:text-white"
                                 style={{
@@ -805,7 +730,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                             </div>
                           ) : (
                             <div
-                              className="text-base text-gray-500"
+                              className="text-base text-gray-500 flex-1 flex items-center"
                               style={{
                                 fontFamily: "Söhne, sans-serif",
                                 fontWeight: 400,
@@ -816,21 +741,36 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                           )}
                         </div>
 
+                        {/* Weekly Rewards - Right Column */}
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div className="bg-muted/50 border border-border rounded-xl p-4 cursor-help">
-                              <div
-                                className="text-sm text-gray-600 dark:text-gray-400 mb-2"
-                                style={{
-                                  fontFamily: "Söhne, sans-serif",
-                                  fontWeight: 400,
-                                }}
-                              >
-                                Est. Weekly Rewards per Delegation
-                              </div>
-                              <div>
+                            <div className="bg-muted/50 border border-border rounded-xl p-4 cursor-help flex flex-col">
+                              <div className="flex items-center gap-2 mb-3">
                                 <div
-                                  className="text-lg lg:text-3xl text-black dark:text-white"
+                                  className="text-xs uppercase tracking-wider text-gray-600 dark:text-gray-400"
+                                  style={{
+                                    fontFamily: "Söhne, sans-serif",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  Est. Weekly Rewards
+                                </div>
+                                <div className="group/help relative">
+                                  <HelpCircle className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/help:block z-50 w-64">
+                                    <div className="bg-black text-white text-xs rounded-lg py-2 px-3 shadow-lg">
+                                      Expected weekly rewards based on audited
+                                      farm performance and regional
+                                      competitiveness. May vary with network
+                                      changes.
+                                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black"></div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex-1 flex flex-col justify-center">
+                                <div
+                                  className="text-2xl lg:text-3xl text-black dark:text-white leading-tight"
                                   style={{
                                     fontFamily: "Söhne, sans-serif",
                                     fontWeight: 600,
@@ -838,8 +778,65 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                 >
                                   {rewardScore?.userWeeklyGlwRewards &&
                                   rewardScore?.userWeeklyPdRewards &&
-                                  application.activeFraction?.totalSteps ? (
-                                    (() => {
+                                  application.activeFraction?.totalSteps
+                                    ? (() => {
+                                        const glwRewards = parseFloat(
+                                          formatUnits(
+                                            BigInt(
+                                              rewardScore.userWeeklyGlwRewards
+                                            ),
+                                            DECIMALS_BY_TOKEN["GLW"]
+                                          )
+                                        );
+                                        const pdRewards = parseFloat(
+                                          formatUnits(
+                                            BigInt(
+                                              rewardScore.userWeeklyPdRewards
+                                            ),
+                                            DECIMALS_BY_TOKEN["GLW"]
+                                          )
+                                        );
+                                        const totalRewards =
+                                          glwRewards + pdRewards;
+                                        const totalShares =
+                                          application.activeFraction.totalSteps;
+                                        const rewardsPerShare =
+                                          totalRewards / totalShares;
+                                        return rewardsPerShare.toLocaleString(
+                                          undefined,
+                                          {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          }
+                                        );
+                                      })()
+                                    : isRewardScoresLoading
+                                    ? "..."
+                                    : "0"}
+                                  <span
+                                    className="text-base text-gray-600 dark:text-gray-400 ml-1"
+                                    style={{
+                                      fontFamily: "Söhne, sans-serif",
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    GLW
+                                  </span>
+                                </div>
+
+                                {rewardScore?.userWeeklyGlwRewards &&
+                                rewardScore?.userWeeklyPdRewards &&
+                                application.activeFraction?.totalSteps &&
+                                glwSpotPrice > 0 ? (
+                                  <div
+                                    className="text-sm text-gray-500 dark:text-gray-500 mt-2"
+                                    style={{
+                                      fontFamily: "Söhne, sans-serif",
+                                      fontWeight: 400,
+                                    }}
+                                  >
+                                    ≈ $
+                                    {(() => {
                                       const glwRewards = parseFloat(
                                         formatUnits(
                                           BigInt(
@@ -848,102 +845,53 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                           DECIMALS_BY_TOKEN["GLW"]
                                         )
                                       );
-
                                       const pdRewards = parseFloat(
                                         formatUnits(
                                           BigInt(
                                             rewardScore.userWeeklyPdRewards
                                           ),
-                                          DECIMALS_BY_TOKEN["GLW"] // Assuming PD rewards are also in GLW
+                                          DECIMALS_BY_TOKEN["GLW"]
                                         )
                                       );
-
                                       const totalRewards =
                                         glwRewards + pdRewards;
                                       const totalShares =
                                         application.activeFraction.totalSteps;
                                       const rewardsPerShare =
                                         totalRewards / totalShares;
-                                      return (
-                                        <>
-                                          {rewardsPerShare.toLocaleString(
-                                            undefined,
-                                            {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 2,
-                                            }
-                                          )}{" "}
-                                          <span className="text-lg font-normal">
-                                            GLW
-                                          </span>
-                                        </>
+                                      const cashPerShare =
+                                        rewardsPerShare * glwSpotPrice;
+                                      return cashPerShare.toLocaleString(
+                                        undefined,
+                                        {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        }
                                       );
-                                    })()
-                                  ) : isRewardScoresLoading ? (
-                                    "..."
-                                  ) : (
-                                    <>
-                                      0{" "}
-                                      <span className="text-lg font-normal">
-                                        GLW
-                                      </span>
-                                    </>
-                                  )}
-                                  <span className="text-base text-gray-500 dark:text-gray-500 ml-2 font-normal">
-                                    ≈
-                                    {rewardScore?.userWeeklyGlwRewards &&
-                                    rewardScore?.userWeeklyPdRewards &&
-                                    application.activeFraction?.totalSteps &&
-                                    glwSpotPrice > 0
-                                      ? (() => {
-                                          const glwRewards = parseFloat(
-                                            formatUnits(
-                                              BigInt(
-                                                rewardScore.userWeeklyGlwRewards
-                                              ),
-                                              DECIMALS_BY_TOKEN["GLW"]
-                                            )
-                                          );
-                                          const pdRewards = parseFloat(
-                                            formatUnits(
-                                              BigInt(
-                                                rewardScore.userWeeklyPdRewards
-                                              ),
-                                              DECIMALS_BY_TOKEN["GLW"]
-                                            )
-                                          );
-                                          const totalRewards =
-                                            glwRewards + pdRewards;
-                                          const totalShares =
-                                            application.activeFraction
-                                              .totalSteps;
-                                          const rewardsPerShare =
-                                            totalRewards / totalShares;
-                                          const cashPerShare =
-                                            rewardsPerShare * glwSpotPrice;
-                                          return `$${cashPerShare.toLocaleString(
-                                            undefined,
-                                            {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 2,
-                                            }
-                                          )}`;
-                                        })()
-                                      : isRewardScoresLoading
-                                      ? "..."
-                                      : "$0"}
-                                  </span>
+                                    })()}{" "}
+                                    USD per week
+                                  </div>
+                                ) : null}
+                                <div
+                                  className="text-[10px] text-gray-400 dark:text-gray-600 italic mt-3"
+                                  style={{
+                                    fontFamily: "Söhne, sans-serif",
+                                    fontWeight: 400,
+                                  }}
+                                >
+                                  Estimated returns. See Advanced Stats.
                                 </div>
                               </div>
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent>
+                          <TooltipContent className="max-w-xs">
                             <div className="text-sm">
-                              <div className="mb-2 text-background/80">
-                                This is an estimate of your weekly rewards per
-                                delegation.
-                                <br /> You will earn rewards every week for 100
-                                weeks.
+                              <div className="mb-2 text-background/80 text-xs">
+                                Estimated weekly rewards per delegation for 100
+                                weeks. These estimates may decrease as new farms
+                                join the region and dilute the regional GLW
+                                allocation. See Advanced Stats for detailed
+                                information.
                               </div>
                               {rewardScore?.userWeeklyGlwRewards &&
                               rewardScore?.userWeeklyPdRewards &&
@@ -1014,9 +962,9 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                       )}
 
                       {/* CTAs */}
-                      <div className="flex items-center gap-3">
+                      <div className="space-y-3">
                         <Button
-                          className="flex-1 rounded-full h-11"
+                          className="w-full rounded-full h-11"
                           onClick={() => onPayDeposit(application, rewardScore)}
                           disabled={
                             application.activeFraction
@@ -1038,6 +986,24 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                   0) <= 0
                               ? "None Available"
                               : "Delegate GLW"}
+                          </span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full rounded-full h-11"
+                          onClick={() => {
+                            setSelectedApplicationForStats(application);
+                            setSelectedRewardScoreForStats(rewardScore || null);
+                            setStatsDialogOpen(true);
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontFamily: "Söhne, sans-serif",
+                              fontWeight: 400,
+                            }}
+                          >
+                            Advanced Stats
                           </span>
                         </Button>
                       </div>

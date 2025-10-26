@@ -139,15 +139,13 @@ export function ClaimsPanel() {
     );
   }
 
-  // Check if there are any claimable rewards
+  // Check if there are any claimable rewards (finalized totals)
   const hasClaimableRewards = Object.keys(aggregatedTotals).length > 0;
 
-  if (!hasClaimableRewards) {
-    return null;
-  }
-
-  // Calculate total number of claimable weeks
-  const totalClaimableWeeks = weeklyBreakdown.length;
+  // Calculate total number of claimable (finalized and not already optimistically claimed) weeks
+  const totalClaimableWeeks = weeklyBreakdown.filter(
+    (w) => w.isFinalized && !claimedWeeks.has(w.week)
+  ).length;
 
   // Handle claim all
   const handleClaimAll = async () => {
@@ -157,7 +155,7 @@ export function ClaimsPanel() {
 
     // Fetch all merkle proofs for unclaimed weeks
     const weeklyDataPromises = weeklyBreakdown
-      .filter((week) => !claimedWeeks.has(week.week))
+      .filter((week) => week.isFinalized && !claimedWeeks.has(week.week))
       .map(async (weekData) => {
         try {
           const response = await fetch(
@@ -181,6 +179,7 @@ export function ClaimsPanel() {
               (p: string) => p as `0x${string}`
             ),
             fromAddress: hotWalletAddress,
+            glwWeight: userProof.glowInflationEarnedLeafWeight,
           };
         } catch (error) {
           console.error(
@@ -268,12 +267,16 @@ export function ClaimsPanel() {
         // Convert string proof to proper format
         const proof = userProof.v2MerkleProof.map((p) => p as `0x${string}`);
 
+        // Get GLW weight for inflation claims
+        const glwWeight = userProof.glowInflationEarnedLeafWeight;
+
         const txHash = await claimWeekRewards(
           weekData.week,
           weekData.rewards,
           nonce,
           proof,
-          hotWalletAddress
+          hotWalletAddress,
+          glwWeight
         );
 
         if (!txHash) {
@@ -295,6 +298,39 @@ export function ClaimsPanel() {
       }
     };
 
+    // Pending countdown (until finalized)
+    const weekSeconds = 7 * 86400;
+    const targetTimestampMs = React.useMemo(
+      () => (GENESIS_TIMESTAMP + (weekData.week + 3) * weekSeconds) * 1000,
+      [weekData.week]
+    );
+    const [nowMs, setNowMs] = React.useState<number>(() => Date.now());
+
+    const remainingMs = React.useMemo(
+      () => Math.max(0, targetTimestampMs - nowMs),
+      [targetTimestampMs, nowMs]
+    );
+
+    const showCountdown = remainingMs < 24 * 3600 * 1000; // show countdown only if < 24h
+
+    React.useEffect(() => {
+      if (weekData.isFinalized || !showCountdown) return; // only run timer if showing countdown
+      const id = setInterval(() => setNowMs(Date.now()), 1000);
+      return () => clearInterval(id);
+    }, [weekData.isFinalized, showCountdown]);
+
+    const countdownLabel = React.useMemo(() => {
+      if (!showCountdown) {
+        const days = Math.ceil(remainingMs / (24 * 3600 * 1000));
+        return days === 1 ? "1 day" : `${days} days`;
+      }
+      const totalSeconds = Math.floor(remainingMs / 1000);
+      const totalHours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = Math.floor(totalSeconds % 60);
+      return `${totalHours}h ${minutes}m ${seconds}s`;
+    }, [remainingMs, showCountdown]);
+
     return (
       <Button
         size={size}
@@ -305,7 +341,8 @@ export function ClaimsPanel() {
           isClaimingAll ||
           isClaimed ||
           isProofLoading ||
-          !userProof
+          !userProof ||
+          !weekData.isFinalized
         }
         variant={isClaimed ? "secondary" : "default"}
       >
@@ -326,6 +363,11 @@ export function ClaimsPanel() {
           </>
         ) : !userProof ? (
           <>No rewards</>
+        ) : !weekData.isFinalized ? (
+          <>
+            <Clock className="w-4 h-4 mr-2" />
+            Claim in {countdownLabel}
+          </>
         ) : (
           <>
             Claim Week {weekData.week}
@@ -375,56 +417,58 @@ export function ClaimsPanel() {
       <CardContent>
         <div className="space-y-6">
           {/* Aggregated Totals Section */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium text-muted-foreground">
-              Total Claimable
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {Object.entries(aggregatedTotals).map(([currency, amount]) => {
-                const config = CURRENCY_CONFIG[currency as CurrencyKey] || {
-                  icon: <Coins className="w-4 h-4" />,
-                  color: "text-gray-600",
-                  bgColor: "bg-gray-50 dark:bg-gray-950/20",
-                  label: currency,
-                };
+          {hasClaimableRewards && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Total Claimable
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {Object.entries(aggregatedTotals).map(([currency, amount]) => {
+                  const config = CURRENCY_CONFIG[currency as CurrencyKey] || {
+                    icon: <Coins className="w-4 h-4" />,
+                    color: "text-gray-600",
+                    bgColor: "bg-gray-50 dark:bg-gray-950/20",
+                    label: currency,
+                  };
 
-                return (
-                  <div
-                    key={currency}
-                    className={cn(
-                      "flex items-center justify-between p-4 rounded-lg border",
-                      config.bgColor
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={cn(
-                          "p-2 rounded-full bg-background",
-                          config.color
-                        )}
-                      >
-                        {config.icon}
+                  return (
+                    <div
+                      key={currency}
+                      className={cn(
+                        "flex items-center justify-between p-4 rounded-lg border",
+                        config.bgColor
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={cn(
+                            "p-2 rounded-full bg-background",
+                            config.color
+                          )}
+                        >
+                          {config.icon}
+                        </div>
+                        <div>
+                          <div className="font-medium">{config.label}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {totalClaimableWeeks} weeks
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-medium">{config.label}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {totalClaimableWeeks} weeks
+                      <div className="text-right">
+                        <div className="font-bold text-lg">
+                          {parseFloat(amount).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 6,
+                          })}
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-bold text-lg">
-                        {parseFloat(amount).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 6,
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Weekly Breakdown Section */}
           <div className="space-y-3">
@@ -456,11 +500,31 @@ export function ClaimsPanel() {
                             </div>
                           </div>
                           <Badge
-                            variant={isClaimed ? "secondary" : "outline"}
+                            variant={
+                              isClaimed
+                                ? "secondary"
+                                : weekData.isFinalized
+                                ? "default"
+                                : "outline"
+                            }
                             className="text-xs"
                           >
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            {isClaimed ? "Claimed" : "Finalized"}
+                            {isClaimed ? (
+                              <>
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Claimed
+                              </>
+                            ) : weekData.isFinalized ? (
+                              <>
+                                <Sparkles className="w-3 h-3 mr-1" />
+                                Ready to Claim
+                              </>
+                            ) : (
+                              <>
+                                <Clock className="w-3 h-3 mr-1" />
+                                Pending
+                              </>
+                            )}
                           </Badge>
                         </div>
                         <div className="flex items-center gap-2">
@@ -476,6 +540,7 @@ export function ClaimsPanel() {
                               {parseFloat(amount).toFixed(2)} {currency}
                             </Badge>
                           ))}
+
                           <ChevronRight className="w-4 h-4 text-muted-foreground ml-2" />
                         </div>
                       </CollapsibleTrigger>
@@ -554,7 +619,16 @@ export function ClaimsPanel() {
                 <div className="font-medium mb-1">About Claims</div>
                 <div>
                   Rewards become claimable after a 3-week finality period. Week{" "}
-                  {currentEpoch - 3} and earlier are available to claim.
+                  96 and earlier are available to claim on the{" "}
+                  <a
+                    href="https://hub.glow.org"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:text-blue-600 underline"
+                  >
+                    Hub Dashboard
+                  </a>{" "}
+                  for V1 Solar Farms.
                 </div>
               </div>
             </div>

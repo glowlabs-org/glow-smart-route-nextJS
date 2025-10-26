@@ -1,12 +1,9 @@
 "use client";
 
 import React from "react";
-import { Button } from "@/components/ui/button";
+
 import { useQueryState } from "nuqs";
 import {
-  type PaymentCurrency,
-  type SortBy,
-  type SortOrder,
   type AuctionApplication,
   useGlowLaunchpad,
 } from "@/hooks/useGlowLaunchpad";
@@ -21,9 +18,61 @@ import { LaunchpadView } from "./marketplace/launchpad-view";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Header } from "@/components/header";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+
+type TabKey = "launchpad" | "mining-center" | "activity";
+
+type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
+
+interface TabSectionHeaderProps {
+  eyebrow?: string;
+  title: string;
+  description: string;
+  helper?: string;
+  status?: {
+    label: string;
+    variant?: BadgeVariant;
+  };
+}
+
+function TabSectionHeader({
+  eyebrow,
+  title,
+  description,
+  helper,
+  status,
+}: TabSectionHeaderProps) {
+  return (
+    <div className="px-4 md:px-6 pt-2 pb-6 border-b border-border/60 bg-muted/5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-2">
+          {eyebrow ? (
+            <span className="text-xs uppercase tracking-wide text-muted-foreground/70">
+              {eyebrow}
+            </span>
+          ) : null}
+          <div>
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+              {title}
+            </h1>
+            <p className="mt-2 text-sm md:text-base text-muted-foreground max-w-2xl">
+              {description}
+            </p>
+          </div>
+        </div>
+        {status ? (
+          <Badge variant={status.variant ?? "secondary"} className="self-start">
+            {status.label}
+          </Badge>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 export default function GlowLaunchpadPage() {
+  const router = useRouter();
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [selectedApplicationForDeposit, setSelectedApplicationForDeposit] =
     React.useState<AuctionApplication | null>(null);
@@ -69,26 +118,75 @@ export default function GlowLaunchpadPage() {
   const validTabs = ["launchpad", "mining-center", "activity"];
   const displayTab = validTabs.includes(activeTab) ? activeTab : "launchpad";
 
-  const tabContent = {
-    launchpad: {
-      title: "Glow Launchpad",
-      description:
-        "Delegate GLW to competitive solar farms in exchange for a portion of their rewards.",
-    },
-    "mining-center": {
-      title: "Mining Center",
-      description:
-        "Pre-balanced mining opportunities with fixed costs and transparent GLW token returns. Buy miners and earn passive rewards.",
-    },
-    activity: {
-      title: "Activity",
-      description:
-        "View all sales from the launchpad and mining center. Track average reward scores and USDC/GLW payments to help you evaluate market activity.",
-    },
-  };
+  const openLaunchpadListings = React.useMemo(() => {
+    if (isLoadingLaunchpad) return undefined;
 
-  const currentContent =
-    tabContent[displayTab as keyof typeof tabContent] || tabContent.launchpad;
+    return launchpadApplications.reduce((count, app) => {
+      const fraction = app.activeFraction;
+      if (!fraction) return count;
+
+      const remainingSteps = fraction.remainingSteps ?? 0;
+      const hasAvailability = !fraction.isFilled && remainingSteps > 0;
+      return hasAvailability ? count + 1 : count;
+    }, 0);
+  }, [isLoadingLaunchpad, launchpadApplications]);
+
+  const tabContent = React.useMemo<
+    Record<TabKey, TabSectionHeaderProps>
+  >(() => {
+    const eyebrow = "Glow Marketplace";
+
+    return {
+      launchpad: {
+        eyebrow,
+        title: "Launchpad",
+        description:
+          "Delegate GLW to competitive solar farms in exchange for a portion of their rewards.",
+        helper:
+          "Choose a project to sponsor and use the zone filter to explore different regions. Each card highlights how many steps remain before the farm sells out.",
+        status: isLoadingLaunchpad
+          ? {
+              label: "Syncing availability…",
+              variant: "outline",
+            }
+          : allLaunchpadSoldOut
+          ? {
+              label: "All listings sold out",
+              variant: "destructive",
+            }
+          : {
+              label: `${openLaunchpadListings ?? 0} active listing${
+                (openLaunchpadListings ?? 0) === 1 ? "" : "s"
+              }`,
+              variant: "secondary",
+            },
+      },
+      "mining-center": {
+        eyebrow,
+        title: "Mining Center",
+        description:
+          "Pre-balanced mining opportunities with fixed costs and transparent GLW token returns. Buy miners and earn passive rewards.",
+        helper:
+          "Compare fixed-cost miners, review their projected token flows, and lock in rewards before supply resets each epoch.",
+        status: {
+          label: "USDC Miners",
+          variant: "outline",
+        },
+      },
+      activity: {
+        eyebrow,
+        title: "Marketplace Activity",
+        description:
+          "View all sales from the launchpad and mining center. Track average reward scores and USDC/GLW payments to help you evaluate market activity.",
+        helper:
+          "Scan recent purchases to gauge momentum across both marketplaces. Use the built-in filters to focus on specific regions or sale types.",
+        status: {
+          label: "Live feed",
+          variant: "secondary",
+        },
+      },
+    };
+  }, [allLaunchpadSoldOut, isLoadingLaunchpad, openLaunchpadListings]);
 
   function onPayDeposit(
     application: AuctionApplication,
@@ -99,6 +197,14 @@ export default function GlowLaunchpadPage() {
     setSelectedApplicationType(type);
     setSelectedRewardScore(scoreData || null);
     setDialogOpen(true);
+  }
+
+  function handleTabChange(value: string) {
+    if (value === "wallet") {
+      router.push("/wallet");
+      return;
+    }
+    setActiveTab(value);
   }
 
   return (
@@ -147,62 +253,14 @@ export default function GlowLaunchpadPage() {
       />
       <div className="min-h-screen relative overflow-hidden pt-20">
         <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 lg:px-8 py-4 md:py-8">
-          <div className="bg-muted/30 backdrop-blur-xl rounded-2xl md:rounded-3xl border border-border overflow-hidden mb-4 md:mb-6">
-            <div className="p-4 md:p-6">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="flex-1">
-                  <h1 className="text-xl md:text-2xl font-bold">
-                    {currentContent.title}
-                  </h1>
-                  <p className="text-xs md:text-sm text-muted-foreground mt-2 max-w-md">
-                    {currentContent.description}
-                  </p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="md:h-10"
-                    onClick={() =>
-                      window.open("https://impact.glow.org", "_blank")
-                    }
-                  >
-                    <span className="hidden sm:inline">
-                      See Regions Dashboard
-                    </span>
-                    <span className="sm:hidden">Regions</span>
-                  </Button>
-                  <Link href="/glow-swap">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="md:h-10 w-full"
-                    >
-                      GlowSwap
-                    </Button>
-                  </Link>
-                  <Link href="/wallet" className="hidden md:block">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="md:h-10 w-full"
-                    >
-                      My Wallet
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div className="bg-background backdrop-blur-xl rounded-2xl md:rounded-3xl border border-border overflow-hidden">
             <Tabs
               value={displayTab}
-              onValueChange={setActiveTab}
+              onValueChange={handleTabChange}
               className="w-full"
             >
-              <div className="p-3 md:p-6">
-                <TabsList className="grid w-full sm:w-fit grid-cols-3 h-9 md:h-10">
+              <div className="p-3 md:p-4">
+                <TabsList className="w-full flex-wrap justify-between gap-2 sm:w-auto sm:justify-start">
                   <TabsTrigger value="launchpad" className="text-xs md:text-sm">
                     Launchpad
                   </TabsTrigger>
@@ -216,10 +274,15 @@ export default function GlowLaunchpadPage() {
                   <TabsTrigger value="activity" className="text-xs md:text-sm">
                     Activity
                   </TabsTrigger>
+                  <TabsTrigger value="wallet" className="text-xs md:text-sm">
+                    <span className="hidden sm:inline">My Wallet</span>
+                    <span className="sm:hidden">Wallet</span>
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
               <TabsContent value="launchpad" className="mt-0">
+                <TabSectionHeader {...tabContent.launchpad} />
                 <LaunchpadView
                   onPayDeposit={(app, rewardScore) =>
                     onPayDeposit(app, "launchpad", rewardScore)
@@ -228,6 +291,7 @@ export default function GlowLaunchpadPage() {
               </TabsContent>
 
               <TabsContent value="mining-center" className="mt-0">
+                <TabSectionHeader {...tabContent["mining-center"]} />
                 <MiningCenterView
                   onPayDeposit={(app, miningScoreData) =>
                     onPayDeposit(app, "mining-center", miningScoreData)
@@ -236,6 +300,7 @@ export default function GlowLaunchpadPage() {
               </TabsContent>
 
               <TabsContent value="activity" className="mt-0">
+                <TabSectionHeader {...tabContent.activity} />
                 <SponsoredFarmsActivity />
               </TabsContent>
             </Tabs>

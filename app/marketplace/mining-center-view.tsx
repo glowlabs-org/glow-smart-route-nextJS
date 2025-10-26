@@ -49,6 +49,7 @@ import {
   getMiningScoreForApplication,
 } from "@/hooks/useMiningScore";
 import { DepositDialog } from "./deposit-dialog";
+import { MiningStatsDialog } from "./mining-stats-dialog";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowSymbol } from "@/components/glow-symbol";
@@ -218,33 +219,6 @@ function FilterBar({
 
       <div className="h-px bg-border/60" />
 
-      {/* Sort By Filter */}
-      <div>
-        <label
-          className="text-sm mb-3 block font-medium"
-          style={{
-            fontFamily: "Söhne, sans-serif",
-            fontWeight: 600,
-          }}
-        >
-          Sort By
-        </label>
-        <Select value={selectedSort} onValueChange={onSortChange}>
-          <SelectTrigger className="w-full h-11 bg-background border-border/60 hover:border-border transition-colors">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="pricePerMiner">Price per Miner</SelectItem>
-            <SelectItem value="publishedOnAuctionTimestamp">
-              Date Published
-            </SelectItem>
-            <SelectItem value="finalProtocolFee">Protocol Deposit</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="h-px bg-border/60" />
-
       {/* Order Filter */}
       <div>
         <label
@@ -290,6 +264,15 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
     defaultValue: "desc",
   });
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
+  const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
+  const [selectedApplicationForStats, setSelectedApplicationForStats] =
+    React.useState<AuctionApplication | null>(null);
+  const [selectedMiningScoreForStats, setSelectedMiningScoreForStats] =
+    React.useState<{
+      miningScore: number;
+      weeklyGlwRewards?: string;
+      weeklyGlwRewardsUsd?: string;
+    } | null>(null);
 
   const isMobile = useIsMobile();
   const { address, isConnected } = useAccount();
@@ -358,133 +341,106 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
     },
   };
 
+  const hasMiners = !isLoading && !isError && applications.length > 0;
+
   return (
     <>
-      {/* How It Works CTA */}
-      <div className="sticky top-0 z-50 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 backdrop-blur-md border-b border-border/60">
-        <a
-          href="https://glow.org/blog/guide-to-glow-mining"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block group"
-        >
-          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="hidden md:block p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-                <HelpCircle className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex flex-col md:flex-row md:items-center md:gap-2">
-                <span
-                  className="text-sm md:text-base font-semibold"
-                  style={{ fontFamily: "Söhne, sans-serif" }}
-                >
-                  New to Glow Mining?
-                </span>
-                <span
-                  className="text-xs md:text-sm text-muted-foreground"
-                  style={{ fontFamily: "Söhne, sans-serif" }}
-                >
-                  Learn how miners earn GLW by funding solar farms
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-primary group-hover:translate-x-1 transition-transform">
-              <span
-                className="hidden md:inline text-sm font-medium"
-                style={{ fontFamily: "Söhne, sans-serif" }}
-              >
-                Read guide
-              </span>
-              <ArrowRight className="h-4 w-4" />
-            </div>
-          </div>
-        </a>
-      </div>
-
-      <div className="flex min-h-screen flex-col md:flex-row">
-        {/* Desktop Sidebar - Hidden on mobile */}
-        <aside className="hidden md:block w-70 flex-shrink-0 border-r border-border/60 bg-muted/30 rounded-r-lg sticky top-0 h-screen overflow-y-auto">
-          <div className="p-8">
-            <div className="mb-8">
-              <h3
-                className="text-2xl mb-2"
-                style={{
-                  fontFamily: "Duplicate Slab, serif",
-                  fontWeight: 300,
-                }}
-              >
-                Filter
-              </h3>
-              <p
-                className="text-sm text-muted-foreground"
-                style={{
-                  fontFamily: "Söhne, sans-serif",
-                  fontWeight: 400,
-                }}
-              >
-                Refine your search
-              </p>
-            </div>
-            <FilterBar {...filterBarProps} />
-          </div>
-        </aside>
-
-        {/* Mobile Filter Drawer */}
-        <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-          <DrawerContent className="md:hidden max-h-[85vh]">
-            <DrawerHeader className="border-b border-border/60">
-              <div className="flex items-center justify-between">
-                <DrawerTitle
-                  className="text-2xl"
+      <MiningStatsDialog
+        open={statsDialogOpen}
+        onOpenChange={setStatsDialogOpen}
+        application={selectedApplicationForStats}
+        miningScoreData={selectedMiningScoreForStats}
+      />
+      <div className="flex flex-col md:flex-row">
+        {/* Desktop Sidebar - Hidden on mobile and when no miners */}
+        {hasMiners && (
+          <aside className="hidden md:block w-70 flex-shrink-0 border-r border-border/60 bg-muted/30 rounded-r-lg min-h-screen sticky top-0 overflow-y-auto">
+            <div className="p-8">
+              <div className="mb-8">
+                <h3
+                  className="text-2xl mb-2"
                   style={{
                     fontFamily: "Duplicate Slab, serif",
                     fontWeight: 300,
                   }}
                 >
                   Filter
-                </DrawerTitle>
-                <DrawerClose asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <X className="h-4 w-4" />
-                  </Button>
-                </DrawerClose>
+                </h3>
+                <p
+                  className="text-sm text-muted-foreground"
+                  style={{
+                    fontFamily: "Söhne, sans-serif",
+                    fontWeight: 400,
+                  }}
+                >
+                  Refine your search
+                </p>
               </div>
-              <p
-                className="text-sm text-muted-foreground text-left mt-1"
-                style={{
-                  fontFamily: "Söhne, sans-serif",
-                  fontWeight: 400,
-                }}
-              >
-                Refine your search
-              </p>
-            </DrawerHeader>
-            <div className="overflow-y-auto p-6">
               <FilterBar {...filterBarProps} />
             </div>
-          </DrawerContent>
-        </Drawer>
+          </aside>
+        )}
+
+        {/* Mobile Filter Drawer */}
+        {hasMiners && (
+          <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+            <DrawerContent className="md:hidden max-h-[85vh]">
+              <DrawerHeader className="border-b border-border/60">
+                <div className="flex items-center justify-between">
+                  <DrawerTitle
+                    className="text-2xl"
+                    style={{
+                      fontFamily: "Duplicate Slab, serif",
+                      fontWeight: 300,
+                    }}
+                  >
+                    Filter
+                  </DrawerTitle>
+                  <DrawerClose asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </DrawerClose>
+                </div>
+                <p
+                  className="text-sm text-muted-foreground text-left mt-1"
+                  style={{
+                    fontFamily: "Söhne, sans-serif",
+                    fontWeight: 400,
+                  }}
+                >
+                  Refine your search
+                </p>
+              </DrawerHeader>
+              <div className="overflow-y-auto p-6">
+                <FilterBar {...filterBarProps} />
+              </div>
+            </DrawerContent>
+          </Drawer>
+        )}
 
         {/* Content Area */}
         <div className="flex-1">
-          {/* Mobile Filter Button */}
-          <div className="md:hidden sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/60 p-4">
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => setIsDrawerOpen(true)}
-            >
-              <SlidersHorizontal className="mr-2 h-4 w-4" />
-              <span
-                style={{
-                  fontFamily: "Söhne, sans-serif",
-                  fontWeight: 500,
-                }}
+          {/* Mobile Filter Button - Only show when there are miners */}
+          {hasMiners && (
+            <div className="md:hidden sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/60 p-4">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setIsDrawerOpen(true)}
               >
-                Filter & Sort
-              </span>
-            </Button>
-          </div>
+                <SlidersHorizontal className="mr-2 h-4 w-4" />
+                <span
+                  style={{
+                    fontFamily: "Söhne, sans-serif",
+                    fontWeight: 500,
+                  }}
+                >
+                  Filter & Sort
+                </span>
+              </Button>
+            </div>
+          )}
 
           <div className="p-4 md:p-6">
             {isLoading ? (
@@ -681,17 +637,31 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                               <div className="grid grid-cols-1 lg:grid-cols-1 2xl:grid-cols-2 gap-3 lg:gap-4">
                                 {/* Weekly Rewards per miner */}
                                 <div className="bg-muted/50 border border-border rounded-xl p-3 lg:p-4 lg:col-span-1 2xl:col-span-1">
-                                  <div
-                                    className="text-sm 2xl:text-xs text-gray-600 dark:text-gray-400 mb-2"
-                                    style={{
-                                      fontFamily: "Söhne, sans-serif",
-                                      fontWeight: 400,
-                                    }}
-                                  >
-                                    Est. Weekly Rewards per miner
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div
+                                      className="text-sm 2xl:text-xs text-gray-600 dark:text-gray-400"
+                                      style={{
+                                        fontFamily: "Söhne, sans-serif",
+                                        fontWeight: 400,
+                                      }}
+                                    >
+                                      Weekly Rewards per miner
+                                    </div>
+                                    <div className="group relative">
+                                      <HelpCircle className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 w-64">
+                                        <div className="bg-black text-white text-xs rounded-lg py-2 px-3 shadow-lg">
+                                          Current weekly rate based on regional
+                                          GLW allocation. May decrease as new
+                                          farms join the region and dilute
+                                          emissions.
+                                          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black"></div>
+                                        </div>
+                                      </div>
+                                    </div>
                                   </div>
                                   <div
-                                    className="text-base lg:text-2xl text-black dark:text-white"
+                                    className="text-base lg:text-2xl text-black dark:text-white mb-1"
                                     style={{
                                       fontFamily: "Söhne, sans-serif",
                                       fontWeight: 600,
@@ -747,6 +717,80 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                                         : "$0"}
                                     </span>
                                   </div>
+                                  <div className="space-y-1">
+                                    <div
+                                      className="text-xs text-gray-500 dark:text-gray-500"
+                                      style={{
+                                        fontFamily: "Söhne, sans-serif",
+                                        fontWeight: 400,
+                                      }}
+                                    >
+                                      At current rate over 99 weeks:{" "}
+                                      {miningScoreData?.weeklyGlwRewards
+                                        ? (() => {
+                                            const rewardsPerMiner = parseFloat(
+                                              formatUnits(
+                                                BigInt(
+                                                  miningScoreData.weeklyGlwRewards
+                                                ),
+                                                DECIMALS_BY_TOKEN["GLW"]
+                                              )
+                                            );
+                                            const totalRewards =
+                                              rewardsPerMiner * 99;
+
+                                            return `${totalRewards.toLocaleString(
+                                              undefined,
+                                              {
+                                                minimumFractionDigits: 0,
+                                                maximumFractionDigits: 0,
+                                              }
+                                            )} GLW`;
+                                          })()
+                                        : isMiningScoresLoading
+                                        ? "..."
+                                        : "0 GLW"}
+                                      {miningScoreData?.weeklyGlwRewards &&
+                                        glwSpotPrice > 0 && (
+                                          <span className="ml-1">
+                                            (≈
+                                            {(() => {
+                                              const rewardsPerMiner =
+                                                parseFloat(
+                                                  formatUnits(
+                                                    BigInt(
+                                                      miningScoreData.weeklyGlwRewards
+                                                    ),
+                                                    DECIMALS_BY_TOKEN["GLW"]
+                                                  )
+                                                );
+                                              const totalUsd =
+                                                rewardsPerMiner *
+                                                99 *
+                                                glwSpotPrice;
+                                              return `$${totalUsd.toLocaleString(
+                                                undefined,
+                                                {
+                                                  minimumFractionDigits: 0,
+                                                  maximumFractionDigits: 0,
+                                                }
+                                              )}`;
+                                            })()}
+                                            )
+                                          </span>
+                                        )}
+                                    </div>
+                                    <div
+                                      className="text-[10px] text-gray-400 dark:text-gray-600 italic"
+                                      style={{
+                                        fontFamily: "Söhne, sans-serif",
+                                        fontWeight: 400,
+                                      }}
+                                    >
+                                      Rewards may decrease as new regional farms
+                                      dilute emissions. See Advanced Stats.
+                                    </div>
+                                  </div>
                                 </div>
 
                                 {/* Owned Fractions Display (2xl only) */}
@@ -763,8 +807,8 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                           </div>
 
                           {/* Right: Price and CTA */}
-                          <div className="w-full lg:w-48 xl:w-52 2xl:w-60 p-4 lg:p-5 xl:p-6 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-border">
-                            <div className="mb-4 lg:mb-0">
+                          <div className="w-full lg:w-48 xl:w-52 2xl:w-60 p-4 lg:p-5 xl:p-6 flex flex-col border-t lg:border-t-0 lg:border-l border-border">
+                            <div className="mb-4 ">
                               <div
                                 className="text-sm text-muted-foreground mb-1"
                                 style={{
@@ -831,6 +875,26 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                                   : "Buy Miners"}
                               </span>
                             </Button>
+                            <Button
+                              variant="outline"
+                              className="w-full rounded-full h-11 mt-2"
+                              onClick={() => {
+                                setSelectedApplicationForStats(application);
+                                setSelectedMiningScoreForStats(
+                                  miningScoreData || null
+                                );
+                                setStatsDialogOpen(true);
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontFamily: "Söhne, sans-serif",
+                                  fontWeight: 400,
+                                }}
+                              >
+                                Advanced Stats
+                              </span>
+                            </Button>
                           </div>
                         </div>
                       </CardContent>
@@ -842,18 +906,20 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
           </div>
         </div>
       </div>
-      <HowItWorks
-        featuredCasestudy={{
-          tags: "GUIDES",
-          title: "A Guide to Glow Mining",
-          subtitle:
-            "How Glow Miners earn GLW tokens by providing cash incentives to solar farms",
-          image: `https://glow.org/_next/image?url=${encodeURIComponent(
-            "/images/blog/guide-to-glow-mining/header.jpg"
-          )}&w=3840&q=75`,
-          link: "https://glow.org/blog/guide-to-glow-mining",
-        }}
-      />
+      <div className="mt-4">
+        <HowItWorks
+          featuredCasestudy={{
+            tags: "GUIDES",
+            title: "A Guide to Glow Mining",
+            subtitle:
+              "How Glow Miners earn GLW tokens by providing cash incentives to solar farms",
+            image: `https://glow.org/_next/image?url=${encodeURIComponent(
+              "/images/blog/guide-to-glow-mining/header.jpg"
+            )}&w=3840&q=75`,
+            link: "https://glow.org/blog/guide-to-glow-mining",
+          }}
+        />
+      </div>
     </>
   );
 }
