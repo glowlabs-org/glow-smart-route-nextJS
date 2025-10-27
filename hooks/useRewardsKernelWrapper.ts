@@ -36,7 +36,8 @@ export interface UseRewardsKernelWrapperResult {
     week: number,
     rewards: ClaimableReward[],
     nonce: bigint,
-    proof: `0x${string}`[],
+    v1Proof: `0x${string}`[],
+    v2Proof: `0x${string}`[],
     fromAddress: `0x${string}`,
     glwWeight?: string
   ) => Promise<string | null>;
@@ -45,7 +46,8 @@ export interface UseRewardsKernelWrapperResult {
       week: number;
       rewards: ClaimableReward[];
       nonce: bigint;
-      proof: `0x${string}`[];
+      v1Proof: `0x${string}`[];
+      v2Proof: `0x${string}`[];
       fromAddress: `0x${string}`;
       glwWeight?: string;
     }>
@@ -138,7 +140,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
     async (
       week: number,
       glwWeight: string,
-      proof: `0x${string}`[],
+      v1Proof: `0x${string}`[],
       userAddress: `0x${string}`
     ): Promise<string | null> => {
       if (!minerPoolContract) {
@@ -170,12 +172,50 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           return null;
         }
 
+        // Simulate to detect reverts before submitting the transaction
+        try {
+          await minerPoolContract.simulate.claimRewardFromBucket(
+            [
+              bucketId,
+              BigInt(glwWeight),
+              BigInt(0), // usdcWeight is always 0 for v2
+              v1Proof,
+              BigInt(0), // index is always 0 for current reports
+              userAddress,
+              true, // claimFromInflation
+              "0x", // no delegation signature
+            ],
+            { account: userAddress }
+          );
+        } catch (simError: any) {
+          const simMessage =
+            simError?.message ||
+            simError?.shortMessage ||
+            simError?.cause?.shortMessage ||
+            "";
+
+          if (simMessage.includes("UserAlreadyClaimed")) {
+            return null; // Silently skip
+          } else if (simMessage.includes("BucketNotFinalized")) {
+            toast.error("GLW rewards not yet finalized");
+          } else if (simMessage.includes("InvalidProof")) {
+            toast.error("Invalid proof for GLW claim");
+          } else if (simMessage.includes("User rejected")) {
+            toast.info("Transaction cancelled");
+          } else {
+            toast.error("Failed to simulate GLW inflation claim", {
+              description: simMessage || "Unknown error",
+            });
+          }
+          return null;
+        }
+
         // Execute claim (bucketId, glwWeight, usdcWeight, proof, index, user, claimFromInflation, signature)
         const txHash = await minerPoolContract.write.claimRewardFromBucket([
           bucketId,
           BigInt(glwWeight),
           BigInt(0), // usdcWeight is always 0 for v2
-          proof,
+          v1Proof,
           BigInt(0), // index is always 0 for current reports
           userAddress,
           true, // claimFromInflation
@@ -212,7 +252,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       week: number,
       rewards: ClaimableReward[],
       nonce: bigint,
-      proof: `0x${string}`[],
+      v2Proof: `0x${string}`[],
       fromAddress: `0x${string}`,
       toAddress: `0x${string}`
     ): Promise<string | null> => {
@@ -236,7 +276,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         const claimParams = await buildClaimParams(
           rewards,
           nonce,
-          proof,
+          v2Proof,
           fromAddress,
           toAddress
         );
@@ -273,7 +313,8 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       week: number,
       rewards: ClaimableReward[],
       nonce: bigint,
-      proof: `0x${string}`[],
+      v1Proof: `0x${string}`[],
+      v2Proof: `0x${string}`[],
       fromAddress: `0x${string}`,
       glwWeight?: string
     ): Promise<string | null> => {
@@ -301,7 +342,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           const glwTxHash = await claimGlwInflation(
             week,
             glwWeight,
-            proof,
+            v1Proof,
             userAddress
           );
           if (glwTxHash) txHashes.push(glwTxHash);
@@ -313,7 +354,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             week,
             protocolDepositRewards,
             nonce,
-            proof,
+            v2Proof,
             fromAddress,
             userAddress
           );
@@ -349,7 +390,8 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         week: number;
         rewards: ClaimableReward[];
         nonce: bigint;
-        proof: `0x${string}`[];
+        v1Proof: `0x${string}`[];
+        v2Proof: `0x${string}`[];
         fromAddress: `0x${string}`;
         glwWeight?: string;
       }>
@@ -371,7 +413,8 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
               weekData.week,
               weekData.rewards,
               weekData.nonce,
-              weekData.proof,
+              weekData.v1Proof,
+              weekData.v2Proof,
               weekData.fromAddress,
               weekData.glwWeight
             );

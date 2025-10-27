@@ -175,7 +175,10 @@ export function ClaimsPanel() {
             week: weekData.week,
             rewards: weekData.rewards,
             nonce: weekToNonce(weekData.week),
-            proof: userProof.v2MerkleProof.map(
+            v1Proof: userProof.v1MerkleProof.map(
+              (p: string) => p as `0x${string}`
+            ),
+            v2Proof: userProof.v2MerkleProof.map(
               (p: string) => p as `0x${string}`
             ),
             fromAddress: hotWalletAddress,
@@ -264,8 +267,9 @@ export function ClaimsPanel() {
       try {
         const hotWalletAddress = getHotWalletAddress();
 
-        // Convert string proof to proper format
-        const proof = userProof.v2MerkleProof.map((p) => p as `0x${string}`);
+        // Convert string proofs to proper format
+        const v1Proof = userProof.v1MerkleProof.map((p) => p as `0x${string}`);
+        const v2Proof = userProof.v2MerkleProof.map((p) => p as `0x${string}`);
 
         // Get GLW weight for inflation claims
         const glwWeight = userProof.glowInflationEarnedLeafWeight;
@@ -274,7 +278,8 @@ export function ClaimsPanel() {
           weekData.week,
           weekData.rewards,
           nonce,
-          proof,
+          v1Proof,
+          v2Proof,
           hotWalletAddress,
           glwWeight
         );
