@@ -122,7 +122,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         });
 
         // GLW is a guarded token
-        isGuardedToken.push(currency === "GLW");
+        isGuardedToken.push(currency === "GLW" || currency === "USDG");
         // For now, don't use counterfactual addresses
         toCounterfactual.push(false);
       });
