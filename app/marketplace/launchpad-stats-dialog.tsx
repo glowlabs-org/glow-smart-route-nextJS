@@ -224,14 +224,16 @@ export function LaunchpadStatsDialog({
         label: "Estimated APY",
         value: apy > 0 ? `${formatNumber(apy, 1)}%` : "N/A",
         tooltip:
-          "Annual percentage yield based on expected farm performance and current GLW price.",
+          "Annual percentage yield based on expected farm performance, current GLW price, and regional GLW per week.",
+        secondary: "Estimate only, changes weekly",
         highlight: true,
       },
       {
         id: "cc-week",
         label: "CCs Per Week",
-        value: formatNumber(weeklyCCPerFraction, 2),
+        value: formatNumber(weeklyCCPerFraction, 4),
         tooltip: "Expected carbon credits generated weekly per fraction.",
+        secondary: "Per fraction",
       },
       {
         id: "glw-from-ccs",
@@ -239,12 +241,26 @@ export function LaunchpadStatsDialog({
         value: formatNumber(weeklyPdPerFraction, 2),
         tooltip:
           "Weekly GLW rewards from deposit recovery based on carbon credit generation.",
+        secondary:
+          totalWeeklyGlw > 0
+            ? `${formatNumber(
+                (weeklyPdPerFraction / totalWeeklyGlw) * 100,
+                1
+              )}% of total rewards`
+            : undefined,
       },
       {
         id: "glw-from-inflation",
         label: "GLW from Inflation",
         value: formatNumber(weeklyInflationPerFraction, 2),
         tooltip: "Weekly GLW rewards from protocol inflation share.",
+        secondary:
+          totalWeeklyGlw > 0
+            ? `${formatNumber(
+                (weeklyInflationPerFraction / totalWeeklyGlw) * 100,
+                1
+              )}% of total rewards`
+            : undefined,
       },
     ],
     [
@@ -434,7 +450,9 @@ function StatCard({
             >
               <HelpCircle className="h-3.5 w-3.5" />
             </TooltipTrigger>
-            <TooltipContent side="top">{tooltip}</TooltipContent>
+            <TooltipContent className="max-w-xs" side="top">
+              {tooltip}
+            </TooltipContent>
           </Tooltip>
         ) : null}
       </div>

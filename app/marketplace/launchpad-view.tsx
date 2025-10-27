@@ -942,7 +942,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                               maximumFractionDigits: 2,
                                             }
                                           )}{" "}
-                                          GLW from mining share
+                                          GLW from Inflation
                                         </div>
                                       </div>
                                     );
