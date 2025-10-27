@@ -127,5 +127,5 @@ export function useMerkleProofs(
 // Helper to get the hot wallet address (from address) for a week
 // This should ideally come from the backend, but we can extract it from the data
 export function getHotWalletAddress(): `0x${string}` {
-  return SDKAddresses.FOUNDATION_WALLET;
+  return "0x465E5573c648BC50a11911Cd48D0e279F4409Ec8";
 }

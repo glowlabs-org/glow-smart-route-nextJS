@@ -263,6 +263,7 @@ export function ClaimsPanel() {
         // Get GLW weight for inflation claims
         const glwWeight = userProof.glowInflationEarnedLeafWeight;
 
+        console.log("glwWeight", glwWeight);
         let rewardsToClaimTemp = weekData.rewards;
         // If claiming v2 only, filter out GLW inflation rewards
         if (claimType === "v2Only") {
@@ -270,6 +271,7 @@ export function ClaimsPanel() {
             (r: any) => r.type === "protocolDeposit"
           );
         }
+        console.log("rewardsToClaimTemp", rewardsToClaimTemp);
 
         const txHash = await claimWeekRewards(
           weekData.week + 1,

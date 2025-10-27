@@ -14,6 +14,7 @@ import {
 import { MinerPoolAndGCAABI } from "@glowlabs-org/guarded-launch-abis";
 import { addresses } from "@/web3/constants/addresses";
 import type { ClaimableReward } from "./useClaimableRewards";
+import { cp } from "fs";
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
   throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
@@ -264,7 +265,10 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
 
       try {
         // Check if already claimed
+        console.log("toAddress", toAddress);
+        console.log("nonce", nonce);
         const isClaimed = await rewardsKernel.isClaimed(toAddress, nonce);
+        console.log("isClaimed", isClaimed);
         if (isClaimed) {
           return null; // Silently skip already claimed
         }
@@ -322,6 +326,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       fromAddress: `0x${string}`,
       glwWeight?: string
     ): Promise<string | null> => {
+      console.log("week", week);
       if (!walletClient?.account?.address) {
         toast.error("Please connect your wallet");
         return null;
@@ -340,6 +345,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         const protocolDepositRewards = rewards.filter(
           (r) => r.type === "protocolDeposit"
         );
+        console.log("glwInflationRewards", glwInflationRewards);
         // Claim GLW inflation if present
         if (glwInflationRewards.length > 0 && glwWeight) {
           const glwTxHash = await claimGlwInflation(
@@ -350,7 +356,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           );
           if (glwTxHash) txHashes.push(glwTxHash);
         }
-
+        console.log("protocolDepositRewards", protocolDepositRewards);
         // Claim protocol deposits if present
         if (protocolDepositRewards.length > 0) {
           const pdTxHash = await claimProtocolDeposits(
