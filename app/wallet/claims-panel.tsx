@@ -275,7 +275,7 @@ export function ClaimsPanel() {
         const glwWeight = userProof.glowInflationEarnedLeafWeight;
 
         const txHash = await claimWeekRewards(
-          weekData.week,
+          weekData.week + 1,
           weekData.rewards,
           nonce,
           v1Proof,

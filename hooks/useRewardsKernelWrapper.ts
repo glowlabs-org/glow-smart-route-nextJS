@@ -172,6 +172,9 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           return null;
         }
 
+        console.log("v1Proof", v1Proof);
+        console.log("glwWeight", glwWeight);
+        console.log("userAddress", userAddress);
         // Simulate to detect reverts before submitting the transaction
         try {
           await minerPoolContract.simulate.claimRewardFromBucket(
@@ -265,19 +268,27 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           return null; // Silently skip already claimed
         }
 
+        console.log("isClaimed", isClaimed);
+
         // Check if finalized
         const finalized = await rewardsKernel.isFinalized(nonce);
         if (!finalized) {
           toast.error(`Week ${week} protocol deposits not yet finalized`);
           return null;
         }
+        console.log("finalized", finalized);
 
+        console.log("rewards", rewards);
+        console.log("nonce", nonce);
+        console.log("v2Proof", v2Proof);
+        console.log("fromAddress", fromAddress);
+        console.log("toAddress", toAddress);
         // Build claim parameters
         const claimParams = await buildClaimParams(
           rewards,
           nonce,
           v2Proof,
-          fromAddress,
+          "0x465E5573c648BC50a11911Cd48D0e279F4409Ec8", //TODO: //clean that up
           toAddress
         );
 
@@ -336,7 +347,10 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         const protocolDepositRewards = rewards.filter(
           (r) => r.type === "protocolDeposit"
         );
-
+        console.log("glwInflationRewards", glwInflationRewards);
+        console.log("glwWeight", glwWeight);
+        console.log("v1Proof", v1Proof);
+        console.log("userAddress", userAddress);
         // Claim GLW inflation if present
         if (glwInflationRewards.length > 0 && glwWeight) {
           const glwTxHash = await claimGlwInflation(
@@ -347,6 +361,10 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           );
           if (glwTxHash) txHashes.push(glwTxHash);
         }
+
+        console.log("protocolDepositRewards", protocolDepositRewards);
+        console.log("week", week);
+        console.log("nonce", nonce);
 
         // Claim protocol deposits if present
         if (protocolDepositRewards.length > 0) {
