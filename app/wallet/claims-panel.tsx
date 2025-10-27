@@ -79,6 +79,12 @@ export function ClaimsPanel() {
   const [claimedWeeks, setClaimedWeeks] = React.useState<Set<number>>(
     new Set()
   );
+  const [v1ClaimedWeeks, setV1ClaimedWeeks] = React.useState<Set<number>>(
+    new Set()
+  );
+  const [v2ClaimedWeeks, setV2ClaimedWeeks] = React.useState<Set<number>>(
+    new Set()
+  );
 
   // Fetch claimable rewards
   const { aggregatedTotals, weeklyBreakdown, isLoading, isError, refetch } =
@@ -91,6 +97,7 @@ export function ClaimsPanel() {
     isClaimingWeek,
     isClaimingAll,
     checkIfClaimed,
+    checkIfGlwClaimed,
   } = useRewardsKernelWrapper();
 
   // Don't show panel if not connected
@@ -202,36 +209,19 @@ export function ClaimsPanel() {
       return;
     }
 
-    // Mark all weeks as claimed optimistically
-    const weeksToClaimSet = new Set(weeklyClaimData.map((d) => d.week));
-    setClaimedWeeks((prev) => new Set([...prev, ...weeksToClaimSet]));
-
     try {
       const successfulTxHashes = await claimAllRewards(weeklyClaimData);
 
-      // If some claims failed, remove them from claimed set
-      if (successfulTxHashes.length < weeklyClaimData.length) {
-        const successfulWeeks = new Set(
-          weeklyClaimData.slice(0, successfulTxHashes.length).map((d) => d.week)
+      if (successfulTxHashes.length > 0) {
+        toast.success(
+          `Successfully claimed rewards from ${successfulTxHashes.length} weeks`
         );
-        setClaimedWeeks((prev) => {
-          const next = new Set(prev);
-          weeksToClaimSet.forEach((week) => {
-            if (!successfulWeeks.has(week)) {
-              next.delete(week);
-            }
-          });
-          return next;
-        });
+        // Trigger refetch to update UI
+        refetch();
       }
     } catch (error) {
       console.error("Claim all error:", error);
-      // Remove all weeks from claimed on error
-      setClaimedWeeks((prev) => {
-        const next = new Set(prev);
-        weeksToClaimSet.forEach((week) => next.delete(week));
-        return next;
-      });
+      toast.error("Failed to claim rewards");
     }
   };
 
@@ -242,12 +232,14 @@ export function ClaimsPanel() {
     isClaimed,
     size = "sm",
     className,
+    claimType = "both",
   }: {
     weekData: any;
     isClaimingThisWeek: boolean;
     isClaimed: boolean;
     size?: "sm" | "default";
     className?: string;
+    claimType?: "both" | "v2Only";
   }) => {
     const {
       userProof,
@@ -261,9 +253,6 @@ export function ClaimsPanel() {
         return;
       }
 
-      // Mark as claimed optimistically
-      setClaimedWeeks((prev) => new Set([...prev, weekData.week]));
-
       try {
         const hotWalletAddress = getHotWalletAddress();
 
@@ -274,32 +263,32 @@ export function ClaimsPanel() {
         // Get GLW weight for inflation claims
         const glwWeight = userProof.glowInflationEarnedLeafWeight;
 
+        let rewardsToClaimTemp = weekData.rewards;
+        // If claiming v2 only, filter out GLW inflation rewards
+        if (claimType === "v2Only") {
+          rewardsToClaimTemp = weekData.rewards.filter(
+            (r: any) => r.type === "protocolDeposit"
+          );
+        }
+
         const txHash = await claimWeekRewards(
           weekData.week + 1,
-          weekData.rewards,
+          rewardsToClaimTemp,
           nonce,
           v1Proof,
           v2Proof,
           hotWalletAddress,
-          glwWeight
+          claimType === "v2Only" ? undefined : glwWeight
         );
 
-        if (!txHash) {
-          // If claim failed, remove from claimed set
-          setClaimedWeeks((prev) => {
-            const next = new Set(prev);
-            next.delete(weekData.week);
-            return next;
-          });
+        if (txHash) {
+          toast.success(`Successfully claimed week ${weekData.week} rewards`);
+          // Trigger refetch to update UI
+          refetch();
         }
       } catch (error) {
         console.error("Claim error:", error);
         toast.error("Failed to claim rewards");
-        setClaimedWeeks((prev) => {
-          const next = new Set(prev);
-          next.delete(weekData.week);
-          return next;
-        });
       }
     };
 
@@ -373,13 +362,119 @@ export function ClaimsPanel() {
             <Clock className="w-4 h-4 mr-2" />
             Claim in {countdownLabel}
           </>
+        ) : claimType === "v2Only" ? (
+          <>
+            Claim PD
+            <ChevronRight className="w-4 h-4 ml-2" />
+          </>
         ) : (
           <>
-            Claim Week {weekData.week}
+            Claim Inflation
             <ChevronRight className="w-4 h-4 ml-2" />
           </>
         )}
       </Button>
+    );
+  };
+
+  // Component to show appropriate claim buttons based on status
+  const ClaimButtonsWrapper = ({ weekData }: { weekData: any }) => {
+    const [glwClaimed, setGlwClaimed] = React.useState(false);
+    const [v2Claimed, setV2Claimed] = React.useState(false);
+    const [isChecking, setIsChecking] = React.useState(true);
+    const isClaimingThisWeek = isClaimingWeek === weekData.week;
+    const isClaimed = claimedWeeks.has(weekData.week);
+
+    React.useEffect(() => {
+      if (!address || !weekData.isFinalized) {
+        setIsChecking(false);
+        return;
+      }
+
+      const checkClaimStatus = async () => {
+        try {
+          // Check if GLW is claimed
+          const glwStatus = await checkIfGlwClaimed(weekData.week + 1, address);
+          setGlwClaimed(glwStatus);
+
+          // Check if v2 (protocol deposits) is claimed
+          const nonce = weekToNonce(weekData.week);
+          const v2Status = await checkIfClaimed(address, nonce);
+          setV2Claimed(v2Status);
+        } catch (error) {
+          console.error("Error checking claim status:", error);
+        } finally {
+          setIsChecking(false);
+        }
+      };
+
+      checkClaimStatus();
+    }, [weekData.week, weekData.isFinalized, address]);
+
+    // Don't show buttons if checking status
+    if (isChecking && weekData.isFinalized) {
+      return (
+        <div className="ml-3 w-40">
+          <Button size="default" className="w-full mt-0" disabled>
+            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+            Checking...
+          </Button>
+        </div>
+      );
+    }
+
+    const hasGlwRewards = weekData.rewards.some(
+      (r: any) => r.type === "glowInflation"
+    );
+    const hasProtocolDeposits = weekData.rewards.some(
+      (r: any) => r.type === "protocolDeposit"
+    );
+
+    // If both are claimed, show claimed status
+    if (glwClaimed && v2Claimed) {
+      return (
+        <div className="ml-3 w-40">
+          <Button
+            size="default"
+            className="w-full mt-0"
+            variant="secondary"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Claimed
+          </Button>
+        </div>
+      );
+    }
+
+    // If only GLW is claimed but v2 is available, show v2 claim button
+    if (glwClaimed && !v2Claimed && hasProtocolDeposits) {
+      return (
+        <div className="ml-3 w-40">
+          <WeekClaimButton
+            weekData={weekData}
+            isClaimingThisWeek={isClaimingThisWeek}
+            isClaimed={false}
+            size="default"
+            className="mt-0"
+            claimType="v2Only"
+          />
+        </div>
+      );
+    }
+
+    // Otherwise show normal claim button
+    return (
+      <div className="ml-3 w-40">
+        <WeekClaimButton
+          weekData={weekData}
+          isClaimingThisWeek={isClaimingThisWeek}
+          isClaimed={isClaimed}
+          size="default"
+          className="mt-0"
+          claimType="both"
+        />
+      </div>
     );
   };
 
@@ -549,15 +644,7 @@ export function ClaimsPanel() {
                           <ChevronRight className="w-4 h-4 text-muted-foreground ml-2" />
                         </div>
                       </CollapsibleTrigger>
-                      <div className="ml-3 w-40">
-                        <WeekClaimButton
-                          weekData={weekData}
-                          isClaimingThisWeek={isClaimingThisWeek}
-                          isClaimed={isClaimed}
-                          size="default"
-                          className="mt-0"
-                        />
-                      </div>
+                      <ClaimButtonsWrapper weekData={weekData} />
                     </div>
                     <CollapsibleContent className="px-4 pb-4">
                       <div className="space-y-3 mt-3">
