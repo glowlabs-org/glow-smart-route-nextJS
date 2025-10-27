@@ -864,6 +864,50 @@ export default function View() {
               <CardDescription className="text-base mt-2">
                 Solar farms where you're earning weekly rewards
               </CardDescription>
+              {!isPurchasedFarmsLoading && purchasedFarms.length > 0 && (
+                <div className="mt-4 bg-muted/50 rounded-xl p-4">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm text-muted-foreground font-medium">
+                      Total Est. Weekly Earnings:
+                    </span>
+                    <span className="text-xl font-bold text-foreground">
+                      {(() => {
+                        const totals = purchasedFarms.reduce(
+                          (acc, farm) => {
+                            const formatted = formatFarmData(farm);
+                            const glwRewards = parseFloat(formatted.weeklyGlow);
+                            const otherRewards = parseFloat(
+                              formatted.otherRewards
+                            );
+
+                            acc.glw += glwRewards;
+
+                            if (otherRewards > 0) {
+                              const asset = formatted.otherRewardsAmount;
+                              if (!acc.other[asset]) {
+                                acc.other[asset] = 0;
+                              }
+                              acc.other[asset] += otherRewards;
+                            }
+
+                            return acc;
+                          },
+                          { glw: 0, other: {} as Record<string, number> }
+                        );
+
+                        const parts = [`${totals.glw.toFixed(2)} GLW`];
+                        Object.entries(totals.other).forEach(
+                          ([asset, amount]) => {
+                            parts.push(`${amount.toFixed(2)} ${asset}`);
+                          }
+                        );
+
+                        return parts.join(" + ");
+                      })()}
+                    </span>
+                  </div>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               {isPurchasedFarmsLoading ? (
