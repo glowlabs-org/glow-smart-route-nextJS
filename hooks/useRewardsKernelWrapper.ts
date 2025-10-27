@@ -14,7 +14,6 @@ import {
 import { MinerPoolAndGCAABI } from "@glowlabs-org/guarded-launch-abis";
 import { addresses } from "@/web3/constants/addresses";
 import type { ClaimableReward } from "./useClaimableRewards";
-import { cp } from "fs";
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
   throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
@@ -32,6 +31,43 @@ const TOKEN_ADDRESSES: Record<string, `0x${string}`> = {
   USDG: SDKAddresses.USDG_UNISWAP as `0x${string}`,
 };
 
+export type ClaimStage = "inflation" | "protocolDeposits";
+
+export type ClaimStageStatus =
+  | "pending"
+  | "inProgress"
+  | "success"
+  | "skipped"
+  | "error";
+
+export interface ClaimProgressUpdate {
+  stage: ClaimStage;
+  status: ClaimStageStatus;
+  txHash?: string | null;
+  message?: string;
+}
+
+export interface ClaimWeekRewardsOptions {
+  onProgress?: (update: ClaimProgressUpdate) => void;
+}
+
+type ClaimAttemptResult =
+  | {
+      status: "success";
+      txHash: string;
+      message?: string;
+    }
+  | {
+      status: "skipped";
+      txHash?: string;
+      message?: string;
+    }
+  | {
+      status: "error";
+      txHash?: string;
+      message?: string;
+    };
+
 export interface UseRewardsKernelWrapperResult {
   claimWeekRewards: (
     week: number,
@@ -40,7 +76,8 @@ export interface UseRewardsKernelWrapperResult {
     v1Proof: `0x${string}`[],
     v2Proof: `0x${string}`[],
     fromAddress: `0x${string}`,
-    glwWeight?: string
+    glwWeight?: string,
+    options?: ClaimWeekRewardsOptions
   ) => Promise<string | null>;
   claimAllRewards: (
     weeklyData: Array<{
@@ -121,8 +158,8 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           amount,
         });
 
-        // GLW is a guarded token
-        isGuardedToken.push(currency === "GLW" || currency === "USDG");
+        // GLW is a guarded token, USDG is not
+        isGuardedToken.push(currency === "GLW");
         // For now, don't use counterfactual addresses
         toCounterfactual.push(false);
       });
@@ -147,10 +184,10 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       glwWeight: string,
       v1Proof: `0x${string}`[],
       userAddress: `0x${string}`
-    ): Promise<string | null> => {
+    ): Promise<ClaimAttemptResult> => {
       if (!minerPoolContract) {
         toast.error("Contract not available");
-        return null;
+        return { status: "error", message: "Contract not available" };
       }
 
       try {
@@ -165,7 +202,10 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           (bitmap & (BigInt(1) << BigInt(week % 256))) > BigInt(0);
 
         if (alreadyClaimed) {
-          return null; // Silently skip already claimed
+          return {
+            status: "skipped",
+            message: "Inflation rewards already claimed",
+          };
         }
 
         // Check if bucket is finalized
@@ -174,7 +214,10 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         ]);
         if (!isFinalized) {
           toast.error(`Week ${week} not yet finalized for GLW claims`);
-          return null;
+          return {
+            status: "error",
+            message: "GLW rewards not yet finalized",
+          };
         }
 
         // Simulate to detect reverts before submitting the transaction
@@ -200,19 +243,34 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             "";
 
           if (simMessage.includes("UserAlreadyClaimed")) {
-            return null; // Silently skip
+            return {
+              status: "skipped",
+              message: "Inflation rewards already claimed",
+            };
           } else if (simMessage.includes("BucketNotFinalized")) {
             toast.error("GLW rewards not yet finalized");
+            return {
+              status: "error",
+              message: "GLW rewards not yet finalized",
+            };
           } else if (simMessage.includes("InvalidProof")) {
             toast.error("Invalid proof for GLW claim");
+            return {
+              status: "error",
+              message: "Invalid proof for GLW claim",
+            };
           } else if (simMessage.includes("User rejected")) {
             toast.info("Transaction cancelled");
+            return { status: "error", message: "Transaction cancelled" };
           } else {
             toast.error("Failed to simulate GLW inflation claim", {
               description: simMessage || "Unknown error",
             });
+            return {
+              status: "error",
+              message: simMessage || "Failed to simulate GLW claim",
+            };
           }
-          return null;
         }
 
         // Execute claim (bucketId, glwWeight, usdcWeight, proof, index, user, claimFromInflation, signature)
@@ -227,25 +285,49 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           "0x", // no delegation signature
         ]);
 
-        return txHash;
+        return {
+          status: "success",
+          txHash,
+          message: "Inflation rewards claimed",
+        };
       } catch (error: any) {
         console.error("GLW inflation claim error:", error);
+        const errorMessage =
+          error?.message ||
+          error?.shortMessage ||
+          error?.cause?.shortMessage ||
+          "Unknown error";
 
-        if (error.message?.includes("UserAlreadyClaimed")) {
-          return null; // Silently skip
-        } else if (error.message?.includes("BucketNotFinalized")) {
+        if (errorMessage.includes("UserAlreadyClaimed")) {
+          return {
+            status: "skipped",
+            message: "Inflation rewards already claimed",
+          };
+        } else if (errorMessage.includes("BucketNotFinalized")) {
           toast.error("GLW rewards not yet finalized");
-        } else if (error.message?.includes("InvalidProof")) {
+          return {
+            status: "error",
+            message: "GLW rewards not yet finalized",
+          };
+        } else if (errorMessage.includes("InvalidProof")) {
           toast.error("Invalid proof for GLW claim");
-        } else if (error.message?.includes("User rejected")) {
+          return {
+            status: "error",
+            message: "Invalid proof for GLW claim",
+          };
+        } else if (errorMessage.includes("User rejected")) {
           toast.info("Transaction cancelled");
-        } else {
-          toast.error("Failed to claim GLW inflation", {
-            description: error.message || "Unknown error",
-          });
+          return { status: "error", message: "Transaction cancelled" };
         }
 
-        return null;
+        toast.error("Failed to claim GLW inflation", {
+          description: errorMessage,
+        });
+
+        return {
+          status: "error",
+          message: errorMessage,
+        };
       }
     },
     [minerPoolContract]
@@ -260,24 +342,32 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       v2Proof: `0x${string}`[],
       fromAddress: `0x${string}`,
       toAddress: `0x${string}`
-    ): Promise<string | null> => {
-      if (rewards.length === 0) return null;
+    ): Promise<ClaimAttemptResult> => {
+      if (rewards.length === 0) {
+        return {
+          status: "skipped",
+          message: "No protocol deposit rewards available",
+        };
+      }
 
       try {
         // Check if already claimed
-        console.log("toAddress", toAddress);
-        console.log("nonce", nonce);
         const isClaimed = await rewardsKernel.isClaimed(toAddress, nonce);
-        console.log("isClaimed", isClaimed);
         if (isClaimed) {
-          return null; // Silently skip already claimed
+          return {
+            status: "skipped",
+            message: "Protocol deposit rewards already claimed",
+          };
         }
 
         // Check if finalized
         const finalized = await rewardsKernel.isFinalized(nonce);
         if (!finalized) {
           toast.error(`Week ${week} protocol deposits not yet finalized`);
-          return null;
+          return {
+            status: "error",
+            message: "Protocol deposits not yet finalized",
+          };
         }
 
         // Build claim parameters
@@ -291,25 +381,49 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
 
         // Execute claim
         const txHash = await rewardsKernel.claimPayout(claimParams);
-        return txHash;
+        return {
+          status: "success",
+          txHash,
+          message: "Protocol deposit rewards claimed",
+        };
       } catch (error: any) {
         console.error("Protocol deposit claim error:", error);
+        const errorMessage =
+          error?.message ||
+          error?.shortMessage ||
+          error?.cause?.shortMessage ||
+          "Unknown error";
 
-        if (error.message?.includes(RewardsKernelError.ALREADY_CLAIMED)) {
-          return null; // Silently skip
-        } else if (error.message?.includes(RewardsKernelError.NOT_FINALIZED)) {
+        if (errorMessage.includes(RewardsKernelError.ALREADY_CLAIMED)) {
+          return {
+            status: "skipped",
+            message: "Protocol deposit rewards already claimed",
+          };
+        } else if (errorMessage.includes(RewardsKernelError.NOT_FINALIZED)) {
           toast.error("Protocol deposits not yet finalized");
-        } else if (error.message?.includes(RewardsKernelError.NONCE_REJECTED)) {
+          return {
+            status: "error",
+            message: "Protocol deposits not yet finalized",
+          };
+        } else if (errorMessage.includes(RewardsKernelError.NONCE_REJECTED)) {
           toast.error("This reward distribution was rejected");
-        } else if (error.message?.includes("User rejected")) {
+          return {
+            status: "error",
+            message: "This reward distribution was rejected",
+          };
+        } else if (errorMessage.includes("User rejected")) {
           toast.info("Transaction cancelled");
-        } else {
-          toast.error("Failed to claim protocol deposits", {
-            description: error.message || "Unknown error",
-          });
+          return { status: "error", message: "Transaction cancelled" };
         }
 
-        return null;
+        toast.error("Failed to claim protocol deposits", {
+          description: errorMessage,
+        });
+
+        return {
+          status: "error",
+          message: errorMessage,
+        };
       }
     },
     [rewardsKernel, buildClaimParams]
@@ -324,9 +438,9 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       v1Proof: `0x${string}`[],
       v2Proof: `0x${string}`[],
       fromAddress: `0x${string}`,
-      glwWeight?: string
+      glwWeight?: string,
+      options?: ClaimWeekRewardsOptions
     ): Promise<string | null> => {
-      console.log("week", week);
       if (!walletClient?.account?.address) {
         toast.error("Please connect your wallet");
         return null;
@@ -334,9 +448,13 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
 
       setIsClaimingWeek(week);
 
+      const notifyProgress = (update: ClaimProgressUpdate) =>
+        options?.onProgress?.(update);
+
       try {
         const userAddress = walletClient.account.address as `0x${string}`;
         const txHashes: string[] = [];
+        let encounteredError = false;
 
         // Separate GLW inflation from protocol deposits
         const glwInflationRewards = rewards.filter(
@@ -345,21 +463,63 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         const protocolDepositRewards = rewards.filter(
           (r) => r.type === "protocolDeposit"
         );
-        console.log("glwInflationRewards", glwInflationRewards);
+
         // Claim GLW inflation if present
-        if (glwInflationRewards.length > 0 && glwWeight) {
-          const glwTxHash = await claimGlwInflation(
-            week,
-            glwWeight,
-            v1Proof,
-            userAddress
-          );
-          if (glwTxHash) txHashes.push(glwTxHash);
+        if (glwInflationRewards.length > 0) {
+          if (!glwWeight) {
+            encounteredError = true;
+            notifyProgress({
+              stage: "inflation",
+              status: "error",
+              message: "Missing GLW weight for inflation claim",
+            });
+          } else {
+            notifyProgress({
+              stage: "inflation",
+              status: "inProgress",
+            });
+
+            const glwResult = await claimGlwInflation(
+              week,
+              glwWeight,
+              v1Proof,
+              userAddress
+            );
+
+            if (glwResult.status === "success" && glwResult.txHash) {
+              txHashes.push(glwResult.txHash);
+            } else if (glwResult.status === "error") {
+              encounteredError = true;
+            }
+
+            notifyProgress({
+              stage: "inflation",
+              status:
+                glwResult.status === "success"
+                  ? "success"
+                  : glwResult.status === "error"
+                  ? "error"
+                  : "skipped",
+              txHash: glwResult.txHash,
+              message: glwResult.message,
+            });
+          }
+        } else {
+          notifyProgress({
+            stage: "inflation",
+            status: "skipped",
+            message: "No inflation rewards this week",
+          });
         }
-        console.log("protocolDepositRewards", protocolDepositRewards);
+
         // Claim protocol deposits if present
         if (protocolDepositRewards.length > 0) {
-          const pdTxHash = await claimProtocolDeposits(
+          notifyProgress({
+            stage: "protocolDeposits",
+            status: "inProgress",
+          });
+
+          const pdResult = await claimProtocolDeposits(
             week,
             protocolDepositRewards,
             nonce,
@@ -367,7 +527,30 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             fromAddress,
             userAddress
           );
-          if (pdTxHash) txHashes.push(pdTxHash);
+
+          if (pdResult.status === "success" && pdResult.txHash) {
+            txHashes.push(pdResult.txHash);
+          } else if (pdResult.status === "error") {
+            encounteredError = true;
+          }
+
+          notifyProgress({
+            stage: "protocolDeposits",
+            status:
+              pdResult.status === "success"
+                ? "success"
+                : pdResult.status === "error"
+                ? "error"
+                : "skipped",
+            txHash: pdResult.txHash,
+            message: pdResult.message,
+          });
+        } else {
+          notifyProgress({
+            stage: "protocolDeposits",
+            status: "skipped",
+            message: "No protocol deposit rewards this week",
+          });
         }
 
         if (txHashes.length > 0) {
@@ -375,10 +558,13 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             description: `${txHashes.length} transaction(s) completed`,
           });
           return txHashes[0]; // Return first tx hash for compatibility
-        } else {
-          toast.info(`Week ${week} rewards already claimed or unavailable`);
-          return null;
         }
+
+        if (!encounteredError) {
+          toast.info(`Week ${week} rewards already claimed or unavailable`);
+        }
+
+        return null;
       } catch (error: any) {
         console.error("Claim error:", error);
         toast.error("Failed to claim rewards", {

@@ -29,13 +29,27 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useClaimableRewards } from "@/hooks/useClaimableRewards";
-import { useRewardsKernelWrapper } from "@/hooks/useRewardsKernelWrapper";
+import {
+  useClaimableRewards,
+  type ClaimableReward,
+  type WeeklyClaimableRewards,
+} from "@/hooks/useClaimableRewards";
+import {
+  useRewardsKernelWrapper,
+  type ClaimProgressUpdate,
+  type ClaimStage,
+  type ClaimStageStatus,
+} from "@/hooks/useRewardsKernelWrapper";
 import {
   getHotWalletAddress,
   useMerkleProofs,
   weekToNonce,
+  type ReadableLeafReward,
 } from "@/hooks/useMerkleProofs";
+import {
+  TransactionDialog,
+  type TransactionDetail,
+} from "@/components/dialogs/transaction-dialog";
 import { getCurrentEpoch, GENESIS_TIMESTAMP } from "@/utils/getCurrentEpoch";
 
 // Currency configurations
@@ -61,6 +75,54 @@ const CURRENCY_CONFIG = {
 } as const;
 
 type CurrencyKey = keyof typeof CURRENCY_CONFIG;
+
+type ClaimStageState = {
+  status: ClaimStageStatus;
+  txHash?: string | null;
+  message?: string;
+};
+
+type ClaimStageMap = Record<ClaimStage, ClaimStageState>;
+
+interface ClaimInitiationPayload {
+  weekData: WeeklyClaimableRewards;
+  claimType: "both" | "v2Only";
+  rewardsToClaim: ClaimableReward[];
+  userProof: ReadableLeafReward;
+  nonce: bigint;
+}
+
+const CLAIM_STAGE_ORDER: ClaimStage[] = ["inflation", "protocolDeposits"];
+
+const CLAIM_STAGE_META: Record<
+  ClaimStage,
+  { label: string; icon: React.ReactNode }
+> = {
+  inflation: {
+    label: "Inflation Rewards",
+    icon: <Sparkles className="w-4 h-4" />,
+  },
+  protocolDeposits: {
+    label: "Protocol Deposit Rewards",
+    icon: <Coins className="w-4 h-4" />,
+  },
+};
+
+const CLAIM_STATUS_LABELS: Record<ClaimStageStatus, string> = {
+  pending: "Pending",
+  inProgress: "In progress",
+  success: "Completed",
+  skipped: "Skipped",
+  error: "Failed",
+};
+
+const CLAIM_STATUS_STYLES: Record<ClaimStageStatus, string> = {
+  pending: "bg-muted text-muted-foreground",
+  inProgress: "bg-primary/10 text-primary",
+  success: "bg-emerald-500/10 text-emerald-600",
+  skipped: "bg-muted text-muted-foreground",
+  error: "bg-destructive/10 text-destructive",
+};
 
 // Helper to format week number to date
 function formatWeekDate(week: number): string {
@@ -99,6 +161,423 @@ export function ClaimsPanel() {
     checkIfClaimed,
     checkIfGlwClaimed,
   } = useRewardsKernelWrapper();
+
+  const [activeClaim, setActiveClaim] =
+    React.useState<ClaimInitiationPayload | null>(null);
+  const [isClaimDialogOpen, setIsClaimDialogOpen] = React.useState(false);
+  const [claimDialogStatus, setClaimDialogStatus] = React.useState<
+    "review" | "processing" | "success" | "error"
+  >("review");
+  const [claimDialogError, setClaimDialogError] = React.useState<string | null>(
+    null
+  );
+  const [claimDialogInfo, setClaimDialogInfo] = React.useState<string | null>(
+    null
+  );
+  const [claimStageStatuses, setClaimStageStatuses] =
+    React.useState<ClaimStageMap>({
+      inflation: { status: "pending" },
+      protocolDeposits: { status: "pending" },
+    });
+  const claimStageStatusesRef = React.useRef<ClaimStageMap>(
+    claimStageStatuses
+  );
+
+  React.useEffect(() => {
+    claimStageStatusesRef.current = claimStageStatuses;
+  }, [claimStageStatuses]);
+
+  const createInitialStageState = React.useCallback(
+    (payload: ClaimInitiationPayload): ClaimStageMap => {
+      const hasInflationRewards = payload.weekData.rewards.some(
+        (reward) => reward.type === "glowInflation"
+      );
+      const hasProtocolDepositRewards = payload.weekData.rewards.some(
+        (reward) => reward.type === "protocolDeposit"
+      );
+
+      const inflationStage: ClaimStageState = hasInflationRewards
+        ? payload.claimType === "v2Only"
+          ? {
+              status: "skipped",
+              message: "Inflation rewards already claimed.",
+            }
+          : { status: "pending" }
+        : { status: "skipped", message: "No inflation rewards this week." };
+
+      const protocolStage: ClaimStageState = hasProtocolDepositRewards
+        ? { status: "pending" }
+        : {
+            status: "skipped",
+            message: "No protocol deposit rewards this week.",
+          };
+
+      return {
+        inflation: inflationStage,
+        protocolDeposits: protocolStage,
+      };
+    },
+    []
+  );
+
+  const resetClaimDialog = React.useCallback(() => {
+    setActiveClaim(null);
+    setIsClaimDialogOpen(false);
+    setClaimDialogStatus("review");
+    setClaimDialogError(null);
+    setClaimDialogInfo(null);
+    const initial: ClaimStageMap = {
+      inflation: { status: "pending" },
+      protocolDeposits: { status: "pending" },
+    };
+    claimStageStatusesRef.current = initial;
+    setClaimStageStatuses(initial);
+  }, []);
+
+  const updateStageStatus = React.useCallback(
+    (update: ClaimProgressUpdate) => {
+      setClaimStageStatuses((prev) => {
+        const previousStage = prev[update.stage];
+        const fallbackMessage: Partial<Record<ClaimStageStatus, string>> = {
+          inProgress: "Submitting transaction...",
+          success: "Transaction submitted",
+          error: "Unable to complete",
+        };
+
+        const nextStage: ClaimStageState = {
+          status: update.status,
+          txHash:
+            update.txHash !== undefined
+              ? update.txHash
+              : previousStage.txHash,
+          message:
+            update.message ??
+            (update.status === "skipped"
+              ? previousStage.message
+              : fallbackMessage[update.status] ?? previousStage.message),
+        };
+
+        const next = {
+          ...prev,
+          [update.stage]: nextStage,
+        } as ClaimStageMap;
+
+        claimStageStatusesRef.current = next;
+        return next;
+      });
+    },
+    []
+  );
+
+  const handleInitiateClaim = React.useCallback(
+    (payload: ClaimInitiationPayload) => {
+      const initialStatuses = createInitialStageState(payload);
+      claimStageStatusesRef.current = initialStatuses;
+      setClaimStageStatuses(initialStatuses);
+      setActiveClaim(payload);
+      setClaimDialogStatus("review");
+      setClaimDialogError(null);
+      setClaimDialogInfo(null);
+      setIsClaimDialogOpen(true);
+    },
+    [createInitialStageState]
+  );
+
+  const handleDialogOpenChange = React.useCallback(
+    (open: boolean) => {
+      if (!open) {
+        if (claimDialogStatus === "processing") {
+          return;
+        }
+        resetClaimDialog();
+      } else {
+        setIsClaimDialogOpen(true);
+      }
+    },
+    [claimDialogStatus, resetClaimDialog]
+  );
+
+  const handleConfirmClaim = React.useCallback(async () => {
+    if (!activeClaim) return;
+
+    setClaimDialogStatus("processing");
+    setClaimDialogError(null);
+    setClaimDialogInfo(null);
+
+    const hotWalletAddress = getHotWalletAddress();
+    const v1Proof = activeClaim.userProof.v1MerkleProof.map(
+      (p) => p as `0x${string}`
+    );
+    const v2Proof = activeClaim.userProof.v2MerkleProof.map(
+      (p) => p as `0x${string}`
+    );
+    const glwWeight =
+      activeClaim.claimType === "v2Only"
+        ? undefined
+        : activeClaim.userProof.glowInflationEarnedLeafWeight;
+
+    try {
+      await claimWeekRewards(
+        activeClaim.weekData.week,
+        activeClaim.rewardsToClaim,
+        activeClaim.nonce,
+        v1Proof,
+        v2Proof,
+        hotWalletAddress,
+        glwWeight,
+        {
+          onProgress: updateStageStatus,
+        }
+      );
+
+      const latestStatuses = claimStageStatusesRef.current;
+      const inflationStatus = latestStatuses.inflation.status;
+      const protocolStatus = latestStatuses.protocolDeposits.status;
+      const hasError =
+        inflationStatus === "error" || protocolStatus === "error";
+      const hasSuccess =
+        inflationStatus === "success" || protocolStatus === "success";
+      const allSkipped =
+        inflationStatus === "skipped" && protocolStatus === "skipped";
+      const weekNumber = activeClaim.weekData.week;
+
+      if (!hasError) {
+        setClaimDialogStatus("success");
+        if (allSkipped) {
+          setClaimDialogInfo("Rewards already claimed or unavailable.");
+        }
+
+        if (inflationStatus === "success" || inflationStatus === "skipped") {
+          setV1ClaimedWeeks((prev) => {
+            const next = new Set(prev);
+            next.add(weekNumber);
+            return next;
+          });
+        }
+
+        if (protocolStatus === "success" || protocolStatus === "skipped") {
+          setV2ClaimedWeeks((prev) => {
+            const next = new Set(prev);
+            next.add(weekNumber);
+            return next;
+          });
+        }
+
+        if (
+          (inflationStatus === "success" || inflationStatus === "skipped") &&
+          (protocolStatus === "success" || protocolStatus === "skipped")
+        ) {
+          setClaimedWeeks((prev) => {
+            const next = new Set(prev);
+            next.add(weekNumber);
+            return next;
+          });
+        }
+      } else {
+        setClaimDialogStatus("error");
+        setClaimDialogError(
+          hasSuccess
+            ? "Some rewards failed to claim. You can retry the remaining items."
+            : "We were unable to complete your claim. Please try again."
+        );
+      }
+    } catch (error: any) {
+      console.error("Claim confirmation error:", error);
+      setClaimDialogStatus("error");
+      setClaimDialogError(
+        error?.message || "We were unable to complete your claim. Please try again."
+      );
+    } finally {
+      refetch();
+    }
+  }, [activeClaim, claimWeekRewards, updateStageStatus, refetch]);
+
+  const transactionDetails = React.useMemo<TransactionDetail[]>(() => {
+    if (!activeClaim) return [];
+
+    const details: TransactionDetail[] = [
+      {
+        label: "Week",
+        value: `#${activeClaim.weekData.week}`,
+      },
+    ];
+
+    const inflationRewards = activeClaim.weekData.rewards.filter(
+      (reward) => reward.type === "glowInflation"
+    );
+    if (inflationRewards.length > 0) {
+      const total = inflationRewards.reduce(
+        (sum, reward) => sum + Number.parseFloat(reward.amount),
+        0
+      );
+      details.push({
+        label: "Inflation Rewards",
+        value: `${total.toFixed(4)} GLW`,
+      });
+    }
+
+    const protocolRewards = activeClaim.weekData.rewards.filter(
+      (reward) => reward.type === "protocolDeposit"
+    );
+    if (protocolRewards.length > 0) {
+      const totals = new Map<string, number>();
+      protocolRewards.forEach((reward) => {
+        const existing = totals.get(reward.currency) ?? 0;
+        totals.set(
+          reward.currency,
+          existing + Number.parseFloat(reward.amount)
+        );
+      });
+
+      details.push({
+        label: "Protocol Deposits",
+        value: Array.from(totals.entries())
+          .map(([currency, amount]) => `${amount.toFixed(4)} ${currency}`)
+          .join(", "),
+      });
+    }
+
+    return details;
+  }, [activeClaim]);
+
+  const stageList = React.useMemo(() => {
+    if (!activeClaim) return null;
+
+    const inflationRewards = activeClaim.weekData.rewards.filter(
+      (reward) => reward.type === "glowInflation"
+    );
+    const inflationAmount =
+      inflationRewards.length > 0
+        ? `${inflationRewards
+            .reduce(
+              (sum, reward) => sum + Number.parseFloat(reward.amount),
+              0
+            )
+            .toFixed(4)} GLW`
+        : null;
+
+    const protocolRewards = activeClaim.weekData.rewards.filter(
+      (reward) => reward.type === "protocolDeposit"
+    );
+    const protocolTotals = new Map<string, number>();
+    protocolRewards.forEach((reward) => {
+      const current = protocolTotals.get(reward.currency) ?? 0;
+      protocolTotals.set(
+        reward.currency,
+        current + Number.parseFloat(reward.amount)
+      );
+    });
+    const protocolAmount =
+      protocolTotals.size > 0
+        ? Array.from(protocolTotals.entries())
+            .map(([currency, amount]) => `${amount.toFixed(4)} ${currency}`)
+            .join(", ")
+        : null;
+
+    return (
+      <div className="space-y-3">
+        {CLAIM_STAGE_ORDER.map((stage) => {
+          const status = claimStageStatuses[stage];
+          if (!status) return null;
+
+          const meta = CLAIM_STAGE_META[stage];
+          const amountLabel =
+            stage === "inflation" ? inflationAmount : protocolAmount;
+
+          return (
+            <div
+              key={stage}
+              className="flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-muted/30 p-3"
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                  {meta.icon}
+                </div>
+                <div>
+                  <div className="text-sm font-medium">{meta.label}</div>
+                  {amountLabel && (
+                    <div className="text-xs text-muted-foreground">
+                      {amountLabel}
+                    </div>
+                  )}
+                  {status.message && (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {status.message}
+                    </div>
+                  )}
+                  {status.txHash && (
+                    <div className="mt-1 text-xs font-mono text-muted-foreground">
+                      Tx:{" "}
+                      {`${status.txHash.slice(0, 6)}...${status.txHash.slice(
+                        -4
+                      )}`}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <span
+                className={cn(
+                  "px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap",
+                  CLAIM_STATUS_STYLES[status.status]
+                )}
+              >
+                {CLAIM_STATUS_LABELS[status.status]}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }, [activeClaim, claimStageStatuses]);
+
+  const reviewContent =
+    activeClaim && transactionDetails.length > 0 ? (
+      <div className="space-y-6 text-left">
+        <div className="space-y-4">
+          {transactionDetails.map((detail, index) => (
+            <div
+              key={`${detail.label}-${index}`}
+              className="flex items-center justify-between"
+            >
+              <span className="text-sm text-muted-foreground">
+                {detail.label}
+              </span>
+              <div className="text-right text-sm font-mono text-foreground">
+                {detail.value}
+                {detail.unit ? (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {detail.unit}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+        {stageList}
+      </div>
+    ) : stageList ? (
+      <div className="space-y-4 text-left">{stageList}</div>
+    ) : undefined;
+
+  const successContent =
+    stageList ? (
+      <div className="space-y-4 text-left">
+        {stageList}
+        {claimDialogInfo && (
+          <div className="text-sm text-muted-foreground">
+            {claimDialogInfo}
+          </div>
+        )}
+      </div>
+    ) : undefined;
+
+  const errorDescription =
+    claimDialogError ||
+    "We were unable to complete your claim. Please try again.";
+
+  const errorContent = stageList ? (
+    <div className="space-y-4 text-left">{stageList}</div>
+  ) : undefined;
 
   // Don't show panel if not connected
   if (!isConnected || !address) {
@@ -230,13 +709,15 @@ export function ClaimsPanel() {
     weekData,
     isClaimingThisWeek,
     isClaimed,
+    onInitiateClaim,
     size = "sm",
     className,
     claimType = "both",
   }: {
-    weekData: any;
+    weekData: WeeklyClaimableRewards;
     isClaimingThisWeek: boolean;
     isClaimed: boolean;
+    onInitiateClaim: (payload: ClaimInitiationPayload) => void;
     size?: "sm" | "default";
     className?: string;
     claimType?: "both" | "v2Only";
@@ -247,58 +728,47 @@ export function ClaimsPanel() {
       isLoading: isProofLoading,
     } = useMerkleProofs(weekData.week, address);
 
-    const handleClaim = async () => {
+    const handleOpenDialog = () => {
       if (!userProof) {
         toast.error("No rewards found for your address in this week");
         return;
       }
 
-      try {
-        const hotWalletAddress = getHotWalletAddress();
-
-        // Convert string proofs to proper format
-        const v1Proof = userProof.v1MerkleProof.map((p) => p as `0x${string}`);
-        const v2Proof = userProof.v2MerkleProof.map((p) => p as `0x${string}`);
-
-        // Get GLW weight for inflation claims
-        const glwWeight = userProof.glowInflationEarnedLeafWeight;
-
-        console.log("glwWeight", glwWeight);
-        let rewardsToClaimTemp = weekData.rewards;
-        // If claiming v2 only, filter out GLW inflation rewards
-        if (claimType === "v2Only") {
-          rewardsToClaimTemp = weekData.rewards.filter(
-            (r: any) => r.type === "protocolDeposit"
-          );
-        }
-        console.log("rewardsToClaimTemp", rewardsToClaimTemp);
-
-        const txHash = await claimWeekRewards(
-          weekData.week + 1,
-          rewardsToClaimTemp,
-          nonce,
-          v1Proof,
-          v2Proof,
-          hotWalletAddress,
-          claimType === "v2Only" ? undefined : glwWeight
+      let rewardsToClaim: ClaimableReward[] = weekData.rewards;
+      if (claimType === "v2Only") {
+        rewardsToClaim = weekData.rewards.filter(
+          (reward) => reward.type === "protocolDeposit"
         );
-
-        if (txHash) {
-          toast.success(`Successfully claimed week ${weekData.week} rewards`);
-          // Trigger refetch to update UI
-          refetch();
-        }
-      } catch (error) {
-        console.error("Claim error:", error);
-        toast.error("Failed to claim rewards");
       }
+
+      if (rewardsToClaim.length === 0) {
+        toast.info("No rewards available to claim for this selection");
+        return;
+      }
+
+      onInitiateClaim({
+        weekData,
+        claimType,
+        rewardsToClaim,
+        userProof,
+        nonce,
+      });
     };
 
     // Pending countdown (until finalized)
     const weekSeconds = 7 * 86400;
+    const currentEpoch = getCurrentEpoch();
+    const hasProtocolDeposits = weekData.rewards.some(
+      (r: any) => r.type === "protocolDeposit"
+    );
+
+    // If week has protocol deposits, wait for PD finalization (4 weeks), otherwise GLW (3 weeks)
+    const weeksToWait = hasProtocolDeposits ? 4 : 3;
     const targetTimestampMs = React.useMemo(
-      () => (GENESIS_TIMESTAMP + (weekData.week + 3) * weekSeconds) * 1000,
-      [weekData.week]
+      () =>
+        (GENESIS_TIMESTAMP + (weekData.week + weeksToWait) * weekSeconds) *
+        1000,
+      [weekData.week, weeksToWait]
     );
     const [nowMs, setNowMs] = React.useState<number>(() => Date.now());
 
@@ -331,14 +801,15 @@ export function ClaimsPanel() {
       <Button
         size={size}
         className={cn("w-full mt-3", className)}
-        onClick={handleClaim}
+        onClick={handleOpenDialog}
         disabled={
           isClaimingThisWeek ||
           isClaimingAll ||
           isClaimed ||
           isProofLoading ||
           !userProof ||
-          !weekData.isFinalized
+          claimDialogStatus === "processing" ||
+          remainingMs > 0
         }
         variant={isClaimed ? "secondary" : "default"}
       >
@@ -359,7 +830,7 @@ export function ClaimsPanel() {
           </>
         ) : !userProof ? (
           <>No rewards</>
-        ) : !weekData.isFinalized ? (
+        ) : remainingMs > 0 ? (
           <>
             <Clock className="w-4 h-4 mr-2" />
             Claim in {countdownLabel}
@@ -380,15 +851,30 @@ export function ClaimsPanel() {
   };
 
   // Component to show appropriate claim buttons based on status
-  const ClaimButtonsWrapper = ({ weekData }: { weekData: any }) => {
+  const ClaimButtonsWrapper = ({
+    weekData,
+  }: {
+    weekData: WeeklyClaimableRewards;
+  }) => {
     const [glwClaimed, setGlwClaimed] = React.useState(false);
     const [v2Claimed, setV2Claimed] = React.useState(false);
     const [isChecking, setIsChecking] = React.useState(true);
     const isClaimingThisWeek = isClaimingWeek === weekData.week;
     const isClaimed = claimedWeeks.has(weekData.week);
 
+    // Check individual finalization status
+    const currentEpoch = getCurrentEpoch();
+    const isGlwFinalized = weekData.week <= currentEpoch - 3;
+    const isPdFinalized = weekData.week <= currentEpoch - 4;
+
     React.useEffect(() => {
-      if (!address || !weekData.isFinalized) {
+      if (!address) {
+        setIsChecking(false);
+        return;
+      }
+
+      // Only check if at least one type is finalized
+      if (!isGlwFinalized && !isPdFinalized) {
         setIsChecking(false);
         return;
       }
@@ -411,10 +897,10 @@ export function ClaimsPanel() {
       };
 
       checkClaimStatus();
-    }, [weekData.week, weekData.isFinalized, address]);
+    }, [weekData.week, isGlwFinalized, isPdFinalized, address]);
 
     // Don't show buttons if checking status
-    if (isChecking && weekData.isFinalized) {
+    if (isChecking && (isGlwFinalized || isPdFinalized)) {
       return (
         <div className="ml-3 w-40">
           <Button size="default" className="w-full mt-0" disabled>
@@ -457,6 +943,7 @@ export function ClaimsPanel() {
             weekData={weekData}
             isClaimingThisWeek={isClaimingThisWeek}
             isClaimed={false}
+            onInitiateClaim={handleInitiateClaim}
             size="default"
             className="mt-0"
             claimType="v2Only"
@@ -465,6 +952,21 @@ export function ClaimsPanel() {
       );
     }
 
+    // If nothing is finalized yet, show pending
+    if (!isGlwFinalized && !isPdFinalized) {
+      return (
+        <div className="ml-3 w-40">
+          <Button size="default" className="w-full mt-0" disabled>
+            <Clock className="w-4 h-4 mr-2" />
+            Pending
+          </Button>
+        </div>
+      );
+    }
+
+    // If only GLW is finalized but not PD, still show the week claim button
+    // The button itself will handle showing the countdown for PD
+
     // Otherwise show normal claim button
     return (
       <div className="ml-3 w-40">
@@ -472,6 +974,7 @@ export function ClaimsPanel() {
           weekData={weekData}
           isClaimingThisWeek={isClaimingThisWeek}
           isClaimed={isClaimed}
+          onInitiateClaim={handleInitiateClaim}
           size="default"
           className="mt-0"
           claimType="both"
@@ -481,7 +984,8 @@ export function ClaimsPanel() {
   };
 
   return (
-    <Card className="mb-8">
+    <>
+      <Card className="mb-8">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -496,7 +1000,11 @@ export function ClaimsPanel() {
           <div className="flex items-center gap-2">
             <Button
               onClick={handleClaimAll}
-              disabled={isClaimingAll || totalClaimableWeeks === 0}
+              disabled={
+                isClaimingAll ||
+                totalClaimableWeeks === 0 ||
+                claimDialogStatus === "processing"
+              }
               className="gap-2"
             >
               {isClaimingAll ? (
@@ -730,5 +1238,29 @@ export function ClaimsPanel() {
         </div>
       </CardContent>
     </Card>
+    <TransactionDialog
+      open={isClaimDialogOpen && Boolean(activeClaim)}
+      onOpenChange={handleDialogOpenChange}
+      isSubmitting={claimDialogStatus === "processing"}
+      isSuccess={claimDialogStatus === "success"}
+      isError={claimDialogStatus === "error"}
+      title="Review Claim"
+      successTitle="Claim Complete"
+      errorTitle="Claim Failed"
+      processingTitle="Processing Claim"
+      description="Review your rewards before confirming the claim."
+      processingDescription="Please wait while we process your claim."
+      errorDescription={errorDescription}
+      transactionDetails={transactionDetails}
+      reviewContent={reviewContent}
+      successContent={successContent}
+      errorContent={errorContent}
+      showProcessingProgress
+      onConfirm={activeClaim ? handleConfirmClaim : undefined}
+      confirmDisabled={!activeClaim || claimDialogStatus === "processing"}
+      confirmLabel="Confirm Claim"
+      cancelLabel="Cancel"
+    />
+    </>
   );
 }

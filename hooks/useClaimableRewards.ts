@@ -60,7 +60,8 @@ export function useClaimableRewards(
   walletAddress?: string
 ): UseClaimableRewardsResult {
   const currentEpoch = getCurrentEpoch();
-  const finalizedThresholdWeek = currentEpoch - 3; // claimable at week <= currentEpoch - 3
+  const glwFinalizedThresholdWeek = currentEpoch - 3; // GLW inflation finalized at week <= currentEpoch - 3
+  const pdFinalizedThresholdWeek = currentEpoch - 4; // Protocol deposits have 4-day lag, finalized at week <= currentEpoch - 4
   const endWeek = currentEpoch - 1; // include weeks posted but not finalized yet
 
   const {
@@ -120,7 +121,9 @@ export function useClaimableRewards(
         weeksUntilClaimable: 0,
       };
 
-      const isFinalizedWeek = reward.weekNumber <= finalizedThresholdWeek;
+      // Check if both GLW and PD are finalized for this week
+      const isGlwFinalized = reward.weekNumber <= glwFinalizedThresholdWeek;
+      const isPdFinalized = reward.weekNumber <= pdFinalizedThresholdWeek;
 
       // Process GLW inflation rewards
       if (reward.glowInflationTotal && reward.glowInflationTotal !== "0") {
@@ -142,8 +145,8 @@ export function useClaimableRewards(
           .plus(glwAmount)
           .toString();
 
-        // Update aggregated GLW total (only finalized weeks count)
-        if (isFinalizedWeek) {
+        // Update aggregated GLW total (only when both GLW and PD are finalized)
+        if (isGlwFinalized && isPdFinalized) {
           totals.GLW = new Decimal(totals.GLW || "0")
             .plus(glwAmount)
             .toString();
@@ -179,8 +182,8 @@ export function useClaimableRewards(
           new Decimal(currentPdTotal).plus(pdAmount).toString()
         );
 
-        // Update aggregated total for this currency (only finalized weeks count)
-        if (isFinalizedWeek) {
+        // Update aggregated total for this currency (only when both GLW and PD are finalized)
+        if (isGlwFinalized && isPdFinalized) {
           totals[currency] = new Decimal(totals[currency] || "0")
             .plus(pdAmount)
             .toString();
@@ -194,8 +197,12 @@ export function useClaimableRewards(
     const weeklyBreakdown = Array.from(weeklyMap.values())
       .map((entry) => ({
         ...entry,
-        isFinalized: entry.week <= finalizedThresholdWeek,
-        weeksUntilClaimable: Math.max(0, entry.week - finalizedThresholdWeek),
+        // A week is only finalized when BOTH GLW and PD are finalized
+        isFinalized:
+          entry.week <= glwFinalizedThresholdWeek &&
+          entry.week <= pdFinalizedThresholdWeek,
+        // Show weeks until claimable based on the later finalization (PD)
+        weeksUntilClaimable: Math.max(0, entry.week - pdFinalizedThresholdWeek),
       }))
       .sort((a, b) => b.week - a.week);
 
@@ -203,7 +210,12 @@ export function useClaimableRewards(
       aggregatedTotals: totals,
       weeklyBreakdown,
     };
-  }, [rewardsData, finalizedThresholdWeek, endWeek]);
+  }, [
+    rewardsData,
+    glwFinalizedThresholdWeek,
+    pdFinalizedThresholdWeek,
+    endWeek,
+  ]);
 
   return {
     aggregatedTotals,
