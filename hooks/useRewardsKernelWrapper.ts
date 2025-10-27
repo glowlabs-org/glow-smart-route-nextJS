@@ -14,6 +14,7 @@ import {
 import { MinerPoolAndGCAABI } from "@glowlabs-org/guarded-launch-abis";
 import { addresses } from "@/web3/constants/addresses";
 import type { ClaimableReward } from "./useClaimableRewards";
+import * as Sentry from "@sentry/nextjs";
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
   throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
@@ -190,10 +191,39 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         return { status: "error", message: "Contract not available" };
       }
 
-      try {
-        const bucketWeek = week + 1;
-        const bucketId = BigInt(bucketWeek);
+      const bucketWeek = week + 1;
+      const bucketId = BigInt(bucketWeek);
+      const captureInflationError = (
+        errorToCapture: unknown,
+        extra?: Record<string, unknown>
+      ) => {
+        if (typeof window === "undefined") return;
+        const normalizedError =
+          errorToCapture instanceof Error
+            ? errorToCapture
+            : new Error(
+                typeof errorToCapture === "string"
+                  ? errorToCapture
+                  : "GLW inflation claim error"
+              );
+        Sentry.captureException(normalizedError, {
+          tags: {
+            claimStage: "inflation",
+          },
+          extra: {
+            requestedWeek: week,
+            bucketWeek,
+            bucketId: bucketId.toString(),
+            userAddress,
+            glwWeight,
+            proofLength: v1Proof.length,
+            proofPreview: v1Proof.slice(0, Math.min(2, v1Proof.length)),
+            ...(extra ?? {}),
+          },
+        });
+      };
 
+      try {
         // Check if already claimed
         const bitmap = (await minerPoolContract.read.bucketClaimBitmap([
           bucketId,
@@ -250,12 +280,20 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             };
           } else if (simMessage.includes("BucketNotFinalized")) {
             toast.error("GLW rewards not yet finalized");
+            captureInflationError(simError, {
+              phase: "simulate",
+              simMessage,
+            });
             return {
               status: "error",
               message: "GLW rewards not yet finalized",
             };
           } else if (simMessage.includes("InvalidProof")) {
             toast.error("Invalid proof for GLW claim");
+            captureInflationError(simError, {
+              phase: "simulate",
+              simMessage,
+            });
             return {
               status: "error",
               message: "Invalid proof for GLW claim",
@@ -266,6 +304,10 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           } else {
             toast.error("Failed to simulate GLW inflation claim", {
               description: simMessage || "Unknown error",
+            });
+            captureInflationError(simError, {
+              phase: "simulate",
+              simMessage,
             });
             return {
               status: "error",
@@ -306,12 +348,20 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           };
         } else if (errorMessage.includes("BucketNotFinalized")) {
           toast.error("GLW rewards not yet finalized");
+          captureInflationError(error, {
+            phase: "write",
+            errorMessage,
+          });
           return {
             status: "error",
             message: "GLW rewards not yet finalized",
           };
         } else if (errorMessage.includes("InvalidProof")) {
           toast.error("Invalid proof for GLW claim");
+          captureInflationError(error, {
+            phase: "write",
+            errorMessage,
+          });
           return {
             status: "error",
             message: "Invalid proof for GLW claim",
@@ -323,6 +373,10 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
 
         toast.error("Failed to claim GLW inflation", {
           description: errorMessage,
+        });
+        captureInflationError(error, {
+          phase: "write",
+          errorMessage,
         });
 
         return {

@@ -63,7 +63,7 @@ export function RecentActivity({
   } = useWallets({
     walletAddress,
     enabled: Boolean(walletAddress),
-    limit: 10, // Limit to recent 10 events
+    limit: 20, // Limit to recent 20 events
   });
 
   // Fetch regions for mapping region IDs to names
