@@ -179,9 +179,7 @@ export function ClaimsPanel() {
       inflation: { status: "pending" },
       protocolDeposits: { status: "pending" },
     });
-  const claimStageStatusesRef = React.useRef<ClaimStageMap>(
-    claimStageStatuses
-  );
+  const claimStageStatusesRef = React.useRef<ClaimStageMap>(claimStageStatuses);
 
   React.useEffect(() => {
     claimStageStatusesRef.current = claimStageStatuses;
@@ -234,40 +232,35 @@ export function ClaimsPanel() {
     setClaimStageStatuses(initial);
   }, []);
 
-  const updateStageStatus = React.useCallback(
-    (update: ClaimProgressUpdate) => {
-      setClaimStageStatuses((prev) => {
-        const previousStage = prev[update.stage];
-        const fallbackMessage: Partial<Record<ClaimStageStatus, string>> = {
-          inProgress: "Submitting transaction...",
-          success: "Transaction submitted",
-          error: "Unable to complete",
-        };
+  const updateStageStatus = React.useCallback((update: ClaimProgressUpdate) => {
+    setClaimStageStatuses((prev) => {
+      const previousStage = prev[update.stage];
+      const fallbackMessage: Partial<Record<ClaimStageStatus, string>> = {
+        inProgress: "Submitting transaction...",
+        success: "Transaction submitted",
+        error: "Unable to complete",
+      };
 
-        const nextStage: ClaimStageState = {
-          status: update.status,
-          txHash:
-            update.txHash !== undefined
-              ? update.txHash
-              : previousStage.txHash,
-          message:
-            update.message ??
-            (update.status === "skipped"
-              ? previousStage.message
-              : fallbackMessage[update.status] ?? previousStage.message),
-        };
+      const nextStage: ClaimStageState = {
+        status: update.status,
+        txHash:
+          update.txHash !== undefined ? update.txHash : previousStage.txHash,
+        message:
+          update.message ??
+          (update.status === "skipped"
+            ? previousStage.message
+            : fallbackMessage[update.status] ?? previousStage.message),
+      };
 
-        const next = {
-          ...prev,
-          [update.stage]: nextStage,
-        } as ClaimStageMap;
+      const next = {
+        ...prev,
+        [update.stage]: nextStage,
+      } as ClaimStageMap;
 
-        claimStageStatusesRef.current = next;
-        return next;
-      });
-    },
-    []
-  );
+      claimStageStatusesRef.current = next;
+      return next;
+    });
+  }, []);
 
   const handleInitiateClaim = React.useCallback(
     (payload: ClaimInitiationPayload) => {
@@ -385,7 +378,8 @@ export function ClaimsPanel() {
       console.error("Claim confirmation error:", error);
       setClaimDialogStatus("error");
       setClaimDialogError(
-        error?.message || "We were unable to complete your claim. Please try again."
+        error?.message ||
+          "We were unable to complete your claim. Please try again."
       );
     } finally {
       refetch();
@@ -449,10 +443,7 @@ export function ClaimsPanel() {
     const inflationAmount =
       inflationRewards.length > 0
         ? `${inflationRewards
-            .reduce(
-              (sum, reward) => sum + Number.parseFloat(reward.amount),
-              0
-            )
+            .reduce((sum, reward) => sum + Number.parseFloat(reward.amount), 0)
             .toFixed(4)} GLW`
         : null;
 
@@ -559,17 +550,14 @@ export function ClaimsPanel() {
       <div className="space-y-4 text-left">{stageList}</div>
     ) : undefined;
 
-  const successContent =
-    stageList ? (
-      <div className="space-y-4 text-left">
-        {stageList}
-        {claimDialogInfo && (
-          <div className="text-sm text-muted-foreground">
-            {claimDialogInfo}
-          </div>
-        )}
-      </div>
-    ) : undefined;
+  const successContent = stageList ? (
+    <div className="space-y-4 text-left">
+      {stageList}
+      {claimDialogInfo && (
+        <div className="text-sm text-muted-foreground">{claimDialogInfo}</div>
+      )}
+    </div>
+  ) : undefined;
 
   const errorDescription =
     claimDialogError ||
@@ -986,281 +974,285 @@ export function ClaimsPanel() {
   return (
     <>
       <Card className="mb-8">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Gift className="w-5 h-5" />
-              Farm Rewards Available
-            </CardTitle>
-            <CardDescription className="mt-2">
-              Claim your earned rewards from solar farm delegations
-            </CardDescription>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Gift className="w-5 h-5" />
+                Farm Rewards Available
+              </CardTitle>
+              <CardDescription className="mt-2">
+                Claim your earned rewards from solar farm delegations
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleClaimAll}
+                disabled={
+                  isClaimingAll ||
+                  totalClaimableWeeks === 0 ||
+                  claimDialogStatus === "processing"
+                }
+                className="gap-2"
+              >
+                {isClaimingAll ? (
+                  <>
+                    <Clock className="w-4 h-4 animate-spin" />
+                    Claiming...
+                  </>
+                ) : (
+                  <>
+                    Claim All
+                    <Badge variant="secondary" className="ml-1">
+                      {totalClaimableWeeks} weeks
+                    </Badge>
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={handleClaimAll}
-              disabled={
-                isClaimingAll ||
-                totalClaimableWeeks === 0 ||
-                claimDialogStatus === "processing"
-              }
-              className="gap-2"
-            >
-              {isClaimingAll ? (
-                <>
-                  <Clock className="w-4 h-4 animate-spin" />
-                  Claiming...
-                </>
-              ) : (
-                <>
-                  Claim All
-                  <Badge variant="secondary" className="ml-1">
-                    {totalClaimableWeeks} weeks
-                  </Badge>
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
-          {/* Aggregated Totals Section */}
-          {hasClaimableRewards && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-muted-foreground">
-                Total Claimable
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {Object.entries(aggregatedTotals).map(([currency, amount]) => {
-                  const config = CURRENCY_CONFIG[currency as CurrencyKey] || {
-                    icon: <Coins className="w-4 h-4" />,
-                    color: "text-gray-600",
-                    bgColor: "bg-gray-50 dark:bg-gray-950/20",
-                    label: currency,
-                  };
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {/* Aggregated Totals Section */}
+            {hasClaimableRewards && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  Total Claimable
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {Object.entries(aggregatedTotals).map(
+                    ([currency, amount]) => {
+                      const config = CURRENCY_CONFIG[
+                        currency as CurrencyKey
+                      ] || {
+                        icon: <Coins className="w-4 h-4" />,
+                        color: "text-gray-600",
+                        bgColor: "bg-gray-50 dark:bg-gray-950/20",
+                        label: currency,
+                      };
 
-                  return (
-                    <div
-                      key={currency}
-                      className={cn(
-                        "flex items-center justify-between p-4 rounded-lg border",
-                        config.bgColor
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
+                      return (
                         <div
+                          key={currency}
                           className={cn(
-                            "p-2 rounded-full bg-background",
-                            config.color
+                            "flex items-center justify-between p-4 rounded-lg border",
+                            config.bgColor
                           )}
                         >
-                          {config.icon}
-                        </div>
-                        <div>
-                          <div className="font-medium">{config.label}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {totalClaimableWeeks} weeks
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={cn(
+                                "p-2 rounded-full bg-background",
+                                config.color
+                              )}
+                            >
+                              {config.icon}
+                            </div>
+                            <div>
+                              <div className="font-medium">{config.label}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {totalClaimableWeeks} weeks
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold text-lg">
+                              {parseFloat(amount).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 6,
+                              })}
+                            </div>
                           </div>
                         </div>
+                      );
+                    }
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Weekly Breakdown Section */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Weekly Breakdown
+              </h3>
+              <div className="space-y-2">
+                {weeklyBreakdown.map((weekData) => {
+                  const isClaimingThisWeek = isClaimingWeek === weekData.week;
+                  const isClaimed = claimedWeeks.has(weekData.week);
+
+                  return (
+                    <Collapsible
+                      key={weekData.week}
+                      className={cn(
+                        "border rounded-lg transition-all",
+                        isClaimed && "opacity-60 bg-muted/20"
+                      )}
+                    >
+                      <div className="flex items-center justify-between w-full p-4 hover:bg-muted/50 transition-colors">
+                        <CollapsibleTrigger className="flex flex-1 items-center justify-between text-left">
+                          <div className="flex items-center gap-3">
+                            <div className="text-left">
+                              <div className="font-medium">
+                                Week {weekData.week}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {formatWeekDate(weekData.week)}
+                              </div>
+                            </div>
+                            <Badge
+                              variant={
+                                isClaimed
+                                  ? "secondary"
+                                  : weekData.isFinalized
+                                  ? "default"
+                                  : "outline"
+                              }
+                              className="text-xs"
+                            >
+                              {isClaimed ? (
+                                <>
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Claimed
+                                </>
+                              ) : weekData.isFinalized ? (
+                                <>
+                                  <Sparkles className="w-3 h-3 mr-1" />
+                                  Ready to Claim
+                                </>
+                              ) : (
+                                <>
+                                  <Clock className="w-3 h-3 mr-1" />
+                                  Pending
+                                </>
+                              )}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {weekData.totalGlw !== "0" && (
+                              <Badge variant="secondary">
+                                {parseFloat(weekData.totalGlw).toFixed(2)} GLW
+                              </Badge>
+                            )}
+                            {Array.from(
+                              weekData.totalProtocolDeposit.entries()
+                            ).map(([currency, amount]) => (
+                              <Badge key={currency} variant="secondary">
+                                {parseFloat(amount).toFixed(2)} {currency}
+                              </Badge>
+                            ))}
+
+                            <ChevronRight className="w-4 h-4 text-muted-foreground ml-2" />
+                          </div>
+                        </CollapsibleTrigger>
+                        <ClaimButtonsWrapper weekData={weekData} />
                       </div>
-                      <div className="text-right">
-                        <div className="font-bold text-lg">
-                          {parseFloat(amount).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 6,
+                      <CollapsibleContent className="px-4 pb-4">
+                        <div className="space-y-3 mt-3">
+                          {weekData.rewards.map((reward, idx) => {
+                            const config = CURRENCY_CONFIG[
+                              reward.currency as CurrencyKey
+                            ] || {
+                              icon: <Coins className="w-4 h-4" />,
+                              color: "text-gray-600",
+                              bgColor: "bg-gray-50 dark:bg-gray-950/20",
+                              label: reward.currency,
+                            };
+
+                            return (
+                              <div
+                                key={`${reward.currency}-${reward.type}-${idx}`}
+                                className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={cn(
+                                      "p-1.5 rounded-full",
+                                      config.color
+                                    )}
+                                  >
+                                    {config.icon}
+                                  </div>
+                                  <div>
+                                    <div className="text-sm font-medium">
+                                      {config.label}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {reward.type === "glowInflation"
+                                        ? "Inflation Rewards"
+                                        : "Protocol Deposit"}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-sm font-medium">
+                                  {parseFloat(reward.amount).toLocaleString(
+                                    undefined,
+                                    {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 6,
+                                    }
+                                  )}
+                                </div>
+                              </div>
+                            );
                           })}
                         </div>
-                      </div>
-                    </div>
+                      </CollapsibleContent>
+                    </Collapsible>
                   );
                 })}
               </div>
             </div>
-          )}
 
-          {/* Weekly Breakdown Section */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium text-muted-foreground">
-              Weekly Breakdown
-            </h3>
-            <div className="space-y-2">
-              {weeklyBreakdown.map((weekData) => {
-                const isClaimingThisWeek = isClaimingWeek === weekData.week;
-                const isClaimed = claimedWeeks.has(weekData.week);
-
-                return (
-                  <Collapsible
-                    key={weekData.week}
-                    className={cn(
-                      "border rounded-lg transition-all",
-                      isClaimed && "opacity-60 bg-muted/20"
-                    )}
-                  >
-                    <div className="flex items-center justify-between w-full p-4 hover:bg-muted/50 transition-colors">
-                      <CollapsibleTrigger className="flex flex-1 items-center justify-between text-left">
-                        <div className="flex items-center gap-3">
-                          <div className="text-left">
-                            <div className="font-medium">
-                              Week {weekData.week}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {formatWeekDate(weekData.week)}
-                            </div>
-                          </div>
-                          <Badge
-                            variant={
-                              isClaimed
-                                ? "secondary"
-                                : weekData.isFinalized
-                                ? "default"
-                                : "outline"
-                            }
-                            className="text-xs"
-                          >
-                            {isClaimed ? (
-                              <>
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Claimed
-                              </>
-                            ) : weekData.isFinalized ? (
-                              <>
-                                <Sparkles className="w-3 h-3 mr-1" />
-                                Ready to Claim
-                              </>
-                            ) : (
-                              <>
-                                <Clock className="w-3 h-3 mr-1" />
-                                Pending
-                              </>
-                            )}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {weekData.totalGlw !== "0" && (
-                            <Badge variant="secondary">
-                              {parseFloat(weekData.totalGlw).toFixed(2)} GLW
-                            </Badge>
-                          )}
-                          {Array.from(
-                            weekData.totalProtocolDeposit.entries()
-                          ).map(([currency, amount]) => (
-                            <Badge key={currency} variant="secondary">
-                              {parseFloat(amount).toFixed(2)} {currency}
-                            </Badge>
-                          ))}
-
-                          <ChevronRight className="w-4 h-4 text-muted-foreground ml-2" />
-                        </div>
-                      </CollapsibleTrigger>
-                      <ClaimButtonsWrapper weekData={weekData} />
-                    </div>
-                    <CollapsibleContent className="px-4 pb-4">
-                      <div className="space-y-3 mt-3">
-                        {weekData.rewards.map((reward, idx) => {
-                          const config = CURRENCY_CONFIG[
-                            reward.currency as CurrencyKey
-                          ] || {
-                            icon: <Coins className="w-4 h-4" />,
-                            color: "text-gray-600",
-                            bgColor: "bg-gray-50 dark:bg-gray-950/20",
-                            label: reward.currency,
-                          };
-
-                          return (
-                            <div
-                              key={`${reward.currency}-${reward.type}-${idx}`}
-                              className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className={cn(
-                                    "p-1.5 rounded-full",
-                                    config.color
-                                  )}
-                                >
-                                  {config.icon}
-                                </div>
-                                <div>
-                                  <div className="text-sm font-medium">
-                                    {config.label}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {reward.type === "glowInflation"
-                                      ? "Inflation Rewards"
-                                      : "Protocol Deposit"}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="text-sm font-medium">
-                                {parseFloat(reward.amount).toLocaleString(
-                                  undefined,
-                                  {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 6,
-                                  }
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Info Section */}
-          <div className="mt-4 p-3 rounded-lg bg-muted/50">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
-              <div className="text-xs text-muted-foreground">
-                <div className="font-medium mb-1">About Claims</div>
-                <div>
-                  Rewards become claimable after a 3-week finality period. Week{" "}
-                  96 and earlier are available to claim on the{" "}
-                  <a
-                    href="https://hub.glow.org"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-500 hover:text-blue-600 underline"
-                  >
-                    Hub Dashboard
-                  </a>{" "}
-                  for V1 Solar Farms.
+            {/* Info Section */}
+            <div className="mt-4 p-3 rounded-lg bg-muted/50">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
+                <div className="text-xs text-muted-foreground">
+                  <div className="font-medium mb-1">About Claims</div>
+                  <div>
+                    Rewards become claimable after a 3-week finality period.
+                    Week 96 and earlier are available to claim on the{" "}
+                    <a
+                      href="https://hub.glow.org"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:text-blue-600 underline"
+                    >
+                      Hub Dashboard
+                    </a>{" "}
+                    for V1 Solar Farms.
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
-    <TransactionDialog
-      open={isClaimDialogOpen && Boolean(activeClaim)}
-      onOpenChange={handleDialogOpenChange}
-      isSubmitting={claimDialogStatus === "processing"}
-      isSuccess={claimDialogStatus === "success"}
-      isError={claimDialogStatus === "error"}
-      title="Review Claim"
-      successTitle="Claim Complete"
-      errorTitle="Claim Failed"
-      processingTitle="Processing Claim"
-      description="Review your rewards before confirming the claim."
-      processingDescription="Please wait while we process your claim."
-      errorDescription={errorDescription}
-      transactionDetails={transactionDetails}
-      reviewContent={reviewContent}
-      successContent={successContent}
-      errorContent={errorContent}
-      showProcessingProgress
-      onConfirm={activeClaim ? handleConfirmClaim : undefined}
-      confirmDisabled={!activeClaim || claimDialogStatus === "processing"}
-      confirmLabel="Confirm Claim"
-      cancelLabel="Cancel"
-    />
+        </CardContent>
+      </Card>
+      <TransactionDialog
+        open={isClaimDialogOpen && Boolean(activeClaim)}
+        onOpenChange={handleDialogOpenChange}
+        isSubmitting={claimDialogStatus === "processing"}
+        isSuccess={claimDialogStatus === "success"}
+        isError={claimDialogStatus === "error"}
+        title="Review Claim"
+        successTitle="Claim Complete"
+        errorTitle="Claim Failed"
+        processingTitle="Processing Claim"
+        description="Review your rewards before confirming the claim."
+        processingDescription="Please wait while we process your claim."
+        errorDescription={errorDescription}
+        transactionDetails={transactionDetails}
+        reviewContent={reviewContent}
+        successContent={successContent}
+        errorContent={errorContent}
+        showProcessingProgress
+        onConfirm={activeClaim ? handleConfirmClaim : undefined}
+        confirmDisabled={!activeClaim || claimDialogStatus === "processing"}
+        confirmLabel="Confirm Claim"
+        cancelLabel="Cancel"
+      />
     </>
   );
 }

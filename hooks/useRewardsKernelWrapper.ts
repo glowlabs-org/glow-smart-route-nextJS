@@ -191,7 +191,8 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       }
 
       try {
-        const bucketId = BigInt(week);
+        const bucketWeek = week + 1;
+        const bucketId = BigInt(bucketWeek);
 
         // Check if already claimed
         const bitmap = (await minerPoolContract.read.bucketClaimBitmap([
@@ -199,7 +200,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           userAddress,
         ])) as bigint;
         const alreadyClaimed =
-          (bitmap & (BigInt(1) << BigInt(week % 256))) > BigInt(0);
+          (bitmap & (BigInt(1) << BigInt(bucketWeek % 256))) > BigInt(0);
 
         if (alreadyClaimed) {
           return {
