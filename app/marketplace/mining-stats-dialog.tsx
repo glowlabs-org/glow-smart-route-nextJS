@@ -146,6 +146,7 @@ export function MiningStatsDialog({
         tooltip:
           "Annualized return based on current GLW emissions and price. Assumes no dilution from new regional farms.",
         highlight: true,
+        secondary: "Estimate only, changes weekly",
       },
     ],
     [apr, costPerMiner, weeklyGlwRewards, weeklyRewardsUsd, weeksRemaining]
