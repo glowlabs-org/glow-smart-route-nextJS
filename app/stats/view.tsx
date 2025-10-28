@@ -202,9 +202,9 @@ export default function StatsView() {
             <div className="flex items-center gap-2 overflow-x-auto py-3">
               {[
                 { id: "t0", label: "Tickers", icon: TrendingUp },
-                { id: "t1", label: "Activity", icon: Activity },
-                { id: "t2", label: "Regions", icon: Sun },
-                { id: "t3", label: "Economy", icon: Coins },
+                { id: "t1", label: "Economy", icon: Coins },
+                { id: "t2", label: "Activity", icon: Activity },
+                { id: "t3", label: "Regions", icon: Sun },
                 { id: "t4", label: "Events", icon: Receipt },
               ].map((tab) => (
                 <button
@@ -230,6 +230,10 @@ export default function StatsView() {
           </section>
 
           <section id="t1" ref={sectionRefs.t1} className="py-12 scroll-mt-36">
+            <EconomyOverview shouldLoad={true} />
+          </section>
+
+          <section id="t2" ref={sectionRefs.t2} className="py-12 scroll-mt-36">
             <ProtocolActivity
               shouldLoad={true}
               onSeeAllDelegation={(events) => {
@@ -248,12 +252,8 @@ export default function StatsView() {
             />
           </section>
 
-          <section id="t2" ref={sectionRefs.t2} className="py-12 scroll-mt-36">
-            <RegionsStaking shouldLoad={shouldLoadRest} />
-          </section>
-
           <section id="t3" ref={sectionRefs.t3} className="py-12 scroll-mt-36">
-            <EconomyOverview shouldLoad={shouldLoadRest} />
+            <RegionsStaking shouldLoad={shouldLoadRest} />
           </section>
 
           <section
