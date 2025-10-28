@@ -895,10 +895,20 @@ export default function View() {
                           { glw: 0, other: {} as Record<string, number> }
                         );
 
-                        const parts = [`${totals.glw.toFixed(2)} GLW`];
+                        const parts = [
+                          `${totals.glw.toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })} GLW`,
+                        ];
                         Object.entries(totals.other).forEach(
                           ([asset, amount]) => {
-                            parts.push(`${amount.toFixed(2)} ${asset}`);
+                            parts.push(
+                              `${amount.toLocaleString("en-US", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })} ${asset}`
+                            );
                           }
                         );
 
