@@ -406,7 +406,7 @@ export function TransactionDialog({
 
               {/* Custom Footer or Default Action Buttons */}
               {footer || (
-                <div className="flex gap-3">
+                <div className="flex gap-3 mt-4">
                   {!isSubmitting ? (
                     <>
                       <Button
