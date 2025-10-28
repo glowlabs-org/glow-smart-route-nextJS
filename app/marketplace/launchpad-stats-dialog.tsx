@@ -209,7 +209,7 @@ export function LaunchpadStatsDialog({
       },
       {
         id: "farm-efficiency",
-        label: "Farm Efficiency",
+        label: "Efficiency Score",
         value: formatNumber(farmEfficiency, 2),
         tooltip:
           "Expected carbon credits per $100k deposit weekly, based on audited farm projections.",
