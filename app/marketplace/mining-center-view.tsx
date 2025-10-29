@@ -719,68 +719,6 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                                   </div>
                                   <div className="space-y-1">
                                     <div
-                                      className="text-xs text-gray-500 dark:text-gray-500"
-                                      style={{
-                                        fontFamily: "Söhne, sans-serif",
-                                        fontWeight: 400,
-                                      }}
-                                    >
-                                      At current rate over 99 weeks:{" "}
-                                      {miningScoreData?.weeklyGlwRewards
-                                        ? (() => {
-                                            const rewardsPerMiner = parseFloat(
-                                              formatUnits(
-                                                BigInt(
-                                                  miningScoreData.weeklyGlwRewards
-                                                ),
-                                                DECIMALS_BY_TOKEN["GLW"]
-                                              )
-                                            );
-                                            const totalRewards =
-                                              rewardsPerMiner * 99;
-
-                                            return `${totalRewards.toLocaleString(
-                                              undefined,
-                                              {
-                                                minimumFractionDigits: 0,
-                                                maximumFractionDigits: 0,
-                                              }
-                                            )} GLW`;
-                                          })()
-                                        : isMiningScoresLoading
-                                        ? "..."
-                                        : "0 GLW"}
-                                      {miningScoreData?.weeklyGlwRewards &&
-                                        glwSpotPrice > 0 && (
-                                          <span className="ml-1">
-                                            (≈
-                                            {(() => {
-                                              const rewardsPerMiner =
-                                                parseFloat(
-                                                  formatUnits(
-                                                    BigInt(
-                                                      miningScoreData.weeklyGlwRewards
-                                                    ),
-                                                    DECIMALS_BY_TOKEN["GLW"]
-                                                  )
-                                                );
-                                              const totalUsd =
-                                                rewardsPerMiner *
-                                                99 *
-                                                glwSpotPrice;
-                                              return `$${totalUsd.toLocaleString(
-                                                undefined,
-                                                {
-                                                  minimumFractionDigits: 0,
-                                                  maximumFractionDigits: 0,
-                                                }
-                                              )}`;
-                                            })()}
-                                            )
-                                          </span>
-                                        )}
-                                    </div>
-                                    <div
                                       className="text-[10px] text-gray-400 dark:text-gray-600 italic"
                                       style={{
                                         fontFamily: "Söhne, sans-serif",
