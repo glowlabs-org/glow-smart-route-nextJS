@@ -11,6 +11,7 @@ import { useWalletClient } from "wagmi";
 import { formatEther, parseAbi } from "viem";
 import Decimal from "decimal.js";
 import { waitForViemTransactionWithRetry } from "@glowlabs-org/utils/browser";
+import * as Sentry from "@sentry/nextjs";
 
 const UNISWAP_V2_FACTORY_ABI = parseAbi([
   "function getPair(address tokenA, address tokenB) external view returns (address pair)",
@@ -395,6 +396,25 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
           err,
           SwapError.FAILED_TO_APPROVE_TOKEN_A
         );
+
+        // Log approval errors to Sentry
+        if (typeof window !== "undefined") {
+          const normalizedError =
+            err instanceof Error ? err : new Error(errorMessage);
+          Sentry.captureException(normalizedError, {
+            tags: {
+              swapStage: "token_approval",
+              tokenA: tokenA_address,
+              tokenB: tokenB_address,
+            },
+            extra: {
+              amountBigInt: amountBigInt.toString(),
+              errorMessage,
+              errorCode: err?.code,
+            },
+          });
+        }
+
         return new Err(errorMessage as SwapError);
       }
     }
@@ -429,8 +449,29 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       setUniswapPurchaseState("DONE");
     } catch (err: any) {
       setUniswapPurchaseState("ERROR");
-      console.error("Swap error:", err);
       const errorMessage = extractErrorMessage(err, SwapError.FAILED_TO_SWAP);
+
+      // Log swap errors to Sentry
+      if (typeof window !== "undefined") {
+        const normalizedError =
+          err instanceof Error ? err : new Error(errorMessage);
+        Sentry.captureException(normalizedError, {
+          tags: {
+            swapStage: "token_swap",
+            tokenA: tokenA_address,
+            tokenB: tokenB_address,
+          },
+          extra: {
+            amountBigInt: amountBigInt.toString(),
+            amountOutMin: amountOutMin.toString(),
+            slippageBigInt: slippageBigInt.toString(),
+            errorMessage,
+            errorCode: err?.code,
+            signerAddress,
+          },
+        });
+      }
+
       return new Err(errorMessage as SwapError);
     }
     return new Ok(true);
@@ -568,11 +609,30 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         await approveTx.wait();
       } catch (err: any) {
         setUniswapPurchaseState("ERROR");
-        console.error("Approval error:", err);
         const errorMessage = extractErrorMessage(
           err,
           SwapError.FAILED_TO_APPROVE_TOKEN_A
         );
+
+        // Log GLOW approval errors to Sentry
+        if (typeof window !== "undefined") {
+          const normalizedError =
+            err instanceof Error ? err : new Error(errorMessage);
+          Sentry.captureException(normalizedError, {
+            tags: {
+              swapStage: "glow_approval",
+              swapType: "glow_to_usdg",
+            },
+            extra: {
+              amountBigInt: amountBigInt.toString(),
+              glowAddress: addresses.glow,
+              usdgAddress: addresses.usdg,
+              errorMessage,
+              errorCode: err?.code,
+            },
+          });
+        }
+
         return new Err(errorMessage as SwapError);
       }
     }
@@ -608,8 +668,30 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       setUniswapPurchaseState("DONE");
     } catch (err: any) {
       setUniswapPurchaseState("ERROR");
-      console.error("Swap error:", err);
       const errorMessage = extractErrorMessage(err, SwapError.FAILED_TO_SWAP);
+
+      // Log GLOW to USDG swap errors to Sentry
+      if (typeof window !== "undefined") {
+        const normalizedError =
+          err instanceof Error ? err : new Error(errorMessage);
+        Sentry.captureException(normalizedError, {
+          tags: {
+            swapStage: "glow_swap",
+            swapType: "glow_to_usdg",
+          },
+          extra: {
+            amountBigInt: amountBigInt.toString(),
+            amountOutMin: amountOutMin.toString(),
+            slippageBigInt: slippageBigInt.toString(),
+            glowAddress: addresses.glow,
+            usdgAddress: addresses.usdg,
+            signerAddress,
+            errorMessage,
+            errorCode: err?.code,
+          },
+        });
+      }
+
       return new Err(errorMessage as SwapError);
     }
     return new Ok(true);

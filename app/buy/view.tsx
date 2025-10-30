@@ -26,7 +26,7 @@ import { formatUnits, parseUnits } from "viem";
 import { getAddresses, useForwarder } from "@glowlabs-org/utils/browser";
 import { CHAIN_ID } from "@/web3/constants";
 import { ProcessingModal } from "@/components/buy-gctl/processing-modal";
-import { ArrowDownUp, Info } from "lucide-react";
+import { ArrowDownUp, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
@@ -62,6 +62,7 @@ import { cn } from "@/lib/utils";
 import Image from "next/image";
 import PositionsView from "../liquidity/view";
 import { useGctlApi } from "@/hooks/useGctlApi";
+import * as Sentry from "@sentry/nextjs";
 import { WalletDashboardTab } from "@/components/wallet/wallet-dashboard-tab";
 import { RestakeAssistant } from "@/app/wallet/restake-assistant";
 import { UnstakeDialog } from "@/app/wallet/unstake-dialog";
@@ -144,6 +145,7 @@ export default function View({
   );
   const [selectedTokenBuy, setSelectedTokenBuy] = useState<Token>(tokens.GLOW);
   const [slippageTolerance, setSlippageTolerance] = useState("1");
+  const [isSlippageExpanded, setIsSlippageExpanded] = useState<boolean>(false);
   const [pendingTx, setPendingTx] = useState<boolean>(false);
   const [tokenSellBalance, setTokenSellBalance] = useState<string>("0");
   const { address, isConnected, isConnecting } = useAccount();
@@ -743,7 +745,6 @@ export default function View({
 
       setPendingTx(false);
     } catch (error: any) {
-      console.error("Transaction error:", error);
       setPendingTx(false);
 
       let errorMessage = "Transaction failed";
@@ -756,6 +757,31 @@ export default function View({
         errorMessage = error.shortMessage;
       } else if (typeof error === "string") {
         errorMessage = error;
+      }
+
+      // Log critical swap errors to Sentry (skip user rejections)
+      if (
+        typeof window !== "undefined" &&
+        !errorMessage.includes("User rejected") &&
+        !errorMessage.includes("User denied")
+      ) {
+        const normalizedError =
+          error instanceof Error ? error : new Error(errorMessage);
+        Sentry.captureException(normalizedError, {
+          tags: {
+            swapFlow: "handleBuy",
+            sellToken: selectedTokenSell.label,
+            buyToken: selectedTokenBuy.label,
+          },
+          extra: {
+            amountToSell,
+            estimatedOutput: currentTokenEstimatedOutputAmount,
+            slippageTolerance,
+            errorMessage,
+            errorCode: error?.code,
+            errorReason: error?.reason,
+          },
+        });
       }
 
       // Handle common error cases
@@ -1077,7 +1103,26 @@ export default function View({
         });
       }
     } catch (error: any) {
-      console.error("Error in estimateAmount:", error);
+      // Log estimate errors to Sentry
+      if (typeof window !== "undefined") {
+        const normalizedError =
+          error instanceof Error
+            ? error
+            : new Error(error?.message || "Failed to estimate swap amount");
+        Sentry.captureException(normalizedError, {
+          tags: {
+            estimateFlow: "estimateAmount",
+            sellToken: selectedTokenSell.label,
+            buyToken: selectedTokenBuy.label,
+          },
+          extra: {
+            amountStr,
+            errorMessage: error?.message,
+            errorCode: error?.code,
+          },
+        });
+      }
+
       toast.error(error?.message || "Failed to estimate swap amount");
       setSmartBalancingAmounts(undefined);
       setEstimatedOutputAmount(defaultTokensEstimate);
@@ -1396,6 +1441,72 @@ export default function View({
                           </SelectContent>
                         </Select>
                       </div>
+                    </div>
+
+                    {/* Slippage Tolerance Settings */}
+                    <div className="bg-muted/20 rounded-xl p-4 border border-border/20">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Info className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-xs lg:text-sm font-medium text-muted-foreground">
+                            Slippage Tolerance
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs lg:text-sm font-semibold text-primary">
+                            {slippageTolerance}%
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() =>
+                              setIsSlippageExpanded(!isSlippageExpanded)
+                            }
+                          >
+                            {isSlippageExpanded ? (
+                              <>
+                                Hide
+                                <ChevronUp className="w-3 h-3 ml-1" />
+                              </>
+                            ) : (
+                              <>
+                                Edit
+                                <ChevronDown className="w-3 h-3 ml-1" />
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      {isSlippageExpanded && (
+                        <div className="mt-4 space-y-3">
+                          <div className="grid grid-cols-4 gap-2">
+                            {["1", "2", "5", "10"].map((value) => (
+                              <Button
+                                key={value}
+                                variant={
+                                  slippageTolerance === value
+                                    ? "default"
+                                    : "outline"
+                                }
+                                size="sm"
+                                className={cn(
+                                  "h-9 text-sm font-medium transition-all",
+                                  slippageTolerance === value && "shadow-md"
+                                )}
+                                disabled={!isConnected || isWalletLoading}
+                                onClick={() => setSlippageTolerance(value)}
+                              >
+                                {value}%
+                              </Button>
+                            ))}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Your transaction will revert if the price changes
+                            unfavorably by more than this percentage.
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Enhanced Transaction Details */}
