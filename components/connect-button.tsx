@@ -72,24 +72,6 @@ export const ConnectButton = ({
     };
   }, [isConnecting, isReconnecting, isPending, isSafari]);
 
-  useEffect(() => {
-    if (isStuckConnecting && !hasAnnouncedStuckRef.current) {
-      toast.info("Still waiting on wallet confirmation", {
-        description: "Unlock your wallet to approve, or reconnect your wallet.",
-        duration: 10000,
-        position: "bottom-center",
-        action: {
-          label: "Reconnect",
-          onClick: () => {
-            // Offer a quick path to reconnect when stuck
-            handleOpenConnectModal();
-          },
-        },
-      });
-      hasAnnouncedStuckRef.current = true;
-    }
-  }, [isStuckConnecting]);
-
   // Close modal when connected
   useEffect(() => {
     if (isConnected) {
