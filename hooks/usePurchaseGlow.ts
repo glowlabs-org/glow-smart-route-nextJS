@@ -9,6 +9,7 @@ import { Contract } from "ethers";
 import { addresses } from "@/web3/constants/addresses";
 import { useEthersSigner } from "./useEthersSigner";
 import Decimal from "decimal.js";
+import { waitForEthersTransactionWithRetry } from "@glowlabs-org/utils/browser";
 
 const UNISWAP_V2_FACTORY_ABI = [
   "function getPair(address tokenA, address tokenB) external view returns (address pair)",
@@ -175,7 +176,12 @@ export function usePurchaseGlow() {
         try {
           const approveTx = await usdc.approve(usdg.address, usdcNeeded);
           setGlowPurchaseState("APPROVING_USDC_TO_OBTAIN_USDG");
-          await approveTx.wait();
+          await waitForEthersTransactionWithRetry(signer!, approveTx.hash, {
+            maxRetries: 5,
+            timeoutMs: 120000, // 2 minutes timeout
+            enableLogging: true,
+            pollIntervalMs: 2000, // Poll every 2 seconds
+          });
         } catch (e) {
           setGlowPurchaseState("ERROR");
           return new Err("Error approving USDC to obtain USDG");
@@ -185,7 +191,12 @@ export function usePurchaseGlow() {
       setGlowPurchaseState("PURCHASING_USDG");
       try {
         const swapTx = await usdg.swap(signerAddress, usdcNeeded);
-        await swapTx.wait();
+        await waitForEthersTransactionWithRetry(signer!, swapTx.hash, {
+          maxRetries: 5,
+          timeoutMs: 120000, // 2 minutes timeout
+          enableLogging: true,
+          pollIntervalMs: 2000, // Poll every 2 seconds
+        });
         setGlowPurchaseState("SUCCESSFULLY_OBTAINED_USDG");
       } catch (e) {
         setGlowPurchaseState("ERROR");
@@ -205,7 +216,12 @@ export function usePurchaseGlow() {
           usdgNeeded
         );
         setGlowPurchaseState("APPROVING_USDG_TO_OBTAIN_GLOW");
-        await approveTx.wait();
+        await waitForEthersTransactionWithRetry(signer!, approveTx.hash, {
+          maxRetries: 5,
+          timeoutMs: 120000, // 2 minutes timeout
+          enableLogging: true,
+          pollIntervalMs: 2000, // Poll every 2 seconds
+        });
       } catch (e) {
         setGlowPurchaseState("ERROR");
         return new Err("Error approving USDG to obtain Glow");
@@ -220,7 +236,12 @@ export function usePurchaseGlow() {
         incrementsToPurchase,
         usdgNeeded
       );
-      await purchaseTx.wait();
+      await waitForEthersTransactionWithRetry(signer!, purchaseTx.hash, {
+        maxRetries: 5,
+        timeoutMs: 120000, // 2 minutes timeout
+        enableLogging: true,
+        pollIntervalMs: 2000, // Poll every 2 seconds
+      });
     } catch (e) {
       setGlowPurchaseState("ERROR");
       return new Err("Error purchasing Glow");

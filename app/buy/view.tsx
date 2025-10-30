@@ -745,9 +745,9 @@ export default function View({
     } catch (error: any) {
       console.error("Transaction error:", error);
       setPendingTx(false);
-      
+
       let errorMessage = "Transaction failed";
-      
+
       if (error?.message) {
         errorMessage = error.message;
       } else if (error?.reason) {
@@ -757,16 +757,24 @@ export default function View({
       } else if (typeof error === "string") {
         errorMessage = error;
       }
-      
+
       // Handle common error cases
-      if (errorMessage.includes("revert") || errorMessage.includes("revert data") || errorMessage.includes("missing revert data")) {
-        errorMessage = "Transaction failed. This could be due to insufficient liquidity, slippage tolerance exceeded, or contract revert. Please try again with a smaller amount or adjust your slippage tolerance.";
+      if (
+        errorMessage.includes("revert") ||
+        errorMessage.includes("revert data") ||
+        errorMessage.includes("missing revert data")
+      ) {
+        errorMessage =
+          "Transaction failed. This could be due to insufficient liquidity, slippage tolerance exceeded, or contract revert. Please try again with a smaller amount or adjust your slippage tolerance.";
       } else if (errorMessage.includes("insufficient")) {
         errorMessage = "Insufficient balance or liquidity";
-      } else if (errorMessage.includes("User rejected") || errorMessage.includes("User denied")) {
+      } else if (
+        errorMessage.includes("User rejected") ||
+        errorMessage.includes("User denied")
+      ) {
         errorMessage = "Transaction was rejected";
       }
-      
+
       toast.error(errorMessage);
     }
   };
@@ -1247,7 +1255,7 @@ export default function View({
                                   Number(tokenSellBalance).toLocaleString(
                                     "en-US",
                                     {
-                                      maximumFractionDigits: 0,
+                                      maximumFractionDigits: 2,
                                     }
                                   )
                                 )}

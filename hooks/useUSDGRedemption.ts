@@ -4,7 +4,10 @@ import { formatUnits, erc20Abi, maxUint256, formatEther, parseAbi } from "viem";
 import { useContracts } from "./useContracts";
 import { useEffect, useState } from "react";
 import { publicClient } from "@/web3/web3/clients/publicClient";
-import { getAddresses } from "@glowlabs-org/utils/browser";
+import {
+  getAddresses,
+  waitForViemTransactionWithRetry,
+} from "@glowlabs-org/utils/browser";
 import { useWalletClient } from "wagmi";
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
@@ -123,7 +126,19 @@ export function useUSDGRedemption() {
             USDG_REDEMPTION_ADDRESS,
             maxUint256
           );
-          await approveTx.wait();
+          // Use standard ethers wait with timeout
+          await Promise.race([
+            approveTx.wait(),
+            new Promise((_, reject) =>
+              setTimeout(
+                () =>
+                  reject(
+                    new Error("Approval transaction timeout after 2 minutes")
+                  ),
+                120000
+              )
+            ),
+          ]);
         } catch (approveError) {
           return new Err(
             parseEthersError(approveError) || "USDG approval failed"
@@ -150,7 +165,12 @@ export function useUSDGRedemption() {
         functionName: "exchange",
         args: [amountUSDG],
       });
-      await publicClient.waitForTransactionReceipt({ hash });
+      await waitForViemTransactionWithRetry(publicClient, hash, {
+        maxRetries: 5,
+        timeoutMs: 120000, // 2 minutes timeout
+        enableLogging: true,
+        pollIntervalMs: 2000, // Poll every 2 seconds
+      });
 
       return new Ok(true);
     } catch (txError: any) {

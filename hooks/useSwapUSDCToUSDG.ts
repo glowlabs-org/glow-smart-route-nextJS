@@ -2,6 +2,7 @@ import { formatEther } from "viem";
 import { useContracts } from "./useContracts";
 import { useEthersSigner } from "./useEthersSigner";
 import { Result, Ok, Err } from "ts-results";
+import { waitForEthersTransactionWithRetry } from "@glowlabs-org/utils/browser";
 
 export enum SwapUSDCToUSDGError {
   CONTRACTS_NOT_AVAILABLE = "Contracts not available",
@@ -72,12 +73,22 @@ export const useSwapUSDCToUSDG = () => {
         console.log("approving");
         const tx = await usdc.approve(usdg.address, amount);
         console.log("tx", tx);
-        await tx.wait();
+        await waitForEthersTransactionWithRetry(signer!, tx.hash, {
+          maxRetries: 5,
+          timeoutMs: 120000, // 2 minutes timeout
+          enableLogging: true,
+          pollIntervalMs: 2000, // Poll every 2 seconds
+        });
       }
 
       console.log("amount", amount);
       const tx = await usdg.swap(signerAddress, amount);
-      await tx.wait();
+      await waitForEthersTransactionWithRetry(signer!, tx.hash, {
+        maxRetries: 5,
+        timeoutMs: 120000, // 2 minutes timeout
+        enableLogging: true,
+        pollIntervalMs: 2000, // Poll every 2 seconds
+      });
       return new Ok(true);
     } catch (e: any) {
       return new Err(SwapUSDCToUSDGError.UNKNOWN_ERROR);

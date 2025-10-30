@@ -10,6 +10,7 @@ import { publicClient } from "@/web3/web3/clients/publicClient";
 import { useWalletClient } from "wagmi";
 import { formatEther, parseAbi } from "viem";
 import Decimal from "decimal.js";
+import { waitForViemTransactionWithRetry } from "@glowlabs-org/utils/browser";
 
 const UNISWAP_V2_FACTORY_ABI = parseAbi([
   "function getPair(address tokenA, address tokenB) external view returns (address pair)",
@@ -161,7 +162,13 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
 
   function makeTx(hash: `0x${string}`) {
     return {
-      wait: async () => publicClient.waitForTransactionReceipt({ hash }),
+      wait: async () =>
+        waitForViemTransactionWithRetry(publicClient, hash, {
+          maxRetries: 5,
+          timeoutMs: 120000, // 2 minutes timeout
+          enableLogging: true,
+          pollIntervalMs: 2000, // Poll every 2 seconds
+        }),
     };
   }
 
