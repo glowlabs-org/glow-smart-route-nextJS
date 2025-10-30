@@ -31,9 +31,11 @@ export async function forceDisconnect(
       })
     );
 
-    // 3) Clear persisted sessions (WalletConnect/wagmi)
+    // 3) Clear persisted sessions (WalletConnect/wagmi) and set one-shot flag to disable autoConnect on next load
     try {
       if (typeof localStorage !== "undefined") {
+        // prevent wagmi from auto-connecting immediately after reload (one time)
+        localStorage.setItem("wagmi_disable_auto_connect_once", "1");
         Object.keys(localStorage).forEach((key) => {
           const k = key.toLowerCase();
           if (
@@ -47,7 +49,7 @@ export async function forceDisconnect(
       }
     } catch {}
 
-    // 4) Clear wagmi cookie (if present)
+    // 4) Clear wagmi cookie (if present) and set one-shot cookie flag
     try {
       if (typeof document !== "undefined") {
         const cookies = document.cookie ? document.cookie.split(";") : [];
@@ -58,13 +60,15 @@ export async function forceDisconnect(
             const key = entry.split("=")[0];
             document.cookie = `${key}=; Max-Age=0; Path=/; SameSite=Lax`;
           });
+
+        // Set short-lived cookie to disable autoConnect on next page load (in case SSR runs before localStorage is available)
+        const secure =
+          typeof window !== "undefined" && window.location.protocol === "https:"
+            ? "; Secure"
+            : "";
+        document.cookie = `wagmi_disable_auto_connect_once=1; Max-Age=30; Path=/; SameSite=Lax${secure}`;
       }
     } catch {}
-
-    // Small delay to ensure cleanup completes before reload
-    setTimeout(() => {
-      window.location.reload();
-    }, 100);
   } catch {
     toast.error("Failed to disconnect. Please refresh the page.");
   }

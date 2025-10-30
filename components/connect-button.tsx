@@ -75,9 +75,16 @@ export const ConnectButton = ({
   useEffect(() => {
     if (isStuckConnecting && !hasAnnouncedStuckRef.current) {
       toast.info("Still waiting on wallet confirmation", {
-        description:
-          "Unlock your wallet or approve the pending request, then retry.",
-        duration: 6000,
+        description: "Unlock your wallet to approve, or reconnect your wallet.",
+        duration: 10000,
+        position: "bottom-center",
+        action: {
+          label: "Reconnect",
+          onClick: () => {
+            // Offer a quick path to reconnect when stuck
+            handleOpenConnectModal();
+          },
+        },
       });
       hasAnnouncedStuckRef.current = true;
     }
@@ -210,7 +217,7 @@ export const ConnectButton = ({
       {/* Account Modal */}
       <Dialog open={isAccountModalOpen} onOpenChange={setIsAccountModalOpen}>
         <DialogContent className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-[500px] w-full border-border shadow-2xl overflow-hidden">
-          <Account />
+          <Account onClose={() => setIsAccountModalOpen(false)} />
         </DialogContent>
       </Dialog>
     </>

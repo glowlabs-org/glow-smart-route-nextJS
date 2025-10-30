@@ -4,6 +4,7 @@ import {
   useEnsAvatar,
   useEnsName,
   useBalance,
+  useConnect,
 } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Copy, ExternalLink, LogOut, Wallet } from "lucide-react";
@@ -11,40 +12,14 @@ import { toast } from "sonner";
 import { formatUnits } from "viem";
 import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
 import { GlowSymbol } from "./glow-symbol";
+import { forceDisconnect } from "@/utils/forceDisconnect";
 
-export function Account() {
+export function Account({ onClose }: { onClose?: () => void }) {
   const { address, chainId, connector } = useAccount();
   const { disconnect } = useDisconnect();
+  const { connectors } = useConnect();
   const { data: ensName } = useEnsName({ address });
   const { data: balance } = useBalance({ address });
-
-  const handleCopyAddress = async () => {
-    if (address) {
-      try {
-        await navigator.clipboard.writeText(address);
-        toast.success("Address copied to clipboard");
-      } catch {
-        // Fallback for older browsers
-        const textArea = document.createElement("textarea");
-        textArea.value = address;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textArea);
-        toast.success("Address copied to clipboard");
-      }
-    }
-  };
-
-  const handleViewOnExplorer = () => {
-    if (address) {
-      const explorerUrl =
-        chainId === 1
-          ? `https://etherscan.io/address/${address}`
-          : `https://etherscan.io/address/${address}`;
-      window.open(explorerUrl, "_blank", "noopener,noreferrer");
-    }
-  };
 
   const getNetworkName = (chainId?: number) => {
     switch (chainId) {
@@ -126,8 +101,9 @@ export function Account() {
         <div className="space-y-3">
           <Button
             variant="outline"
-            onClick={() => {
-              disconnect();
+            onClick={async () => {
+              await forceDisconnect(disconnect, connectors);
+              onClose?.();
             }}
             className="w-full"
           >

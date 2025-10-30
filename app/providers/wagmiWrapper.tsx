@@ -99,6 +99,19 @@ const WalletConnectionManager = () => {
   };
 
   const attemptReconnect = async () => {
+    // Respect one-shot disable flag set by forceDisconnect
+    try {
+      if (typeof document !== "undefined") {
+        const cookie = document.cookie || "";
+        if (cookie.includes("wagmi_disable_auto_connect_once=1")) return;
+      }
+      if (typeof localStorage !== "undefined") {
+        if (localStorage.getItem("wagmi_disable_auto_connect_once") === "1") {
+          return;
+        }
+      }
+    } catch {}
+
     if (
       !config.storage ||
       connectStatus === "pending" ||

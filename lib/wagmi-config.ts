@@ -37,6 +37,26 @@ const persistentCookieStorage: typeof cookieStorage = {
 
 const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_ID;
 
+// Determine one-shot autoConnect disable flag (set by forceDisconnect)
+let shouldDisableAutoConnectOnce = false;
+try {
+  if (typeof document !== "undefined") {
+    const cookie = document.cookie || "";
+    if (cookie.includes("wagmi_disable_auto_connect_once=1")) {
+      shouldDisableAutoConnectOnce = true;
+      // clear the cookie so it applies only once
+      document.cookie =
+        "wagmi_disable_auto_connect_once=; Max-Age=0; Path=/; SameSite=Lax";
+    }
+  }
+  if (!shouldDisableAutoConnectOnce && typeof localStorage !== "undefined") {
+    if (localStorage.getItem("wagmi_disable_auto_connect_once") === "1") {
+      shouldDisableAutoConnectOnce = true;
+      localStorage.removeItem("wagmi_disable_auto_connect_once");
+    }
+  }
+} catch {}
+
 // IMPORTANT: ssr + cookieStorage so the selected connector persists across reloads in App Router.
 export const wagmiConfig = createConfig({
   chains: [process.env.NEXT_PUBLIC_CHAIN_ID === "1" ? mainnet : sepolia],

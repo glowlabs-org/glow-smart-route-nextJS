@@ -522,14 +522,9 @@ export function Header({
           </nav>
 
           {/* Mobile controls */}
-          <div className="flex items-center gap-4 lg:hidden">
-            <Link
-              href="/glow-swap?tab=swap"
-              className="text-zinc-900 dark:text-zinc-100 transition-colors text-sm font-medium px-3 py-2 rounded-xl hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100"
-            >
-              Swap
-            </Link>
-            <ThemeToggle />
+          <div className="flex items-center gap-3 lg:hidden">
+            {/* Always-visible connect button to the left of the hamburger */}
+            <ConnectButton variant="default" className="w-auto" size="small" />
             <Drawer direction="right" shouldScaleBackground={false}>
               <DrawerTrigger asChild>
                 <motion.button
@@ -549,6 +544,7 @@ export function Header({
                   <div className="flex items-center justify-between">
                     <GlowLockup className="w-32 h-10" />
                     <div className="flex items-center gap-2">
+                      {/* Theme toggle moved inside the drawer on mobile */}
                       <ThemeToggle />
                       <DrawerClose asChild>
                         <motion.button

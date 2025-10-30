@@ -44,7 +44,7 @@ function TabSectionHeader({
   status,
 }: TabSectionHeaderProps) {
   return (
-    <div className="px-4 md:px-6 pt-2 pb-6 border-b border-border/60 bg-muted/5">
+    <div className="px-4 md:px-6 pt-4 pb-6 border-b border-border/60 bg-muted/5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2">
           {eyebrow ? (
