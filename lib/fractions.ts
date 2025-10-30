@@ -96,7 +96,7 @@ export function formatMinerEvents(
             event.currency,
             { prefix: "$", fallbackToken: "USDC" }
           ),
-          timestamp: formatTimestamp(event.timestamp),
+          timestamp: formatTimestamp(event.timestamp * 1000),
         } satisfies ProtocolEventRow)
     );
 }
