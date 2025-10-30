@@ -1,14 +1,9 @@
-// app/providers.tsx
 "use client";
 
 import { cookieStorage, createStorage, createConfig, http } from "wagmi";
 import { mainnet, sepolia } from "wagmi/chains";
-import {
-  injected,
-  walletConnect,
-  coinbaseWallet,
-  metaMask,
-} from "wagmi/connectors";
+import { getDefaultConfig } from "connectkit";
+import type { Connector } from "wagmi";
 
 if (!process.env.NEXT_PUBLIC_WALLET_CONNECT_ID)
   throw new Error("NEXT_PUBLIC_WALLET_CONNECT_ID is not set");
@@ -35,59 +30,102 @@ const persistentCookieStorage: typeof cookieStorage = {
   },
 };
 
-const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_ID;
+const chains = [
+  process.env.NEXT_PUBLIC_CHAIN_ID === "1" ? mainnet : sepolia,
+] as const;
 
-// Determine one-shot autoConnect disable flag (set by forceDisconnect)
-let shouldDisableAutoConnectOnce = false;
-try {
-  if (typeof document !== "undefined") {
-    const cookie = document.cookie || "";
-    if (cookie.includes("wagmi_disable_auto_connect_once=1")) {
-      shouldDisableAutoConnectOnce = true;
-      // clear the cookie so it applies only once
-      document.cookie =
-        "wagmi_disable_auto_connect_once=; Max-Age=0; Path=/; SameSite=Lax";
-    }
-  }
-  if (!shouldDisableAutoConnectOnce && typeof localStorage !== "undefined") {
-    if (localStorage.getItem("wagmi_disable_auto_connect_once") === "1") {
-      shouldDisableAutoConnectOnce = true;
-      localStorage.removeItem("wagmi_disable_auto_connect_once");
-    }
-  }
-} catch {}
+// Helper function to check if a connector is Phantom wallet
+async function isPhantomConnector(connector: Connector): Promise<boolean> {
+  try {
+    const provider = await connector.getProvider().catch(() => null);
+    if (!provider) return false;
 
-// IMPORTANT: ssr + cookieStorage so the selected connector persists across reloads in App Router.
-export const wagmiConfig = createConfig({
-  chains: [process.env.NEXT_PUBLIC_CHAIN_ID === "1" ? mainnet : sepolia],
-  ssr: true,
-  storage: createStorage({
-    storage: persistentCookieStorage, // works with SSR hydration; avoids `window` access during render
-  }),
-  // Restrict to these four connectors only and control ordering for the UI
-  connectors: [
-    injected({ shimDisconnect: true }),
-    walletConnect({
-      projectId,
-      metadata: {
-        name: "Glow",
-        description: "Glow app",
-        url: "https://app.glow.org",
-        icons: ["https://app.glow.org/icon.png"],
-      },
-    }),
-    coinbaseWallet({ appName: "app.glow.org" }),
-    metaMask({
-      dappMetadata: {
-        name: "Glow",
-        url: "https://app.glow.org",
-        iconUrl: "https://app.glow.org/icon.png",
-      },
-    }),
-  ],
+    // Check if provider is Phantom
+    if ((provider as any).isPhantom) return true;
+
+    // Check connector ID/name for Phantom indicators
+    const id = connector.id.toLowerCase();
+    const name = connector.name.toLowerCase();
+    if (id.includes("phantom") || name.includes("phantom")) return true;
+    if (id === "app.phantom" || id.includes("app.phantom")) return true;
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+// Use ConnectKit's getDefaultConfig for better wallet handling
+// Merge with custom storage for SSR persistence
+const connectKitConfig = getDefaultConfig({
+  enableFamily: false,
+  chains,
   transports: {
     [mainnet.id]: http(process.env.NEXT_PUBLIC_MAINNET_RPC_URL),
     [sepolia.id]: http(process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL),
   },
-  batch: { multicall: { wait: 32 } },
+  walletConnectProjectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_ID,
+  appName: "Glow",
+  appDescription: "Decentralized solar mining ecosystem",
+  appUrl: "https://app.glow.org",
+  appIcon: "https://app.glow.org/icon.png",
 });
+
+// Create config with ConnectKit defaults but override storage for SSR
+export const wagmiConfig = createConfig({
+  ...connectKitConfig,
+  storage: createStorage({
+    storage: persistentCookieStorage,
+  }),
+});
+
+// Filter out Phantom wallet connectors after config creation
+// This handles both initial connectors and EIP-6963 discovered connectors
+if (typeof window !== "undefined") {
+  // Filter function that checks and removes Phantom connectors
+  const filterPhantomConnectors = async (connectors: readonly Connector[]) => {
+    const filteredConnectors = await Promise.all(
+      connectors.map(async (connector) => {
+        const isPhantom = await isPhantomConnector(connector);
+        return isPhantom ? null : connector;
+      })
+    );
+    return filteredConnectors.filter((c): c is Connector => c !== null);
+  };
+
+  // Filter initial connectors
+  filterPhantomConnectors(wagmiConfig.connectors).then((validConnectors) => {
+    if (validConnectors.length < wagmiConfig.connectors.length) {
+      wagmiConfig._internal.connectors.setState(validConnectors);
+    }
+  });
+
+  // Subscribe to connector changes to filter out Phantom when discovered via EIP-6963
+  // Use a flag to prevent infinite loops
+  let isFiltering = false;
+  wagmiConfig._internal.connectors.subscribe(async (connectors) => {
+    // Skip if we're already filtering to prevent infinite loop
+    if (isFiltering) return;
+
+    // Check if any connectors might be Phantom
+    const hasPotentialPhantom = connectors.some(
+      (c) =>
+        c.id.toLowerCase().includes("phantom") ||
+        c.name.toLowerCase().includes("phantom") ||
+        c.id === "app.phantom"
+    );
+
+    if (!hasPotentialPhantom) return;
+
+    isFiltering = true;
+    try {
+      const validConnectors = await filterPhantomConnectors(connectors);
+      // Only update if we actually filtered something out
+      if (validConnectors.length < connectors.length) {
+        wagmiConfig._internal.connectors.setState(validConnectors);
+      }
+    } finally {
+      isFiltering = false;
+    }
+  });
+}

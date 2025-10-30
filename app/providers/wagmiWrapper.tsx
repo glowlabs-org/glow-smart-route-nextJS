@@ -10,6 +10,7 @@ import {
 } from "wagmi";
 import type { Connector } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ConnectKitProvider } from "connectkit";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { wagmiConfig } from "@/lib/wagmi-config";
@@ -193,9 +194,11 @@ export const WagmiWrapper = ({ children }: { children: React.ReactNode }) => {
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <Toaster />
-        <WalletConnectionManager />
-        {children}
+        <ConnectKitProvider>
+          <Toaster />
+          <WalletConnectionManager />
+          {children}
+        </ConnectKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );
