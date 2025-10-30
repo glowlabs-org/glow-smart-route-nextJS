@@ -1444,7 +1444,7 @@ export default function View({
                     </div>
 
                     {/* Slippage Tolerance Settings */}
-                    <div className="bg-muted/20 rounded-xl p-4 border border-border/20">
+                    <div className="bg-muted/20 rounded-xl p-4 border border-border/20 mt-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Info className="w-4 h-4 text-muted-foreground" />
