@@ -373,8 +373,6 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     const signerAddress = await signer.getAddress();
 
     const balanceTokenA = await tokenA.balanceOf(signerAddress);
-    console.log("balanceTokenA", balanceTokenA.toString());
-    console.log("amountBigInt", amountBigInt.toString());
     if (balanceTokenA < amountBigInt)
       return new Err(SwapError.INSUFFICIENT_TOKEN_A_BALANCE);
     const allowanceTokenA = await tokenA.allowance(
@@ -382,8 +380,6 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       uniswapRouter.address
     );
 
-    console.log("allowanceTokenA", allowanceTokenA.toString());
-    console.log("amountBigInt", amountBigInt.toString());
     if (allowanceTokenA < amountBigInt) {
       try {
         setUniswapPurchaseState("REQUESTING_TOKEN_APPROVAL");
@@ -395,7 +391,6 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         await approveTx.wait();
       } catch (err: any) {
         setUniswapPurchaseState("ERROR");
-        console.error("Approval error:", err);
         const errorMessage = extractErrorMessage(
           err,
           SwapError.FAILED_TO_APPROVE_TOKEN_A

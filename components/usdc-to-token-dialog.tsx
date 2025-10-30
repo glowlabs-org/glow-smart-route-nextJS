@@ -148,7 +148,7 @@ export const UsdcToTokenDialog: FC<{
   slippagePointsTenThousandths: bigint;
   swapUSDCToUSDG: (
     amount: bigint
-  ) => Promise<Result<boolean, SwapUSDCToUSDGError>>;
+  ) => Promise<Result<boolean, SwapUSDCToUSDGError | string>>;
   onOpenChange: (open: boolean) => void;
 }> = ({
   isOpen,

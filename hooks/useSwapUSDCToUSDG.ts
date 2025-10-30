@@ -9,10 +9,65 @@ export enum SwapUSDCToUSDGError {
   SIGNER_NOT_AVAILABLE = "Signer not available",
   UNKNOWN_ERROR = "Unknown error",
   INSUFFICIENT_USDC_BALANCE = "Insufficient USDC balance",
+  APPROVAL_FAILED = "Failed to approve USDC",
+  SWAP_FAILED = "Failed to swap USDC to USDG",
+  TRANSACTION_REJECTED = "Transaction was rejected",
 }
+// Helper function to parse errors
+function parseSwapError(error: any): string {
+  // Check for user rejection
+  if (
+    error?.code === 4001 ||
+    error?.message?.includes("rejected") ||
+    error?.message?.includes("denied")
+  ) {
+    return SwapUSDCToUSDGError.TRANSACTION_REJECTED;
+  }
+
+  // Check for RPC errors
+  if (error?.code === -32603 || error?.error?.code === -32603) {
+    // Internal JSON-RPC error often means the transaction would fail
+    const message = error?.error?.message || error?.message || "";
+    if (message.includes("insufficient")) {
+      return SwapUSDCToUSDGError.INSUFFICIENT_USDC_BALANCE;
+    }
+    // Try to extract more specific error from data
+    if (error?.data?.message) {
+      return `Transaction failed: ${error.data.message}`;
+    }
+    if (error?.error?.data?.message) {
+      return `Transaction failed: ${error.error.data.message}`;
+    }
+    return `Transaction would fail. Please try again or contact support.`;
+  }
+
+  // Check for specific error messages
+  if (error?.message) {
+    // Check for timeout errors
+    if (
+      error.message.includes("timeout") ||
+      error.message.includes("Timeout")
+    ) {
+      return "Transaction confirmation timed out. The transaction may have succeeded - please check your wallet.";
+    }
+    if (
+      error.message.includes("insufficient funds") ||
+      error.message.includes("insufficient balance")
+    ) {
+      return SwapUSDCToUSDGError.INSUFFICIENT_USDC_BALANCE;
+    }
+    if (error.message.includes("approve")) {
+      return SwapUSDCToUSDGError.APPROVAL_FAILED;
+    }
+    return error.message;
+  }
+
+  return SwapUSDCToUSDGError.UNKNOWN_ERROR;
+}
+
 export const useSwapUSDCToUSDG = () => {
   const { signer } = useEthersSigner();
-  const { usdc, usdg } = useContracts(signer);
+  const { usdc, usdg, isReady } = useContracts(signer);
 
   const estimateGasForswapUSDCToUSDG = async (
     amount: bigint,
@@ -60,38 +115,81 @@ export const useSwapUSDCToUSDG = () => {
 
   const swapUSDCToUSDG = async (
     amount: bigint
-  ): Promise<Result<boolean, SwapUSDCToUSDGError>> => {
+  ): Promise<Result<boolean, SwapUSDCToUSDGError | string>> => {
     try {
-      if (!usdc || !usdg)
+      if (!usdc || !usdg || !isReady)
         return new Err(SwapUSDCToUSDGError.CONTRACTS_NOT_AVAILABLE);
       if (!signer) return new Err(SwapUSDCToUSDGError.SIGNER_NOT_AVAILABLE);
+
       const signerAddress = await signer.getAddress();
-      console.log("signerAddress", signerAddress);
-      const allowance = await usdc.allowance(signerAddress, usdg.address);
-      console.log("allowance", { allowance, amount });
-      if (allowance < amount) {
-        console.log("approving");
-        const tx = await usdc.approve(usdg.address, amount);
-        console.log("tx", tx);
-        await waitForEthersTransactionWithRetry(signer!, tx.hash, {
-          maxRetries: 5,
-          timeoutMs: 120000, // 2 minutes timeout
-          enableLogging: true,
-          pollIntervalMs: 2000, // Poll every 2 seconds
-        });
+
+      // Validate amount
+      if (amount <= BigInt(0)) {
+        return new Err("Amount must be greater than 0");
       }
 
-      console.log("amount", amount);
-      const tx = await usdg.swap(signerAddress, amount);
-      await waitForEthersTransactionWithRetry(signer!, tx.hash, {
-        maxRetries: 5,
-        timeoutMs: 120000, // 2 minutes timeout
-        enableLogging: true,
-        pollIntervalMs: 2000, // Poll every 2 seconds
-      });
-      return new Ok(true);
+      // Check USDC balance before attempting swap
+      const usdcBalance = await usdc.balanceOf(signerAddress);
+
+      if (usdcBalance < amount) {
+        return new Err(SwapUSDCToUSDGError.INSUFFICIENT_USDC_BALANCE);
+      }
+
+      // Check and handle allowance
+      const allowance = await usdc.allowance(signerAddress, usdg.address);
+
+      if (allowance < amount) {
+        try {
+          const tx = await usdc.approve(usdg.address, amount);
+          await waitForEthersTransactionWithRetry(signer!, tx.hash, {
+            maxRetries: 10, // Increased retries for USDG-related approvals
+            timeoutMs: 300000, // 5 minutes timeout
+            enableLogging: true,
+            pollIntervalMs: 3000, // Poll every 3 seconds to avoid rate limiting
+          });
+        } catch (approvalError: any) {
+          return new Err(parseSwapError(approvalError));
+        }
+      }
+
+      // Perform the swap
+      try {
+        const tx = await usdg.swap(signerAddress, amount);
+
+        if (!tx || !tx.hash) {
+          return new Err(
+            "Failed to get transaction hash from swap. Please try again."
+          );
+        }
+
+        await waitForEthersTransactionWithRetry(signer!, tx.hash, {
+          maxRetries: 10, // Increased retries for USDG swaps
+          timeoutMs: 300000, // 5 minutes timeout for USDG swaps
+          enableLogging: true,
+          pollIntervalMs: 3000, // Poll every 3 seconds to avoid rate limiting
+        });
+        return new Ok(true);
+      } catch (swapError: any) {
+        // Check if it's a timeout error
+        if (
+          swapError?.message?.includes("timeout") ||
+          swapError?.message?.includes("Timeout")
+        ) {
+          return new Err(
+            "Transaction submitted but confirmation timed out. Please check your wallet to verify if the swap completed successfully."
+          );
+        }
+
+        // Check if it's a simulation/validation error from ethers
+        if (swapError?.code === "UNPREDICTABLE_GAS_LIMIT") {
+          return new Err(
+            "Transaction would fail on-chain. Please check your balance and try again."
+          );
+        }
+        return new Err(parseSwapError(swapError));
+      }
     } catch (e: any) {
-      return new Err(SwapUSDCToUSDGError.UNKNOWN_ERROR);
+      return new Err(parseSwapError(e));
     }
   };
 

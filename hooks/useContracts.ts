@@ -39,6 +39,7 @@ export function useContracts(_signer: any) {
 
     function makeTx(hash: `0x${string}`) {
       return {
+        hash,
         wait: async () => publicClient.waitForTransactionReceipt({ hash }),
       } as any;
     }
