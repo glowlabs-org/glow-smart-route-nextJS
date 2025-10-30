@@ -42,6 +42,14 @@ export function WalletOptions() {
     return result;
   }, [connectors]);
 
+  const hasTrustWallet = React.useMemo(() => {
+    return uniqueConnectors.some(
+      (connector) =>
+        connector.name.toLowerCase().includes("trust") ||
+        connector.id.toLowerCase().includes("trust")
+    );
+  }, [uniqueConnectors]);
+
   React.useEffect(() => {
     if (error?.message.includes("already connected")) {
       reset();
@@ -95,6 +103,15 @@ export function WalletOptions() {
             >
               Try again
             </Button>
+          </div>
+        )}
+
+        {hasTrustWallet && (
+          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 mb-6">
+            <p className="text-sm text-yellow-600 dark:text-yellow-500">
+              ⚠️ Trust Wallet is not well supported. For the best experience,
+              please use MetaMask or Coinbase Wallet.
+            </p>
           </div>
         )}
 
@@ -182,6 +199,9 @@ function WalletOption({
     const isBaseWalletApp =
       typeof window !== "undefined" && window.ethereum?.isBase;
 
+    if (lowerName.includes("trust")) {
+      return "Not well supported - use another wallet for best experience";
+    }
     if (lowerName.includes("metamask")) {
       return "Connect using MetaMask browser extension";
     }
