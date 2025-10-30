@@ -9,43 +9,53 @@ import Image from "next/image";
 export function WalletOptions() {
   const { connectors, connect, isPending, error, reset } = useConnect();
 
-  // Filter out duplicate MetaMask connectors
   const uniqueConnectors = React.useMemo(() => {
-    const seen = new Set<string>();
-    const filtered = connectors.filter((connector) => {
+    const isMetaMaskInstalled =
+      typeof window !== "undefined" && window.ethereum?.isMetaMask;
+
+    const deduplicated = new Map<string, Connector>();
+
+    connectors.forEach((connector) => {
       const name = connector.name.toLowerCase();
+      const id = connector.id.toLowerCase();
 
-      // If it's a MetaMask-related connector, use a normalized key
-      if (name.includes("metamask")) {
-        if (seen.has("metamask")) {
-          return false; // Skip duplicate
-        }
-        seen.add("metamask");
-        return true;
+      // Skip the specific MetaMask connector if MetaMask is already installed
+      if (isMetaMaskInstalled && id === "metamask") {
+        return;
       }
 
-      // For other connectors, use the full name as the key
-      if (seen.has(name)) {
-        return false;
+      // For MetaMask-like connectors, use a unified key
+      let key = name;
+      if (name.includes("metamask") || id.includes("metamask")) {
+        key = "metamask";
+      } else if (name.includes("injected") && isMetaMaskInstalled) {
+        key = "metamask"; // Group injected with MetaMask when MM is installed
       }
-      seen.add(name);
-      return true;
+
+      // Only keep the first occurrence of each key
+      if (!deduplicated.has(key)) {
+        deduplicated.set(key, connector);
+      }
     });
 
-    return filtered;
+    const result = Array.from(deduplicated.values());
+    return result;
   }, [connectors]);
 
-  // Clear any existing connections before showing options
   React.useEffect(() => {
     if (error?.message.includes("already connected")) {
       reset();
     }
   }, [error, reset]);
 
-  const handleConnect = (connector: Connector) => {
+  const handleConnect = async (connector: Connector) => {
     try {
-      // Reset any previous errors
       reset();
+
+      if (typeof window !== "undefined" && window.ethereum?.selectedAddress) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
       connect({ connector });
     } catch (err) {
       console.error("Connection error:", err);
@@ -55,7 +65,6 @@ export function WalletOptions() {
   return (
     <div className="px-8 py-12 max-h-[80vh] overflow-y-auto">
       <div className="text-center">
-        {/* Header */}
         <div className="mb-6">
           <GlowSymbol className="size-16 mb-2 mx-auto" />
           <div className="text-2xl md:text-4xl font-bold text-foreground mb-2">
@@ -89,7 +98,6 @@ export function WalletOptions() {
           </div>
         )}
 
-        {/* Wallet Options */}
         <div className="space-y-3 mb-8">
           {uniqueConnectors.map((connector) => (
             <WalletOption
@@ -124,17 +132,23 @@ function WalletOption({
         setReady(!!provider);
       } catch (err) {
         console.error(`${connector.name} provider check failed:`, err);
-        // For some connectors, getProvider might fail but they're still usable
-        // Set ready to true for injected and WalletConnect as they're usually available
+        const lowerName = connector.name.toLowerCase();
         const isBasicConnector =
-          connector.name.toLowerCase().includes("injected") ||
-          connector.name.toLowerCase().includes("walletconnect");
+          lowerName.includes("injected") ||
+          lowerName.includes("walletconnect") ||
+          lowerName.includes("base") ||
+          lowerName.includes("browser");
         setReady(isBasicConnector);
       }
     })();
   }, [connector]);
   const getWalletIcon = (name: string) => {
     const lowerName = name.toLowerCase();
+    const isMetaMaskInstalled =
+      typeof window !== "undefined" && window.ethereum?.isMetaMask;
+    const isBaseWalletApp =
+      typeof window !== "undefined" && window.ethereum?.isBase;
+
     if (lowerName.includes("metamask")) {
       return "/images/icons/metamask.png";
     }
@@ -147,11 +161,27 @@ function WalletOption({
     if (lowerName.includes("safe")) {
       return "/images/icons/safe.png";
     }
-    return null; // Use fallback for unknown wallets
+    if (lowerName.includes("base") && !lowerName.includes("coinbase")) {
+      return "/images/icons/base.png";
+    }
+    if (lowerName.includes("injected")) {
+      if (isMetaMaskInstalled) {
+        return "/images/icons/metamask.png";
+      }
+      if (isBaseWalletApp) {
+        return "/images/icons/base.png";
+      }
+    }
+    return null;
   };
 
   const getWalletDescription = (name: string) => {
     const lowerName = name.toLowerCase();
+    const isMetaMaskInstalled =
+      typeof window !== "undefined" && window.ethereum?.isMetaMask;
+    const isBaseWalletApp =
+      typeof window !== "undefined" && window.ethereum?.isBase;
+
     if (lowerName.includes("metamask")) {
       return "Connect using MetaMask browser extension";
     }
@@ -164,7 +194,16 @@ function WalletOption({
     if (lowerName.includes("safe")) {
       return "Connect to Safe multisig wallet";
     }
+    if (lowerName.includes("base") && !lowerName.includes("coinbase")) {
+      return "Connect using Base Wallet";
+    }
     if (lowerName.includes("injected")) {
+      if (isMetaMaskInstalled) {
+        return "Connect using MetaMask browser extension";
+      }
+      if (isBaseWalletApp) {
+        return "Connect using Base Wallet app";
+      }
       return "Connect using browser wallet";
     }
     return "Connect with this wallet";
@@ -172,7 +211,26 @@ function WalletOption({
 
   const getWalletLabel = (name: string) => {
     const lowerName = name.toLowerCase();
-    if (lowerName.includes("injected")) return "Recommended";
+
+    const isMetaMaskInstalled =
+      typeof window !== "undefined" && window.ethereum?.isMetaMask;
+    const isBaseWalletApp =
+      typeof window !== "undefined" && window.ethereum?.isBase;
+
+    if (lowerName.includes("injected")) {
+      if (isMetaMaskInstalled) {
+        return "MetaMask";
+      }
+      if (isBaseWalletApp) {
+        return "Base Wallet";
+      }
+      return "Browser Wallet";
+    }
+
+    if (lowerName.includes("base") && !lowerName.includes("coinbase")) {
+      return "Base Wallet";
+    }
+
     return name;
   };
 
