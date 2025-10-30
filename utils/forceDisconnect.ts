@@ -49,7 +49,16 @@ export async function forceDisconnect(
 
     // 4) Clear wagmi cookie (if present)
     try {
-      document.cookie = "wagmi.store=; Max-Age=0; path=/;";
+      if (typeof document !== "undefined") {
+        const cookies = document.cookie ? document.cookie.split(";") : [];
+        cookies
+          .map((entry) => entry.trim())
+          .filter((entry) => entry.toLowerCase().startsWith("wagmi."))
+          .forEach((entry) => {
+            const key = entry.split("=")[0];
+            document.cookie = `${key}=; Max-Age=0; Path=/; SameSite=Lax`;
+          });
+      }
     } catch {}
 
     // Small delay to ensure cleanup completes before reload

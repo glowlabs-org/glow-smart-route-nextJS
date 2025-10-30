@@ -589,6 +589,11 @@ export default function View({
               Number(slippageTolerance) * 100
             ),
           });
+          if (!swapRes.ok) {
+            handleResponseMessage(swapRes);
+            setPendingTx(false);
+            return;
+          }
           handleResponseMessage(swapRes);
         }
 
@@ -608,6 +613,11 @@ export default function View({
                 Number(slippageTolerance) * 100
               ),
             });
+          if (!purchaseGlowEarlyLiquidityRes.ok) {
+            handleResponseMessage(purchaseGlowEarlyLiquidityRes);
+            setPendingTx(false);
+            return;
+          }
           handleResponseMessage(purchaseGlowEarlyLiquidityRes);
         }
       } else if (
@@ -732,11 +742,32 @@ export default function View({
       startTransition(router.refresh);
 
       setPendingTx(false);
-    } catch (error) {
-      console.log(error);
-
+    } catch (error: any) {
+      console.error("Transaction error:", error);
       setPendingTx(false);
-      toast.error("Transaction failed");
+      
+      let errorMessage = "Transaction failed";
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.reason) {
+        errorMessage = error.reason;
+      } else if (error?.shortMessage) {
+        errorMessage = error.shortMessage;
+      } else if (typeof error === "string") {
+        errorMessage = error;
+      }
+      
+      // Handle common error cases
+      if (errorMessage.includes("revert") || errorMessage.includes("revert data") || errorMessage.includes("missing revert data")) {
+        errorMessage = "Transaction failed. This could be due to insufficient liquidity, slippage tolerance exceeded, or contract revert. Please try again with a smaller amount or adjust your slippage tolerance.";
+      } else if (errorMessage.includes("insufficient")) {
+        errorMessage = "Insufficient balance or liquidity";
+      } else if (errorMessage.includes("User rejected") || errorMessage.includes("User denied")) {
+        errorMessage = "Transaction was rejected";
+      }
+      
+      toast.error(errorMessage);
     }
   };
 

@@ -39,6 +39,42 @@ export enum SwapError {
   GET_AMOUNT_OUT_FAILED = "Failed to get amount out",
   USDC_NOT_AVAILABLE = "USDC not available",
 }
+
+function extractErrorMessage(err: any, defaultMessage: string): string {
+  let errorMessage: string = defaultMessage;
+
+  if (err?.message) {
+    errorMessage = err.message;
+  } else if (err?.reason) {
+    errorMessage = err.reason;
+  } else if (err?.data?.message) {
+    errorMessage = err.data.message;
+  } else if (err?.shortMessage) {
+    errorMessage = err.shortMessage;
+  } else if (typeof err === "string") {
+    errorMessage = err;
+  }
+
+  // Handle common error cases
+  if (
+    errorMessage.includes("revert") ||
+    errorMessage.includes("revert data") ||
+    errorMessage.includes("missing revert data")
+  ) {
+    errorMessage =
+      "Transaction failed. This could be due to insufficient liquidity, slippage tolerance exceeded, or contract revert. Please try again with a smaller amount or adjust your slippage tolerance.";
+  } else if (errorMessage.includes("insufficient")) {
+    errorMessage = "Insufficient balance or liquidity";
+  } else if (
+    errorMessage.includes("User rejected") ||
+    errorMessage.includes("User denied") ||
+    errorMessage.includes("rejected")
+  ) {
+    errorMessage = "Transaction was rejected";
+  }
+
+  return errorMessage;
+}
 type UseSwapProps = {
   tokenA_address: string;
   tokenB_address: string;
@@ -91,6 +127,18 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       .mul(new Decimal(10).pow(decimals))
       .toFixed(0, Decimal.ROUND_DOWN);
     return BigInt(scaled);
+  }
+
+  // Converts numbers/strings to BigInt WITHOUT applying token decimals scaling.
+  // Use this for slippage or other unit-less integer parameters.
+  function toBigIntPlain(value: bigint | { toString(): string }): bigint {
+    if (typeof value === "bigint") return value;
+    const raw = (value?.toString?.() || "0").trim();
+    try {
+      return BigInt(raw);
+    } catch {
+      return BigInt(0);
+    }
   }
 
   function getAmountOutBigInt({
@@ -309,9 +357,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     if (!tokenB) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     if (!signer) return new Err(SwapError.CONTRACTS_NOT_AVAILABLE);
     const amountBigInt = toBigIntAmount(amount);
-    const slippageBigInt = toBigIntAmount(
-      slippagePercentTenThousandDenominator
-    );
+    const slippageBigInt = toBigIntPlain(slippagePercentTenThousandDenominator);
     const getReservesResult = await getReservesViem({
       tokenA: tokenA.address as `0x${string}`,
       tokenB: tokenB.address as `0x${string}`,
@@ -340,9 +386,14 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         );
         setUniswapPurchaseState("APPROVING_TOKEN");
         await approveTx.wait();
-      } catch (err) {
+      } catch (err: any) {
         setUniswapPurchaseState("ERROR");
-        return new Err(SwapError.FAILED_TO_APPROVE_TOKEN_A);
+        console.error("Approval error:", err);
+        const errorMessage = extractErrorMessage(
+          err,
+          SwapError.FAILED_TO_APPROVE_TOKEN_A
+        );
+        return new Err(errorMessage as SwapError);
       }
     }
 
@@ -374,9 +425,11 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       );
       await tx.wait();
       setUniswapPurchaseState("DONE");
-    } catch (err) {
+    } catch (err: any) {
       setUniswapPurchaseState("ERROR");
-      return new Err(SwapError.FAILED_TO_SWAP);
+      console.error("Swap error:", err);
+      const errorMessage = extractErrorMessage(err, SwapError.FAILED_TO_SWAP);
+      return new Err(errorMessage as SwapError);
     }
     return new Ok(true);
   }
@@ -491,9 +544,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     const balanceGlow = await glowToken.balanceOf(signerAddress);
 
     const amountBigInt = toBigIntAmount(amount);
-    const slippageBigInt = toBigIntAmount(
-      slippagePercentTenThousandDenominator
-    );
+    const slippageBigInt = toBigIntPlain(slippagePercentTenThousandDenominator);
     console.log("balanceGlow", balanceGlow.toString());
     console.log("amountBigInt", amountBigInt.toString());
     if (balanceGlow < amountBigInt)
@@ -513,9 +564,14 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         );
         setUniswapPurchaseState("APPROVING_TOKEN");
         await approveTx.wait();
-      } catch (err) {
+      } catch (err: any) {
         setUniswapPurchaseState("ERROR");
-        return new Err(SwapError.FAILED_TO_APPROVE_TOKEN_A);
+        console.error("Approval error:", err);
+        const errorMessage = extractErrorMessage(
+          err,
+          SwapError.FAILED_TO_APPROVE_TOKEN_A
+        );
+        return new Err(errorMessage as SwapError);
       }
     }
 
@@ -548,9 +604,11 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       );
       await tx.wait();
       setUniswapPurchaseState("DONE");
-    } catch (err) {
+    } catch (err: any) {
       setUniswapPurchaseState("ERROR");
-      return new Err(SwapError.FAILED_TO_SWAP);
+      console.error("Swap error:", err);
+      const errorMessage = extractErrorMessage(err, SwapError.FAILED_TO_SWAP);
+      return new Err(errorMessage as SwapError);
     }
     return new Ok(true);
   }

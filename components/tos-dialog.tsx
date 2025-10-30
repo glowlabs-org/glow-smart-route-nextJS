@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useAccount, useDisconnect, useSignMessage } from "wagmi";
+import { useAccount, useDisconnect } from "wagmi";
 import {
   Dialog,
   DialogContent,
@@ -13,19 +13,25 @@ import { Separator } from "./ui/separator";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { keccak256, toHex } from "viem";
+import { useEthersSigner } from "@/hooks/useEthersSigner";
+import { useGctlApi } from "@/hooks/useGctlApi";
+import { WalletsRouter } from "@glowlabs-org/utils/browser";
 
-// ToS content version and hash generation
+// ToS content version and hash generation - MUST match backend exactly
 const TOS_VERSION = "1.0";
-const TOS_CONTENT = `Terms of Service - Version ${TOS_VERSION}
+const TOS_CONTENT = `Terms of Service - Version 1.0
 
 1. Acceptance of Terms
 By connecting your digital wallet to this Application (app.glow.org), you explicitly agree to these Terms of Service. If you do not agree, do not use the Application.
+
 Eligibility: By using the Application, you represent and warrant that you are at least 18 years of age, or the age of legal majority in your jurisdiction (if higher), and possess the legal authority to agree to these Terms and use the Application lawfully.
 
 2. User Responsibility
 - The User is solely responsible for their interactions with the Application, including all associated smart contracts and blockchain transactions.
 - Users acknowledge the inherent risks in blockchain technology, including but not limited to financial loss, smart contract vulnerabilities, network disruptions, and regulatory risks.
+
 Privacy Acknowledgment: The Application does not intentionally collect personal data. However, blockchain transactions inherently expose certain transaction-related information publicly, including blockchain addresses and associated metadata. By using the Application, Users acknowledge and accept this inherent blockchain transparency.
+
 Prohibited Activities: Users expressly agree not to engage in any unlawful or prohibited activities, including fraud, money laundering, market manipulation, sanction evasion, or any activity otherwise prohibited by applicable law or regulations when using the Application.
 
 3. No Liability & Warranty Disclaimer
@@ -49,6 +55,7 @@ The Company reserves the right to modify these Terms at any time. Updates will b
 
 8. Intellectual Property
 All intellectual property associated with the Application, including trademarks and copyrights, remains the property of the Company.
+
 User Submissions: Any feedback, suggestions, or submissions provided by Users related to the Application shall be deemed non-confidential. Users hereby grant the Company a perpetual, irrevocable, worldwide, royalty-free, and unrestricted right to use, incorporate, or otherwise exploit such submissions without restriction or compensation.
 
 9. Arbitration and Dispute Resolution
@@ -61,16 +68,42 @@ These Terms shall be governed by and construed in accordance with the laws of th
 - Users acknowledge and agree they fully understand the risks associated with blockchain technology and related activities.
 - Users are encouraged to perform independent research before engaging in any transactions on the Application.`;
 
+if (!process.env.NEXT_PUBLIC_CONTROL_API_URL) {
+  throw new Error("NEXT_PUBLIC_CONTROL_API_URL is not set");
+}
+
+const walletsApi = WalletsRouter(process.env.NEXT_PUBLIC_CONTROL_API_URL);
+
 const getTosHash = () => {
   const encoder = new TextEncoder();
   const data = encoder.encode(TOS_CONTENT);
   return keccak256(toHex(data));
 };
 
+// EIP-712 domain for ToS acceptance
+const tosEIP712Domain = (chainId: number) => ({
+  name: "ControlManager",
+  version: "1",
+  chainId,
+  verifyingContract:
+    "0x0000000000000000000000000000000000000000" as `0x${string}`,
+});
+
+// EIP-712 types for ToS acceptance
+const tosEIP712Types = {
+  AcceptTos: [
+    { name: "nonce", type: "uint256" },
+    { name: "tosVersion", type: "string" },
+    { name: "tosHash", type: "bytes32" },
+    { name: "deadline", type: "uint256" },
+  ],
+};
+
 export function TosDialog() {
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
-  const { signMessageAsync } = useSignMessage();
+  const { signer } = useEthersSigner();
+  const { latestNonce } = useGctlApi(address);
   const [isOpen, setIsOpen] = React.useState(false);
   const [isInitialized, setIsInitialized] = React.useState(false);
   const [hasAccepted, setHasAccepted] = React.useState(false);
@@ -83,18 +116,17 @@ export function TosDialog() {
       return;
     }
 
-    // Check localStorage after component mount to avoid SSR issues
     let mounted = true;
 
-    const checkTosAcceptance = () => {
+    const checkTosAcceptance = async () => {
       if (!mounted) return;
 
       try {
-        const key = `tos_ack_${address.toLowerCase()}`;
-        const ack = window.localStorage.getItem(key);
-        const accepted = ack === "1";
+        const status = await walletsApi.fetchTosStatus(address);
 
-        if (!accepted && mounted) {
+        if (!mounted) return;
+
+        if (status.needsReAcceptance) {
           setIsOpen(true);
           setHasAccepted(false);
         } else {
@@ -103,7 +135,6 @@ export function TosDialog() {
         }
       } catch (error) {
         console.error("Error checking ToS acceptance:", error);
-        // On error, show the dialog to be safe
         if (mounted) {
           setIsOpen(true);
           setHasAccepted(false);
@@ -115,7 +146,6 @@ export function TosDialog() {
       }
     };
 
-    // Use a small delay to ensure stable mounting
     const timer = setTimeout(checkTosAcceptance, 300);
 
     return () => {
@@ -125,14 +155,19 @@ export function TosDialog() {
   }, [isConnected, address]);
 
   const handleAcceptTos = async () => {
-    if (!address) return;
+    if (!address || !signer) {
+      toast.error("Please ensure your wallet is connected");
+      return;
+    }
 
     setIsSigning(true);
 
     try {
-      // Create message with ToS acceptance and timestamp
-      const timestamp = new Date().toISOString();
       const tosHash = getTosHash();
+      const nonce = (Number(latestNonce) + 1).toString();
+      const deadline = Math.floor(Date.now() / 1000 + 3600).toString();
+
+      const timestamp = new Date().toISOString();
       const message = `I accept the Glow Terms of Service at app.glow.org
 
 By signing this message, I (${address}) confirm that I have read, understood, and agree to be bound by the Terms of Service.
@@ -144,24 +179,32 @@ ToS Hash: ${tosHash}
 
 This signature serves as my digital acknowledgment and acceptance of the terms.`;
 
-      // Request signature from wallet
-      const signature = await signMessageAsync({
-        message,
-      });
-
-      // Save acceptance with signature proof
-      const acceptanceData = {
-        signature,
-        timestamp,
-        address: address.toLowerCase(),
-        message,
+      const signatureMessage = {
+        nonce: BigInt(nonce),
+        tosVersion: TOS_VERSION,
+        tosHash,
+        deadline: BigInt(deadline),
       };
 
-      window.localStorage.setItem(`tos_ack_${address.toLowerCase()}`, "1");
-      window.localStorage.setItem(
-        `tos_sig_${address.toLowerCase()}`,
-        JSON.stringify(acceptanceData)
+      const signature = await signer.signTypedData(
+        tosEIP712Domain(Number(process.env.NEXT_PUBLIC_CHAIN_ID)),
+        tosEIP712Types as unknown as Record<string, any[]>,
+        signatureMessage
       );
+
+      if (!signature) {
+        toast.error("Failed to sign message");
+        return;
+      }
+
+      await walletsApi.acceptToS(address, {
+        signature,
+        nonce,
+        tosVersion: TOS_VERSION,
+        tosHash,
+        message,
+        deadline,
+      });
 
       setHasAccepted(true);
       setIsOpen(false);
@@ -170,16 +213,21 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
       if (error instanceof Error) {
         if (
           error.message.includes("User rejected") ||
-          error.message.includes("User denied")
+          error.message.includes("User denied") ||
+          error.message.includes("user rejected")
         ) {
           toast.error(
             "You must sign the message to accept the Terms of Service"
           );
         } else {
-          toast.error("Failed to sign Terms of Service. Please try again.");
+          toast.error("Failed to accept Terms of Service", {
+            description: error.message,
+          });
         }
+      } else {
+        toast.error("Failed to accept Terms of Service. Please try again.");
       }
-      console.error("Error signing ToS:", error);
+      console.error("Error accepting ToS:", error);
     } finally {
       setIsSigning(false);
     }

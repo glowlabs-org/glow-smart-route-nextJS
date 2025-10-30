@@ -17,6 +17,24 @@ if (!process.env.NEXT_PUBLIC_MAINNET_RPC_URL)
 if (!process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL)
   throw new Error("NEXT_PUBLIC_SEPOLIA_RPC_URL is not set");
 
+const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
+
+const persistentCookieStorage: typeof cookieStorage = {
+  getItem: cookieStorage.getItem,
+  setItem(key: string, value: string) {
+    if (typeof document === "undefined") return;
+    const secure =
+      typeof window !== "undefined" && window.location.protocol === "https:"
+        ? "; Secure"
+        : "";
+    document.cookie = `${key}=${value}; Path=/; Max-Age=${COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${secure}`;
+  },
+  removeItem(key: string) {
+    if (typeof document === "undefined") return;
+    document.cookie = `${key}=; Path=/; Max-Age=0; SameSite=Lax`;
+  },
+};
+
 const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_ID;
 
 // IMPORTANT: ssr + cookieStorage so the selected connector persists across reloads in App Router.
@@ -24,7 +42,7 @@ export const wagmiConfig = createConfig({
   chains: [process.env.NEXT_PUBLIC_CHAIN_ID === "1" ? mainnet : sepolia],
   ssr: true,
   storage: createStorage({
-    storage: cookieStorage, // works with SSR hydration; avoids `window` access during render
+    storage: persistentCookieStorage, // works with SSR hydration; avoids `window` access during render
   }),
   // Restrict to these four connectors only and control ordering for the UI
   connectors: [

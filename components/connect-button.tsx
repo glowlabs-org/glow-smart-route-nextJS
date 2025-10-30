@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 export const ConnectButton = ({
   className,
@@ -35,6 +36,7 @@ export const ConnectButton = ({
   const connectingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const hasAnnouncedStuckRef = useRef(false);
 
   // Detect Safari browser
   const isSafari =
@@ -53,12 +55,6 @@ export const ConnectButton = ({
       const timeoutDuration = isSafari ? 3000 : 5000;
       connectingTimeoutRef.current = setTimeout(() => {
         setIsStuckConnecting(true);
-        // Force reload wallet state after timeout
-        if (typeof window !== "undefined") {
-          window.localStorage.removeItem("wagmi.wallet");
-          window.localStorage.removeItem("wagmi.connected");
-          window.localStorage.removeItem("wagmi.store");
-        }
       }, timeoutDuration);
     } else {
       // Clear timeout and reset stuck state when not connecting
@@ -66,6 +62,7 @@ export const ConnectButton = ({
         clearTimeout(connectingTimeoutRef.current);
       }
       setIsStuckConnecting(false);
+      hasAnnouncedStuckRef.current = false;
     }
 
     return () => {
@@ -75,6 +72,17 @@ export const ConnectButton = ({
     };
   }, [isConnecting, isReconnecting, isPending, isSafari]);
 
+  useEffect(() => {
+    if (isStuckConnecting && !hasAnnouncedStuckRef.current) {
+      toast.info("Still waiting on wallet confirmation", {
+        description:
+          "Unlock your wallet or approve the pending request, then retry.",
+        duration: 6000,
+      });
+      hasAnnouncedStuckRef.current = true;
+    }
+  }, [isStuckConnecting]);
+
   // Close modal when connected
   useEffect(() => {
     if (isConnected) {
@@ -82,18 +90,6 @@ export const ConnectButton = ({
       onConnect?.();
     }
   }, [isConnected, onConnect]);
-
-  // Debug connection state
-  useEffect(() => {
-    console.log("ConnectButton state:", {
-      isConnected,
-      address,
-      isConnecting,
-      isReconnecting,
-      isPending,
-      chainId,
-    });
-  }, [isConnected, address, isConnecting, isReconnecting, isPending, chainId]);
 
   const isWalletLoading =
     (isConnecting || isReconnecting || isPending) && !isStuckConnecting;
@@ -143,6 +139,20 @@ export const ConnectButton = ({
                   : isPending
                   ? "Connecting..."
                   : "Reconnecting..."}
+              </Button>
+            );
+          }
+
+          if (isStuckConnecting) {
+            return (
+              <Button
+                variant="destructive"
+                onClick={handleOpenConnectModal}
+                type="button"
+                className={`w-full ${getSizeClasses()} font-semibold`}
+              >
+                <Loader2 className="mr-2 h-4 w-4" />
+                Unlock wallet & retry
               </Button>
             );
           }
