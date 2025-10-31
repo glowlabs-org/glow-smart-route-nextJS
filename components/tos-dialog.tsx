@@ -16,6 +16,7 @@ import { keccak256, toHex } from "viem";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useGctlApi } from "@/hooks/useGctlApi";
 import { WalletsRouter } from "@glowlabs-org/utils/browser";
+import * as Sentry from "@sentry/nextjs";
 
 // ToS content version and hash generation - MUST match backend exactly
 const TOS_VERSION = "1.0";
@@ -135,6 +136,23 @@ export function TosDialog() {
         }
       } catch (error) {
         console.error("Error checking ToS acceptance:", error);
+
+        // Log ToS status check errors to Sentry
+        if (typeof window !== "undefined") {
+          const normalizedError =
+            error instanceof Error ? error : new Error(String(error));
+          Sentry.captureException(normalizedError, {
+            tags: {
+              tosStage: "status_check",
+              walletAddress: address,
+            },
+            extra: {
+              errorMessage: normalizedError.message,
+              errorType: typeof error,
+            },
+          });
+        }
+
         if (mounted) {
           setIsOpen(true);
           setHasAccepted(false);
@@ -179,43 +197,121 @@ ToS Hash: ${tosHash}
 
 This signature serves as my digital acknowledgment and acceptance of the terms.`;
 
-      const signatureMessage = {
-        nonce: BigInt(nonce),
-        tosVersion: TOS_VERSION,
-        tosHash,
-        deadline: BigInt(deadline),
-      };
+      let signature: string;
+      let signingMethod: "eip712" | "personal_sign" = "eip712";
 
-      const signature = await signer.signTypedData(
-        tosEIP712Domain(Number(process.env.NEXT_PUBLIC_CHAIN_ID)),
-        tosEIP712Types as unknown as Record<string, any[]>,
-        signatureMessage
-      );
+      try {
+        // Try EIP-712 typed data first (preferred method)
+        const signatureMessage = {
+          nonce: BigInt(nonce),
+          tosVersion: TOS_VERSION,
+          tosHash,
+          deadline: BigInt(deadline),
+        };
+
+        signature = await signer.signTypedData(
+          tosEIP712Domain(Number(process.env.NEXT_PUBLIC_CHAIN_ID)),
+          tosEIP712Types as unknown as Record<string, any[]>,
+          signatureMessage
+        );
+      } catch (typedDataError) {
+        console.warn(
+          "EIP-712 signing failed, falling back to personal sign:",
+          typedDataError
+        );
+
+        // Log EIP-712 failure to Sentry
+        if (typeof window !== "undefined") {
+          const normalizedError =
+            typedDataError instanceof Error
+              ? typedDataError
+              : new Error(String(typedDataError));
+          Sentry.captureException(normalizedError, {
+            tags: {
+              tosStage: "eip712_signing",
+              walletAddress: address,
+            },
+            extra: {
+              tosVersion: TOS_VERSION,
+              tosHash,
+              nonce,
+              deadline,
+              chainId: process.env.NEXT_PUBLIC_CHAIN_ID,
+              errorMessage: normalizedError.message,
+            },
+          });
+        }
+
+        // Fallback to personal sign for wallets that don't support EIP-712 properly
+        signingMethod = "personal_sign";
+        signature = await signer.signMessage(message);
+      }
 
       if (!signature) {
         toast.error("Failed to sign message");
+
+        // Log signature failure to Sentry
+        if (typeof window !== "undefined") {
+          Sentry.captureException(new Error("Signature is empty"), {
+            tags: {
+              tosStage: "signature_validation",
+              walletAddress: address,
+              signingMethod,
+            },
+            extra: {
+              tosVersion: TOS_VERSION,
+              tosHash,
+              nonce,
+            },
+          });
+        }
         return;
       }
 
-      await walletsApi.acceptToS(address, {
-        signature,
-        nonce,
-        tosVersion: TOS_VERSION,
-        tosHash,
-        message,
-        deadline,
-      });
+      try {
+        await walletsApi.acceptToS(address, {
+          signature,
+          nonce,
+          tosVersion: TOS_VERSION,
+          tosHash,
+          message,
+          deadline,
+        });
+      } catch (apiError) {
+        // Log API errors to Sentry
+        if (typeof window !== "undefined") {
+          const normalizedError =
+            apiError instanceof Error ? apiError : new Error(String(apiError));
+          Sentry.captureException(normalizedError, {
+            tags: {
+              tosStage: "api_submission",
+              walletAddress: address,
+              signingMethod,
+            },
+            extra: {
+              tosVersion: TOS_VERSION,
+              tosHash,
+              nonce,
+              deadline,
+              errorMessage: normalizedError.message,
+            },
+          });
+        }
+        throw apiError;
+      }
 
       setHasAccepted(true);
       setIsOpen(false);
       toast.success("Terms of Service accepted successfully");
     } catch (error) {
-      if (error instanceof Error) {
-        if (
-          error.message.includes("User rejected") ||
+      const isUserRejection =
+        error instanceof Error &&
+        (error.message.includes("User rejected") ||
           error.message.includes("User denied") ||
-          error.message.includes("user rejected")
-        ) {
+          error.message.includes("user rejected"));
+
+      if (error instanceof Error) {
+        if (isUserRejection) {
           toast.error(
             "You must sign the message to accept the Terms of Service"
           );
@@ -227,6 +323,27 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
       } else {
         toast.error("Failed to accept Terms of Service. Please try again.");
       }
+
+      // Log non-rejection errors to Sentry
+      if (!isUserRejection && typeof window !== "undefined") {
+        const normalizedError =
+          error instanceof Error ? error : new Error(String(error));
+        Sentry.captureException(normalizedError, {
+          tags: {
+            tosStage: "general_error",
+            walletAddress: address,
+          },
+          extra: {
+            tosVersion: TOS_VERSION,
+            tosHash: getTosHash(),
+            nonce: latestNonce,
+            errorMessage: normalizedError.message,
+            errorType: typeof error,
+            isUserRejection,
+          },
+        });
+      }
+
       console.error("Error accepting ToS:", error);
     } finally {
       setIsSigning(false);
