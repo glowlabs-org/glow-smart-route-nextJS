@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw } from "lucide-react";
+import { Gift } from "lucide-react";
 import {
   useRewardsBreakdown,
   formatGLW,
@@ -257,16 +257,21 @@ export function RewardsBreakdownPanel({
             </CardDescription>
           </div>
           <Button
-            variant="outline"
+            variant="default"
             size="default"
-            onClick={() => refetch()}
-            disabled={isLoading}
+            onClick={() => {
+              const claimsPanel = document.getElementById("claims-panel");
+              if (claimsPanel) {
+                claimsPanel.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                });
+              }
+            }}
             className="w-full sm:w-auto"
           >
-            <RefreshCw
-              className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
-            />
-            Refresh
+            <Gift className="w-4 h-4 mr-2" />
+            Claim Rewards
           </Button>
         </div>
       </CardHeader>

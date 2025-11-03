@@ -848,6 +848,38 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
     [v1ClaimedWeeks, v2ClaimedWeeks]
   );
 
+  // Calculate actual claimable totals excluding claimed weeks
+  const actualClaimableTotals = React.useMemo(() => {
+    const totals: Record<string, number> = {};
+
+    weeklyBreakdown.forEach((weekData) => {
+      const { isClaimed } = getWeekClaimState(weekData);
+
+      // Only include finalized and unclaimed weeks
+      if (!weekData.isFinalized || isClaimed) return;
+
+      weekData.rewards.forEach((reward) => {
+        const amount = parseFloat(reward.amount);
+        if (!isNaN(amount)) {
+          totals[reward.currency] = (totals[reward.currency] || 0) + amount;
+        }
+      });
+    });
+
+    return totals;
+  }, [weeklyBreakdown, getWeekClaimState]);
+
+  // Check if there are any claimable rewards (finalized totals)
+  const hasClaimableRewards =
+    Object.keys(actualClaimableTotals).length > 0 &&
+    Object.values(actualClaimableTotals).some((amount) => amount > 0);
+
+  // Calculate total number of claimable (finalized and not already optimistically claimed) weeks
+  const totalClaimableWeeks = weeklyBreakdown.filter((week) => {
+    const { isClaimed } = getWeekClaimState(week);
+    return week.isFinalized && !isClaimed;
+  }).length;
+
   const createInitialStageState = React.useCallback(
     (payload: ClaimInitiationPayload): ClaimStageMap => {
       const hasInflationRewards = payload.weekData.rewards.some(
@@ -1256,15 +1288,6 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
     );
   }
 
-  // Check if there are any claimable rewards (finalized totals)
-  const hasClaimableRewards = Object.keys(aggregatedTotals).length > 0;
-
-  // Calculate total number of claimable (finalized and not already optimistically claimed) weeks
-  const totalClaimableWeeks = weeklyBreakdown.filter((week) => {
-    const { isClaimed } = getWeekClaimState(week);
-    return week.isFinalized && !isClaimed;
-  }).length;
-
   const totalClaimableLabel =
     totalClaimableWeeks === 0
       ? "All claimed"
@@ -1358,7 +1381,7 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
 
   return (
     <>
-      <Card className="mb-8">
+      <Card id="claims-panel" className="mb-8">
         <CardHeader className="pb-4 md:pb-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="flex-1">
@@ -1411,7 +1434,7 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
                   Total Claimable
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Object.entries(aggregatedTotals).map(
+                  {Object.entries(actualClaimableTotals).map(
                     ([currency, amount]) => {
                       const config = CURRENCY_CONFIG[
                         currency as CurrencyKey
@@ -1421,12 +1444,6 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
                         bgColor: "bg-gray-50 dark:bg-gray-950/20",
                         label: currency,
                       };
-                      const parsedAmount = Number.parseFloat(amount);
-                      const displayAmount = isEverythingClaimed
-                        ? 0
-                        : Number.isFinite(parsedAmount)
-                        ? parsedAmount
-                        : amount;
 
                       return (
                         <div
@@ -1456,12 +1473,10 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
                           </div>
                           <div className="text-right">
                             <div className="font-bold text-base md:text-xl tabular-nums">
-                              {typeof displayAmount === "number"
-                                ? displayAmount.toLocaleString(undefined, {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 6,
-                                  })
-                                : displayAmount}
+                              {amount.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 6,
+                              })}
                             </div>
                           </div>
                         </div>
