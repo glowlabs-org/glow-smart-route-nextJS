@@ -32,9 +32,10 @@ import { usePolling } from "@/utils/use-polling";
 
 interface RefundClaimsPanelProps {
   walletAddress: string | undefined;
+  onClaimSuccess?: () => void;
 }
 
-export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
+export function RefundClaimsPanel({ walletAddress, onClaimSuccess }: RefundClaimsPanelProps) {
   const { data: walletClient } = useWalletClient();
   const [processingRefunds, setProcessingRefunds] = React.useState<Set<string>>(
     new Set()
@@ -92,6 +93,9 @@ export function RefundClaimsPanel({ walletAddress }: RefundClaimsPanelProps) {
       toast.success("Refund claimed successfully!", {
         description: "Your GLW tokens have been refunded to your wallet",
       });
+      if (onClaimSuccess) {
+        onClaimSuccess();
+      }
     },
     onError: (error) => {
       console.error("Polling timeout:", error);

@@ -16,11 +16,13 @@ import {
   useRewardsBreakdown,
   formatGLW,
   formatUSDC,
-  formatAPY,
 } from "@/hooks/useRewardsBreakdown";
 import { useWalletFarms } from "@/hooks/useWalletFarms";
 import { useRegions } from "@/hooks/useRegions";
 import { FallbackImage } from "@/components/ui/fallback-image";
+import { useGlowSpotPrice } from "@/hooks/useGlowPrices";
+import { formatUnits } from "viem";
+import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 
 interface RewardsBreakdownPanelProps {
   walletAddress: string | undefined;
@@ -40,6 +42,8 @@ export function RewardsBreakdownPanel({
   });
 
   const { regions } = useRegions();
+
+  const { spotPrice } = useGlowSpotPrice();
 
   if (isLoading) {
     return (
@@ -102,14 +106,23 @@ export function RewardsBreakdownPanel({
   const delegations = data.farmDetails.filter((f) => f.type === "launchpad");
   const miners = data.farmDetails.filter((f) => f.type === "mining-center");
 
-  const totalDelegatorEarnings = formatGLW(data.rewards.delegator.allWeeks);
-  const totalMinerEarnings = formatGLW(data.rewards.miner.allWeeks);
   const totalEarnings =
     Number(data.rewards.delegator.allWeeks) +
     Number(data.rewards.miner.allWeeks);
   const formattedTotalEarnings = formatGLW(totalEarnings.toString());
 
-  const delegatedGLW = formatGLW(data.totals.totalGlwDelegated);
+  const totalEarningsInDollars =
+    spotPrice !== null
+      ? Number(formatUnits(BigInt(totalEarnings), DECIMALS_BY_TOKEN["GLW"])) *
+        spotPrice
+      : null;
+
+  const delegatedGLW = formatGLW(
+    (
+      Number(data.totals.totalGlwDelegated) +
+      Number(data.delegatedAfterWeekRange.totalGlwDelegatedAfter)
+    ).toString()
+  );
   const spentUSDC = formatUSDC(data.totals.totalUsdcSpentByMiners);
 
   const pendingDelegatedGLW = formatGLW(
@@ -188,13 +201,6 @@ export function RewardsBreakdownPanel({
     ? calculateTotalPayback()
     : minerPaybackWeeks;
 
-  const getAPYColor = (apy: string): string => {
-    const apyNum = Number(apy);
-    if (apyNum >= 50) return "text-green-600 dark:text-green-400";
-    if (apyNum >= 20) return "text-orange-500 dark:text-orange-400";
-    return "text-red-600 dark:text-red-400";
-  };
-
   const getPaybackColor = (weeks: string): string => {
     if (weeks === "∞") return "text-muted-foreground";
     const weeksNum = Number(weeks);
@@ -267,93 +273,42 @@ export function RewardsBreakdownPanel({
       <CardContent>
         <div className="space-y-8">
           {/* Overview and Total */}
-          <div
-            className={`grid gap-4 ${
-              hasDelegations && hasMiners
-                ? "grid-cols-1 md:grid-cols-3"
-                : "grid-cols-1 md:grid-cols-2"
-            }`}
-          >
+          <div className={`grid gap-4 grid-cols-1 md:grid-cols-2`}>
             {hasDelegations && (
               <Card>
-                <CardContent className="p-6">
+                <CardContent className="p-6 py-2">
                   <div className="text-sm text-muted-foreground mb-3">
-                    Delegations · {delegations.length}{" "}
-                    {delegations.length === 1 ? "farm" : "farms"}
+                    Delegated
                   </div>
-                  <div className="text-3xl font-bold mb-3">
+                  <div className="text-4xl font-bold mb-3">
                     {delegatedGLW} GLW
                   </div>
-                  {hasPendingDelegations && (
-                    <div className="text-sm text-blue-600 dark:text-blue-400 mb-2">
-                      +{pendingDelegatedGLW} GLW pending (not yet earning)
-                    </div>
-                  )}
-                  {delegations.length > 0 && (
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-muted-foreground">
-                        Earned {totalDelegatorEarnings} GLW
-                      </div>
-                      <div className="text-right">
-                        <div
-                          className={`text-lg font-bold ${getAPYColor(
-                            data.apy.delegatorApyPercent
-                          )}`}
-                        >
-                          {formatAPY(data.apy.delegatorApyPercent)}
-                        </div>
-                        <div className="text-xs text-muted-foreground">APY</div>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {hasMiners && (
-              <Card>
-                <CardContent className="p-6">
                   <div className="text-sm text-muted-foreground mb-3">
-                    Mining · {miners.length}{" "}
-                    {miners.length === 1 ? "farm" : "farms"}
+                    across {delegations.length}{" "}
+                    {delegations.length === 1 ? "farm" : "farms"}
                   </div>
-                  <div className="text-3xl font-bold mb-3">
-                    ${spentUSDC} USDC
-                  </div>
-                  {hasPendingMining && (
-                    <div className="text-sm text-blue-600 dark:text-blue-400 mb-2">
-                      +${pendingSpentUSDC} USDC pending (not yet earning)
-                    </div>
-                  )}
-                  {miners.length > 0 && (
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-muted-foreground">
-                        Earned {totalMinerEarnings} GLW
-                      </div>
-                      <div className="text-right">
-                        <div
-                          className={`text-lg font-bold ${getAPYColor(
-                            data.apy.minerApyPercent
-                          )}`}
-                        >
-                          {formatAPY(data.apy.minerApyPercent)}
-                        </div>
-                        <div className="text-xs text-muted-foreground">APY</div>
-                      </div>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             )}
 
             <Card className="bg-muted/30">
-              <CardContent className="p-6">
+              <CardContent className="p-6 py-2">
                 <div className="text-sm text-muted-foreground mb-3">
                   Total Earned
                 </div>
                 <div className="text-4xl font-bold mb-3">
                   {formattedTotalEarnings} GLW
+                  {totalEarningsInDollars !== null && (
+                    <span className="text-xl text-muted-foreground ml-2">
+                      ≈ $
+                      {totalEarningsInDollars.toLocaleString("en-US", {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0,
+                      })}
+                    </span>
+                  )}
                 </div>
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-baseline gap-2 text-sm">
                     <span className="font-medium">{formattedLastWeek} GLW</span>
@@ -441,36 +396,25 @@ export function RewardsBreakdownPanel({
                               </span>
                             </div>
                             <div className="flex justify-between items-center pt-2 border-t">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">
-                                  APY
-                                </span>
-                                <div className="text-right">
-                                  <div
-                                    className={`text-lg font-bold ${getAPYColor(
-                                      farm.apy
-                                    )}`}
-                                  >
-                                    {formatAPY(farm.apy)}
-                                  </div>
-                                </div>
-                                <Badge
-                                  className={`text-xs font-semibold ${getPaybackBadgeClass(
-                                    calculatePaybackWeeks(
-                                      farm.amountInvested,
-                                      farm.totalEarnedSoFar,
-                                      farm.totalWeeksEarned
-                                    )
-                                  )}`}
-                                >
-                                  {calculatePaybackWeeks(
+                              <span className="text-xs text-muted-foreground">
+                                Current Payback
+                              </span>
+                              <Badge
+                                className={`text-xs font-semibold ${getPaybackBadgeClass(
+                                  calculatePaybackWeeks(
                                     farm.amountInvested,
                                     farm.totalEarnedSoFar,
                                     farm.totalWeeksEarned
-                                  )}
-                                  w payback
-                                </Badge>
-                              </div>
+                                  )
+                                )}`}
+                              >
+                                {calculatePaybackWeeks(
+                                  farm.amountInvested,
+                                  farm.totalEarnedSoFar,
+                                  farm.totalWeeksEarned
+                                )}
+                                w
+                              </Badge>
                             </div>
                           </div>
                         </div>
@@ -531,10 +475,10 @@ export function RewardsBreakdownPanel({
                           <div className="space-y-3 text-sm">
                             <div className="flex justify-between items-center">
                               <span className="text-xs text-muted-foreground">
-                                Invested
+                                Weeks Remaining
                               </span>
                               <span className="font-semibold">
-                                ${formatUSDC(farm.amountInvested)} USDC
+                                {99 - farm.totalWeeksEarned}
                               </span>
                             </div>
                             <div className="flex justify-between items-center">
@@ -554,27 +498,16 @@ export function RewardsBreakdownPanel({
                               </span>
                             </div>
                             <div className="flex justify-between items-center pt-2 border-t">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">
-                                  APY
-                                </span>
-                                <div className="text-right">
-                                  <div
-                                    className={`text-lg font-bold ${getAPYColor(
-                                      farm.apy
-                                    )}`}
-                                  >
-                                    {formatAPY(farm.apy)}
-                                  </div>
-                                </div>
-                                <Badge
-                                  className={`text-xs font-semibold ${getPaybackBadgeClass(
-                                    calculatePaybackFromAPY(farm.apy)
-                                  )}`}
-                                >
-                                  {calculatePaybackFromAPY(farm.apy)}w
-                                </Badge>
-                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                Current Payback
+                              </span>
+                              <Badge
+                                className={`text-xs font-semibold ${getPaybackBadgeClass(
+                                  calculatePaybackFromAPY(farm.apy)
+                                )}`}
+                              >
+                                {calculatePaybackFromAPY(farm.apy)}w
+                              </Badge>
                             </div>
                           </div>
                         </div>

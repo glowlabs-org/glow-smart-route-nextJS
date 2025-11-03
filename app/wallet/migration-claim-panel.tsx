@@ -122,6 +122,11 @@ export function MigrationClaimPanel({
     return null;
   }
 
+  // Don't render if already claimed
+  if (migrationData?.claimed) {
+    return null;
+  }
+
   const formatMigrationAmount = (amount: string): string => {
     try {
       const amountBigInt = BigInt(amount);
@@ -137,16 +142,6 @@ export function MigrationClaimPanel({
   };
 
   const handleOpenConfirmDialog = () => {
-    if (migrationData?.claimed) {
-      toast.info("GCTL allocation already claimed");
-      return;
-    }
-
-    if (!migrationData?.eligible) {
-      toast.info("No GCTL allocation available to unstake");
-      return;
-    }
-
     setConfirmDialogOpen(true);
   };
 
@@ -179,31 +174,19 @@ export function MigrationClaimPanel({
               <CardTitle className="text-xl md:text-2xl font-semibold">
                 GCTL Allocation
               </CardTitle>
-              {(migrationData?.claimed || isClaimSuccess) && (
+              {!isClaimSuccess && (
                 <Badge
                   variant="secondary"
-                  className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                  className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
                 >
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Claimed
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Available
                 </Badge>
               )}
-              {migrationData?.eligible &&
-                !migrationData.claimed &&
-                !isClaimSuccess && (
-                  <Badge
-                    variant="secondary"
-                    className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                  >
-                    <AlertCircle className="w-3 h-3 mr-1" />
-                    Available
-                  </Badge>
-                )}
             </div>
             <CardDescription className="mt-2">
-              {migrationData?.claimed || isClaimSuccess
-                ? "GCTL claimed (unstaked) successfully"
-                : "Your V2 GCTL allocation is staked to the Clean Grid Project by default. Claim to unstake to your wallet."}
+              Your V2 GCTL allocation is staked to the Clean Grid Project by
+              default. Claim to unstake to your wallet.
             </CardDescription>
           </div>
         </div>
@@ -226,47 +209,37 @@ export function MigrationClaimPanel({
                   <div className="text-3xl font-bold">
                     {migrationAmountFormatted} GCTL
                   </div>
-                  {(migrationData?.claimed || isClaimSuccess) && (
-                    <div className="text-sm text-green-600 dark:text-green-400 mt-2 flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4" />
-                      {isClaimSuccess && !migrationData?.claimed
-                        ? "Processing claim..."
-                        : "Successfully claimed"}
-                    </div>
-                  )}
                 </div>
                 <Gift className="w-12 h-12 text-muted-foreground/20" />
               </div>
             </div>
 
             {/* Claim Button */}
-            {migrationData?.eligible &&
-              !migrationData.claimed &&
-              !isClaimSuccess && (
-                <div className="flex items-center gap-3">
-                  <Button
-                    onClick={handleOpenConfirmDialog}
-                    disabled={isClaimingMigration}
-                    className="flex-1"
-                    size="lg"
-                  >
-                    {isClaimingMigration ? (
-                      <>
-                        <Gift className="w-4 h-4 mr-2 animate-spin" />
-                        Claiming...
-                      </>
-                    ) : (
-                      <>
-                        <Gift className="w-4 h-4 mr-2" />
-                        Unstake and claim GCTL
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
+            {!isClaimSuccess && (
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={handleOpenConfirmDialog}
+                  disabled={isClaimingMigration}
+                  className="flex-1"
+                  size="lg"
+                >
+                  {isClaimingMigration ? (
+                    <>
+                      <Gift className="w-4 h-4 mr-2 animate-spin" />
+                      Claiming...
+                    </>
+                  ) : (
+                    <>
+                      <Gift className="w-4 h-4 mr-2" />
+                      Unstake and claim GCTL
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
 
             {/* Success Message */}
-            {isClaimSuccess && !migrationData?.claimed && (
+            {isClaimSuccess && (
               <div className="space-y-4">
                 <div
                   className="p-4 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/20 border border-green-200 dark:border-green-800 shadow-sm"
@@ -352,14 +325,6 @@ export function MigrationClaimPanel({
                     </div>
                   )}
                 </div>
-              </div>
-            )}
-
-            {/* Info for claimed migrations */}
-            {migrationData?.claimed && !isClaimSuccess && (
-              <div className="text-sm text-muted-foreground">
-                This allocation has been claimed (unstaked) and transferred to
-                your wallet.
               </div>
             )}
           </div>

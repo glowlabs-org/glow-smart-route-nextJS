@@ -109,6 +109,8 @@ export default function View() {
   const [usdcToUsdgDialogOpen, setUsdcToUsdgDialogOpen] = React.useState(false);
   const [amountInputDialogOpen, setAmountInputDialogOpen] =
     React.useState(false);
+  const [regionalBreakdownOpen, setRegionalBreakdownOpen] =
+    React.useState(false);
   const [amountToConvert, setAmountToConvert] = React.useState<string>("");
   const [inputAmount, setInputAmount] = React.useState<string>("");
 
@@ -364,18 +366,6 @@ export default function View() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-            <Button
-              variant="outline"
-              size="default"
-              onClick={refreshBalances}
-              disabled={erc20Loading}
-              className="w-full sm:w-auto"
-            >
-              <RefreshCw
-                className={`w-4 h-4 mr-2 ${erc20Loading ? "animate-spin" : ""}`}
-              />
-              Refresh
-            </Button>
             <Link href="/">
               <Button
                 size="default"
@@ -611,43 +601,6 @@ export default function View() {
                           </span>
                         )}
                       </div>
-                      {!hasNetworkIssues &&
-                        walletDetails?.regions &&
-                        walletDetails.regions.length > 0 && (
-                          <div className="mt-3 space-y-2">
-                            <div className="text-sm text-muted-foreground">
-                              Staked by region:
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {walletDetails.regions
-                                .filter(
-                                  (regionStake) =>
-                                    BigInt(regionStake.totalStaked) > BigInt(0)
-                                )
-                                .map((regionStake) => {
-                                  const regionName =
-                                    regionStake.region?.name ||
-                                    regions.find(
-                                      (r) => r.id === regionStake.regionId
-                                    )?.name ||
-                                    `Region ${regionStake.regionId}`;
-                                  const stakedAmount = formatGctlBalance(
-                                    regionStake.totalStaked
-                                  );
-
-                                  return (
-                                    <Badge
-                                      key={regionStake.regionId}
-                                      variant="secondary"
-                                      className="text-lg"
-                                    >
-                                      {regionName}: {stakedAmount} GCTL
-                                    </Badge>
-                                  );
-                                })}
-                            </div>
-                          </div>
-                        )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -665,6 +618,18 @@ export default function View() {
                         <ExternalLink className="w-4 h-4 mr-2" />
                         Manage Staking
                       </Button>
+                      {!hasNetworkIssues &&
+                        walletDetails?.regions &&
+                        walletDetails.regions.length > 0 && (
+                          <Button
+                            size="default"
+                            variant="outline"
+                            onClick={() => setRegionalBreakdownOpen(true)}
+                            className="w-full sm:w-auto"
+                          >
+                            Breakdown
+                          </Button>
+                        )}
                     </div>
                   </>
                 )}
@@ -678,19 +643,15 @@ export default function View() {
             migrationData={migrationData}
             isLoading={isMigrationLoading}
             isError={!!migrationError}
-            onClaim={() => {
-              // Cache invalidation is handled by the mutation
-              // This callback can be used for additional UI updates if needed
-              console.log("Migration claim completed");
-            }}
+            onClaim={refreshBalances}
           />
         </div>
 
-        {/* D. Claims Panel */}
-        {password?.toLowerCase() === "0xsimbo" && <ClaimsPanel />}
-
         {/* E. Refund Claims Panel */}
-        <RefundClaimsPanel walletAddress={address} />
+        <RefundClaimsPanel
+          walletAddress={address}
+          onClaimSuccess={refreshBalances}
+        />
 
         {/* F. Sponsorships In Progress */}
         {(sponsorshipsInProgress.length > 0 || isSplitsActivityLoading) && (
@@ -858,7 +819,10 @@ export default function View() {
         {password?.toLowerCase() === "0xsimbo" && (
           <RewardsBreakdownPanel walletAddress={address} />
         )}
-
+        {/* D. Claims Panel */}
+        {password?.toLowerCase() === "0xsimbo" && (
+          <ClaimsPanel onClaimSuccess={refreshBalances} />
+        )}
         {/* H. Recent Activity */}
         <RecentActivity
           walletAddress={address}
@@ -1004,6 +968,54 @@ export default function View() {
           }
         }}
       />
+
+      {/* Regional Breakdown Dialog */}
+      <Dialog
+        open={regionalBreakdownOpen}
+        onOpenChange={setRegionalBreakdownOpen}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>GCTL Staking Breakdown by Region</DialogTitle>
+            <DialogDescription>
+              View your GCTL staking distribution across regions
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto py-4">
+            {walletDetails?.regions
+              ?.filter(
+                (regionStake) => BigInt(regionStake.totalStaked) > BigInt(0)
+              )
+              .map((regionStake) => {
+                const regionName =
+                  regionStake.region?.name ||
+                  regions.find((r) => r.id === regionStake.regionId)?.name ||
+                  `Region ${regionStake.regionId}`;
+                const stakedAmount = formatGctlBalance(regionStake.totalStaked);
+
+                return (
+                  <div
+                    key={regionStake.regionId}
+                    className="flex justify-between items-center p-4 rounded-lg border bg-card"
+                  >
+                    <div className="font-medium">{regionName}</div>
+                    <Badge variant="secondary" className="text-base px-4 py-2">
+                      {stakedAmount} GCTL
+                    </Badge>
+                  </div>
+                );
+              })}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRegionalBreakdownOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
