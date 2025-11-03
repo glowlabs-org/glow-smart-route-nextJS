@@ -159,8 +159,8 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           amount,
         });
 
-        // GLW is a guarded token, USDG is not
-        isGuardedToken.push(currency === "GLW");
+        // GLW and USDG is a guarded token
+        isGuardedToken.push(currency === "GLW" || currency === "USDG");
         // For now, don't use counterfactual addresses
         toCounterfactual.push(false);
       });
