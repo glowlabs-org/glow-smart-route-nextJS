@@ -5,7 +5,7 @@ import { RewardsBreakdownPanel } from "../wallet/rewards-breakdown-panel";
 
 export default function TestPage() {
   // return notFound();
-  const testWalletAddress = "0x3d06bFfcbB4a62791756B6008c2F0001aa61963d";
+  const testWalletAddress = "0x6884efd53b2650679996D3Ea206D116356dA08a9";
 
   return (
     <div className="container mx-auto py-8">

@@ -28,8 +28,8 @@ importers:
         specifier: ^0.0.2
         version: 0.0.2
       '@glowlabs-org/utils':
-        specifier: ^0.2.160
-        version: 0.2.160(decimal.js@10.6.0)(ethers@6.5.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(merkletreejs@0.3.11)(viem@2.7.10(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76))
+        specifier: ^0.2.161
+        version: 0.2.161(decimal.js@10.6.0)(ethers@6.5.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(merkletreejs@0.3.11)(viem@2.7.10(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76))
       '@hookform/resolvers':
         specifier: ^3.3.4
         version: 3.10.0(react-hook-form@7.62.0(react@19.1.1))
@@ -1025,8 +1025,8 @@ packages:
     resolution: {integrity: sha512-nETd7D6ZCvTwFKdmtjIQMTsr6IQNK/tigTXLjimEblEb5mGsXrTucxIq0KVQwPPZl7p/w8kYov8MubRNfmG5yg==}
     engines: {node: '>=16'}
 
-  '@glowlabs-org/utils@0.2.160':
-    resolution: {integrity: sha512-gDO6K573JRCq/IgiATHvByiadMMEj+9f+V+RZNaugwNwFnd1oJI6gpjXUScrPSe2TJe8Dr2UGMLwZq6kCxn8XA==}
+  '@glowlabs-org/utils@0.2.161':
+    resolution: {integrity: sha512-lrGilgsh5dlZMdpZ2dRJJ4KnU6jrBdDZy2cSKnAjF0Tm96kN1XDx6wp9OzWzi8QrWFnqY/HykpZzO/hOj2iSDg==}
     engines: {node: '>=16'}
     peerDependencies:
       decimal.js: ^10.4.3
@@ -8311,7 +8311,7 @@ snapshots:
 
   '@glowlabs-org/guarded-launch-abis@0.0.2': {}
 
-  '@glowlabs-org/utils@0.2.160(decimal.js@10.6.0)(ethers@6.5.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(merkletreejs@0.3.11)(viem@2.7.10(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76))':
+  '@glowlabs-org/utils@0.2.161(decimal.js@10.6.0)(ethers@6.5.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(merkletreejs@0.3.11)(viem@2.7.10(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76))':
     dependencies:
       decimal.js: 10.6.0
       ethers: 6.5.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
