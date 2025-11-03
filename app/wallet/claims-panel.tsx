@@ -126,7 +126,7 @@ const CLAIM_STATUS_STYLES: Record<ClaimStageStatus, string> = {
 
 // Helper to format week number to date
 function formatWeekDate(week: number): string {
-  const weekTimestamp = GENESIS_TIMESTAMP + week * 7 * 86400;
+  const weekTimestamp = GENESIS_TIMESTAMP + (week + 1) * 7 * 86400;
   const date = new Date(weekTimestamp * 1000);
   return date.toLocaleDateString("en-US", {
     month: "short",
@@ -135,12 +135,430 @@ function formatWeekDate(week: number): string {
   });
 }
 
+type ClaimDialogStatus = "review" | "processing" | "success" | "error";
+
+interface ClaimStatusSummary {
+  glwClaimed: boolean;
+  protocolClaimed: boolean;
+}
+
+type WeekClaimButtonProps = {
+  address?: string;
+  claimDialogStatus: ClaimDialogStatus;
+  claimType?: "both" | "v2Only";
+  className?: string;
+  isClaimed: boolean;
+  isClaimingAll: boolean;
+  isClaimingThisWeek: boolean;
+  isConnected: boolean;
+  onInitiateClaim: (payload: ClaimInitiationPayload) => void;
+  size?: "sm" | "default";
+  weekData: WeeklyClaimableRewards;
+};
+
+function WeekClaimButton({
+  address,
+  claimDialogStatus,
+  claimType = "both",
+  className,
+  isClaimed,
+  isClaimingAll,
+  isClaimingThisWeek,
+  isConnected,
+  onInitiateClaim,
+  size = "sm",
+  weekData,
+}: WeekClaimButtonProps) {
+  const {
+    userProof,
+    nonce,
+    isLoading: isProofLoading,
+  } = useMerkleProofs(weekData.week, address);
+
+  const handleOpenDialog = React.useCallback(() => {
+    if (!isConnected) {
+      toast.info("Connect your wallet to claim rewards.");
+      return;
+    }
+
+    if (!userProof) {
+      toast.error("No rewards found for your address in this week");
+      return;
+    }
+
+    let rewardsToClaim: ClaimableReward[] = weekData.rewards;
+    if (claimType === "v2Only") {
+      rewardsToClaim = weekData.rewards.filter(
+        (reward) => reward.type === "protocolDeposit"
+      );
+    }
+
+    if (rewardsToClaim.length === 0) {
+      toast.info("No rewards available to claim for this selection");
+      return;
+    }
+
+    onInitiateClaim({
+      weekData,
+      claimType,
+      rewardsToClaim,
+      userProof,
+      nonce,
+    });
+  }, [claimType, isConnected, nonce, onInitiateClaim, userProof, weekData]);
+
+  const weekSeconds = React.useMemo(() => 7 * 86400, []);
+  const hasProtocolDeposits = React.useMemo(
+    () => weekData.rewards.some((reward) => reward.type === "protocolDeposit"),
+    [weekData.rewards]
+  );
+
+  const weeksToWait = hasProtocolDeposits ? 4 : 3;
+  const targetTimestampMs = React.useMemo(
+    () =>
+      (GENESIS_TIMESTAMP + (weekData.week + weeksToWait) * weekSeconds) * 1000,
+    [weekData.week, weekSeconds, weeksToWait]
+  );
+
+  const [nowMs, setNowMs] = React.useState<number>(() => Date.now());
+
+  React.useEffect(() => {
+    if (weekData.isFinalized) return;
+
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [weekData.isFinalized]);
+
+  const remainingMs = React.useMemo(
+    () => Math.max(0, targetTimestampMs - nowMs),
+    [nowMs, targetTimestampMs]
+  );
+
+  const showCountdown = remainingMs < 24 * 3600 * 1000;
+
+  const countdownLabel = React.useMemo(() => {
+    if (!showCountdown) {
+      const days = Math.ceil(remainingMs / (24 * 3600 * 1000));
+      return days === 1 ? "1 day" : `${days} days`;
+    }
+
+    const totalSeconds = Math.floor(remainingMs / 1000);
+    const totalHours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    return `${totalHours}h ${minutes}m ${seconds}s`;
+  }, [remainingMs, showCountdown]);
+
+  const isDisabled =
+    isClaimingThisWeek ||
+    isClaimingAll ||
+    isClaimed ||
+    isProofLoading ||
+    !userProof ||
+    claimDialogStatus === "processing" ||
+    remainingMs > 0 ||
+    !isConnected;
+
+  const buttonLabel = React.useMemo(() => {
+    if (!isConnected) {
+      return "Connect Wallet";
+    }
+
+    if (isClaimingThisWeek) {
+      return (
+        <>
+          <Clock className="w-4 h-4 mr-2 animate-spin" />
+          Claiming...
+        </>
+      );
+    }
+
+    if (isClaimed) {
+      return (
+        <>
+          <CheckCircle className="w-4 h-4 mr-2" />
+          Claimed
+        </>
+      );
+    }
+
+    if (isProofLoading) {
+      return (
+        <>
+          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+          Loading proof...
+        </>
+      );
+    }
+
+    if (!userProof) {
+      return <>No rewards</>;
+    }
+
+    if (remainingMs > 0) {
+      return (
+        <>
+          <Clock className="w-4 h-4 mr-2" />
+          Claim in {countdownLabel}
+        </>
+      );
+    }
+
+    if (claimType === "v2Only") {
+      return (
+        <>
+          Claim PD
+          <ChevronRight className="w-4 h-4 ml-2" />
+        </>
+      );
+    }
+
+    return (
+      <>
+        Claim Inflation
+        <ChevronRight className="w-4 h-4 ml-2" />
+      </>
+    );
+  }, [
+    claimType,
+    countdownLabel,
+    isClaimed,
+    isClaimingThisWeek,
+    isConnected,
+    isProofLoading,
+    remainingMs,
+    userProof,
+  ]);
+
+  return (
+    <Button
+      size={size}
+      className={cn("w-full", className)}
+      onClick={handleOpenDialog}
+      disabled={isDisabled}
+      variant={isClaimed ? "secondary" : "default"}
+    >
+      {buttonLabel}
+    </Button>
+  );
+}
+
+type ClaimButtonsWrapperProps = {
+  address?: string;
+  checkIfClaimed: (
+    userAddress: `0x${string}`,
+    nonce: bigint
+  ) => Promise<boolean>;
+  checkIfGlwClaimed: (
+    week: number,
+    userAddress: `0x${string}`
+  ) => Promise<boolean>;
+  claimDialogStatus: ClaimDialogStatus;
+  glwClaimed: boolean;
+  isClaimingAll: boolean;
+  isClaimingWeek: number | null;
+  isConnected: boolean;
+  onClaimStatusChange: (week: number, status: ClaimStatusSummary) => void;
+  onInitiateClaim: (payload: ClaimInitiationPayload) => void;
+  protocolClaimed: boolean;
+  weekData: WeeklyClaimableRewards;
+};
+
+function ClaimButtonsWrapper({
+  address,
+  checkIfClaimed,
+  checkIfGlwClaimed,
+  claimDialogStatus,
+  glwClaimed,
+  isClaimingAll,
+  isClaimingWeek,
+  isConnected,
+  onClaimStatusChange,
+  onInitiateClaim,
+  protocolClaimed,
+  weekData,
+}: ClaimButtonsWrapperProps) {
+  const [isChecking, setIsChecking] = React.useState(true);
+  const isClaimingThisWeek = isClaimingWeek === weekData.week;
+
+  const currentEpoch = getCurrentEpoch();
+  const isGlwFinalized = weekData.week <= currentEpoch - 3;
+  const isPdFinalized = weekData.week <= currentEpoch - 4;
+  const hasGlwRewards = React.useMemo(
+    () => weekData.rewards.some((r) => r.type === "glowInflation"),
+    [weekData.rewards]
+  );
+  const hasProtocolDeposits = React.useMemo(
+    () => weekData.rewards.some((r) => r.type === "protocolDeposit"),
+    [weekData.rewards]
+  );
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (!address) {
+        onClaimStatusChange(weekData.week, {
+          glwClaimed: false,
+          protocolClaimed: false,
+        });
+        if (!cancelled) {
+          setIsChecking(false);
+        }
+        return;
+      }
+
+      const shouldCheckGlw = hasGlwRewards && isGlwFinalized;
+      const shouldCheckProtocol = hasProtocolDeposits && isPdFinalized;
+
+      if (!shouldCheckGlw && !shouldCheckProtocol) {
+        onClaimStatusChange(weekData.week, {
+          glwClaimed: !hasGlwRewards,
+          protocolClaimed: !hasProtocolDeposits,
+        });
+        if (!cancelled) {
+          setIsChecking(false);
+        }
+        return;
+      }
+
+      const needsCheck =
+        (shouldCheckGlw && !glwClaimed) ||
+        (shouldCheckProtocol && !protocolClaimed);
+
+      if (!needsCheck) {
+        if (!cancelled) {
+          setIsChecking(false);
+        }
+        return;
+      }
+
+      if (!cancelled) {
+        setIsChecking(true);
+      }
+
+      try {
+        const [glwStatus, protocolStatus] = await Promise.all([
+          shouldCheckGlw
+            ? checkIfGlwClaimed(weekData.week + 1, address as `0x${string}`)
+            : Promise.resolve(!hasGlwRewards),
+          shouldCheckProtocol
+            ? checkIfClaimed(
+                address as `0x${string}`,
+                weekToNonce(weekData.week)
+              )
+            : Promise.resolve(!hasProtocolDeposits),
+        ]);
+
+        if (!cancelled) {
+          onClaimStatusChange(weekData.week, {
+            glwClaimed: glwStatus,
+            protocolClaimed: protocolStatus,
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error checking claim status:", error);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsChecking(false);
+        }
+      }
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    address,
+    claimDialogStatus,
+    checkIfClaimed,
+    checkIfGlwClaimed,
+    glwClaimed,
+    hasGlwRewards,
+    hasProtocolDeposits,
+    isGlwFinalized,
+    isPdFinalized,
+    onClaimStatusChange,
+    protocolClaimed,
+    weekData.week,
+  ]);
+
+  const fullyClaimed = glwClaimed && protocolClaimed;
+
+  if (isChecking && (isGlwFinalized || isPdFinalized)) {
+    return (
+      <div className="w-full md:ml-4 md:w-44">
+        <Button size="default" className="w-full" disabled>
+          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+          Checking...
+        </Button>
+      </div>
+    );
+  }
+
+  if (fullyClaimed) {
+    return (
+      <div className="w-full md:ml-4 md:w-44">
+        <Button size="default" className="w-full" variant="secondary" disabled>
+          <CheckCircle className="w-4 h-4 mr-2" />
+          Claimed
+        </Button>
+      </div>
+    );
+  }
+
+  if (glwClaimed && !protocolClaimed && hasProtocolDeposits) {
+    return (
+      <div className="w-full md:ml-4 md:w-44">
+        <WeekClaimButton
+          address={address}
+          claimDialogStatus={claimDialogStatus}
+          claimType="v2Only"
+          isClaimed={false}
+          isClaimingAll={isClaimingAll}
+          isClaimingThisWeek={isClaimingThisWeek}
+          isConnected={isConnected}
+          onInitiateClaim={onInitiateClaim}
+          size="default"
+          weekData={weekData}
+        />
+      </div>
+    );
+  }
+
+  if (!isGlwFinalized && !isPdFinalized) {
+    return (
+      <div className="w-full md:ml-4 md:w-44">
+        <Button size="default" className="w-full" disabled>
+          <Clock className="w-4 h-4 mr-2" />
+          Pending
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full md:ml-4 md:w-44">
+      <WeekClaimButton
+        address={address}
+        claimDialogStatus={claimDialogStatus}
+        isClaimed={fullyClaimed}
+        isClaimingAll={isClaimingAll}
+        isClaimingThisWeek={isClaimingThisWeek}
+        isConnected={isConnected}
+        onInitiateClaim={onInitiateClaim}
+        size="default"
+        weekData={weekData}
+      />
+    </div>
+  );
+}
 export function ClaimsPanel() {
   const { address, isConnected } = useAccount();
-  const currentEpoch = getCurrentEpoch();
-  const [claimedWeeks, setClaimedWeeks] = React.useState<Set<number>>(
-    new Set()
-  );
   const [v1ClaimedWeeks, setV1ClaimedWeeks] = React.useState<Set<number>>(
     new Set()
   );
@@ -165,9 +583,8 @@ export function ClaimsPanel() {
   const [activeClaim, setActiveClaim] =
     React.useState<ClaimInitiationPayload | null>(null);
   const [isClaimDialogOpen, setIsClaimDialogOpen] = React.useState(false);
-  const [claimDialogStatus, setClaimDialogStatus] = React.useState<
-    "review" | "processing" | "success" | "error"
-  >("review");
+  const [claimDialogStatus, setClaimDialogStatus] =
+    React.useState<ClaimDialogStatus>("review");
   const [claimDialogError, setClaimDialogError] = React.useState<string | null>(
     null
   );
@@ -181,9 +598,60 @@ export function ClaimsPanel() {
     });
   const claimStageStatusesRef = React.useRef<ClaimStageMap>(claimStageStatuses);
 
-  React.useEffect(() => {
-    claimStageStatusesRef.current = claimStageStatuses;
-  }, [claimStageStatuses]);
+  const handleClaimStatusChange = React.useCallback(
+    (week: number, status: ClaimStatusSummary) => {
+      setV1ClaimedWeeks((prev) => {
+        const hasWeek = prev.has(week);
+        if (status.glwClaimed === hasWeek) {
+          return prev;
+        }
+        const next = new Set(prev);
+        if (status.glwClaimed) {
+          next.add(week);
+        } else {
+          next.delete(week);
+        }
+        return next;
+      });
+
+      setV2ClaimedWeeks((prev) => {
+        const hasWeek = prev.has(week);
+        if (status.protocolClaimed === hasWeek) {
+          return prev;
+        }
+        const next = new Set(prev);
+        if (status.protocolClaimed) {
+          next.add(week);
+        } else {
+          next.delete(week);
+        }
+        return next;
+      });
+    },
+    []
+  );
+
+  const getWeekClaimState = React.useCallback(
+    (weekData: WeeklyClaimableRewards) => {
+      const hasGlwRewards = weekData.rewards.some(
+        (reward) => reward.type === "glowInflation"
+      );
+      const hasProtocolRewards = weekData.rewards.some(
+        (reward) => reward.type === "protocolDeposit"
+      );
+
+      const glwClaimed = !hasGlwRewards || v1ClaimedWeeks.has(weekData.week);
+      const protocolClaimed =
+        !hasProtocolRewards || v2ClaimedWeeks.has(weekData.week);
+
+      return {
+        glwClaimed,
+        protocolClaimed,
+        isClaimed: glwClaimed && protocolClaimed,
+      };
+    },
+    [v1ClaimedWeeks, v2ClaimedWeeks]
+  );
 
   const createInitialStageState = React.useCallback(
     (payload: ClaimInitiationPayload): ClaimStageMap => {
@@ -332,39 +800,10 @@ export function ClaimsPanel() {
         inflationStatus === "success" || protocolStatus === "success";
       const allSkipped =
         inflationStatus === "skipped" && protocolStatus === "skipped";
-      const weekNumber = activeClaim.weekData.week;
-
       if (!hasError) {
         setClaimDialogStatus("success");
         if (allSkipped) {
           setClaimDialogInfo("Rewards already claimed or unavailable.");
-        }
-
-        if (inflationStatus === "success" || inflationStatus === "skipped") {
-          setV1ClaimedWeeks((prev) => {
-            const next = new Set(prev);
-            next.add(weekNumber);
-            return next;
-          });
-        }
-
-        if (protocolStatus === "success" || protocolStatus === "skipped") {
-          setV2ClaimedWeeks((prev) => {
-            const next = new Set(prev);
-            next.add(weekNumber);
-            return next;
-          });
-        }
-
-        if (
-          (inflationStatus === "success" || inflationStatus === "skipped") &&
-          (protocolStatus === "success" || protocolStatus === "skipped")
-        ) {
-          setClaimedWeeks((prev) => {
-            const next = new Set(prev);
-            next.add(weekNumber);
-            return next;
-          });
         }
       } else {
         setClaimDialogStatus("error");
@@ -617,9 +1056,19 @@ export function ClaimsPanel() {
   const hasClaimableRewards = Object.keys(aggregatedTotals).length > 0;
 
   // Calculate total number of claimable (finalized and not already optimistically claimed) weeks
-  const totalClaimableWeeks = weeklyBreakdown.filter(
-    (w) => w.isFinalized && !claimedWeeks.has(w.week)
-  ).length;
+  const totalClaimableWeeks = weeklyBreakdown.filter((week) => {
+    const { isClaimed } = getWeekClaimState(week);
+    return week.isFinalized && !isClaimed;
+  }).length;
+
+  const totalClaimableLabel =
+    totalClaimableWeeks === 0
+      ? "All claimed"
+      : totalClaimableWeeks === 1
+      ? "1 week"
+      : `${totalClaimableWeeks} weeks`;
+
+  const isEverythingClaimed = totalClaimableWeeks === 0;
 
   // Handle claim all
   const handleClaimAll = async () => {
@@ -629,7 +1078,10 @@ export function ClaimsPanel() {
 
     // Fetch all merkle proofs for unclaimed weeks
     const weeklyDataPromises = weeklyBreakdown
-      .filter((week) => week.isFinalized && !claimedWeeks.has(week.week))
+      .filter((week) => {
+        const { isClaimed } = getWeekClaimState(week);
+        return week.isFinalized && !isClaimed;
+      })
       .map(async (weekData) => {
         try {
           const response = await fetch(
@@ -690,285 +1142,6 @@ export function ClaimsPanel() {
       console.error("Claim all error:", error);
       toast.error("Failed to claim rewards");
     }
-  };
-
-  // Component for week claim button with merkle proof loading
-  const WeekClaimButton = ({
-    weekData,
-    isClaimingThisWeek,
-    isClaimed,
-    onInitiateClaim,
-    size = "sm",
-    className,
-    claimType = "both",
-  }: {
-    weekData: WeeklyClaimableRewards;
-    isClaimingThisWeek: boolean;
-    isClaimed: boolean;
-    onInitiateClaim: (payload: ClaimInitiationPayload) => void;
-    size?: "sm" | "default";
-    className?: string;
-    claimType?: "both" | "v2Only";
-  }) => {
-    const {
-      userProof,
-      nonce,
-      isLoading: isProofLoading,
-    } = useMerkleProofs(weekData.week, address);
-
-    const handleOpenDialog = () => {
-      if (!userProof) {
-        toast.error("No rewards found for your address in this week");
-        return;
-      }
-
-      let rewardsToClaim: ClaimableReward[] = weekData.rewards;
-      if (claimType === "v2Only") {
-        rewardsToClaim = weekData.rewards.filter(
-          (reward) => reward.type === "protocolDeposit"
-        );
-      }
-
-      if (rewardsToClaim.length === 0) {
-        toast.info("No rewards available to claim for this selection");
-        return;
-      }
-
-      onInitiateClaim({
-        weekData,
-        claimType,
-        rewardsToClaim,
-        userProof,
-        nonce,
-      });
-    };
-
-    // Pending countdown (until finalized)
-    const weekSeconds = 7 * 86400;
-    const currentEpoch = getCurrentEpoch();
-    const hasProtocolDeposits = weekData.rewards.some(
-      (r: any) => r.type === "protocolDeposit"
-    );
-
-    // If week has protocol deposits, wait for PD finalization (4 weeks), otherwise GLW (3 weeks)
-    const weeksToWait = hasProtocolDeposits ? 4 : 3;
-    const targetTimestampMs = React.useMemo(
-      () =>
-        (GENESIS_TIMESTAMP + (weekData.week + weeksToWait) * weekSeconds) *
-        1000,
-      [weekData.week, weeksToWait]
-    );
-    const [nowMs, setNowMs] = React.useState<number>(() => Date.now());
-
-    const remainingMs = React.useMemo(
-      () => Math.max(0, targetTimestampMs - nowMs),
-      [targetTimestampMs, nowMs]
-    );
-
-    const showCountdown = remainingMs < 24 * 3600 * 1000; // show countdown only if < 24h
-
-    React.useEffect(() => {
-      if (weekData.isFinalized || !showCountdown) return; // only run timer if showing countdown
-      const id = setInterval(() => setNowMs(Date.now()), 1000);
-      return () => clearInterval(id);
-    }, [weekData.isFinalized, showCountdown]);
-
-    const countdownLabel = React.useMemo(() => {
-      if (!showCountdown) {
-        const days = Math.ceil(remainingMs / (24 * 3600 * 1000));
-        return days === 1 ? "1 day" : `${days} days`;
-      }
-      const totalSeconds = Math.floor(remainingMs / 1000);
-      const totalHours = Math.floor(totalSeconds / 3600);
-      const minutes = Math.floor((totalSeconds % 3600) / 60);
-      const seconds = Math.floor(totalSeconds % 60);
-      return `${totalHours}h ${minutes}m ${seconds}s`;
-    }, [remainingMs, showCountdown]);
-
-    return (
-      <Button
-        size={size}
-        className={cn("w-full", className)}
-        onClick={handleOpenDialog}
-        disabled={
-          isClaimingThisWeek ||
-          isClaimingAll ||
-          isClaimed ||
-          isProofLoading ||
-          !userProof ||
-          claimDialogStatus === "processing" ||
-          remainingMs > 0
-        }
-        variant={isClaimed ? "secondary" : "default"}
-      >
-        {isClaimingThisWeek ? (
-          <>
-            <Clock className="w-4 h-4 mr-2 animate-spin" />
-            Claiming...
-          </>
-        ) : isClaimed ? (
-          <>
-            <CheckCircle className="w-4 h-4 mr-2" />
-            Claimed
-          </>
-        ) : isProofLoading ? (
-          <>
-            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-            Loading proof...
-          </>
-        ) : !userProof ? (
-          <>No rewards</>
-        ) : remainingMs > 0 ? (
-          <>
-            <Clock className="w-4 h-4 mr-2" />
-            Claim in {countdownLabel}
-          </>
-        ) : claimType === "v2Only" ? (
-          <>
-            Claim PD
-            <ChevronRight className="w-4 h-4 ml-2" />
-          </>
-        ) : (
-          <>
-            Claim Inflation
-            <ChevronRight className="w-4 h-4 ml-2" />
-          </>
-        )}
-      </Button>
-    );
-  };
-
-  // Component to show appropriate claim buttons based on status
-  const ClaimButtonsWrapper = ({
-    weekData,
-  }: {
-    weekData: WeeklyClaimableRewards;
-  }) => {
-    const [glwClaimed, setGlwClaimed] = React.useState(false);
-    const [v2Claimed, setV2Claimed] = React.useState(false);
-    const [isChecking, setIsChecking] = React.useState(true);
-    const isClaimingThisWeek = isClaimingWeek === weekData.week;
-    const isClaimed = claimedWeeks.has(weekData.week);
-
-    // Check individual finalization status
-    const currentEpoch = getCurrentEpoch();
-    const isGlwFinalized = weekData.week <= currentEpoch - 3;
-    const isPdFinalized = weekData.week <= currentEpoch - 4;
-
-    React.useEffect(() => {
-      if (!address) {
-        setIsChecking(false);
-        return;
-      }
-
-      // Only check if at least one type is finalized
-      if (!isGlwFinalized && !isPdFinalized) {
-        setIsChecking(false);
-        return;
-      }
-
-      const checkClaimStatus = async () => {
-        try {
-          // Check if GLW is claimed
-          const glwStatus = await checkIfGlwClaimed(weekData.week + 1, address);
-          setGlwClaimed(glwStatus);
-
-          // Check if v2 (protocol deposits) is claimed
-          const nonce = weekToNonce(weekData.week);
-          const v2Status = await checkIfClaimed(address, nonce);
-          setV2Claimed(v2Status);
-        } catch (error) {
-          console.error("Error checking claim status:", error);
-        } finally {
-          setIsChecking(false);
-        }
-      };
-
-      checkClaimStatus();
-    }, [weekData.week, isGlwFinalized, isPdFinalized, address]);
-
-    // Don't show buttons if checking status
-    if (isChecking && (isGlwFinalized || isPdFinalized)) {
-      return (
-        <div className="w-full md:ml-4 md:w-44">
-          <Button size="default" className="w-full" disabled>
-            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-            Checking...
-          </Button>
-        </div>
-      );
-    }
-
-    const hasGlwRewards = weekData.rewards.some(
-      (r: any) => r.type === "glowInflation"
-    );
-    const hasProtocolDeposits = weekData.rewards.some(
-      (r: any) => r.type === "protocolDeposit"
-    );
-
-    // If both are claimed, show claimed status
-    if (glwClaimed && v2Claimed) {
-      return (
-        <div className="w-full md:ml-4 md:w-44">
-          <Button
-            size="default"
-            className="w-full"
-            variant="secondary"
-            disabled
-          >
-            <CheckCircle className="w-4 h-4 mr-2" />
-            Claimed
-          </Button>
-        </div>
-      );
-    }
-
-    // If only GLW is claimed but v2 is available, show v2 claim button
-    if (glwClaimed && !v2Claimed && hasProtocolDeposits) {
-      return (
-        <div className="w-full md:ml-4 md:w-44">
-          <WeekClaimButton
-            weekData={weekData}
-            isClaimingThisWeek={isClaimingThisWeek}
-            isClaimed={false}
-            onInitiateClaim={handleInitiateClaim}
-            size="default"
-            className=""
-            claimType="v2Only"
-          />
-        </div>
-      );
-    }
-
-    // If nothing is finalized yet, show pending
-    if (!isGlwFinalized && !isPdFinalized) {
-      return (
-        <div className="w-full md:ml-4 md:w-44">
-          <Button size="default" className="w-full" disabled>
-            <Clock className="w-4 h-4 mr-2" />
-            Pending
-          </Button>
-        </div>
-      );
-    }
-
-    // If only GLW is finalized but not PD, still show the week claim button
-    // The button itself will handle showing the countdown for PD
-
-    // Otherwise show normal claim button
-    return (
-      <div className="w-full md:ml-4 md:w-44">
-        <WeekClaimButton
-          weekData={weekData}
-          isClaimingThisWeek={isClaimingThisWeek}
-          isClaimed={isClaimed}
-          onInitiateClaim={handleInitiateClaim}
-          size="default"
-          className=""
-          claimType="both"
-        />
-      </div>
-    );
   };
 
   return (
@@ -1032,6 +1205,12 @@ export function ClaimsPanel() {
                         bgColor: "bg-gray-50 dark:bg-gray-950/20",
                         label: currency,
                       };
+                      const parsedAmount = Number.parseFloat(amount);
+                      const displayAmount = isEverythingClaimed
+                        ? 0
+                        : Number.isFinite(parsedAmount)
+                        ? parsedAmount
+                        : amount;
 
                       return (
                         <div
@@ -1055,16 +1234,18 @@ export function ClaimsPanel() {
                                 {config.label}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {totalClaimableWeeks} weeks
+                                {totalClaimableLabel}
                               </div>
                             </div>
                           </div>
                           <div className="text-right">
                             <div className="font-bold text-base md:text-xl tabular-nums">
-                              {parseFloat(amount).toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 6,
-                              })}
+                              {typeof displayAmount === "number"
+                                ? displayAmount.toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 6,
+                                  })
+                                : displayAmount}
                             </div>
                           </div>
                         </div>
@@ -1082,8 +1263,8 @@ export function ClaimsPanel() {
               </h3>
               <div className="space-y-3">
                 {weeklyBreakdown.map((weekData) => {
-                  const isClaimingThisWeek = isClaimingWeek === weekData.week;
-                  const isClaimed = claimedWeeks.has(weekData.week);
+                  const { isClaimed, glwClaimed, protocolClaimed } =
+                    getWeekClaimState(weekData);
 
                   return (
                     <Collapsible
@@ -1153,7 +1334,20 @@ export function ClaimsPanel() {
                             <ChevronRight className="w-4 h-4 text-muted-foreground ml-1 sm:ml-3 hidden sm:inline-block" />
                           </div>
                         </CollapsibleTrigger>
-                        <ClaimButtonsWrapper weekData={weekData} />
+                        <ClaimButtonsWrapper
+                          address={address}
+                          checkIfClaimed={checkIfClaimed}
+                          checkIfGlwClaimed={checkIfGlwClaimed}
+                          claimDialogStatus={claimDialogStatus}
+                          glwClaimed={glwClaimed}
+                          isClaimingAll={isClaimingAll}
+                          isClaimingWeek={isClaimingWeek}
+                          isConnected={isConnected}
+                          onClaimStatusChange={handleClaimStatusChange}
+                          onInitiateClaim={handleInitiateClaim}
+                          protocolClaimed={protocolClaimed}
+                          weekData={weekData}
+                        />
                       </div>
                       <CollapsibleContent className="px-4 md:px-5 pb-4 md:pb-5 pt-2">
                         <div className="space-y-2 border-t border-border/50 pt-3 md:pt-4">

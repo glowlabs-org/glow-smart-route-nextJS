@@ -46,7 +46,7 @@ export function RewardsBreakdownPanel({
       <Card className="mb-8">
         <CardHeader className="pb-4">
           <CardTitle className="text-2xl font-bold">
-            Farms Earning Rewards
+            Miners & Delegations
           </CardTitle>
           <CardDescription className="text-base mt-2">
             Loading your rewards data...
@@ -102,9 +102,6 @@ export function RewardsBreakdownPanel({
   const delegations = data.farmDetails.filter((f) => f.type === "launchpad");
   const miners = data.farmDetails.filter((f) => f.type === "mining-center");
 
-  const hasDelegations = delegations.length > 0;
-  const hasMiners = miners.length > 0;
-
   const totalDelegatorEarnings = formatGLW(data.rewards.delegator.allWeeks);
   const totalMinerEarnings = formatGLW(data.rewards.miner.allWeeks);
   const totalEarnings =
@@ -114,6 +111,20 @@ export function RewardsBreakdownPanel({
 
   const delegatedGLW = formatGLW(data.totals.totalGlwDelegated);
   const spentUSDC = formatUSDC(data.totals.totalUsdcSpentByMiners);
+
+  const pendingDelegatedGLW = formatGLW(
+    data.delegatedAfterWeekRange.totalGlwDelegatedAfter
+  );
+  const pendingSpentUSDC = formatUSDC(
+    data.delegatedAfterWeekRange.totalUsdcSpentAfter
+  );
+  const hasPendingDelegations =
+    Number(data.delegatedAfterWeekRange.totalGlwDelegatedAfter) > 0;
+  const hasPendingMining =
+    Number(data.delegatedAfterWeekRange.totalUsdcSpentAfter) > 0;
+
+  const hasDelegations = delegations.length > 0 || hasPendingDelegations;
+  const hasMiners = miners.length > 0 || hasPendingMining;
 
   const lastWeekTotal =
     Number(data.rewards.delegator.lastWeek) +
@@ -205,13 +216,13 @@ export function RewardsBreakdownPanel({
 
   const getDescription = () => {
     if (hasDelegations && hasMiners) {
-      return "Detailed breakdown of your delegations and mining investments";
+      return "Detailed breakdown of your delegations and miners";
     }
     if (hasDelegations) {
       return "Detailed breakdown of your delegations";
     }
     if (hasMiners) {
-      return "Detailed breakdown of your mining investments";
+      return "Detailed breakdown of your miners";
     }
     return "Detailed breakdown of your rewards";
   };
@@ -233,7 +244,7 @@ export function RewardsBreakdownPanel({
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="flex-1">
             <CardTitle className="text-2xl font-bold">
-              Farms Earning Rewards
+              Miners & Delegations
             </CardTitle>
             <CardDescription className="text-base mt-2">
               {getDescription()}
@@ -273,21 +284,28 @@ export function RewardsBreakdownPanel({
                   <div className="text-3xl font-bold mb-3">
                     {delegatedGLW} GLW
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      Earned {totalDelegatorEarnings} GLW
+                  {hasPendingDelegations && (
+                    <div className="text-sm text-blue-600 dark:text-blue-400 mb-2">
+                      +{pendingDelegatedGLW} GLW pending (not yet earning)
                     </div>
-                    <div className="text-right">
-                      <div
-                        className={`text-lg font-bold ${getAPYColor(
-                          data.apy.delegatorApyPercent
-                        )}`}
-                      >
-                        {formatAPY(data.apy.delegatorApyPercent)}
+                  )}
+                  {delegations.length > 0 && (
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        Earned {totalDelegatorEarnings} GLW
                       </div>
-                      <div className="text-xs text-muted-foreground">APY</div>
+                      <div className="text-right">
+                        <div
+                          className={`text-lg font-bold ${getAPYColor(
+                            data.apy.delegatorApyPercent
+                          )}`}
+                        >
+                          {formatAPY(data.apy.delegatorApyPercent)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">APY</div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -302,21 +320,28 @@ export function RewardsBreakdownPanel({
                   <div className="text-3xl font-bold mb-3">
                     ${spentUSDC} USDC
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      Earned {totalMinerEarnings} GLW
+                  {hasPendingMining && (
+                    <div className="text-sm text-blue-600 dark:text-blue-400 mb-2">
+                      +${pendingSpentUSDC} USDC pending (not yet earning)
                     </div>
-                    <div className="text-right">
-                      <div
-                        className={`text-lg font-bold ${getAPYColor(
-                          data.apy.minerApyPercent
-                        )}`}
-                      >
-                        {formatAPY(data.apy.minerApyPercent)}
+                  )}
+                  {miners.length > 0 && (
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        Earned {totalMinerEarnings} GLW
                       </div>
-                      <div className="text-xs text-muted-foreground">APY</div>
+                      <div className="text-right">
+                        <div
+                          className={`text-lg font-bold ${getAPYColor(
+                            data.apy.minerApyPercent
+                          )}`}
+                        >
+                          {formatAPY(data.apy.minerApyPercent)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">APY</div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             )}

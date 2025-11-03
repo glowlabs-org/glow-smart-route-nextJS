@@ -89,7 +89,7 @@ export function useClaimableRewards(
     staleTime: 30_000, // 30 seconds
     gcTime: 5 * 60_000, // 5 minutes
     refetchOnMount: true,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
   // Process the rewards data

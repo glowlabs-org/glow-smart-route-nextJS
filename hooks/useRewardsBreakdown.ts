@@ -41,6 +41,10 @@ export interface RewardsBreakdownResponse {
     delegatorApyPercent: string;
     minerApyPercent: string;
   };
+  delegatedAfterWeekRange: {
+    totalGlwDelegatedAfter: string;
+    totalUsdcSpentAfter: string;
+  };
   farmDetails: Array<{
     farmId: string;
     type: "launchpad" | "mining-center";
@@ -61,16 +65,8 @@ export interface UseRewardsBreakdownParams {
   enabled?: boolean;
 }
 
-export function useRewardsBreakdown(
-  params: UseRewardsBreakdownParams = {}
-) {
-  const {
-    walletAddress,
-    farmId,
-    startWeek,
-    endWeek,
-    enabled = true,
-  } = params;
+export function useRewardsBreakdown(params: UseRewardsBreakdownParams = {}) {
+  const { walletAddress, farmId, startWeek, endWeek, enabled = true } = params;
 
   const queryKey = [
     "rewards-breakdown",
@@ -157,4 +153,3 @@ export function formatAPY(value: string): string {
   const rounded = Math.round(Number(value));
   return `${rounded}%`;
 }
-
