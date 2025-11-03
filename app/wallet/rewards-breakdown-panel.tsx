@@ -144,39 +144,7 @@ export function RewardsBreakdownPanel({
     Number(data.rewards.miner.lastWeek);
   const formattedLastWeek = formatGLW(lastWeekTotal.toString());
 
-  const lastWeekDelegator = formatGLW(data.rewards.delegator.lastWeek);
-  const lastWeekMiner = formatGLW(data.rewards.miner.lastWeek);
-
-  const totalWeeks = data.weekRange.endWeek - data.weekRange.startWeek + 1;
-  const earningsBeforeLastWeek = totalEarnings - lastWeekTotal;
-  const avgWeeklyBeforeLastWeek =
-    totalWeeks > 1 ? earningsBeforeLastWeek / (totalWeeks - 1) : 0;
-
-  const weekOverWeekChange =
-    avgWeeklyBeforeLastWeek > 0
-      ? ((lastWeekTotal - avgWeeklyBeforeLastWeek) / avgWeeklyBeforeLastWeek) *
-        100
-      : 0;
-
-  const calculatePaybackWeeks = (
-    invested: string,
-    earned: string,
-    weeks: number
-  ): string => {
-    const investedNum = Number(invested);
-    const earnedNum = Number(earned);
-    if (earnedNum === 0 || weeks === 0) return "∞";
-    const avgWeeklyEarnings = earnedNum / weeks;
-    const weeksToPayback = investedNum / avgWeeklyEarnings;
-    if (weeksToPayback < 0 || !isFinite(weeksToPayback)) return "∞";
-    return weeksToPayback.toFixed(1);
-  };
-
-  const delegatorPaybackWeeks = calculatePaybackWeeks(
-    data.totals.totalGlwDelegated,
-    data.rewards.delegator.allWeeks,
-    totalWeeks
-  );
+  const totalWeeks = data.weekRange.endWeek - data.weekRange.startWeek;
 
   const calculatePaybackFromAPY = (apyPercent: string): string => {
     const apy = Number(apyPercent);
@@ -322,9 +290,74 @@ export function RewardsBreakdownPanel({
                     </span>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    Week {data.weekRange.startWeek}–{data.weekRange.endWeek}
+                    over {totalWeeks} {totalWeeks === 1 ? "week" : "weeks"}
                   </div>
                 </div>
+
+                {totalEarnings > 0 && (hasDelegations || hasMiners) && (
+                  <div className="mt-3 pt-3 border-t space-y-2">
+                    <div className="flex h-2 w-full rounded-full overflow-hidden bg-muted">
+                      {hasDelegations && (
+                        <div
+                          className="bg-blue-500"
+                          style={{
+                            width: `${
+                              (Number(data.rewards.delegator.allWeeks) /
+                                totalEarnings) *
+                              100
+                            }%`,
+                          }}
+                        />
+                      )}
+                      {hasMiners && (
+                        <div
+                          className="bg-purple-500"
+                          style={{
+                            width: `${
+                              (Number(data.rewards.miner.allWeeks) /
+                                totalEarnings) *
+                              100
+                            }%`,
+                          }}
+                        />
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      {hasDelegations && (
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full bg-blue-500" />
+                          <span className="text-muted-foreground">
+                            Delegations:{" "}
+                            <span className="font-medium text-foreground">
+                              {(
+                                (Number(data.rewards.delegator.allWeeks) /
+                                  totalEarnings) *
+                                100
+                              ).toFixed(1)}
+                              %
+                            </span>
+                          </span>
+                        </div>
+                      )}
+                      {hasMiners && (
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full bg-purple-500" />
+                          <span className="text-muted-foreground">
+                            Mining:{" "}
+                            <span className="font-medium text-foreground">
+                              {(
+                                (Number(data.rewards.miner.allWeeks) /
+                                  totalEarnings) *
+                                100
+                              ).toFixed(1)}
+                              %
+                            </span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -332,7 +365,15 @@ export function RewardsBreakdownPanel({
           {/* Delegations */}
           {delegations.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold mb-4">Delegations</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Delegations</h3>
+                <span className="text-sm text-muted-foreground">
+                  Total Earned:{" "}
+                  <span className="font-semibold text-foreground">
+                    {formatGLW(data.rewards.delegator.allWeeks)} GLW
+                  </span>
+                </span>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {delegations.map((farm, idx) => {
                   const farmMetadata = getFarmMetadata(farm.farmId);
@@ -400,27 +441,6 @@ export function RewardsBreakdownPanel({
                                 {formatGLW(farm.lastWeekRewards)} GLW
                               </span>
                             </div>
-                            <div className="flex justify-between items-center pt-2 border-t">
-                              <span className="text-xs text-muted-foreground">
-                                Current Payback
-                              </span>
-                              <Badge
-                                className={`text-xs font-semibold ${getPaybackBadgeClass(
-                                  calculatePaybackWeeks(
-                                    farm.amountInvested,
-                                    farm.totalEarnedSoFar,
-                                    farm.totalWeeksEarned
-                                  )
-                                )}`}
-                              >
-                                {calculatePaybackWeeks(
-                                  farm.amountInvested,
-                                  farm.totalEarnedSoFar,
-                                  farm.totalWeeksEarned
-                                )}
-                                w
-                              </Badge>
-                            </div>
                           </div>
                         </div>
                       </CardContent>
@@ -434,7 +454,15 @@ export function RewardsBreakdownPanel({
           {/* Mining */}
           {miners.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold mb-4">Mining</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Mining</h3>
+                <span className="text-sm text-muted-foreground">
+                  Total Earned:{" "}
+                  <span className="font-semibold text-foreground">
+                    {formatGLW(data.rewards.miner.allWeeks)} GLW
+                  </span>
+                </span>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {miners.map((farm, idx) => {
                   const farmMetadata = getFarmMetadata(farm.farmId);
@@ -501,18 +529,6 @@ export function RewardsBreakdownPanel({
                               <span className="font-medium">
                                 {formatGLW(farm.lastWeekRewards)} GLW
                               </span>
-                            </div>
-                            <div className="flex justify-between items-center pt-2 border-t">
-                              <span className="text-xs text-muted-foreground">
-                                Current Payback
-                              </span>
-                              <Badge
-                                className={`text-xs font-semibold ${getPaybackBadgeClass(
-                                  calculatePaybackFromAPY(farm.apy)
-                                )}`}
-                              >
-                                {calculatePaybackFromAPY(farm.apy)}w
-                              </Badge>
                             </div>
                           </div>
                         </div>
