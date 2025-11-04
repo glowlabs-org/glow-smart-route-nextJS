@@ -51,6 +51,7 @@ import {
   type TransactionDetail,
 } from "@/components/dialogs/transaction-dialog";
 import { getCurrentEpoch, GENESIS_TIMESTAMP } from "@/utils/getCurrentEpoch";
+import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 
 // Currency configurations
 const CURRENCY_CONFIG = {
@@ -773,7 +774,21 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
     isClaimingAll,
     checkIfClaimed,
     checkIfGlwClaimed,
+    checkSmartAccount,
   } = useRewardsKernelWrapper();
+
+  // Smart account warning dialog state
+  const [showSmartAccountWarning, setShowSmartAccountWarning] =
+    React.useState(false);
+  const [triggerSmartAccountCheck, setTriggerSmartAccountCheck] =
+    React.useState(false);
+
+  const handleSmartAccountDialogChange = React.useCallback((open: boolean) => {
+    setShowSmartAccountWarning(open);
+    if (!open) {
+      setTriggerSmartAccountCheck(false);
+    }
+  }, []);
 
   const [activeClaim, setActiveClaim] =
     React.useState<ClaimInitiationPayload | null>(null);
@@ -988,6 +1003,14 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
   const handleConfirmClaim = React.useCallback(async () => {
     if (!activeClaim) return;
 
+    // Check for smart account before proceeding
+    const isSmartAccount = await checkSmartAccount();
+    if (isSmartAccount) {
+      setShowSmartAccountWarning(true);
+      setTriggerSmartAccountCheck(true);
+      return;
+    }
+
     setClaimDialogStatus("processing");
     setClaimDialogError(null);
     setClaimDialogInfo(null);
@@ -1055,6 +1078,7 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
     }
   }, [
     activeClaim,
+    checkSmartAccount,
     claimWeekRewards,
     updateStageStatus,
     refetch,
@@ -1305,6 +1329,14 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
   // Handle claim all
   const handleClaimAll = async () => {
     if (!address || weeklyBreakdown.length === 0) return;
+
+    // Check for smart account before proceeding
+    const isSmartAccount = await checkSmartAccount();
+    if (isSmartAccount) {
+      setShowSmartAccountWarning(true);
+      setTriggerSmartAccountCheck(true);
+      return;
+    }
 
     const hotWalletAddress = getHotWalletAddress();
 
@@ -1657,6 +1689,11 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
         confirmDisabled={!activeClaim || claimDialogStatus === "processing"}
         confirmLabel="Confirm Claim"
         cancelLabel="Cancel"
+      />
+      <SmartAccountWarningDialog
+        open={showSmartAccountWarning}
+        onOpenChange={handleSmartAccountDialogChange}
+        triggerCheck={triggerSmartAccountCheck}
       />
     </>
   );

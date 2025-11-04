@@ -15,6 +15,7 @@ import { MinerPoolAndGCAABI } from "@glowlabs-org/guarded-launch-abis";
 import { addresses } from "@/web3/constants/addresses";
 import type { ClaimableReward } from "./useClaimableRewards";
 import * as Sentry from "@sentry/nextjs";
+import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
   throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
@@ -102,6 +103,7 @@ export interface UseRewardsKernelWrapperResult {
     week: number,
     userAddress: `0x${string}`
   ) => Promise<boolean>;
+  checkSmartAccount: () => Promise<boolean>;
 }
 
 export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
@@ -750,6 +752,30 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
     [minerPoolContract]
   );
 
+  // Check if the connected wallet is a smart account
+  const checkSmartAccount = useCallback(async (): Promise<boolean> => {
+    if (!walletClient?.account?.address) {
+      return false;
+    }
+
+    try {
+      const status = await getSmartAccountStatus({
+        address: walletClient.account.address,
+        walletClient,
+        getBytecode: publicClient?.getBytecode,
+      });
+
+      return (
+        status.isEip7702Delegated ||
+        status.hasWalletAABatching ||
+        status.isContractWallet
+      );
+    } catch (error) {
+      console.error("Error checking smart account status:", error);
+      return false;
+    }
+  }, [walletClient, publicClient]);
+
   return {
     claimWeekRewards,
     claimAllRewards,
@@ -758,5 +784,6 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
     checkIfClaimed,
     isFinalized,
     checkIfGlwClaimed,
+    checkSmartAccount,
   };
 }

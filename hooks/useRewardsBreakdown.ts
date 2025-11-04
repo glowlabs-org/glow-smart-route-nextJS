@@ -26,6 +26,7 @@ export interface RewardsBreakdownResponse {
   weekRange: {
     startWeek: number;
     endWeek: number;
+    weeksWithRewards: number;
   };
   rewards: {
     delegator: {
@@ -45,6 +46,10 @@ export interface RewardsBreakdownResponse {
     totalGlwDelegatedAfter: string;
     totalUsdcSpentAfter: string;
   };
+  recentPurchasesWithoutRewards: Array<{
+    farmId: string;
+    types: ("launchpad" | "mining-center")[];
+  }>;
   farmDetails: Array<{
     farmId: string;
     type: "launchpad" | "mining-center";
@@ -56,6 +61,12 @@ export interface RewardsBreakdownResponse {
     totalProtocolDepositRewards: string;
     lastWeekRewards: string;
     apy: string;
+    weeklyBreakdown: Array<{
+      weekNumber: number;
+      inflationRewards: string;
+      protocolDepositRewards: string;
+      totalRewards: string;
+    }>;
   }>;
   otherFarmsWithRewards: {
     count: number;
@@ -69,6 +80,12 @@ export interface RewardsBreakdownResponse {
       totalProtocolDepositRewards: string;
       totalRewards: string;
       lastWeekRewards: string;
+      weeklyBreakdown: Array<{
+        weekNumber: number;
+        inflationRewards: string;
+        protocolDepositRewards: string;
+        totalRewards: string;
+      }>;
     }>;
   };
 }
