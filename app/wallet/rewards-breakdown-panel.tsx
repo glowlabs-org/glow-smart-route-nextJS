@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Gift, ChevronRight } from "lucide-react";
+import { Gift, ChevronRight, ExternalLink } from "lucide-react";
 import {
   useRewardsBreakdown,
   formatGLW,
@@ -626,13 +626,7 @@ export function RewardsBreakdownPanel({
                       "/images/sections/residential.jpg";
 
                     return (
-                      <Card
-                        key={farm.farmId}
-                        className="overflow-hidden cursor-pointer hover:border-foreground/20 transition-colors"
-                        onClick={() =>
-                          (window.location.href = `https://glow.org/audits/${farm.farmId}`)
-                        }
-                      >
+                      <Card key={farm.farmId} className="overflow-hidden">
                         <CardContent className="p-0">
                           <FallbackImage
                             src={mainImg}
@@ -748,22 +742,37 @@ export function RewardsBreakdownPanel({
                               </div>
                             </div>
 
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full mt-4"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedFarmForDetails({
-                                  farmId: farm.farmId,
-                                  farmName,
-                                  type: "launchpad",
-                                });
-                              }}
-                            >
-                              See Details
-                              <ChevronRight className="w-4 h-4 ml-2" />
-                            </Button>
+                            <div className="flex gap-2 mt-4">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => {
+                                  setSelectedFarmForDetails({
+                                    farmId: farm.farmId,
+                                    farmName,
+                                    type: "launchpad",
+                                  });
+                                }}
+                              >
+                                See Details
+                                <ChevronRight className="w-4 h-4 ml-2" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => {
+                                  window.open(
+                                    `https://glow.org/audits/${farm.farmId}`,
+                                    "_blank"
+                                  );
+                                }}
+                              >
+                                See Audit
+                                <ExternalLink className="w-4 h-4 ml-2" />
+                              </Button>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -797,13 +806,7 @@ export function RewardsBreakdownPanel({
                       "/images/sections/residential.jpg";
 
                     return (
-                      <Card
-                        key={farm.farmId}
-                        className="overflow-hidden cursor-pointer hover:border-foreground/20 transition-colors"
-                        onClick={() =>
-                          (window.location.href = `https://glow.org/audits/${farm.farmId}`)
-                        }
-                      >
+                      <Card key={farm.farmId} className="overflow-hidden">
                         <CardContent className="p-0">
                           <FallbackImage
                             src={mainImg}
@@ -855,22 +858,37 @@ export function RewardsBreakdownPanel({
                               </div>
                             </div>
 
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full mt-4"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedFarmForDetails({
-                                  farmId: farm.farmId,
-                                  farmName,
-                                  type: "mining-center",
-                                });
-                              }}
-                            >
-                              See Details
-                              <ChevronRight className="w-4 h-4 ml-2" />
-                            </Button>
+                            <div className="flex gap-2 mt-4">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => {
+                                  setSelectedFarmForDetails({
+                                    farmId: farm.farmId,
+                                    farmName,
+                                    type: "mining-center",
+                                  });
+                                }}
+                              >
+                                See Details
+                                <ChevronRight className="w-4 h-4 ml-2" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => {
+                                  window.open(
+                                    `https://glow.org/audits/${farm.farmId}`,
+                                    "_blank"
+                                  );
+                                }}
+                              >
+                                See Audit
+                                <ExternalLink className="w-4 h-4 ml-2" />
+                              </Button>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -931,13 +949,7 @@ export function RewardsBreakdownPanel({
                       "/images/sections/residential.jpg";
 
                     return (
-                      <Card
-                        key={farm.farmId}
-                        className="overflow-hidden cursor-pointer hover:border-foreground/20 transition-colors"
-                        onClick={() =>
-                          (window.location.href = `https://glow.org/audits/${farm.farmId}`)
-                        }
-                      >
+                      <Card key={farm.farmId} className="overflow-hidden">
                         <CardContent className="p-0">
                           <FallbackImage
                             src={mainImg}
@@ -1101,24 +1113,39 @@ export function RewardsBreakdownPanel({
                             </div>
                           </div>
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full mt-4"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedFarmForDetails({
-                                farmId: farm.farmId,
-                                farmName:
-                                  farm.farmName ||
-                                  `Farm ${farm.farmId.substring(0, 8)}`,
-                                type: "other",
-                              });
-                            }}
-                          >
-                            See Details
-                            <ChevronRight className="w-4 h-4 ml-2" />
-                          </Button>
+                          <div className="flex gap-2 mt-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => {
+                                setSelectedFarmForDetails({
+                                  farmId: farm.farmId,
+                                  farmName:
+                                    farm.farmName ||
+                                    `Farm ${farm.farmId.substring(0, 8)}`,
+                                  type: "other",
+                                });
+                              }}
+                            >
+                              See Details
+                              <ChevronRight className="w-4 h-4 ml-2" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => {
+                                window.open(
+                                  `https://glow.org/audits/${farm.farmId}`,
+                                  "_blank"
+                                );
+                              }}
+                            >
+                              See Audit
+                              <ExternalLink className="w-4 h-4 ml-2" />
+                            </Button>
+                          </div>
                         </CardContent>
                       </Card>
                     );
@@ -1163,10 +1190,7 @@ export function RewardsBreakdownPanel({
                     return (
                       <Card
                         key={`${pending.farmId}-${pending.types.join("-")}`}
-                        className="overflow-hidden cursor-pointer hover:border-foreground/20 transition-colors"
-                        onClick={() =>
-                          (window.location.href = `https://glow.org/audits/${pending.farmId}`)
-                        }
+                        className="overflow-hidden"
                       >
                         <CardContent className="p-0">
                           <FallbackImage
@@ -1256,6 +1280,21 @@ export function RewardsBreakdownPanel({
                                 </p>
                               </div>
                             </div>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full mt-4"
+                              onClick={() => {
+                                window.open(
+                                  `https://glow.org/audits/${pending.farmId}`,
+                                  "_blank"
+                                );
+                              }}
+                            >
+                              See Audit
+                              <ExternalLink className="w-4 h-4 ml-2" />
+                            </Button>
                           </div>
                         </CardContent>
                       </Card>
