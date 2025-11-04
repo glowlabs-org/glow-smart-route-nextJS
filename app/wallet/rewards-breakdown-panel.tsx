@@ -616,20 +616,30 @@ export function RewardsBreakdownPanel({
                     rewards)
                   </p>
                 </div>
-                <span className="text-sm text-muted-foreground">
-                  Total Earned:{" "}
-                  <span className="font-semibold text-foreground">
-                    {formatGLW(
-                      otherFarms
-                        .reduce(
-                          (sum, farm) => sum + Number(farm.totalRewards),
-                          0
-                        )
-                        .toString()
-                    )}{" "}
-                    GLW
-                  </span>
-                </span>
+                <div className="text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <span>Total Earned:</span>
+                    <div className="flex flex-col items-end">
+                      <span className="font-semibold text-foreground">
+                        {formatGLW(
+                          otherFarms
+                            .reduce(
+                              (sum, farm) =>
+                                sum + Number(farm.totalInflationRewards),
+                              0
+                            )
+                            .toString()
+                        )}{" "}
+                        GLW
+                      </span>
+                      {otherFarms.some(
+                        (f) => Number(f.totalProtocolDepositRewards) > 0
+                      ) && (
+                        <span className="text-xs">+ PD in various assets</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {otherFarms.map((farm, idx) => {
