@@ -427,18 +427,80 @@ export function RewardsBreakdownPanel({
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="text-xs text-muted-foreground">
-                                Total Earned
+                                Weeks Remaining
                               </span>
                               <span className="font-semibold">
-                                {formatGLW(farm.totalEarnedSoFar)} GLW
+                                {100 - farm.totalWeeksEarned}
                               </span>
                             </div>
-                            <div className="flex justify-between items-center pt-2 border-t">
+                            <div className="flex justify-between items-center pb-2 border-b">
                               <span className="text-xs text-muted-foreground">
                                 Last Week
                               </span>
                               <span className="font-medium">
                                 {formatGLW(farm.lastWeekRewards)} GLW
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex h-8 w-full rounded-md overflow-hidden bg-muted">
+                                <div
+                                  className="bg-blue-500 flex items-center justify-center"
+                                  style={{
+                                    width: `${
+                                      Number(farm.totalEarnedSoFar) > 0
+                                        ? (Number(farm.totalInflationRewards) /
+                                            Number(farm.totalEarnedSoFar)) *
+                                          100
+                                        : 50
+                                    }%`,
+                                  }}
+                                />
+                                <div
+                                  className="bg-purple-500 flex items-center justify-center"
+                                  style={{
+                                    width: `${
+                                      Number(farm.totalEarnedSoFar) > 0
+                                        ? (Number(
+                                            farm.totalProtocolDepositRewards
+                                          ) /
+                                            Number(farm.totalEarnedSoFar)) *
+                                          100
+                                        : 50
+                                    }%`,
+                                  }}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                  <span className="text-muted-foreground">
+                                    Inflation:{" "}
+                                    <span className="font-medium text-foreground">
+                                      {formatGLW(farm.totalInflationRewards)}{" "}
+                                      GLW
+                                    </span>
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-2 h-2 rounded-full bg-purple-500" />
+                                  <span className="text-muted-foreground">
+                                    PD:{" "}
+                                    <span className="font-medium text-foreground">
+                                      {formatGLW(
+                                        farm.totalProtocolDepositRewards
+                                      )}{" "}
+                                      GLW
+                                    </span>
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-muted-foreground">
+                                Total Earned
+                              </span>
+                              <span className="font-semibold">
+                                {formatGLW(farm.totalEarnedSoFar)} GLW
                               </span>
                             </div>
                           </div>
@@ -516,18 +578,18 @@ export function RewardsBreakdownPanel({
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="text-xs text-muted-foreground">
-                                Total Earned
-                              </span>
-                              <span className="font-semibold">
-                                {formatGLW(farm.totalEarnedSoFar)} GLW
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center pt-2 border-t">
-                              <span className="text-xs text-muted-foreground">
                                 Last Week
                               </span>
                               <span className="font-medium">
                                 {formatGLW(farm.lastWeekRewards)} GLW
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center pt-2 border-t">
+                              <span className="text-xs text-muted-foreground">
+                                Total Earned
+                              </span>
+                              <span className="font-semibold">
+                                {formatGLW(farm.totalEarnedSoFar)} GLW
                               </span>
                             </div>
                           </div>

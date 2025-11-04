@@ -816,13 +816,12 @@ export default function View() {
           </Card>
         )}
 
-        {password?.toLowerCase() === "0xsimbo" && (
-          <RewardsBreakdownPanel walletAddress={address} />
-        )}
+        <RewardsBreakdownPanel walletAddress={address} />
+
         {/* D. Claims Panel */}
-        {password?.toLowerCase() === "0xsimbo" && (
-          <ClaimsPanel onClaimSuccess={refreshBalances} />
-        )}
+
+        <ClaimsPanel onClaimSuccess={refreshBalances} />
+
         {/* H. Recent Activity */}
         <RecentActivity
           walletAddress={address}

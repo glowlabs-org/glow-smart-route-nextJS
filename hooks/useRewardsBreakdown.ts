@@ -52,6 +52,8 @@ export interface RewardsBreakdownResponse {
     firstWeekWithRewards: number;
     totalWeeksEarned: number;
     totalEarnedSoFar: string;
+    totalInflationRewards: string;
+    totalProtocolDepositRewards: string;
     lastWeekRewards: string;
     apy: string;
   }>;
