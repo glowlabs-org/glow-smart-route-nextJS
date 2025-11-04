@@ -79,6 +79,11 @@ export interface UseRewardsKernelWrapperResult {
     v2Proof: `0x${string}`[],
     fromAddress: `0x${string}`,
     glwWeight?: string,
+    onchainAssetsEarned?: Array<{
+      asset: string;
+      assetAddress: `0x${string}`;
+      amount: string;
+    }>,
     options?: ClaimWeekRewardsOptions
   ) => Promise<string | null>;
   claimAllRewards: (
@@ -90,6 +95,11 @@ export interface UseRewardsKernelWrapperResult {
       v2Proof: `0x${string}`[];
       fromAddress: `0x${string}`;
       glwWeight?: string;
+      onchainAssetsEarned?: Array<{
+        asset: string;
+        assetAddress: `0x${string}`;
+        amount: string;
+      }>;
     }>
   ) => Promise<string[]>;
   isClaimingWeek: number | null;
@@ -128,10 +138,14 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         })
       : null;
 
-  // Helper to build claim parameters from rewards data
+  // Helper to build claim parameters from onchain assets earned
   const buildClaimParams = useCallback(
     async (
-      rewards: ClaimableReward[],
+      onchainAssetsEarned: Array<{
+        asset: string;
+        assetAddress: `0x${string}`;
+        amount: string;
+      }>,
       nonce: bigint,
       proof: `0x${string}`[],
       fromAddress: `0x${string}`,
@@ -141,28 +155,16 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       const isGuardedToken: boolean[] = [];
       const toCounterfactual: boolean[] = [];
 
-      // Group rewards by currency and sum amounts
-      const currencyTotals = new Map<string, bigint>();
-
-      rewards.forEach((reward) => {
-        const current = currencyTotals.get(reward.currency) || BigInt(0);
-        currencyTotals.set(reward.currency, current + BigInt(reward.amountRaw));
-      });
-
-      // Build token arrays
-      currencyTotals.forEach((amount, currency) => {
-        const tokenAddress = TOKEN_ADDRESSES[currency];
-        if (!tokenAddress) {
-          throw new Error(`Unknown token: ${currency}`);
-        }
-
+      // Use onchainAssetsEarned directly to ensure we include ALL tokens,
+      // even those with amount "0" (required for merkle proof verification)
+      onchainAssetsEarned.forEach((asset) => {
         tokensAndAmounts.push({
-          token: tokenAddress,
-          amount,
+          token: asset.assetAddress,
+          amount: BigInt(asset.amount),
         });
 
-        // GLW and USDG is a guarded token
-        isGuardedToken.push(currency === "GLW" || currency === "USDG");
+        // GLW and USDG are guarded tokens
+        isGuardedToken.push(asset.asset === "GLW" || asset.asset === "USDG");
         // For now, don't use counterfactual addresses
         toCounterfactual.push(false);
       });
@@ -394,13 +396,17 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
   const claimProtocolDeposits = useCallback(
     async (
       week: number,
-      rewards: ClaimableReward[],
+      onchainAssetsEarned: Array<{
+        asset: string;
+        assetAddress: `0x${string}`;
+        amount: string;
+      }>,
       nonce: bigint,
       v2Proof: `0x${string}`[],
       fromAddress: `0x${string}`,
       toAddress: `0x${string}`
     ): Promise<ClaimAttemptResult> => {
-      if (rewards.length === 0) {
+      if (onchainAssetsEarned.length === 0) {
         return {
           status: "skipped",
           message: "No protocol deposit rewards available",
@@ -427,9 +433,9 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           };
         }
 
-        // Build claim parameters
+        // Build claim parameters from onchain assets
         const claimParams = await buildClaimParams(
-          rewards,
+          onchainAssetsEarned,
           nonce,
           v2Proof,
           fromAddress,
@@ -496,6 +502,11 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       v2Proof: `0x${string}`[],
       fromAddress: `0x${string}`,
       glwWeight?: string,
+      onchainAssetsEarned?: Array<{
+        asset: string;
+        assetAddress: `0x${string}`;
+        amount: string;
+      }>,
       options?: ClaimWeekRewardsOptions
     ): Promise<string | null> => {
       if (!walletClient?.account?.address) {
@@ -517,7 +528,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         const glwInflationRewards = rewards.filter(
           (r) => r.type === "glowInflation"
         );
-        const protocolDepositRewards = rewards.filter(
+        const hasProtocolDepositRewards = rewards.some(
           (r) => r.type === "protocolDeposit"
         );
 
@@ -570,7 +581,8 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         }
 
         // Claim protocol deposits if present
-        if (protocolDepositRewards.length > 0) {
+        // Use onchainAssetsEarned from merkle proof if provided, otherwise skip
+        if (hasProtocolDepositRewards && onchainAssetsEarned) {
           notifyProgress({
             stage: "protocolDeposits",
             status: "inProgress",
@@ -578,7 +590,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
 
           const pdResult = await claimProtocolDeposits(
             week,
-            protocolDepositRewards,
+            onchainAssetsEarned,
             nonce,
             v2Proof,
             fromAddress,
@@ -646,6 +658,11 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         v2Proof: `0x${string}`[];
         fromAddress: `0x${string}`;
         glwWeight?: string;
+        onchainAssetsEarned?: Array<{
+          asset: string;
+          assetAddress: `0x${string}`;
+          amount: string;
+        }>;
       }>
     ): Promise<string[]> => {
       if (!walletClient?.account?.address) {
@@ -668,7 +685,8 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
               weekData.v1Proof,
               weekData.v2Proof,
               weekData.fromAddress,
-              weekData.glwWeight
+              weekData.glwWeight,
+              weekData.onchainAssetsEarned
             );
 
             if (txHash) {

@@ -614,7 +614,8 @@ function WeekRewardsContent({
           v1Proof,
           v2Proof,
           hotWalletAddress,
-          glwWeight
+          glwWeight,
+          userProof.onchainAssetsEarned
         );
 
         if (txHash) {
@@ -1036,6 +1037,7 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
         v2Proof,
         hotWalletAddress,
         glwWeight,
+        activeClaim.userProof.onchainAssetsEarned,
         {
           onProgress: updateStageStatus,
         }
@@ -1373,6 +1375,7 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
             ),
             fromAddress: hotWalletAddress,
             glwWeight: userProof.glowInflationEarnedLeafWeight,
+            onchainAssetsEarned: userProof.onchainAssetsEarned,
           };
         } catch (error) {
           console.error(
