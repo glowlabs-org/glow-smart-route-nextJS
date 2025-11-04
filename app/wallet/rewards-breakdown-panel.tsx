@@ -105,6 +105,20 @@ export function RewardsBreakdownPanel({
 
   const delegations = data.farmDetails.filter((f) => f.type === "launchpad");
   const miners = data.farmDetails.filter((f) => f.type === "mining-center");
+  const otherFarms = data.otherFarmsWithRewards?.farms || [];
+
+  const formatPDRewards = (value: string, asset: string | null): string => {
+    try {
+      const decimals = asset === "USDG" || asset === "GCTL" ? 1e6 : 1e18;
+      const num = Number(value) / decimals;
+      return num.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    } catch {
+      return "0.00";
+    }
+  };
 
   const totalEarnings =
     Number(data.rewards.delegator.allWeeks) +
@@ -256,7 +270,7 @@ export function RewardsBreakdownPanel({
             <Card className="bg-muted/30">
               <CardContent className="p-6 py-2">
                 <div className="text-sm text-muted-foreground mb-3">
-                  Total Earned
+                  Total Earned from Miners and Delegations
                 </div>
                 <div className="text-4xl font-bold mb-3">
                   {formattedTotalEarnings} GLW
@@ -580,6 +594,204 @@ export function RewardsBreakdownPanel({
                               <span className="font-semibold">
                                 {formatGLW(farm.totalEarnedSoFar)} GLW
                               </span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Other Farms with Rewards */}
+          {otherFarms.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold">Other Rewards</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Farms where you have reward splits (e.g., farm owner
+                    rewards)
+                  </p>
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  Total Earned:{" "}
+                  <span className="font-semibold text-foreground">
+                    {formatGLW(
+                      otherFarms
+                        .reduce(
+                          (sum, farm) => sum + Number(farm.totalRewards),
+                          0
+                        )
+                        .toString()
+                    )}{" "}
+                    GLW
+                  </span>
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                {otherFarms.map((farm, idx) => {
+                  const farmMetadata = getFarmMetadata(farm.farmId);
+                  const regionName = getRegionName(farm.farmId);
+                  const farmName =
+                    farm.farmName ||
+                    farmMetadata?.name ||
+                    `Farm ${farm.farmId.substring(0, 8)}`;
+                  const mainImg =
+                    farmMetadata?.afterInstallPictures?.[0]?.url ||
+                    "/images/sections/residential.jpg";
+
+                  return (
+                    <Card
+                      key={farm.farmId}
+                      className="overflow-hidden cursor-pointer hover:border-foreground/20 transition-colors"
+                      onClick={() =>
+                        (window.location.href = `https://glow.org/audits/${farm.farmId}`)
+                      }
+                    >
+                      <CardContent className="p-0">
+                        <FallbackImage
+                          src={mainImg}
+                          widthForProxy={800}
+                          quality={70}
+                          alt={`${farmName} main`}
+                          className="w-full h-40 object-cover"
+                          loading={idx < 3 ? "eager" : "lazy"}
+                          decoding="async"
+                          fetchPriority={idx < 3 ? "high" : "auto"}
+                        />
+
+                        <div className="p-5 space-y-4">
+                          <div>
+                            <h3 className="font-semibold text-base mb-1">
+                              {farmName}
+                            </h3>
+                            {regionName && (
+                              <p className="text-sm text-muted-foreground">
+                                {regionName}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="space-y-3 text-sm">
+                            {farm.weeksLeft !== null && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs text-muted-foreground">
+                                  Weeks Remaining
+                                </span>
+                                <span className="font-semibold">
+                                  {farm.weeksLeft}
+                                </span>
+                              </div>
+                            )}
+                            {farm.asset && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs text-muted-foreground">
+                                  PD Asset
+                                </span>
+                                <Badge
+                                  variant="outline"
+                                  className="font-medium"
+                                >
+                                  {farm.asset}
+                                </Badge>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center pb-2 border-b">
+                              <span className="text-xs text-muted-foreground">
+                                Last Week
+                              </span>
+                              <span className="font-medium">
+                                {formatGLW(farm.lastWeekRewards)} GLW
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex h-8 w-full rounded-md overflow-hidden bg-muted">
+                                {(() => {
+                                  const inflationGLW =
+                                    Number(farm.totalInflationRewards) / 1e18;
+                                  const pdDecimals =
+                                    farm.asset === "USDG" ||
+                                    farm.asset === "GCTL"
+                                      ? 1e6
+                                      : 1e18;
+                                  const pdAmount =
+                                    Number(farm.totalProtocolDepositRewards) /
+                                    pdDecimals;
+                                  const total = inflationGLW + pdAmount;
+                                  const inflationPercent =
+                                    total > 0
+                                      ? (inflationGLW / total) * 100
+                                      : 50;
+                                  const pdPercent =
+                                    total > 0 ? (pdAmount / total) * 100 : 50;
+
+                                  return (
+                                    <>
+                                      <div
+                                        className="bg-accent flex items-center justify-center"
+                                        style={{
+                                          width: `${inflationPercent}%`,
+                                        }}
+                                      />
+                                      <div
+                                        className="bg-[#fcd0aa] flex items-center justify-center"
+                                        style={{
+                                          width: `${pdPercent}%`,
+                                        }}
+                                      />
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                              <div className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-2 h-2 rounded-full bg-accent" />
+                                  <span className="text-muted-foreground">
+                                    Inflation:{" "}
+                                    <span className="font-medium text-foreground">
+                                      {formatGLW(farm.totalInflationRewards)}{" "}
+                                      GLW
+                                    </span>
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-2 h-2 rounded-full bg-[#fcd0aa]" />
+                                  <span className="text-muted-foreground">
+                                    PD:{" "}
+                                    <span className="font-medium text-foreground">
+                                      {formatPDRewards(
+                                        farm.totalProtocolDepositRewards,
+                                        farm.asset
+                                      )}{" "}
+                                      {farm.asset || "GLW"}
+                                    </span>
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center pt-2 border-t">
+                              <span className="text-xs text-muted-foreground">
+                                Total Earned on V2
+                              </span>
+                              <div className="flex flex-col items-end gap-1">
+                                <span className="font-semibold">
+                                  {formatGLW(farm.totalInflationRewards)} GLW
+                                </span>
+                                {Number(farm.totalProtocolDepositRewards) >
+                                  0 && (
+                                  <span className="text-xs font-medium text-muted-foreground">
+                                    +{" "}
+                                    {formatPDRewards(
+                                      farm.totalProtocolDepositRewards,
+                                      farm.asset
+                                    )}{" "}
+                                    {farm.asset || "GLW"}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>

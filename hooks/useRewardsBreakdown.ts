@@ -57,6 +57,20 @@ export interface RewardsBreakdownResponse {
     lastWeekRewards: string;
     apy: string;
   }>;
+  otherFarmsWithRewards: {
+    count: number;
+    farms: Array<{
+      farmId: string;
+      farmName: string | null;
+      builtEpoch: number | null;
+      weeksLeft: number | null;
+      asset: string | null;
+      totalInflationRewards: string;
+      totalProtocolDepositRewards: string;
+      totalRewards: string;
+      lastWeekRewards: string;
+    }>;
+  };
 }
 
 export interface UseRewardsBreakdownParams {
