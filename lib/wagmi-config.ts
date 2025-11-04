@@ -3,7 +3,12 @@
 import { cookieStorage, createStorage, createConfig, http } from "wagmi";
 import { mainnet, sepolia } from "wagmi/chains";
 import { getDefaultConfig } from "connectkit";
-import { injected, coinbaseWallet, metaMask } from "wagmi/connectors";
+import {
+  injected,
+  coinbaseWallet,
+  metaMask,
+  walletConnect,
+} from "wagmi/connectors";
 import type { Connector } from "wagmi";
 
 if (!process.env.NEXT_PUBLIC_WALLET_CONNECT_ID)
@@ -41,6 +46,7 @@ const ALLOWED_WALLET_IDS = new Set([
   "com.trustwallet.app",
   "metaMaskSDK",
   "coinbaseWalletSDK",
+  "walletConnect",
 ]);
 
 // Get base config from ConnectKit
@@ -74,6 +80,17 @@ export const wagmiConfig = createConfig({
         provider: (window) => (window as any)?.trustwallet,
       },
     }),
+    walletConnect({
+      projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_ID,
+      metadata: {
+        name: "Glow",
+        description: "Decentralized solar mining ecosystem",
+        url: "https://app.glow.org",
+        icons: ["https://app.glow.org/icon.png"],
+      },
+
+      showQrModal: false,
+    }),
   ],
   storage: createStorage({
     storage: persistentCookieStorage,
@@ -94,6 +111,8 @@ if (typeof window !== "undefined") {
       if (id.includes("metamask") || name.includes("metamask")) return true;
       if (id.includes("coinbase") || name.includes("coinbase")) return true;
       if (id.includes("trust") || name.includes("trust")) return true;
+      if (id.includes("walletconnect") || name.includes("walletconnect"))
+        return true;
 
       return false;
     });
