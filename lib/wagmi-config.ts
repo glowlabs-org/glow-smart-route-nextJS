@@ -47,6 +47,7 @@ const ALLOWED_WALLET_IDS = new Set([
   "metaMaskSDK",
   "coinbaseWalletSDK",
   "walletConnect",
+  "com.ledger.live", // ✅ add this
 ]);
 
 // Get base config from ConnectKit
@@ -80,16 +81,17 @@ export const wagmiConfig = createConfig({
         provider: (window) => (window as any)?.trustwallet,
       },
     }),
-    walletConnect({
-      projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_ID,
-      metadata: {
-        name: "Glow",
-        description: "Decentralized solar mining ecosystem",
-        url: "https://app.glow.org",
-        icons: ["https://app.glow.org/icon.png"],
+    injected({
+      target: {
+        id: "com.ledger.live",
+        name: "Ledger Live",
+        icon: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRH6IP0y4AqjwJt64nQi8oIE34XkyEBGmI8Xg&s",
+        provider: (window) => {
+          const eth = (window as any)?.ethereum;
+          // Ledger’s DApp Browser marks the provider like this:
+          return eth?.isLedgerLive ? eth : undefined; // ✅ only show when inside Ledger Live
+        },
       },
-
-      showQrModal: false,
     }),
   ],
   storage: createStorage({
