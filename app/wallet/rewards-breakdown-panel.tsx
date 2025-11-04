@@ -177,17 +177,6 @@ export function RewardsBreakdownPanel({
     return "text-red-600 dark:text-red-400";
   };
 
-  const getPaybackBadgeClass = (weeks: string): string => {
-    if (weeks === "∞")
-      return "bg-muted text-muted-foreground border-muted-foreground/20";
-    const weeksNum = Number(weeks);
-    if (weeksNum <= 52)
-      return "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400 border-green-200 dark:border-green-800";
-    if (weeksNum <= 104)
-      return "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400 border-orange-200 dark:border-orange-800";
-    return "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 border-red-200 dark:border-red-800";
-  };
-
   const getDescription = () => {
     if (hasDelegations && hasMiners) {
       return "Detailed breakdown of your delegations and miners";
@@ -299,7 +288,7 @@ export function RewardsBreakdownPanel({
                     <div className="flex h-2 w-full rounded-full overflow-hidden bg-muted">
                       {hasDelegations && (
                         <div
-                          className="bg-blue-500"
+                          className="bg-accent"
                           style={{
                             width: `${
                               (Number(data.rewards.delegator.allWeeks) /
@@ -311,7 +300,7 @@ export function RewardsBreakdownPanel({
                       )}
                       {hasMiners && (
                         <div
-                          className="bg-purple-500"
+                          className="bg-[#fcd0aa]"
                           style={{
                             width: `${
                               (Number(data.rewards.miner.allWeeks) /
@@ -325,7 +314,7 @@ export function RewardsBreakdownPanel({
                     <div className="flex items-center justify-between text-xs">
                       {hasDelegations && (
                         <div className="flex items-center gap-1.5">
-                          <div className="w-2 h-2 rounded-full bg-blue-500" />
+                          <div className="w-2 h-2 rounded-full bg-accent" />
                           <span className="text-muted-foreground">
                             Delegations:{" "}
                             <span className="font-medium text-foreground">
@@ -341,7 +330,7 @@ export function RewardsBreakdownPanel({
                       )}
                       {hasMiners && (
                         <div className="flex items-center gap-1.5">
-                          <div className="w-2 h-2 rounded-full bg-purple-500" />
+                          <div className="w-2 h-2 rounded-full bg-[#fcd0aa]" />
                           <span className="text-muted-foreground">
                             Mining:{" "}
                             <span className="font-medium text-foreground">
@@ -444,7 +433,7 @@ export function RewardsBreakdownPanel({
                             <div className="space-y-2">
                               <div className="flex h-8 w-full rounded-md overflow-hidden bg-muted">
                                 <div
-                                  className="bg-blue-500 flex items-center justify-center"
+                                  className="bg-accent flex items-center justify-center"
                                   style={{
                                     width: `${
                                       Number(farm.totalEarnedSoFar) > 0
@@ -456,7 +445,7 @@ export function RewardsBreakdownPanel({
                                   }}
                                 />
                                 <div
-                                  className="bg-purple-500 flex items-center justify-center"
+                                  className="bg-[#fcd0aa] flex items-center justify-center"
                                   style={{
                                     width: `${
                                       Number(farm.totalEarnedSoFar) > 0
@@ -472,7 +461,7 @@ export function RewardsBreakdownPanel({
                               </div>
                               <div className="flex items-center justify-between text-xs">
                                 <div className="flex items-center gap-1.5">
-                                  <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                  <div className="w-2 h-2 rounded-full bg-accent" />
                                   <span className="text-muted-foreground">
                                     Inflation:{" "}
                                     <span className="font-medium text-foreground">
@@ -482,7 +471,7 @@ export function RewardsBreakdownPanel({
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
-                                  <div className="w-2 h-2 rounded-full bg-purple-500" />
+                                  <div className="w-2 h-2 rounded-full bg-[#fcd0aa]" />
                                   <span className="text-muted-foreground">
                                     PD:{" "}
                                     <span className="font-medium text-foreground">
