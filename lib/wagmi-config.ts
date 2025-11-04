@@ -3,6 +3,7 @@
 import { cookieStorage, createStorage, createConfig, http } from "wagmi";
 import { mainnet, sepolia } from "wagmi/chains";
 import { getDefaultConfig } from "connectkit";
+import { injected, coinbaseWallet, metaMask } from "wagmi/connectors";
 import type { Connector } from "wagmi";
 
 if (!process.env.NEXT_PUBLIC_WALLET_CONNECT_ID)
@@ -34,29 +35,15 @@ const chains = [
   process.env.NEXT_PUBLIC_CHAIN_ID === "1" ? mainnet : sepolia,
 ] as const;
 
-// Helper function to check if a connector is Phantom wallet
-async function isPhantomConnector(connector: Connector): Promise<boolean> {
-  try {
-    const provider = await connector.getProvider().catch(() => null);
-    if (!provider) return false;
+const ALLOWED_WALLET_IDS = new Set([
+  "io.metamask",
+  "com.coinbase.wallet",
+  "com.trustwallet.app",
+  "metaMaskSDK",
+  "coinbaseWalletSDK",
+]);
 
-    // Check if provider is Phantom
-    if ((provider as any).isPhantom) return true;
-
-    // Check connector ID/name for Phantom indicators
-    const id = connector.id.toLowerCase();
-    const name = connector.name.toLowerCase();
-    if (id.includes("phantom") || name.includes("phantom")) return true;
-    if (id === "app.phantom" || id.includes("app.phantom")) return true;
-
-    return false;
-  } catch {
-    return false;
-  }
-}
-
-// Use ConnectKit's getDefaultConfig for better wallet handling
-// Merge with custom storage for SSR persistence
+// Get base config from ConnectKit
 const connectKitConfig = getDefaultConfig({
   enableFamily: false,
   chains,
@@ -71,56 +58,61 @@ const connectKitConfig = getDefaultConfig({
   appIcon: "https://app.glow.org/icon.png",
 });
 
-// Create config with ConnectKit defaults but override storage for SSR
+// Create config with only allowed wallet connectors
 export const wagmiConfig = createConfig({
   ...connectKitConfig,
+  connectors: [
+    metaMask(),
+    coinbaseWallet({
+      appName: "Glow",
+      appLogoUrl: "https://app.glow.org/icon.png",
+    }),
+    injected({
+      target: {
+        id: "com.trustwallet.app",
+        name: "Trust Wallet",
+        provider: (window) => (window as any)?.trustwallet,
+      },
+    }),
+  ],
   storage: createStorage({
     storage: persistentCookieStorage,
   }),
 });
 
-// Filter out Phantom wallet connectors after config creation
-// This handles both initial connectors and EIP-6963 discovered connectors
+// Filter out any non-allowed wallets discovered via EIP-6963
 if (typeof window !== "undefined") {
-  // Filter function that checks and removes Phantom connectors
-  const filterPhantomConnectors = async (connectors: readonly Connector[]) => {
-    const filteredConnectors = await Promise.all(
-      connectors.map(async (connector) => {
-        const isPhantom = await isPhantomConnector(connector);
-        return isPhantom ? null : connector;
-      })
-    );
-    return filteredConnectors.filter((c): c is Connector => c !== null);
+  const filterAllowedConnectors = (connectors: readonly Connector[]) => {
+    return connectors.filter((connector) => {
+      const id = connector.id.toLowerCase();
+      const name = connector.name.toLowerCase();
+
+      // Check if it's one of our explicitly allowed wallets
+      if (ALLOWED_WALLET_IDS.has(connector.id)) return true;
+
+      // Check by name/id patterns
+      if (id.includes("metamask") || name.includes("metamask")) return true;
+      if (id.includes("coinbase") || name.includes("coinbase")) return true;
+      if (id.includes("trust") || name.includes("trust")) return true;
+
+      return false;
+    });
   };
 
   // Filter initial connectors
-  filterPhantomConnectors(wagmiConfig.connectors).then((validConnectors) => {
-    if (validConnectors.length < wagmiConfig.connectors.length) {
-      wagmiConfig._internal.connectors.setState(validConnectors);
-    }
-  });
+  const initialFiltered = filterAllowedConnectors(wagmiConfig.connectors);
+  if (initialFiltered.length < wagmiConfig.connectors.length) {
+    wagmiConfig._internal.connectors.setState(initialFiltered);
+  }
 
-  // Subscribe to connector changes to filter out Phantom when discovered via EIP-6963
-  // Use a flag to prevent infinite loops
+  // Subscribe to connector changes to filter out non-allowed wallets discovered via EIP-6963
   let isFiltering = false;
-  wagmiConfig._internal.connectors.subscribe(async (connectors) => {
-    // Skip if we're already filtering to prevent infinite loop
+  wagmiConfig._internal.connectors.subscribe((connectors) => {
     if (isFiltering) return;
-
-    // Check if any connectors might be Phantom
-    const hasPotentialPhantom = connectors.some(
-      (c) =>
-        c.id.toLowerCase().includes("phantom") ||
-        c.name.toLowerCase().includes("phantom") ||
-        c.id === "app.phantom"
-    );
-
-    if (!hasPotentialPhantom) return;
 
     isFiltering = true;
     try {
-      const validConnectors = await filterPhantomConnectors(connectors);
-      // Only update if we actually filtered something out
+      const validConnectors = filterAllowedConnectors(connectors);
       if (validConnectors.length < connectors.length) {
         wagmiConfig._internal.connectors.setState(validConnectors);
       }
