@@ -9,7 +9,9 @@
     "lint": "next lint",
     "generate": "drizzle-kit generate:pg",
     "db:push": "drizzle-kit push:pg",
-    "studio": "npx drizzle-kit studio"
+    "studio": "npx drizzle-kit studio",
+    "test:claim-v2": "node scripts/test-claim-v2-simple.js",
+    "test:claim-v2-ts": "tsx scripts/test-claim-v2-rewards.ts"
   },
   "dependencies": {
     "@auth/core": "^0.26.3",
