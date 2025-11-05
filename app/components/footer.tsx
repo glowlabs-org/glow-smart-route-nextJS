@@ -161,7 +161,7 @@ export function Footer({ children }: { children?: React.ReactNode }) {
               </svg>
             </a>
             <a
-              href="https://discord.gg/URc8sFzUSc"
+              href="https://discord.gg/glowfnd"
               target="_blank"
               rel="noopener noreferrer"
               className="text-glow-black/60 hover:text-glow-black transition-colors"

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import { toast } from "sonner";
 import {
   Card,
@@ -134,6 +134,13 @@ function formatWeekDate(week: number): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+// Helper to get Etherscan URL based on chain ID
+function getEtherscanUrl(chainId: number, txHash: string): string {
+  const baseUrl =
+    chainId === 1 ? "https://etherscan.io" : "https://sepolia.etherscan.io";
+  return `${baseUrl}/tx/${txHash}`;
 }
 
 type ClaimDialogStatus = "review" | "processing" | "success" | "error";
@@ -756,6 +763,7 @@ interface ClaimsPanelProps {
 
 export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
   const [v1ClaimedWeeks, setV1ClaimedWeeks] = React.useState<Set<number>>(
     new Set()
   );
@@ -1198,12 +1206,18 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
                     </div>
                   )}
                   {status.txHash && (
-                    <div className="mt-1.5 text-xs font-mono text-muted-foreground bg-muted/50 px-2 py-1 rounded inline-block">
-                      Tx:{" "}
+                    <a
+                      href={getEtherscanUrl(chainId, status.txHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1.5 text-xs font-mono text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-muted/50 px-2 py-1 rounded inline-block underline hover:no-underline transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      View on Etherscan:{" "}
                       {`${status.txHash.slice(0, 6)}...${status.txHash.slice(
                         -4
                       )}`}
-                    </div>
+                    </a>
                   )}
                 </div>
               </div>
@@ -1220,7 +1234,7 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
         })}
       </div>
     );
-  }, [activeClaim, claimStageStatuses]);
+  }, [activeClaim, chainId, claimStageStatuses]);
 
   const reviewContent =
     activeClaim && transactionDetails.length > 0 ? (
@@ -1260,12 +1274,46 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
     </div>
   ) : undefined;
 
-  const errorDescription =
-    claimDialogError ||
-    "We were unable to complete your claim. Please try again.";
+  const hasTxHashes = React.useMemo(() => {
+    return (
+      claimStageStatuses.inflation.txHash ||
+      claimStageStatuses.protocolDeposits.txHash
+    );
+  }, [claimStageStatuses]);
+
+  const errorDescription = React.useMemo(() => {
+    if (hasTxHashes) {
+      return "Your transaction was submitted but we couldn't confirm its completion. Please check the transaction status on Etherscan using the link(s) below. If the transaction failed, please reach out in our Discord #help channel for assistance.";
+    }
+    return (
+      claimDialogError ||
+      "We were unable to complete your claim. Please try again."
+    );
+  }, [hasTxHashes, claimDialogError]);
 
   const errorContent = stageList ? (
-    <div className="space-y-4 text-left">{stageList}</div>
+    <div className="space-y-4 text-left">
+      {stageList}
+      {hasTxHashes && (
+        <div className="p-4 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/50">
+          <div className="text-sm text-blue-900 dark:text-blue-100 space-y-2">
+            <div className="font-semibold">Need Help?</div>
+            <div className="text-blue-800 dark:text-blue-200">
+              Join our{" "}
+              <a
+                href="https://discord.gg/glowfnd"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:no-underline font-medium"
+              >
+                Discord server
+              </a>{" "}
+              and ask for assistance in the <strong>#help</strong> channel.
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   ) : undefined;
 
   // Don't show panel if not connected

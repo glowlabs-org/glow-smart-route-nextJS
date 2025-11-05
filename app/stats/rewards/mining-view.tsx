@@ -1,0 +1,1168 @@
+"use client";
+
+import React from "react";
+import {
+  Activity,
+  ArrowUpDown,
+  TrendingUp,
+  Users,
+  Coins,
+  Zap,
+} from "lucide-react";
+import {
+  ComposedChart,
+  Bar,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Line,
+} from "recharts";
+import Decimal from "decimal.js";
+
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { MetricCard } from "./farms-view";
+import {
+  useFarmsPerPieceStats,
+  type FarmPerPieceStats,
+} from "@/hooks/useFarmsPerPieceStats";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { ChevronRight } from "lucide-react";
+
+function formatGLWAmount(value: string): string {
+  try {
+    const num = new Decimal(value).div(1e18);
+    return num.toNumber().toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  } catch {
+    return "0.00";
+  }
+}
+
+function formatUSDAmount(value: string): string {
+  try {
+    const num = new Decimal(value).div(1e6);
+    return num.toNumber().toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  } catch {
+    return "0.00";
+  }
+}
+
+function getDelegatorROI(farm: FarmPerPieceStats): number {
+  try {
+    return Number(farm.delegator.roi?.allWeeks || "0") / 100;
+  } catch {
+    return 0;
+  }
+}
+
+function getMinerROI(farm: FarmPerPieceStats): number {
+  try {
+    return Number(farm.miner.roi?.allWeeks || "0") / 100;
+  } catch {
+    return 0;
+  }
+}
+
+function MiningViewSkeleton() {
+  return (
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Card key={index}>
+            <CardContent className="p-6 space-y-4">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-8 w-32" />
+              <Skeleton className="h-3 w-40" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-80 w-full" />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Skeleton key={index} className="h-12 w-full" />
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+interface ROIChartProps {
+  farms: FarmPerPieceStats[];
+}
+
+function ROIComparisonChart({ farms }: ROIChartProps) {
+  const chartData = React.useMemo(() => {
+    const farmsWithBothTypes = farms
+      .filter(
+        (f) =>
+          f.delegator.stepsSold > 0 &&
+          f.miner.stepsSold > 0 &&
+          (f.participants.uniqueDelegators > 0 ||
+            f.participants.uniqueMiners > 0)
+      )
+      .sort(
+        (a, b) =>
+          b.participants.uniqueDelegators +
+          b.participants.uniqueMiners -
+          (a.participants.uniqueDelegators + a.participants.uniqueMiners)
+      )
+      .slice(0, 20);
+
+    return farmsWithBothTypes.map((farm) => {
+      const delegatorROI = getDelegatorROI(farm);
+      const minerROI = getMinerROI(farm);
+
+      return {
+        farm: `${farm.farmId.slice(0, 6)}...`,
+        fullFarmId: farm.farmId,
+        farmName: farm.farmName || "Unknown Farm",
+        delegatorROI,
+        minerROI,
+        delegatorInvested: new Decimal(farm.delegator.weightedPieceSizeGlw)
+          .times(farm.delegator.stepsSold)
+          .div(1e18)
+          .toNumber(),
+        minerInvested: new Decimal(farm.miner.weightedPiecePriceUsdc)
+          .times(farm.miner.stepsSold)
+          .div(1e6)
+          .toNumber(),
+      };
+    });
+  }, [farms]);
+
+  const chartConfig = {
+    delegatorROI: {
+      label: "Delegator ROI",
+      color: "hsl(142, 71%, 45%)",
+    },
+    minerROI: {
+      label: "Miner ROI",
+      color: "hsl(217, 91%, 60%)",
+    },
+  } satisfies ChartConfig;
+
+  if (chartData.length === 0) {
+    return (
+      <div className="h-80 flex items-center justify-center text-muted-foreground text-sm">
+        No farms with both delegators and miners found
+      </div>
+    );
+  }
+
+  return (
+    <ChartContainer config={chartConfig} className="h-80 w-full">
+      <ComposedChart
+        accessibilityLayer
+        data={chartData}
+        margin={{ left: 12, right: 12, top: 12, bottom: 80 }}
+      >
+        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+        <XAxis
+          dataKey="farm"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          angle={-45}
+          textAnchor="end"
+          height={80}
+        />
+        <YAxis
+          yAxisId="left"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          tickFormatter={(value) => `${value.toFixed(2)}x`}
+        />
+        <YAxis
+          yAxisId="right"
+          orientation="right"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          tickFormatter={(value) => `${value.toFixed(2)}x`}
+        />
+        <ChartTooltip
+          content={
+            <ChartTooltipContent
+              className="min-w-[260px]"
+              labelFormatter={(_, payload) => {
+                const farmName = payload?.[0]?.payload?.farmName || "";
+                const farmId = payload?.[0]?.payload?.fullFarmId || "";
+                return (
+                  <div className="space-y-1">
+                    <div className="font-semibold">{farmName}</div>
+                    <div className="font-mono text-xs text-muted-foreground">
+                      {farmId
+                        ? `${farmId.slice(0, 10)}...${farmId.slice(-8)}`
+                        : ""}
+                    </div>
+                  </div>
+                );
+              }}
+              formatter={(value, name, payload) => {
+                const numValue = Number(value);
+
+                if (name === "delegatorROI" || name === "Delegator ROI") {
+                  const invested = payload?.payload?.delegatorInvested ?? 0;
+                  return [
+                    <div className="space-y-1">
+                      <div className="font-semibold">
+                        {numValue.toFixed(2)}x
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {invested.toLocaleString("en-US", {
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        GLW invested
+                      </div>
+                    </div>,
+                    "Delegator ROI",
+                  ];
+                } else if (name === "minerROI" || name === "Miner ROI") {
+                  const invested = payload?.payload?.minerInvested ?? 0;
+                  return [
+                    <div className="space-y-1">
+                      <div className="font-semibold">
+                        {numValue.toFixed(2)}x
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        $
+                        {invested.toLocaleString("en-US", {
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        invested
+                      </div>
+                    </div>,
+                    "Miner ROI",
+                  ];
+                }
+                return [String(value), String(name)];
+              }}
+            />
+          }
+        />
+        <ChartLegend content={<ChartLegendContent />} />
+        <Bar
+          yAxisId="left"
+          dataKey="delegatorROI"
+          fill="var(--color-delegatorROI)"
+          radius={[4, 4, 0, 0]}
+          name="Delegator ROI"
+        />
+        <Line
+          yAxisId="right"
+          type="monotone"
+          dataKey="minerROI"
+          stroke="var(--color-minerROI)"
+          strokeWidth={2}
+          dot={{ r: 4, fill: "var(--color-minerROI)" }}
+          name="Miner ROI"
+        />
+      </ComposedChart>
+    </ChartContainer>
+  );
+}
+
+export function MiningView() {
+  const [sortBy, setSortBy] = React.useState<
+    "rewards" | "participants" | "weeksLeft"
+  >("rewards");
+  const [selectedFarmForDetails, setSelectedFarmForDetails] = React.useState<{
+    farmId: string;
+    farmName: string;
+    type: "delegator" | "miner";
+  } | null>(null);
+
+  const { data, isLoading, isFetching, isError } = useFarmsPerPieceStats({
+    enabled: true,
+  });
+
+  const kpiData = React.useMemo(() => {
+    if (!data?.farms) {
+      return {
+        avgGlwPerGlwDelegated: 0,
+        avgGlwPerDollarMining: 0,
+        totalDelegators: 0,
+        totalMiners: 0,
+        totalGlwEarnedDelegators: 0,
+        totalGlwEarnedMiners: 0,
+      };
+    }
+
+    let totalDelegatorRewards = new Decimal(0);
+    let totalDelegatorInvested = new Decimal(0);
+    let totalMinerRewards = new Decimal(0);
+    let totalMinerInvested = new Decimal(0);
+    let totalDelegators = 0;
+    let totalMiners = 0;
+
+    data.farms.forEach((farm) => {
+      totalDelegators += farm.participants.uniqueDelegators;
+      totalMiners += farm.participants.uniqueMiners;
+
+      if (farm.delegator.stepsSold > 0) {
+        const totalRewards = new Decimal(
+          farm.delegator.rewardsPerPiece?.total?.allWeeks || "0"
+        ).times(farm.delegator.stepsSold);
+
+        totalDelegatorRewards = totalDelegatorRewards.plus(totalRewards);
+
+        totalDelegatorInvested = totalDelegatorInvested.plus(
+          new Decimal(farm.delegator.weightedPieceSizeGlw || "0").times(
+            farm.delegator.stepsSold
+          )
+        );
+      }
+
+      if (farm.miner.stepsSold > 0) {
+        const totalRewards = new Decimal(
+          farm.miner.rewardsPerPiece?.total?.allWeeks || "0"
+        ).times(farm.miner.stepsSold);
+
+        totalMinerRewards = totalMinerRewards.plus(totalRewards);
+
+        totalMinerInvested = totalMinerInvested.plus(
+          new Decimal(farm.miner.weightedPiecePriceUsdc || "0").times(
+            farm.miner.stepsSold
+          )
+        );
+      }
+    });
+
+    const avgGlwPerGlwDelegated = totalDelegatorInvested.isZero()
+      ? 0
+      : totalDelegatorRewards.div(totalDelegatorInvested).toNumber();
+
+    const avgGlwPerDollarMining = totalMinerInvested.isZero()
+      ? 0
+      : totalMinerRewards.div(1e18).div(totalMinerInvested.div(1e6)).toNumber();
+
+    return {
+      avgGlwPerGlwDelegated,
+      avgGlwPerDollarMining,
+      totalDelegators,
+      totalMiners,
+      totalGlwEarnedDelegators: totalDelegatorRewards.div(1e18).toNumber(),
+      totalGlwEarnedMiners: totalMinerRewards.div(1e18).toNumber(),
+    };
+  }, [data]);
+
+  const farmsWithEfficiency = React.useMemo(() => {
+    if (!data?.farms) return [];
+
+    return data.farms
+      .filter(
+        (farm) => farm.delegator.stepsSold > 0 || farm.miner.stepsSold > 0
+      )
+      .map((farm) => {
+        const delegatorROI = getDelegatorROI(farm);
+        const minerROI = getMinerROI(farm);
+
+        const avgROI =
+          farm.delegator.stepsSold > 0 && farm.miner.stepsSold > 0
+            ? (delegatorROI + minerROI) / 2
+            : farm.delegator.stepsSold > 0
+            ? delegatorROI
+            : minerROI;
+
+        const totalDelegated = new Decimal(farm.delegator.weightedPieceSizeGlw)
+          .times(farm.delegator.stepsSold)
+          .div(1e18)
+          .toNumber();
+
+        const totalMinerSpent = new Decimal(farm.miner.weightedPiecePriceUsdc)
+          .times(farm.miner.stepsSold)
+          .div(1e6)
+          .toNumber();
+
+        return {
+          ...farm,
+          delegatorROI,
+          minerROI,
+          avgROI,
+          totalDelegated,
+          totalMinerSpent,
+        };
+      });
+  }, [data]);
+
+  const sortedFarms = React.useMemo(() => {
+    const farmsToSort = [...farmsWithEfficiency];
+
+    farmsToSort.sort((a, b) => {
+      if (sortBy === "rewards") {
+        const aRewards = new Decimal(
+          a.delegator.rewardsPerPiece?.total?.allWeeks || "0"
+        ).plus(a.miner.rewardsPerPiece?.total?.allWeeks || "0");
+
+        const bRewards = new Decimal(
+          b.delegator.rewardsPerPiece?.total?.allWeeks || "0"
+        ).plus(b.miner.rewardsPerPiece?.total?.allWeeks || "0");
+
+        return bRewards.comparedTo(aRewards);
+      } else if (sortBy === "participants") {
+        return (
+          b.participants.uniqueDelegators +
+          b.participants.uniqueMiners -
+          (a.participants.uniqueDelegators + a.participants.uniqueMiners)
+        );
+      } else if (sortBy === "weeksLeft") {
+        return (
+          Math.max(b.delegator.weeksLeft, b.miner.weeksLeft) -
+          Math.max(a.delegator.weeksLeft, a.miner.weeksLeft)
+        );
+      }
+      return b.avgROI - a.avgROI;
+    });
+
+    return farmsToSort;
+  }, [farmsWithEfficiency, sortBy]);
+
+  const selectedFarmData = React.useMemo(() => {
+    if (!selectedFarmForDetails || !data?.farms) return null;
+    return data.farms.find((f) => f.farmId === selectedFarmForDetails.farmId);
+  }, [selectedFarmForDetails, data]);
+
+  const selectedBreakdown = React.useMemo(() => {
+    if (!selectedFarmData || !selectedFarmForDetails) return null;
+    return selectedFarmForDetails.type === "delegator"
+      ? selectedFarmData.delegator.weeklyBreakdown
+      : selectedFarmData.miner.weeklyBreakdown;
+  }, [selectedFarmData, selectedFarmForDetails]);
+
+  if (isLoading) {
+    return <MiningViewSkeleton />;
+  }
+
+  if (isError || !data) {
+    return (
+      <div className="py-12 text-center">
+        <p className="text-muted-foreground">
+          Unable to load mining data right now.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Dialog
+        open={selectedFarmForDetails !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedFarmForDetails(null);
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedFarmForDetails?.farmName}</DialogTitle>
+            <DialogDescription>
+              Weekly rewards breakdown for{" "}
+              {selectedFarmForDetails?.type === "delegator"
+                ? "delegators"
+                : "miners"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedBreakdown && selectedBreakdown.length > 0 && (
+            <div className="rounded-lg border">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left p-3 font-medium">Week</th>
+                      <th className="text-right p-3 font-medium">Inflation</th>
+                      <th className="text-right p-3 font-medium">
+                        Protocol Deposit
+                      </th>
+                      <th className="text-right p-3 font-medium">Asset</th>
+                      <th className="text-right p-3 font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedBreakdown
+                      .slice()
+                      .reverse()
+                      .map((week: any) => {
+                        const inflation = new Decimal(week.inflationRewards)
+                          .div(1e18)
+                          .toNumber();
+                        const protocolDeposit = new Decimal(
+                          week.protocolDepositRewards
+                        )
+                          .div(1e18)
+                          .toNumber();
+                        const total = new Decimal(week.totalRewards)
+                          .div(1e18)
+                          .toNumber();
+
+                        return (
+                          <tr
+                            key={week.weekNumber}
+                            className="border-b last:border-0 hover:bg-muted/30"
+                          >
+                            <td className="p-3 font-semibold">
+                              {week.weekNumber}
+                            </td>
+                            <td className="p-3 text-right font-mono">
+                              {inflation.toLocaleString("en-US", {
+                                maximumFractionDigits: 2,
+                              })}{" "}
+                              GLW
+                            </td>
+                            <td className="p-3 text-right font-mono">
+                              {protocolDeposit.toLocaleString("en-US", {
+                                maximumFractionDigits: 2,
+                              })}{" "}
+                              {week.protocolDepositAsset || "GLW"}
+                            </td>
+                            <td className="p-3 text-right">
+                              <Badge variant="outline" className="text-xs">
+                                {week.protocolDepositAsset || "GLW"}
+                              </Badge>
+                            </td>
+                            <td className="p-3 text-right font-mono font-semibold">
+                              {total.toLocaleString("en-US", {
+                                maximumFractionDigits: 2,
+                              })}{" "}
+                              GLW
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <div className="space-y-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <MetricCard
+            title="GLW per 1 GLW Delegated"
+            value={kpiData.avgGlwPerGlwDelegated.toFixed(4)}
+            icon={<TrendingUp className="h-5 w-5" />}
+          >
+            <p>Average return on delegation</p>
+          </MetricCard>
+
+          <MetricCard
+            title="GLW per $1 Mining"
+            value={kpiData.avgGlwPerDollarMining.toFixed(4)}
+            icon={<Zap className="h-5 w-5" />}
+          >
+            <p>Average return on mining investment</p>
+          </MetricCard>
+
+          <MetricCard
+            title="Total Delegators"
+            value={kpiData.totalDelegators.toLocaleString()}
+            icon={<Users className="h-5 w-5" />}
+          >
+            <p>
+              Total GLW Earned:{" "}
+              {kpiData.totalGlwEarnedDelegators.toLocaleString("en-US", {
+                maximumFractionDigits: 0,
+              })}
+            </p>
+          </MetricCard>
+
+          <MetricCard
+            title="Total Miners"
+            value={kpiData.totalMiners.toLocaleString()}
+            icon={<Coins className="h-5 w-5" />}
+          >
+            <p>
+              Total GLW Earned:{" "}
+              {kpiData.totalGlwEarnedMiners.toLocaleString("en-US", {
+                maximumFractionDigits: 0,
+              })}
+            </p>
+          </MetricCard>
+        </div>
+
+        <Card className="border-border/60">
+          <CardHeader>
+            <CardTitle>ROI Comparison: Delegators vs Miners</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Comparing return on investment for all active farms (sorted by
+              participant count)
+            </p>
+          </CardHeader>
+          <CardContent>
+            {isFetching ? (
+              <Skeleton className="h-80 w-full" />
+            ) : (
+              <ROIComparisonChart farms={data.farms} />
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight">
+                Farm Performance Overview
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Individual farm breakdown ordered by efficiency (ROI)
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+              <Select
+                value={sortBy}
+                onValueChange={(value) =>
+                  setSortBy(value as "rewards" | "participants" | "weeksLeft")
+                }
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rewards">Total Rewards</SelectItem>
+                  <SelectItem value="participants">Participants</SelectItem>
+                  <SelectItem value="weeksLeft">Weeks Left</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {isFetching ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <Skeleton key={index} className="h-64 w-full" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {sortedFarms.map((farm) => {
+                const delegatorTotalRewards = new Decimal(
+                  farm.delegator.rewardsPerPiece?.total?.allWeeks || "0"
+                )
+                  .times(farm.delegator.stepsSold)
+                  .div(1e18)
+                  .toNumber();
+
+                const delegatorInflation = new Decimal(
+                  farm.delegator.rewardsPerPiece?.inflation?.allWeeks || "0"
+                )
+                  .times(farm.delegator.stepsSold)
+                  .div(1e18)
+                  .toNumber();
+
+                const delegatorPD = new Decimal(
+                  farm.delegator.rewardsPerPiece?.protocolDeposit?.allWeeks ||
+                    "0"
+                )
+                  .times(farm.delegator.stepsSold)
+                  .div(1e18)
+                  .toNumber();
+
+                const minerTotalRewards = new Decimal(
+                  farm.miner.rewardsPerPiece?.total?.allWeeks || "0"
+                )
+                  .times(farm.miner.stepsSold)
+                  .div(1e18)
+                  .toNumber();
+
+                const minerInflation = new Decimal(
+                  farm.miner.rewardsPerPiece?.inflation?.allWeeks || "0"
+                )
+                  .times(farm.miner.stepsSold)
+                  .div(1e18)
+                  .toNumber();
+
+                const minerPD = new Decimal(
+                  farm.miner.rewardsPerPiece?.protocolDeposit?.allWeeks || "0"
+                )
+                  .times(farm.miner.stepsSold)
+                  .div(1e18)
+                  .toNumber();
+
+                const delegatorLastWeek = new Decimal(
+                  farm.delegator.rewardsPerPiece?.total?.lastWeek || "0"
+                )
+                  .times(farm.delegator.stepsSold)
+                  .div(1e18)
+                  .toNumber();
+
+                const minerLastWeek = new Decimal(
+                  farm.miner.rewardsPerPiece?.total?.lastWeek || "0"
+                )
+                  .times(farm.miner.stepsSold)
+                  .div(1e18)
+                  .toNumber();
+
+                const totalCombinedRewards =
+                  delegatorTotalRewards + minerTotalRewards;
+
+                return (
+                  <Card
+                    key={farm.farmId}
+                    className="border-border/60 hover:border-primary/50 transition-colors"
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <CardTitle className="text-base leading-tight">
+                            {farm.farmName || "Unknown Farm"}
+                          </CardTitle>
+                          <Badge
+                            variant={
+                              farm.avgROI >= 0.5 ? "default" : "secondary"
+                            }
+                            className="shrink-0 font-mono text-xs"
+                          >
+                            {farm.avgROI.toFixed(2)}x
+                          </Badge>
+                        </div>
+                        <div className="flex gap-1.5">
+                          {farm.fractionTypes.includes("launchpad") && (
+                            <Badge variant="secondary" className="text-xs">
+                              Launchpad
+                            </Badge>
+                          )}
+                          {farm.fractionTypes.includes("mining-center") && (
+                            <Badge variant="outline" className="text-xs">
+                              Mining
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {farm.delegator.stepsSold > 0 && (
+                        <div className="space-y-3 bg-accent/5 border border-accent/20 rounded-lg p-3">
+                          <div className="flex items-center justify-between pb-2 border-b border-accent/30">
+                            <span className="text-xs font-semibold text-accent uppercase tracking-wide">
+                              Delegators
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {farm.participants.uniqueDelegators}{" "}
+                              {farm.participants.uniqueDelegators === 1
+                                ? "wallet"
+                                : "wallets"}
+                            </span>
+                          </div>
+
+                          <div className="space-y-3 bg-accent/10 rounded-lg p-3">
+                            <div className="flex justify-between items-baseline">
+                              <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Delegated
+                              </span>
+                              <span className="font-mono font-bold text-base">
+                                {farm.totalDelegated.toLocaleString("en-US", {
+                                  maximumFractionDigits: 0,
+                                })}{" "}
+                                <span className="text-sm font-normal">GLW</span>
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-baseline">
+                              <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Earned
+                              </span>
+                              <span className="font-mono font-bold text-base text-green-700 dark:text-green-400">
+                                {delegatorTotalRewards.toLocaleString("en-US", {
+                                  maximumFractionDigits: 0,
+                                })}{" "}
+                                <span className="text-sm font-normal">GLW</span>
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs font-medium uppercase tracking-wide">
+                                Performance
+                              </span>
+                              <span
+                                className={`text-xs font-semibold ${
+                                  Number(farm.delegator.roi?.allWeeks || "0") >=
+                                  100
+                                    ? "text-green-600 dark:text-green-400"
+                                    : Number(
+                                        farm.delegator.roi?.allWeeks || "0"
+                                      ) >= 50
+                                    ? "text-yellow-600 dark:text-yellow-400"
+                                    : "text-orange-600 dark:text-orange-400"
+                                }`}
+                              >
+                                {Number(farm.delegator.roi?.allWeeks || "0") >=
+                                100
+                                  ? "Profitable"
+                                  : Number(
+                                      farm.delegator.roi?.allWeeks || "0"
+                                    ) >= 50
+                                  ? "On Track"
+                                  : "Building"}
+                              </span>
+                            </div>
+                            <div className="flex h-3 w-full rounded-full overflow-hidden bg-muted border border-border">
+                              <div
+                                className={`transition-all ${
+                                  Number(farm.delegator.roi?.allWeeks || "0") >=
+                                  100
+                                    ? "bg-green-500"
+                                    : Number(
+                                        farm.delegator.roi?.allWeeks || "0"
+                                      ) >= 50
+                                    ? "bg-yellow-500"
+                                    : "bg-orange-500"
+                                }`}
+                                style={{
+                                  width: `${Math.min(
+                                    Number(farm.delegator.roi?.allWeeks || "0"),
+                                    100
+                                  )}%`,
+                                }}
+                              />
+                              {Number(farm.delegator.roi?.allWeeks || "0") >
+                                100 && (
+                                <div
+                                  className="bg-green-600"
+                                  style={{
+                                    width: `${Math.min(
+                                      Number(
+                                        farm.delegator.roi?.allWeeks || "0"
+                                      ) - 100,
+                                      100
+                                    )}%`,
+                                  }}
+                                />
+                              )}
+                            </div>
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-mono font-semibold text-green-600 dark:text-green-400">
+                                {Number(
+                                  farm.delegator.roi?.allWeeks || "0"
+                                ).toFixed(1)}
+                                % ROI
+                              </span>
+                              <span className="text-muted-foreground">
+                                {farm.delegator.weeksEarned}w earned /{" "}
+                                {farm.delegator.weeksLeft}w left
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 pt-3 border-t">
+                            <div className="space-y-1.5">
+                              <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Steps
+                              </div>
+                              <div className="font-mono font-semibold text-base">
+                                {farm.delegator.stepsSold}
+                              </div>
+                            </div>
+                            <div className="space-y-1.5 text-right">
+                              <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Last Week
+                              </div>
+                              <div className="font-mono font-semibold text-base">
+                                {delegatorLastWeek.toLocaleString("en-US", {
+                                  maximumFractionDigits: 0,
+                                })}{" "}
+                                <span className="text-xs font-normal">GLW</span>
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Paid/Step
+                              </div>
+                              <div className="font-mono font-semibold text-sm">
+                                {formatGLWAmount(
+                                  farm.delegator.weightedPieceSizeGlw
+                                )}{" "}
+                                <span className="text-xs font-normal">GLW</span>
+                              </div>
+                            </div>
+                            <div className="space-y-1.5 text-right">
+                              <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Earned/Step
+                              </div>
+                              <div className="font-mono font-semibold text-sm text-green-700 dark:text-green-400">
+                                {(
+                                  delegatorTotalRewards /
+                                  farm.delegator.stepsSold
+                                ).toLocaleString("en-US", {
+                                  maximumFractionDigits: 2,
+                                })}{" "}
+                                <span className="text-xs font-normal">GLW</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {farm.delegator.weeklyBreakdown &&
+                            farm.delegator.weeklyBreakdown.length > 0 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full mt-3"
+                                onClick={() => {
+                                  setSelectedFarmForDetails({
+                                    farmId: farm.farmId,
+                                    farmName: farm.farmName || "Unknown Farm",
+                                    type: "delegator",
+                                  });
+                                }}
+                              >
+                                See Details
+                                <ChevronRight className="w-4 h-4 ml-2" />
+                              </Button>
+                            )}
+                        </div>
+                      )}
+
+                      {farm.miner.stepsSold > 0 && (
+                        <div className="space-y-3 bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
+                          <div className="flex items-center justify-between pb-2 border-b border-blue-500/30">
+                            <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+                              Miners
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {farm.participants.uniqueMiners}{" "}
+                              {farm.participants.uniqueMiners === 1
+                                ? "wallet"
+                                : "wallets"}
+                            </span>
+                          </div>
+
+                          <div className="space-y-3 bg-blue-500/10 rounded-lg p-3">
+                            <div className="flex justify-between items-baseline">
+                              <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Spent (USDC)
+                              </span>
+                              <span className="font-mono font-bold text-base">
+                                $
+                                {farm.totalMinerSpent.toLocaleString("en-US", {
+                                  maximumFractionDigits: 0,
+                                })}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-baseline">
+                              <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Earned
+                              </span>
+                              <span className="font-mono font-bold text-base text-blue-700 dark:text-blue-400">
+                                {minerTotalRewards.toLocaleString("en-US", {
+                                  maximumFractionDigits: 0,
+                                })}{" "}
+                                <span className="text-sm font-normal">GLW</span>
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs font-medium uppercase tracking-wide">
+                                Performance
+                              </span>
+                              <span
+                                className={`text-xs font-semibold ${
+                                  Number(farm.miner.roi?.allWeeks || "0") >= 100
+                                    ? "text-blue-600 dark:text-blue-400"
+                                    : Number(farm.miner.roi?.allWeeks || "0") >=
+                                      50
+                                    ? "text-yellow-600 dark:text-yellow-400"
+                                    : "text-orange-600 dark:text-orange-400"
+                                }`}
+                              >
+                                {Number(farm.miner.roi?.allWeeks || "0") >= 100
+                                  ? "Profitable"
+                                  : Number(farm.miner.roi?.allWeeks || "0") >=
+                                    50
+                                  ? "On Track"
+                                  : "Building"}
+                              </span>
+                            </div>
+                            <div className="flex h-3 w-full rounded-full overflow-hidden bg-muted border border-border">
+                              <div
+                                className={`transition-all ${
+                                  Number(farm.miner.roi?.allWeeks || "0") >= 100
+                                    ? "bg-blue-500"
+                                    : Number(farm.miner.roi?.allWeeks || "0") >=
+                                      50
+                                    ? "bg-yellow-500"
+                                    : "bg-orange-500"
+                                }`}
+                                style={{
+                                  width: `${Math.min(
+                                    Number(farm.miner.roi?.allWeeks || "0"),
+                                    100
+                                  )}%`,
+                                }}
+                              />
+                              {Number(farm.miner.roi?.allWeeks || "0") >
+                                100 && (
+                                <div
+                                  className="bg-blue-600"
+                                  style={{
+                                    width: `${Math.min(
+                                      Number(farm.miner.roi?.allWeeks || "0") -
+                                        100,
+                                      100
+                                    )}%`,
+                                  }}
+                                />
+                              )}
+                            </div>
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">
+                                {Number(
+                                  farm.miner.roi?.allWeeks || "0"
+                                ).toFixed(1)}
+                                % ROI
+                              </span>
+                              <span className="text-muted-foreground">
+                                {farm.miner.weeksEarned}w earned /{" "}
+                                {farm.miner.weeksLeft}w left
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 pt-3 border-t">
+                            <div className="space-y-1.5">
+                              <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Steps
+                              </div>
+                              <div className="font-mono font-semibold text-base">
+                                {farm.miner.stepsSold}
+                              </div>
+                            </div>
+                            <div className="space-y-1.5 text-right">
+                              <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Last Week
+                              </div>
+                              <div className="font-mono font-semibold text-base">
+                                {minerLastWeek.toLocaleString("en-US", {
+                                  maximumFractionDigits: 0,
+                                })}{" "}
+                                <span className="text-xs font-normal">GLW</span>
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Paid/Step
+                              </div>
+                              <div className="font-mono font-semibold text-sm">
+                                $
+                                {formatUSDAmount(
+                                  farm.miner.weightedPiecePriceUsdc
+                                )}
+                              </div>
+                            </div>
+                            <div className="space-y-1.5 text-right">
+                              <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Earned/Step
+                              </div>
+                              <div className="font-mono font-semibold text-sm text-blue-700 dark:text-blue-400">
+                                {(
+                                  minerTotalRewards / farm.miner.stepsSold
+                                ).toLocaleString("en-US", {
+                                  maximumFractionDigits: 2,
+                                })}{" "}
+                                <span className="text-xs font-normal">GLW</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {farm.miner.weeklyBreakdown &&
+                            farm.miner.weeklyBreakdown.length > 0 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full mt-3"
+                                onClick={() => {
+                                  setSelectedFarmForDetails({
+                                    farmId: farm.farmId,
+                                    farmName: farm.farmName || "Unknown Farm",
+                                    type: "miner",
+                                  });
+                                }}
+                              >
+                                See Details
+                                <ChevronRight className="w-4 h-4 ml-2" />
+                              </Button>
+                            )}
+                        </div>
+                      )}
+
+                      {totalCombinedRewards > 0 &&
+                        farm.delegator.stepsSold > 0 &&
+                        farm.miner.stepsSold > 0 && (
+                          <div className="pt-4 border-t border-dashed">
+                            <div className="flex justify-between items-center bg-muted/30 rounded-lg p-3">
+                              <span className="text-xs font-semibold uppercase tracking-wide">
+                                Combined Total
+                              </span>
+                              <span className="font-mono font-bold text-lg">
+                                {totalCombinedRewards.toLocaleString("en-US", {
+                                  maximumFractionDigits: 0,
+                                })}{" "}
+                                <span className="text-sm font-normal">GLW</span>
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                      {farm.delegator.stepsSold === 0 &&
+                        farm.miner.stepsSold === 0 && (
+                          <div className="text-center text-sm text-muted-foreground py-4">
+                            No active delegations or mining
+                          </div>
+                        )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
