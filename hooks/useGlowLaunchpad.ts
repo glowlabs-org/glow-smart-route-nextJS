@@ -48,6 +48,7 @@ export interface AuditFields {
   averageSunlightHoursPerDay: number | null;
   expectedWeeklyCarbonCredits: number | null;
   netCarbonCreditEarningWeekly: number | null;
+  solarPanelsQuantity: number | null;
 }
 
 export interface Document {

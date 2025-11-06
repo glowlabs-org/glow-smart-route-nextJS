@@ -94,6 +94,10 @@ export function LaunchpadStatsDialog({
   // Weekly CCs from application
   const weeklyCC = application?.auditFields?.netCarbonCreditEarningWeekly ?? 0;
 
+  // Solar panels quantity
+  const solarPanelsQuantity =
+    application?.auditFields?.solarPanelsQuantity ?? 0;
+
   // Total CCs over 30 years
   const totalCCsOver30Years = weeklyCC * totalWeeksForCCs;
 
@@ -262,6 +266,16 @@ export function LaunchpadStatsDialog({
               )}% of total rewards`
             : undefined,
       },
+      {
+        id: "solar-panels",
+        label: "Solar Panels",
+        value:
+          solarPanelsQuantity > 0
+            ? formatNumber(solarPanelsQuantity, 0)
+            : "N/A",
+        tooltip: "Total number of solar panels installed at this farm.",
+        secondary: "Total panels",
+      },
     ],
     [
       apy,
@@ -270,6 +284,7 @@ export function LaunchpadStatsDialog({
       farmEfficiency,
       region,
       regionalEfficiency,
+      solarPanelsQuantity,
       totalGlwPerFraction,
       totalWeeklyGlw,
       weeklyCCPerFraction,
@@ -356,7 +371,7 @@ export function LaunchpadStatsDialog({
                 <StatCard key={id} {...card} />
               ))}
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mt-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 mt-3">
               {opportunityCards.slice(4).map(({ id, ...card }) => (
                 <StatCard key={id} {...card} />
               ))}
