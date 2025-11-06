@@ -42,6 +42,7 @@ import {
   useFarmsPerPieceStats,
   type FarmPerPieceStats,
 } from "@/hooks/useFarmsPerPieceStats";
+import { useFractionsSummary } from "@/hooks/useFractionsSummary";
 import {
   Dialog,
   DialogContent,
@@ -175,11 +176,11 @@ function ROIComparisonChart({ farms }: ROIChartProps) {
   const chartConfig = {
     delegatorROI: {
       label: "Delegator ROI",
-      color: "hsl(142, 71%, 45%)",
+      color: "#dcc4ff",
     },
     minerROI: {
       label: "Miner ROI",
-      color: "hsl(217, 91%, 60%)",
+      color: "#ccffd4",
     },
   } satisfies ChartConfig;
 
@@ -247,7 +248,7 @@ function ROIComparisonChart({ farms }: ROIChartProps) {
                 if (name === "delegatorROI" || name === "Delegator ROI") {
                   const invested = payload?.payload?.delegatorInvested ?? 0;
                   return [
-                    <div className="space-y-1">
+                    <div key="delegator-roi" className="space-y-1">
                       <div className="font-semibold">
                         {numValue.toFixed(2)}x
                       </div>
@@ -263,7 +264,7 @@ function ROIComparisonChart({ farms }: ROIChartProps) {
                 } else if (name === "minerROI" || name === "Miner ROI") {
                   const invested = payload?.payload?.minerInvested ?? 0;
                   return [
-                    <div className="space-y-1">
+                    <div key="miner-roi" className="space-y-1">
                       <div className="font-semibold">
                         {numValue.toFixed(2)}x
                       </div>
@@ -319,6 +320,10 @@ export function MiningView() {
     enabled: true,
   });
 
+  const { summary } = useFractionsSummary({
+    enabled: true,
+  });
+
   const kpiData = React.useMemo(() => {
     if (!data?.farms) {
       return {
@@ -335,13 +340,8 @@ export function MiningView() {
     let totalDelegatorInvested = new Decimal(0);
     let totalMinerRewards = new Decimal(0);
     let totalMinerInvested = new Decimal(0);
-    let totalDelegators = 0;
-    let totalMiners = 0;
 
     data.farms.forEach((farm) => {
-      totalDelegators += farm.participants.uniqueDelegators;
-      totalMiners += farm.participants.uniqueMiners;
-
       if (farm.delegator.stepsSold > 0) {
         const totalRewards = new Decimal(
           farm.delegator.rewardsPerPiece?.total?.allWeeks || "0"
@@ -382,12 +382,12 @@ export function MiningView() {
     return {
       avgGlwPerGlwDelegated,
       avgGlwPerDollarMining,
-      totalDelegators,
-      totalMiners,
+      totalDelegators: summary?.launchpadContributors ?? 0,
+      totalMiners: summary?.miningCenterContributors ?? 0,
       totalGlwEarnedDelegators: totalDelegatorRewards.div(1e18).toNumber(),
       totalGlwEarnedMiners: totalMinerRewards.div(1e18).toNumber(),
     };
-  }, [data]);
+  }, [data, summary]);
 
   const farmsWithEfficiency = React.useMemo(() => {
     if (!data?.farms) return [];
@@ -776,9 +776,9 @@ export function MiningView() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {farm.delegator.stepsSold > 0 && (
-                        <div className="space-y-3 bg-accent/5 border border-accent/20 rounded-lg p-3">
-                          <div className="flex items-center justify-between pb-2 border-b border-accent/30">
-                            <span className="text-xs font-semibold text-accent uppercase tracking-wide">
+                        <div className="space-y-3 border border-[#dcc4ff]/20 rounded-lg p-3">
+                          <div className="flex items-center justify-between pb-2 border-b border-[#dcc4ff]/20">
+                            <span className="text-xs font-semibold text-[#9b7ac7] dark:text-[#dcc4ff] uppercase tracking-wide">
                               Delegators
                             </span>
                             <span className="text-xs text-muted-foreground">
@@ -789,7 +789,7 @@ export function MiningView() {
                             </span>
                           </div>
 
-                          <div className="space-y-3 bg-accent/10 rounded-lg p-3">
+                          <div className="space-y-3 rounded-lg p-3">
                             <div className="flex justify-between items-baseline">
                               <span className="text-xs text-muted-foreground uppercase tracking-wide">
                                 Delegated
@@ -805,7 +805,7 @@ export function MiningView() {
                               <span className="text-xs text-muted-foreground uppercase tracking-wide">
                                 Earned
                               </span>
-                              <span className="font-mono font-bold text-base text-green-700 dark:text-green-400">
+                              <span className="font-mono font-bold text-base text-[#9b7ac7] dark:text-[#dcc4ff]">
                                 {delegatorTotalRewards.toLocaleString("en-US", {
                                   maximumFractionDigits: 0,
                                 })}{" "}
@@ -823,7 +823,7 @@ export function MiningView() {
                                 className={`text-xs font-semibold ${
                                   Number(farm.delegator.roi?.allWeeks || "0") >=
                                   100
-                                    ? "text-green-600 dark:text-green-400"
+                                    ? "text-[#9b7ac7] dark:text-[#dcc4ff]"
                                     : Number(
                                         farm.delegator.roi?.allWeeks || "0"
                                       ) >= 50
@@ -846,7 +846,7 @@ export function MiningView() {
                                 className={`transition-all ${
                                   Number(farm.delegator.roi?.allWeeks || "0") >=
                                   100
-                                    ? "bg-green-500"
+                                    ? "bg-[#dcc4ff]"
                                     : Number(
                                         farm.delegator.roi?.allWeeks || "0"
                                       ) >= 50
@@ -863,7 +863,7 @@ export function MiningView() {
                               {Number(farm.delegator.roi?.allWeeks || "0") >
                                 100 && (
                                 <div
-                                  className="bg-green-600"
+                                  className="bg-[#9b7ac7]"
                                   style={{
                                     width: `${Math.min(
                                       Number(
@@ -876,7 +876,7 @@ export function MiningView() {
                               )}
                             </div>
                             <div className="flex justify-between items-center text-xs">
-                              <span className="font-mono font-semibold text-green-600 dark:text-green-400">
+                              <span className="font-mono font-semibold text-[#9b7ac7] dark:text-[#dcc4ff]">
                                 {Number(
                                   farm.delegator.roi?.allWeeks || "0"
                                 ).toFixed(1)}
@@ -924,7 +924,7 @@ export function MiningView() {
                               <div className="text-xs text-muted-foreground uppercase tracking-wide">
                                 Earned/Step
                               </div>
-                              <div className="font-mono font-semibold text-sm text-green-700 dark:text-green-400">
+                              <div className="font-mono font-semibold text-sm text-[#9b7ac7] dark:text-[#dcc4ff]">
                                 {(
                                   delegatorTotalRewards /
                                   farm.delegator.stepsSold
@@ -958,9 +958,9 @@ export function MiningView() {
                       )}
 
                       {farm.miner.stepsSold > 0 && (
-                        <div className="space-y-3 bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
-                          <div className="flex items-center justify-between pb-2 border-b border-blue-500/30">
-                            <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+                        <div className="space-y-3 border border-[#ccffd4]/20 rounded-lg p-3">
+                          <div className="flex items-center justify-between pb-2 border-b border-[#ccffd4]/20">
+                            <span className="text-xs font-semibold text-[#5fb56f] dark:text-[#ccffd4] uppercase tracking-wide">
                               Miners
                             </span>
                             <span className="text-xs text-muted-foreground">
@@ -971,7 +971,7 @@ export function MiningView() {
                             </span>
                           </div>
 
-                          <div className="space-y-3 bg-blue-500/10 rounded-lg p-3">
+                          <div className="space-y-3 rounded-lg p-3">
                             <div className="flex justify-between items-baseline">
                               <span className="text-xs text-muted-foreground uppercase tracking-wide">
                                 Spent (USDC)
@@ -987,7 +987,7 @@ export function MiningView() {
                               <span className="text-xs text-muted-foreground uppercase tracking-wide">
                                 Earned
                               </span>
-                              <span className="font-mono font-bold text-base text-blue-700 dark:text-blue-400">
+                              <span className="font-mono font-bold text-base text-[#5fb56f] dark:text-[#ccffd4]">
                                 {minerTotalRewards.toLocaleString("en-US", {
                                   maximumFractionDigits: 0,
                                 })}{" "}
@@ -1004,7 +1004,7 @@ export function MiningView() {
                               <span
                                 className={`text-xs font-semibold ${
                                   Number(farm.miner.roi?.allWeeks || "0") >= 100
-                                    ? "text-blue-600 dark:text-blue-400"
+                                    ? "text-[#5fb56f] dark:text-[#ccffd4]"
                                     : Number(farm.miner.roi?.allWeeks || "0") >=
                                       50
                                     ? "text-yellow-600 dark:text-yellow-400"
@@ -1023,7 +1023,7 @@ export function MiningView() {
                               <div
                                 className={`transition-all ${
                                   Number(farm.miner.roi?.allWeeks || "0") >= 100
-                                    ? "bg-blue-500"
+                                    ? "bg-[#ccffd4]"
                                     : Number(farm.miner.roi?.allWeeks || "0") >=
                                       50
                                     ? "bg-yellow-500"
@@ -1039,7 +1039,7 @@ export function MiningView() {
                               {Number(farm.miner.roi?.allWeeks || "0") >
                                 100 && (
                                 <div
-                                  className="bg-blue-600"
+                                  className="bg-[#5fb56f]"
                                   style={{
                                     width: `${Math.min(
                                       Number(farm.miner.roi?.allWeeks || "0") -
@@ -1051,7 +1051,7 @@ export function MiningView() {
                               )}
                             </div>
                             <div className="flex justify-between items-center text-xs">
-                              <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">
+                              <span className="font-mono font-semibold text-[#5fb56f] dark:text-[#ccffd4]">
                                 {Number(
                                   farm.miner.roi?.allWeeks || "0"
                                 ).toFixed(1)}
@@ -1099,7 +1099,7 @@ export function MiningView() {
                               <div className="text-xs text-muted-foreground uppercase tracking-wide">
                                 Earned/Step
                               </div>
-                              <div className="font-mono font-semibold text-sm text-blue-700 dark:text-blue-400">
+                              <div className="font-mono font-semibold text-sm text-[#5fb56f] dark:text-[#ccffd4]">
                                 {(
                                   minerTotalRewards / farm.miner.stepsSold
                                 ).toLocaleString("en-US", {

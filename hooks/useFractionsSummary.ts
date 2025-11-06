@@ -7,6 +7,8 @@ export interface FractionsSummaryResponse {
   totalMiningCenterVolume: string;
   launchpadContributors: number;
   miningCenterContributors: number;
+  glwDelegationByEpoch: Record<number, string>;
+  walletCountByEpoch?: Record<number, number>;
 }
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;

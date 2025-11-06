@@ -47,7 +47,7 @@ export interface UseWalletsActivityParams {
 export function useWalletsActivity({
   type = "delegator",
   sortBy = "totalRewardsEarned",
-  limit = 50,
+  limit = 100,
   enabled = true,
 }: UseWalletsActivityParams = {}) {
   const queryKey = ["wallets-activity", type, sortBy, limit];

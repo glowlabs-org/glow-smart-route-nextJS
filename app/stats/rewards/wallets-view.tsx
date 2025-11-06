@@ -6,7 +6,6 @@ import { useQueryState } from "nuqs";
 import {
   ArrowUpDown,
   Copy,
-  ExternalLink,
   LineChart,
   TrendingUp,
   Users,
@@ -23,6 +22,7 @@ import {
   Line,
 } from "recharts";
 import { formatUnits } from "viem";
+import { GENESIS_TIMESTAMP } from "@/utils/getCurrentEpoch";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,12 +57,10 @@ import {
   type WalletActivity,
   type FarmActivity,
 } from "@/hooks/useWalletsActivity";
+import { useSplitsActivity } from "@/hooks/useGlowLaunchpad";
 import { MetricCard } from "./farms-view";
 import { RewardsSkeleton } from "./view";
 
-const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID || "1";
-const ETHERSCAN_BASE_URL =
-  CHAIN_ID === "1" ? "https://etherscan.io" : "https://sepolia.etherscan.io";
 const WALLET_LIMIT = 100;
 const FARM_LIMIT = 100;
 
@@ -178,8 +176,7 @@ function RewardsChart({
     return {
       rewards: {
         label: type === "delegator" ? "Delegator Rewards" : "Miner Rewards",
-        color:
-          type === "delegator" ? "hsl(142, 71%, 45%)" : "hsl(217, 91%, 60%)",
+        color: type === "delegator" ? "#dcc4ff" : "#ccffd4",
       },
       miningScore: {
         label: "Mining Score",
@@ -339,7 +336,7 @@ function FarmsChart({ farms, type }: FarmsChartProps) {
   const chartConfig = {
     rewards: {
       label: type === "delegator" ? "Delegator Rewards" : "Miner Rewards",
-      color: type === "delegator" ? "hsl(142, 71%, 45%)" : "hsl(217, 91%, 60%)",
+      color: type === "delegator" ? "#dcc4ff" : "#ccffd4",
     },
   } satisfies ChartConfig;
 
@@ -426,16 +423,155 @@ function FarmsChart({ farms, type }: FarmsChartProps) {
   );
 }
 
+interface DelegationTrendChartProps {
+  glwDelegationByEpoch: Record<number, string>;
+}
+
+function DelegationTrendChart({
+  glwDelegationByEpoch,
+}: DelegationTrendChartProps) {
+  const chartData = React.useMemo(() => {
+    const epochs = Object.keys(glwDelegationByEpoch)
+      .map(Number)
+      .sort((a, b) => a - b);
+
+    const maxEpoch = Math.max(...epochs);
+
+    return epochs
+      .filter((epoch) => epoch !== maxEpoch)
+      .map((epoch) => {
+        const amount = Number(
+          formatUnits(BigInt(glwDelegationByEpoch[epoch] || "0"), 18)
+        );
+
+        const WEEK_SECONDS = 86400 * 7;
+        const epochStartTimestamp = GENESIS_TIMESTAMP + epoch * WEEK_SECONDS;
+        const epochDate = new Date(epochStartTimestamp * 1000);
+
+        const formattedDate = epochDate.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+
+        return {
+          epoch,
+          amount,
+          displayDate: formattedDate,
+          fullDate: epochDate.toLocaleDateString("en-US", {
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          }),
+        };
+      });
+  }, [glwDelegationByEpoch]);
+
+  const chartConfig = {
+    amount: {
+      label: "GLW Delegated",
+      color: "#dcc4ff",
+    },
+  } satisfies ChartConfig;
+
+  if (chartData.length === 0) {
+    return (
+      <div className="h-80 flex items-center justify-center text-muted-foreground text-sm">
+        No delegation data available
+      </div>
+    );
+  }
+
+  return (
+    <ChartContainer config={chartConfig} className="h-80 w-full">
+      <ComposedChart
+        accessibilityLayer
+        data={chartData}
+        margin={{ left: 12, right: 12, top: 12, bottom: 40 }}
+      >
+        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+        <XAxis
+          dataKey="displayDate"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          angle={-45}
+          textAnchor="end"
+          height={60}
+        />
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          tickFormatter={(value) =>
+            value >= 1000000
+              ? `${(value / 1000000).toFixed(1)}M`
+              : value >= 1000
+              ? `${(value / 1000).toFixed(1)}k`
+              : value.toString()
+          }
+        />
+        <ChartTooltip
+          content={
+            <ChartTooltipContent
+              className="min-w-[220px]"
+              labelFormatter={(_, payload) => {
+                const fullDate = payload?.[0]?.payload?.fullDate || "";
+                return (
+                  <div className="font-semibold text-sm mb-2 pb-2 border-b border-border/50">
+                    {fullDate}
+                  </div>
+                );
+              }}
+              formatter={(value) => {
+                const numValue = Number(value);
+                const formatted = numValue.toLocaleString("en-US", {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 2,
+                });
+                return [
+                  <span className="font-semibold">{formatted} GLW</span>,
+                  "GLW Delegated",
+                ];
+              }}
+            />
+          }
+        />
+        <Line
+          type="monotone"
+          dataKey="amount"
+          stroke="var(--color-amount)"
+          strokeWidth={3}
+          dot={{ r: 4, fill: "var(--color-amount)", strokeWidth: 2 }}
+          name="GLW Delegated"
+        />
+      </ComposedChart>
+    </ChartContainer>
+  );
+}
+
 interface WalletsViewProps {
   type: "delegator" | "miner";
   glwSpotPrice: number;
+  networkTotalGlwDelegated?: string;
+  glwDelegationByEpoch?: Record<number, string>;
+  walletCountByEpoch?: Record<number, number>;
+  totalContributors?: number;
 }
 
-export function WalletsView({ type, glwSpotPrice }: WalletsViewProps) {
+export function WalletsView({
+  type,
+  glwSpotPrice,
+  networkTotalGlwDelegated,
+  glwDelegationByEpoch,
+  walletCountByEpoch,
+  totalContributors,
+}: WalletsViewProps) {
   const [sortBy, setSortBy] = useQueryState(
     "sortBy",
     parseAsString.withDefault("efficiency")
   );
+  const [showAllWallets, setShowAllWallets] = React.useState(false);
 
   const validSortBy:
     | "glwDelegated"
@@ -466,8 +602,10 @@ export function WalletsView({ type, glwSpotPrice }: WalletsViewProps) {
         : "minerRewardsEarned"
       : (validSortBy as typeof apiSortBy);
 
-  const farmsSortBy: "delegatorRewardsDistributed" | "minerRewardsDistributed" | "totalRewardsDistributed" =
-    "totalRewardsDistributed";
+  const farmsSortBy:
+    | "delegatorRewardsDistributed"
+    | "minerRewardsDistributed"
+    | "totalRewardsDistributed" = "totalRewardsDistributed";
 
   const { data, isLoading, isFetching, isError } = useWalletsActivity({
     type,
@@ -487,6 +625,12 @@ export function WalletsView({ type, glwSpotPrice }: WalletsViewProps) {
     enabled: true,
   });
 
+  const { activity: recentActivity } = useSplitsActivity({
+    limit: 10,
+    fractionType: type === "delegator" ? "launchpad" : "mining-center",
+    enabled: true,
+  });
+
   const weekRange = data?.weekRange;
   const summary = data?.summary;
   const farms = farmsData?.farms ?? [];
@@ -497,18 +641,8 @@ export function WalletsView({ type, glwSpotPrice }: WalletsViewProps) {
 
     if (validSortBy === "efficiency") {
       return [...allWallets].sort((a, b) => {
-        const scoreA = calculateMiningScore(
-          a,
-          type,
-          glwSpotPrice,
-          weekRange
-        );
-        const scoreB = calculateMiningScore(
-          b,
-          type,
-          glwSpotPrice,
-          weekRange
-        );
+        const scoreA = calculateMiningScore(a, type, glwSpotPrice, weekRange);
+        const scoreB = calculateMiningScore(b, type, glwSpotPrice, weekRange);
 
         if (scoreA === null && scoreB === null) return 0;
         if (scoreA === null) return 1;
@@ -521,12 +655,59 @@ export function WalletsView({ type, glwSpotPrice }: WalletsViewProps) {
     return allWallets;
   }, [data?.wallets, validSortBy, type, glwSpotPrice, weekRange]);
 
+  const lastWeekNetworkTotalGlwDelegated = React.useMemo(() => {
+    if (
+      !glwDelegationByEpoch ||
+      Object.keys(glwDelegationByEpoch).length === 0
+    ) {
+      return undefined;
+    }
+    const epochs = Object.keys(glwDelegationByEpoch)
+      .map(Number)
+      .sort((a, b) => b - a);
+    const lastEpoch = epochs[1];
+    return glwDelegationByEpoch[lastEpoch];
+  }, [glwDelegationByEpoch]);
+
+  const lastWeekGrowth = React.useMemo(() => {
+    if (!glwDelegationByEpoch || Object.keys(glwDelegationByEpoch).length < 2) {
+      return null;
+    }
+    const epochs = Object.keys(glwDelegationByEpoch)
+      .map(Number)
+      .sort((a, b) => b - a);
+
+    if (epochs.length < 3) return null;
+
+    const lastWeek = BigInt(glwDelegationByEpoch[epochs[1]] || "0");
+    const weekBefore = BigInt(glwDelegationByEpoch[epochs[2]] || "0");
+    const growth = lastWeek - weekBefore;
+
+    return growth > BigInt(0) ? formatGLW(growth.toString()) : null;
+  }, [glwDelegationByEpoch]);
+
+  const newWalletsLastWeek = React.useMemo(() => {
+    if (!walletCountByEpoch || Object.keys(walletCountByEpoch).length < 2) {
+      return null;
+    }
+    const epochs = Object.keys(walletCountByEpoch)
+      .map(Number)
+      .sort((a, b) => b - a);
+
+    if (epochs.length < 3) return null;
+
+    const lastWeekCount = walletCountByEpoch[epochs[1]] || 0;
+    const weekBeforeCount = walletCountByEpoch[epochs[2]] || 0;
+    const newWallets = lastWeekCount - weekBeforeCount;
+
+    return newWallets > 0 ? newWallets : null;
+  }, [walletCountByEpoch]);
+
   const isInitialLoading = isLoading && !data;
 
   const rewardsLabel =
     type === "delegator" ? "Delegator Rewards" : "Miner Rewards";
-  const capitalLabel =
-    type === "delegator" ? "GLW Delegated" : "USDC Spent";
+  const capitalLabel = type === "delegator" ? "GLW Delegated" : "USDC Spent";
 
   const analytics = React.useMemo(() => {
     if (!wallets.length) {
@@ -544,10 +725,11 @@ export function WalletsView({ type, glwSpotPrice }: WalletsViewProps) {
         newCapitalShare: 0,
         averageMiningScore: 0,
         bestMiningScore: null as number | null,
-        topWalletByRewards: null as {
+        top3WalletsByRewards: [] as Array<{
           wallet: WalletActivity;
           formattedRewards: string;
-        } | null,
+          numericRewards: number;
+        }>,
         topWalletByScore: null as {
           wallet: WalletActivity;
           score: number;
@@ -560,15 +742,11 @@ export function WalletsView({ type, glwSpotPrice }: WalletsViewProps) {
     }
 
     const rewardsKey =
-      type === "delegator"
-        ? "delegatorRewardsEarned"
-        : "minerRewardsEarned";
+      type === "delegator" ? "delegatorRewardsEarned" : "minerRewardsEarned";
     const capitalKey =
       type === "delegator" ? "glwDelegated" : "usdcSpentOnMiners";
     const newCapitalKey =
-      type === "delegator"
-        ? "glwDelegatedAfterRange"
-        : "usdcSpentAfterRange";
+      type === "delegator" ? "glwDelegatedAfterRange" : "usdcSpentAfterRange";
 
     const totalRewardsRaw = bigIntSum(
       wallets.map((wallet) => wallet[rewardsKey])
@@ -629,35 +807,22 @@ export function WalletsView({ type, glwSpotPrice }: WalletsViewProps) {
         miningScores.length
       : 0;
 
-    const topWalletByRewards = wallets.reduce<{
-      wallet: WalletActivity;
-      formattedRewards: string;
-      numericRewards: number;
-    } | null>((acc, wallet) => {
-      const rewardsFormatted = formatGLW(wallet[rewardsKey]);
-      const rewardsNumeric = Number(
-        formatUnits(BigInt(wallet[rewardsKey] || "0"), 18)
-      );
-      if (!acc || rewardsNumeric > acc.numericRewards) {
-        return {
-          wallet,
-          formattedRewards: rewardsFormatted,
-          numericRewards: rewardsNumeric,
-        };
-      }
-      return acc;
-    }, null);
+    const top3WalletsByRewards = wallets
+      .map((wallet) => ({
+        wallet,
+        formattedRewards: formatGLW(wallet[rewardsKey]),
+        numericRewards: Number(
+          formatUnits(BigInt(wallet[rewardsKey] || "0"), 18)
+        ),
+      }))
+      .sort((a, b) => b.numericRewards - a.numericRewards)
+      .slice(0, 3);
 
     const topWalletByScore = wallets.reduce<{
       wallet: WalletActivity;
       score: number;
     } | null>((acc, wallet) => {
-      const score = calculateMiningScore(
-        wallet,
-        type,
-        glwSpotPrice,
-        weekRange
-      );
+      const score = calculateMiningScore(wallet, type, glwSpotPrice, weekRange);
       if (score === null) return acc;
       if (!acc || score > acc.score) {
         return { wallet, score };
@@ -700,7 +865,7 @@ export function WalletsView({ type, glwSpotPrice }: WalletsViewProps) {
         : 0,
       averageMiningScore,
       bestMiningScore: miningScores.length ? Math.max(...miningScores) : null,
-      topWalletByRewards,
+      top3WalletsByRewards,
       topWalletByScore,
       newWallets: newWalletHighlights,
     };
@@ -739,19 +904,15 @@ export function WalletsView({ type, glwSpotPrice }: WalletsViewProps) {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <MetricCard
           title={`Active ${type === "delegator" ? "Delegators" : "Miners"}`}
-          value={analytics.walletCount.toLocaleString()}
+          value={(totalContributors ?? analytics.walletCount).toLocaleString()}
           icon={<Users className="h-5 w-5" />}
         >
-          {analytics.newWalletCount > 0 && (
-            <p>
-              {analytics.newWalletCount.toLocaleString()} new this range
-            </p>
-          )}
-          {summary?.totalWallets && (
-            <p>
-              Showing {analytics.walletCount.toLocaleString()} of{" "}
-              {summary.totalWallets.toLocaleString()} network wallets
-            </p>
+          {newWalletsLastWeek !== null ? (
+            <p>+{newWalletsLastWeek.toLocaleString()} new wallets last week</p>
+          ) : !totalContributors && analytics.newWalletCount > 0 ? (
+            <p>{analytics.newWalletCount.toLocaleString()} new this range</p>
+          ) : (
+            <p>Showing top {analytics.walletCount.toLocaleString()}</p>
           )}
         </MetricCard>
         <MetricCard
@@ -764,15 +925,16 @@ export function WalletsView({ type, glwSpotPrice }: WalletsViewProps) {
         {type === "delegator" && (
           <MetricCard
             title={capitalLabel}
-            value={`${analytics.totalCapitalDisplay} GLW`}
+            value={`${formatGLW(networkTotalGlwDelegated || "0")} GLW`}
             icon={<Zap className="h-5 w-5" />}
           >
-            {analytics.newWalletCount > 0 && (
-              <p>
-                New inflows: {`${analytics.newCapitalDisplay} GLW`} (
-                {(analytics.newCapitalShare * 100).toFixed(0)}%)
-              </p>
-            )}
+            <p>
+              {" "}
+              Last week: {formatGLW(
+                lastWeekNetworkTotalGlwDelegated || "0"
+              )}{" "}
+              GLW
+            </p>
           </MetricCard>
         )}
         <MetricCard
@@ -781,195 +943,123 @@ export function WalletsView({ type, glwSpotPrice }: WalletsViewProps) {
           icon={<LineChart className="h-5 w-5" />}
         >
           {analytics.bestMiningScore !== null ? (
-            <p>
-              Top wallet: {(analytics.bestMiningScore * 100).toFixed(1)}%
-            </p>
+            <p>Top wallet: {(analytics.bestMiningScore * 100).toFixed(1)}%</p>
           ) : (
             <p>No score available yet</p>
           )}
         </MetricCard>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <Card className="xl:col-span-2 border-border/60">
-          <CardHeader>
-            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-              <div>
-                <CardTitle>{rewardsLabel} & Efficiency</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Highlighting the top 20 wallets by{" "}
-                  {rewardsLabel.toLowerCase()} with their mining score.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                <Select value={validSortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="efficiency">Mining Score</SelectItem>
-                    {type === "delegator" ? (
-                      <>
-                        <SelectItem value="delegatorRewardsEarned">
-                          Rewards Earned
-                        </SelectItem>
-                        <SelectItem value="glwDelegated">
-                          GLW Delegated
-                        </SelectItem>
-                        <SelectItem value="totalRewardsEarned">
-                          Total Rewards
-                        </SelectItem>
-                      </>
-                    ) : (
-                      <>
-                        <SelectItem value="minerRewardsEarned">
-                          Rewards Earned
-                        </SelectItem>
-                        <SelectItem value="totalRewardsEarned">
-                          Total Rewards
-                        </SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+      <div className="space-y-4">
+        <Card className="border-border/60">
+          <CardHeader className="pb-4">
+            <div className="flex flex-col gap-1">
+              <CardTitle>{rewardsLabel} & Efficiency</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Top performers by rewards earned and mining efficiency
+              </p>
             </div>
           </CardHeader>
-          <CardContent>
-            {isFetching ? (
-              <Skeleton className="h-80 w-full" />
-            ) : (
-              <RewardsChart
-                wallets={wallets}
-                type={type}
-                glwSpotPrice={glwSpotPrice}
-                weekRange={weekRange}
-              />
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/60">
-          <CardHeader>
-            <CardTitle>Performance highlights</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Noteworthy wallets driving Glow mining outcomes this range.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {analytics.topWalletByRewards && (
-              <div className="rounded-lg border border-border/50 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase text-muted-foreground tracking-wide">
-                      Highest rewards
-                    </p>
-                    <p className="text-sm font-semibold mt-1">
-                      {formatAddress(
-                        analytics.topWalletByRewards.wallet.walletAddress
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {analytics.topWalletByRewards.formattedRewards} GLW
-                      earned
-                    </p>
-                  </div>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Performance Chart
+                  </h3>
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() =>
-                        copyToClipboard(
-                          analytics.topWalletByRewards!.wallet.walletAddress,
-                          "Address"
-                        )
-                      }
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" asChild>
-                      <a
-                        href={`${ETHERSCAN_BASE_URL}/address/${analytics.topWalletByRewards.wallet.walletAddress}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    </Button>
+                    <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                    <Select value={validSortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="w-[140px] h-8">
+                        <SelectValue placeholder="Sort" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="efficiency">Score</SelectItem>
+                        {type === "delegator" ? (
+                          <>
+                            <SelectItem value="delegatorRewardsEarned">
+                              Rewards
+                            </SelectItem>
+                            <SelectItem value="glwDelegated">
+                              Delegated
+                            </SelectItem>
+                            <SelectItem value="totalRewardsEarned">
+                              Total
+                            </SelectItem>
+                          </>
+                        ) : (
+                          <>
+                            <SelectItem value="minerRewardsEarned">
+                              Rewards
+                            </SelectItem>
+                            <SelectItem value="totalRewardsEarned">
+                              Total
+                            </SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {analytics.topWalletByScore && (
-              <div className="rounded-lg border border-border/50 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase text-muted-foreground tracking-wide">
-                      Strongest mining score
-                    </p>
-                    <p className="text-sm font-semibold mt-1">
-                      {formatAddress(
-                        analytics.topWalletByScore.wallet.walletAddress
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatMiningScore(analytics.topWalletByScore.score)}{" "}
-                      annualized
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() =>
-                        copyToClipboard(
-                          analytics.topWalletByScore!.wallet.walletAddress,
-                          "Address"
-                        )
-                      }
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" asChild>
-                      <a
-                        href={`${ETHERSCAN_BASE_URL}/address/${analytics.topWalletByScore.wallet.walletAddress}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {analytics.newWallets.length > 0 && (
-              <div>
-                <p className="text-xs uppercase text-muted-foreground tracking-wide">
-                  New capital inflows
-                </p>
-                <ul className="mt-3 space-y-2">
-                  {analytics.newWallets.map(
-                    ({ wallet, capitalDisplay }) => (
-                      <li
-                        key={wallet.walletAddress}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-border/40 p-3 text-sm"
-                      >
-                        <span className="font-mono text-xs">
-                          {formatAddress(wallet.walletAddress)}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {capitalDisplay}
-                        </span>
-                      </li>
-                    )
+                <div>
+                  {isFetching ? (
+                    <Skeleton className="h-80 w-full" />
+                  ) : (
+                    <RewardsChart
+                      wallets={wallets}
+                      type={type}
+                      glwSpotPrice={glwSpotPrice}
+                      weekRange={weekRange}
+                    />
                   )}
-                </ul>
+                </div>
               </div>
-            )}
+
+              {analytics.top3WalletsByRewards.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Top 3 Highest Rewards
+                  </h3>
+                  <div className="space-y-2">
+                    {analytics.top3WalletsByRewards.map((item, index) => (
+                      <div
+                        key={item.wallet.walletAddress}
+                        className="rounded-lg border border-border/50 bg-muted/30 p-3 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between gap-3 mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                              {index + 1}
+                            </span>
+                            <p className="text-sm font-semibold font-mono">
+                              {formatAddress(item.wallet.walletAddress)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() =>
+                                copyToClipboard(
+                                  item.wallet.walletAddress,
+                                  "Address"
+                                )
+                              }
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground pl-8">
+                          {item.formattedRewards} GLW earned
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -1014,114 +1104,192 @@ export function WalletsView({ type, glwSpotPrice }: WalletsViewProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {wallets.map((wallet) => {
-                    const capitalValue =
-                      type === "delegator"
-                        ? `${formatGLW(wallet.glwDelegated)} GLW`
-                        : null;
-                    const rewardsValue = formatGLW(
-                      type === "delegator"
-                        ? wallet.delegatorRewardsEarned
-                        : wallet.minerRewardsEarned
-                    );
-                    const miningScore = calculateMiningScore(
-                      wallet,
-                      type,
-                      glwSpotPrice,
-                      weekRange
-                    );
-                    const rewardsNumeric = Number(
-                      formatUnits(
-                        BigInt(
-                          (type === "delegator"
-                            ? wallet.delegatorRewardsEarned
-                            : wallet.minerRewardsEarned) || "0"
-                        ),
-                        18
-                      )
-                    );
-                    const share = analytics.totalRewardsNumber
-                      ? (rewardsNumeric / analytics.totalRewardsNumber) * 100
-                      : 0;
-                    const newBadge = isNewParticipant(wallet, type);
+                  {(showAllWallets ? wallets : wallets.slice(0, 10)).map(
+                    (wallet) => {
+                      const capitalValue =
+                        type === "delegator"
+                          ? `${formatGLW(wallet.glwDelegated)} GLW`
+                          : null;
+                      const rewardsValue = formatGLW(
+                        type === "delegator"
+                          ? wallet.delegatorRewardsEarned
+                          : wallet.minerRewardsEarned
+                      );
+                      const miningScore = calculateMiningScore(
+                        wallet,
+                        type,
+                        glwSpotPrice,
+                        weekRange
+                      );
+                      const rewardsNumeric = Number(
+                        formatUnits(
+                          BigInt(
+                            (type === "delegator"
+                              ? wallet.delegatorRewardsEarned
+                              : wallet.minerRewardsEarned) || "0"
+                          ),
+                          18
+                        )
+                      );
+                      const share = analytics.totalRewardsNumber
+                        ? (rewardsNumeric / analytics.totalRewardsNumber) * 100
+                        : 0;
+                      const newBadge = isNewParticipant(wallet, type);
 
-                    return (
-                      <TableRow key={wallet.walletAddress}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-sm">
-                              {formatAddress(wallet.walletAddress)}
-                            </span>
-                            {newBadge && (
-                              <Badge variant="secondary" className="text-xs">
-                                New
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        {type === "delegator" && (
-                          <TableCell className="text-right font-mono text-sm">
-                            {capitalValue}
+                      return (
+                        <TableRow key={wallet.walletAddress}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm">
+                                {formatAddress(wallet.walletAddress)}
+                              </span>
+                              {newBadge && (
+                                <Badge variant="secondary" className="text-xs">
+                                  New
+                                </Badge>
+                              )}
+                            </div>
                           </TableCell>
-                        )}
-                        <TableCell className="text-right font-mono text-sm">
-                          {rewardsValue} GLW
-                        </TableCell>
-                        <TableCell className="text-right text-sm">
-                          {share.toFixed(1)}%
-                        </TableCell>
-                        <TableCell className="text-right text-sm">
-                          {miningScore !== null ? (
-                            <Badge
-                              variant={
-                                miningScore >= 0.5
-                                  ? "default"
-                                  : miningScore >= 0.2
-                                  ? "secondary"
-                                  : "outline"
-                              }
-                              className="font-mono"
-                            >
-                              {formatMiningScore(miningScore)}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">N/A</span>
+                          {type === "delegator" && (
+                            <TableCell className="text-right font-mono text-sm">
+                              {capitalValue}
+                            </TableCell>
                           )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() =>
-                                copyToClipboard(
-                                  wallet.walletAddress,
-                                  "Address"
-                                )
-                              }
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" asChild>
-                              <a
-                                href={`${ETHERSCAN_BASE_URL}/address/${wallet.walletAddress}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                          <TableCell className="text-right font-mono text-sm">
+                            {rewardsValue} GLW
+                          </TableCell>
+                          <TableCell className="text-right text-sm">
+                            {share.toFixed(1)}%
+                          </TableCell>
+                          <TableCell className="text-right text-sm">
+                            {miningScore !== null ? (
+                              <Badge
+                                variant={
+                                  miningScore >= 0.5
+                                    ? "default"
+                                    : miningScore >= 0.2
+                                    ? "secondary"
+                                    : "outline"
+                                }
+                                className="font-mono"
                               >
-                                <ExternalLink className="h-4 w-4" />
-                              </a>
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                                {formatMiningScore(miningScore)}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">N/A</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() =>
+                                  copyToClipboard(
+                                    wallet.walletAddress,
+                                    "Address"
+                                  )
+                                }
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+                  )}
                 </TableBody>
               </Table>
             </div>
           )}
+          {wallets.length > 10 && (
+            <div className="flex justify-center pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setShowAllWallets(!showAllWallets)}
+              >
+                {showAllWallets
+                  ? "Show Less"
+                  : `Show All ${wallets.length} Wallets`}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {type === "delegator" &&
+        glwDelegationByEpoch &&
+        Object.keys(glwDelegationByEpoch).length > 0 && (
+          <Card className="border-border/60">
+            <CardHeader className="pb-4">
+              <div className="flex flex-col gap-1">
+                <CardTitle>Network Delegation Trend</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Growth of delegated GLW and recent network activity
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Delegation Over Time
+                  </h3>
+                  <div>
+                    <DelegationTrendChart
+                      glwDelegationByEpoch={glwDelegationByEpoch}
+                    />
+                  </div>
+                </div>
+
+                {recentActivity.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Recent Activity
+                    </h3>
+                    <ul className="space-y-2">
+                      {recentActivity.slice(0, 5).map((activity) => {
+                        const amount = Number(
+                          formatUnits(BigInt(activity.totalValue), 18)
+                        );
+                        const formattedAmount = amount.toLocaleString("en-US", {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 2,
+                        });
+                        const timeAgo = new Date(
+                          activity.purchaseDate
+                        ).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        });
+
+                        return (
+                          <li
+                            key={`${activity.transactionHash}-${activity.timestamp}`}
+                            className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-muted/30 p-3 hover:bg-muted/50 transition-colors text-sm"
+                          >
+                            <div className="flex flex-col gap-1">
+                              <span className="font-mono text-xs font-semibold">
+                                {formatAddress(activity.buyer)}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {timeAgo}
+                              </span>
+                            </div>
+                            <span className="text-xs font-semibold text-foreground">
+                              {formattedAmount} GLW
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       <div className="space-y-4">
         <header className="space-y-2">
@@ -1247,4 +1415,3 @@ export function WalletsView({ type, glwSpotPrice }: WalletsViewProps) {
     </div>
   );
 }
-

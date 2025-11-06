@@ -7,6 +7,7 @@ import {
   LineChart,
   TrendingUp,
   Zap,
+  Info,
 } from "lucide-react";
 import {
   ComposedChart,
@@ -22,9 +23,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
@@ -42,6 +51,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   useFarmsEfficiencyScores,
   useFarmWeeklyRewards,
@@ -137,6 +153,7 @@ function getCurrencyPrice(
 interface FarmsRewardsChartProps {
   farms: Array<{
     farmId: string;
+    name: string;
     efficiencyScore: number;
     protocolDepositUsd6: string;
     weeklyImpactAssetsWad: string;
@@ -144,7 +161,7 @@ interface FarmsRewardsChartProps {
     weeklyProtocolDeposit?: number;
     weeklyProtocolDepositRewards?: number;
     paymentCurrency?: string;
-    regionId?: number;
+    regionId: number;
     totalRewardsUsd?: number;
   }>;
   glwPrice: number | null;
@@ -152,31 +169,36 @@ interface FarmsRewardsChartProps {
 
 function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
   const chartData = React.useMemo(() => {
-    return farms.slice(0, 20).map((farm, index) => {
-      const totalRewardsUsd = farm.totalRewardsUsd ?? 0;
-      const efficiency = farm.efficiencyScore;
+    return farms
+      .filter((farm) => (farm.totalRewardsUsd ?? 0) > 0)
+      .slice(0, 20)
+      .map((farm, index) => {
+        const totalRewardsUsd = farm.totalRewardsUsd ?? 0;
+        const efficiency = farm.efficiencyScore;
+        const farmName = farm.name || `Farm ${farm.farmId.slice(0, 8)}`;
 
-      return {
-        farm: `${farm.farmId.slice(0, 6)}...`,
-        fullFarmId: farm.farmId,
-        totalRewardsUsd,
-        efficiency,
-        glwRewards: farm.weeklyGlwRewards ?? 0,
-        protocolDepositRewards: farm.weeklyProtocolDepositRewards ?? 0,
-        paymentCurrency: farm.paymentCurrency,
-        index: index + 1,
-      };
-    });
+        return {
+          farm: farmName.length > 20 ? `${farmName.slice(0, 17)}...` : farmName,
+          fullFarmName: farmName,
+          fullFarmId: farm.farmId,
+          totalRewardsUsd,
+          efficiency,
+          glwRewards: farm.weeklyGlwRewards ?? 0,
+          protocolDepositRewards: farm.weeklyProtocolDepositRewards ?? 0,
+          paymentCurrency: farm.paymentCurrency,
+          index: index + 1,
+        };
+      });
   }, [farms]);
 
   const chartConfig = {
     totalRewardsUsd: {
       label: "Total Rewards (USD)",
-      color: "hsl(142, 71%, 45%)",
+      color: "#ff8533",
     },
     efficiency: {
       label: "Efficiency Score",
-      color: "hsl(25, 95%, 53%)",
+      color: "#fcbe94",
     },
   } satisfies ChartConfig;
 
@@ -229,12 +251,16 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
             <ChartTooltipContent
               className="min-w-[220px]"
               labelFormatter={(_, payload) => {
+                const farmName = payload?.[0]?.payload?.fullFarmName || "";
                 const farmId = payload?.[0]?.payload?.fullFarmId || "";
                 return (
-                  <div className="font-mono text-xs mb-2 pb-2 border-b border-border/50">
-                    {farmId
-                      ? `${farmId.slice(0, 10)}...${farmId.slice(-8)}`
-                      : ""}
+                  <div className="space-y-1 mb-2 pb-2 border-b border-border/50">
+                    <div className="font-semibold text-sm">{farmName}</div>
+                    <div className="font-mono text-xs text-muted-foreground">
+                      {farmId
+                        ? `${farmId.slice(0, 10)}...${farmId.slice(-8)}`
+                        : ""}
+                    </div>
                   </div>
                 );
               }}
@@ -254,17 +280,28 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
                     payload?.payload?.protocolDepositRewards ?? 0;
                   const currency = payload?.payload?.paymentCurrency || "";
                   return [
-                    <div className="space-y-1">
+                    <div key="total-rewards" className="space-y-1">
                       <div className="font-semibold">${formatted}</div>
                       <div className="text-xs text-muted-foreground">
-                        {glwRewards.toLocaleString("en-US", {
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        GLW +{" "}
-                        {pdRewards.toLocaleString("en-US", {
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        {currency}
+                        {currency === "GLW" ? (
+                          <>
+                            {(glwRewards + pdRewards).toLocaleString("en-US", {
+                              maximumFractionDigits: 2,
+                            })}{" "}
+                            GLW
+                          </>
+                        ) : (
+                          <>
+                            {glwRewards.toLocaleString("en-US", {
+                              maximumFractionDigits: 2,
+                            })}{" "}
+                            GLW +{" "}
+                            {pdRewards.toLocaleString("en-US", {
+                              maximumFractionDigits: 2,
+                            })}{" "}
+                            {currency}
+                          </>
+                        )}
                       </div>
                     </div>,
                     "Total Rewards (USD)",
@@ -275,7 +312,9 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
                 ) {
                   const formatted = numValue.toFixed(2);
                   return [
-                    <span className="font-semibold">{formatted}</span>,
+                    <span key="efficiency-score" className="font-semibold">
+                      {formatted}
+                    </span>,
                     "Efficiency Score",
                   ];
                 }
@@ -284,6 +323,7 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
             />
           }
         />
+        <ChartLegend content={<ChartLegendContent />} />
         <Bar
           yAxisId="left"
           dataKey="totalRewardsUsd"
@@ -313,12 +353,16 @@ interface FarmsViewProps {
 export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
   const [sortBy, setSortBy] = React.useState<
     "efficiency" | "glwRewards" | "totalRewardsUsd" | "protocolDeposit"
-  >("totalRewardsUsd");
+  >("efficiency");
   const [selectedRegionId, setSelectedRegionId] = React.useState<
     number | "all"
   >("all");
+  const [selectedFarmForDialog, setSelectedFarmForDialog] = React.useState<{
+    farmId: string;
+    farmName: string;
+  } | null>(null);
 
-  const { regions, isRegionsLoading } = useRegions();
+  const { regions } = useRegions();
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
   const { gctlMintPrice } = useGlowPrices();
 
@@ -351,13 +395,11 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
   });
 
   const {
-    data: weeklyRewardsData,
-    isLoading: isWeeklyRewardsLoading,
-    isFetching: isWeeklyRewardsFetching,
-    isError: isWeeklyRewardsError,
+    data: dialogWeeklyRewardsData,
+    isLoading: isDialogWeeklyRewardsLoading,
   } = useFarmWeeklyRewards({
-    farmId: selectedFarmId,
-    enabled: !!selectedFarmId,
+    farmId: selectedFarmForDialog?.farmId || "",
+    enabled: !!selectedFarmForDialog?.farmId,
     limit: 52,
   });
 
@@ -373,7 +415,6 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
       let weeklyProtocolDeposit = 0;
       let weeklyProtocolDepositRewards = 0;
       let paymentCurrency: string | undefined;
-      let regionId: number | undefined;
       let totalRewardsUsd = 0;
 
       if (
@@ -402,7 +443,6 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
         )
           .div(decimals)
           .toNumber();
-        regionId = batchResult.regionId;
 
         const glwRewardsUsd = weeklyGlwRewards * (glwSpotPrice || 0);
         const pdCurrencyPrice = getCurrencyPrice(
@@ -420,7 +460,6 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
         weeklyProtocolDeposit,
         weeklyProtocolDepositRewards,
         paymentCurrency,
-        regionId,
         totalRewardsUsd,
       };
     });
@@ -452,32 +491,51 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
     gctlMintPrice,
   ]);
 
-  const weeklyRewardsChartData = React.useMemo(() => {
-    if (!weeklyRewardsData?.rewards) return [];
-
-    return weeklyRewardsData.rewards
-      .sort((a, b) => a.weekNumber - b.weekNumber)
-      .map((reward) => ({
-        week: `W${reward.weekNumber}`,
-        weekNumber: reward.weekNumber,
-        glwInflation: Number(formatRewardValue(reward.glowInflationTotal, 18)),
-        protocolDeposit: Number(
-          formatRewardValue(reward.protocolDepositPaidTotal, 6)
-        ),
-        expectedProduction: Number(
-          formatRewardValue(reward.expectedProductionTotal, 18)
-        ),
-        paymentCurrency: reward.paymentCurrency,
-      }));
-  }, [weeklyRewardsData]);
-
-  const selectedFarm = React.useMemo(() => {
-    return farms.find((f) => f.farmId === selectedFarmId);
-  }, [farms, selectedFarmId]);
-
   const totalLastWeekRewardsUsd = React.useMemo(() => {
     return farms.reduce((sum, f) => sum + (f.totalRewardsUsd ?? 0), 0);
   }, [farms]);
+
+  const rewardsBreakdown = React.useMemo(() => {
+    const breakdown = new Map<string, { amount: number; usdValue: number }>();
+    let farmsWithData = 0;
+
+    farms.forEach((farm) => {
+      if (farm.totalRewardsUsd > 0) {
+        farmsWithData++;
+      }
+
+      if (farm.weeklyGlwRewards && farm.weeklyGlwRewards > 0) {
+        const existing = breakdown.get("GLW") || { amount: 0, usdValue: 0 };
+        breakdown.set("GLW", {
+          amount: existing.amount + farm.weeklyGlwRewards,
+          usdValue:
+            existing.usdValue + farm.weeklyGlwRewards * (glwSpotPrice || 0),
+        });
+      }
+
+      if (
+        farm.weeklyProtocolDepositRewards &&
+        farm.weeklyProtocolDepositRewards > 0 &&
+        farm.paymentCurrency
+      ) {
+        const currency = farm.paymentCurrency;
+        const existing = breakdown.get(currency) || { amount: 0, usdValue: 0 };
+        const currencyPrice = getCurrencyPrice(
+          currency,
+          glwSpotPrice,
+          gctlMintPrice
+        );
+        breakdown.set(currency, {
+          amount: existing.amount + farm.weeklyProtocolDepositRewards,
+          usdValue:
+            existing.usdValue +
+            farm.weeklyProtocolDepositRewards * currencyPrice,
+        });
+      }
+    });
+
+    return { breakdown, farmsWithData, totalFarms: farms.length };
+  }, [farms, glwSpotPrice, gctlMintPrice]);
 
   const regionUsdTotals = React.useMemo(() => {
     if (!batchWeeklyRewardsData?.results || !efficiencyData)
@@ -534,17 +592,6 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
     return regionTotals;
   }, [batchWeeklyRewardsData, efficiencyData, glwSpotPrice, gctlMintPrice]);
 
-  const chartConfig = {
-    glwInflation: {
-      label: "GLW Inflation",
-      color: "hsl(142, 71%, 45%)",
-    },
-    protocolDeposit: {
-      label: "Protocol Deposit",
-      color: "hsl(217, 91%, 60%)",
-    },
-  } satisfies ChartConfig;
-
   if (isEfficiencyLoading) {
     return <RewardsSkeleton />;
   }
@@ -560,69 +607,324 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <MetricCard
-          title={
-            selectedRegionId === "all"
-              ? "Total Farms"
-              : `Farms in ${
-                  regions.find((r) => r.id === selectedRegionId)?.name ||
-                  "Region"
-                }`
-          }
-          value={farms.length.toLocaleString()}
-          icon={<Activity className="h-5 w-5" />}
-        >
-          <p>
-            {selectedRegionId === "all"
-              ? "Tracked farms with efficiency scores"
-              : "Farms with efficiency scores in this region"}
-          </p>
-        </MetricCard>
+    <>
+      <Dialog
+        open={selectedFarmForDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedFarmForDialog(null);
+        }}
+      >
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedFarmForDialog?.farmName}</DialogTitle>
+            <DialogDescription>
+              V2 weekly rewards breakdown and farm statistics
+            </DialogDescription>
+          </DialogHeader>
 
-        <MetricCard
-          title="Last Week Rewards"
-          value={`$${totalLastWeekRewardsUsd.toLocaleString("en-US", {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-          })}`}
-          icon={<TrendingUp className="h-5 w-5" />}
-        >
-          <p>
-            {selectedRegionId === "all"
-              ? "Total rewards distributed to all farms"
-              : `Rewards distributed to ${
-                  regions.find((r) => r.id === selectedRegionId)?.name ||
-                  "region"
-                } farms`}
-          </p>
-        </MetricCard>
+          {isDialogWeeklyRewardsLoading ? (
+            <div className="py-8">
+              <Skeleton className="h-80 w-full" />
+            </div>
+          ) : dialogWeeklyRewardsData &&
+            dialogWeeklyRewardsData.rewards.length > 0 ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Card>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground mb-1.5">
+                      Weeks Active
+                    </p>
+                    <p className="font-mono font-bold text-xl">
+                      {dialogWeeklyRewardsData.summary.weeksActive}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground mb-1.5">
+                      Total GLW Inflation
+                    </p>
+                    <p className="font-mono font-semibold text-sm">
+                      {formatRewardValue(
+                        dialogWeeklyRewardsData.summary.totalGlowInflation,
+                        18
+                      )}{" "}
+                      GLW
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground mb-1.5">
+                      Total PD Rewards
+                    </p>
+                    <p className="font-mono font-semibold text-sm">
+                      {(() => {
+                        const currency =
+                          dialogWeeklyRewardsData.rewards[0]?.paymentCurrency ||
+                          "GLW";
+                        const decimals = currency === "GLW" ? 18 : 6;
+                        const total = dialogWeeklyRewardsData.rewards.reduce(
+                          (sum, r) =>
+                            sum.plus(r.protocolDepositRewardsDistributed),
+                          new Decimal(0)
+                        );
+                        return currency === "GLW"
+                          ? `${formatRewardValue(
+                              total.toString(),
+                              decimals
+                            )} GLW`
+                          : `${formatRewardValue(
+                              total.toString(),
+                              decimals
+                            )} ${currency}`;
+                      })()}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground mb-1.5">
+                      Protocol Deposit
+                    </p>
+                    <p className="font-mono font-semibold text-sm">
+                      $
+                      {formatRewardValue(
+                        dialogWeeklyRewardsData.rewards[0]
+                          ?.protocolDepositPaidTotal || "0",
+                        6
+                      )}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
 
-        <MetricCard
-          title="Average Efficiency"
-          value={
-            farms.length > 0
-              ? (
-                  farms.reduce((sum, f) => sum + f.efficiencyScore, 0) /
-                  farms.length
-                ).toFixed(2)
-              : "0.00"
-          }
-          icon={<Zap className="h-5 w-5" />}
-        >
-          <p>Carbon credits per $100k deposit/week</p>
-        </MetricCard>
+              <div className="rounded-lg border">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left p-3 font-medium">Week</th>
+                        <th className="text-left p-3 font-medium">Currency</th>
+                        <th className="text-right p-3 font-medium">
+                          GLW Inflation
+                        </th>
+                        <th className="text-right p-3 font-medium">
+                          PD Rewards Distributed
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dialogWeeklyRewardsData.rewards
+                        .slice()
+                        .reverse()
+                        .map((reward) => (
+                          <tr
+                            key={reward.weekNumber}
+                            className="border-b last:border-0 hover:bg-muted/30"
+                          >
+                            <td className="p-3 font-semibold">
+                              Week {reward.weekNumber}
+                            </td>
+                            <td className="p-3">
+                              <Badge variant="outline" className="text-xs">
+                                {reward.paymentCurrency}
+                              </Badge>
+                            </td>
+                            <td className="p-3 text-right font-mono">
+                              {formatRewardValue(reward.glowInflationTotal, 18)}{" "}
+                              GLW
+                            </td>
+                            <td className="p-3 text-right font-mono">
+                              {reward.paymentCurrency === "GLW"
+                                ? `${formatRewardValue(
+                                    reward.protocolDepositRewardsDistributed,
+                                    18
+                                  )} GLW`
+                                : `${formatRewardValue(
+                                    reward.protocolDepositRewardsDistributed,
+                                    6
+                                  )} ${reward.paymentCurrency}`}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t bg-muted/50 font-semibold">
+                        <td className="p-3" colSpan={2}>
+                          Total
+                        </td>
+                        <td className="p-3 text-right font-mono">
+                          {formatRewardValue(
+                            dialogWeeklyRewardsData.summary.totalGlowInflation,
+                            18
+                          )}{" "}
+                          GLW
+                        </td>
+                        <td className="p-3 text-right font-mono">
+                          {(() => {
+                            const currency =
+                              dialogWeeklyRewardsData.rewards[0]
+                                ?.paymentCurrency || "GLW";
+                            const decimals = currency === "GLW" ? 18 : 6;
+                            const total =
+                              dialogWeeklyRewardsData.rewards.reduce(
+                                (sum, r) =>
+                                  sum.plus(r.protocolDepositRewardsDistributed),
+                                new Decimal(0)
+                              );
+                            return currency === "GLW"
+                              ? `${formatRewardValue(
+                                  total.toString(),
+                                  decimals
+                                )} GLW`
+                              : `${formatRewardValue(
+                                  total.toString(),
+                                  decimals
+                                )} ${currency}`;
+                          })()}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-muted-foreground">
+              No weekly rewards data available for this farm
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
-        {selectedFarm && weeklyRewardsData ? (
+      <div className="space-y-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <MetricCard
-            title="Weeks Active"
-            value={weeklyRewardsData.summary.weeksActive.toString()}
-            icon={<LineChart className="h-5 w-5" />}
+            title={
+              selectedRegionId === "all"
+                ? "Total Farms"
+                : `Farms in ${
+                    regions.find((r) => r.id === selectedRegionId)?.name ||
+                    "Region"
+                  }`
+            }
+            value={farms.length.toLocaleString()}
+            icon={<Activity className="h-5 w-5" />}
           >
-            <p>Selected farm: {selectedFarmId.slice(0, 8)}...</p>
+            <p>
+              {selectedRegionId === "all"
+                ? `All farms tracked (${rewardsBreakdown.farmsWithData} with recent rewards)`
+                : `Farms in region (${rewardsBreakdown.farmsWithData} with recent rewards)`}
+            </p>
           </MetricCard>
-        ) : (
+
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <MetricCard
+                    title="Last Week Rewards"
+                    value={`$${totalLastWeekRewardsUsd.toLocaleString("en-US", {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0,
+                    })}`}
+                    icon={<TrendingUp className="h-5 w-5" />}
+                  >
+                    <p>
+                      {selectedRegionId === "all"
+                        ? `Distributed to ${rewardsBreakdown.farmsWithData} farms with recent data`
+                        : `Distributed to ${rewardsBreakdown.farmsWithData} farms with recent data`}
+                    </p>
+                  </MetricCard>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <div className="space-y-2">
+                  <p className="font-semibold text-sm">Breakdown by Asset</p>
+                  {Array.from(rewardsBreakdown.breakdown.entries())
+                    .sort((a, b) => b[1].usdValue - a[1].usdValue)
+                    .map(([currency, data]) => (
+                      <div
+                        key={currency}
+                        className="flex justify-between items-center gap-4 text-sm"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {currency}
+                          </Badge>
+                          <span className="font-mono">
+                            {data.amount.toLocaleString("en-US", {
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 2,
+                            })}
+                          </span>
+                        </div>
+                        <span className="font-semibold">
+                          $
+                          {data.usdValue.toLocaleString("en-US", {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0,
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                  {rewardsBreakdown.farmsWithData <
+                    rewardsBreakdown.totalFarms && (
+                    <p className="text-xs text-muted-foreground pt-2 border-t">
+                      {rewardsBreakdown.totalFarms -
+                        rewardsBreakdown.farmsWithData}{" "}
+                      {rewardsBreakdown.totalFarms -
+                        rewardsBreakdown.farmsWithData ===
+                      1
+                        ? "farm has"
+                        : "farms have"}{" "}
+                      no recent reward data
+                    </p>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <MetricCard
+            title={
+              selectedRegionId === "all"
+                ? "Average Efficiency"
+                : "Region Efficiency"
+            }
+            value={(() => {
+              if (selectedRegionId !== "all") {
+                const selectedRegion = regions.find(
+                  (r) => r.id === selectedRegionId
+                );
+                return selectedRegion
+                  ? selectedRegion.efficiencyScore.toFixed(2)
+                  : "0.00";
+              }
+
+              const activeRegions = regions.filter(
+                (r) => r.isActive && regionUsdTotals.has(r.id)
+              );
+              return activeRegions.length > 0
+                ? (
+                    activeRegions.reduce(
+                      (sum, r) => sum + r.efficiencyScore,
+                      0
+                    ) / activeRegions.length
+                  ).toFixed(2)
+                : "0.00";
+            })()}
+            icon={<Zap className="h-5 w-5" />}
+          >
+            <p>
+              {selectedRegionId === "all"
+                ? "Average efficiency across all active regions"
+                : "Carbon credits per $100k deposit/week"}
+            </p>
+          </MetricCard>
+
           <MetricCard
             title="Top Farm Efficiency"
             value={
@@ -634,499 +936,277 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
           >
             <p>Highest performing farm</p>
           </MetricCard>
-        )}
-      </div>
+        </div>
 
-      <Card className="border-border/60">
-        <CardHeader>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-              <div>
-                <CardTitle>Weekly Rewards & Efficiency Overview</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {selectedRegionId === "all"
-                    ? "Comparing top 20 farms by last week's total rewards (USD) and their efficiency scores."
-                    : `Top 20 farms in ${
-                        regions.find((r) => r.id === selectedRegionId)?.name ||
-                        "this region"
-                      } by last week's total rewards (USD) and efficiency scores.`}
-                </p>
+        <Card className="border-border/60">
+          <CardHeader>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                <div>
+                  <CardTitle>Weekly Rewards & Efficiency Overview</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {selectedRegionId === "all"
+                      ? "Comparing top 20 farms with recent rewards by efficiency score and their weekly rewards (USD)."
+                      : `Top 20 farms with recent rewards in ${
+                          regions.find((r) => r.id === selectedRegionId)
+                            ?.name || "this region"
+                        } by efficiency score and weekly rewards (USD).`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                  <Select
+                    value={sortBy}
+                    onValueChange={(value) =>
+                      setSortBy(
+                        value as
+                          | "efficiency"
+                          | "glwRewards"
+                          | "totalRewardsUsd"
+                          | "protocolDeposit"
+                      )
+                    }
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="efficiency">
+                        Efficiency Score
+                      </SelectItem>
+                      <SelectItem value="totalRewardsUsd">
+                        Total Rewards (USD)
+                      </SelectItem>
+                      <SelectItem value="glwRewards">GLW Inflation</SelectItem>
+                      <SelectItem value="protocolDeposit">
+                        Protocol Deposit
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Region:</span>
                 <Select
-                  value={sortBy}
+                  value={String(selectedRegionId)}
                   onValueChange={(value) =>
-                    setSortBy(
-                      value as
-                        | "efficiency"
-                        | "glwRewards"
-                        | "totalRewardsUsd"
-                        | "protocolDeposit"
-                    )
+                    setSelectedRegionId(value === "all" ? "all" : Number(value))
                   }
                 >
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Sort by" />
+                  <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="Select region" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="totalRewardsUsd">
-                      Total Rewards (USD)
+                    <SelectItem value="all">
+                      All Regions
+                      {regionUsdTotals.size > 0 && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          ($
+                          {Array.from(regionUsdTotals.values())
+                            .reduce((sum, val) => sum + val, 0)
+                            .toLocaleString("en-US", {
+                              maximumFractionDigits: 0,
+                            })}
+                          /week )
+                        </span>
+                      )}
                     </SelectItem>
-                    <SelectItem value="efficiency">Efficiency Score</SelectItem>
-                    <SelectItem value="glwRewards">GLW Rewards</SelectItem>
-                    <SelectItem value="protocolDeposit">
-                      Protocol Deposit
-                    </SelectItem>
+                    {regions
+                      .filter((region) => regionUsdTotals.has(region.id))
+                      .sort(
+                        (a, b) =>
+                          (regionUsdTotals.get(b.id) || 0) -
+                          (regionUsdTotals.get(a.id) || 0)
+                      )
+                      .map((region) => {
+                        const usdTotal = regionUsdTotals.get(region.id) || 0;
+                        return (
+                          <SelectItem key={region.id} value={String(region.id)}>
+                            {region.name}
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              ($
+                              {usdTotal.toLocaleString("en-US", {
+                                maximumFractionDigits: 0,
+                              })}
+                              /week)
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Region:</span>
-              <Select
-                value={String(selectedRegionId)}
-                onValueChange={(value) =>
-                  setSelectedRegionId(value === "all" ? "all" : Number(value))
-                }
-              >
-                <SelectTrigger className="w-[280px]">
-                  <SelectValue placeholder="Select region" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">
-                    All Regions
-                    {regionUsdTotals.size > 0 && (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        ($
-                        {Array.from(regionUsdTotals.values())
-                          .reduce((sum, val) => sum + val, 0)
-                          .toLocaleString("en-US", {
-                            maximumFractionDigits: 0,
-                          })}
-                        /week )
-                      </span>
-                    )}
-                  </SelectItem>
-                  {regions
-                    .filter((region) => regionUsdTotals.has(region.id))
-                    .sort(
-                      (a, b) =>
-                        (regionUsdTotals.get(b.id) || 0) -
-                        (regionUsdTotals.get(a.id) || 0)
-                    )
-                    .map((region) => {
-                      const usdTotal = regionUsdTotals.get(region.id) || 0;
-                      return (
-                        <SelectItem key={region.id} value={String(region.id)}>
-                          {region.name}
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            ($
-                            {usdTotal.toLocaleString("en-US", {
-                              maximumFractionDigits: 0,
-                            })}
-                            /week)
-                          </span>
-                        </SelectItem>
-                      );
-                    })}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isEfficiencyFetching || isBatchWeeklyRewardsFetching ? (
-            <Skeleton className="h-80 w-full" />
-          ) : (
-            <FarmsRewardsChart farms={farms} glwPrice={glwSpotPrice} />
-          )}
-        </CardContent>
-      </Card>
-
-      {selectedFarmId && selectedFarm && (
-        <Card className="border-border/60">
-          <CardHeader>
-            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-              <div>
-                <CardTitle>Farm {selectedFarmId.slice(0, 8)}...</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Historical weekly rewards distribution
-                </p>
-                <p className="text-xs text-muted-foreground mt-1 font-mono">
-                  {selectedFarmId}
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => onSelectFarm("")}
-                size="sm"
-              >
-                Clear Selection
-              </Button>
-            </div>
           </CardHeader>
           <CardContent>
-            {isWeeklyRewardsLoading || isWeeklyRewardsFetching ? (
+            {isEfficiencyFetching || isBatchWeeklyRewardsFetching ? (
               <Skeleton className="h-80 w-full" />
-            ) : isWeeklyRewardsError ? (
-              <div className="h-80 flex items-center justify-center text-muted-foreground text-sm">
-                Failed to load weekly rewards data
-              </div>
-            ) : weeklyRewardsChartData.length === 0 ? (
-              <div className="h-80 flex items-center justify-center text-muted-foreground text-sm">
-                No weekly rewards data available
-              </div>
             ) : (
-              <ChartContainer config={chartConfig} className="h-80 w-full">
-                <ComposedChart
-                  accessibilityLayer
-                  data={weeklyRewardsChartData}
-                  margin={{ left: 12, right: 12, top: 12, bottom: 40 }}
-                >
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="week"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                  />
-                  <YAxis
-                    yAxisId="left"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    tickFormatter={(value) =>
-                      value >= 1000
-                        ? `${(value / 1000).toFixed(1)}k`
-                        : value.toString()
-                    }
-                  />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        className="min-w-[200px]"
-                        labelFormatter={(_, payload) => {
-                          const weekNum = payload?.[0]?.payload?.weekNumber;
-                          return (
-                            <div className="font-semibold mb-2 pb-2 border-b border-border/50">
-                              Week {weekNum}
-                            </div>
-                          );
-                        }}
-                        formatter={(value, name) => {
-                          const numValue = Number(value);
-                          const formatted = numValue.toLocaleString("en-US", {
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 2,
-                          });
-
-                          if (
-                            name === "glwInflation" ||
-                            name === "GLW Inflation"
-                          ) {
-                            return [
-                              <span className="font-semibold">
-                                {formatted} GLW
-                              </span>,
-                              "GLW Inflation",
-                            ];
-                          } else if (
-                            name === "protocolDeposit" ||
-                            name === "Protocol Deposit"
-                          ) {
-                            return [
-                              <span className="font-semibold">
-                                ${formatted}
-                              </span>,
-                              "Protocol Deposit",
-                            ];
-                          }
-                          return [String(value), String(name)];
-                        }}
-                      />
-                    }
-                  />
-                  <Bar
-                    yAxisId="left"
-                    dataKey="glwInflation"
-                    fill="var(--color-glwInflation)"
-                    radius={[4, 4, 0, 0]}
-                    name="GLW Inflation"
-                  />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="protocolDeposit"
-                    stroke="var(--color-protocolDeposit)"
-                    strokeWidth={2}
-                    dot={{ r: 4, fill: "var(--color-protocolDeposit)" }}
-                    name="Protocol Deposit"
-                  />
-                </ComposedChart>
-              </ChartContainer>
+              <FarmsRewardsChart farms={farms} glwPrice={glwSpotPrice} />
             )}
           </CardContent>
         </Card>
-      )}
 
-      <Card className="border-border/60">
-        <CardHeader>
-          <CardTitle>Farm Efficiency Leaderboard</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">
-            {selectedRegionId === "all"
-              ? "All farms ranked by carbon credit production efficiency"
-              : `${
-                  regions.find((r) => r.id === selectedRegionId)?.name ||
-                  "Region"
-                } farms ranked by carbon credit production efficiency`}
-          </p>
-        </CardHeader>
-        <CardContent>
-          {isEfficiencyFetching ? (
-            <div className="space-y-2">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <Skeleton key={index} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Rank</TableHead>
-                    <TableHead>Farm ID</TableHead>
-                    <TableHead>Region</TableHead>
-                    <TableHead className="text-right">
-                      Efficiency Score
-                    </TableHead>
-                    <TableHead className="text-right">Last Week GLW</TableHead>
-                    <TableHead className="text-right">
-                      Protocol Deposit Rewards
-                    </TableHead>
-                    <TableHead className="text-right">
-                      Protocol Deposit (USD)
-                    </TableHead>
-                    <TableHead className="text-right">
-                      Weekly Carbon Credits
-                    </TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {farms.map((farm, index) => (
-                    <TableRow
-                      key={farm.farmId}
-                      className={
-                        selectedFarmId === farm.farmId
-                          ? "bg-muted/50"
-                          : "cursor-pointer hover:bg-muted/30"
-                      }
-                      onClick={() => onSelectFarm(farm.farmId)}
-                    >
-                      <TableCell className="font-semibold">
-                        #{index + 1}
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-mono text-sm">
-                          {farm.farmId.slice(0, 8)}...{farm.farmId.slice(-4)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {farm.regionId ? (
+        <Card className="border-border/60">
+          <CardHeader>
+            <CardTitle>Farm Efficiency Leaderboard</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              {selectedRegionId === "all"
+                ? "All farms ranked by carbon credit production efficiency"
+                : `${
+                    regions.find((r) => r.id === selectedRegionId)?.name ||
+                    "Region"
+                  } farms ranked by carbon credit production efficiency`}
+            </p>
+          </CardHeader>
+          <CardContent>
+            {isEfficiencyFetching ? (
+              <div className="space-y-2">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <Skeleton key={index} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Rank</TableHead>
+                      <TableHead>Farm Name</TableHead>
+                      <TableHead>Region</TableHead>
+                      <TableHead className="text-right">
+                        Efficiency Score
+                      </TableHead>
+                      <TableHead className="text-right">
+                        Last Week GLW
+                      </TableHead>
+                      <TableHead className="text-right">
+                        Protocol Deposit Rewards
+                      </TableHead>
+                      <TableHead className="text-right">
+                        Protocol Deposit (USD)
+                      </TableHead>
+                      <TableHead className="text-right">
+                        Weekly Carbon Credits
+                      </TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {farms.map((farm, index) => (
+                      <TableRow
+                        key={farm.farmId}
+                        className={
+                          farm.totalRewardsUsd > 0
+                            ? "cursor-pointer hover:bg-muted/30"
+                            : ""
+                        }
+                        onClick={() => {
+                          if (farm.totalRewardsUsd > 0) {
+                            setSelectedFarmForDialog({
+                              farmId: farm.farmId,
+                              farmName:
+                                farm.name || `Farm ${farm.farmId.slice(0, 8)}`,
+                            });
+                          }
+                        }}
+                      >
+                        <TableCell className="font-semibold">
+                          #{index + 1}
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-0.5">
+                            <div className="font-medium text-sm">
+                              {farm.name || `Farm ${farm.farmId.slice(0, 8)}`}
+                            </div>
+                            <div className="font-mono text-xs text-muted-foreground">
+                              {farm.farmId.slice(0, 8)}...
+                              {farm.farmId.slice(-4)}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
                           <Badge variant="secondary" className="text-xs">
                             {regions.find((r) => r.id === farm.regionId)
                               ?.name || `Region ${farm.regionId}`}
                           </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            N/A
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge
-                          variant={
-                            farm.efficiencyScore >= 10
-                              ? "default"
-                              : farm.efficiencyScore >= 5
-                              ? "secondary"
-                              : "outline"
-                          }
-                          className="font-mono"
-                        >
-                          {farm.efficiencyScore.toFixed(2)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        {farm.weeklyGlwRewards
-                          ? `${farm.weeklyGlwRewards.toLocaleString("en-US", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })} GLW`
-                          : "N/A"}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        {farm.weeklyProtocolDepositRewards &&
-                        farm.paymentCurrency ? (
-                          <>
-                            {farm.weeklyProtocolDepositRewards.toLocaleString(
-                              "en-US",
-                              {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              }
-                            )}{" "}
-                            <span className="text-muted-foreground">
-                              {farm.paymentCurrency}
-                            </span>
-                          </>
-                        ) : (
-                          "N/A"
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        ${formatRewardValue(farm.protocolDepositUsd6, 6)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        {formatRewardValue(farm.weeklyImpactAssetsWad, 18)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectFarm(farm.farmId);
-                          }}
-                        >
-                          View Details
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {selectedFarmId && weeklyRewardsData && (
-        <Card className="border-border/60">
-          <CardHeader>
-            <CardTitle>Weekly Rewards Breakdown</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Detailed weekly performance data for the selected farm
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Week</TableHead>
-                    <TableHead>Payment Currency</TableHead>
-                    <TableHead className="text-right">
-                      GLW Inflation Total
-                    </TableHead>
-                    <TableHead className="text-right">
-                      Protocol Deposit Paid
-                    </TableHead>
-                    <TableHead className="text-right">
-                      Expected Production
-                    </TableHead>
-                    <TableHead className="text-right">
-                      Rewards Distributed
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {weeklyRewardsData.rewards
-                    .sort((a, b) => b.weekNumber - a.weekNumber)
-                    .map((reward) => (
-                      <TableRow key={reward.weekNumber}>
-                        <TableCell className="font-semibold">
-                          Week {reward.weekNumber}
                         </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {reward.paymentCurrency}
+                        <TableCell className="text-right">
+                          <Badge
+                            variant="outline"
+                            className={`font-mono ${
+                              farm.efficiencyScore >= 10
+                                ? "bg-[#ccffd4]/20 text-[#5fb56f] dark:text-[#ccffd4] border-[#ccffd4]/40"
+                                : farm.efficiencyScore >= 5
+                                ? "bg-orange-500/20 text-orange-700 dark:text-orange-400 border-orange-500/40"
+                                : "bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/40"
+                            }`}
+                          >
+                            {farm.efficiencyScore.toFixed(2)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
-                          {formatRewardValue(reward.glowInflationTotal, 18)} GLW
+                          {farm.weeklyGlwRewards
+                            ? `${farm.weeklyGlwRewards.toLocaleString("en-US", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })} GLW`
+                            : "N/A"}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
-                          $
-                          {formatRewardValue(
-                            reward.protocolDepositPaidTotal,
-                            6
+                          {farm.weeklyProtocolDepositRewards &&
+                          farm.paymentCurrency ? (
+                            <>
+                              {farm.weeklyProtocolDepositRewards.toLocaleString(
+                                "en-US",
+                                {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                }
+                              )}{" "}
+                              <span className="text-muted-foreground">
+                                {farm.paymentCurrency}
+                              </span>
+                            </>
+                          ) : (
+                            "N/A"
                           )}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
-                          {formatRewardValue(
-                            reward.expectedProductionTotal,
-                            18
-                          )}
+                          ${formatRewardValue(farm.protocolDepositUsd6, 6)}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
-                          $
-                          {formatRewardValue(
-                            reward.protocolDepositRewardsDistributed,
-                            6
-                          )}
+                          {formatRewardValue(farm.weeklyImpactAssetsWad, 18)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={farm.totalRewardsUsd === 0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (farm.totalRewardsUsd > 0) {
+                                setSelectedFarmForDialog({
+                                  farmId: farm.farmId,
+                                  farmName:
+                                    farm.name ||
+                                    `Farm ${farm.farmId.slice(0, 8)}`,
+                                });
+                              }
+                            }}
+                          >
+                            View Details
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
-                </TableBody>
-              </Table>
-            </div>
-            {weeklyRewardsData.summary && (
-              <div className="mt-4 p-4 rounded-lg bg-muted/30 border border-border/40">
-                <p className="text-sm font-semibold mb-2">Summary</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Weeks Active</p>
-                    <p className="font-mono font-semibold">
-                      {weeklyRewardsData.summary.weeksActive}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Total GLW Inflation</p>
-                    <p className="font-mono font-semibold">
-                      {formatRewardValue(
-                        weeklyRewardsData.summary.totalGlowInflation,
-                        18
-                      )}{" "}
-                      GLW
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Total Deposit Paid</p>
-                    <p className="font-mono font-semibold">
-                      $
-                      {formatRewardValue(
-                        weeklyRewardsData.summary.totalProtocolDepositPaid,
-                        6
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Total Production</p>
-                    <p className="font-mono font-semibold">
-                      {formatRewardValue(
-                        weeklyRewardsData.summary.totalExpectedProduction,
-                        18
-                      )}
-                    </p>
-                  </div>
-                </div>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>
         </Card>
-      )}
-    </div>
+      </div>
+    </>
   );
 }
