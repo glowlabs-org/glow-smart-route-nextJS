@@ -77,7 +77,7 @@ export default function RewardsView() {
                 </h1>
                 <p className="text-sm md:text-base text-muted-foreground max-w-2xl">
                   {validType === "mining"
-                    ? "Compare delegation and mining performance across all farms, track ROI, and analyze participant earnings."
+                    ? "Compare delegation and mining performance across all farms, track rewards, and analyze participant earnings."
                     : `Understand how ${
                         validType === "delegator"
                           ? "delegators"

@@ -175,11 +175,11 @@ function ROIComparisonChart({ farms }: ROIChartProps) {
 
   const chartConfig = {
     delegatorROI: {
-      label: "Delegator ROI",
+      label: "Delegator Rewards",
       color: "#dcc4ff",
     },
     minerROI: {
-      label: "Miner ROI",
+      label: "Miner Rewards",
       color: "#ccffd4",
     },
   } satisfies ChartConfig;
@@ -245,7 +245,7 @@ function ROIComparisonChart({ farms }: ROIChartProps) {
               formatter={(value, name, payload) => {
                 const numValue = Number(value);
 
-                if (name === "delegatorROI" || name === "Delegator ROI") {
+                if (name === "delegatorROI" || name === "Delegator Rewards") {
                   const invested = payload?.payload?.delegatorInvested ?? 0;
                   return [
                     <div key="delegator-roi" className="space-y-1">
@@ -259,9 +259,9 @@ function ROIComparisonChart({ farms }: ROIChartProps) {
                         GLW invested
                       </div>
                     </div>,
-                    "Delegator ROI",
+                    "Delegator Rewards",
                   ];
-                } else if (name === "minerROI" || name === "Miner ROI") {
+                } else if (name === "minerROI" || name === "Miner Rewards") {
                   const invested = payload?.payload?.minerInvested ?? 0;
                   return [
                     <div key="miner-roi" className="space-y-1">
@@ -276,7 +276,7 @@ function ROIComparisonChart({ farms }: ROIChartProps) {
                         invested
                       </div>
                     </div>,
-                    "Miner ROI",
+                    "Miner Rewards",
                   ];
                 }
                 return [String(value), String(name)];
@@ -290,7 +290,7 @@ function ROIComparisonChart({ farms }: ROIChartProps) {
           dataKey="delegatorROI"
           fill="var(--color-delegatorROI)"
           radius={[4, 4, 0, 0]}
-          name="Delegator ROI"
+          name="Delegator Rewards"
         />
         <Line
           yAxisId="right"
@@ -299,7 +299,7 @@ function ROIComparisonChart({ farms }: ROIChartProps) {
           stroke="var(--color-minerROI)"
           strokeWidth={2}
           dot={{ r: 4, fill: "var(--color-minerROI)" }}
-          name="Miner ROI"
+          name="Miner Rewards"
         />
       </ComposedChart>
     </ChartContainer>
@@ -327,8 +327,8 @@ export function MiningView() {
   const kpiData = React.useMemo(() => {
     if (!data?.farms) {
       return {
-        avgGlwPerGlwDelegated: 0,
-        avgGlwPerDollarMining: 0,
+        avgGlwPerWeekPerGlwDelegated: 0,
+        avgGlwPerWeekPerDollarMining: 0,
         totalDelegators: 0,
         totalMiners: 0,
         totalGlwEarnedDelegators: 0,
@@ -340,6 +340,10 @@ export function MiningView() {
     let totalDelegatorInvested = new Decimal(0);
     let totalMinerRewards = new Decimal(0);
     let totalMinerInvested = new Decimal(0);
+    let totalDelegatorWeeks = 0;
+    let delegatorFarmsCount = 0;
+    let totalMinerWeeks = 0;
+    let minerFarmsCount = 0;
 
     data.farms.forEach((farm) => {
       if (farm.delegator.stepsSold > 0) {
@@ -354,6 +358,9 @@ export function MiningView() {
             farm.delegator.stepsSold
           )
         );
+
+        totalDelegatorWeeks += farm.delegator.weeksEarned;
+        delegatorFarmsCount += 1;
       }
 
       if (farm.miner.stepsSold > 0) {
@@ -368,20 +375,36 @@ export function MiningView() {
             farm.miner.stepsSold
           )
         );
+
+        totalMinerWeeks += farm.miner.weeksEarned;
+        minerFarmsCount += 1;
       }
     });
 
-    const avgGlwPerGlwDelegated = totalDelegatorInvested.isZero()
-      ? 0
-      : totalDelegatorRewards.div(totalDelegatorInvested).toNumber();
+    const avgDelegatorWeeksEarned =
+      delegatorFarmsCount > 0 ? totalDelegatorWeeks / delegatorFarmsCount : 1;
+    const avgGlwPerWeekPerGlwDelegated =
+      totalDelegatorInvested.isZero() || avgDelegatorWeeksEarned === 0
+        ? 0
+        : totalDelegatorRewards
+            .div(totalDelegatorInvested)
+            .div(avgDelegatorWeeksEarned)
+            .toNumber();
 
-    const avgGlwPerDollarMining = totalMinerInvested.isZero()
-      ? 0
-      : totalMinerRewards.div(1e18).div(totalMinerInvested.div(1e6)).toNumber();
+    const avgMinerWeeksEarned =
+      minerFarmsCount > 0 ? totalMinerWeeks / minerFarmsCount : 1;
+    const avgGlwPerWeekPerDollarMining =
+      totalMinerInvested.isZero() || avgMinerWeeksEarned === 0
+        ? 0
+        : totalMinerRewards
+            .div(1e18)
+            .div(totalMinerInvested.div(1e6))
+            .div(avgMinerWeeksEarned)
+            .toNumber();
 
     return {
-      avgGlwPerGlwDelegated,
-      avgGlwPerDollarMining,
+      avgGlwPerWeekPerGlwDelegated,
+      avgGlwPerWeekPerDollarMining,
       totalDelegators: summary?.launchpadContributors ?? 0,
       totalMiners: summary?.miningCenterContributors ?? 0,
       totalGlwEarnedDelegators: totalDelegatorRewards.div(1e18).toNumber(),
@@ -582,19 +605,19 @@ export function MiningView() {
       <div className="space-y-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <MetricCard
-            title="GLW per 1 GLW Delegated"
-            value={kpiData.avgGlwPerGlwDelegated.toFixed(4)}
+            title="GLW per Week per 1 GLW Delegated"
+            value={kpiData.avgGlwPerWeekPerGlwDelegated.toFixed(4)}
             icon={<TrendingUp className="h-5 w-5" />}
           >
-            <p>Average return on delegation</p>
+            <p>Average weekly rewards on delegation</p>
           </MetricCard>
 
           <MetricCard
-            title="GLW per $1 Mining"
-            value={kpiData.avgGlwPerDollarMining.toFixed(4)}
+            title="GLW per Week per $1 Mining"
+            value={kpiData.avgGlwPerWeekPerDollarMining.toFixed(4)}
             icon={<Zap className="h-5 w-5" />}
           >
-            <p>Average return on mining investment</p>
+            <p>Average weekly rewards on miners</p>
           </MetricCard>
 
           <MetricCard
@@ -626,9 +649,9 @@ export function MiningView() {
 
         <Card className="border-border/60">
           <CardHeader>
-            <CardTitle>ROI Comparison: Delegators vs Miners</CardTitle>
+            <CardTitle>Rewards Comparison: Delegators vs Miners</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Comparing return on investment for all active farms (sorted by
+              Comparing rewards earned for all active farms (sorted by
               participant count)
             </p>
           </CardHeader>
@@ -648,7 +671,7 @@ export function MiningView() {
                 Farm Performance Overview
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Individual farm breakdown ordered by efficiency (ROI)
+                Individual farm breakdown ordered by rewards efficiency
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -880,7 +903,7 @@ export function MiningView() {
                                 {Number(
                                   farm.delegator.roi?.allWeeks || "0"
                                 ).toFixed(1)}
-                                % ROI
+                                % Rewards
                               </span>
                               <span className="text-muted-foreground">
                                 {farm.delegator.weeksEarned}w earned /{" "}
@@ -1055,7 +1078,7 @@ export function MiningView() {
                                 {Number(
                                   farm.miner.roi?.allWeeks || "0"
                                 ).toFixed(1)}
-                                % ROI
+                                % Rewards
                               </span>
                               <span className="text-muted-foreground">
                                 {farm.miner.weeksEarned}w earned /{" "}
