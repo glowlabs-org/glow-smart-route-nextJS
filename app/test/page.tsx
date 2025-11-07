@@ -1,6 +1,3 @@
-import ClaimsTestView from "./claims-test-view";
-import TestView from "./view";
-import { notFound } from "next/navigation";
 import { RewardsBreakdownPanel } from "../wallet/rewards-breakdown-panel";
 
 export default function TestPage() {

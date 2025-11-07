@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Drawer,
   DrawerClose,
@@ -53,6 +54,14 @@ import {
   getRewardScoreForApplication,
 } from "@/hooks/useRewardScore";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
+import {
+  useMiningCenter,
+  type MiningCenterFilters,
+} from "@/hooks/useMiningCenter";
+import {
+  useMiningScore,
+  getMiningScoreForApplication,
+} from "@/hooks/useMiningScore";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowSymbol } from "@/components/glow-symbol";
@@ -69,6 +78,12 @@ import { LaunchCountdown } from "@/components/launch-countdown";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
 import { ArrowRight, HelpCircle } from "lucide-react";
 import { LaunchpadStatsDialog } from "./launchpad-stats-dialog";
+import { MiningStatsDialog } from "./mining-stats-dialog";
+
+// Extended type for applications with type tagging
+export type TaggedAuctionApplication = AuctionApplication & {
+  _type: "miners" | "delegations";
+};
 
 // Component to show owned fractions for a specific application
 function OwnedFractionsDisplay({
@@ -129,54 +144,100 @@ function OwnedFractionsDisplay({
 
 interface FilterBarProps {
   selectedZoneId?: number;
+  selectedType: string;
   zones: any[];
   onZoneChange: (value: string | null) => void;
+  onTypeChange: (value: string) => void;
 }
 
-function FilterBar({ selectedZoneId, zones, onZoneChange }: FilterBarProps) {
+function FilterBar({
+  selectedZoneId,
+  selectedType,
+  zones,
+  onZoneChange,
+  onTypeChange,
+}: FilterBarProps) {
   return (
-    <div>
-      <label
-        className="text-sm mb-3 block font-medium"
-        style={{
-          fontFamily: "Söhne, sans-serif",
-          fontWeight: 600,
-        }}
-      >
-        Zone
-      </label>
-      <Select
-        value={selectedZoneId?.toString() || "all"}
-        onValueChange={(v) => onZoneChange(v === "all" ? null : v)}
-      >
-        <SelectTrigger className="w-full h-11 bg-background border-border/60 hover:border-border transition-colors">
-          <SelectValue placeholder="All zones" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All zones</SelectItem>
-          {zones.map((zone: any) => (
-            <SelectItem key={zone.id} value={zone.id.toString()}>
-              {zone.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <div className="space-y-6">
+      {/* Type Filter */}
+      <div>
+        <label
+          className="text-sm mb-3 block font-medium"
+          style={{
+            fontFamily: "Söhne, sans-serif",
+            fontWeight: 600,
+          }}
+        >
+          Type
+        </label>
+        <Select value={selectedType} onValueChange={onTypeChange}>
+          <SelectTrigger className="w-full h-11 bg-background border-border/60 hover:border-border transition-colors">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="delegations">Delegation</SelectItem>
+            <SelectItem value="miners">Miners</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="h-px bg-border/60" />
+
+      {/* Zone Filter */}
+      <div>
+        <label
+          className="text-sm mb-3 block font-medium"
+          style={{
+            fontFamily: "Söhne, sans-serif",
+            fontWeight: 600,
+          }}
+        >
+          Zone
+        </label>
+        <Select
+          value={selectedZoneId?.toString() || "all"}
+          onValueChange={(v) => onZoneChange(v === "all" ? null : v)}
+        >
+          <SelectTrigger className="w-full h-11 bg-background border-border/60 hover:border-border transition-colors">
+            <SelectValue placeholder="All zones" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All zones</SelectItem>
+            {zones.map((zone: any) => (
+              <SelectItem key={zone.id} value={zone.id.toString()}>
+                {zone.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 }
 
 interface LaunchpadViewProps {
   onPayDeposit: (
-    application: AuctionApplication,
-    rewardScore?: {
-      userWeeklyGlwRewards: string;
-      userWeeklyPdRewards: string;
-    } | null
+    application: TaggedAuctionApplication,
+    rewardScore?:
+      | {
+          userWeeklyGlwRewards: string;
+          userWeeklyPdRewards: string;
+        }
+      | {
+          miningScore: number;
+          weeklyGlwRewards?: string;
+          weeklyGlwRewardsUsd?: string;
+        }
+      | null
   ) => void;
 }
 
 function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
   const [zoneParam, setZoneParam] = useQueryState("zone");
+  const [typeParam, setTypeParam] = useQueryState("type", {
+    defaultValue: "all",
+  });
   const [sortParam, setSortParam] = useQueryState("sort", {
     defaultValue: "publishedOnAuctionTimestamp",
   });
@@ -186,48 +247,154 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
   const [selectedApplicationForStats, setSelectedApplicationForStats] =
-    React.useState<AuctionApplication | null>(null);
+    React.useState<TaggedAuctionApplication | null>(null);
   const [selectedRewardScoreForStats, setSelectedRewardScoreForStats] =
-    React.useState<{
-      userWeeklyGlwRewards: string;
-      userWeeklyPdRewards: string;
-    } | null>(null);
+    React.useState<
+      | {
+          userWeeklyGlwRewards: string;
+          userWeeklyPdRewards: string;
+        }
+      | {
+          miningScore: number;
+          weeklyGlwRewards?: string;
+          weeklyGlwRewardsUsd?: string;
+        }
+      | null
+    >(null);
 
   const isMobile = useIsMobile();
   const { address, isConnected } = useAccount();
 
   const selectedZoneId = zoneParam ? parseInt(zoneParam) : undefined;
+  const selectedType = typeParam as "all" | "miners" | "delegations";
   const selectedCurrency = "GLW" as PaymentCurrency | undefined;
   const selectedSort = sortParam as SortBy;
   const selectedSortOrder = sortOrderParam as SortOrder;
 
-  const { applications, isLoading, isError, error, refetch } = useGlowLaunchpad(
-    {
-      filters: {
-        zoneId: selectedZoneId,
-        sortBy: selectedSort,
-        sortOrder: selectedSortOrder,
-        paymentCurrency: selectedCurrency,
-      },
-    }
-  );
+  // Fetch launchpad (delegation) applications
+  const {
+    applications: launchpadApplications,
+    isLoading: isLoadingLaunchpad,
+    isError: isErrorLaunchpad,
+    error: errorLaunchpad,
+    refetch: refetchLaunchpad,
+  } = useGlowLaunchpad({
+    filters: {
+      zoneId: selectedZoneId,
+      sortBy: selectedSort,
+      sortOrder: selectedSortOrder,
+      paymentCurrency: selectedCurrency,
+    },
+  });
 
-  const { applications: allApplications, refetch: refetchAll } =
-    useGlowLaunchpad({
+  // Fetch mining center (miners) applications
+  const {
+    applications: minersApplications,
+    isLoading: isLoadingMiners,
+    isError: isErrorMiners,
+    error: errorMiners,
+    refetch: refetchMiners,
+  } = useMiningCenter({
+    filters: {
+      zoneId: selectedZoneId,
+      sortBy: selectedSort,
+      sortOrder: selectedSortOrder,
+      paymentCurrency: "USDC",
+    },
+  });
+
+  // Fetch all applications for zone extraction (without zone filter)
+  const {
+    applications: allLaunchpadApplications,
+    refetch: refetchAllLaunchpad,
+  } = useGlowLaunchpad({
+    filters: {
+      sortBy: selectedSort,
+      sortOrder: selectedSortOrder,
+      paymentCurrency: selectedCurrency,
+    },
+  });
+
+  const { applications: allMinersApplications, refetch: refetchAllMiners } =
+    useMiningCenter({
       filters: {
         sortBy: selectedSort,
         sortOrder: selectedSortOrder,
-        paymentCurrency: selectedCurrency,
+        paymentCurrency: "USDC",
       },
     });
 
+  // Tag and merge applications
+  const taggedLaunchpadApplications: TaggedAuctionApplication[] = React.useMemo(
+    () =>
+      launchpadApplications.map((app) => ({
+        ...app,
+        _type: "delegations" as const,
+      })),
+    [launchpadApplications]
+  );
+
+  const taggedMinersApplications: TaggedAuctionApplication[] = React.useMemo(
+    () =>
+      minersApplications.map((app) => ({
+        ...app,
+        _type: "miners" as const,
+      })),
+    [minersApplications]
+  );
+
+  // Merge and filter applications based on type
+  const applications = React.useMemo(() => {
+    const merged = [
+      ...taggedLaunchpadApplications,
+      ...taggedMinersApplications,
+    ];
+
+    if (selectedType === "all") return merged;
+    if (selectedType === "miners") return taggedMinersApplications;
+    if (selectedType === "delegations") return taggedLaunchpadApplications;
+    return merged;
+  }, [taggedLaunchpadApplications, taggedMinersApplications, selectedType]);
+
+  // Combine loading and error states
+  const isLoading = isLoadingLaunchpad || isLoadingMiners;
+  const isError = isErrorLaunchpad || isErrorMiners;
+  const error = errorLaunchpad || errorMiners;
+
+  const refetch = React.useCallback(() => {
+    refetchLaunchpad();
+    refetchMiners();
+  }, [refetchLaunchpad, refetchMiners]);
+
+  // Combine all applications for zones
+  const allApplications = React.useMemo(
+    () => [
+      ...allLaunchpadApplications.map((app) => ({
+        ...app,
+        _type: "delegations" as const,
+      })),
+      ...allMinersApplications.map((app) => ({
+        ...app,
+        _type: "miners" as const,
+      })),
+    ],
+    [allLaunchpadApplications, allMinersApplications]
+  );
+
   const { zones } = useAvailableZones(allApplications);
 
+  // Fetch reward scores only for delegations
   const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
-    applications,
+    applications: taggedLaunchpadApplications,
     paymentCurrency: selectedCurrency || "GLW",
-    enabled: applications.length > 0,
+    enabled: taggedLaunchpadApplications.length > 0,
     walletAddress: address || null,
+  });
+
+  // Fetch mining scores only for miners
+  const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
+    applications: taggedMinersApplications,
+    enabled: taggedMinersApplications.length > 0,
   });
 
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
@@ -252,28 +419,54 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
   }, [glowBalance]);
 
   const handleCountdownComplete = React.useCallback(() => {
-    // Refresh both queries when countdown completes
-    refetch();
-    refetchAll();
-  }, [refetch, refetchAll]);
+    // Refresh all queries when countdown completes
+    refetchLaunchpad();
+    refetchMiners();
+    refetchAllLaunchpad();
+    refetchAllMiners();
+  }, [refetchLaunchpad, refetchMiners, refetchAllLaunchpad, refetchAllMiners]);
 
   const filterBarProps = {
     selectedZoneId,
+    selectedType,
     zones,
     onZoneChange: (v: string | null) => {
       setZoneParam(v);
       setIsDrawerOpen(false);
     },
+    onTypeChange: (v: string) => {
+      setTypeParam(v);
+      setIsDrawerOpen(false);
+    },
   };
-
   return (
     <div>
-      <LaunchpadStatsDialog
-        open={statsDialogOpen}
-        onOpenChange={setStatsDialogOpen}
-        application={selectedApplicationForStats}
-        rewardScore={selectedRewardScoreForStats}
-      />
+      {selectedApplicationForStats?._type === "miners" ? (
+        <MiningStatsDialog
+          open={statsDialogOpen}
+          onOpenChange={setStatsDialogOpen}
+          application={selectedApplicationForStats}
+          miningScoreData={
+            selectedRewardScoreForStats as {
+              miningScore: number;
+              weeklyGlwRewards?: string;
+              weeklyGlwRewardsUsd?: string;
+            } | null
+          }
+        />
+      ) : (
+        <LaunchpadStatsDialog
+          open={statsDialogOpen}
+          onOpenChange={setStatsDialogOpen}
+          application={selectedApplicationForStats}
+          rewardScore={
+            selectedRewardScoreForStats as {
+              userWeeklyGlwRewards: string;
+              userWeeklyPdRewards: string;
+            } | null
+          }
+        />
+      )}
       {/* Mobile Filter Drawer */}
       <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
         <DrawerContent className="md:hidden max-h-[85vh]">
@@ -315,26 +508,49 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
         <div className="hidden md:block bg-muted/30 rounded-2xl border border-border p-6 mb-6">
           <h3 className="text-lg font-semibold mb-4">Filters</h3>
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-muted-foreground">
-                Zone
-              </span>
-              <Select
-                value={selectedZoneId?.toString() || "all"}
-                onValueChange={(v) => setZoneParam(v === "all" ? null : v)}
-              >
-                <SelectTrigger className="w-[220px]">
-                  <SelectValue placeholder="All zones" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All zones</SelectItem>
-                  {zones.map((zone) => (
-                    <SelectItem key={zone.id} value={zone.id.toString()}>
-                      {zone.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-center gap-4">
+              {/* Type Filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Type
+                </span>
+                <Select
+                  value={selectedType}
+                  onValueChange={(v) => setTypeParam(v)}
+                >
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="delegations">Delegation</SelectItem>
+                    <SelectItem value="miners">Miners</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Zone Filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Zone
+                </span>
+                <Select
+                  value={selectedZoneId?.toString() || "all"}
+                  onValueChange={(v) => setZoneParam(v === "all" ? null : v)}
+                >
+                  <SelectTrigger className="w-[220px]">
+                    <SelectValue placeholder="All zones" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All zones</SelectItem>
+                    {zones.map((zone) => (
+                      <SelectItem key={zone.id} value={zone.id.toString()}>
+                        {zone.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* GLW Balance - Desktop only */}
@@ -470,10 +686,16 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                 displayCurrency
               );
 
-              const rewardScore = getRewardScoreForApplication(
-                rewardScoreMap,
-                application.id
-              );
+              // Get appropriate score based on application type
+              const rewardScore =
+                application._type === "delegations"
+                  ? getRewardScoreForApplication(rewardScoreMap, application.id)
+                  : null;
+
+              const miningScore =
+                application._type === "miners"
+                  ? getMiningScoreForApplication(miningScoreMap, application.id)
+                  : null;
 
               return (
                 <Card
@@ -548,9 +770,9 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                     </div>
 
                     <div className="p-6 pb-0 space-y-4">
-                      {/* Farm Name */}
-                      {application.farmName && (
-                        <div>
+                      {/* Farm Name with Type Badge */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {application.farmName && (
                           <h3
                             className="text-xl font-semibold text-foreground"
                             style={{
@@ -560,10 +782,22 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                           >
                             {application.farmName}
                           </h3>
-                        </div>
-                      )}
+                        )}
+                        <Badge
+                          variant="secondary"
+                          className={
+                            application._type === "miners"
+                              ? "ml-auto text-xl text-[#5fb56f] dark:text-[#ccffd4] border-[#ccffd4]/20 bg-[#ccffd4]/10 dark:bg-[#5fb56f]/10 font-semibold"
+                              : "ml-auto text-xl text-[#9b7ac7] dark:text-[#dcc4ff] border-[#dcc4ff]/20 bg-[#dcc4ff]/10 dark:bg-[#9b7ac7]/10 font-semibold"
+                          }
+                        >
+                          {application._type === "miners"
+                            ? "Miner"
+                            : "Delegation"}
+                        </Badge>
+                      </div>
 
-                      {/* Header with Fractions Available and Reward Score */}
+                      {/* Header with Fractions Available and Reward Score (delegations only) */}
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
                           <div
@@ -589,63 +823,66 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                             Available
                           </div>
                         </div>
-                        {/* Reward Score */}
-                        <div className="text-right ml-6">
-                          <div
-                            className="text-3xl lg:text-4xl leading-none mb-2"
-                            style={{
-                              fontFamily: "Söhne, sans-serif",
-                              fontWeight: 600,
-                            }}
-                          >
-                            {rewardScore?.rewardScore
-                              ? rewardScore.rewardScore.toFixed(0)
-                              : isRewardScoresLoading
-                              ? "..."
-                              : "0"}
-                          </div>
-                          <div className="flex items-center justify-end gap-1">
+                        {/* Reward Score - Only for delegations */}
+                        {application._type === "delegations" && (
+                          <div className="text-right ml-6">
                             <div
-                              className="text-xs uppercase tracking-wider text-gray-500"
+                              className="text-3xl lg:text-4xl leading-none mb-2"
                               style={{
                                 fontFamily: "Söhne, sans-serif",
                                 fontWeight: 600,
                               }}
                             >
-                              Reward Score
+                              {rewardScore?.rewardScore
+                                ? rewardScore.rewardScore.toFixed(0)
+                                : isRewardScoresLoading
+                                ? "..."
+                                : "0"}
                             </div>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <a
-                                  href="https://glow.org/blog/guide-to-delegating-glow"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  aria-label="Learn about Reward Score"
-                                  className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
-                                >
-                                  <Info className="h-3.5 w-3.5" />
-                                </a>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <p>
-                                  The Reward Score is a tool that combines both
-                                  revenue streams (deposit recovery and GLW
-                                  inflation) into a single metric representing
-                                  expected rewards per dollar delegated. Higher
-                                  Reward Scores generally indicate better
-                                  delegation opportunities, but do not guarantee
-                                  realized performance, since a farm's actual
-                                  competitiveness and rewards may shift as new
-                                  farms join its region
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
+                            <div className="flex items-center justify-end gap-1">
+                              <div
+                                className="text-xs uppercase tracking-wider text-gray-500"
+                                style={{
+                                  fontFamily: "Söhne, sans-serif",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                Reward Score
+                              </div>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <a
+                                    href="https://glow.org/blog/guide-to-delegating-glow"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label="Learn about Reward Score"
+                                    className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                                  >
+                                    <Info className="h-3.5 w-3.5" />
+                                  </a>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <p>
+                                    The Reward Score is a tool that combines
+                                    both revenue streams (deposit recovery and
+                                    GLW inflation) into a single metric
+                                    representing expected rewards per dollar
+                                    delegated. Higher Reward Scores generally
+                                    indicate better delegation opportunities,
+                                    but do not guarantee realized performance,
+                                    since a farm's actual competitiveness and
+                                    rewards may shift as new farms join its
+                                    region
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
 
                       <div className="grid md:grid-cols-2 gap-3">
-                        {/* Amount per Delegation - Left Column */}
+                        {/* Amount per Delegation/Miner - Left Column */}
                         <div className="bg-muted/50 border border-border rounded-xl p-4 flex flex-col">
                           <div
                             className="text-xs uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-3"
@@ -654,9 +891,53 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                               fontWeight: 600,
                             }}
                           >
-                            Delegation Amount
+                            {application._type === "miners"
+                              ? "Price per Miner"
+                              : "Delegation Amount"}
                           </div>
-                          {application.activeFraction?.step ? (
+                          {application.activeFraction?.stepPrice &&
+                          application._type === "miners" ? (
+                            <div className="flex-1 flex flex-col justify-center">
+                              <div
+                                className="text-2xl lg:text-3xl text-black dark:text-white leading-tight"
+                                style={{
+                                  fontFamily: "Söhne, sans-serif",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                $
+                                {formatNumber(
+                                  parseFloat(
+                                    formatUnits(
+                                      BigInt(
+                                        application.activeFraction.stepPrice
+                                      ),
+                                      DECIMALS_BY_TOKEN["USDC"]
+                                    )
+                                  ),
+                                  0
+                                )}
+                                <span
+                                  className="text-base text-gray-600 dark:text-gray-400 ml-1"
+                                  style={{
+                                    fontFamily: "Söhne, sans-serif",
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  USDC
+                                </span>
+                              </div>
+                              <div
+                                className="text-[10px] text-gray-400 dark:text-gray-600 italic mt-3"
+                                style={{
+                                  fontFamily: "Söhne, sans-serif",
+                                  fontWeight: 400,
+                                }}
+                              >
+                                Per Miner.
+                              </div>
+                            </div>
+                          ) : application.activeFraction?.step ? (
                             <div className="flex-1 flex flex-col justify-center">
                               <div
                                 className="text-2xl lg:text-3xl text-black dark:text-white leading-tight"
@@ -768,16 +1049,17 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                     fontWeight: 600,
                                   }}
                                 >
-                                  Est. Weekly Rewards
+                                  {application._type === "miners"
+                                    ? "Weekly Rewards per Miner"
+                                    : "Est. Weekly Rewards"}
                                 </div>
                                 <div className="group/help relative">
                                   <HelpCircle className="w-3.5 h-3.5 text-gray-400 cursor-help" />
                                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/help:block z-50 w-64">
                                     <div className="bg-black text-white text-xs rounded-lg py-2 px-3 shadow-lg">
-                                      Expected weekly rewards based on audited
-                                      farm performance and regional
-                                      competitiveness. May vary with network
-                                      changes.
+                                      {application._type === "miners"
+                                        ? "Current weekly rate based on regional GLW allocation. May decrease as new farms join the region and dilute emissions."
+                                        : "Expected weekly rewards based on audited farm performance and regional competitiveness. May vary with network changes."}
                                       <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black"></div>
                                     </div>
                                   </div>
@@ -791,9 +1073,31 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                     fontWeight: 600,
                                   }}
                                 >
-                                  {rewardScore?.userWeeklyGlwRewards &&
-                                  rewardScore?.userWeeklyPdRewards &&
-                                  application.activeFraction?.totalSteps
+                                  {application._type === "miners"
+                                    ? miningScore?.weeklyGlwRewards
+                                      ? (() => {
+                                          const rewardsPerMiner = parseFloat(
+                                            formatUnits(
+                                              BigInt(
+                                                miningScore.weeklyGlwRewards
+                                              ),
+                                              DECIMALS_BY_TOKEN["GLW"]
+                                            )
+                                          );
+                                          return `${rewardsPerMiner.toLocaleString(
+                                            undefined,
+                                            {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                            }
+                                          )}`;
+                                        })()
+                                      : isMiningScoresLoading
+                                      ? "..."
+                                      : "0"
+                                    : rewardScore?.userWeeklyGlwRewards &&
+                                      rewardScore?.userWeeklyPdRewards &&
+                                      application.activeFraction?.totalSteps
                                     ? (() => {
                                         const glwRewards = parseFloat(
                                           formatUnits(
@@ -839,10 +1143,43 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                   </span>
                                 </div>
 
-                                {rewardScore?.userWeeklyGlwRewards &&
-                                rewardScore?.userWeeklyPdRewards &&
-                                application.activeFraction?.totalSteps &&
-                                glwSpotPrice > 0 ? (
+                                {application._type === "miners" ? (
+                                  miningScore?.weeklyGlwRewards &&
+                                  glwSpotPrice > 0 ? (
+                                    <div
+                                      className="text-sm text-gray-500 dark:text-gray-500 mt-2"
+                                      style={{
+                                        fontFamily: "Söhne, sans-serif",
+                                        fontWeight: 400,
+                                      }}
+                                    >
+                                      ≈ $
+                                      {(() => {
+                                        const rewardsPerMiner = parseFloat(
+                                          formatUnits(
+                                            BigInt(
+                                              miningScore.weeklyGlwRewards
+                                            ),
+                                            DECIMALS_BY_TOKEN["GLW"]
+                                          )
+                                        );
+                                        const usdPerMiner =
+                                          rewardsPerMiner * glwSpotPrice;
+                                        return usdPerMiner.toLocaleString(
+                                          undefined,
+                                          {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          }
+                                        );
+                                      })()}{" "}
+                                      USD per week
+                                    </div>
+                                  ) : null
+                                ) : rewardScore?.userWeeklyGlwRewards &&
+                                  rewardScore?.userWeeklyPdRewards &&
+                                  application.activeFraction?.totalSteps &&
+                                  glwSpotPrice > 0 ? (
                                   <div
                                     className="text-sm text-gray-500 dark:text-gray-500 mt-2"
                                     style={{
@@ -980,7 +1317,14 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                       <div className="space-y-3">
                         <Button
                           className="w-full rounded-full h-11"
-                          onClick={() => onPayDeposit(application, rewardScore)}
+                          onClick={() =>
+                            onPayDeposit(
+                              application,
+                              application._type === "miners"
+                                ? miningScore
+                                : rewardScore
+                            )
+                          }
                           disabled={
                             application.activeFraction
                               ? application.activeFraction.isFilled ||
@@ -1000,6 +1344,8 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                               : (application.activeFraction?.remainingSteps ||
                                   0) <= 0
                               ? "None Available"
+                              : application._type === "miners"
+                              ? "Buy Miners"
                               : "Delegate GLW"}
                           </span>
                         </Button>
@@ -1008,7 +1354,11 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                           className="w-full rounded-full h-11"
                           onClick={() => {
                             setSelectedApplicationForStats(application);
-                            setSelectedRewardScoreForStats(rewardScore || null);
+                            setSelectedRewardScoreForStats(
+                              application._type === "miners"
+                                ? miningScore || null
+                                : rewardScore || null
+                            );
                             setStatsDialogOpen(true);
                           }}
                         >

@@ -7,21 +7,24 @@ import {
   type AuctionApplication,
   useGlowLaunchpad,
 } from "@/hooks/useGlowLaunchpad";
+import { useMiningCenter } from "@/hooks/useMiningCenter";
 import {
   DepositDialog,
   type LaunchpadRewardScore,
   type MiningCenterScore,
 } from "./marketplace/deposit-dialog";
 import { SponsoredFarmsActivity } from "./marketplace/sponsored-farms-activity";
-import { MiningCenterView } from "./marketplace/mining-center-view";
-import { LaunchpadView } from "./marketplace/launchpad-view";
+import {
+  LaunchpadView,
+  type TaggedAuctionApplication,
+} from "./marketplace/launchpad-view";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Header } from "@/components/header";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 
-type TabKey = "launchpad" | "mining-center" | "activity";
+type TabKey = "launchpad" | "activity";
 
 type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
 
@@ -75,10 +78,7 @@ export default function GlowLaunchpadPage() {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [selectedApplicationForDeposit, setSelectedApplicationForDeposit] =
-    React.useState<AuctionApplication | null>(null);
-  const [selectedApplicationType, setSelectedApplicationType] = React.useState<
-    "launchpad" | "mining-center"
-  >("launchpad");
+    React.useState<TaggedAuctionApplication | null>(null);
   const [selectedRewardScore, setSelectedRewardScore] = React.useState<
     LaunchpadRewardScore | MiningCenterScore | null
   >(null);
@@ -88,6 +88,14 @@ export default function GlowLaunchpadPage() {
     useGlowLaunchpad({
       filters: {
         paymentCurrency: "GLW",
+      },
+    });
+
+  // Fetch miners applications to check if all are sold out
+  const { applications: minersApplications, isLoading: isLoadingMiners } =
+    useMiningCenter({
+      filters: {
+        paymentCurrency: "USDC",
       },
     });
 
@@ -105,23 +113,34 @@ export default function GlowLaunchpadPage() {
     });
   }, [launchpadApplications, isLoadingLaunchpad]);
 
-  // Set default tab based on whether launchpad is sold out
-  const defaultTab = allLaunchpadSoldOut ? "mining-center" : "launchpad";
+  // Check if all miners listings are sold out
+  const allMinersSoldOut = React.useMemo(() => {
+    if (isLoadingMiners) return false;
+    if (minersApplications.length === 0) return true;
 
-  // Use query state for tab management with dynamic default
+    return minersApplications.every((app) => {
+      if (!app.activeFraction) return true;
+      return (
+        app.activeFraction.isFilled ||
+        (app.activeFraction.remainingSteps || 0) <= 0
+      );
+    });
+  }, [minersApplications, isLoadingMiners]);
+
+  // Use query state for tab management
   const [activeTab, setActiveTab] = useQueryState("tab", {
-    defaultValue: defaultTab,
+    defaultValue: "launchpad",
     clearOnDefault: false,
   });
 
   // Validate and use the active tab directly
-  const validTabs = ["launchpad", "mining-center", "activity"];
+  const validTabs = ["launchpad", "activity"];
   const displayTab = validTabs.includes(activeTab) ? activeTab : "launchpad";
 
   const openLaunchpadListings = React.useMemo(() => {
-    if (isLoadingLaunchpad) return undefined;
+    if (isLoadingLaunchpad || isLoadingMiners) return undefined;
 
-    return launchpadApplications.reduce((count, app) => {
+    const launchpadCount = launchpadApplications.reduce((count, app) => {
       const fraction = app.activeFraction;
       if (!fraction) return count;
 
@@ -129,72 +148,81 @@ export default function GlowLaunchpadPage() {
       const hasAvailability = !fraction.isFilled && remainingSteps > 0;
       return hasAvailability ? count + 1 : count;
     }, 0);
-  }, [isLoadingLaunchpad, launchpadApplications]);
+
+    const minersCount = minersApplications.reduce((count, app) => {
+      const fraction = app.activeFraction;
+      if (!fraction) return count;
+
+      const remainingSteps = fraction.remainingSteps ?? 0;
+      const hasAvailability = !fraction.isFilled && remainingSteps > 0;
+      return hasAvailability ? count + 1 : count;
+    }, 0);
+
+    return launchpadCount + minersCount;
+  }, [
+    isLoadingLaunchpad,
+    isLoadingMiners,
+    launchpadApplications,
+    minersApplications,
+  ]);
 
   const tabContent = React.useMemo<
     Record<TabKey, TabSectionHeaderProps>
   >(() => {
-    const eyebrow = "Glow Marketplace";
+    const eyebrow = "Glow Launchpad";
 
     return {
       launchpad: {
         eyebrow,
         title: "Launchpad",
         description:
-          "Delegate GLW to competitive solar farms in exchange for a portion of their rewards.",
+          "Delegate GLW to competitive solar farms or buy miners with USDC to earn rewards.",
         helper:
-          "Choose a project to sponsor and use the zone filter to explore different regions. Each card highlights how many steps remain before the farm sells out.",
-        status: isLoadingLaunchpad
-          ? {
-              label: "Syncing availability…",
-              variant: "outline",
-            }
-          : allLaunchpadSoldOut
-          ? {
-              label: "All listings sold out",
-              variant: "destructive",
-            }
-          : {
-              label: `${openLaunchpadListings ?? 0} active listing${
-                (openLaunchpadListings ?? 0) === 1 ? "" : "s"
-              }`,
-              variant: "secondary",
-            },
-      },
-      "mining-center": {
-        eyebrow,
-        title: "Mining Center",
-        description:
-          "Pre-balanced mining opportunities with fixed costs and transparent GLW token returns. Buy miners and earn passive rewards.",
-        helper:
-          "Compare fixed-cost miners, review their projected token flows, and lock in rewards before supply resets each epoch.",
-        status: {
-          label: "USDC Miners",
-          variant: "outline",
-        },
+          "Choose a project to sponsor and use the filters to explore different regions and types. Each card highlights how many steps remain before the farm sells out.",
+        status:
+          isLoadingLaunchpad || isLoadingMiners
+            ? {
+                label: "Syncing availability…",
+                variant: "outline",
+              }
+            : allLaunchpadSoldOut && allMinersSoldOut
+            ? {
+                label: "All listings sold out",
+                variant: "destructive",
+              }
+            : {
+                label: `${openLaunchpadListings ?? 0} active listing${
+                  (openLaunchpadListings ?? 0) === 1 ? "" : "s"
+                }`,
+                variant: "secondary",
+              },
       },
       activity: {
         eyebrow,
-        title: "Marketplace Activity",
+        title: "Activity",
         description:
-          "View all sales from the launchpad and mining center. Track average reward scores and USDC/GLW payments to help you evaluate market activity.",
+          "View all sales from the launchpad and mining-center. Track average reward scores and USDC/GLW payments to help you evaluate market activity.",
         helper:
-          "Scan recent purchases to gauge momentum across both marketplaces. Use the built-in filters to focus on specific regions or sale types.",
+          "Scan recent purchases to gauge momentum across both delegations and miners. Use the built-in filters to focus on specific regions or sale types.",
         status: {
           label: "Live feed",
           variant: "secondary",
         },
       },
     };
-  }, [allLaunchpadSoldOut, isLoadingLaunchpad, openLaunchpadListings]);
+  }, [
+    allLaunchpadSoldOut,
+    allMinersSoldOut,
+    isLoadingLaunchpad,
+    isLoadingMiners,
+    openLaunchpadListings,
+  ]);
 
   function onPayDeposit(
-    application: AuctionApplication,
-    type: "launchpad" | "mining-center",
+    application: TaggedAuctionApplication,
     scoreData?: LaunchpadRewardScore | MiningCenterScore | null
   ) {
     setSelectedApplicationForDeposit(application);
-    setSelectedApplicationType(type);
     setSelectedRewardScore(scoreData || null);
     setDialogOpen(true);
   }
@@ -264,13 +292,6 @@ export default function GlowLaunchpadPage() {
                   <TabsTrigger value="launchpad" className="text-xs md:text-sm">
                     Launchpad
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="mining-center"
-                    className="text-xs md:text-sm"
-                  >
-                    <span className="hidden sm:inline">Mining Center</span>
-                    <span className="sm:hidden">Mining</span>
-                  </TabsTrigger>
                   <TabsTrigger value="activity" className="text-xs md:text-sm">
                     Activity
                   </TabsTrigger>
@@ -283,20 +304,7 @@ export default function GlowLaunchpadPage() {
 
               <TabsContent value="launchpad" className="mt-0">
                 <TabSectionHeader {...tabContent.launchpad} />
-                <LaunchpadView
-                  onPayDeposit={(app, rewardScore) =>
-                    onPayDeposit(app, "launchpad", rewardScore)
-                  }
-                />
-              </TabsContent>
-
-              <TabsContent value="mining-center" className="mt-0">
-                <TabSectionHeader {...tabContent["mining-center"]} />
-                <MiningCenterView
-                  onPayDeposit={(app, miningScoreData) =>
-                    onPayDeposit(app, "mining-center", miningScoreData)
-                  }
-                />
+                <LaunchpadView onPayDeposit={onPayDeposit} />
               </TabsContent>
 
               <TabsContent value="activity" className="mt-0">
@@ -307,7 +315,7 @@ export default function GlowLaunchpadPage() {
           </div>
 
           {/* Deposit Dialog */}
-          {selectedApplicationType === "mining-center" ? (
+          {selectedApplicationForDeposit?._type === "miners" ? (
             <DepositDialog
               open={dialogOpen}
               onOpenChange={setDialogOpen}
