@@ -52,7 +52,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
-
 function formatGLWAmount(value: string): string {
   try {
     const num = new Decimal(value).div(1e18);
@@ -472,10 +471,13 @@ export function MiningView() {
           (a.participants.uniqueDelegators + a.participants.uniqueMiners)
         );
       } else if (sortBy === "weeksLeft") {
-        return (
-          Math.max(b.delegator.weeksLeft, b.miner.weeksLeft) -
-          Math.max(a.delegator.weeksLeft, a.miner.weeksLeft)
-        );
+        const aWeeksLeft =
+          a.delegator.stepsSold > 0 ? a.delegator.weeksLeft : a.miner.weeksLeft;
+
+        const bWeeksLeft =
+          b.delegator.stepsSold > 0 ? b.delegator.weeksLeft : b.miner.weeksLeft;
+
+        return bWeeksLeft - aWeeksLeft;
       }
       return b.avgROI - a.avgROI;
     });

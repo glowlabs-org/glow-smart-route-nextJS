@@ -84,12 +84,7 @@ export function useFarmsPerPieceStats({
   endWeek,
   enabled = true,
 }: UseFarmsPerPieceStatsParams = {}) {
-  const queryKey = [
-    "farms-per-piece-stats",
-    farmId,
-    startWeek,
-    endWeek,
-  ];
+  const queryKey = ["farms-per-piece-stats", farmId, startWeek, endWeek];
 
   const query = useQuery<FarmsPerPieceStatsResponse>({
     queryKey,
@@ -134,4 +129,3 @@ export function useFarmsPerPieceStats({
     refetch: query.refetch,
   };
 }
-
