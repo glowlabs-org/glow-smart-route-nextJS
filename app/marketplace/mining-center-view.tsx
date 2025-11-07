@@ -602,6 +602,21 @@ function MiningCenterViewContent({ onPayDeposit }: MiningCenterViewProps) {
                           {/* Middle: Content */}
                           <div className="flex-1 p-4 lg:p-5 xl:p-6">
                             <div className="space-y-3 lg:space-y-4">
+                              {/* Farm Name */}
+                              {application.farmName && (
+                                <div>
+                                  <h3
+                                    className="text-xl font-semibold text-foreground"
+                                    style={{
+                                      fontFamily: "Söhne, sans-serif",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {application.farmName}
+                                  </h3>
+                                </div>
+                              )}
+
                               {/* Miners Available */}
                               <div className="flex items-start gap-4 lg:gap-6 xl:gap-8">
                                 <div>

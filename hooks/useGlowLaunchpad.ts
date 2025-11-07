@@ -102,6 +102,7 @@ export interface AuctionApplication {
   status: string;
   createdAt: string;
   farmId: string | null;
+  farmName: string | null;
   isPublishedOnAuction: boolean;
   publishedOnAuctionTimestamp: string;
   sponsorSplitPercent: number;

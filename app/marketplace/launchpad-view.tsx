@@ -548,6 +548,21 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                     </div>
 
                     <div className="p-6 pb-0 space-y-4">
+                      {/* Farm Name */}
+                      {application.farmName && (
+                        <div>
+                          <h3
+                            className="text-xl font-semibold text-foreground"
+                            style={{
+                              fontFamily: "Söhne, sans-serif",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {application.farmName}
+                          </h3>
+                        </div>
+                      )}
+
                       {/* Header with Fractions Available and Reward Score */}
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
