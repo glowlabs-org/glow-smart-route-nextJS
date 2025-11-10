@@ -292,7 +292,6 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
             />
           }
         />
-        <ChartLegend content={<ChartLegendContent />} />
         <Bar
           dataKey="totalRewardsUsd"
           fill="var(--color-totalRewardsUsd)"

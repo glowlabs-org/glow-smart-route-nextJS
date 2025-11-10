@@ -101,9 +101,9 @@ export default function RewardsView() {
               }
             >
               <TabsList className="grid grid-cols-3">
+                <TabsTrigger value="farms">Farms</TabsTrigger>
                 <TabsTrigger value="delegator">Delegators</TabsTrigger>
                 <TabsTrigger value="miner">Miners</TabsTrigger>
-                <TabsTrigger value="farms">Farms</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>

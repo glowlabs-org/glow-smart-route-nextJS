@@ -920,13 +920,13 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
               message: "Inflation rewards already claimed.",
             }
           : { status: "pending" }
-        : { status: "skipped", message: "No inflation rewards this week." };
+        : { status: "skipped", message: "Inflation rewards already claimed." };
 
       const protocolStage: ClaimStageState = hasProtocolDepositRewards
         ? { status: "pending" }
         : {
             status: "skipped",
-            message: "No protocol deposit rewards this week.",
+            message: "Protocol deposit rewards already claimed.",
           };
 
       return {
