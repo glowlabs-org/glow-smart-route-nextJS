@@ -12,7 +12,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FarmsView } from "./farms-view";
 import { DelegatorsView } from "./delegators-view";
 import { MinersView } from "./miners-view";
-import { MiningView } from "./mining-view";
 
 export function RewardsSkeleton() {
   return (
@@ -54,16 +53,16 @@ export function RewardsSkeleton() {
 export default function RewardsView() {
   const [type, setType] = useQueryState(
     "type",
-    parseAsString.withDefault("mining")
+    parseAsString.withDefault("farms")
   );
   const [selectedFarmId, setSelectedFarmId] = useQueryState(
     "farmId",
     parseAsString.withDefault("")
   );
 
-  const validType = ["mining", "delegator", "miner", "farms"].includes(type)
-    ? (type as "mining" | "delegator" | "miner" | "farms")
-    : "mining";
+  const validType = ["delegator", "miner", "farms"].includes(type)
+    ? (type as "delegator" | "miner" | "farms")
+    : "farms";
 
   return (
     <div className="min-h-screen bg-background">
@@ -76,15 +75,13 @@ export default function RewardsView() {
                   Glow Mining Rewards
                 </h1>
                 <p className="text-sm md:text-base text-muted-foreground max-w-2xl">
-                  {validType === "mining"
-                    ? "Compare delegation and mining performance across all farms, track rewards, and analyze participant earnings."
-                    : `Understand how ${
-                        validType === "delegator"
-                          ? "delegators"
-                          : validType === "miner"
-                          ? "miners"
-                          : "farms"
-                      } are deploying capital, earning GLW, and driving solar farm performance across the network.`}
+                  {`Understand how ${
+                    validType === "delegator"
+                      ? "delegators"
+                      : validType === "miner"
+                      ? "miners"
+                      : "farms"
+                  } are deploying capital, earning GLW, and driving solar farm performance across the network.`}
                 </p>
                 <p className="text-xs uppercase text-muted-foreground tracking-wide">
                   Latest network activity
@@ -100,11 +97,10 @@ export default function RewardsView() {
             <Tabs
               value={validType}
               onValueChange={(value) =>
-                setType(value as "mining" | "delegator" | "miner" | "farms")
+                setType(value as "delegator" | "miner" | "farms")
               }
             >
-              <TabsList className="grid grid-cols-4">
-                <TabsTrigger value="mining">Mining Overview</TabsTrigger>
+              <TabsList className="grid grid-cols-3">
                 <TabsTrigger value="delegator">Delegators</TabsTrigger>
                 <TabsTrigger value="miner">Miners</TabsTrigger>
                 <TabsTrigger value="farms">Farms</TabsTrigger>
@@ -112,9 +108,7 @@ export default function RewardsView() {
             </Tabs>
           </div>
 
-          {validType === "mining" ? (
-            <MiningView />
-          ) : validType === "farms" ? (
+          {validType === "farms" ? (
             <FarmsView
               selectedFarmId={selectedFarmId}
               onSelectFarm={setSelectedFarmId}

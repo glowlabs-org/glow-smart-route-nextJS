@@ -82,7 +82,8 @@ export function useWalletsActivity({
       const data = await response.json();
       return data as WalletsActivityResponse;
     },
-    staleTime: 2 * 60 * 1000,
+    staleTime: 60 * 1000,
+    refetchInterval: enabled ? 60 * 1000 : false,
     refetchOnWindowFocus: false,
   });
 

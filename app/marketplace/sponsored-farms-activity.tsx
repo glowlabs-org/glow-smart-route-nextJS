@@ -21,6 +21,11 @@ import {
 import { useFractionsSummary } from "@/hooks/useFractionsSummary";
 import { parseFractionsSummary } from "@/lib/fractions";
 import { cn } from "@/lib/utils";
+import { useEnsNames } from "@/hooks/useEnsNames";
+
+function formatAddress(address: string): string {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
 
 interface SponsoredFarmsActivityProps {
   className?: string;
@@ -75,6 +80,15 @@ export function SponsoredFarmsActivity({
 
   // Determine if we should show reward scores (only for launchpad)
   const showRewardScore = !fractionType || fractionType === "launchpad";
+
+  const buyerAddresses = React.useMemo(() => {
+    return activity.map((purchase) => purchase.buyer);
+  }, [activity]);
+
+  const { ensNames } = useEnsNames({
+    addresses: buyerAddresses,
+    enabled: buyerAddresses.length > 0,
+  });
 
   if (isLoading) {
     return (
@@ -354,10 +368,8 @@ export function SponsoredFarmsActivity({
                 minute: "2-digit",
               });
 
-              const buyerDisplay = `${purchase.buyer.slice(
-                0,
-                6
-              )}...${purchase.buyer.slice(-4)}`;
+              const ensName = ensNames[purchase.buyer];
+              const buyerDisplay = ensName || formatAddress(purchase.buyer);
 
               return (
                 <TableRow

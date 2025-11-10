@@ -2,12 +2,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
-
-if (!HUB_URL) {
-  throw new Error("NEXT_PUBLIC_HUB_URL is not set");
-}
-
 export interface RewardAmount {
   lastWeek: string;
   allWeeks: string;
@@ -102,7 +96,7 @@ export function useFarmsPerPieceStats({
         searchParams.append("endWeek", endWeek.toString());
       }
 
-      const url = `${HUB_URL}/fractions/farms-per-piece-stats?${searchParams.toString()}`;
+      const url = `/api/farms-per-piece-stats?${searchParams.toString()}`;
 
       const response = await fetch(url);
 
@@ -116,7 +110,7 @@ export function useFarmsPerPieceStats({
       const data = await response.json();
       return data as FarmsPerPieceStatsResponse;
     },
-    staleTime: 2 * 60 * 1000,
+    staleTime: 60 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 

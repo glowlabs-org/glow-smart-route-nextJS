@@ -4,19 +4,13 @@ import React from "react";
 import {
   Activity,
   ArrowUpDown,
+  Coins,
   LineChart,
   TrendingUp,
   Zap,
   Info,
 } from "lucide-react";
-import {
-  ComposedChart,
-  Bar,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Line,
-} from "recharts";
+import { BarChart, Bar, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,6 +62,7 @@ import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import { useRegions } from "@/hooks/useRegions";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useGlowPrices } from "@/hooks/useGlowPrices";
+import { calculateFarmEfficiency } from "@glowlabs-org/utils/browser";
 import Decimal from "decimal.js";
 
 function RewardsSkeleton() {
@@ -174,7 +169,6 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
       .slice(0, 20)
       .map((farm, index) => {
         const totalRewardsUsd = farm.totalRewardsUsd ?? 0;
-        const efficiency = farm.efficiencyScore;
         const farmName = farm.name || `Farm ${farm.farmId.slice(0, 8)}`;
 
         return {
@@ -182,7 +176,6 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
           fullFarmName: farmName,
           fullFarmId: farm.farmId,
           totalRewardsUsd,
-          efficiency,
           glwRewards: farm.weeklyGlwRewards ?? 0,
           protocolDepositRewards: farm.weeklyProtocolDepositRewards ?? 0,
           paymentCurrency: farm.paymentCurrency,
@@ -196,10 +189,6 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
       label: "Total Rewards (USD)",
       color: "#ff8533",
     },
-    efficiency: {
-      label: "Efficiency Score",
-      color: "#fcbe94",
-    },
   } satisfies ChartConfig;
 
   if (chartData.length === 0) {
@@ -212,7 +201,7 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
 
   return (
     <ChartContainer config={chartConfig} className="h-80 w-full">
-      <ComposedChart
+      <BarChart
         accessibilityLayer
         data={chartData}
         margin={{ left: 12, right: 12, top: 12, bottom: 80 }}
@@ -228,7 +217,6 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
           height={80}
         />
         <YAxis
-          yAxisId="left"
           tickLine={false}
           axisLine={false}
           tickMargin={8}
@@ -237,14 +225,6 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
               ? `$${(value / 1000).toFixed(1)}k`
               : `$${value.toFixed(0)}`
           }
-        />
-        <YAxis
-          yAxisId="right"
-          orientation="right"
-          tickLine={false}
-          axisLine={false}
-          tickMargin={8}
-          tickFormatter={(value) => value.toFixed(1)}
         />
         <ChartTooltip
           content={
@@ -306,17 +286,6 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
                     </div>,
                     "Total Rewards (USD)",
                   ];
-                } else if (
-                  name === "efficiency" ||
-                  name === "Efficiency Score"
-                ) {
-                  const formatted = numValue.toFixed(2);
-                  return [
-                    <span key="efficiency-score" className="font-semibold">
-                      {formatted}
-                    </span>,
-                    "Efficiency Score",
-                  ];
                 }
                 return [String(value), String(name)];
               }}
@@ -325,22 +294,12 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
         />
         <ChartLegend content={<ChartLegendContent />} />
         <Bar
-          yAxisId="left"
           dataKey="totalRewardsUsd"
           fill="var(--color-totalRewardsUsd)"
           radius={[4, 4, 0, 0]}
           name="Total Rewards (USD)"
         />
-        <Line
-          yAxisId="right"
-          type="monotone"
-          dataKey="efficiency"
-          stroke="var(--color-efficiency)"
-          strokeWidth={2}
-          dot={{ r: 4, fill: "var(--color-efficiency)" }}
-          name="Efficiency Score"
-        />
-      </ComposedChart>
+      </BarChart>
     </ChartContainer>
   );
 }
@@ -800,6 +759,58 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
       </Dialog>
 
       <div className="space-y-8">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">Region:</span>
+          <Select
+            value={String(selectedRegionId)}
+            onValueChange={(value) =>
+              setSelectedRegionId(value === "all" ? "all" : Number(value))
+            }
+          >
+            <SelectTrigger className="w-[280px]">
+              <SelectValue placeholder="Select region" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                All Regions
+                {regionUsdTotals.size > 0 && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    ($
+                    {Array.from(regionUsdTotals.values())
+                      .reduce((sum, val) => sum + val, 0)
+                      .toLocaleString("en-US", {
+                        maximumFractionDigits: 0,
+                      })}
+                    /week )
+                  </span>
+                )}
+              </SelectItem>
+              {regions
+                .filter((region) => regionUsdTotals.has(region.id))
+                .sort(
+                  (a, b) =>
+                    (regionUsdTotals.get(b.id) || 0) -
+                    (regionUsdTotals.get(a.id) || 0)
+                )
+                .map((region) => {
+                  const usdTotal = regionUsdTotals.get(region.id) || 0;
+                  return (
+                    <SelectItem key={region.id} value={String(region.id)}>
+                      {region.name}
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        ($
+                        {usdTotal.toLocaleString("en-US", {
+                          maximumFractionDigits: 0,
+                        })}
+                        /week)
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <MetricCard
             title={
@@ -820,78 +831,25 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
             </p>
           </MetricCard>
 
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <MetricCard
-                    title="Last Week Rewards"
-                    value={`$${totalLastWeekRewardsUsd.toLocaleString("en-US", {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    })}`}
-                    icon={<TrendingUp className="h-5 w-5" />}
-                  >
-                    <p>
-                      {selectedRegionId === "all"
-                        ? `Distributed to ${rewardsBreakdown.farmsWithData} farms with recent data`
-                        : `Distributed to ${rewardsBreakdown.farmsWithData} farms with recent data`}
-                    </p>
-                  </MetricCard>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <div className="space-y-2">
-                  <p className="font-semibold text-sm">Breakdown by Asset</p>
-                  {Array.from(rewardsBreakdown.breakdown.entries())
-                    .sort((a, b) => b[1].usdValue - a[1].usdValue)
-                    .map(([currency, data]) => (
-                      <div
-                        key={currency}
-                        className="flex justify-between items-center gap-4 text-sm"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {currency}
-                          </Badge>
-                          <span className="font-mono">
-                            {data.amount.toLocaleString("en-US", {
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 2,
-                            })}
-                          </span>
-                        </div>
-                        <span className="font-semibold">
-                          $
-                          {data.usdValue.toLocaleString("en-US", {
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 0,
-                          })}
-                        </span>
-                      </div>
-                    ))}
-                  {rewardsBreakdown.farmsWithData <
-                    rewardsBreakdown.totalFarms && (
-                    <p className="text-xs text-muted-foreground pt-2 border-t">
-                      {rewardsBreakdown.totalFarms -
-                        rewardsBreakdown.farmsWithData}{" "}
-                      {rewardsBreakdown.totalFarms -
-                        rewardsBreakdown.farmsWithData ===
-                      1
-                        ? "farm has"
-                        : "farms have"}{" "}
-                      no recent reward data
-                    </p>
-                  )}
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <MetricCard
+            title="Last Week Rewards"
+            value={`$${totalLastWeekRewardsUsd.toLocaleString("en-US", {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0,
+            })}`}
+            icon={<TrendingUp className="h-5 w-5" />}
+          >
+            <p>
+              {selectedRegionId === "all"
+                ? `Distributed to ${rewardsBreakdown.farmsWithData} farms with recent data`
+                : `Distributed to ${rewardsBreakdown.farmsWithData} farms with recent data`}
+            </p>
+          </MetricCard>
 
           <MetricCard
             title={
               selectedRegionId === "all"
-                ? "Average Efficiency"
+                ? "Network Efficiency"
                 : "Region Efficiency"
             }
             value={(() => {
@@ -904,23 +862,37 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                   : "0.00";
               }
 
-              const activeRegions = regions.filter(
-                (r) => r.isActive && regionUsdTotals.has(r.id)
+              const filteredFarms =
+                selectedRegionId === "all"
+                  ? farms
+                  : farms.filter((f) => f.regionId === selectedRegionId);
+
+              if (filteredFarms.length === 0) return "0.00";
+
+              let totalProtocolDepositUsd6 = BigInt(0);
+              let totalWeeklyImpactAssetsWad = BigInt(0);
+
+              filteredFarms.forEach((farm) => {
+                totalProtocolDepositUsd6 += BigInt(farm.protocolDepositUsd6);
+                totalWeeklyImpactAssetsWad += BigInt(
+                  farm.weeklyImpactAssetsWad
+                );
+              });
+
+              if (totalProtocolDepositUsd6 === BigInt(0)) return "0.00";
+
+              const networkEfficiency = calculateFarmEfficiency(
+                totalProtocolDepositUsd6,
+                totalWeeklyImpactAssetsWad
               );
-              return activeRegions.length > 0
-                ? (
-                    activeRegions.reduce(
-                      (sum, r) => sum + r.efficiencyScore,
-                      0
-                    ) / activeRegions.length
-                  ).toFixed(2)
-                : "0.00";
+
+              return networkEfficiency.toFixed(2);
             })()}
             icon={<Zap className="h-5 w-5" />}
           >
             <p>
               {selectedRegionId === "all"
-                ? "Average efficiency across all active regions"
+                ? "Weighted by total protocol deposits across all farms"
                 : "Carbon credits per $100k deposit/week"}
             </p>
           </MetricCard>
@@ -938,101 +910,78 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
           </MetricCard>
         </div>
 
+        {rewardsBreakdown.breakdown.size > 1 && (
+          <div>
+            <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
+              Last Week Rewards by Asset
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {Array.from(rewardsBreakdown.breakdown.entries())
+                .sort((a, b) => b[1].usdValue - a[1].usdValue)
+                .map(([currency, data]) => (
+                  <MetricCard
+                    key={currency}
+                    title={`${currency} Rewards`}
+                    value={data.amount.toLocaleString("en-US", {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 2,
+                    })}
+                    icon={<Coins className="h-5 w-5" />}
+                  >
+                    <p>
+                      $
+                      {data.usdValue.toLocaleString("en-US", {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0,
+                      })}{" "}
+                      USD value
+                    </p>
+                  </MetricCard>
+                ))}
+            </div>
+          </div>
+        )}
+
         <Card className="border-border/60">
           <CardHeader>
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                <div>
-                  <CardTitle>Weekly Rewards & Efficiency Overview</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {selectedRegionId === "all"
-                      ? "Comparing top 20 farms with recent rewards by efficiency score and their weekly rewards (USD)."
-                      : `Top 20 farms with recent rewards in ${
-                          regions.find((r) => r.id === selectedRegionId)
-                            ?.name || "this region"
-                        } by efficiency score and weekly rewards (USD).`}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                  <Select
-                    value={sortBy}
-                    onValueChange={(value) =>
-                      setSortBy(
-                        value as
-                          | "efficiency"
-                          | "glwRewards"
-                          | "totalRewardsUsd"
-                          | "protocolDeposit"
-                      )
-                    }
-                  >
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Sort by" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="efficiency">
-                        Efficiency Score
-                      </SelectItem>
-                      <SelectItem value="totalRewardsUsd">
-                        Total Rewards (USD)
-                      </SelectItem>
-                      <SelectItem value="glwRewards">GLW Inflation</SelectItem>
-                      <SelectItem value="protocolDeposit">
-                        Protocol Deposit
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+              <div>
+                <CardTitle>Weekly Rewards Overview</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {selectedRegionId === "all"
+                    ? "Top 20 farms with recent rewards activity, ranked by total rewards distributed (USD)."
+                    : `Top 20 farms with recent rewards in ${
+                        regions.find((r) => r.id === selectedRegionId)?.name ||
+                        "this region"
+                      }, ranked by total rewards (USD).`}
+                </p>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Region:</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                 <Select
-                  value={String(selectedRegionId)}
+                  value={sortBy}
                   onValueChange={(value) =>
-                    setSelectedRegionId(value === "all" ? "all" : Number(value))
+                    setSortBy(
+                      value as
+                        | "efficiency"
+                        | "glwRewards"
+                        | "totalRewardsUsd"
+                        | "protocolDeposit"
+                    )
                   }
                 >
-                  <SelectTrigger className="w-[280px]">
-                    <SelectValue placeholder="Select region" />
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">
-                      All Regions
-                      {regionUsdTotals.size > 0 && (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          ($
-                          {Array.from(regionUsdTotals.values())
-                            .reduce((sum, val) => sum + val, 0)
-                            .toLocaleString("en-US", {
-                              maximumFractionDigits: 0,
-                            })}
-                          /week )
-                        </span>
-                      )}
+                    <SelectItem value="efficiency">Efficiency Score</SelectItem>
+                    <SelectItem value="totalRewardsUsd">
+                      Total Rewards (USD)
                     </SelectItem>
-                    {regions
-                      .filter((region) => regionUsdTotals.has(region.id))
-                      .sort(
-                        (a, b) =>
-                          (regionUsdTotals.get(b.id) || 0) -
-                          (regionUsdTotals.get(a.id) || 0)
-                      )
-                      .map((region) => {
-                        const usdTotal = regionUsdTotals.get(region.id) || 0;
-                        return (
-                          <SelectItem key={region.id} value={String(region.id)}>
-                            {region.name}
-                            <span className="ml-2 text-xs text-muted-foreground">
-                              ($
-                              {usdTotal.toLocaleString("en-US", {
-                                maximumFractionDigits: 0,
-                              })}
-                              /week)
-                            </span>
-                          </SelectItem>
-                        );
-                      })}
+                    <SelectItem value="glwRewards">GLW Inflation</SelectItem>
+                    <SelectItem value="protocolDeposit">
+                      Protocol Deposit
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>

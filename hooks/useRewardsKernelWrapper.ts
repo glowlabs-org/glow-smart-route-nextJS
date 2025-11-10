@@ -555,22 +555,41 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             );
 
             if (glwResult.status === "success" && glwResult.txHash) {
+              notifyProgress({
+                stage: "inflation",
+                status: "inProgress",
+                txHash: glwResult.txHash,
+                message: "Waiting for confirmation",
+              });
+              try {
+                await publicClient?.waitForTransactionReceipt({
+                  hash: glwResult.txHash as `0x${string}`,
+                  confirmations: 1,
+                });
+              } catch (error) {
+                console.error("Error waiting for GLW receipt:", error);
+              }
+              notifyProgress({
+                stage: "inflation",
+                status: "success",
+                txHash: glwResult.txHash,
+                message: "Transaction confirmed",
+              });
               txHashes.push(glwResult.txHash);
             } else if (glwResult.status === "error") {
               encounteredError = true;
+              notifyProgress({
+                stage: "inflation",
+                status: "error",
+                message: glwResult.message,
+              });
+            } else {
+              notifyProgress({
+                stage: "inflation",
+                status: "skipped",
+                message: glwResult.message ?? "No inflation rewards this week",
+              });
             }
-
-            notifyProgress({
-              stage: "inflation",
-              status:
-                glwResult.status === "success"
-                  ? "success"
-                  : glwResult.status === "error"
-                  ? "error"
-                  : "skipped",
-              txHash: glwResult.txHash,
-              message: glwResult.message,
-            });
           }
         } else {
           notifyProgress({
@@ -598,22 +617,42 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           );
 
           if (pdResult.status === "success" && pdResult.txHash) {
+            notifyProgress({
+              stage: "protocolDeposits",
+              status: "inProgress",
+              txHash: pdResult.txHash,
+              message: "Waiting for confirmation",
+            });
+            try {
+              await publicClient?.waitForTransactionReceipt({
+                hash: pdResult.txHash as `0x${string}`,
+                confirmations: 1,
+              });
+            } catch (error) {
+              console.error("Error waiting for PD receipt:", error);
+            }
+            notifyProgress({
+              stage: "protocolDeposits",
+              status: "success",
+              txHash: pdResult.txHash,
+              message: "Transaction confirmed",
+            });
             txHashes.push(pdResult.txHash);
           } else if (pdResult.status === "error") {
             encounteredError = true;
+            notifyProgress({
+              stage: "protocolDeposits",
+              status: "error",
+              message: pdResult.message,
+            });
+          } else {
+            notifyProgress({
+              stage: "protocolDeposits",
+              status: "skipped",
+              message:
+                pdResult.message ?? "No protocol deposit rewards this week",
+            });
           }
-
-          notifyProgress({
-            stage: "protocolDeposits",
-            status:
-              pdResult.status === "success"
-                ? "success"
-                : pdResult.status === "error"
-                ? "error"
-                : "skipped",
-            txHash: pdResult.txHash,
-            message: pdResult.message,
-          });
         } else {
           notifyProgress({
             stage: "protocolDeposits",
@@ -644,7 +683,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         setIsClaimingWeek(null);
       }
     },
-    [walletClient, claimGlwInflation, claimProtocolDeposits]
+    [walletClient, publicClient, claimGlwInflation, claimProtocolDeposits]
   );
 
   // Claim all available rewards

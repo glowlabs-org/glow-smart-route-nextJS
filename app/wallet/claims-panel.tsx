@@ -956,7 +956,7 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
       const previousStage = prev[update.stage];
       const fallbackMessage: Partial<Record<ClaimStageStatus, string>> = {
         inProgress: "Submitting transaction...",
-        success: "Transaction submitted",
+        success: "Transaction confirmed",
         error: "Unable to complete",
       };
 
