@@ -34,8 +34,7 @@ export function LiquidityIncentiveDialog({
           <p className="text-sm text-muted-foreground">
             Glow is running a promotion from September 2nd, 2025 to November
             25th, 2025 where it is distributing 5,000 GLW per week to liquidity
-            providers. If the program is successful, it is likely to be extended
-            beyond November 25th.
+            providers.
           </p>
           <p className="text-sm text-muted-foreground">
             Liquidity providers will earn GLW tokens based on how much liquidity

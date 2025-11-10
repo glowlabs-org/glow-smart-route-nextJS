@@ -27,6 +27,7 @@ import {
   useLiquidityPositions,
   useApyEstimate,
   GLW_INCENTIVES_START_TIME,
+  GLW_INCENTIVES_END_TIME,
 } from "@/hooks/useLiquidityPositionsOptimized";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
@@ -147,6 +148,8 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
     null
   );
 
+  const isAfterCutoff = Date.now() > GLW_INCENTIVES_END_TIME;
+
   React.useEffect(() => {
     refreshBalances();
   }, [signer]);
@@ -236,17 +239,18 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
   const isAmountMissing =
     glw.trim() === "" || usdg.trim() === "" || glwNum <= 0 || usdgNum <= 0;
   const isActionDisabled =
-    isAmountMissing || isGlwOverBalance || isUsdgOverBalance;
-  const actionLabel =
-    isGlwOverBalance && isUsdgOverBalance
-      ? "Insufficient funds"
-      : isGlwOverBalance
-      ? "Insufficient GLW balance"
-      : isUsdgOverBalance
-      ? "Insufficient USDG balance"
-      : isAmountMissing
-      ? "Enter amounts"
-      : "Review";
+    isAfterCutoff || isAmountMissing || isGlwOverBalance || isUsdgOverBalance;
+  const actionLabel = isAfterCutoff
+    ? "Program Ended"
+    : isGlwOverBalance && isUsdgOverBalance
+    ? "Insufficient funds"
+    : isGlwOverBalance
+    ? "Insufficient GLW balance"
+    : isUsdgOverBalance
+    ? "Insufficient USDG balance"
+    : isAmountMissing
+    ? "Enter amounts"
+    : "Review";
 
   function handleAdd() {
     if (isActionDisabled) return;
@@ -317,6 +321,7 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
                   }
                   handleGlwChange(e.target.value);
                 }}
+                disabled={isAfterCutoff}
               />
             </div>
             <div className="flex items-center justify-center px-4 py-2 bg-background rounded-xl border border-border">
@@ -360,6 +365,7 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
                   }
                   handleUsdgChange(e.target.value);
                 }}
+                disabled={isAfterCutoff}
               />
             </div>
             <div className="flex items-center justify-center px-4 py-2 bg-background rounded-xl border border-border">
@@ -429,27 +435,45 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
             </div>
           </div>
         )}
-        {/* USDC to USDG swap suggestion banner */}
-        {isUsdgOverBalance && usdcBalanceNumber >= usdgNum && usdgNum > 0 && (
-          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-            <div className="flex items-start gap-3">
-              <div className="flex-1">
-                <p className="text-sm font-medium">Need more USDG?</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  You have {usdcBalanceNumber.toFixed(2)} USDC available. Swap
-                  USDC to USDG to continue.
-                </p>
-              </div>
-              <Link
-                href="/?tab=swap"
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-              >
-                Go to Swap
-                <ArrowRight className="w-3 h-3" />
-              </Link>
+        {/* Program ended banner */}
+        {isAfterCutoff && (
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                GLW Incentive Program Ended
+              </p>
+              <p className="text-xs text-muted-foreground">
+                The GLW incentive program ended on November 25, 2025. New
+                liquidity positions cannot be added at this time.
+              </p>
             </div>
           </div>
         )}
+
+        {/* USDC to USDG swap suggestion banner */}
+        {!isAfterCutoff &&
+          isUsdgOverBalance &&
+          usdcBalanceNumber >= usdgNum &&
+          usdgNum > 0 && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Need more USDG?</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    You have {usdcBalanceNumber.toFixed(2)} USDC available. Swap
+                    USDC to USDG to continue.
+                  </p>
+                </div>
+                <Link
+                  href="/?tab=swap"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  Go to Swap
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+            </div>
+          )}
 
         {preflightError && (
           <div className="rounded-xl border border-destructive bg-destructive/10 text-destructive p-3 text-sm">
@@ -498,13 +522,8 @@ const RewardsSummaryCard = React.memo(function RewardsSummaryCard({
   totalFeeRewardsLPValue,
   isLoading,
 }: RewardsSummaryCardProps) {
-  // Check if we're before GLW incentives start time (September 2nd, 10am EST)
-  const glwIncentivesStartTime = React.useMemo(() => {
-    // September 2nd, 2025, 10:00 AM EST (UTC-5)
-    return new Date("2025-09-02T15:00:00Z").getTime(); // 15:00 UTC = 10:00 EST
-  }, []);
-
-  const isBeforeIncentivesStart = Date.now() < glwIncentivesStartTime;
+  const isAfterCutoff = Date.now() > GLW_INCENTIVES_END_TIME;
+  const isBeforeIncentivesStart = Date.now() < GLW_INCENTIVES_START_TIME;
 
   return (
     <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
@@ -515,7 +534,7 @@ const RewardsSummaryCard = React.memo(function RewardsSummaryCard({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-muted/30 rounded-xl border border-border p-4">
             <div className="text-xs text-muted-foreground mb-2">
-              GLW Incentives
+              GLW Incentives{isAfterCutoff ? " (Program Ended)" : ""}
             </div>
             <div className="flex items-baseline gap-2">
               {isLoading ? (
@@ -699,9 +718,8 @@ const PositionCard = React.memo(function PositionCard({
     }
   };
 
-  const isIncentivesActive = React.useMemo(() => {
-    return Date.now() >= GLW_INCENTIVES_START_TIME;
-  }, []);
+  const isIncentivesActive = Date.now() >= GLW_INCENTIVES_START_TIME;
+  const isAfterCutoff = Date.now() > GLW_INCENTIVES_END_TIME;
 
   const liveMultiplier = getLoyaltyMultiplier(position.createdAt);
   const currentGlw = position.glwAmount;
@@ -749,7 +767,9 @@ const PositionCard = React.memo(function PositionCard({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
-                      {isIncentivesActive
+                      {isAfterCutoff
+                        ? "Incentive APY (ended)"
+                        : isIncentivesActive
                         ? "Incentive APY"
                         : "Incentive APY (coming)"}
                     </span>
@@ -816,10 +836,9 @@ const PositionCard = React.memo(function PositionCard({
                     ?
                   </TooltipTrigger>
                   <TooltipContent className="text-xs max-w-xs">
-                    GLW incentives are distributed after the v2 launch when
-                    epochs finalize. Amounts shown accrue in real time but are
-                    not immediately claimable. The v2 launch date is not yet
-                    defined.
+                    {isAfterCutoff
+                      ? "The GLW incentive program ended on November 25, 2025. Rewards shown are final and will be distributed after the v2 launch when epochs finalize. The v2 launch date is not yet defined."
+                      : "GLW incentives are distributed after the v2 launch when epochs finalize. Amounts shown accrue in real time but are not immediately claimable. The v2 launch date is not yet defined."}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -842,7 +861,7 @@ const PositionCard = React.memo(function PositionCard({
         {isIncentivesActive && (
           <div className="mt-3 rounded-md border p-3 flex items-center justify-between">
             <div className="text-xs text-muted-foreground">
-              Loyalty bonus (live)
+              Loyalty bonus{isAfterCutoff ? " (Program Ended)" : " (live)"}
             </div>
             <div className="font-mono text-sm flex items-center">
               {/* Only the loyalty bonus animates with time - updates every second */}

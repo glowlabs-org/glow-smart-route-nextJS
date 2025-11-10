@@ -17,7 +17,8 @@ import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { toast } from "sonner";
 import Decimal from "decimal.js";
 
-export const GLW_INCENTIVES_START_TIME = 1756821600 * 1000; // 10:00 EST
+export const GLW_INCENTIVES_START_TIME = 1756821600 * 1000; // September 2, 2025 14:00:00 GMT (10:00 AM EST)
+export const GLW_INCENTIVES_END_TIME = 1764079200 * 1000; // November 25, 2025 14:00:00 GMT (12 weeks after start)
 
 // Types
 export interface Position {

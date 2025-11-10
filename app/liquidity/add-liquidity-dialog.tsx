@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useLiquidityPositions } from "@/hooks/useLiquidityPositions";
+import { GLW_INCENTIVES_END_TIME } from "@/hooks/useLiquidityPositionsOptimized";
 
 interface AddLiquidityReviewDialogProps {
   open: boolean;
@@ -196,6 +197,8 @@ export function AddLiquidityReviewDialog({
 
   const [acknowledged, setAcknowledged] = React.useState(false);
 
+  const isAfterCutoff = Date.now() > GLW_INCENTIVES_END_TIME;
+
   // Transaction details for review state
   const transactionDetails: TransactionDetail[] = [
     { label: "USDG Amount", value: usdgText, unit: "USDG" },
@@ -225,8 +228,9 @@ export function AddLiquidityReviewDialog({
             className="mt-0.5 border-accent size-6"
           />
           <span className="text-foreground">
-            I understand GLW rewards will be claimable after the v2 Smart
-            Contract relaunch. The relaunch date is not yet defined.
+            {isAfterCutoff
+              ? "I understand the GLW incentive program has ended. New liquidity will not earn GLW rewards."
+              : "I understand GLW rewards will be claimable after the v2 Smart Contract relaunch. The relaunch date is not yet defined."}
           </span>
         </label>
       </div>
