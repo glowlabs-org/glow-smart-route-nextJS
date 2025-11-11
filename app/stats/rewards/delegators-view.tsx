@@ -7,12 +7,14 @@ import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useFractionsSummary } from "@/hooks/useFractionsSummary";
 import { useGlowHolderCount } from "@/hooks/useGlowHolderCount";
 import { useFarmsPerPieceStats } from "@/hooks/useFarmsPerPieceStats";
+import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
 
 export function DelegatorsView() {
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
   const { summary } = useFractionsSummary();
   const { holderCount: glwHolderCount } = useGlowHolderCount();
   const { data, isLoading } = useFarmsPerPieceStats({ enabled: true });
+  const { circulatingSupply } = useGlowCirculatingSupply({ enabled: true });
 
   const avgGlwPerWeekPer100Delegated = React.useMemo(() => {
     if (!data?.farms) return 0;
@@ -65,6 +67,7 @@ export function DelegatorsView() {
       glwHolderCount={glwHolderCount}
       weeklyRewardsMetric={avgGlwPerWeekPer100Delegated}
       weeklyRewardsMetricLoading={isLoading}
+      circulatingSupply={circulatingSupply}
     />
   );
 }

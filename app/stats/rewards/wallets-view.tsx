@@ -15,6 +15,8 @@ import {
   ChevronRight,
   Search,
   X,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -69,7 +71,6 @@ import {
   type WalletActivity,
   type FarmActivity,
 } from "@/hooks/useWalletsActivity";
-import { useSplitsActivity } from "@/hooks/useGlowLaunchpad";
 import { useEnsNames } from "@/hooks/useEnsNames";
 import { MetricCard } from "./farms-view";
 import { RewardsSkeleton } from "./view";
@@ -141,6 +142,55 @@ function copyToClipboard(text: string, label: string) {
     });
 }
 
+type SortField =
+  | "glwDelegated"
+  | "glwPerWeek"
+  | "delegatorRewardsEarned"
+  | "minerRewardsEarned";
+
+interface SortableTableHeadProps {
+  field: SortField;
+  currentSortBy: SortField;
+  sortDirection: "asc" | "desc";
+  onSort: (field: SortField) => void;
+  children: React.ReactNode;
+  className?: string;
+}
+
+function SortableTableHead({
+  field,
+  currentSortBy,
+  sortDirection,
+  onSort,
+  children,
+  className,
+}: SortableTableHeadProps) {
+  const isActive = currentSortBy === field;
+  const isRightAlign = className?.includes("text-right");
+
+  return (
+    <TableHead className={className}>
+      <button
+        onClick={() => onSort(field)}
+        className={`flex items-center gap-1 hover:text-foreground transition-colors w-full ${
+          isRightAlign ? "justify-end" : ""
+        }`}
+      >
+        <span>{children}</span>
+        {isActive ? (
+          sortDirection === "desc" ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronUp className="h-4 w-4" />
+          )
+        ) : (
+          <ArrowUpDown className="h-4 w-4 opacity-30" />
+        )}
+      </button>
+    </TableHead>
+  );
+}
+
 interface RewardsChartProps {
   wallets: WalletActivity[];
   type: "delegator" | "miner";
@@ -199,7 +249,7 @@ function FarmsChart({ farms, type }: FarmsChartProps) {
       <BarChart
         accessibilityLayer
         data={chartData}
-        margin={{ left: 12, right: 12, top: 12, bottom: 80 }}
+        margin={{ left: 8, right: 8, top: 12, bottom: 60 }}
       >
         <CartesianGrid vertical={false} strokeDasharray="3 3" />
         <XAxis
@@ -207,7 +257,7 @@ function FarmsChart({ farms, type }: FarmsChartProps) {
           tickLine={false}
           axisLine={false}
           tickMargin={8}
-          angle={-45}
+          angle={-35}
           textAnchor="end"
           height={80}
         />
@@ -271,10 +321,14 @@ function FarmsChart({ farms, type }: FarmsChartProps) {
 
 interface DelegationTrendChartProps {
   glwDelegationByEpoch: Record<number, string>;
+  circulatingSupply: number;
+  currentTotalGlwDelegated?: string;
 }
 
 function DelegationTrendChart({
   glwDelegationByEpoch,
+  circulatingSupply,
+  currentTotalGlwDelegated,
 }: DelegationTrendChartProps) {
   const chartData = React.useMemo(() => {
     const epochs = Object.keys(glwDelegationByEpoch)
@@ -282,17 +336,26 @@ function DelegationTrendChart({
       .sort((a, b) => a - b);
 
     const maxEpoch = Math.max(...epochs);
+    let cumulativeAmount = 0;
 
-    return epochs
+    const historicalData = epochs
       .filter((epoch) => epoch !== maxEpoch)
       .map((epoch) => {
-        const amount = Number(
+        const weekAmount = Number(
           formatUnits(BigInt(glwDelegationByEpoch[epoch] || "0"), 18)
         );
 
+        cumulativeAmount += weekAmount;
+
+        const percentOfCirculating =
+          circulatingSupply > 0
+            ? (cumulativeAmount / circulatingSupply) * 100
+            : 0;
+
         const WEEK_SECONDS = 86400 * 7;
-        const epochStartTimestamp = GENESIS_TIMESTAMP + epoch * WEEK_SECONDS;
-        const epochDate = new Date(epochStartTimestamp * 1000);
+        const epochEndTimestamp =
+          GENESIS_TIMESTAMP + (epoch + 1) * WEEK_SECONDS;
+        const epochDate = new Date(epochEndTimestamp * 1000);
 
         const formattedDate = epochDate.toLocaleDateString("en-US", {
           month: "short",
@@ -302,20 +365,48 @@ function DelegationTrendChart({
 
         return {
           epoch,
-          amount,
+          amount: cumulativeAmount,
+          percentOfCirculating,
           displayDate: formattedDate,
           fullDate: epochDate.toLocaleDateString("en-US", {
             month: "long",
             day: "numeric",
             year: "numeric",
           }),
+          isCurrent: false,
         };
       });
-  }, [glwDelegationByEpoch]);
+
+    if (currentTotalGlwDelegated) {
+      const currentAmount = Number(
+        formatUnits(BigInt(currentTotalGlwDelegated), 18)
+      );
+      const currentPercentOfCirculating =
+        circulatingSupply > 0 ? (currentAmount / circulatingSupply) * 100 : 0;
+
+      const now = new Date();
+      const formattedDate = now.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+
+      historicalData.push({
+        epoch: maxEpoch,
+        amount: currentAmount,
+        percentOfCirculating: currentPercentOfCirculating,
+        displayDate: "Current",
+        fullDate: formattedDate,
+        isCurrent: true,
+      });
+    }
+
+    return historicalData;
+  }, [glwDelegationByEpoch, circulatingSupply, currentTotalGlwDelegated]);
 
   const chartConfig = {
-    amount: {
-      label: "GLW Delegated",
+    percentOfCirculating: {
+      label: "% of Circulating Supply",
       color: "#dcc4ff",
     },
   } satisfies ChartConfig;
@@ -333,7 +424,7 @@ function DelegationTrendChart({
       <LineChart
         accessibilityLayer
         data={chartData}
-        margin={{ left: 12, right: 12, top: 12, bottom: 40 }}
+        margin={{ left: 8, right: 8, top: 12, bottom: 40 }}
       >
         <CartesianGrid vertical={false} strokeDasharray="3 3" />
         <XAxis
@@ -341,7 +432,7 @@ function DelegationTrendChart({
           tickLine={false}
           axisLine={false}
           tickMargin={8}
-          angle={-45}
+          angle={-35}
           textAnchor="end"
           height={60}
         />
@@ -349,13 +440,7 @@ function DelegationTrendChart({
           tickLine={false}
           axisLine={false}
           tickMargin={8}
-          tickFormatter={(value) =>
-            value >= 1000000
-              ? `${(value / 1000000).toFixed(1)}M`
-              : value >= 1000
-              ? `${(value / 1000).toFixed(1)}k`
-              : value.toString()
-          }
+          tickFormatter={(value) => `${value.toFixed(1)}%`}
         />
         <ChartTooltip
           content={
@@ -369,15 +454,23 @@ function DelegationTrendChart({
                   </div>
                 );
               }}
-              formatter={(value) => {
+              formatter={(value, name, payload) => {
                 const numValue = Number(value);
-                const formatted = numValue.toLocaleString("en-US", {
+                const amount = payload?.payload?.amount || 0;
+                const formattedAmount = amount.toLocaleString("en-US", {
                   minimumFractionDigits: 0,
                   maximumFractionDigits: 2,
                 });
                 return [
-                  <span className="font-semibold">{formatted} GLW</span>,
-                  "GLW Delegated",
+                  <div key="delegation-tooltip" className="space-y-1">
+                    <div className="font-semibold">
+                      {numValue.toFixed(2)}% of supply
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {formattedAmount} GLW cumulative
+                    </div>
+                  </div>,
+                  "Cumulative Delegation",
                 ];
               }}
             />
@@ -385,11 +478,15 @@ function DelegationTrendChart({
         />
         <Line
           type="monotone"
-          dataKey="amount"
-          stroke="var(--color-amount)"
+          dataKey="percentOfCirculating"
+          stroke="var(--color-percentOfCirculating)"
           strokeWidth={3}
-          dot={{ r: 4, fill: "var(--color-amount)", strokeWidth: 2 }}
-          name="GLW Delegated"
+          dot={{
+            r: 4,
+            fill: "var(--color-percentOfCirculating)",
+            strokeWidth: 2,
+          }}
+          name="% of Circulating Supply"
         />
       </LineChart>
     </ChartContainer>
@@ -406,6 +503,7 @@ interface WalletsViewProps {
   glwHolderCount?: number;
   weeklyRewardsMetric?: number;
   weeklyRewardsMetricLoading?: boolean;
+  circulatingSupply?: number;
 }
 
 export function WalletsView({
@@ -418,13 +516,14 @@ export function WalletsView({
   glwHolderCount,
   weeklyRewardsMetric,
   weeklyRewardsMetricLoading,
+  circulatingSupply = 0,
 }: WalletsViewProps) {
-  const defaultSortBy =
+  const defaultSortBy: SortField =
     type === "delegator" ? "delegatorRewardsEarned" : "minerRewardsEarned";
 
-  const [sortBy, setSortBy] = useQueryState(
-    "sortBy",
-    parseAsString.withDefault(defaultSortBy)
+  const [sortBy, setSortByState] = React.useState<SortField>(defaultSortBy);
+  const [sortDirection, setSortDirection] = React.useState<"asc" | "desc">(
+    "desc"
   );
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
   const [search, setSearch] = useQueryState(
@@ -432,31 +531,34 @@ export function WalletsView({
     parseAsString.withDefault("")
   );
 
-  const validOptionsForType =
-    type === "delegator"
-      ? ["glwDelegated", "delegatorRewardsEarned", "totalRewardsEarned"]
-      : ["usdcSpentOnMiners", "minerRewardsEarned", "totalRewardsEarned"];
-
-  const validSortBy:
-    | "glwDelegated"
-    | "usdcSpentOnMiners"
-    | "delegatorRewardsEarned"
-    | "minerRewardsEarned"
-    | "totalRewardsEarned" = validOptionsForType.includes(sortBy)
-    ? (sortBy as typeof validSortBy)
-    : defaultSortBy;
+  function handleSort(field: SortField) {
+    if (sortBy === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortByState(field);
+      setSortDirection("desc");
+    }
+  }
 
   React.useEffect(() => {
-    if (!validOptionsForType.includes(sortBy)) {
-      setSortBy(defaultSortBy);
-    }
-  }, [type, sortBy, setSortBy, defaultSortBy, validOptionsForType]);
+    setSortByState(defaultSortBy);
+    setSortDirection("desc");
+  }, [type, defaultSortBy]);
 
   React.useEffect(() => {
     setPage(1);
-  }, [sortBy, type, search, setPage]);
+  }, [sortBy, type, search, setPage, sortDirection]);
 
-  const apiSortBy = validSortBy;
+  const apiSortBy:
+    | "glwDelegated"
+    | "delegatorRewardsEarned"
+    | "minerRewardsEarned"
+    | "totalRewardsEarned" =
+    sortBy === "glwPerWeek"
+      ? type === "delegator"
+        ? "delegatorRewardsEarned"
+        : "minerRewardsEarned"
+      : (sortBy as any);
 
   const farmsSortBy:
     | "delegatorRewardsDistributed"
@@ -481,12 +583,6 @@ export function WalletsView({
     enabled: true,
   });
 
-  const { activity: recentActivity } = useSplitsActivity({
-    limit: 10,
-    fractionType: type === "delegator" ? "launchpad" : "mining-center",
-    enabled: true,
-  });
-
   const weekRange = data?.weekRange;
   const summary = data?.summary;
   const farms = farmsData?.farms ?? [];
@@ -508,16 +604,73 @@ export function WalletsView({
     enabled: allWalletAddresses.length > 0,
   });
 
-  const filteredWallets = React.useMemo(() => {
-    if (!search) return wallets;
-
-    const searchLower = search.toLowerCase();
-    return wallets.filter((wallet) => {
-      const address = wallet.walletAddress.toLowerCase();
-      const ensName = allEnsNames[wallet.walletAddress]?.toLowerCase() || "";
-      return address.includes(searchLower) || ensName.includes(searchLower);
+  const walletsWithMetrics = React.useMemo(() => {
+    return wallets.map((wallet) => {
+      let glwPerWeek = 0;
+      if (weekRange) {
+        const weeksPassed = weekRange.endWeek - weekRange.startWeek + 1;
+        if (weeksPassed > 0) {
+          const rewards = Number(
+            formatUnits(
+              BigInt(
+                (type === "delegator"
+                  ? wallet.delegatorRewardsEarned
+                  : wallet.minerRewardsEarned) || "0"
+              ),
+              18
+            )
+          );
+          glwPerWeek = rewards / weeksPassed;
+        }
+      }
+      return { ...wallet, glwPerWeek };
     });
-  }, [wallets, search, allEnsNames]);
+  }, [wallets, weekRange, type]);
+
+  const filteredWallets = React.useMemo(() => {
+    const searchFiltered = search
+      ? walletsWithMetrics.filter((wallet) => {
+          const address = wallet.walletAddress.toLowerCase();
+          const ensName =
+            allEnsNames[wallet.walletAddress]?.toLowerCase() || "";
+          const searchLower = search.toLowerCase();
+          return address.includes(searchLower) || ensName.includes(searchLower);
+        })
+      : walletsWithMetrics;
+
+    const sorted = [...searchFiltered].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortBy) {
+        case "glwDelegated":
+          comparison = Number(
+            BigInt(b.glwDelegated || "0") - BigInt(a.glwDelegated || "0")
+          );
+          break;
+        case "delegatorRewardsEarned":
+          comparison = Number(
+            BigInt(b.delegatorRewardsEarned || "0") -
+              BigInt(a.delegatorRewardsEarned || "0")
+          );
+          break;
+        case "minerRewardsEarned":
+          comparison = Number(
+            BigInt(b.minerRewardsEarned || "0") -
+              BigInt(a.minerRewardsEarned || "0")
+          );
+          break;
+        case "glwPerWeek":
+          comparison = b.glwPerWeek - a.glwPerWeek;
+          break;
+        default:
+          comparison = 0;
+      }
+
+      return sortDirection === "desc" ? comparison : -comparison;
+    });
+
+    return sorted;
+  }, [walletsWithMetrics, search, allEnsNames, sortBy, sortDirection]);
 
   const totalPages = Math.ceil(filteredWallets.length / WALLETS_PER_PAGE);
 
@@ -527,11 +680,29 @@ export function WalletsView({
     }
   }, [page, totalPages, setPage]);
 
+  const walletsWithRank = React.useMemo(() => {
+    const sortedByRewards = [...filteredWallets].sort((a, b) => {
+      const rewardsKey =
+        type === "delegator" ? "delegatorRewardsEarned" : "minerRewardsEarned";
+      return Number(
+        BigInt(b[rewardsKey] || "0") - BigInt(a[rewardsKey] || "0")
+      );
+    });
+
+    return filteredWallets.map((wallet) => {
+      const rank =
+        sortedByRewards.findIndex(
+          (w) => w.walletAddress === wallet.walletAddress
+        ) + 1;
+      return { ...wallet, rank };
+    });
+  }, [filteredWallets, type]);
+
   const paginatedWallets = React.useMemo(() => {
     const startIndex = (page - 1) * WALLETS_PER_PAGE;
     const endIndex = startIndex + WALLETS_PER_PAGE;
-    return filteredWallets.slice(startIndex, endIndex);
-  }, [filteredWallets, page]);
+    return walletsWithRank.slice(startIndex, endIndex);
+  }, [walletsWithRank, page]);
 
   const lastWeekNetworkTotalGlwDelegated = React.useMemo(() => {
     if (
@@ -795,7 +966,7 @@ export function WalletsView({
 
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title={`${type === "delegator" ? "Delegators" : "Miners"}`}
           value={
@@ -881,69 +1052,19 @@ export function WalletsView({
           <Card className="border-border/60">
             <CardHeader className="pb-4">
               <div className="flex flex-col gap-1">
-                <CardTitle>Network Delegation Trend</CardTitle>
+                <CardTitle>GLW Delegation as % of Circulating Supply</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Growth of delegated GLW and recent network activity
+                  Track how much of the circulating GLW supply is delegated over
+                  time
                 </p>
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-foreground">
-                    Delegation Over Time
-                  </h3>
-                  <div>
-                    <DelegationTrendChart
-                      glwDelegationByEpoch={glwDelegationByEpoch}
-                    />
-                  </div>
-                </div>
-
-                {recentActivity.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-foreground">
-                      Recent Activity
-                    </h3>
-                    <ul className="space-y-2">
-                      {recentActivity.slice(0, 5).map((activity) => {
-                        const amount = Number(
-                          formatUnits(BigInt(activity.totalValue), 18)
-                        );
-                        const formattedAmount = amount.toLocaleString("en-US", {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 2,
-                        });
-                        const timeAgo = new Date(
-                          activity.purchaseDate
-                        ).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        });
-
-                        return (
-                          <li
-                            key={`${activity.transactionHash}-${activity.timestamp}`}
-                            className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-muted/30 p-3 hover:bg-muted/50 transition-colors text-sm"
-                          >
-                            <div className="flex flex-col gap-1">
-                              <span className="font-mono text-xs font-semibold">
-                                {formatAddress(activity.buyer)}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {timeAgo}
-                              </span>
-                            </div>
-                            <span className="text-xs font-semibold text-foreground">
-                              {formattedAmount} GLW
-                            </span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
-              </div>
+              <DelegationTrendChart
+                glwDelegationByEpoch={glwDelegationByEpoch}
+                circulatingSupply={circulatingSupply}
+                currentTotalGlwDelegated={networkTotalGlwDelegated}
+              />
             </CardContent>
           </Card>
         )}
@@ -951,44 +1072,14 @@ export function WalletsView({
       <Card className="border-border/60">
         <CardHeader>
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <div>
-                <CardTitle>Wallet leaderboard</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Detailed performance for the top{" "}
-                  {analytics.walletCount.toLocaleString()}{" "}
-                  {type === "delegator" ? "delegators" : "miners"}.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                <Select value={validSortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {type === "delegator" ? (
-                      <>
-                        <SelectItem value="delegatorRewardsEarned">
-                          Net Delegator Rewards
-                        </SelectItem>
-                        <SelectItem value="glwDelegated">
-                          GLW Delegated
-                        </SelectItem>
-                      </>
-                    ) : (
-                      <>
-                        <SelectItem value="minerRewardsEarned">
-                          Miner Rewards
-                        </SelectItem>
-                        <SelectItem value="usdcSpentOnMiners">
-                          USDC Spent
-                        </SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <CardTitle>Wallet leaderboard</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Detailed performance for the top{" "}
+                {analytics.walletCount.toLocaleString()}{" "}
+                {type === "delegator" ? "delegators" : "miners"}. Click column
+                headers to sort.
+              </p>
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1026,14 +1117,41 @@ export function WalletsView({
                     <TableHead className="w-16">Rank</TableHead>
                     <TableHead>Wallet</TableHead>
                     {type === "delegator" && (
-                      <TableHead className="text-right">
+                      <SortableTableHead
+                        field="glwDelegated"
+                        currentSortBy={sortBy}
+                        sortDirection={sortDirection}
+                        onSort={handleSort}
+                        className="hidden lg:table-cell text-right"
+                      >
                         {capitalLabel}
-                      </TableHead>
+                      </SortableTableHead>
                     )}
-                    <TableHead className="text-right">
-                      {type === "delegator" ? (
-                        <div className="flex items-center justify-end gap-1">
-                          <span>Net Delegator Rewards</span>
+                    <SortableTableHead
+                      field="glwPerWeek"
+                      currentSortBy={sortBy}
+                      sortDirection={sortDirection}
+                      onSort={handleSort}
+                      className="text-right"
+                    >
+                      GLW/Week
+                    </SortableTableHead>
+                    <SortableTableHead
+                      field={
+                        type === "delegator"
+                          ? "delegatorRewardsEarned"
+                          : "minerRewardsEarned"
+                      }
+                      currentSortBy={sortBy}
+                      sortDirection={sortDirection}
+                      onSort={handleSort}
+                      className="text-right"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>
+                          {type === "delegator" ? "Net Rewards" : "Rewards"}
+                        </span>
+                        {type === "delegator" && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -1048,14 +1166,12 @@ export function WalletsView({
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
-                        </div>
-                      ) : (
-                        rewardsLabel
-                      )}
-                    </TableHead>
-                    <TableHead className="text-right">
+                        )}
+                      </div>
+                    </SortableTableHead>
+                    <TableHead className="hidden md:table-cell text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <span>Share of rewards</span>
+                        <span>Share</span>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1073,12 +1189,14 @@ export function WalletsView({
                         </TooltipProvider>
                       </div>
                     </TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="hidden sm:table-cell text-right">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedWallets.map((wallet, index) => {
-                    const rank = (page - 1) * WALLETS_PER_PAGE + index + 1;
+                  {paginatedWallets.map((wallet) => {
+                    const rank = wallet.rank;
                     const capitalValue =
                       type === "delegator"
                         ? `${formatGLW(wallet.glwDelegated)} GLW`
@@ -1106,8 +1224,8 @@ export function WalletsView({
 
                       rewardsNumeric = grossRewards;
                       rewardsValue = netRewards.toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0,
                       });
                     } else {
                       rewardsValue = formatGLW(
@@ -1164,17 +1282,24 @@ export function WalletsView({
                           </div>
                         </TableCell>
                         {type === "delegator" && (
-                          <TableCell className="text-right font-mono text-sm">
+                          <TableCell className="hidden lg:table-cell text-right font-mono text-sm">
                             {capitalValue}
                           </TableCell>
                         )}
                         <TableCell className="text-right font-mono text-sm">
+                          {wallet.glwPerWeek.toLocaleString("en-US", {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0,
+                          })}{" "}
+                          GLW
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
                           {rewardsValue} GLW
                         </TableCell>
-                        <TableCell className="text-right text-sm">
+                        <TableCell className="hidden md:table-cell text-right text-sm">
                           {share.toFixed(1)}%
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden sm:table-cell">
                           <div className="flex items-center justify-end gap-2">
                             <Button
                               variant="ghost"
@@ -1195,7 +1320,7 @@ export function WalletsView({
             </div>
           )}
           {(totalPages > 1 || search) && (
-            <div className="flex items-center justify-between pt-4 border-t">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 pt-4 border-t">
               <div className="text-sm text-muted-foreground">
                 {filteredWallets.length > 0 ? (
                   <>
@@ -1209,7 +1334,7 @@ export function WalletsView({
                   <>No wallets found matching "{search}"</>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Button
                   variant="outline"
                   size="sm"
@@ -1219,7 +1344,10 @@ export function WalletsView({
                   <ChevronLeft className="h-4 w-4 mr-1" />
                   Previous
                 </Button>
-                <div className="flex items-center gap-1">
+                <div className="sm:hidden text-sm font-medium">
+                  Page {page} of {totalPages}
+                </div>
+                <div className="hidden sm:flex items-center gap-1">
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(
                     (pageNum) => {
                       if (

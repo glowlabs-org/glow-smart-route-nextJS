@@ -9,6 +9,8 @@ import {
   TrendingUp,
   Zap,
   Info,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { BarChart, Bar, CartesianGrid, XAxis, YAxis } from "recharts";
 
@@ -204,7 +206,7 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
       <BarChart
         accessibilityLayer
         data={chartData}
-        margin={{ left: 12, right: 12, top: 12, bottom: 80 }}
+        margin={{ left: 8, right: 8, top: 12, bottom: 60 }}
       >
         <CartesianGrid vertical={false} strokeDasharray="3 3" />
         <XAxis
@@ -212,7 +214,7 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
           tickLine={false}
           axisLine={false}
           tickMargin={8}
-          angle={-45}
+          angle={-35}
           textAnchor="end"
           height={80}
         />
@@ -303,15 +305,68 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
   );
 }
 
+type SortField =
+  | "efficiency"
+  | "glwRewards"
+  | "totalRewardsUsd"
+  | "protocolDeposit"
+  | "weeklyImpactAssets"
+  | "name"
+  | "region";
+
+interface SortableTableHeadProps {
+  field: SortField;
+  currentSortBy: SortField;
+  sortDirection: "asc" | "desc";
+  onSort: (field: SortField) => void;
+  children: React.ReactNode;
+  className?: string;
+}
+
+function SortableTableHead({
+  field,
+  currentSortBy,
+  sortDirection,
+  onSort,
+  children,
+  className,
+}: SortableTableHeadProps) {
+  const isActive = currentSortBy === field;
+  const isRightAlign = className?.includes("text-right");
+
+  return (
+    <TableHead className={className}>
+      <button
+        onClick={() => onSort(field)}
+        className={`flex items-center gap-1 hover:text-foreground transition-colors w-full ${
+          isRightAlign ? "justify-end" : ""
+        }`}
+      >
+        <span>{children}</span>
+        {isActive ? (
+          sortDirection === "desc" ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronUp className="h-4 w-4" />
+          )
+        ) : (
+          <ArrowUpDown className="h-4 w-4 opacity-30" />
+        )}
+      </button>
+    </TableHead>
+  );
+}
+
 interface FarmsViewProps {
   selectedFarmId: string;
   onSelectFarm: (farmId: string) => void;
 }
 
 export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
-  const [sortBy, setSortBy] = React.useState<
-    "efficiency" | "glwRewards" | "totalRewardsUsd" | "protocolDeposit"
-  >("efficiency");
+  const [sortBy, setSortBy] = React.useState<SortField>("efficiency");
+  const [sortDirection, setSortDirection] = React.useState<"asc" | "desc">(
+    "desc"
+  );
   const [selectedRegionId, setSelectedRegionId] = React.useState<
     number | "all"
   >("all");
@@ -319,6 +374,15 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
     farmId: string;
     farmName: string;
   } | null>(null);
+
+  function handleSort(field: SortField) {
+    if (sortBy === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortDirection("desc");
+    }
+  }
 
   const { regions } = useRegions();
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
@@ -428,15 +492,39 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
         : farmsWithRewards.filter((farm) => farm.regionId === selectedRegionId);
 
     const sorted = [...filtered].sort((a, b) => {
-      if (sortBy === "efficiency") {
-        return b.efficiencyScore - a.efficiencyScore;
-      } else if (sortBy === "glwRewards") {
-        return (b.weeklyGlwRewards ?? 0) - (a.weeklyGlwRewards ?? 0);
-      } else if (sortBy === "totalRewardsUsd") {
-        return (b.totalRewardsUsd ?? 0) - (a.totalRewardsUsd ?? 0);
-      } else {
-        return Number(b.protocolDepositUsd6) - Number(a.protocolDepositUsd6);
+      let comparison = 0;
+
+      switch (sortBy) {
+        case "efficiency":
+          comparison = b.efficiencyScore - a.efficiencyScore;
+          break;
+        case "glwRewards":
+          comparison = (b.weeklyGlwRewards ?? 0) - (a.weeklyGlwRewards ?? 0);
+          break;
+        case "totalRewardsUsd":
+          comparison = (b.totalRewardsUsd ?? 0) - (a.totalRewardsUsd ?? 0);
+          break;
+        case "protocolDeposit":
+          comparison =
+            Number(b.protocolDepositUsd6) - Number(a.protocolDepositUsd6);
+          break;
+        case "weeklyImpactAssets":
+          comparison =
+            Number(b.weeklyImpactAssetsWad) - Number(a.weeklyImpactAssetsWad);
+          break;
+        case "name":
+          const aName = a.name || `Farm ${a.farmId.slice(0, 8)}`;
+          const bName = b.name || `Farm ${b.farmId.slice(0, 8)}`;
+          comparison = aName.localeCompare(bName);
+          break;
+        case "region":
+          comparison = a.regionId - b.regionId;
+          break;
+        default:
+          comparison = b.efficiencyScore - a.efficiencyScore;
       }
+
+      return sortDirection === "desc" ? comparison : -comparison;
     });
 
     return sorted;
@@ -444,6 +532,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
     efficiencyData,
     batchWeeklyRewardsData,
     sortBy,
+    sortDirection,
     selectedRegionId,
     glwSpotPrice,
     gctlMintPrice,
@@ -572,7 +661,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
           if (!open) setSelectedFarmForDialog(null);
         }}
       >
-        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[85vh] sm:max-h-[85vh] h-full sm:h-auto sm:rounded-lg overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>{selectedFarmForDialog?.farmName}</DialogTitle>
             <DialogDescription>
@@ -758,7 +847,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
       </Dialog>
 
       <div className="space-y-8">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
           <span className="text-sm font-medium">Region:</span>
           <Select
             value={String(selectedRegionId)}
@@ -766,7 +855,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
               setSelectedRegionId(value === "all" ? "all" : Number(value))
             }
           >
-            <SelectTrigger className="w-[280px]">
+            <SelectTrigger className="w-full sm:w-[280px]">
               <SelectValue placeholder="Select region" />
             </SelectTrigger>
             <SelectContent>
@@ -810,7 +899,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
           </Select>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             title={
               selectedRegionId === "all"
@@ -969,7 +1058,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                     )
                   }
                 >
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger className="w-full sm:w-[200px]">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1020,23 +1109,68 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Rank</TableHead>
-                      <TableHead>Farm Name</TableHead>
-                      <TableHead>Region</TableHead>
-                      <TableHead className="text-right">
-                        Efficiency Score
-                      </TableHead>
-                      <TableHead className="text-right">
-                        Last Week GLW
-                      </TableHead>
-                      <TableHead className="text-right">
-                        Protocol Deposit Rewards
-                      </TableHead>
-                      <TableHead className="text-right">
-                        Protocol Deposit (USD)
-                      </TableHead>
-                      <TableHead className="text-right">
-                        Weekly Carbon Credits
-                      </TableHead>
+                      <SortableTableHead
+                        field="name"
+                        currentSortBy={sortBy}
+                        sortDirection={sortDirection}
+                        onSort={handleSort}
+                      >
+                        Farm Name
+                      </SortableTableHead>
+                      <SortableTableHead
+                        field="region"
+                        currentSortBy={sortBy}
+                        sortDirection={sortDirection}
+                        onSort={handleSort}
+                        className="hidden sm:table-cell"
+                      >
+                        Region
+                      </SortableTableHead>
+                      <SortableTableHead
+                        field="efficiency"
+                        currentSortBy={sortBy}
+                        sortDirection={sortDirection}
+                        onSort={handleSort}
+                        className="text-right"
+                      >
+                        Efficiency
+                      </SortableTableHead>
+                      <SortableTableHead
+                        field="glwRewards"
+                        currentSortBy={sortBy}
+                        sortDirection={sortDirection}
+                        onSort={handleSort}
+                        className="text-right"
+                      >
+                        GLW/Week
+                      </SortableTableHead>
+                      <SortableTableHead
+                        field="totalRewardsUsd"
+                        currentSortBy={sortBy}
+                        sortDirection={sortDirection}
+                        onSort={handleSort}
+                        className="text-right"
+                      >
+                        PD Rewards
+                      </SortableTableHead>
+                      <SortableTableHead
+                        field="protocolDeposit"
+                        currentSortBy={sortBy}
+                        sortDirection={sortDirection}
+                        onSort={handleSort}
+                        className="hidden md:table-cell text-right"
+                      >
+                        Protocol Deposit
+                      </SortableTableHead>
+                      <SortableTableHead
+                        field="weeklyImpactAssets"
+                        currentSortBy={sortBy}
+                        sortDirection={sortDirection}
+                        onSort={handleSort}
+                        className="hidden lg:table-cell text-right"
+                      >
+                        Carbon Credits
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1073,7 +1207,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden sm:table-cell">
                           <Badge variant="secondary" className="text-xs">
                             {regions.find((r) => r.id === farm.regionId)
                               ?.name || `Region ${farm.regionId}`}
@@ -1096,8 +1230,8 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                         <TableCell className="text-right font-mono text-sm">
                           {farm.weeklyGlwRewards
                             ? `${farm.weeklyGlwRewards.toLocaleString("en-US", {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
                               })} GLW`
                             : "N/A"}
                         </TableCell>
@@ -1108,8 +1242,8 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                               {farm.weeklyProtocolDepositRewards.toLocaleString(
                                 "en-US",
                                 {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 0,
                                 }
                               )}{" "}
                               <span className="text-muted-foreground">
@@ -1120,10 +1254,10 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                             "N/A"
                           )}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
+                        <TableCell className="hidden md:table-cell text-right font-mono text-sm">
                           ${formatRewardValue(farm.protocolDepositUsd6, 6)}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
+                        <TableCell className="hidden lg:table-cell text-right font-mono text-sm">
                           {formatRewardValue(farm.weeklyImpactAssetsWad, 18)}
                         </TableCell>
                         <TableCell className="text-right">
