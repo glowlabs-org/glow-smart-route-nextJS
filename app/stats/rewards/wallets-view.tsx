@@ -689,14 +689,19 @@ export function WalletsView({
       );
     });
 
+    const totalCount = totalContributors || filteredWallets.length;
+
     return filteredWallets.map((wallet) => {
       const rank =
         sortedByRewards.findIndex(
           (w) => w.walletAddress === wallet.walletAddress
         ) + 1;
-      return { ...wallet, rank };
+
+      const percentile = (rank / totalCount) * 100;
+
+      return { ...wallet, rank, percentile };
     });
-  }, [filteredWallets, type]);
+  }, [filteredWallets, type, totalContributors]);
 
   const paginatedWallets = React.useMemo(() => {
     const startIndex = (page - 1) * WALLETS_PER_PAGE;
@@ -1073,12 +1078,12 @@ export function WalletsView({
         <CardHeader>
           <div className="flex flex-col gap-4">
             <div>
-              <CardTitle>Wallet leaderboard</CardTitle>
+              <CardTitle>Wallet Leaderboard</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Detailed performance for the top{" "}
+                Ranked by cumulative GLW earned. Top{" "}
                 {analytics.walletCount.toLocaleString()}{" "}
-                {type === "delegator" ? "delegators" : "miners"}. Click column
-                headers to sort.
+                {type === "delegator" ? "delegators" : "miners"} shown. Click
+                column headers to sort.
               </p>
             </div>
             <div className="relative">
@@ -1114,7 +1119,24 @@ export function WalletsView({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-16">Rank</TableHead>
+                    <TableHead className="w-20">
+                      <div className="flex items-center gap-1">
+                        <span>Rank</span>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="text-xs">
+                                Based on cumulative GLW earned. Top 3 show exact
+                                rank, others show percentile (e.g., "Top 5%").
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </TableHead>
                     <TableHead>Wallet</TableHead>
                     {type === "delegator" && (
                       <SortableTableHead
@@ -1251,10 +1273,15 @@ export function WalletsView({
                     const newBadge = isNewParticipant(wallet, type);
                     const ensName = allEnsNames[wallet.walletAddress];
 
+                    const displayRank =
+                      rank <= 3
+                        ? `#${rank}`
+                        : `Top ${wallet.percentile.toFixed(0)}%`;
+
                     return (
                       <TableRow key={wallet.walletAddress}>
-                        <TableCell className="font-semibold text-muted-foreground">
-                          #{rank}
+                        <TableCell className="font-semibold text-muted-foreground whitespace-nowrap">
+                          {displayRank}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1">
