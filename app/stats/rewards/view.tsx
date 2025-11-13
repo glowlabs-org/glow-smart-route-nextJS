@@ -88,7 +88,7 @@ export default function RewardsView() {
                 </p>
               </div>
               <Badge variant="outline" className="w-fit">
-                <Activity className="mr-1 h-3 w-3" /> Live feed
+                <Activity className="mr-1 h-3 w-3" /> Updated weekly
               </Badge>
             </div>
           </header>

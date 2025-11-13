@@ -100,6 +100,12 @@ export function useWalletsActivity({
 export function formatGLW(value: string): string {
   try {
     const num = Number(value) / 1e18;
+    if (num >= 1000) {
+      return num.toLocaleString("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      });
+    }
     return num.toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
@@ -112,6 +118,12 @@ export function formatGLW(value: string): string {
 export function formatUSDC(value: string): string {
   try {
     const num = Number(value) / 1e6;
+    if (num >= 1000) {
+      return num.toLocaleString("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      });
+    }
     return num.toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,

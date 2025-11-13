@@ -142,6 +142,19 @@ function copyToClipboard(text: string, label: string) {
     });
 }
 
+function formatNumber(value: number): string {
+  if (value >= 1000) {
+    return value.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+  }
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 type SortField =
   | "glwDelegated"
   | "glwPerWeek"
@@ -294,10 +307,7 @@ function FarmsChart({ farms, type }: FarmsChartProps) {
                   type === "delegator" ? "Delegator Rewards" : "Miner Rewards";
 
                 if (name === "rewards" || name === rewardsLabel) {
-                  const formatted = numValue.toLocaleString("en-US", {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 2,
-                  });
+                  const formatted = formatNumber(numValue);
                   return [
                     <span className="font-semibold">{formatted} GLW</span>,
                     rewardsLabel,
@@ -457,10 +467,7 @@ function DelegationTrendChart({
               formatter={(value, name, payload) => {
                 const numValue = Number(value);
                 const amount = payload?.payload?.amount || 0;
-                const formattedAmount = amount.toLocaleString("en-US", {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 2,
-                });
+                const formattedAmount = formatNumber(amount);
                 return [
                   <div key="delegation-tooltip" className="space-y-1">
                     <div className="font-semibold">
@@ -828,15 +835,9 @@ export function WalletsView({
       netAverageReward = wallets.length ? netTotalRewards / wallets.length : 0;
     }
 
-    const totalRewardsDisplay = netTotalRewards.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+    const totalRewardsDisplay = formatNumber(netTotalRewards);
 
-    const averageRewardDisplay = netAverageReward.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+    const averageRewardDisplay = formatNumber(netAverageReward);
 
     const newWallets = wallets.filter((wallet) =>
       isNewParticipant(wallet, type)
@@ -1245,10 +1246,7 @@ export function WalletsView({
                       const netRewards = grossRewards - pdSpent;
 
                       rewardsNumeric = grossRewards;
-                      rewardsValue = netRewards.toLocaleString("en-US", {
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
-                      });
+                      rewardsValue = formatNumber(netRewards);
                     } else {
                       rewardsValue = formatGLW(
                         type === "delegator"
@@ -1314,11 +1312,7 @@ export function WalletsView({
                           </TableCell>
                         )}
                         <TableCell className="text-right font-mono text-sm">
-                          {wallet.glwPerWeek.toLocaleString("en-US", {
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 0,
-                          })}{" "}
-                          GLW
+                          {formatNumber(wallet.glwPerWeek)} GLW
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {rewardsValue} GLW

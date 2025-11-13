@@ -147,6 +147,19 @@ function getCurrencyPrice(
   return 0;
 }
 
+function formatNumber(value: number): string {
+  if (value >= 1000) {
+    return value.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+  }
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 interface FarmsRewardsChartProps {
   farms: Array<{
     farmId: string;
@@ -253,10 +266,7 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
                   name === "totalRewardsUsd" ||
                   name === "Total Rewards (USD)"
                 ) {
-                  const formatted = numValue.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  });
+                  const formatted = formatNumber(numValue);
                   const glwRewards = payload?.payload?.glwRewards ?? 0;
                   const pdRewards =
                     payload?.payload?.protocolDepositRewards ?? 0;
@@ -266,22 +276,11 @@ function FarmsRewardsChart({ farms, glwPrice }: FarmsRewardsChartProps) {
                       <div className="font-semibold">${formatted}</div>
                       <div className="text-xs text-muted-foreground">
                         {currency === "GLW" ? (
-                          <>
-                            {(glwRewards + pdRewards).toLocaleString("en-US", {
-                              maximumFractionDigits: 2,
-                            })}{" "}
-                            GLW
-                          </>
+                          <>{formatNumber(glwRewards + pdRewards)} GLW</>
                         ) : (
                           <>
-                            {glwRewards.toLocaleString("en-US", {
-                              maximumFractionDigits: 2,
-                            })}{" "}
-                            GLW +{" "}
-                            {pdRewards.toLocaleString("en-US", {
-                              maximumFractionDigits: 2,
-                            })}{" "}
-                            {currency}
+                            {formatNumber(glwRewards)} GLW +{" "}
+                            {formatNumber(pdRewards)} {currency}
                           </>
                         )}
                       </div>
@@ -639,6 +638,27 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
     return regionTotals;
   }, [batchWeeklyRewardsData, efficiencyData, glwSpotPrice, gctlMintPrice]);
 
+  const farmsWithRank = React.useMemo(() => {
+    const allFarms = Array.isArray(efficiencyData)
+      ? efficiencyData
+      : efficiencyData
+      ? [efficiencyData]
+      : [];
+    const totalCount = allFarms.length;
+
+    const sortedByEfficiency = [...farms].sort((a, b) => {
+      return b.efficiencyScore - a.efficiencyScore;
+    });
+
+    return farms.map((farm) => {
+      const rank =
+        sortedByEfficiency.findIndex((f) => f.farmId === farm.farmId) + 1;
+      const percentile = (rank / totalCount) * 100;
+
+      return { ...farm, rank, percentile };
+    });
+  }, [farms, efficiencyData]);
+
   if (isEfficiencyLoading) {
     return <RewardsSkeleton />;
   }
@@ -864,11 +884,12 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                 {regionUsdTotals.size > 0 && (
                   <span className="ml-2 text-xs text-muted-foreground">
                     ($
-                    {Array.from(regionUsdTotals.values())
-                      .reduce((sum, val) => sum + val, 0)
-                      .toLocaleString("en-US", {
-                        maximumFractionDigits: 0,
-                      })}
+                    {formatNumber(
+                      Array.from(regionUsdTotals.values()).reduce(
+                        (sum, val) => sum + val,
+                        0
+                      )
+                    )}
                     /week )
                   </span>
                 )}
@@ -887,9 +908,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                       {region.name}
                       <span className="ml-2 text-xs text-muted-foreground">
                         ($
-                        {usdTotal.toLocaleString("en-US", {
-                          maximumFractionDigits: 0,
-                        })}
+                        {formatNumber(usdTotal)}
                         /week)
                       </span>
                     </SelectItem>
@@ -921,10 +940,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
 
           <MetricCard
             title="Last Week Rewards"
-            value={`$${totalLastWeekRewardsUsd.toLocaleString("en-US", {
-              minimumFractionDigits: 0,
-              maximumFractionDigits: 0,
-            })}`}
+            value={`$${formatNumber(totalLastWeekRewardsUsd)}`}
             icon={<TrendingUp className="h-5 w-5" />}
           >
             <p>
@@ -1010,20 +1026,10 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                   <MetricCard
                     key={currency}
                     title={`${currency} Rewards`}
-                    value={data.amount.toLocaleString("en-US", {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 2,
-                    })}
+                    value={formatNumber(data.amount)}
                     icon={<Coins className="h-5 w-5" />}
                   >
-                    <p>
-                      $
-                      {data.usdValue.toLocaleString("en-US", {
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
-                      })}{" "}
-                      USD value
-                    </p>
+                    <p>${formatNumber(data.usdValue)} USD value</p>
                   </MetricCard>
                 ))}
             </div>
@@ -1086,14 +1092,14 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
 
         <Card className="border-border/60">
           <CardHeader>
-            <CardTitle>Farm Efficiency Leaderboard</CardTitle>
+            <CardTitle>Farm Leaderboard</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
               {selectedRegionId === "all"
-                ? "All farms ranked by carbon credit production efficiency"
+                ? "Ranked by efficiency score. All farms shown with rewards and carbon credit metrics."
                 : `${
                     regions.find((r) => r.id === selectedRegionId)?.name ||
                     "Region"
-                  } farms ranked by carbon credit production efficiency`}
+                  } farms ranked by efficiency score.`}
             </p>
           </CardHeader>
           <CardContent>
@@ -1108,7 +1114,24 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Rank</TableHead>
+                      <TableHead className="w-20">
+                        <div className="flex items-center gap-1">
+                          <span>Rank</span>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-xs">
+                                  Based on efficiency score. Top 3 show exact
+                                  rank, others show percentile (e.g., "Top 5%").
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </TableHead>
                       <SortableTableHead
                         field="name"
                         currentSortBy={sortBy}
@@ -1175,113 +1198,124 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {farms.map((farm, index) => (
-                      <TableRow
-                        key={farm.farmId}
-                        className={
-                          farm.totalRewardsUsd > 0
-                            ? "cursor-pointer hover:bg-muted/30"
-                            : ""
-                        }
-                        onClick={() => {
-                          if (farm.totalRewardsUsd > 0) {
-                            setSelectedFarmForDialog({
-                              farmId: farm.farmId,
-                              farmName:
-                                farm.name || `Farm ${farm.farmId.slice(0, 8)}`,
-                            });
+                    {farmsWithRank.map((farm) => {
+                      const displayRank =
+                        farm.rank <= 3
+                          ? `#${farm.rank}`
+                          : `Top ${farm.percentile.toFixed(0)}%`;
+
+                      return (
+                        <TableRow
+                          key={farm.farmId}
+                          className={
+                            farm.totalRewardsUsd > 0
+                              ? "cursor-pointer hover:bg-muted/30"
+                              : ""
                           }
-                        }}
-                      >
-                        <TableCell className="font-semibold">
-                          #{index + 1}
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-0.5">
-                            <div className="font-medium text-sm">
-                              {farm.name || `Farm ${farm.farmId.slice(0, 8)}`}
+                          onClick={() => {
+                            if (farm.totalRewardsUsd > 0) {
+                              setSelectedFarmForDialog({
+                                farmId: farm.farmId,
+                                farmName:
+                                  farm.name ||
+                                  `Farm ${farm.farmId.slice(0, 8)}`,
+                              });
+                            }
+                          }}
+                        >
+                          <TableCell className="font-semibold text-muted-foreground whitespace-nowrap">
+                            {displayRank}
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-0.5">
+                              <div className="font-medium text-sm">
+                                {farm.name || `Farm ${farm.farmId.slice(0, 8)}`}
+                              </div>
+                              <div className="font-mono text-xs text-muted-foreground">
+                                {farm.farmId.slice(0, 8)}...
+                                {farm.farmId.slice(-4)}
+                              </div>
                             </div>
-                            <div className="font-mono text-xs text-muted-foreground">
-                              {farm.farmId.slice(0, 8)}...
-                              {farm.farmId.slice(-4)}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <Badge variant="secondary" className="text-xs">
-                            {regions.find((r) => r.id === farm.regionId)
-                              ?.name || `Region ${farm.regionId}`}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge
-                            variant="outline"
-                            className={`font-mono ${
-                              farm.efficiencyScore >= 10
-                                ? "bg-[#ccffd4]/20 text-[#5fb56f] dark:text-[#ccffd4] border-[#ccffd4]/40"
-                                : farm.efficiencyScore >= 5
-                                ? "bg-orange-500/20 text-orange-700 dark:text-orange-400 border-orange-500/40"
-                                : "bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/40"
-                            }`}
-                          >
-                            {farm.efficiencyScore.toFixed(2)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {farm.weeklyGlwRewards
-                            ? `${farm.weeklyGlwRewards.toLocaleString("en-US", {
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 0,
-                              })} GLW`
-                            : "N/A"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {farm.weeklyProtocolDepositRewards &&
-                          farm.paymentCurrency ? (
-                            <>
-                              {farm.weeklyProtocolDepositRewards.toLocaleString(
-                                "en-US",
-                                {
-                                  minimumFractionDigits: 0,
-                                  maximumFractionDigits: 0,
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            <Badge variant="secondary" className="text-xs">
+                              {regions.find((r) => r.id === farm.regionId)
+                                ?.name || `Region ${farm.regionId}`}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Badge
+                              variant="outline"
+                              className={`font-mono ${
+                                farm.efficiencyScore >= 10
+                                  ? "bg-[#ccffd4]/20 text-[#5fb56f] dark:text-[#ccffd4] border-[#ccffd4]/40"
+                                  : farm.efficiencyScore >= 5
+                                  ? "bg-orange-500/20 text-orange-700 dark:text-orange-400 border-orange-500/40"
+                                  : "bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/40"
+                              }`}
+                            >
+                              {farm.efficiencyScore.toFixed(2)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm">
+                            {farm.weeklyGlwRewards
+                              ? `${farm.weeklyGlwRewards.toLocaleString(
+                                  "en-US",
+                                  {
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0,
+                                  }
+                                )} GLW`
+                              : "N/A"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm">
+                            {farm.weeklyProtocolDepositRewards &&
+                            farm.paymentCurrency ? (
+                              <>
+                                {farm.weeklyProtocolDepositRewards.toLocaleString(
+                                  "en-US",
+                                  {
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0,
+                                  }
+                                )}{" "}
+                                <span className="text-muted-foreground">
+                                  {farm.paymentCurrency}
+                                </span>
+                              </>
+                            ) : (
+                              "N/A"
+                            )}
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-right font-mono text-sm">
+                            ${formatRewardValue(farm.protocolDepositUsd6, 6)}
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell text-right font-mono text-sm">
+                            {formatRewardValue(farm.weeklyImpactAssetsWad, 18)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={farm.totalRewardsUsd === 0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (farm.totalRewardsUsd > 0) {
+                                  setSelectedFarmForDialog({
+                                    farmId: farm.farmId,
+                                    farmName:
+                                      farm.name ||
+                                      `Farm ${farm.farmId.slice(0, 8)}`,
+                                  });
                                 }
-                              )}{" "}
-                              <span className="text-muted-foreground">
-                                {farm.paymentCurrency}
-                              </span>
-                            </>
-                          ) : (
-                            "N/A"
-                          )}
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell text-right font-mono text-sm">
-                          ${formatRewardValue(farm.protocolDepositUsd6, 6)}
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell text-right font-mono text-sm">
-                          {formatRewardValue(farm.weeklyImpactAssetsWad, 18)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={farm.totalRewardsUsd === 0}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (farm.totalRewardsUsd > 0) {
-                                setSelectedFarmForDialog({
-                                  farmId: farm.farmId,
-                                  farmName:
-                                    farm.name ||
-                                    `Farm ${farm.farmId.slice(0, 8)}`,
-                                });
-                              }
-                            }}
-                          >
-                            View Details
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                              }}
+                            >
+                              View Details
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
