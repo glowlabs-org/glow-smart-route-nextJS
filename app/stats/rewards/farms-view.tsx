@@ -954,7 +954,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
             title={
               selectedRegionId === "all"
                 ? "Network Efficiency"
-                : "Region Efficiency"
+                : "Avg. Region Efficiency"
             }
             value={(() => {
               if (selectedRegionId !== "all") {
@@ -1071,10 +1071,6 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                     <SelectItem value="efficiency">Efficiency Score</SelectItem>
                     <SelectItem value="totalRewardsUsd">
                       Total Rewards (USD)
-                    </SelectItem>
-                    <SelectItem value="glwRewards">GLW Inflation</SelectItem>
-                    <SelectItem value="protocolDeposit">
-                      Protocol Deposit
                     </SelectItem>
                   </SelectContent>
                 </Select>
