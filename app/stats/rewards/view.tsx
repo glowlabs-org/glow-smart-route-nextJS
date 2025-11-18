@@ -72,7 +72,7 @@ export default function RewardsView() {
             <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               <div className="space-y-3">
                 <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
-                  Glow Mining Rewards
+                  Glow Leaderboard
                 </h1>
                 <p className="text-sm md:text-base text-muted-foreground max-w-2xl">
                   {`Understand how ${

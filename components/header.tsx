@@ -267,13 +267,7 @@ export function Header({
                   <NavigationMenuContent>
                     <ul className="grid gap-3 p-6 md:w-[300px]">
                       <ListItem href="/?tab=launchpad" title="Glow Launchpad">
-                        Delegate GLW to solar farms and earn weekly rewards
-                      </ListItem>
-                      <ListItem
-                        href="/?tab=mining-center"
-                        title="Mining Center"
-                      >
-                        Buy miners with USDC and earn weekly GLW rewards
+                        Delegate GLW to solar farms or buy miners with USDC
                       </ListItem>
                       <ListItem href="/glow-swap?tab=swap" title="Swap">
                         Swap GLW, USDG, and more
@@ -286,6 +280,9 @@ export function Header({
                       </ListItem>
                       <ListItem href="/wallet" title="Wallet">
                         View your balances, delegations, and claim rewards
+                      </ListItem>
+                      <ListItem href="/stats/rewards" title="Glow Leaderboard">
+                        View top wallets and rewards leaderboard
                       </ListItem>
                       <ListItem href="/stats" title="Protocol Stats">
                         Real-time protocol metrics and market data
@@ -594,22 +591,6 @@ export function Header({
                             </DrawerClose>
                             <DrawerClose asChild>
                               <Link
-                                href="/?tab=mining-center"
-                                onClick={() => {
-                                  setTimeout(() => {
-                                    window.scrollTo({
-                                      top: 0,
-                                      behavior: "smooth",
-                                    });
-                                  }, 100);
-                                }}
-                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
-                              >
-                                Mining Center
-                              </Link>
-                            </DrawerClose>
-                            <DrawerClose asChild>
-                              <Link
                                 href="/glow-swap?tab=swap"
                                 onClick={() => {
                                   setTimeout(() => {
@@ -654,6 +635,22 @@ export function Header({
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
                                 Wallet
+                              </Link>
+                            </DrawerClose>
+                            <DrawerClose asChild>
+                              <Link
+                                href="/stats/rewards"
+                                onClick={() => {
+                                  setTimeout(() => {
+                                    window.scrollTo({
+                                      top: 0,
+                                      behavior: "smooth",
+                                    });
+                                  }, 100);
+                                }}
+                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                              >
+                                Glow Leaderboard
                               </Link>
                             </DrawerClose>
                             <DrawerClose asChild>

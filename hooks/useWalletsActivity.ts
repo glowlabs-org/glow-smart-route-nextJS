@@ -83,7 +83,7 @@ export function useWalletsActivity({
       return data as WalletsActivityResponse;
     },
     staleTime: 60 * 1000,
-    refetchInterval: enabled ? 60 * 1000 : false,
+    refetchInterval: false,
     refetchOnWindowFocus: false,
   });
 

@@ -1034,7 +1034,9 @@ export function WalletsView({
             value={
               weeklyRewardsMetricLoading
                 ? "..."
-                : weeklyRewardsMetric.toFixed(4)
+                : weeklyRewardsMetric.toLocaleString("en-US", {
+                    maximumFractionDigits: 2,
+                  }) + " GLW"
             }
             icon={
               type === "delegator" ? (
@@ -1046,8 +1048,7 @@ export function WalletsView({
           >
             <p>
               Average weekly rewards on{" "}
-              {type === "delegator" ? "delegation" : "mining"} across all active
-              farms
+              {type === "delegator" ? "delegation" : "miners"}
             </p>
           </MetricCard>
         )}
