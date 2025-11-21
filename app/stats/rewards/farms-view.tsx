@@ -356,6 +356,72 @@ function SortableTableHead({
   );
 }
 
+interface RegionFilterProps {
+  selectedRegionId: number | "all";
+  onRegionChange: (value: number | "all") => void;
+  regions: { id: number; name: string }[];
+  regionUsdTotals: Map<number, number>;
+  className?: string;
+}
+
+function RegionFilter({
+  selectedRegionId,
+  onRegionChange,
+  regions,
+  regionUsdTotals,
+  className,
+}: RegionFilterProps) {
+  return (
+    <Select
+      value={String(selectedRegionId)}
+      onValueChange={(value) =>
+        onRegionChange(value === "all" ? "all" : Number(value))
+      }
+    >
+      <SelectTrigger className={className}>
+        <SelectValue placeholder="Select region" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">
+          All Regions
+          {regionUsdTotals.size > 0 && (
+            <span className="ml-2 text-xs text-muted-foreground">
+              ($
+              {formatNumber(
+                Array.from(regionUsdTotals.values()).reduce(
+                  (sum, val) => sum + val,
+                  0
+                )
+              )}
+              /week )
+            </span>
+          )}
+        </SelectItem>
+        {regions
+          .filter((region) => regionUsdTotals.has(region.id))
+          .sort(
+            (a, b) =>
+              (regionUsdTotals.get(b.id) || 0) -
+              (regionUsdTotals.get(a.id) || 0)
+          )
+          .map((region) => {
+            const usdTotal = regionUsdTotals.get(region.id) || 0;
+            return (
+              <SelectItem key={region.id} value={String(region.id)}>
+                {region.name}
+                <span className="ml-2 text-xs text-muted-foreground">
+                  ($
+                  {formatNumber(usdTotal)}
+                  /week)
+                </span>
+              </SelectItem>
+            );
+          })}
+      </SelectContent>
+    </Select>
+  );
+}
+
 interface FarmsViewProps {
   selectedFarmId: string;
   onSelectFarm: (farmId: string) => void;
@@ -869,53 +935,13 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
       <div className="space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
           <span className="text-sm font-medium">Region:</span>
-          <Select
-            value={String(selectedRegionId)}
-            onValueChange={(value) =>
-              setSelectedRegionId(value === "all" ? "all" : Number(value))
-            }
-          >
-            <SelectTrigger className="w-full sm:w-[280px]">
-              <SelectValue placeholder="Select region" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                All Regions
-                {regionUsdTotals.size > 0 && (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    ($
-                    {formatNumber(
-                      Array.from(regionUsdTotals.values()).reduce(
-                        (sum, val) => sum + val,
-                        0
-                      )
-                    )}
-                    /week )
-                  </span>
-                )}
-              </SelectItem>
-              {regions
-                .filter((region) => regionUsdTotals.has(region.id))
-                .sort(
-                  (a, b) =>
-                    (regionUsdTotals.get(b.id) || 0) -
-                    (regionUsdTotals.get(a.id) || 0)
-                )
-                .map((region) => {
-                  const usdTotal = regionUsdTotals.get(region.id) || 0;
-                  return (
-                    <SelectItem key={region.id} value={String(region.id)}>
-                      {region.name}
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        ($
-                        {formatNumber(usdTotal)}
-                        /week)
-                      </span>
-                    </SelectItem>
-                  );
-                })}
-            </SelectContent>
-          </Select>
+          <RegionFilter
+            selectedRegionId={selectedRegionId}
+            onRegionChange={setSelectedRegionId}
+            regions={regions}
+            regionUsdTotals={regionUsdTotals}
+            className="w-full sm:w-[280px]"
+          />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
