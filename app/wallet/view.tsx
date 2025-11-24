@@ -560,113 +560,147 @@ export default function View() {
 
           <div className="border-t border-border/70 mb-6 md:mb-8" />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-16">
-            {isConnected ? (
-              <>
-                {/* Buy Glow Card */}
-                <button
-                  onClick={handleBuyGlow}
-                  className="group relative rounded-3xl overflow-hidden border border-border text-left transition-transform hover:scale-[1.02] cursor-pointer"
-                >
-                  <div className="relative h-72 md:h-80 xl:h-96">
-                    <Image
-                      src="/images/sunset.jpg"
-                      alt="Buy Glow"
-                      fill
-                      className="object-cover"
-                      priority
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-transparent" />
+          {isConnected && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-16">
+              {/* Buy Glow Card */}
+              <button
+                onClick={handleBuyGlow}
+                className="group relative rounded-3xl overflow-hidden border border-border text-left transition-transform hover:scale-[1.02] cursor-pointer"
+              >
+                <div className="relative h-72 md:h-80 xl:h-96">
+                  <Image
+                    src="/images/sunset.jpg"
+                    alt="Buy Glow"
+                    fill
+                    className="object-cover"
+                    priority
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-transparent" />
+                </div>
+                <div className="absolute inset-0 p-6 flex flex-col justify-between pointer-events-none">
+                  <div className="text-white text-sm md:text-lg max-w-sm">
+                    GLW is the fuel of the Glow ecosystem; it powers new solar
+                    farms, drives weekly rewards, and represents your
+                    contribution to clean energy.
                   </div>
-                  <div className="absolute inset-0 p-6 flex flex-col justify-between pointer-events-none">
-                    <div className="text-white text-sm md:text-lg max-w-sm">
-                      GLW is the fuel of the Glow ecosystem; it powers new solar
-                      farms, drives weekly rewards, and represents your
-                      contribution to clean energy.
-                    </div>
-                    <div className="flex items-end justify-between">
-                      <div className="text-white text-4xl md:text-5xl font-bold">
-                        Buy Glow
-                      </div>
+                  <div className="flex items-end justify-between">
+                    <div className="text-white text-4xl md:text-5xl font-bold">
+                      Buy Glow
                     </div>
                   </div>
-                  <div className="absolute bottom-4 right-4">
-                    <span className="inline-flex items-center justify-center h-11 w-11 rounded-full bg-white text-black border border-black/10 shadow-sm transition-colors group-hover:bg-white">
-                      <ArrowUpRight className="w-5 h-5" />
-                    </span>
-                  </div>
-                </button>
+                </div>
+                <div className="absolute bottom-4 right-4">
+                  <span className="inline-flex items-center justify-center h-11 w-11 rounded-full bg-white text-black border border-black/10 shadow-sm transition-colors group-hover:bg-white">
+                    <ArrowUpRight className="w-5 h-5" />
+                  </span>
+                </div>
+              </button>
 
-                {/* I'm New Card */}
-                <Link
-                  href="/"
-                  target="_blank"
-                  className="group relative rounded-3xl overflow-hidden border border-border text-left transition-transform hover:scale-[1.02]"
-                >
-                  <div className="relative h-72 md:h-80 xl:h-96">
-                    <Image
-                      src="/images/bird.jpg"
-                      alt="Fund Solar"
-                      fill
-                      className="object-cover"
-                      priority
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-transparent" />
+              {/* I'm New Card */}
+              <Link
+                href="/"
+                target="_blank"
+                className="group relative rounded-3xl overflow-hidden border border-border text-left transition-transform hover:scale-[1.02]"
+              >
+                <div className="relative h-72 md:h-80 xl:h-96">
+                  <Image
+                    src="/images/bird.jpg"
+                    alt="Fund Solar"
+                    fill
+                    className="object-cover"
+                    priority
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-transparent" />
+                </div>
+                <div className="absolute inset-0 p-6 flex flex-col justify-between pointer-events-none">
+                  <div className="text-white text-sm md:text-lg max-w-sm">
+                    Delegate your GLW to fund new solar farms and earn GLW
+                    weekly. Or purchase a pre-packaged mining position with USDC
+                    and earn GLW weekly.
                   </div>
-                  <div className="absolute inset-0 p-6 flex flex-col justify-between pointer-events-none">
-                    <div className="text-white text-sm md:text-lg max-w-sm">
-                      Delegate your GLW to fund new solar farms and earn GLW
-                      weekly. Or purchase a pre-packaged mining position with
-                      USDC and earn GLW weekly.
+                  <div className="flex items-end justify-between">
+                    <div className="text-white text-4xl md:text-5xl font-bold">
+                      Fund Solar
                     </div>
-                    <div className="flex items-end justify-between">
-                      <div className="text-white text-4xl md:text-5xl font-bold">
-                        Fund Solar
-                      </div>
+                  </div>
+                </div>
+                <div className="absolute bottom-4 right-4">
+                  <span className="inline-flex items-center justify-center h-11 w-11 rounded-full bg-white text-black border border-black/10 shadow-sm transition-colors group-hover:bg-white">
+                    <ArrowUpRight className="w-5 h-5" />
+                  </span>
+                </div>
+              </Link>
+            </div>
+          )}
+
+          {/* Quote + CTA - Gradient light, muted dark */}
+          <div className="mt-10 md:mt-14 mb-10 md:mb-14">
+            <div className="rounded-3xl glow-gradient p-8 md:p-12 dark:hidden">
+              <div className="max-w-[420px] mx-auto text-center text-black">
+                <p className="text-3xl md:text-4xl leading-tight">
+                  If everyone in the world owned $20 of GLW, we could eliminate
+                  fossil fuels by 2030.
+                </p>
+                <p className="text-black/60 mt-4 text-base md:text-lg">
+                  David Vorick, CEO of Glow
+                </p>
+                <div className="mt-8 flex justify-center">
+                  {isConnected ? (
+                    <Button
+                      onClick={() =>
+                        window.open(
+                          "https://discord.gg/glowfnd",
+                          "_blank",
+                          "noopener,noreferrer"
+                        )
+                      }
+                      className="rounded-full h-12 px-6"
+                    >
+                      <span className="mr-3">Join us on Discord</span>
+                      <span className="inline-flex items-center justify-center h-7 w-7 rounded-full">
+                        <DiscordLogoIcon />
+                      </span>
+                    </Button>
+                  ) : (
+                    <div className="w-full max-w-sm">
+                      <ConnectButton variant="default" size="large" />
                     </div>
-                  </div>
-                  <div className="absolute bottom-4 right-4">
-                    <span className="inline-flex items-center justify-center h-11 w-11 rounded-full bg-white text-black border border-black/10 shadow-sm transition-colors group-hover:bg-white">
-                      <ArrowUpRight className="w-5 h-5" />
-                    </span>
-                  </div>
-                </Link>
-              </>
-            ) : (
-              <div className="col-span-1 md:col-span-2 flex justify-center">
-                <div className="w-full max-w-sm">
-                  <ConnectButton variant="default" size="large" />
+                  )}
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* Quote + Discord CTA - Gradient Card */}
-          <div className="rounded-3xl glow-gradient p-8 md:p-12 mt-10 md:mt-14 mb-10 md:mb-14">
-            <div className="max-w-[420px] mx-auto text-center text-black">
-              <p className="text-3xl md:text-4xl leading-tight">
-                If everyone in the world owned $20 of GLW, we could eliminate
-                fossil fuels by 2030.
-              </p>
-              <p className="text-black/60 mt-4 text-base md:text-lg">
-                David Vorick, CEO of Glow
-              </p>
-              <div className="mt-8 flex justify-center">
-                <Button
-                  onClick={() =>
-                    window.open(
-                      "https://discord.gg/glowfnd",
-                      "_blank",
-                      "noopener,noreferrer"
-                    )
-                  }
-                  className="rounded-full h-12 px-6 "
-                >
-                  <span className="mr-3">Join us on Discord</span>
-                  <span className="inline-flex items-center justify-center h-7 w-7 rounded-full">
-                    <DiscordLogoIcon />
-                  </span>
-                </Button>
+            </div>
+            <div className="hidden dark:block rounded-3xl bg-muted p-8 md:p-12">
+              <div className="max-w-[420px] mx-auto text-center">
+                <p className="text-3xl md:text-4xl leading-tight">
+                  If everyone in the world owned $20 of GLW, we could eliminate
+                  fossil fuels by 2030.
+                </p>
+                <p className="text-muted-foreground mt-4 text-base md:text-lg">
+                  David Vorick, CEO of Glow
+                </p>
+                <div className="mt-8 flex justify-center">
+                  {isConnected ? (
+                    <Button
+                      onClick={() =>
+                        window.open(
+                          "https://discord.gg/glowfnd",
+                          "_blank",
+                          "noopener,noreferrer"
+                        )
+                      }
+                      className="rounded-full h-12 px-6"
+                    >
+                      <span className="mr-3">Join us on Discord</span>
+                      <span className="inline-flex items-center justify-center h-7 w-7 rounded-full">
+                        <DiscordLogoIcon />
+                      </span>
+                    </Button>
+                  ) : (
+                    <div className="w-full max-w-sm">
+                      <ConnectButton variant="default" size="large" />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
