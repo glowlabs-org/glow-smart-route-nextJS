@@ -14,7 +14,8 @@ import {
 import { toast } from "sonner";
 import {
   Send,
-  ChevronRight,
+  ArrowUpRight,
+  Plus,
   RefreshCw,
   ExternalLink,
   ArrowDown,
@@ -29,6 +30,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { ClaimsPanel } from "@/app/wallet/claims-panel";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
@@ -59,6 +65,13 @@ import {
 } from "@/hooks/useRewardScore";
 import { Badge } from "@/components/ui/badge";
 import { RewardsBreakdownPanel } from "./rewards-breakdown-panel";
+import {
+  usePurchaseGlow,
+  SmartBalancingAmounts,
+} from "@/hooks/usePurchaseGlow";
+import Image from "next/image";
+import { ConnectButton } from "@/components/connect-button";
+import { DiscordLogoIcon } from "@radix-ui/react-icons";
 
 // Lazy-load RecentActivity to defer its network work off the critical path
 const RecentActivity = dynamic(
@@ -95,6 +108,13 @@ export const tokens = {
     allowedPairs: ["GLOW", "USDC", "GCTL"],
     toFixed: 6,
   },
+  GLOW: {
+    label: "GLOW",
+    address: SDKAddresses.GLW,
+    decimals: 18,
+    allowedPairs: ["USDG", "USDC"],
+    toFixed: 6,
+  },
 } as const;
 
 export type Token = (typeof tokens)[keyof typeof tokens];
@@ -114,8 +134,27 @@ export default function View() {
   const [amountToConvert, setAmountToConvert] = React.useState<string>("");
   const [inputAmount, setInputAmount] = React.useState<string>("");
 
+  // Buy Glow flow state
+  const [buyGlowAmountOpen, setBuyGlowAmountOpen] = React.useState(false);
+  const [buyGlowInputAmount, setBuyGlowInputAmount] =
+    React.useState<string>("");
+  const [buyGlowDialogOpen, setBuyGlowDialogOpen] = React.useState(false);
+  const [buyGlowSmartAmounts, setBuyGlowSmartAmounts] =
+    React.useState<SmartBalancingAmounts>();
+  const [buyGlowEstimatedReceive, setBuyGlowEstimatedReceive] =
+    React.useState<string>("");
+
+  // Newsletter state
+  const [newsletterEmail, setNewsletterEmail] = React.useState<string>("");
+  const [isNewsletterSubmitting, setIsNewsletterSubmitting] =
+    React.useState(false);
+  const [hasNewsletterSuccess, setHasNewsletterSuccess] = React.useState(false);
+
   // USDC to USDG swap hook
   const { swapUSDCToUSDG } = useSwapUSDCToUSDG();
+
+  // Purchase Glow hook for zero-state Buy Glow flow
+  const { getSmartBalancingAmounts } = usePurchaseGlow();
 
   // ERC20 balances (GLOW, USDC, USDG)
   const {
@@ -271,48 +310,6 @@ export default function View() {
   const hasGlow = glowBalance && glowBalance > BigInt(0);
   const hasGctl = gctlBalance && BigInt(gctlBalance) > BigInt(0);
 
-  // Format farm data for display
-  const formatFarmData = (farm: any) => {
-    // Get the protocol deposit asset and determine decimals
-    const protocolAsset =
-      farm.userWeeklyRewards?.protocolDepositAsset || "USDC";
-    const assetDecimals =
-      DECIMALS_BY_TOKEN[protocolAsset as keyof typeof DECIMALS_BY_TOKEN] || 6;
-
-    const glwRewards = farm.userWeeklyRewards?.glwInflationRewards
-      ? Number(farm.userWeeklyRewards.glwInflationRewards) / 1e18
-      : 0;
-
-    const pdRewards = farm.userWeeklyRewards?.protocolDepositRewards
-      ? Number(farm.userWeeklyRewards.protocolDepositRewards) /
-        Math.pow(10, assetDecimals)
-      : 0;
-
-    // If PD rewards are in GLW, combine them with GLW rewards
-    const isPdRewardsGlw = protocolAsset === "GLW";
-    const totalGlwRewards = isPdRewardsGlw
-      ? glwRewards + pdRewards
-      : glwRewards;
-
-    // Find the region name from regions data
-    const region = regions.find((r) => r.id === farm.regionId);
-    const regionName = region?.name || `Region ${farm.regionId}`;
-
-    return {
-      farm: farm.name,
-      region: regionName,
-      split: farm.userWeeklyRewards?.userGlowSplitPercent
-        ? `${(
-            (Number(farm.userWeeklyRewards.userGlowSplitPercent) / 1000000) *
-            100
-          ).toFixed(1)}%`
-        : "N/A",
-      weeklyGlow: totalGlwRewards.toFixed(2),
-      otherRewards: isPdRewardsGlw ? "0" : pdRewards.toFixed(2),
-      otherRewardsAmount: protocolAsset,
-    };
-  };
-
   const handleSwapUsdcToUsdg = () => {
     try {
       if (!hasUsdc) {
@@ -350,6 +347,511 @@ export default function View() {
 
   // Network status check
   const hasNetworkIssues = erc20HasError || (!hasSigner && isConnected);
+
+  // Buy Glow handlers for zero-state
+  const handleBuyGlow = () => {
+    setBuyGlowInputAmount("");
+    setBuyGlowAmountOpen(true);
+  };
+
+  const handleConfirmBuyGlowAmount = async () => {
+    if (!buyGlowInputAmount || Number(buyGlowInputAmount) <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    const usdcBalanceFormatted = usdcBalance
+      ? formatUnits(usdcBalance, DECIMALS_BY_TOKEN.USDC)
+      : "0";
+
+    if (Number(buyGlowInputAmount) > Number(usdcBalanceFormatted)) {
+      toast.error("Amount exceeds USDC balance");
+      return;
+    }
+
+    try {
+      const smartBalancingAmountsRes = await getSmartBalancingAmounts({
+        amountUsdgIn: Number(buyGlowInputAmount),
+        earlyLiquidityCurrentPrice: glowSpotPrice || 0,
+      });
+
+      if (!smartBalancingAmountsRes.ok) {
+        toast.error(smartBalancingAmountsRes.val);
+        return;
+      }
+
+      const smartAmounts = smartBalancingAmountsRes.val;
+      setBuyGlowSmartAmounts(smartAmounts);
+
+      const uniswapOut = Number(smartAmounts.amount_out_uni || "0");
+      const bondingOut = Number(smartAmounts.amount_out_glow || "0");
+      const totalOut = uniswapOut + bondingOut;
+
+      setBuyGlowEstimatedReceive(totalOut.toString());
+      setBuyGlowAmountOpen(false);
+      setBuyGlowDialogOpen(true);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to estimate swap");
+    }
+  };
+
+  // Check if we should show the getting started zero-state
+  const shouldShowGettingStarted =
+    !erc20Loading &&
+    !isSplitsActivityLoading &&
+    !hasGlow &&
+    (!splitsActivity || splitsActivity.length === 0);
+
+  const faqItems: Array<{ q: string; a: React.ReactNode }> = [
+    {
+      q: "What is Glow?",
+      a: (
+        <div>
+          Glow is a crypto-powered climate project that helps fund real-world
+          solar farms. Solar projects join Glow, compete based on how much
+          carbon they displace, and earn GLW token rewards for producing clean
+          energy.
+        </div>
+      ),
+    },
+    {
+      q: "What is GLW and why does it matter?",
+      a: (
+        <div>
+          GLW is the core token of the Glow ecosystem. Solar farms earn GLW for
+          producing high-impact clean energy, and you can buy or earn GLW to
+          share in those rewards while helping more solar get built.
+        </div>
+      ),
+    },
+    {
+      q: "What can I do on this page?",
+      a: (
+        <div className="space-y-2">
+          <p>You have two main options:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <span className="font-medium">Buy GLW</span> – purchase GLW to
+              hold or later delegate to solar farms.
+            </li>
+            <li>
+              <span className="font-medium">Participate</span> – use your GLW
+              and/or USDC to directly support solar farms and earn GLW over
+              time.
+            </li>
+          </ul>
+        </div>
+      ),
+    },
+    {
+      q: "What does “delegating GLW to solar farms” mean?",
+      a: (
+        <div>
+          Delegating GLW means you lock your GLW behind specific solar farms on
+          Glow. Those farms compete in the protocol, and if they perform well,
+          you can earn GLW rewards and recover your deposit over time. You’re
+          not running the solar farm yourself, you’re backing it with your
+          tokens.
+        </div>
+      ),
+    },
+    {
+      q: "What does it mean to “buy miners” with USDC?",
+      a: (
+        <div>
+          Buying miners is how you participate with USDC instead of (or in
+          addition to) GLW. Your USDC helps fund pre-vetted solar projects, and
+          in return you receive a stream of GLW rewards over a fixed period as
+          those farms earn tokens.
+        </div>
+      ),
+    },
+    {
+      q: "Is this risky, and do I need to be a crypto expert?",
+      a: (
+        <div>
+          Yes, there is risk: token prices move, solar farms can underperform,
+          and some products involve long lock-ups. Only participate with money
+          you can afford to lose. You don’t need to be a crypto expert, but you
+          should be comfortable using a wallet and confirming on-chain
+          transactions. For a deeper, step-by-step explanation, you can always
+          read the guides on the Glow blog at{" "}
+          <a
+            href="https://glow.org/blog"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            glow.org/blog
+          </a>
+          .
+        </div>
+      ),
+    },
+  ];
+
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const email = newsletterEmail.trim();
+    if (!email || !email.includes("@")) {
+      toast.error("Please enter a valid email.");
+      return;
+    }
+    try {
+      setIsNewsletterSubmitting(true);
+      setHasNewsletterSuccess(false);
+      const res = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to subscribe to newsletter");
+      }
+      toast.success(data?.message || "Successfully subscribed to newsletter");
+      setHasNewsletterSuccess(true);
+      setNewsletterEmail("");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to subscribe. Please try again.");
+    } finally {
+      setIsNewsletterSubmitting(false);
+    }
+  };
+
+  // Zero-state: Getting Started view
+  if (shouldShowGettingStarted) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 xl:px-16 py-6 md:py-24 pt-20">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6 md:mb-8">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+                Getting started
+              </h1>
+              <p className="text-muted-foreground mt-2 text-base">
+                Build real-world solar. Earn onchain rewards. Make an impact
+                where it matters.
+                <br />
+                Let&apos;s get you started.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+              <Link href="/">
+                <Button
+                  size="default"
+                  className="w-full sm:w-auto rounded-full px-5"
+                >
+                  Launchpad
+                </Button>
+              </Link>
+              <Link href="/glow-swap">
+                <Button
+                  variant="outline"
+                  size="default"
+                  className="w-full sm:w-auto rounded-full px-5"
+                >
+                  Glow Swap
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          <div className="border-t border-border/70 mb-6 md:mb-8" />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-16">
+            {isConnected ? (
+              <>
+                {/* Buy Glow Card */}
+                <button
+                  onClick={handleBuyGlow}
+                  className="group relative rounded-3xl overflow-hidden border border-border text-left transition-transform hover:scale-[1.02] cursor-pointer"
+                >
+                  <div className="relative h-72 md:h-80 xl:h-96">
+                    <Image
+                      src="/images/sunset.jpg"
+                      alt="Buy Glow"
+                      fill
+                      className="object-cover"
+                      priority
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-transparent" />
+                  </div>
+                  <div className="absolute inset-0 p-6 flex flex-col justify-between pointer-events-none">
+                    <div className="text-white text-sm md:text-lg max-w-sm">
+                      GLW is the fuel of the Glow ecosystem; it powers new solar
+                      farms, drives weekly rewards, and represents your
+                      contribution to clean energy.
+                    </div>
+                    <div className="flex items-end justify-between">
+                      <div className="text-white text-4xl md:text-5xl font-bold">
+                        Buy Glow
+                      </div>
+                    </div>
+                  </div>
+                  <div className="absolute bottom-4 right-4">
+                    <span className="inline-flex items-center justify-center h-11 w-11 rounded-full bg-white text-black border border-black/10 shadow-sm transition-colors group-hover:bg-white">
+                      <ArrowUpRight className="w-5 h-5" />
+                    </span>
+                  </div>
+                </button>
+
+                {/* I'm New Card */}
+                <Link
+                  href="/"
+                  target="_blank"
+                  className="group relative rounded-3xl overflow-hidden border border-border text-left transition-transform hover:scale-[1.02]"
+                >
+                  <div className="relative h-72 md:h-80 xl:h-96">
+                    <Image
+                      src="/images/bird.jpg"
+                      alt="Fund Solar"
+                      fill
+                      className="object-cover"
+                      priority
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-transparent" />
+                  </div>
+                  <div className="absolute inset-0 p-6 flex flex-col justify-between pointer-events-none">
+                    <div className="text-white text-sm md:text-lg max-w-sm">
+                      Delegate your GLW to fund new solar farms and earn GLW
+                      weekly. Or purchase a pre-packaged mining position with
+                      USDC and earn GLW weekly.
+                    </div>
+                    <div className="flex items-end justify-between">
+                      <div className="text-white text-4xl md:text-5xl font-bold">
+                        Fund Solar
+                      </div>
+                    </div>
+                  </div>
+                  <div className="absolute bottom-4 right-4">
+                    <span className="inline-flex items-center justify-center h-11 w-11 rounded-full bg-white text-black border border-black/10 shadow-sm transition-colors group-hover:bg-white">
+                      <ArrowUpRight className="w-5 h-5" />
+                    </span>
+                  </div>
+                </Link>
+              </>
+            ) : (
+              <div className="col-span-1 md:col-span-2 flex justify-center">
+                <div className="w-full max-w-sm">
+                  <ConnectButton variant="default" size="large" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Quote + Discord CTA - Gradient Card */}
+          <div className="rounded-3xl glow-gradient p-8 md:p-12 mt-10 md:mt-14 mb-10 md:mb-14">
+            <div className="max-w-[420px] mx-auto text-center text-black">
+              <p className="text-3xl md:text-4xl leading-tight">
+                If everyone in the world owned $20 of GLW, we could eliminate
+                fossil fuels by 2030.
+              </p>
+              <p className="text-black/60 mt-4 text-base md:text-lg">
+                David Vorick, CEO of Glow
+              </p>
+              <div className="mt-8 flex justify-center">
+                <Button
+                  onClick={() =>
+                    window.open(
+                      "https://discord.gg/glowfnd",
+                      "_blank",
+                      "noopener,noreferrer"
+                    )
+                  }
+                  className="rounded-full h-12 px-6 "
+                >
+                  <span className="mr-3">Join us on Discord</span>
+                  <span className="inline-flex items-center justify-center h-7 w-7 rounded-full">
+                    <DiscordLogoIcon />
+                  </span>
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* FAQs */}
+          <div className="border-t border-border mt-10 md:mt-14" />
+          <div className="max-w-screen-md mx-auto mt-10 md:mt-14">
+            <h2 className="text-2xl font-semibold mb-4">FAQs</h2>
+            <div className="space-y-3">
+              {faqItems.map((item, idx) => (
+                <Collapsible key={idx} className="rounded-2xl border bg-card">
+                  <CollapsibleTrigger className="w-full flex items-center justify-between p-4 md:p-5 text-left">
+                    <span className="text-base md:text-lg font-medium">
+                      {item.q}
+                    </span>
+                    <span className="ml-4 inline-flex items-center justify-center h-7 w-7 rounded-full bg-muted">
+                      <Plus className="h-4 w-4 text-primary" />
+                    </span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="px-4 md:px-5 pb-5 text-muted-foreground">
+                    {item.a}
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
+            </div>
+          </div>
+
+          {/* Newsletter */}
+          <div className="border-t border-border mt-14 md:mt-16" />
+          <div className="max-w-screen-xl mx-auto grid grid-cols-1 md:grid-cols-[1fr_minmax(360px,520px)] gap-6 items-center mt-8 md:mt-10">
+            <div>
+              <h3 className="text-xl font-semibold">
+                Be the first to hear about Glow news.
+              </h3>
+              <p className="text-muted-foreground mt-1">
+                Product updates, launches, and impact wins.
+              </p>
+            </div>
+            <form
+              onSubmit={handleNewsletterSubmit}
+              className="bg-muted/50 border border-border rounded-2xl p-3 md:p-4 flex items-center gap-3"
+            >
+              <Input
+                type="email"
+                inputMode="email"
+                placeholder="you@example.com"
+                value={newsletterEmail}
+                onChange={(e) => setNewsletterEmail(e.target.value)}
+                className="flex-1 bg-background"
+                required
+                disabled={isNewsletterSubmitting}
+              />
+              <Button
+                type="submit"
+                className="shrink-0"
+                disabled={isNewsletterSubmitting}
+              >
+                {isNewsletterSubmitting ? "Signing up..." : "Sign up"}
+              </Button>
+            </form>
+          </div>
+        </div>
+
+        {/* Buy Glow Amount Input Dialog */}
+        <Dialog open={buyGlowAmountOpen} onOpenChange={setBuyGlowAmountOpen}>
+          <DialogContent className="sm:max-w-[480px]">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold">Buy GLW</DialogTitle>
+              <DialogDescription className="text-base">
+                Enter the amount of USDC you want to spend to buy GLW.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6 py-6">
+              <div className="space-y-4">
+                <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="buy-glow-amount"
+                        className="text-sm font-medium text-muted-foreground"
+                      >
+                        You pay
+                      </Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const maxAmount = usdcBalance
+                            ? formatUnits(usdcBalance, DECIMALS_BY_TOKEN.USDC)
+                            : "0";
+                          setBuyGlowInputAmount(maxAmount);
+                        }}
+                        className="h-auto p-0 text-xs font-medium hover:bg-transparent"
+                      >
+                        MAX
+                      </Button>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <Input
+                        id="buy-glow-amount"
+                        type="number"
+                        placeholder="0.00"
+                        value={buyGlowInputAmount}
+                        onChange={(e) => setBuyGlowInputAmount(e.target.value)}
+                        min="0"
+                        step="0.000001"
+                        className="text-3xl font-bold border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
+                      />
+                      <span className="text-xl font-medium text-muted-foreground">
+                        USDC
+                      </span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Available: {formattedBalances.usdc} USDC
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-center">
+                  <div className="bg-background rounded-full p-2 border border-border shadow-sm">
+                    <ArrowDown className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                </div>
+
+                <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+                  <div className="space-y-3">
+                    <div className="text-sm font-medium text-muted-foreground">
+                      You receive (estimated)
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <div className="text-3xl font-bold">~</div>
+                      <span className="text-xl font-medium text-muted-foreground">
+                        GLW
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setBuyGlowAmountOpen(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmBuyGlowAmount}
+                disabled={
+                  !buyGlowInputAmount || Number(buyGlowInputAmount) <= 0
+                }
+                className="flex-1"
+              >
+                Continue
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Buy Glow Transaction Dialog */}
+        <UsdcToTokenDialog
+          isOpen={buyGlowDialogOpen}
+          amount={buyGlowEstimatedReceive}
+          amountToSell={buyGlowInputAmount}
+          selectedTokenSell={tokens.USDC}
+          selectedTokenBuy={tokens.GLOW}
+          smartBalancingAmounts={buyGlowSmartAmounts}
+          swapUSDCToUSDG={swapUSDCToUSDG}
+          slippagePointsTenThousandths={BigInt(100)}
+          onOpenChange={(open) => {
+            setBuyGlowDialogOpen(open);
+            if (!open) {
+              setBuyGlowInputAmount("");
+              setBuyGlowEstimatedReceive("");
+              setBuyGlowSmartAmounts(undefined);
+              refreshBalances();
+            }
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
