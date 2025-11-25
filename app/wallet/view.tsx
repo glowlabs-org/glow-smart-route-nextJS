@@ -47,6 +47,7 @@ import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { SendDialog } from "@/components/send-dialog";
 import { UsdcToTokenDialog } from "@/components/usdc-to-token-dialog";
 import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
+import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { addresses, SDKAddresses } from "@/web3/constants/addresses";
 import { useWalletFarms } from "@/hooks/useWalletFarms";
@@ -65,10 +66,6 @@ import {
 } from "@/hooks/useRewardScore";
 import { Badge } from "@/components/ui/badge";
 import { RewardsBreakdownPanel } from "./rewards-breakdown-panel";
-import {
-  usePurchaseGlow,
-  SmartBalancingAmounts,
-} from "@/hooks/usePurchaseGlow";
 import Image from "next/image";
 import { ConnectButton } from "@/components/connect-button";
 import { DiscordLogoIcon } from "@radix-ui/react-icons";
@@ -135,14 +132,7 @@ export default function View() {
   const [inputAmount, setInputAmount] = React.useState<string>("");
 
   // Buy Glow flow state
-  const [buyGlowAmountOpen, setBuyGlowAmountOpen] = React.useState(false);
-  const [buyGlowInputAmount, setBuyGlowInputAmount] =
-    React.useState<string>("");
   const [buyGlowDialogOpen, setBuyGlowDialogOpen] = React.useState(false);
-  const [buyGlowSmartAmounts, setBuyGlowSmartAmounts] =
-    React.useState<SmartBalancingAmounts>();
-  const [buyGlowEstimatedReceive, setBuyGlowEstimatedReceive] =
-    React.useState<string>("");
 
   // Newsletter state
   const [newsletterEmail, setNewsletterEmail] = React.useState<string>("");
@@ -152,9 +142,6 @@ export default function View() {
 
   // USDC to USDG swap hook
   const { swapUSDCToUSDG } = useSwapUSDCToUSDG();
-
-  // Purchase Glow hook for zero-state Buy Glow flow
-  const { getSmartBalancingAmounts } = usePurchaseGlow();
 
   // ERC20 balances (GLOW, USDC, USDG)
   const {
@@ -350,49 +337,7 @@ export default function View() {
 
   // Buy Glow handlers for zero-state
   const handleBuyGlow = () => {
-    setBuyGlowInputAmount("");
-    setBuyGlowAmountOpen(true);
-  };
-
-  const handleConfirmBuyGlowAmount = async () => {
-    if (!buyGlowInputAmount || Number(buyGlowInputAmount) <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-
-    const usdcBalanceFormatted = usdcBalance
-      ? formatUnits(usdcBalance, DECIMALS_BY_TOKEN.USDC)
-      : "0";
-
-    if (Number(buyGlowInputAmount) > Number(usdcBalanceFormatted)) {
-      toast.error("Amount exceeds USDC balance");
-      return;
-    }
-
-    try {
-      const smartBalancingAmountsRes = await getSmartBalancingAmounts({
-        amountUsdgIn: Number(buyGlowInputAmount),
-        earlyLiquidityCurrentPrice: glowSpotPrice || 0,
-      });
-
-      if (!smartBalancingAmountsRes.ok) {
-        toast.error(smartBalancingAmountsRes.val);
-        return;
-      }
-
-      const smartAmounts = smartBalancingAmountsRes.val;
-      setBuyGlowSmartAmounts(smartAmounts);
-
-      const uniswapOut = Number(smartAmounts.amount_out_uni || "0");
-      const bondingOut = Number(smartAmounts.amount_out_glow || "0");
-      const totalOut = uniswapOut + bondingOut;
-
-      setBuyGlowEstimatedReceive(totalOut.toString());
-      setBuyGlowAmountOpen(false);
-      setBuyGlowDialogOpen(true);
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to estimate swap");
-    }
+    setBuyGlowDialogOpen(true);
   };
 
   // Check if we should show the getting started zero-state
@@ -765,124 +710,18 @@ export default function View() {
           </div>
         </div>
 
-        {/* Buy Glow Amount Input Dialog */}
-        <Dialog open={buyGlowAmountOpen} onOpenChange={setBuyGlowAmountOpen}>
-          <DialogContent className="sm:max-w-[480px]">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold">Buy GLW</DialogTitle>
-              <DialogDescription className="text-base">
-                Enter the amount of USDC you want to spend to buy GLW.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6 py-6">
-              <div className="space-y-4">
-                <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label
-                        htmlFor="buy-glow-amount"
-                        className="text-sm font-medium text-muted-foreground"
-                      >
-                        You pay
-                      </Label>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const maxAmount = usdcBalance
-                            ? formatUnits(usdcBalance, DECIMALS_BY_TOKEN.USDC)
-                            : "0";
-                          setBuyGlowInputAmount(maxAmount);
-                        }}
-                        className="h-auto p-0 text-xs font-medium hover:bg-transparent"
-                      >
-                        MAX
-                      </Button>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <Input
-                        id="buy-glow-amount"
-                        type="number"
-                        placeholder="0.00"
-                        value={buyGlowInputAmount}
-                        onChange={(e) => setBuyGlowInputAmount(e.target.value)}
-                        min="0"
-                        step="0.000001"
-                        className="text-3xl font-bold border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
-                      />
-                      <span className="text-xl font-medium text-muted-foreground">
-                        USDC
-                      </span>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Available: {formattedBalances.usdc} USDC
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-center">
-                  <div className="bg-background rounded-full p-2 border border-border shadow-sm">
-                    <ArrowDown className="w-5 h-5 text-muted-foreground" />
-                  </div>
-                </div>
-
-                <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-6">
-                  <div className="space-y-3">
-                    <div className="text-sm font-medium text-muted-foreground">
-                      You receive (estimated)
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <div className="text-3xl font-bold">~</div>
-                      <span className="text-xl font-medium text-muted-foreground">
-                        GLW
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <DialogFooter className="gap-2 sm:gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setBuyGlowAmountOpen(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleConfirmBuyGlowAmount}
-                disabled={
-                  !buyGlowInputAmount || Number(buyGlowInputAmount) <= 0
-                }
-                className="flex-1"
-              >
-                Continue
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Buy Glow Transaction Dialog */}
-        <UsdcToTokenDialog
-          isOpen={buyGlowDialogOpen}
-          amount={buyGlowEstimatedReceive}
-          amountToSell={buyGlowInputAmount}
-          selectedTokenSell={tokens.USDC}
-          selectedTokenBuy={tokens.GLOW}
-          smartBalancingAmounts={buyGlowSmartAmounts}
-          swapUSDCToUSDG={swapUSDCToUSDG}
-          slippagePointsTenThousandths={BigInt(100)}
+        {/* Buy Glow Dialog */}
+        <BuyGlowDialog
+          open={buyGlowDialogOpen}
           onOpenChange={(open) => {
             setBuyGlowDialogOpen(open);
             if (!open) {
-              setBuyGlowInputAmount("");
-              setBuyGlowEstimatedReceive("");
-              setBuyGlowSmartAmounts(undefined);
               refreshBalances();
             }
           }}
+          usdcBalance={usdcBalance}
+          glowSpotPrice={glowSpotPrice || 0}
+          onSuccess={refreshBalances}
         />
       </div>
     );
