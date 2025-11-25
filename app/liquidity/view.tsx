@@ -148,8 +148,6 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
     null
   );
 
-  const isAfterCutoff = Date.now() > GLW_INCENTIVES_END_TIME;
-
   React.useEffect(() => {
     refreshBalances();
   }, [signer]);
@@ -239,18 +237,17 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
   const isAmountMissing =
     glw.trim() === "" || usdg.trim() === "" || glwNum <= 0 || usdgNum <= 0;
   const isActionDisabled =
-    isAfterCutoff || isAmountMissing || isGlwOverBalance || isUsdgOverBalance;
-  const actionLabel = isAfterCutoff
-    ? "Program Ended"
-    : isGlwOverBalance && isUsdgOverBalance
-    ? "Insufficient funds"
-    : isGlwOverBalance
-    ? "Insufficient GLW balance"
-    : isUsdgOverBalance
-    ? "Insufficient USDG balance"
-    : isAmountMissing
-    ? "Enter amounts"
-    : "Review";
+    isAmountMissing || isGlwOverBalance || isUsdgOverBalance;
+  const actionLabel =
+    isGlwOverBalance && isUsdgOverBalance
+      ? "Insufficient funds"
+      : isGlwOverBalance
+      ? "Insufficient GLW balance"
+      : isUsdgOverBalance
+      ? "Insufficient USDG balance"
+      : isAmountMissing
+      ? "Enter amounts"
+      : "Review";
 
   function handleAdd() {
     if (isActionDisabled) return;
@@ -321,7 +318,6 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
                   }
                   handleGlwChange(e.target.value);
                 }}
-                disabled={isAfterCutoff}
               />
             </div>
             <div className="flex items-center justify-center px-4 py-2 bg-background rounded-xl border border-border">
@@ -365,7 +361,6 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
                   }
                   handleUsdgChange(e.target.value);
                 }}
-                disabled={isAfterCutoff}
               />
             </div>
             <div className="flex items-center justify-center px-4 py-2 bg-background rounded-xl border border-border">
@@ -435,45 +430,42 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
             </div>
           </div>
         )}
-        {/* Program ended banner */}
-        {isAfterCutoff && (
+        {/* Program ended info banner */}
+        {Date.now() > GLW_INCENTIVES_END_TIME && (
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
             <div className="flex flex-col gap-2">
               <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
                 GLW Incentive Program Ended
               </p>
               <p className="text-xs text-muted-foreground">
-                The GLW incentive program ended on November 25, 2025. New
-                liquidity positions cannot be added at this time.
+                The GLW incentive program ended on November 25, 2025. You can
+                still add liquidity to earn exchange fees.
               </p>
             </div>
           </div>
         )}
 
         {/* USDC to USDG swap suggestion banner */}
-        {!isAfterCutoff &&
-          isUsdgOverBalance &&
-          usdcBalanceNumber >= usdgNum &&
-          usdgNum > 0 && (
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Need more USDG?</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    You have {usdcBalanceNumber.toFixed(2)} USDC available. Swap
-                    USDC to USDG to continue.
-                  </p>
-                </div>
-                <Link
-                  href="/?tab=swap"
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-                >
-                  Go to Swap
-                  <ArrowRight className="w-3 h-3" />
-                </Link>
+        {isUsdgOverBalance && usdcBalanceNumber >= usdgNum && usdgNum > 0 && (
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <p className="text-sm font-medium">Need more USDG?</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  You have {usdcBalanceNumber.toFixed(2)} USDC available. Swap
+                  USDC to USDG to continue.
+                </p>
               </div>
+              <Link
+                href="/?tab=swap"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                Go to Swap
+                <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
-          )}
+          </div>
+        )}
 
         {preflightError && (
           <div className="rounded-xl border border-destructive bg-destructive/10 text-destructive p-3 text-sm">
@@ -861,16 +853,21 @@ const PositionCard = React.memo(function PositionCard({
         {isIncentivesActive && (
           <div className="mt-3 rounded-md border p-3 flex items-center justify-between">
             <div className="text-xs text-muted-foreground">
-              Loyalty bonus{isAfterCutoff ? " (Program Ended)" : " (live)"}
+              Loyalty bonus{isAfterCutoff ? " (frozen)" : " (live)"}
             </div>
             <div className="font-mono text-sm flex items-center">
-              {/* Only the loyalty bonus animates with time - updates every second */}
-              <NumberTicker
-                value={liveMultiplier}
-                decimalPlaces={12}
-                className="font-mono text-sm"
-                suffix="×"
-              />
+              {isAfterCutoff ? (
+                <span className="font-mono text-sm">
+                  {liveMultiplier.toFixed(12)}×
+                </span>
+              ) : (
+                <NumberTicker
+                  value={liveMultiplier}
+                  decimalPlaces={12}
+                  className="font-mono text-sm"
+                  suffix="×"
+                />
+              )}
             </div>
           </div>
         )}
