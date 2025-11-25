@@ -368,68 +368,7 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
             </div>
           </div>
         </div>
-        {apyEstimate && (
-          <div className="relative rounded-2xl border border-border dark:border-primary/20 bg-muted/10 dark:bg-transparent dark:bg-gradient-to-br dark:from-primary/5 dark:via-transparent dark:to-primary/5 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">
-                  {"Max Estimated APY"}
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="text-2xl font-bold text-accent dark:text-glow-purple">
-                  <NumberTicker
-                    value={apyEstimate.combinedApy}
-                    decimalPlaces={0}
-                    className="text-2xl font-bold"
-                  />
-                  %
-                </span>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/30">
-              <div className="space-y-1">
-                <div className="flex items-center gap-1.5">
-                  <div className="h-2 w-2 rounded-full bg-glow-green" />
-                  <span className="text-xs text-muted-foreground">
-                    Estimated Trading Fees
-                  </span>
-                </div>
-                <div className="text-sm font-semibold">
-                  <NumberTicker
-                    value={apyEstimate.feesApy}
-                    decimalPlaces={1}
-                    className="text-sm font-semibold"
-                  />
-                  % APY
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-1.5">
-                  <div className="h-2 w-2 rounded-full bg-glow-purple" />
-                  <span className="text-xs text-muted-foreground">
-                    Estimated GLW Incentives
-                  </span>
-                </div>
-                <div className="text-sm font-semibold">
-                  <NumberTicker
-                    value={apyEstimate.liquidityIncentiveApy}
-                    decimalPlaces={1}
-                    className="text-sm font-semibold"
-                  />
-                  % APY
-                </div>
-              </div>
-            </div>
-
-            <div className="text-xs text-muted-foreground text-center opacity-80">
-              {glwNum > 0 && usdgNum > 0
-                ? "Rewards increase over time with loyalty multiplier"
-                : "Enter amounts to see your personalized APY estimate"}
-            </div>
-          </div>
-        )}
         {/* Program ended info banner */}
         {Date.now() > GLW_INCENTIVES_END_TIME && (
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">

@@ -699,7 +699,9 @@ export function useLiquidityMutations() {
 // 5. Helper functions that don't need to be in a hook
 export function getLoyaltyMultiplier(createdAt: number, now: number) {
   const startDate = Math.max(GLW_INCENTIVES_START_TIME, createdAt);
-  const days = Math.max(0, (now - startDate) / (1000 * 60 * 60 * 24));
+  // Cap at end time so multiplier stops growing after program ends
+  const endDate = Math.min(now, GLW_INCENTIVES_END_TIME);
+  const days = Math.max(0, (endDate - startDate) / (1000 * 60 * 60 * 24));
   return Math.pow(days, 0.176091259) || 0;
 }
 
