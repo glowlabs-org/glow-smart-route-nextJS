@@ -471,11 +471,12 @@ export default function View() {
       a: (
         <div>
           Yes, there is risk: token prices move, solar farms can underperform,
-          and some products involve long lock-ups. Only participate with money
-          you can afford to lose. You don’t need to be a crypto expert, but you
-          should be comfortable using a wallet and confirming on-chain
-          transactions. For a deeper, step-by-step explanation, you can always
-          read the guides on the Glow blog at{" "}
+          and some products involve long lock-ups. However, competitive farms
+          can also outperform delegated GLW and earn lucrative yields. Only
+          participate with money you can afford to lose. You don’t need to be a
+          crypto expert, but you should be comfortable using a wallet and
+          confirming on-chain transactions. For a deeper, step-by-step
+          explanation, you can always read the guides on the Glow blog at{" "}
           <a
             href="https://glow.org/blog"
             target="_blank"
@@ -524,7 +525,7 @@ export default function View() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 xl:px-16 py-6 md:py-24 pt-20">
+        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 xl:px-16 py-6 md:py-32">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6 md:mb-8">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
@@ -636,7 +637,7 @@ export default function View() {
           {/* Quote + CTA - Gradient light, muted dark */}
           <div className="mt-10 md:mt-14 mb-10 md:mb-14">
             <div className="rounded-3xl glow-gradient p-8 md:p-12 dark:hidden">
-              <div className="max-w-[420px] mx-auto text-center text-black">
+              <div className="max-w-[500px] mx-auto text-center text-black">
                 <p className="text-3xl md:text-4xl leading-tight">
                   If everyone in the world owned $20 of GLW, we could eliminate
                   fossil fuels by 2030.
