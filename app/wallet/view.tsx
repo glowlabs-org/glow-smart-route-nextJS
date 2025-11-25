@@ -470,7 +470,7 @@ export default function View() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 xl:px-16 py-6 md:py-32">
+        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 xl:px-16 py-24 md:py-32">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6 md:mb-8">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
