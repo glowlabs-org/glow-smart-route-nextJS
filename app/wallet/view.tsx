@@ -352,10 +352,9 @@ export default function View() {
       q: "What is Glow?",
       a: (
         <div>
-          Glow is a crypto-powered climate project that helps fund real-world
-          solar farms. Solar projects join Glow, compete based on how much
-          carbon they displace, and earn GLW token rewards for producing clean
-          energy.
+          Glow is a crypto-powered protocol that helps fund the construction of
+          real world solar farms. Glow specifically identifies solar
+          opportunities that create the greatest impact per dollar of funding.
         </div>
       ),
     },
@@ -363,74 +362,34 @@ export default function View() {
       q: "What is GLW and why does it matter?",
       a: (
         <div>
-          GLW is the core token of the Glow ecosystem. Solar farms earn GLW for
-          producing high-impact clean energy, and you can buy or earn GLW to
-          share in those rewards while helping more solar get built.
+          GLW is the core token of the Glow ecosystem. It's the token that solar
+          farms earn as they produce clean energy, and it's also the token that
+          gets used to select which farms get supported by the Glow protocol.
         </div>
       ),
     },
     {
-      q: "What can I do on this page?",
-      a: (
-        <div className="space-y-2">
-          <p>You have two main options:</p>
-          <ul className="list-disc pl-5 space-y-1">
-            <li>
-              <span className="font-medium">Buy GLW</span> – purchase GLW to
-              hold or later delegate to solar farms.
-            </li>
-            <li>
-              <span className="font-medium">Participate</span> – use your GLW
-              and/or USDC to directly support solar farms and earn GLW over
-              time.
-            </li>
-          </ul>
-        </div>
-      ),
-    },
-    {
-      q: "What does “delegating GLW to solar farms” mean?",
+      q: 'What does "delegating GLW to solar farms" mean?',
       a: (
         <div>
-          Delegating GLW means you lock your GLW behind specific solar farms on
-          Glow. Those farms compete in the protocol, and if they perform well,
-          you can earn GLW rewards and recover your deposit over time. You’re
-          not running the solar farm yourself, you’re backing it with your
-          tokens.
+          To participate in the Glow protocol, a solar farm needs to demonstrate
+          that it can make efficient use of the funding provided by Glow. GLW
+          holders can vouch for the efficiency of a solar farm by delegating
+          their tokens to it. The delegators earn extra GLW tokens for picking
+          efficient farms, but may forfeit tokens if they pick inefficient solar
+          farms. The delegation process is what allows Glow to ensure all of its
+          funding goes to the best possible solar farms.
         </div>
       ),
     },
     {
-      q: "What does it mean to “buy miners” with USDC?",
+      q: 'What is a "Glow miner"?',
       a: (
         <div>
-          Buying miners is how you participate with USDC instead of (or in
-          addition to) GLW. Your USDC helps fund pre-vetted solar projects, and
-          in return you receive a stream of GLW rewards over a fixed period as
-          those farms earn tokens.
-        </div>
-      ),
-    },
-    {
-      q: "Is this risky, and do I need to be a crypto expert?",
-      a: (
-        <div>
-          Yes, there is risk: token prices move, solar farms can underperform,
-          and some products involve long lock-ups. However, competitive farms
-          can also outperform delegated GLW and earn lucrative yields. Only
-          participate with money you can afford to lose. You don’t need to be a
-          crypto expert, but you should be comfortable using a wallet and
-          confirming on-chain transactions. For a deeper, step-by-step
-          explanation, you can always read the guides on the Glow blog at{" "}
-          <a
-            href="https://glow.org/blog"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline"
-          >
-            glow.org/blog
-          </a>
-          .
+          A Glow miner works much like a Bitcoin miner. It is part of a Glow
+          solar farm that earns tokens every week as the solar farm produces
+          electricity. A Glow miner can be purchased for USDC, and will produce
+          GLW tokens every week for 99 weeks.
         </div>
       ),
     },
