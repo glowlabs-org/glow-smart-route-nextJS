@@ -399,7 +399,9 @@ export default function View() {
   ];
 
   // Debounced subscription check
-  const checkSubscriptionTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const checkSubscriptionTimeoutRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
 
   const checkSubscriptionStatus = React.useCallback(async (email: string) => {
     if (!email || !email.includes("@") || !email.includes(".")) {
