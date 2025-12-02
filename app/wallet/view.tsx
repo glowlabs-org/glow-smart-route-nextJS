@@ -139,6 +139,9 @@ export default function View() {
   const [isNewsletterSubmitting, setIsNewsletterSubmitting] =
     React.useState(false);
   const [hasNewsletterSuccess, setHasNewsletterSuccess] = React.useState(false);
+  const [isAlreadySubscribed, setIsAlreadySubscribed] = React.useState(false);
+  const [isCheckingSubscription, setIsCheckingSubscription] =
+    React.useState(false);
 
   // USDC to USDG swap hook
   const { swapUSDCToUSDG } = useSwapUSDCToUSDG();
@@ -294,7 +297,7 @@ export default function View() {
   // Progressive disclosure helpers
   const hasUsdc = usdcBalance && usdcBalance > BigInt(0);
   const hasUsdg = usdgBalance && usdgBalance > BigInt(0);
-  const hasGlow = glowBalance && glowBalance > BigInt(0);
+  const hasGlow = glowBalance && glowBalance > BigInt(1 * 10 ** 18);
   const hasGctl = gctlBalance && BigInt(gctlBalance) > BigInt(0);
 
   const handleSwapUsdcToUsdg = () => {
@@ -395,11 +398,55 @@ export default function View() {
     },
   ];
 
+  // Debounced subscription check
+  const checkSubscriptionTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const checkSubscriptionStatus = React.useCallback(async (email: string) => {
+    if (!email || !email.includes("@") || !email.includes(".")) {
+      setIsAlreadySubscribed(false);
+      return;
+    }
+
+    setIsCheckingSubscription(true);
+    try {
+      const res = await fetch(
+        `/api/newsletter?email=${encodeURIComponent(email)}`
+      );
+      const data = await res.json().catch(() => ({}));
+      setIsAlreadySubscribed(data?.subscribed === true);
+    } catch {
+      setIsAlreadySubscribed(false);
+    } finally {
+      setIsCheckingSubscription(false);
+    }
+  }, []);
+
+  const handleNewsletterEmailChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = e.target.value;
+    setNewsletterEmail(value);
+    setIsAlreadySubscribed(false);
+
+    if (checkSubscriptionTimeoutRef.current) {
+      clearTimeout(checkSubscriptionTimeoutRef.current);
+    }
+
+    // Debounce the subscription check by 500ms
+    checkSubscriptionTimeoutRef.current = setTimeout(() => {
+      checkSubscriptionStatus(value.trim());
+    }, 500);
+  };
+
   const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const email = newsletterEmail.trim();
     if (!email || !email.includes("@")) {
       toast.error("Please enter a valid email.");
+      return;
+    }
+    if (isAlreadySubscribed) {
+      toast.info("You're already subscribed!");
       return;
     }
     try {
@@ -653,18 +700,28 @@ export default function View() {
                 inputMode="email"
                 placeholder="you@example.com"
                 value={newsletterEmail}
-                onChange={(e) => setNewsletterEmail(e.target.value)}
+                onChange={handleNewsletterEmailChange}
                 className="flex-1 bg-background"
                 required
-                disabled={isNewsletterSubmitting}
+                disabled={isNewsletterSubmitting || hasNewsletterSuccess}
               />
-              <Button
-                type="submit"
-                className="shrink-0"
-                disabled={isNewsletterSubmitting}
-              >
-                {isNewsletterSubmitting ? "Signing up..." : "Sign up"}
-              </Button>
+              {isAlreadySubscribed || hasNewsletterSuccess ? (
+                <span className="shrink-0 text-sm text-green-600 dark:text-green-400 font-medium px-3">
+                  ✓ Subscribed
+                </span>
+              ) : (
+                <Button
+                  type="submit"
+                  className="shrink-0"
+                  disabled={isNewsletterSubmitting || isCheckingSubscription}
+                >
+                  {isNewsletterSubmitting
+                    ? "Signing up..."
+                    : isCheckingSubscription
+                    ? "Checking..."
+                    : "Sign up"}
+                </Button>
+              )}
             </form>
           </div>
         </div>
@@ -890,6 +947,15 @@ export default function View() {
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="default"
+                        variant="outline"
+                        onClick={handleBuyGlow}
+                        className="flex-1 sm:flex-initial"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Buy
+                      </Button>
                       {hasGlow && (
                         <Button
                           size="default"
@@ -1350,6 +1416,20 @@ export default function View() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Buy Glow Dialog */}
+      <BuyGlowDialog
+        open={buyGlowDialogOpen}
+        onOpenChange={(open) => {
+          setBuyGlowDialogOpen(open);
+          if (!open) {
+            refreshBalances();
+          }
+        }}
+        usdcBalance={usdcBalance}
+        glowSpotPrice={glowSpotPrice || 0}
+        onSuccess={refreshBalances}
+      />
     </div>
   );
 }

@@ -25,8 +25,11 @@ import {
   usePurchaseGlow,
   SmartBalancingAmounts,
 } from "@/hooks/usePurchaseGlow";
-import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
 import { useDebouncedAsync } from "@/hooks/useDebouncedAsync";
+import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
+import { useSwap } from "@/hooks/useSwap";
+import { useEarlyLiquidityPrice } from "@/hooks/useEarlyLiquidityPrice";
+import { addresses } from "@/web3/constants/addresses";
 import { formatUnits, parseUnits } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +37,7 @@ import { formatPrice } from "@/utils/formatPrice";
 import { motion } from "framer-motion";
 import { waitingToSuccessVariants } from "@/animations/variants";
 import clsx from "clsx";
+import { GlowSymbol } from "../glow-symbol";
 
 interface BuyGlowDialogProps {
   open: boolean;
@@ -52,47 +56,42 @@ interface PendingState {
   pending: boolean;
 }
 
-const usdcToUsdgStates: PendingState[] = [
-  {
-    code: "PURCHASING_USDG",
-    message: "Converting USDC to USDG",
-    validated: false,
-    pending: false,
-  },
-  {
-    code: "SUCCESSFULLY_OBTAINED_USDG",
-    message: "Successfully obtained USDG",
-    validated: false,
-    pending: false,
-  },
-];
+const getInitialPendingStates = (
+  includeBondingStep: boolean
+): PendingState[] => {
+  const states: PendingState[] = [
+    {
+      code: "SWAP_USDC_TO_USDG",
+      message: "Swapping USDC for USDG",
+      validated: false,
+      pending: false,
+    },
+    {
+      code: "SWAP_USDG_TO_GLOW_ON_UNISWAP",
+      message: "Swapping USDG for GLW on Uniswap",
+      validated: false,
+      pending: false,
+    },
+  ];
 
-const glowPurchaseStates: PendingState[] = [
-  {
-    code: "REQUESTING_APPROVAL",
-    message: "Requesting USDG approval",
-    validated: false,
-    pending: false,
-  },
-  {
-    code: "APPROVING_USDG",
-    message: "Approving USDG",
-    validated: false,
-    pending: false,
-  },
-  {
-    code: "PURCHASING_GLOW",
-    message: "Purchasing GLW",
-    validated: false,
-    pending: false,
-  },
-  {
+  if (includeBondingStep) {
+    states.push({
+      code: "PURCHASING_GLOW",
+      message: "Purchasing GLW from bonding curve",
+      validated: false,
+      pending: false,
+    });
+  }
+
+  states.push({
     code: "DONE",
     message: "Successfully purchased GLW",
     validated: false,
     pending: false,
-  },
-];
+  });
+
+  return states;
+};
 
 export function BuyGlowDialog({
   open,
@@ -106,13 +105,27 @@ export function BuyGlowDialog({
   const [smartAmounts, setSmartAmounts] =
     React.useState<SmartBalancingAmounts>();
   const [estimatedGlw, setEstimatedGlw] = React.useState<string>("");
+  const [lastEstimatedAmount, setLastEstimatedAmount] =
+    React.useState<string>("");
   const [pendingStates, setPendingStates] = React.useState<PendingState[]>([]);
   const [txHash, setTxHash] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
-  const { getSmartBalancingAmounts, purchaseGlowEarlyLiquidity } =
-    usePurchaseGlow();
+  const {
+    getSmartBalancingAmounts,
+    purchaseGlowEarlyLiquidity,
+    getGlowQuoteEarlyLiquidity,
+    resetGlowPurchaseState,
+  } = usePurchaseGlow();
+
   const { swapUSDCToUSDG } = useSwapUSDCToUSDG();
+
+  const { swap: swapUsdGToGlow, resetUniswapPurchaseState } = useSwap({
+    tokenA_address: addresses.usdg,
+    tokenB_address: addresses.glow,
+  });
+
+  const { currentPrice: earlyLiquidityCurrentPrice } = useEarlyLiquidityPrice();
 
   const usdcBalanceFormatted = React.useMemo(
     () =>
@@ -124,15 +137,16 @@ export function BuyGlowDialog({
   const estimateRunner = React.useCallback(
     async (amount: string, signal: AbortSignal) => {
       if (!amount || Number(amount) <= 0) {
-        return { estimatedGlw: "", smartAmounts: undefined };
+        return { estimatedGlw: "", smartAmounts: undefined, forAmount: "" };
       }
 
       const result = await getSmartBalancingAmounts({
         amountUsdgIn: Number(amount),
-        earlyLiquidityCurrentPrice: glowSpotPrice || 0,
+        earlyLiquidityCurrentPrice,
       });
 
-      if (signal.aborted) return { estimatedGlw: "", smartAmounts: undefined };
+      if (signal.aborted)
+        return { estimatedGlw: "", smartAmounts: undefined, forAmount: "" };
 
       if (result.ok) {
         const amounts = result.val;
@@ -140,21 +154,27 @@ export function BuyGlowDialog({
         const bondingOut = Number(amounts.amount_out_glow || "0");
         const totalOut = uniswapOut + bondingOut;
 
-        return { estimatedGlw: totalOut.toString(), smartAmounts: amounts };
+        return {
+          estimatedGlw: totalOut.toString(),
+          smartAmounts: amounts,
+          forAmount: amount,
+        };
       }
 
-      return { estimatedGlw: "", smartAmounts: undefined };
+      return { estimatedGlw: "", smartAmounts: undefined, forAmount: "" };
     },
-    [getSmartBalancingAmounts, glowSpotPrice]
+    [getSmartBalancingAmounts, earlyLiquidityCurrentPrice]
   );
 
   const handleEstimateResult = React.useCallback(
     (result: {
       estimatedGlw: string;
       smartAmounts: SmartBalancingAmounts | undefined;
+      forAmount: string;
     }) => {
       setEstimatedGlw(result.estimatedGlw);
       setSmartAmounts(result.smartAmounts);
+      setLastEstimatedAmount(result.forAmount);
     },
     []
   );
@@ -195,19 +215,36 @@ export function BuyGlowDialog({
     return Number(inputAmount) / Number(estimatedGlw);
   }, [inputAmount, estimatedGlw]);
 
-  const updatePendingState = React.useCallback((stateIndex: number) => {
-    setPendingStates((prev) =>
-      prev.map((state, index) => {
-        if (index === stateIndex) {
-          return { ...state, pending: true };
-        }
-        if (index < stateIndex) {
+  const setPendingStatePending = React.useCallback((code: string) => {
+    setPendingStates((prev) => {
+      const index = prev.findIndex((state) => state.code === code);
+      if (index === -1) return prev;
+
+      return prev.map((state, i) => {
+        if (i < index) {
           return { ...state, pending: false, validated: true };
         }
-        return state;
-      })
-    );
+        if (i === index) {
+          return { ...state, pending: true, validated: false };
+        }
+        return { ...state, pending: false };
+      });
+    });
   }, []);
+
+  const completePendingStates = React.useCallback(
+    (codes: string | string[]) => {
+      const codeList = Array.isArray(codes) ? codes : [codes];
+      setPendingStates((prev) =>
+        prev.map((state) =>
+          codeList.includes(state.code)
+            ? { ...state, pending: false, validated: true }
+            : state
+        )
+      );
+    },
+    []
+  );
 
   const handleBuyGlow = React.useCallback(async () => {
     if (!inputAmount || Number(inputAmount) <= 0 || !smartAmounts) {
@@ -215,63 +252,82 @@ export function BuyGlowDialog({
       return;
     }
 
+    if (inputAmount !== lastEstimatedAmount) {
+      toast.error("Price estimate is updating. Please wait and try again.");
+      return;
+    }
+    const usdcAmount = parseUnits(
+      inputAmount,
+      DECIMALS_BY_TOKEN.USDC as number
+    );
+    const bondingAllocation =
+      smartAmounts.amount_in_glow_bonding_curve ?? BigInt(0);
+    const bondingOutput = Number(smartAmounts.amount_out_glow || "0");
+    const hasBondingOutput = bondingAllocation > BigInt(0) && bondingOutput > 0;
+
     setPhase("processing");
-    setPendingStates([...usdcToUsdgStates, ...glowPurchaseStates]);
+    setPendingStates(getInitialPendingStates(hasBondingOutput));
 
     try {
-      // Step 1: Convert USDC to USDG
-      updatePendingState(0);
-      const swapResult = await swapUSDCToUSDG(parseUnits(inputAmount, 6));
+      setPendingStatePending("SWAP_USDC_TO_USDG");
+      const swapUsdcResult = await swapUSDCToUSDG(usdcAmount);
+      if (!swapUsdcResult.ok) {
+        throw new Error(String(swapUsdcResult.val));
+      }
+      completePendingStates("SWAP_USDC_TO_USDG");
 
-      if (!swapResult.ok) {
-        throw new Error(String(swapResult.val));
+      const hasUniswapAllocation = smartAmounts.amount_in_uni > BigInt(0);
+      if (hasUniswapAllocation) {
+        setPendingStatePending("SWAP_USDG_TO_GLOW_ON_UNISWAP");
+        const uniswapResult = await swapUsdGToGlow({
+          amount: smartAmounts.amount_in_uni,
+          slippagePercentTenThousandDenominator: BigInt(100),
+        });
+        if (!uniswapResult.ok) {
+          throw new Error(String(uniswapResult.val));
+        }
+        completePendingStates("SWAP_USDG_TO_GLOW_ON_UNISWAP");
+      } else {
+        completePendingStates("SWAP_USDG_TO_GLOW_ON_UNISWAP");
       }
 
-      updatePendingState(1);
-      setPendingStates((prev) =>
-        prev.map((state, index) =>
-          index <= 1 ? { ...state, pending: false, validated: true } : state
-        )
-      );
-
-      // Step 2: Buy GLW with smart balancing
-      const hasUniswapAmount =
-        smartAmounts.amount_in_uni &&
-        Number(formatUnits(smartAmounts.amount_in_uni as bigint, 6)) > 0;
-      const hasBondingAmount =
-        smartAmounts.amount_out_glow &&
-        Number(smartAmounts.amount_out_glow) > 0;
-
-      if (hasBondingAmount) {
-        updatePendingState(2); // Requesting approval
-        updatePendingState(3); // Approving
-        updatePendingState(4); // Purchasing
-
-        const incrementsToPurchase = Math.floor(
-          Number(smartAmounts.amount_out_glow) * 100
+      if (hasBondingOutput) {
+        setPendingStatePending("PURCHASING_GLOW");
+        const incrementsToPurchase = Math.floor(bondingOutput * 100);
+        const quoteResult = await getGlowQuoteEarlyLiquidity(
+          incrementsToPurchase
         );
+        if (!quoteResult.ok) {
+          throw new Error(String(quoteResult.val));
+        }
 
-        const purchaseResult = await purchaseGlowEarlyLiquidity({
-          incrementsToPurchase,
-          slippagePointsTenThousandths: BigInt(100), // 1% slippage
-        });
-
-        if (!purchaseResult.ok) {
-          throw new Error(String(purchaseResult.val));
+        if (quoteResult.val > bondingAllocation) {
+          console.warn(
+            "Skipping bonding curve purchase due to insufficient USDG allocation",
+            {
+              bondingAllocation: bondingAllocation.toString(),
+              bondingQuote: quoteResult.val.toString(),
+            }
+          );
+          completePendingStates("PURCHASING_GLOW");
+        } else {
+          const purchaseResult = await purchaseGlowEarlyLiquidity({
+            incrementsToPurchase,
+            slippagePointsTenThousandths: BigInt(100),
+          });
+          if (!purchaseResult.ok) {
+            throw new Error(String(purchaseResult.val));
+          }
+          completePendingStates("PURCHASING_GLOW");
         }
       }
 
-      // Mark all as complete
-      setPendingStates((prev) =>
-        prev.map((state) => ({ ...state, pending: false, validated: true }))
-      );
+      setPendingStatePending("DONE");
+      completePendingStates("DONE");
 
       setPhase("success");
       toast.success("Successfully purchased GLW!");
-
-      if (onSuccess) {
-        onSuccess();
-      }
+      onSuccess?.();
     } catch (error: any) {
       console.error("Purchase failed:", error);
       setPhase("error");
@@ -284,9 +340,13 @@ export function BuyGlowDialog({
   }, [
     inputAmount,
     smartAmounts,
+    lastEstimatedAmount,
     swapUSDCToUSDG,
-    updatePendingState,
+    swapUsdGToGlow,
     purchaseGlowEarlyLiquidity,
+    getGlowQuoteEarlyLiquidity,
+    setPendingStatePending,
+    completePendingStates,
     onSuccess,
   ]);
 
@@ -298,11 +358,14 @@ export function BuyGlowDialog({
       setInputAmount("");
       setEstimatedGlw("");
       setSmartAmounts(undefined);
+      setLastEstimatedAmount("");
       setPendingStates([]);
       setTxHash(null);
       setErrorMessage(null);
+      resetGlowPurchaseState();
+      resetUniswapPurchaseState();
     }, 300);
-  }, [onOpenChange]);
+  }, [onOpenChange, resetGlowPurchaseState, resetUniswapPurchaseState]);
 
   const copyTxHash = React.useCallback(() => {
     if (txHash) {
@@ -315,7 +378,9 @@ export function BuyGlowDialog({
     setPhase("input");
     setErrorMessage(null);
     setPendingStates([]);
-  }, []);
+    resetGlowPurchaseState();
+    resetUniswapPurchaseState();
+  }, [resetGlowPurchaseState, resetUniswapPurchaseState]);
 
   const lastTwoRelevantStates = React.useMemo(
     () =>
@@ -341,7 +406,7 @@ export function BuyGlowDialog({
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-md w-full border-border shadow-2xl overflow-hidden"
+        className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden"
         onInteractOutside={(e) => phase === "processing" && e.preventDefault()}
       >
         <DialogHeader className="sr-only">
@@ -356,7 +421,7 @@ export function BuyGlowDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-8 py-12 max-h-[80vh] overflow-y-auto">
+        <div className="px-6 py-8 max-h-[80vh] overflow-y-auto">
           {phase === "input" && (
             <div className="text-center">
               <div className="mb-6">
@@ -368,9 +433,9 @@ export function BuyGlowDialog({
                 </div>
               </div>
 
-              <div className="space-y-6 mb-8 text-left">
+              <div className="relative mb-6 text-left">
                 {/* You Pay Section */}
-                <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+                <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-5 mb-2">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Label
@@ -383,7 +448,7 @@ export function BuyGlowDialog({
                         variant="ghost"
                         size="sm"
                         onClick={() => handleInputChange(usdcBalanceFormatted)}
-                        className="h-auto p-0 text-xs font-medium hover:bg-transparent"
+                        className="h-9 px-3 text-xs font-medium hover:bg-secondary"
                       >
                         MAX
                       </Button>
@@ -391,19 +456,33 @@ export function BuyGlowDialog({
                     <div className="flex items-baseline gap-2">
                       <Input
                         id="buy-amount"
-                        type="number"
+                        type="text"
                         placeholder="0.00"
                         value={inputAmount}
-                        onChange={(e) => handleInputChange(e.target.value)}
-                        min="0"
-                        step="0.000001"
-                        className="text-3xl font-bold border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                            handleInputChange(value);
+                          }
+                        }}
+                        className={clsx(
+                          "text-lg sm:text-xl lg:text-2xl font-bold border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0 w-full",
+                          Number(inputAmount) > Number(usdcBalanceFormatted) &&
+                            "text-destructive"
+                        )}
                       />
-                      <span className="text-xl font-medium text-muted-foreground">
+                      <span className="text-lg sm:text-xl font-medium text-muted-foreground shrink-0">
                         USDC
                       </span>
                     </div>
-                    <div className="text-sm text-muted-foreground">
+                    <div
+                      className={clsx(
+                        "text-sm",
+                        Number(inputAmount) > Number(usdcBalanceFormatted)
+                          ? "text-destructive"
+                          : "text-muted-foreground"
+                      )}
+                    >
                       Available:{" "}
                       {Number(usdcBalanceFormatted).toLocaleString("en-US", {
                         maximumFractionDigits: 2,
@@ -413,30 +492,30 @@ export function BuyGlowDialog({
                   </div>
                 </div>
 
-                {/* Arrow */}
-                <div className="flex justify-center">
+                {/* Arrow - positioned between boxes */}
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 z-10">
                   <div className="bg-background rounded-full p-2 border border-border shadow-sm">
-                    <ArrowDown className="w-5 h-5 text-muted-foreground" />
+                    <ArrowDown className="w-6 h-6 text-muted-foreground" />
                   </div>
                 </div>
 
                 {/* You Receive Section */}
-                <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+                <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-5">
                   <div className="space-y-3">
                     <div className="text-sm font-medium text-muted-foreground">
                       You receive (estimated)
                     </div>
                     <div className="flex items-baseline gap-2">
                       {isEstimating ? (
-                        <Skeleton className="h-10 w-32" />
+                        <Skeleton className="h-8 w-32" />
                       ) : (
                         <>
-                          <div className="text-3xl font-bold">
+                          <div className="text-lg sm:text-xl lg:text-2xl font-bold">
                             {estimatedGlw && Number(estimatedGlw) > 0
                               ? formatPrice(estimatedGlw, 4)
                               : "0.00"}
                           </div>
-                          <span className="text-xl font-medium text-muted-foreground">
+                          <span className="text-lg sm:text-xl font-medium text-muted-foreground shrink-0">
                             GLW
                           </span>
                         </>
@@ -467,7 +546,8 @@ export function BuyGlowDialog({
                     Number(inputAmount) <= 0 ||
                     Number(inputAmount) > Number(usdcBalanceFormatted) ||
                     !estimatedGlw ||
-                    isEstimating
+                    isEstimating ||
+                    inputAmount !== lastEstimatedAmount
                   }
                   className="flex-1"
                 >
@@ -491,14 +571,8 @@ export function BuyGlowDialog({
                 </div>
               </div>
 
-              <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full mb-8">
-                <span className="text-foreground text-sm font-medium animate-pulse">
-                  Submitting transaction...
-                </span>
-              </div>
-
               {/* Transaction Progress */}
-              <div className="space-y-6 mb-8 text-left">
+              <div className="space-y-5 mb-6 text-left">
                 <div className="bg-secondary/30 backdrop-blur-sm border border-border rounded-xl p-4 space-y-3">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -554,6 +628,9 @@ export function BuyGlowDialog({
           {phase === "success" && (
             <div className="text-center">
               <div className="mb-6">
+                <div className="flex items-center justify-center mb-4">
+                  <GlowSymbol className="size-14" />
+                </div>
                 <div className="text-4xl font-bold text-foreground mb-2">
                   +
                   {Number(estimatedGlw).toLocaleString("en-US", {
@@ -563,7 +640,7 @@ export function BuyGlowDialog({
                 </div>
               </div>
 
-              <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full mb-8">
+              <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full mb-6">
                 <span className="text-foreground text-sm font-medium">
                   Completed •{" "}
                   {new Date().toLocaleDateString("en-US", {
@@ -579,7 +656,7 @@ export function BuyGlowDialog({
                 </span>
               </div>
 
-              <div className="space-y-4 mb-8 text-left">
+              <div className="space-y-4 mb-6 text-left">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">Sent</span>
                   <div className="text-right">
@@ -622,9 +699,9 @@ export function BuyGlowDialog({
                         </span>
                         <button
                           onClick={copyTxHash}
-                          className="p-1 hover:bg-muted rounded transition-colors"
+                          className="p-2 hover:bg-muted rounded transition-colors"
                         >
-                          <Copy className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                          <Copy className="w-4 h-4 text-muted-foreground hover:text-foreground" />
                         </button>
                       </div>
                     </div>
@@ -654,10 +731,10 @@ export function BuyGlowDialog({
           )}
 
           {phase === "error" && (
-            <div className="text-center space-y-8">
+            <div className="text-center space-y-6">
               <div className="flex flex-col items-center">
-                <div className="w-20 h-20 bg-destructive/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <X className="w-10 h-10 text-destructive" />
+                <div className="w-16 h-16 bg-destructive/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <X className="w-8 h-8 text-destructive" />
                 </div>
                 <div className="text-2xl font-bold text-destructive mb-2">
                   Purchase Failed

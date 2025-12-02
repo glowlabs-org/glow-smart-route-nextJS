@@ -147,6 +147,60 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
-  return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const email = searchParams.get("email");
+
+    if (!email) {
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: "Invalid email format" },
+        { status: 400 }
+      );
+    }
+
+    if (!BREVO_API_TOKEN) {
+      return NextResponse.json(
+        { error: "Newsletter service is not configured" },
+        { status: 500 }
+      );
+    }
+
+    // Check if contact exists in Brevo
+    const response = await fetch(
+      `${BREVO_API_BASE}/contacts/${encodeURIComponent(email)}`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "api-key": BREVO_API_TOKEN,
+        },
+      }
+    );
+
+    if (response.status === 404) {
+      return NextResponse.json({ subscribed: false }, { status: 200 });
+    }
+
+    if (!response.ok) {
+      return NextResponse.json({ subscribed: false }, { status: 200 });
+    }
+
+    const contact = await response.json();
+
+    // Check if subscribed to list 8 and not blacklisted
+    const isSubscribed =
+      !contact.emailBlacklisted && contact.listIds?.includes(8);
+
+    return NextResponse.json({ subscribed: isSubscribed }, { status: 200 });
+  } catch (error: any) {
+    console.error("Newsletter subscription check error:", error);
+    return NextResponse.json({ subscribed: false }, { status: 200 });
+  }
 }
