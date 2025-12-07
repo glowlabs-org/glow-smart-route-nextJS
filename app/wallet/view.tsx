@@ -64,6 +64,7 @@ import {
   useRewardScore,
   getRewardScoreForApplication,
 } from "@/hooks/useRewardScore";
+import { useRewardsBreakdown } from "@/hooks/useRewardsBreakdown";
 import { Badge } from "@/components/ui/badge";
 import { RewardsBreakdownPanel } from "./rewards-breakdown-panel";
 import Image from "next/image";
@@ -254,6 +255,12 @@ export default function View() {
     walletAddress: address || null,
   });
 
+  const { data: rewardsBreakdownData, isLoading: isRewardsBreakdownLoading } =
+    useRewardsBreakdown({
+      walletAddress: address || null,
+      enabled: Boolean(isConnected && address),
+    });
+
   // Helper functions to format balances
   function formatBalance(
     balance: bigint | null,
@@ -300,6 +307,54 @@ export default function View() {
   const hasGlow = glowBalance && glowBalance > BigInt(1 * 10 ** 18);
   const hasGctl = gctlBalance && BigInt(gctlBalance) > BigInt(0);
 
+  const rewardsSignals = React.useMemo(() => {
+    if (!rewardsBreakdownData) {
+      return {
+        hasDelegations: false,
+        hasMiners: false,
+        hasOtherRewards: false,
+        hasPendingRewards: false,
+      };
+    }
+
+    const farmDetails = rewardsBreakdownData.farmDetails ?? [];
+    const otherFarms = rewardsBreakdownData.otherFarmsWithRewards?.farms ?? [];
+    const recentPurchases =
+      rewardsBreakdownData.recentPurchasesWithoutRewards ?? [];
+    const totalGlwDelegatedAfter = Number(
+      rewardsBreakdownData.delegatedAfterWeekRange?.totalGlwDelegatedAfter ?? 0
+    );
+    const totalUsdcSpentAfter = Number(
+      rewardsBreakdownData.delegatedAfterWeekRange?.totalUsdcSpentAfter ?? 0
+    );
+
+    const hasDelegations =
+      farmDetails.some((farm) => farm.type === "launchpad") ||
+      totalGlwDelegatedAfter > 0;
+    const hasMiners =
+      farmDetails.some((farm) => farm.type === "mining-center") ||
+      totalUsdcSpentAfter > 0;
+    const hasOtherRewards = otherFarms.length > 0;
+    const hasPendingRewards =
+      recentPurchases.length > 0 ||
+      totalGlwDelegatedAfter > 0 ||
+      totalUsdcSpentAfter > 0;
+
+    return {
+      hasDelegations,
+      hasMiners,
+      hasOtherRewards,
+      hasPendingRewards,
+    };
+  }, [rewardsBreakdownData]);
+
+  const hasAnyFarmsOrRewards =
+    purchasedFarms.length > 0 ||
+    rewardsSignals.hasDelegations ||
+    rewardsSignals.hasMiners ||
+    rewardsSignals.hasOtherRewards ||
+    rewardsSignals.hasPendingRewards;
+
   const handleSwapUsdcToUsdg = () => {
     try {
       if (!hasUsdc) {
@@ -336,19 +391,16 @@ export default function View() {
   };
 
   // Network status check
-  const hasNetworkIssues = erc20HasError || (!hasSigner && isConnected);
+  const isSignerResolving = isConnected && signer === undefined;
+  const hasNetworkIssues =
+    !erc20Loading &&
+    !isSignerResolving &&
+    (erc20HasError || (isConnected && !hasSigner));
 
   // Buy Glow handlers for zero-state
   const handleBuyGlow = () => {
     setBuyGlowDialogOpen(true);
   };
-
-  // Check if we should show the getting started zero-state
-  const shouldShowGettingStarted =
-    !erc20Loading &&
-    !isSplitsActivityLoading &&
-    !hasGlow &&
-    (!splitsActivity || splitsActivity.length === 0);
 
   const faqItems: Array<{ q: string; a: React.ReactNode }> = [
     {
@@ -422,6 +474,83 @@ export default function View() {
       setIsCheckingSubscription(false);
     }
   }, []);
+
+  const isWalletDataLoading =
+    isConnected &&
+    (!address ||
+      erc20Loading ||
+      isRewardsBreakdownLoading ||
+      isPurchasedFarmsLoading ||
+      isSplitsActivityLoading);
+
+  // Check if we should show the getting started zero-state
+  const shouldShowGettingStarted =
+    !isWalletDataLoading &&
+    !hasGlow &&
+    (!splitsActivity || splitsActivity.length === 0) &&
+    !hasAnyFarmsOrRewards;
+
+  if (isWalletDataLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 xl:px-16 py-6 md:py-24 pt-20 space-y-8">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div className="space-y-3 flex-1">
+              <Skeleton className="h-8 w-40" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <Skeleton className="h-10 w-full sm:w-32" />
+              <Skeleton className="h-10 w-full sm:w-32" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {[0, 1, 2].map((idx) => (
+              <Card key={idx} className="border bg-muted/40">
+                <CardHeader className="pb-3">
+                  <Skeleton className="h-6 w-24" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Skeleton className="h-10 w-40" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <Card className="border bg-muted/40">
+            <CardHeader className="pb-4">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-64 mt-2" />
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                {[0, 1, 2].map((idx) => (
+                  <Card
+                    key={`delegation-skel-${idx}`}
+                    className="border bg-background"
+                  >
+                    <Skeleton className="h-40 w-full" />
+                    <CardContent className="p-4 space-y-3">
+                      <Skeleton className="h-5 w-32" />
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   const handleNewsletterEmailChange = (
     e: React.ChangeEvent<HTMLInputElement>
