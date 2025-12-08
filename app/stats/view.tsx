@@ -249,6 +249,7 @@ export default function StatsView() {
               shouldLoad={shouldLoadRest}
               totalGlwDelegated={totalDelegatedGlw}
               isGlwDataLoading={summaryLoading || summaryFetching}
+              withChart
             />
           </section>
 
