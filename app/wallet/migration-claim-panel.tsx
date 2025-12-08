@@ -69,6 +69,16 @@ export function MigrationClaimPanel({
 
   // Filter for active regions
   const activeRegions = regions.filter((region) => region.isActive);
+  const hasClaimableMigrationAmount = React.useMemo(() => {
+    if (!migrationData || migrationData.claimed) {
+      return false;
+    }
+    try {
+      return BigInt(migrationData.migrationAmount || "0") > BigInt(0);
+    } catch {
+      return false;
+    }
+  }, [migrationData]);
 
   // When claim succeeds, show success state
   React.useEffect(() => {
@@ -113,17 +123,10 @@ export function MigrationClaimPanel({
   }
 
   // Don't render if error or no migration data and not eligible
-  if (isError || (!migrationData && !isLoading)) {
+  if (isError) {
     return null;
   }
-
-  // Don't render if not eligible and not claimed (no migration available)
-  if (migrationData && !migrationData.eligible && !migrationData.claimed) {
-    return null;
-  }
-
-  // Don't render if already claimed
-  if (migrationData?.claimed) {
+  if (!isLoading && !hasClaimableMigrationAmount) {
     return null;
   }
 

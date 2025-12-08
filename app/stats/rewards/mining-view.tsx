@@ -1,14 +1,7 @@
 "use client";
 
 import React from "react";
-import {
-  Activity,
-  ArrowUpDown,
-  TrendingUp,
-  Users,
-  Coins,
-  Zap,
-} from "lucide-react";
+import { ArrowUpDown, ChevronRight } from "lucide-react";
 import {
   ComposedChart,
   Bar,
@@ -37,12 +30,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MetricCard } from "./farms-view";
 import {
   useFarmsPerPieceStats,
   type FarmPerPieceStats,
 } from "@/hooks/useFarmsPerPieceStats";
-import { useFractionsSummary } from "@/hooks/useFractionsSummary";
 import {
   Dialog,
   DialogContent,
@@ -51,7 +42,14 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronRight } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 function formatGLWAmount(value: string): string {
   try {
     const num = new Decimal(value).div(1e18);
@@ -305,6 +303,224 @@ function ROIComparisonChart({ farms }: ROIChartProps) {
   );
 }
 
+type SortOption = "rewardScore" | "delegated" | "mined" | "risk";
+type FarmFilterOption = "all" | "delegation-only" | "mining-only" | "both";
+type DetailView = "delegation" | "mining";
+
+interface HealthStatus {
+  label: "Ahead" | "On track" | "Behind" | "At risk";
+  badgeClass: string;
+  barClass: string;
+  textClass: string;
+  score: number;
+  description: string;
+}
+
+interface FarmSummaryRow {
+  farmId: string;
+  farmName: string;
+  appId: string;
+  regionLabel: string;
+  tags: string[];
+  rewardScore: number;
+  rewardDelta: number;
+  combinedGlw: number;
+  health: HealthStatus;
+  hasDelegation: boolean;
+  hasMining: boolean;
+  delegation: {
+    totalDelegated: number;
+    earnedToDate: number;
+    recoveryPercent: number;
+    expectedPercent: number;
+    weeksEarned: number;
+    totalWeeks: number;
+    stepsSold: number;
+    paidPerStep: number;
+    earnedPerStep: number;
+    roiPercent: number;
+    wallets: number;
+    breakdown: FarmPerPieceStats["delegator"]["weeklyBreakdown"];
+    lastWeekRewards: number;
+  };
+  mining: {
+    totalSpent: number;
+    earnedToDate: number;
+    breakEvenPercent: number;
+    weeksEarned: number;
+    totalWeeks: number;
+    stepsSold: number;
+    paidPerStepUsd: number;
+    earnedPerStep: number;
+    roiPercent: number;
+    wallets: number;
+    breakdown: FarmPerPieceStats["miner"]["weeklyBreakdown"];
+    lastWeekRewards: number;
+  };
+}
+
+function clampPercent(value: number) {
+  if (Number.isNaN(value)) return 0;
+  if (value < 0) return 0;
+  if (value > 200) return 200;
+  return value;
+}
+
+function titleCase(value: string | null | undefined) {
+  if (!value) return "Unassigned";
+  return value
+    .replace(/[-_]/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatWeeksLabel(weeksEarned: number, totalWeeks: number) {
+  if (weeksEarned === 0 && totalWeeks === 0) return "0 weeks elapsed";
+  if (totalWeeks === 0) return `${weeksEarned} weeks elapsed`;
+  return `${weeksEarned} / ${totalWeeks} weeks elapsed`;
+}
+
+function calculateRewardScore({
+  recoveryPercent,
+  breakEvenPercent,
+  hasDelegation,
+  hasMining,
+}: {
+  recoveryPercent: number;
+  breakEvenPercent: number;
+  hasDelegation: boolean;
+  hasMining: boolean;
+}) {
+  const delegationWeight = hasDelegation ? 0.6 : 0;
+  const miningWeight = hasMining ? 0.4 : 0;
+  const totalWeight = delegationWeight + miningWeight || 1;
+  const weightedScore =
+    recoveryPercent * delegationWeight + breakEvenPercent * miningWeight;
+  return Math.round(weightedScore / totalWeight);
+}
+
+function evaluateHealthStatus({
+  recoveryPercent,
+  expectedPercent,
+  minerROI,
+  hasDelegation,
+  hasMining,
+}: {
+  recoveryPercent: number;
+  expectedPercent: number;
+  minerROI: number;
+  hasDelegation: boolean;
+  hasMining: boolean;
+}): HealthStatus {
+  const delta = recoveryPercent - expectedPercent;
+  const roi = minerROI;
+
+  const ahead =
+    (hasDelegation ? delta >= 10 : true) && (hasMining ? roi >= 90 : true);
+  const onTrack =
+    (hasDelegation ? delta >= -5 : true) && (hasMining ? roi >= 60 : true);
+  const behind =
+    (hasDelegation ? delta >= -20 : true) && (hasMining ? roi >= 40 : true);
+
+  if (ahead) {
+    return {
+      label: "Ahead",
+      badgeClass:
+        "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30",
+      barClass: "bg-emerald-400",
+      textClass: "text-emerald-300",
+      score: 3,
+      description: "Both tracks outperform projections",
+    };
+  }
+
+  if (onTrack) {
+    return {
+      label: "On track",
+      badgeClass:
+        "bg-yellow-500/10 text-yellow-200 border border-yellow-500/30",
+      barClass: "bg-yellow-400",
+      textClass: "text-yellow-200",
+      score: 2,
+      description: "Roughly matching the expected curve",
+    };
+  }
+
+  if (behind) {
+    return {
+      label: "Behind",
+      badgeClass:
+        "bg-orange-500/10 text-orange-200 border border-orange-500/30",
+      barClass: "bg-orange-400",
+      textClass: "text-orange-200",
+      score: 1,
+      description: "Needs attention to catch up",
+    };
+  }
+
+  return {
+    label: "At risk",
+    badgeClass: "bg-red-500/10 text-red-200 border border-red-500/30",
+    barClass: "bg-red-500",
+    textClass: "text-red-200",
+    score: 0,
+    description: "Significant gap vs expectations",
+  };
+}
+
+function buildFarmTags(
+  farm: FarmPerPieceStats,
+  hasDelegation: boolean,
+  hasMining: boolean
+) {
+  const tags = [];
+
+  if (hasDelegation) {
+    tags.push(
+      farm.delegator.weeksEarned > 0 ? "Delegation Live" : "Delegation Pending"
+    );
+  }
+
+  if (hasMining) {
+    tags.push("Mining");
+  }
+
+  tags.push("Launched");
+  return tags;
+}
+
+const FILTER_OPTIONS: Array<{
+  value: FarmFilterOption;
+  label: string;
+  helper: string;
+}> = [
+  { value: "all", label: "All", helper: "Show every farm" },
+  {
+    value: "delegation-only",
+    label: "Delegation only",
+    helper: "Farms with delegators but no miners",
+  },
+  {
+    value: "mining-only",
+    label: "Mining only",
+    helper: "Farms incentivizing miners only",
+  },
+  {
+    value: "both",
+    label: "Both",
+    helper: "Delegation + mining live together",
+  },
+];
+
+const SORT_OPTIONS: Array<{ value: SortOption; label: string }> = [
+  { value: "rewardScore", label: "Highest Reward Score" },
+  { value: "delegated", label: "Most delegated GLW" },
+  { value: "mined", label: "Most GLW mined" },
+  { value: "risk", label: "Most at risk" },
+];
+
 export function MiningView() {
   const [sortBy, setSortBy] = React.useState<
     "rewards" | "participants" | "weeksLeft"
@@ -318,98 +534,6 @@ export function MiningView() {
   const { data, isLoading, isFetching, isError } = useFarmsPerPieceStats({
     enabled: true,
   });
-
-  const { summary } = useFractionsSummary({
-    enabled: true,
-  });
-
-  const kpiData = React.useMemo(() => {
-    if (!data?.farms) {
-      return {
-        avgGlwPerWeekPerGlwDelegated: 0,
-        avgGlwPerWeekPerDollarMining: 0,
-        totalDelegators: 0,
-        totalMiners: 0,
-        totalGlwEarnedDelegators: 0,
-        totalGlwEarnedMiners: 0,
-      };
-    }
-
-    let totalDelegatorRewards = new Decimal(0);
-    let totalDelegatorInvested = new Decimal(0);
-    let totalMinerRewards = new Decimal(0);
-    let totalMinerInvested = new Decimal(0);
-    let totalDelegatorWeeks = 0;
-    let delegatorFarmsCount = 0;
-    let totalMinerWeeks = 0;
-    let minerFarmsCount = 0;
-
-    data.farms.forEach((farm) => {
-      if (farm.delegator.stepsSold > 0) {
-        const totalRewards = new Decimal(
-          farm.delegator.rewardsPerPiece?.total?.allWeeks || "0"
-        ).times(farm.delegator.stepsSold);
-
-        totalDelegatorRewards = totalDelegatorRewards.plus(totalRewards);
-
-        totalDelegatorInvested = totalDelegatorInvested.plus(
-          new Decimal(farm.delegator.weightedPieceSizeGlw || "0").times(
-            farm.delegator.stepsSold
-          )
-        );
-
-        totalDelegatorWeeks += farm.delegator.weeksEarned;
-        delegatorFarmsCount += 1;
-      }
-
-      if (farm.miner.stepsSold > 0) {
-        const totalRewards = new Decimal(
-          farm.miner.rewardsPerPiece?.total?.allWeeks || "0"
-        ).times(farm.miner.stepsSold);
-
-        totalMinerRewards = totalMinerRewards.plus(totalRewards);
-
-        totalMinerInvested = totalMinerInvested.plus(
-          new Decimal(farm.miner.weightedPiecePriceUsdc || "0").times(
-            farm.miner.stepsSold
-          )
-        );
-
-        totalMinerWeeks += farm.miner.weeksEarned;
-        minerFarmsCount += 1;
-      }
-    });
-
-    const avgDelegatorWeeksEarned =
-      delegatorFarmsCount > 0 ? totalDelegatorWeeks / delegatorFarmsCount : 1;
-    const avgGlwPerWeekPerGlwDelegated =
-      totalDelegatorInvested.isZero() || avgDelegatorWeeksEarned === 0
-        ? 0
-        : totalDelegatorRewards
-            .div(totalDelegatorInvested)
-            .div(avgDelegatorWeeksEarned)
-            .toNumber();
-
-    const avgMinerWeeksEarned =
-      minerFarmsCount > 0 ? totalMinerWeeks / minerFarmsCount : 1;
-    const avgGlwPerWeekPerDollarMining =
-      totalMinerInvested.isZero() || avgMinerWeeksEarned === 0
-        ? 0
-        : totalMinerRewards
-            .div(1e18)
-            .div(totalMinerInvested.div(1e6))
-            .div(avgMinerWeeksEarned)
-            .toNumber();
-
-    return {
-      avgGlwPerWeekPerGlwDelegated,
-      avgGlwPerWeekPerDollarMining,
-      totalDelegators: summary?.launchpadContributors ?? 0,
-      totalMiners: summary?.miningCenterContributors ?? 0,
-      totalGlwEarnedDelegators: totalDelegatorRewards.div(1e18).toNumber(),
-      totalGlwEarnedMiners: totalMinerRewards.div(1e18).toNumber(),
-    };
-  }, [data, summary]);
 
   const farmsWithEfficiency = React.useMemo(() => {
     if (!data?.farms) return [];
@@ -605,67 +729,6 @@ export function MiningView() {
       </Dialog>
 
       <div className="space-y-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <MetricCard
-            title="GLW per Week per 1 GLW Delegated"
-            value={kpiData.avgGlwPerWeekPerGlwDelegated.toFixed(4)}
-            icon={<TrendingUp className="h-5 w-5" />}
-          >
-            <p>Average weekly rewards on delegation</p>
-          </MetricCard>
-
-          <MetricCard
-            title="GLW per Week per $1 Mining"
-            value={kpiData.avgGlwPerWeekPerDollarMining.toFixed(4)}
-            icon={<Zap className="h-5 w-5" />}
-          >
-            <p>Average weekly rewards on miners</p>
-          </MetricCard>
-
-          <MetricCard
-            title="Total Delegators"
-            value={kpiData.totalDelegators.toLocaleString()}
-            icon={<Users className="h-5 w-5" />}
-          >
-            <p>
-              Total GLW Earned:{" "}
-              {kpiData.totalGlwEarnedDelegators.toLocaleString("en-US", {
-                maximumFractionDigits: 0,
-              })}
-            </p>
-          </MetricCard>
-
-          <MetricCard
-            title="Total Miners"
-            value={kpiData.totalMiners.toLocaleString()}
-            icon={<Coins className="h-5 w-5" />}
-          >
-            <p>
-              Total GLW Earned:{" "}
-              {kpiData.totalGlwEarnedMiners.toLocaleString("en-US", {
-                maximumFractionDigits: 0,
-              })}
-            </p>
-          </MetricCard>
-        </div>
-
-        <Card className="border-border/60">
-          <CardHeader>
-            <CardTitle>Rewards Comparison: Delegators vs Miners</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Comparing rewards earned for all active farms (sorted by
-              participant count)
-            </p>
-          </CardHeader>
-          <CardContent>
-            {isFetching ? (
-              <Skeleton className="h-80 w-full" />
-            ) : (
-              <ROIComparisonChart farms={data.farms} />
-            )}
-          </CardContent>
-        </Card>
-
         <div className="space-y-4">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div>
@@ -776,14 +839,6 @@ export function MiningView() {
                           <CardTitle className="text-base leading-tight">
                             {farm.farmName || "Unknown Farm"}
                           </CardTitle>
-                          <Badge
-                            variant={
-                              farm.avgROI >= 0.5 ? "default" : "secondary"
-                            }
-                            className="shrink-0 font-mono text-xs"
-                          >
-                            {farm.avgROI.toFixed(2)}x
-                          </Badge>
                         </div>
                         <div className="flex gap-1.5">
                           {farm.fractionTypes.includes("launchpad") && (

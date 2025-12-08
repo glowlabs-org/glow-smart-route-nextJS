@@ -306,6 +306,16 @@ export default function View() {
   const hasUsdg = usdgBalance && usdgBalance > BigInt(0);
   const hasGlow = glowBalance && glowBalance > BigInt(1 * 10 ** 18);
   const hasGctl = gctlBalance && BigInt(gctlBalance) > BigInt(0);
+  const hasPendingMigrationClaim = (() => {
+    if (!migrationData || migrationData.claimed) {
+      return false;
+    }
+    try {
+      return BigInt(migrationData.migrationAmount || "0") > BigInt(0);
+    } catch {
+      return false;
+    }
+  })();
 
   const rewardsSignals = React.useMemo(() => {
     if (!rewardsBreakdownData) {
@@ -488,7 +498,9 @@ export default function View() {
     !isWalletDataLoading &&
     !hasGlow &&
     (!splitsActivity || splitsActivity.length === 0) &&
-    !hasAnyFarmsOrRewards;
+    !hasAnyFarmsOrRewards &&
+    !hasGctl &&
+    !hasPendingMigrationClaim;
 
   if (isWalletDataLoading) {
     return (

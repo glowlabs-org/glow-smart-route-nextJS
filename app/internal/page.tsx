@@ -7,7 +7,7 @@ export default function BuyGctlPage() {
 
   return (
     <>
-      <Header withIsScrolled={false} />
+      <Header withIsScrolled={true} />
 
       <BuyGctlView />
     </>

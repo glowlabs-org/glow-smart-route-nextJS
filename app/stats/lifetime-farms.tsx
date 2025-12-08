@@ -13,6 +13,7 @@ import {
 import { BarChart, CartesianGrid, XAxis, YAxis, Bar } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -55,8 +56,26 @@ interface FarmsChartDatum {
 interface LifetimeFarmsProps {
   shouldLoad?: boolean;
   totalGlwDelegated?: number;
+  withChart?: boolean;
   isGlwDataLoading?: boolean;
 }
+
+type ChartRangeValue = "2m" | "6m" | "all";
+
+interface ChartRangeOption {
+  value: ChartRangeValue;
+  label: string;
+  description: string;
+  months?: number;
+}
+
+const CHART_RANGE_OPTIONS: ChartRangeOption[] = [
+  { value: "2m", label: "2M", description: "last 2 months", months: 2 },
+  { value: "6m", label: "6M", description: "last 6 months", months: 6 },
+  { value: "all", label: "All", description: "entire history" },
+];
+
+const DEFAULT_CHART_RANGE: ChartRangeValue = "2m";
 
 function formatPayment(
   amount?: string,
@@ -211,6 +230,7 @@ export function LifetimeFarms({
   shouldLoad = true,
   totalGlwDelegated,
   isGlwDataLoading = false,
+  withChart = false,
 }: LifetimeFarmsProps) {
   const { farms: completedFarms, isLoading: completedLoading } =
     useCompletedFarms({ enabled: shouldLoad });
@@ -364,80 +384,131 @@ export function LifetimeFarms({
     []
   );
 
+  const [selectedChartRange, setSelectedChartRange] =
+    React.useState<ChartRangeValue>(DEFAULT_CHART_RANGE);
+
+  const activeRangeOption =
+    CHART_RANGE_OPTIONS.find((option) => option.value === selectedChartRange) ??
+    CHART_RANGE_OPTIONS[0];
+  const activeRangeMonths = activeRangeOption.months ?? null;
+
+  const filteredFarmsChartData = React.useMemo(() => {
+    if (farmsChartData.length === 0) return [];
+    if (activeRangeMonths === null) return farmsChartData;
+
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(cutoffDate.getMonth() - activeRangeMonths);
+    const cutoffTime = cutoffDate.getTime();
+
+    return farmsChartData.filter((datum) => datum.weekStart >= cutoffTime);
+  }, [farmsChartData, activeRangeMonths]);
+
   if (completedLoading || !shouldLoad) {
     return <FarmsSkeleton />;
   }
 
   return (
     <div className="grid gap-6">
-      {/* <Card className="overflow-hidden">
-        <CardHeader className="border-b border-border/50 bg-muted/30">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <CardTitle className="text-xl">
-                Lifetime Farms Onboarded
-              </CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Solar farms brought online
+      {withChart && (
+        <Card className="overflow-hidden pt-0">
+          <CardHeader className="border-b border-border/50 bg-muted/30 pt-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-xl">
+                  Lifetime Farms Onboarded
+                </CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Solar farms brought online
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                <TrendingUp className="mr-1 h-3 w-3" />
+                {totalFarms}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing {activeRangeOption.description}
               </p>
+              <div className="flex flex-wrap gap-2">
+                {CHART_RANGE_OPTIONS.map((option) => {
+                  const isActive = option.value === selectedChartRange;
+                  return (
+                    <Button
+                      key={option.value}
+                      type="button"
+                      size="sm"
+                      variant={isActive ? "default" : "outline"}
+                      className={`rounded-full ${
+                        isActive ? "shadow-sm" : "text-muted-foreground"
+                      }`}
+                      aria-pressed={isActive}
+                      onClick={() => setSelectedChartRange(option.value)}
+                    >
+                      {option.label}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
-            <Badge variant="outline" className="text-xs">
-              <TrendingUp className="mr-1 h-3 w-3" />
-              {totalFarms}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="p-6">
-          {farmsChartData.length === 0 ? (
-            <div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">
-              No historical data available.
-            </div>
-          ) : (
-            <ChartContainer
-              config={farmsChartConfig}
-              className="aspect-auto h-[260px] w-full"
-            >
-              <BarChart
-                accessibilityLayer
-                data={farmsChartData}
-                margin={{ left: 12, right: 12, top: 12, bottom: 12 }}
+            {filteredFarmsChartData.length === 0 ? (
+              <div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">
+                {farmsChartData.length === 0
+                  ? "No historical data available."
+                  : "No data for the selected timeframe."}
+              </div>
+            ) : (
+              <ChartContainer
+                config={farmsChartConfig}
+                className="aspect-auto h-[260px] w-full"
               >
-                <CartesianGrid vertical={false} strokeDasharray="4 4" />
-                <XAxis
-                  dataKey="weekLabel"
-                  tickLine={false}
-                  axisLine={false}
-                  minTickGap={24}
-                  tickMargin={8}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      className="w-[180px]"
-                      labelFormatter={(_, payload) =>
-                        payload?.[0]?.payload.rangeLabel ?? ""
-                      }
-                      formatter={(value) => [String(value), "Farms onboarded"]}
-                    />
-                  }
-                />
-                <Bar
-                  dataKey="count"
-                  fill="var(--color-weeklyCount)"
-                  radius={[6, 6, 0, 0]}
-                  isAnimationActive={false}
-                />
-              </BarChart>
-            </ChartContainer>
-          )}
-        </CardContent>
-      </Card> */}
+                <BarChart
+                  accessibilityLayer
+                  data={filteredFarmsChartData}
+                  margin={{ left: 12, right: 12, top: 12, bottom: 12 }}
+                >
+                  <CartesianGrid vertical={false} strokeDasharray="4 4" />
+                  <XAxis
+                    dataKey="weekLabel"
+                    tickLine={false}
+                    axisLine={false}
+                    minTickGap={24}
+                    tickMargin={8}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        className="w-[180px]"
+                        labelFormatter={(_, payload) =>
+                          payload?.[0]?.payload.rangeLabel ?? ""
+                        }
+                        formatter={(value) => [
+                          String(value),
+                          " Farms onboarded",
+                        ]}
+                      />
+                    }
+                  />
+                  <Bar
+                    dataKey="count"
+                    fill="var(--color-weeklyCount)"
+                    radius={[6, 6, 0, 0]}
+                    isAnimationActive={false}
+                  />
+                </BarChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="overflow-hidden">
         <CardContent className="p-4 sm:p-6">
