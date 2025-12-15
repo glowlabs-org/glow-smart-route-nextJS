@@ -27,10 +27,6 @@ const a: Record<Key, `0x${string}`> = {
 };
 export const addresses = a;
 
-if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
-  throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
-}
+const chainId = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || "1");
 
-export const SDKAddresses = getAddresses(
-  parseInt(process.env.NEXT_PUBLIC_CHAIN_ID)
-);
+export const SDKAddresses = getAddresses(chainId);

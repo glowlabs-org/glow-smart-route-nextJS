@@ -44,6 +44,7 @@ interface BuyGlowDialogProps {
   onOpenChange: (open: boolean) => void;
   usdcBalance: bigint | null;
   glowSpotPrice: number;
+  defaultUsdcAmount?: string;
   onSuccess?: () => void;
 }
 
@@ -98,10 +99,13 @@ export function BuyGlowDialog({
   onOpenChange,
   usdcBalance,
   glowSpotPrice,
+  defaultUsdcAmount,
   onSuccess,
 }: BuyGlowDialogProps) {
   const [phase, setPhase] = React.useState<Phase>("input");
-  const [inputAmount, setInputAmount] = React.useState<string>("");
+  const [inputAmount, setInputAmount] = React.useState<string>(
+    defaultUsdcAmount ?? ""
+  );
   const [smartAmounts, setSmartAmounts] =
     React.useState<SmartBalancingAmounts>();
   const [estimatedGlw, setEstimatedGlw] = React.useState<string>("");

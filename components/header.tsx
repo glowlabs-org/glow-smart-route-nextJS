@@ -91,6 +91,381 @@ const ListItem = React.forwardRef<
 });
 ListItem.displayName = "ListItem";
 
+export interface HeaderHamburgerMenuProps {
+  triggerClassName?: string;
+}
+
+export function HeaderHamburgerMenu({
+  triggerClassName,
+}: HeaderHamburgerMenuProps) {
+  return (
+    <Drawer direction="right" shouldScaleBackground={false}>
+      <DrawerTrigger asChild>
+        <motion.button
+          className={cn(
+            "p-2 rounded-xl border border-border bg-background/80 backdrop-blur-sm hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-all duration-300 relative z-50 text-zinc-900 dark:text-zinc-100",
+            triggerClassName
+          )}
+          whileTap={{ scale: 0.95 }}
+          aria-label="Open menu"
+        >
+          <Menu className="h-6 w-6" />
+        </motion.button>
+      </DrawerTrigger>
+
+      <DrawerContent
+        showHandle={false}
+        className="fixed right-0 inset-y-0 h-screen w-80 max-w-[85vw] bg-background backdrop-blur-xl border-l border-border shadow-2xl"
+      >
+        <DrawerHeader className="border-b border-border">
+          <div className="flex items-center justify-between">
+            <GlowLockup className="w-32 h-10" />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <DrawerClose asChild>
+                <motion.button
+                  className="p-2 rounded-xl hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                  whileTap={{ scale: 0.95 }}
+                  aria-label="Close menu"
+                >
+                  <X className="h-5 w-5" />
+                </motion.button>
+              </DrawerClose>
+            </div>
+          </div>
+          <DrawerTitle className="sr-only">Navigation Menu</DrawerTitle>
+          <DrawerDescription className="sr-only">
+            Main navigation menu with links to different sections of the website.
+          </DrawerDescription>
+        </DrawerHeader>
+
+        <div className="p-6 flex-1 overflow-y-auto">
+          <nav className="space-y-2">
+            <div className="pt-4 border-t border-border mt-4">
+              <div className="space-y-2">
+                <div>
+                  <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                    App
+                  </div>
+                  <div className="ml-4 space-y-1">
+                    <DrawerClose asChild>
+                      <Link
+                        href="/?tab=launchpad"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Glow Launchpad
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="/glow-swap?tab=swap"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Swap
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="/glow-swap?tab=liquidity"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Liquidity
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="/wallet"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Wallet
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="/stats/rewards"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Glow Leaderboard
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="/stats"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Protocol Stats
+                      </Link>
+                    </DrawerClose>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                    Impact
+                  </div>
+                  <div className="ml-4 space-y-1">
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://impact.glow.org"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Infrastructure projects
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://impact.glow.org/new-campaign"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Create a Region
+                      </Link>
+                    </DrawerClose>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                    Resources
+                  </div>
+                  <div className="ml-4 space-y-1">
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/blog"
+                        target="_blank"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Blog
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/press"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Press
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/branding"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Branding
+                      </Link>
+                    </DrawerClose>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                    Audits
+                  </div>
+                  <div className="ml-4 space-y-1">
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/audits"
+                        target="_blank"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Solar Farms Map
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/audits?view=list"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Solar Farms List
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/gves"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Glow Verification Entities
+                      </Link>
+                    </DrawerClose>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                    Data
+                  </div>
+                  <div className="ml-4 space-y-1">
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/archives"
+                        target="_blank"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Archives
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/weekly-reports"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Weekly Reports
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/rewards"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Rewards
+                      </Link>
+                    </DrawerClose>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </nav>
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
 export function Header({
   withIsScrolled = true,
 }: {

@@ -1,0 +1,2299 @@
+{
+  "generatedAt": "2025-12-11T17:57:41.602Z",
+  "startWeek": 97,
+  "claims": {
+    "protocolTotal": "34132576810527726047353",
+    "inflationTotal": "873940443062421327792078",
+    "walletTotals": [
+      {
+        "wallet": "0x77f41144e787cb8cd29a37413a71f53f92ee050c",
+        "protocolGlw": 9070.219431240272,
+        "inflationGlw": 102635.7036686758,
+        "totalGlw": 111705.92309991606,
+        "protocolClaims": 7,
+        "inflationClaims": 12,
+        "firstClaimTs": 1759278275000,
+        "lastClaimTs": 1765267751000
+      },
+      {
+        "wallet": "0x5e230fed487c86b90f6508104149f087d9b1b0a7",
+        "protocolGlw": 9.1014596935803,
+        "inflationGlw": 138.96588721341504,
+        "totalGlw": 148.06734690699534,
+        "protocolClaims": 3,
+        "inflationClaims": 3,
+        "firstClaimTs": 1761578867000,
+        "lastClaimTs": 1763382191000
+      },
+      {
+        "wallet": "0x6884efd53b2650679996d3ea206d116356da08a9",
+        "protocolGlw": 74.85395144744949,
+        "inflationGlw": 599.3011508628972,
+        "totalGlw": 674.1551023103467,
+        "protocolClaims": 1,
+        "inflationClaims": 1,
+        "firstClaimTs": 1762140875000,
+        "lastClaimTs": 1762140935000
+      },
+      {
+        "wallet": "0x6fbd1b5015deb91dde137fc549df1d04e09eab6d",
+        "protocolGlw": 1405.886487741815,
+        "inflationGlw": 7332.507636392786,
+        "totalGlw": 8738.394124134602,
+        "protocolClaims": 6,
+        "inflationClaims": 6,
+        "firstClaimTs": 1762177643000,
+        "lastClaimTs": 1765265639000
+      },
+      {
+        "wallet": "0x3d06bffcbb4a62791756b6008c2f0001aa61963d",
+        "protocolGlw": 631.8879969211347,
+        "inflationGlw": 1850.3034943292585,
+        "totalGlw": 2482.191491250393,
+        "protocolClaims": 1,
+        "inflationClaims": 1,
+        "firstClaimTs": 1762200395000,
+        "lastClaimTs": 1762200563000
+      },
+      {
+        "wallet": "0x3395addf4b103ae0b6c12084880d681faa8393c3",
+        "protocolGlw": 290.8075200433981,
+        "inflationGlw": 1346.3101948088026,
+        "totalGlw": 1637.1177148522004,
+        "protocolClaims": 6,
+        "inflationClaims": 6,
+        "firstClaimTs": 1762267943000,
+        "lastClaimTs": 1765215755000
+      },
+      {
+        "wallet": "0x5abcfde6bc010138f65e8dc088927473c49867e4",
+        "protocolGlw": 2669.4502805148695,
+        "inflationGlw": 24750.064134595956,
+        "totalGlw": 27419.51441511082,
+        "protocolClaims": 6,
+        "inflationClaims": 6,
+        "firstClaimTs": 1762276211000,
+        "lastClaimTs": 1765135907000
+      },
+      {
+        "wallet": "0x911445b1d3eb2af49d08c67ca6e7dc1c464be5f5",
+        "protocolGlw": 12.806070832589734,
+        "inflationGlw": 156.87905172128706,
+        "totalGlw": 169.6851225538768,
+        "protocolClaims": 4,
+        "inflationClaims": 4,
+        "firstClaimTs": 1762276811000,
+        "lastClaimTs": 1764010259000
+      },
+      {
+        "wallet": "0x8b6a8903c8ac057af4db7df4057170faf91f2a85",
+        "protocolGlw": 987.4886895204315,
+        "inflationGlw": 5062.451173825805,
+        "totalGlw": 6049.939863346237,
+        "protocolClaims": 4,
+        "inflationClaims": 3,
+        "firstClaimTs": 1762276883000,
+        "lastClaimTs": 1764093647000
+      },
+      {
+        "wallet": "0x0b99363648efea66689d58a553bb015957083c57",
+        "protocolGlw": 1344.855421405097,
+        "inflationGlw": 4364.897275853589,
+        "totalGlw": 5709.752697258687,
+        "protocolClaims": 5,
+        "inflationClaims": 5,
+        "firstClaimTs": 1762279715000,
+        "lastClaimTs": 1764698843000
+      },
+      {
+        "wallet": "0x9d34151abe8d1594e74f463d350840119ab0689b",
+        "protocolGlw": 844.6553185888206,
+        "inflationGlw": 2745.8814872934236,
+        "totalGlw": 3590.536805882244,
+        "protocolClaims": 6,
+        "inflationClaims": 6,
+        "firstClaimTs": 1762294031000,
+        "lastClaimTs": 1765212671000
+      },
+      {
+        "wallet": "0xd683cbeb396b460e1866c1504ab2661b544d74af",
+        "protocolGlw": 38.63429546781302,
+        "inflationGlw": 718.7904365936223,
+        "totalGlw": 757.4247320614353,
+        "protocolClaims": 6,
+        "inflationClaims": 6,
+        "firstClaimTs": 1762278287000,
+        "lastClaimTs": 1765070507000
+      },
+      {
+        "wallet": "0x51ddf92f75dea9e218ca63918b3acd1df2fda88d",
+        "protocolGlw": 1202.1607420659059,
+        "inflationGlw": 6465.2124284125575,
+        "totalGlw": 7667.373170478463,
+        "protocolClaims": 6,
+        "inflationClaims": 6,
+        "firstClaimTs": 1762357331000,
+        "lastClaimTs": 1765110239000
+      },
+      {
+        "wallet": "0x1004976dbd65437cbb10360c679b768cc6106b5d",
+        "protocolGlw": 382.3557914758166,
+        "inflationGlw": 5563.940423234493,
+        "totalGlw": 5946.29621471031,
+        "protocolClaims": 5,
+        "inflationClaims": 5,
+        "firstClaimTs": 1762647395000,
+        "lastClaimTs": 1765078283000
+      },
+      {
+        "wallet": "0xa7eb3ccda8fb785b8a4cf0ec45265fe358a83583",
+        "protocolGlw": 25.39189528310544,
+        "inflationGlw": 263.6449913948731,
+        "totalGlw": 289.03688667797854,
+        "protocolClaims": 3,
+        "inflationClaims": 3,
+        "firstClaimTs": 1762711415000,
+        "lastClaimTs": 1764034007000
+      },
+      {
+        "wallet": "0x19dc7cfae2bff62b2483d91b3428726493b84912",
+        "protocolGlw": 1438.5106016378902,
+        "inflationGlw": 3846.7358861667685,
+        "totalGlw": 5285.246487804659,
+        "protocolClaims": 6,
+        "inflationClaims": 6,
+        "firstClaimTs": 1762731587000,
+        "lastClaimTs": 1765452767000
+      },
+      {
+        "wallet": "0x50f522ffe01db47effa932dc7d020f26565efd6b",
+        "protocolGlw": 1027.7906396024075,
+        "inflationGlw": 7201.261231261988,
+        "totalGlw": 8229.051870864394,
+        "protocolClaims": 5,
+        "inflationClaims": 12,
+        "firstClaimTs": 1758387839000,
+        "lastClaimTs": 1765139591000
+      },
+      {
+        "wallet": "0x4955d905336c9751734c62ac56ac4aec0f3053b3",
+        "protocolGlw": 19.31714773390651,
+        "inflationGlw": 878.5219535875043,
+        "totalGlw": 897.8391013214108,
+        "protocolClaims": 6,
+        "inflationClaims": 6,
+        "firstClaimTs": 1762822115000,
+        "lastClaimTs": 1765225979000
+      },
+      {
+        "wallet": "0xfbe14f82bc91ef474d511400b62dc2bc13e86dba",
+        "protocolGlw": 232.85102713595933,
+        "inflationGlw": 801.2704436745762,
+        "totalGlw": 1034.1214708105356,
+        "protocolClaims": 6,
+        "inflationClaims": 6,
+        "firstClaimTs": 1762822907000,
+        "lastClaimTs": 1765224839000
+      },
+      {
+        "wallet": "0x1cc972ff969689873f8010bdd0cf3dc30618397e",
+        "protocolGlw": 620.7122290347651,
+        "inflationGlw": 6839.597054576275,
+        "totalGlw": 7460.30928361104,
+        "protocolClaims": 5,
+        "inflationClaims": 5,
+        "firstClaimTs": 1762881143000,
+        "lastClaimTs": 1764699695000
+      },
+      {
+        "wallet": "0x75b1571d966385d76766d3365d4d72975804806c",
+        "protocolGlw": 2401.7618173142696,
+        "inflationGlw": 25482.78116369215,
+        "totalGlw": 27884.54298100642,
+        "protocolClaims": 5,
+        "inflationClaims": 5,
+        "firstClaimTs": 1762960667000,
+        "lastClaimTs": 1764670451000
+      },
+      {
+        "wallet": "0xaa61a58830996a2b54902bac0913641ccd362828",
+        "protocolGlw": 206.74298775338434,
+        "inflationGlw": 672.7512020143722,
+        "totalGlw": 879.4941897677566,
+        "protocolClaims": 3,
+        "inflationClaims": 3,
+        "firstClaimTs": 1763029331000,
+        "lastClaimTs": 1763369975000
+      },
+      {
+        "wallet": "0x39b2bcbb9fa29d72755ac2446c310fe98c065a12",
+        "protocolGlw": 1198.7588346982418,
+        "inflationGlw": 3192.64576816825,
+        "totalGlw": 4391.4046028664925,
+        "protocolClaims": 5,
+        "inflationClaims": 5,
+        "firstClaimTs": 1763266271000,
+        "lastClaimTs": 1764699239000
+      },
+      {
+        "wallet": "0xd86ac74165f26cb77383e0947c182bd2885f527b",
+        "protocolGlw": 3621.829762167052,
+        "inflationGlw": 33788.56978975876,
+        "totalGlw": 37410.39955192582,
+        "protocolClaims": 4,
+        "inflationClaims": 4,
+        "firstClaimTs": 1763391491000,
+        "lastClaimTs": 1765379255000
+      },
+      {
+        "wallet": "0xdc71a1bdeabd3c347dc21e9354aff91ad375eb97",
+        "protocolGlw": 1070.4130281225357,
+        "inflationGlw": 12090.752343742413,
+        "totalGlw": 13161.165371864947,
+        "protocolClaims": 5,
+        "inflationClaims": 59,
+        "firstClaimTs": 1761708911000,
+        "lastClaimTs": 1764735611000
+      },
+      {
+        "wallet": "0xd2579d476f768a51f254fc6653d58957bf482afa",
+        "protocolGlw": 438.97807811511086,
+        "inflationGlw": 7771.198456377129,
+        "totalGlw": 8210.17653449224,
+        "protocolClaims": 2,
+        "inflationClaims": 11,
+        "firstClaimTs": 1758561563000,
+        "lastClaimTs": 1765208699000
+      },
+      {
+        "wallet": "0x5391c5bac323275642368616394a6bddd14b4831",
+        "protocolGlw": 219.49222167249138,
+        "inflationGlw": 30501.775748777036,
+        "totalGlw": 30721.26797044953,
+        "protocolClaims": 2,
+        "inflationClaims": 12,
+        "firstClaimTs": 1758561719000,
+        "lastClaimTs": 1765208507000
+      },
+      {
+        "wallet": "0x56b41d4efa88e42fb38a915c1a1550d8e14697e2",
+        "protocolGlw": 658.4702997876022,
+        "inflationGlw": 3545.3999403974904,
+        "totalGlw": 4203.870240185092,
+        "protocolClaims": 2,
+        "inflationClaims": 2,
+        "firstClaimTs": 1764584375000,
+        "lastClaimTs": 1765135847000
+      },
+      {
+        "wallet": "0xe2aea1f54a5c5af355f14caee16c9958391e7500",
+        "protocolGlw": 77.26859093562604,
+        "inflationGlw": 726.7381346794323,
+        "totalGlw": 804.0067256150583,
+        "protocolClaims": 6,
+        "inflationClaims": 6,
+        "firstClaimTs": 1764605567000,
+        "lastClaimTs": 1765199663000
+      },
+      {
+        "wallet": "0x5026d1d2418c9f9e1ada4732fffeb6892220f0af",
+        "protocolGlw": 1536.432821247696,
+        "inflationGlw": 4296.117113409857,
+        "totalGlw": 5832.5499346575525,
+        "protocolClaims": 2,
+        "inflationClaims": 2,
+        "firstClaimTs": 1764685247000,
+        "lastClaimTs": 1765303979000
+      },
+      {
+        "wallet": "0x7ffea61ebd0adf01cd74e8d59b7661120383a3d6",
+        "protocolGlw": 153.19914965419835,
+        "inflationGlw": 1068.1207234153665,
+        "totalGlw": 1221.319873069565,
+        "protocolClaims": 6,
+        "inflationClaims": 6,
+        "firstClaimTs": 1762301099000,
+        "lastClaimTs": 1765234259000
+      },
+      {
+        "wallet": "0x2e565baa402c232799690d311f4b43d17212a709",
+        "protocolGlw": 219.49222167249138,
+        "inflationGlw": 7722.720025284979,
+        "totalGlw": 7942.212246957471,
+        "protocolClaims": 2,
+        "inflationClaims": 54,
+        "firstClaimTs": 1760047727000,
+        "lastClaimTs": 1765391111000
+      },
+      {
+        "wallet": "0xea9481747250008b2cf22f756c56482cf1dddbfd",
+        "protocolGlw": 0,
+        "inflationGlw": 1497.004724815136,
+        "totalGlw": 1497.004724815136,
+        "protocolClaims": 0,
+        "inflationClaims": 12,
+        "firstClaimTs": 1758461567000,
+        "lastClaimTs": 1765107803000
+      },
+      {
+        "wallet": "0x66414ef3a14504ba9b919341255c59eb4baa6d0c",
+        "protocolGlw": 0,
+        "inflationGlw": 64739.3838183031,
+        "totalGlw": 64739.3838183031,
+        "protocolClaims": 0,
+        "inflationClaims": 12,
+        "firstClaimTs": 1758463655000,
+        "lastClaimTs": 1765108031000
+      },
+      {
+        "wallet": "0xaedc5b9a6a9f96fb7edf8bfca1f876cf2b6ae10f",
+        "protocolGlw": 0,
+        "inflationGlw": 1314.5413645073456,
+        "totalGlw": 1314.5413645073456,
+        "protocolClaims": 0,
+        "inflationClaims": 10,
+        "firstClaimTs": 1758464831000,
+        "lastClaimTs": 1762703279000
+      },
+      {
+        "wallet": "0x45e9d1bfae1b8d0d18a00284975821ed5199411f",
+        "protocolGlw": 0,
+        "inflationGlw": 1269.2881353425817,
+        "totalGlw": 1269.2881353425817,
+        "protocolClaims": 0,
+        "inflationClaims": 10,
+        "firstClaimTs": 1758465683000,
+        "lastClaimTs": 1762703435000
+      },
+      {
+        "wallet": "0x246879acebd1c80267bc328178dbc8bf230bb9d0",
+        "protocolGlw": 0,
+        "inflationGlw": 1085.1750688083575,
+        "totalGlw": 1085.1750688083575,
+        "protocolClaims": 0,
+        "inflationClaims": 25,
+        "firstClaimTs": 1758466271000,
+        "lastClaimTs": 1765123211000
+      },
+      {
+        "wallet": "0x687309d20992644618d408eeac248daabeffb9d0",
+        "protocolGlw": 0,
+        "inflationGlw": 1609.9456646929577,
+        "totalGlw": 1609.9456646929577,
+        "protocolClaims": 0,
+        "inflationClaims": 14,
+        "firstClaimTs": 1758498707000,
+        "lastClaimTs": 1765144187000
+      },
+      {
+        "wallet": "0x5a8d74cf65ad765656b9a7e8d7afc2264b23a36f",
+        "protocolGlw": 0,
+        "inflationGlw": 1302.3410510620338,
+        "totalGlw": 1302.3410510620338,
+        "protocolClaims": 0,
+        "inflationClaims": 11,
+        "firstClaimTs": 1758562403000,
+        "lastClaimTs": 1765212299000
+      },
+      {
+        "wallet": "0xb7138372b96e98e4056fdb475fe018e56e3fbe00",
+        "protocolGlw": 0,
+        "inflationGlw": 437.64940796748465,
+        "totalGlw": 437.64940796748465,
+        "protocolClaims": 0,
+        "inflationClaims": 4,
+        "firstClaimTs": 1758638015000,
+        "lastClaimTs": 1762815383000
+      },
+      {
+        "wallet": "0x4967a77cc32a9529e999cb7b2dbd9ebd7bae8901",
+        "protocolGlw": 0,
+        "inflationGlw": 1007.5832701822576,
+        "totalGlw": 1007.5832701822576,
+        "protocolClaims": 0,
+        "inflationClaims": 6,
+        "firstClaimTs": 1758762659000,
+        "lastClaimTs": 1764013583000
+      },
+      {
+        "wallet": "0xedd026185c4fddc85ba6ee50c91bdf352fc66d69",
+        "protocolGlw": 0,
+        "inflationGlw": 1095.8357842117184,
+        "totalGlw": 1095.8357842117184,
+        "protocolClaims": 0,
+        "inflationClaims": 5,
+        "firstClaimTs": 1758863303000,
+        "lastClaimTs": 1760674967000
+      },
+      {
+        "wallet": "0xdd305d36fa82825e0ce35ad06883ab6cc78b86ac",
+        "protocolGlw": 0,
+        "inflationGlw": 829.4548296880455,
+        "totalGlw": 829.4548296880455,
+        "protocolClaims": 0,
+        "inflationClaims": 10,
+        "firstClaimTs": 1758868475000,
+        "lastClaimTs": 1763964923000
+      },
+      {
+        "wallet": "0xe580d1d5527f71135684e441b2e4ce8bde1a51e4",
+        "protocolGlw": 0,
+        "inflationGlw": 708.01225683999,
+        "totalGlw": 708.01225683999,
+        "protocolClaims": 0,
+        "inflationClaims": 12,
+        "firstClaimTs": 1759084091000,
+        "lastClaimTs": 1765134359000
+      },
+      {
+        "wallet": "0x5c41e36c09c58d0aaacb14dfbaf45ae26ba24a43",
+        "protocolGlw": 0,
+        "inflationGlw": 2283.559159198978,
+        "totalGlw": 2283.559159198978,
+        "protocolClaims": 0,
+        "inflationClaims": 8,
+        "firstClaimTs": 1759094591000,
+        "lastClaimTs": 1763835863000
+      },
+      {
+        "wallet": "0x25253a8a6b5fbf309a52ffda54c7580972ac703b",
+        "protocolGlw": 0,
+        "inflationGlw": 1194.0120189850395,
+        "totalGlw": 1194.0120189850395,
+        "protocolClaims": 0,
+        "inflationClaims": 8,
+        "firstClaimTs": 1759118915000,
+        "lastClaimTs": 1761499667000
+      },
+      {
+        "wallet": "0x425f68098396c8df7b7cfa54c612cd96bc2cfd3e",
+        "protocolGlw": 0,
+        "inflationGlw": 3743.106953179322,
+        "totalGlw": 3743.106953179322,
+        "protocolClaims": 0,
+        "inflationClaims": 21,
+        "firstClaimTs": 1759283483000,
+        "lastClaimTs": 1759285679000
+      },
+      {
+        "wallet": "0xd8e3164744916b8c0d1d6cc01ad82f76ec94058e",
+        "protocolGlw": 0,
+        "inflationGlw": 877.744348952268,
+        "totalGlw": 877.744348952268,
+        "protocolClaims": 0,
+        "inflationClaims": 2,
+        "firstClaimTs": 1759634903000,
+        "lastClaimTs": 1759634927000
+      },
+      {
+        "wallet": "0xb3c2a4ce7ce57a74371b7e3dae8f3393229c2aac",
+        "protocolGlw": 0,
+        "inflationGlw": 1384.6903816065608,
+        "totalGlw": 1384.6903816065608,
+        "protocolClaims": 0,
+        "inflationClaims": 21,
+        "firstClaimTs": 1759770107000,
+        "lastClaimTs": 1760117819000
+      },
+      {
+        "wallet": "0xcb0695c5e231d04a36feb07841e26d44e6d08c9d",
+        "protocolGlw": 0,
+        "inflationGlw": 9431.080545675743,
+        "totalGlw": 9431.080545675743,
+        "protocolClaims": 0,
+        "inflationClaims": 13,
+        "firstClaimTs": 1759771271000,
+        "lastClaimTs": 1765386923000
+      },
+      {
+        "wallet": "0x005679cae803224443c7f96440a175eff6de003a",
+        "protocolGlw": 0,
+        "inflationGlw": 16743.203102770483,
+        "totalGlw": 16743.203102770483,
+        "protocolClaims": 0,
+        "inflationClaims": 21,
+        "firstClaimTs": 1759863707000,
+        "lastClaimTs": 1759864607000
+      },
+      {
+        "wallet": "0x8680092b8c97bf973434cde47e8792215942d888",
+        "protocolGlw": 0,
+        "inflationGlw": 104271.22479238691,
+        "totalGlw": 104271.22479238691,
+        "protocolClaims": 0,
+        "inflationClaims": 13,
+        "firstClaimTs": 1760026127000,
+        "lastClaimTs": 1765335023000
+      },
+      {
+        "wallet": "0x2e2771032d119fe590fd65061ad3b366c8e9b7b9",
+        "protocolGlw": 0,
+        "inflationGlw": 23335.66105504799,
+        "totalGlw": 23335.66105504799,
+        "protocolClaims": 0,
+        "inflationClaims": 13,
+        "firstClaimTs": 1760027447000,
+        "lastClaimTs": 1765387667000
+      },
+      {
+        "wallet": "0xc7bdb81b44ac069c6ae22327e8742e769a7a9f50",
+        "protocolGlw": 0,
+        "inflationGlw": 6018.307212796664,
+        "totalGlw": 6018.307212796664,
+        "protocolClaims": 0,
+        "inflationClaims": 23,
+        "firstClaimTs": 1760042783000,
+        "lastClaimTs": 1763359151000
+      },
+      {
+        "wallet": "0x76ec330aaaf5c7436f1f34e67c78916da9dbea70",
+        "protocolGlw": 0,
+        "inflationGlw": 231.5920550832286,
+        "totalGlw": 231.5920550832286,
+        "protocolClaims": 0,
+        "inflationClaims": 2,
+        "firstClaimTs": 1760049959000,
+        "lastClaimTs": 1760049983000
+      },
+      {
+        "wallet": "0xe18d270268bac511e7fec1d9ea68c4d519dfd4e1",
+        "protocolGlw": 0,
+        "inflationGlw": 1030.9206927618918,
+        "totalGlw": 1030.9206927618918,
+        "protocolClaims": 0,
+        "inflationClaims": 6,
+        "firstClaimTs": 1760070887000,
+        "lastClaimTs": 1761631619000
+      },
+      {
+        "wallet": "0x3c08160f93903b23f2d74821c825b75a870fec7f",
+        "protocolGlw": 0,
+        "inflationGlw": 92617.36491368586,
+        "totalGlw": 92617.36491368586,
+        "protocolClaims": 0,
+        "inflationClaims": 17,
+        "firstClaimTs": 1760227967000,
+        "lastClaimTs": 1760229071000
+      },
+      {
+        "wallet": "0x5a519af203be58ddd699562fcd1280422c7846ea",
+        "protocolGlw": 0,
+        "inflationGlw": 466.51871733768814,
+        "totalGlw": 466.51871733768814,
+        "protocolClaims": 0,
+        "inflationClaims": 12,
+        "firstClaimTs": 1760410211000,
+        "lastClaimTs": 1764398063000
+      },
+      {
+        "wallet": "0x66cd48ddec669942dea2df87a896b4fd8e3abc8d",
+        "protocolGlw": 0,
+        "inflationGlw": 779.6100076538144,
+        "totalGlw": 779.6100076538144,
+        "protocolClaims": 0,
+        "inflationClaims": 10,
+        "firstClaimTs": 1760465735000,
+        "lastClaimTs": 1764876347000
+      },
+      {
+        "wallet": "0x39d226a622d0d21b82b76eaade073865b561ed9a",
+        "protocolGlw": 0,
+        "inflationGlw": 135.93792989817737,
+        "totalGlw": 135.93792989817737,
+        "protocolClaims": 0,
+        "inflationClaims": 1,
+        "firstClaimTs": 1760646347000,
+        "lastClaimTs": 1760646347000
+      },
+      {
+        "wallet": "0xfe2418a132c585850cc15e18a03eb2a32ba14c84",
+        "protocolGlw": 0,
+        "inflationGlw": 779.3725126230257,
+        "totalGlw": 779.3725126230257,
+        "protocolClaims": 0,
+        "inflationClaims": 11,
+        "firstClaimTs": 1760649971000,
+        "lastClaimTs": 1765410587000
+      },
+      {
+        "wallet": "0x6f0d28e78f45122f829be51d4b39b8566245ccda",
+        "protocolGlw": 0,
+        "inflationGlw": 1020.5569890649424,
+        "totalGlw": 1020.5569890649424,
+        "protocolClaims": 0,
+        "inflationClaims": 11,
+        "firstClaimTs": 1760650091000,
+        "lastClaimTs": 1765410359000
+      },
+      {
+        "wallet": "0x2f6673239460d7c067ed32f526a21730355148e9",
+        "protocolGlw": 0,
+        "inflationGlw": 3412.1288013878475,
+        "totalGlw": 3412.1288013878475,
+        "protocolClaims": 0,
+        "inflationClaims": 31,
+        "firstClaimTs": 1760651579000,
+        "lastClaimTs": 1760654411000
+      },
+      {
+        "wallet": "0x04de5dfd5f44c32a31737c7aee9b193de848bf1f",
+        "protocolGlw": 0,
+        "inflationGlw": 11481.233366130971,
+        "totalGlw": 11481.233366130971,
+        "protocolClaims": 0,
+        "inflationClaims": 9,
+        "firstClaimTs": 1761225587000,
+        "lastClaimTs": 1762878815000
+      },
+      {
+        "wallet": "0x6972b05a0c80064fbe8a10cbc2a2fbcf6fb47d6a",
+        "protocolGlw": 0,
+        "inflationGlw": 176560.20718878257,
+        "totalGlw": 176560.20718878257,
+        "protocolClaims": 0,
+        "inflationClaims": 8,
+        "firstClaimTs": 1761599927000,
+        "lastClaimTs": 1765214687000
+      },
+      {
+        "wallet": "0x4bd3259fb4b735f1828cddba1e2ca97543e5909d",
+        "protocolGlw": 0,
+        "inflationGlw": 1548.3991001558866,
+        "totalGlw": 1548.3991001558866,
+        "protocolClaims": 0,
+        "inflationClaims": 20,
+        "firstClaimTs": 1761946859000,
+        "lastClaimTs": 1763420939000
+      },
+      {
+        "wallet": "0x0bf577194d261ada9b69e0726daa65fb8d8d1bf8",
+        "protocolGlw": 0,
+        "inflationGlw": 9011.685891032603,
+        "totalGlw": 9011.685891032603,
+        "protocolClaims": 0,
+        "inflationClaims": 41,
+        "firstClaimTs": 1762226807000,
+        "lastClaimTs": 1763479679000
+      },
+      {
+        "wallet": "0x1739e13b1d8620516b2fc544b073150378d841a3",
+        "protocolGlw": 0,
+        "inflationGlw": 283.7229742437631,
+        "totalGlw": 283.7229742437631,
+        "protocolClaims": 0,
+        "inflationClaims": 4,
+        "firstClaimTs": 1762275455000,
+        "lastClaimTs": 1764719819000
+      },
+      {
+        "wallet": "0x99aa56d06fc803b1cc6665bfa4065b8f9063f501",
+        "protocolGlw": 0,
+        "inflationGlw": 1628.65982263556,
+        "totalGlw": 1628.65982263556,
+        "protocolClaims": 0,
+        "inflationClaims": 24,
+        "firstClaimTs": 1762622315000,
+        "lastClaimTs": 1762702499000
+      },
+      {
+        "wallet": "0x2b4cfb747b09f5d1c4df880d6b6f7757787ee33c",
+        "protocolGlw": 0,
+        "inflationGlw": 1706.8896218843856,
+        "totalGlw": 1706.8896218843856,
+        "protocolClaims": 0,
+        "inflationClaims": 5,
+        "firstClaimTs": 1762697819000,
+        "lastClaimTs": 1765110575000
+      },
+      {
+        "wallet": "0x39be20d7577f5584b545540dd18312f3c2890d2a",
+        "protocolGlw": 0,
+        "inflationGlw": 1643.7206264772144,
+        "totalGlw": 1643.7206264772144,
+        "protocolClaims": 0,
+        "inflationClaims": 2,
+        "firstClaimTs": 1762796879000,
+        "lastClaimTs": 1762797455000
+      },
+      {
+        "wallet": "0x56c3aa1c4f4b45c85d2b8efc4ea80ed700420762",
+        "protocolGlw": 0,
+        "inflationGlw": 1463.123356396649,
+        "totalGlw": 1463.123356396649,
+        "protocolClaims": 0,
+        "inflationClaims": 14,
+        "firstClaimTs": 1763086427000,
+        "lastClaimTs": 1763089175000
+      },
+      {
+        "wallet": "0x5240ffb697fef938f81e51122dc4ae5f1ae83500",
+        "protocolGlw": 0,
+        "inflationGlw": 179.07528519125705,
+        "totalGlw": 179.07528519125705,
+        "protocolClaims": 0,
+        "inflationClaims": 4,
+        "firstClaimTs": 1763680283000,
+        "lastClaimTs": 1763680739000
+      },
+      {
+        "wallet": "0x1c078479a85abae9584d9649b2784ec37407848e",
+        "protocolGlw": 0,
+        "inflationGlw": 235.4182196602461,
+        "totalGlw": 235.4182196602461,
+        "protocolClaims": 0,
+        "inflationClaims": 2,
+        "firstClaimTs": 1764619007000,
+        "lastClaimTs": 1764619019000
+      },
+      {
+        "wallet": "0x62322df7df43662c7e0eb13475e761bd1d5a5cec",
+        "protocolGlw": 0,
+        "inflationGlw": 567.4459484875292,
+        "totalGlw": 567.4459484875292,
+        "protocolClaims": 0,
+        "inflationClaims": 4,
+        "firstClaimTs": 1764622835000,
+        "lastClaimTs": 1764622883000
+      },
+      {
+        "wallet": "0x7781182412ac86ac1a1a50686847728002211882",
+        "protocolGlw": 0,
+        "inflationGlw": 115.16522873403605,
+        "totalGlw": 115.16522873403605,
+        "protocolClaims": 0,
+        "inflationClaims": 1,
+        "firstClaimTs": 1764709151000,
+        "lastClaimTs": 1764709151000
+      },
+      {
+        "wallet": "0x0e9c3c8c10900c899c5681f87114fe0b6fb2a198",
+        "protocolGlw": 0,
+        "inflationGlw": 8.781414740382004,
+        "totalGlw": 8.781414740382004,
+        "protocolClaims": 0,
+        "inflationClaims": 3,
+        "firstClaimTs": 1764790019000,
+        "lastClaimTs": 1764790187000
+      },
+      {
+        "wallet": "0x45eaf99ca1ca463507790eef4531046306c8bddd",
+        "protocolGlw": 0,
+        "inflationGlw": 1311.0993283162802,
+        "totalGlw": 1311.0993283162802,
+        "protocolClaims": 0,
+        "inflationClaims": 21,
+        "firstClaimTs": 1764808463000,
+        "lastClaimTs": 1764809567000
+      },
+      {
+        "wallet": "0xd8cf559b95e51f0acc97cfe56da61fe37178ddc9",
+        "protocolGlw": 0,
+        "inflationGlw": 5121.197708841663,
+        "totalGlw": 5121.197708841663,
+        "protocolClaims": 0,
+        "inflationClaims": 9,
+        "firstClaimTs": 1765058843000,
+        "lastClaimTs": 1765059395000
+      }
+    ]
+  },
+  "swaps": {
+    "fromBlock": "23343070",
+    "toBlock": "23991070",
+    "logsCount": 388,
+    "windowStartMs": 1757699831000,
+    "windowEndMs": 1765475831000,
+    "walletAggregates": [
+      {
+        "wallet": "0xfeeed14648595dd8ebfad8a98b742c9395a89758",
+        "swapCount": 1,
+        "glwSold": 17980,
+        "glwBought": 0,
+        "usdgReceived": 7084.046273,
+        "usdgSpent": 0,
+        "firstSwap": 1757686595000,
+        "lastSwap": 1757686595000
+      },
+      {
+        "wallet": "0x84db44a630dcdd8f24c739375572a299b9759d10",
+        "swapCount": 3,
+        "glwSold": 7308,
+        "glwBought": 0,
+        "usdgReceived": 2682.579886,
+        "usdgSpent": 0,
+        "firstSwap": 1757689631000,
+        "lastSwap": 1758139415000
+      },
+      {
+        "wallet": "0xd8cf559b95e51f0acc97cfe56da61fe37178ddc9",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 2131.3292748170943,
+        "usdgReceived": 0,
+        "usdgSpent": 765.5,
+        "firstSwap": 1757698943000,
+        "lastSwap": 1757698943000
+      },
+      {
+        "wallet": "0xfe495024f5c833b3c93d895173b63842566b0b03",
+        "swapCount": 4,
+        "glwSold": 0,
+        "glwBought": 6251.522157385617,
+        "usdgReceived": 0,
+        "usdgSpent": 2600,
+        "firstSwap": 1757796311000,
+        "lastSwap": 1759029179000
+      },
+      {
+        "wallet": "0x3d118873c7eb884f6fda06efd4d04b89bf780acb",
+        "swapCount": 1,
+        "glwSold": 1213.87,
+        "glwBought": 0,
+        "usdgReceived": 437.345308,
+        "usdgSpent": 0,
+        "firstSwap": 1757899199000,
+        "lastSwap": 1757899199000
+      },
+      {
+        "wallet": "0x6f58c938a4162560d878d1c55024742cdf7661f3",
+        "swapCount": 1,
+        "glwSold": 980.39,
+        "glwBought": 0,
+        "usdgReceived": 350.493669,
+        "usdgSpent": 0,
+        "firstSwap": 1757905043000,
+        "lastSwap": 1757905043000
+      },
+      {
+        "wallet": "0x5abcfde6bc010138f65e8dc088927473c49867e4",
+        "swapCount": 45,
+        "glwSold": 166785.99333400003,
+        "glwBought": 198944.05899863882,
+        "usdgReceived": 68515.39438099999,
+        "usdgSpent": 83763.559265,
+        "firstSwap": 1757970455000,
+        "lastSwap": 1765452887000
+      },
+      {
+        "wallet": "0x238048d21ad7dbd91a02c60a7cdb86edf23e8315",
+        "swapCount": 1,
+        "glwSold": 1068.806207,
+        "glwBought": 0,
+        "usdgReceived": 358.878747,
+        "usdgSpent": 0,
+        "firstSwap": 1758093443000,
+        "lastSwap": 1758093443000
+      },
+      {
+        "wallet": "0x0b99363648efea66689d58a553bb015957083c57",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 20690.98738451464,
+        "usdgReceived": 0,
+        "usdgSpent": 7494,
+        "firstSwap": 1758113939000,
+        "lastSwap": 1758113939000
+      },
+      {
+        "wallet": "0xd25c299d3604c1f3356c4a1c415b84ac5bee7804",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 5838.387652167812,
+        "usdgReceived": 0,
+        "usdgSpent": 2295.934874,
+        "firstSwap": 1758229319000,
+        "lastSwap": 1758229319000
+      },
+      {
+        "wallet": "0xe2aea1f54a5c5af355f14caee16c9958391e7500",
+        "swapCount": 3,
+        "glwSold": 0,
+        "glwBought": 2767.4905451075356,
+        "usdgReceived": 0,
+        "usdgSpent": 1250,
+        "firstSwap": 1758232763000,
+        "lastSwap": 1758898295000
+      },
+      {
+        "wallet": "0x5e230fed487c86b90f6508104149f087d9b1b0a7",
+        "swapCount": 13,
+        "glwSold": 4,
+        "glwBought": 85.72782851855837,
+        "usdgReceived": 1.5200820000000002,
+        "usdgSpent": 42.829314000000004,
+        "firstSwap": 1758302315000,
+        "lastSwap": 1761852683000
+      },
+      {
+        "wallet": "0x18a0ba01bbec4aa358650d297ba7bb330a78b073",
+        "swapCount": 3,
+        "glwSold": 0,
+        "glwBought": 29.336477049362593,
+        "usdgReceived": 0,
+        "usdgSpent": 10.983092,
+        "firstSwap": 1758303311000,
+        "lastSwap": 1761828455000
+      },
+      {
+        "wallet": "0xab208e92572217df5297d996f01b7741d1a5e944",
+        "swapCount": 6,
+        "glwSold": 63365.011625,
+        "glwBought": 49478.1321467337,
+        "usdgReceived": 24328.821428000003,
+        "usdgSpent": 25973,
+        "firstSwap": 1758316919000,
+        "lastSwap": 1762686155000
+      },
+      {
+        "wallet": "0x3f7a1eb717fed75b30dd057ec165ba92017ed146",
+        "swapCount": 2,
+        "glwSold": 6950,
+        "glwBought": 4257.474413173105,
+        "usdgReceived": 4020.463024,
+        "usdgSpent": 2187.64,
+        "firstSwap": 1758317387000,
+        "lastSwap": 1758564011000
+      },
+      {
+        "wallet": "0x177eb55af9e23fcbf73e975fc8c2e7089734917c",
+        "swapCount": 6,
+        "glwSold": 0,
+        "glwBought": 8073.0215804592945,
+        "usdgReceived": 0,
+        "usdgSpent": 4100,
+        "firstSwap": 1758330671000,
+        "lastSwap": 1760598455000
+      },
+      {
+        "wallet": "0x89e72083dd0ded45df8d632d7706b012e222a9d0",
+        "swapCount": 6,
+        "glwSold": 897,
+        "glwBought": 1497.5688933558274,
+        "usdgReceived": 556.520606,
+        "usdgSpent": 781,
+        "firstSwap": 1758459347000,
+        "lastSwap": 1764309851000
+      },
+      {
+        "wallet": "0x982ee5b7bec44dc8bed6705e15e65d715540a863",
+        "swapCount": 1,
+        "glwSold": 5689.76,
+        "glwBought": 0,
+        "usdgReceived": 3663.143388,
+        "usdgSpent": 0,
+        "firstSwap": 1758506099000,
+        "lastSwap": 1758506099000
+      },
+      {
+        "wallet": "0xa1f762144262a585c5a8c4cd16d91cf36aeb4db1",
+        "swapCount": 14,
+        "glwSold": 10793.759239,
+        "glwBought": 8571.672284908263,
+        "usdgReceived": 4421.131487,
+        "usdgSpent": 2647.4923289999997,
+        "firstSwap": 1758554639000,
+        "lastSwap": 1765041431000
+      },
+      {
+        "wallet": "0x6da64e8a28f6a276f151109b44950e6ea58c9dcf",
+        "swapCount": 1,
+        "glwSold": 4800,
+        "glwBought": 0,
+        "usdgReceived": 2925.720519,
+        "usdgSpent": 0,
+        "firstSwap": 1758561371000,
+        "lastSwap": 1758561371000
+      },
+      {
+        "wallet": "0x38d216c44febdbdb98954bcd1d6a40aa495e1363",
+        "swapCount": 1,
+        "glwSold": 2679,
+        "glwBought": 0,
+        "usdgReceived": 1485.767655,
+        "usdgSpent": 0,
+        "firstSwap": 1758565667000,
+        "lastSwap": 1758565667000
+      },
+      {
+        "wallet": "0xf41e8f4830c2f69206cb96eed70d59577714a2e9",
+        "swapCount": 1,
+        "glwSold": 1350,
+        "glwBought": 0,
+        "usdgReceived": 747.328878,
+        "usdgSpent": 0,
+        "firstSwap": 1758573551000,
+        "lastSwap": 1758573551000
+      },
+      {
+        "wallet": "0xcd01bd317df6419af020eeb43e58d7d0c7c48f29",
+        "swapCount": 1,
+        "glwSold": 2189.28,
+        "glwBought": 0,
+        "usdgReceived": 1198.364708,
+        "usdgSpent": 0,
+        "firstSwap": 1758727235000,
+        "lastSwap": 1758727235000
+      },
+      {
+        "wallet": "0x2ab70c711e2235376772c4b18fa9d23aa59ff95a",
+        "swapCount": 1,
+        "glwSold": 425,
+        "glwBought": 0,
+        "usdgReceived": 230.056029,
+        "usdgSpent": 0,
+        "firstSwap": 1758753443000,
+        "lastSwap": 1758753443000
+      },
+      {
+        "wallet": "0xd94aec8dbbb11ebf22ee0f04fed8a2d9572074ff",
+        "swapCount": 1,
+        "glwSold": 606.30701,
+        "glwBought": 0,
+        "usdgReceived": 326.768759,
+        "usdgSpent": 0,
+        "firstSwap": 1758754091000,
+        "lastSwap": 1758754091000
+      },
+      {
+        "wallet": "0x02ac661d63c3a978dbab16dba87a6023c47b5e5c",
+        "swapCount": 1,
+        "glwSold": 20017.156513,
+        "glwBought": 0,
+        "usdgReceived": 9922.313836,
+        "usdgSpent": 0,
+        "firstSwap": 1758765911000,
+        "lastSwap": 1758765911000
+      },
+      {
+        "wallet": "0xdcb63c35ffa4e4005f957462dec69d1d01a74d9d",
+        "swapCount": 1,
+        "glwSold": 5600.3,
+        "glwBought": 0,
+        "usdgReceived": 2504.595342,
+        "usdgSpent": 0,
+        "firstSwap": 1758767159000,
+        "lastSwap": 1758767159000
+      },
+      {
+        "wallet": "0xc4f738887bf97732b86c6f4bbee7cb411dc25c41",
+        "swapCount": 1,
+        "glwSold": 27612.432048,
+        "glwBought": 0,
+        "usdgReceived": 10935.210332,
+        "usdgSpent": 0,
+        "firstSwap": 1758770915000,
+        "lastSwap": 1758770915000
+      },
+      {
+        "wallet": "0xaa424f46cdfc89cd27c8a55d82c42d6c88a931c0",
+        "swapCount": 3,
+        "glwSold": 9673.43,
+        "glwBought": 9673.430761259238,
+        "usdgReceived": 4161.853248,
+        "usdgSpent": 3607,
+        "firstSwap": 1758790223000,
+        "lastSwap": 1758959015000
+      },
+      {
+        "wallet": "0x90aee2b0eb4477744fe0c8b463173b62f29683a5",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 1416.8555785722328,
+        "usdgReceived": 0,
+        "usdgSpent": 602.769275,
+        "firstSwap": 1758792659000,
+        "lastSwap": 1758792659000
+      },
+      {
+        "wallet": "0x4980fd035d054b1ea99b043bf5bddddc50215efe",
+        "swapCount": 1,
+        "glwSold": 894.811227,
+        "glwBought": 0,
+        "usdgReceived": 379.147056,
+        "usdgSpent": 0,
+        "firstSwap": 1758806855000,
+        "lastSwap": 1758806855000
+      },
+      {
+        "wallet": "0x550dfb94014bf285fdf0b4285845f7e47d946cef",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 5758.036073752249,
+        "usdgReceived": 0,
+        "usdgSpent": 2500,
+        "firstSwap": 1758856763000,
+        "lastSwap": 1758856763000
+      },
+      {
+        "wallet": "0x7a099bf4fe65f86756924fbed6fbd92af487a737",
+        "swapCount": 1,
+        "glwSold": 1104.400674,
+        "glwBought": 0,
+        "usdgReceived": 497.591246,
+        "usdgSpent": 0,
+        "firstSwap": 1758931535000,
+        "lastSwap": 1758931535000
+      },
+      {
+        "wallet": "0x37981e1832e05913d09fb8aed2576201da7a95b1",
+        "swapCount": 3,
+        "glwSold": 7000,
+        "glwBought": 0,
+        "usdgReceived": 2778.173921,
+        "usdgSpent": 0,
+        "firstSwap": 1758953087000,
+        "lastSwap": 1761065483000
+      },
+      {
+        "wallet": "0xb093acc4484988eebdb94172be8d85aa927b4dcb",
+        "swapCount": 2,
+        "glwSold": 0,
+        "glwBought": 267.4125108642404,
+        "usdgReceived": 0,
+        "usdgSpent": 114.752657,
+        "firstSwap": 1759016891000,
+        "lastSwap": 1759017371000
+      },
+      {
+        "wallet": "0xba6f82ae9b14b71fe4a67bf03c3166c5491c7617",
+        "swapCount": 1,
+        "glwSold": 55,
+        "glwBought": 0,
+        "usdgReceived": 23.793573,
+        "usdgSpent": 0,
+        "firstSwap": 1759042655000,
+        "lastSwap": 1759042655000
+      },
+      {
+        "wallet": "0xf0aa192ca47c31514542d432338c646b5f39eed0",
+        "swapCount": 14,
+        "glwSold": 24807.639999999996,
+        "glwBought": 39241.661543509734,
+        "usdgReceived": 9375.982915999999,
+        "usdgSpent": 18874.309998999997,
+        "firstSwap": 1759067615000,
+        "lastSwap": 1763407763000
+      },
+      {
+        "wallet": "0x1b545cdede4e548c777ed10c5d09dccd1b1312f2",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 62.76841907952104,
+        "usdgReceived": 0,
+        "usdgSpent": 35.480868,
+        "firstSwap": 1759088363000,
+        "lastSwap": 1759088363000
+      },
+      {
+        "wallet": "0x46a9c81ccbda80b4b0ff9bd3970fed1fca051323",
+        "swapCount": 1,
+        "glwSold": 34848.98,
+        "glwBought": 0,
+        "usdgReceived": 17135.518372,
+        "usdgSpent": 0,
+        "firstSwap": 1759094291000,
+        "lastSwap": 1759094291000
+      },
+      {
+        "wallet": "0xb0a9994b6fc39a6084dc88e56e638fc26cf04376",
+        "swapCount": 1,
+        "glwSold": 1992,
+        "glwBought": 0,
+        "usdgReceived": 874.577562,
+        "usdgSpent": 0,
+        "firstSwap": 1759228487000,
+        "lastSwap": 1759228487000
+      },
+      {
+        "wallet": "0x9e5781318f566056ca30f10621bc3d84c927ae8b",
+        "swapCount": 1,
+        "glwSold": 1000,
+        "glwBought": 0,
+        "usdgReceived": 434.116403,
+        "usdgSpent": 0,
+        "firstSwap": 1759228667000,
+        "lastSwap": 1759228667000
+      },
+      {
+        "wallet": "0x88c43f4babc499d80dde1209941a0e8c50ee3c9c",
+        "swapCount": 1,
+        "glwSold": 3050,
+        "glwBought": 0,
+        "usdgReceived": 1304.188265,
+        "usdgSpent": 0,
+        "firstSwap": 1759246343000,
+        "lastSwap": 1759246343000
+      },
+      {
+        "wallet": "0xd1f2ed18b82bd1a1788a1158e85ab95cba8aa0c6",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 110.22659220328607,
+        "usdgReceived": 0,
+        "usdgSpent": 40,
+        "firstSwap": 1759365503000,
+        "lastSwap": 1759365503000
+      },
+      {
+        "wallet": "0xdd2a75bd3428e58d058ef412c484ef2f0161b333",
+        "swapCount": 1,
+        "glwSold": 9484.44,
+        "glwBought": 0,
+        "usdgReceived": 3328.660353,
+        "usdgSpent": 0,
+        "firstSwap": 1759473887000,
+        "lastSwap": 1759473887000
+      },
+      {
+        "wallet": "0x7ffea61ebd0adf01cd74e8d59b7661120383a3d6",
+        "swapCount": 3,
+        "glwSold": 0,
+        "glwBought": 652.5003713662276,
+        "usdgReceived": 0,
+        "usdgSpent": 344.232304,
+        "firstSwap": 1759508867000,
+        "lastSwap": 1761602639000
+      },
+      {
+        "wallet": "0x1cc972ff969689873f8010bdd0cf3dc30618397e",
+        "swapCount": 4,
+        "glwSold": 0,
+        "glwBought": 27677.395664963602,
+        "usdgReceived": 0,
+        "usdgSpent": 14278.708312,
+        "firstSwap": 1759771763000,
+        "lastSwap": 1759871315000
+      },
+      {
+        "wallet": "0xd50c6db59245a424376c4062705d1eba0131fa0a",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 13863.619801385987,
+        "usdgReceived": 0,
+        "usdgSpent": 6325.836165,
+        "firstSwap": 1759776923000,
+        "lastSwap": 1759776923000
+      },
+      {
+        "wallet": "0x3d06bffcbb4a62791756b6008c2f0001aa61963d",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 2819.2832622859855,
+        "usdgReceived": 0,
+        "usdgSpent": 1375.643944,
+        "firstSwap": 1759788395000,
+        "lastSwap": 1759788395000
+      },
+      {
+        "wallet": "0x9dbd0078a89205ef125a6bb2e1a31e1b97c31694",
+        "swapCount": 2,
+        "glwSold": 0,
+        "glwBought": 22431.610686310833,
+        "usdgReceived": 0,
+        "usdgSpent": 12834.33674,
+        "firstSwap": 1759859975000,
+        "lastSwap": 1759860275000
+      },
+      {
+        "wallet": "0xa55e8f346a2e48045f0418aae297aae166f614ce",
+        "swapCount": 2,
+        "glwSold": 8000,
+        "glwBought": 0,
+        "usdgReceived": 4003.1489789999996,
+        "usdgSpent": 0,
+        "firstSwap": 1759871411000,
+        "lastSwap": 1761775475000
+      },
+      {
+        "wallet": "0xfbe14f82bc91ef474d511400b62dc2bc13e86dba",
+        "swapCount": 1,
+        "glwSold": 300,
+        "glwBought": 0,
+        "usdgReceived": 206.976072,
+        "usdgSpent": 0,
+        "firstSwap": 1759876247000,
+        "lastSwap": 1759876247000
+      },
+      {
+        "wallet": "0xd8e3164744916b8c0d1d6cc01ad82f76ec94058e",
+        "swapCount": 1,
+        "glwSold": 1500,
+        "glwBought": 0,
+        "usdgReceived": 1025.81891,
+        "usdgSpent": 0,
+        "firstSwap": 1759893143000,
+        "lastSwap": 1759893143000
+      },
+      {
+        "wallet": "0xd683cbeb396b460e1866c1504ab2661b544d74af",
+        "swapCount": 4,
+        "glwSold": 577.031341,
+        "glwBought": 728.4036782957452,
+        "usdgReceived": 242.424031,
+        "usdgSpent": 499.250138,
+        "firstSwap": 1759899863000,
+        "lastSwap": 1762855235000
+      },
+      {
+        "wallet": "0x9d34151abe8d1594e74f463d350840119ab0689b",
+        "swapCount": 3,
+        "glwSold": 0,
+        "glwBought": 21725.375719868156,
+        "usdgReceived": 0,
+        "usdgSpent": 12215.916059000001,
+        "firstSwap": 1759915679000,
+        "lastSwap": 1762294463000
+      },
+      {
+        "wallet": "0x51ddf92f75dea9e218ca63918b3acd1df2fda88d",
+        "swapCount": 11,
+        "glwSold": 26111.417294000003,
+        "glwBought": 21704.41826632053,
+        "usdgReceived": 8716.683979000001,
+        "usdgSpent": 15020.640531,
+        "firstSwap": 1759916531000,
+        "lastSwap": 1765110299000
+      },
+      {
+        "wallet": "0x8cd35d2648b0cf07f61655dd04f1f5240be5cc2d",
+        "swapCount": 1,
+        "glwSold": 6000,
+        "glwBought": 0,
+        "usdgReceived": 5621.898988,
+        "usdgSpent": 0,
+        "firstSwap": 1759920527000,
+        "lastSwap": 1759920527000
+      },
+      {
+        "wallet": "0xea9481747250008b2cf22f756c56482cf1dddbfd",
+        "swapCount": 4,
+        "glwSold": 29100,
+        "glwBought": 0,
+        "usdgReceived": 17927.08432,
+        "usdgSpent": 0,
+        "firstSwap": 1759921043000,
+        "lastSwap": 1763816579000
+      },
+      {
+        "wallet": "0x05a2f0eef8c2b4c68e5c0b5801d8fcc1b42b6cb9",
+        "swapCount": 1,
+        "glwSold": 1110,
+        "glwBought": 0,
+        "usdgReceived": 874.594235,
+        "usdgSpent": 0,
+        "firstSwap": 1759925555000,
+        "lastSwap": 1759925555000
+      },
+      {
+        "wallet": "0x911445b1d3eb2af49d08c67ca6e7dc1c464be5f5",
+        "swapCount": 4,
+        "glwSold": 400,
+        "glwBought": 1897.4736263738878,
+        "usdgReceived": 225.606801,
+        "usdgSpent": 1064.505499,
+        "firstSwap": 1759931399000,
+        "lastSwap": 1764010451000
+      },
+      {
+        "wallet": "0x917206b41150742631b76dd9850a0baa23cae9cd",
+        "swapCount": 5,
+        "glwSold": 0,
+        "glwBought": 25727.217932709915,
+        "usdgReceived": 0,
+        "usdgSpent": 13920,
+        "firstSwap": 1759932551000,
+        "lastSwap": 1760984711000
+      },
+      {
+        "wallet": "0x6a737348845b0d2bc03c6fa065441ac53d012bde",
+        "swapCount": 1,
+        "glwSold": 87660,
+        "glwBought": 0,
+        "usdgReceived": 49361.677578,
+        "usdgSpent": 0,
+        "firstSwap": 1759932671000,
+        "lastSwap": 1759932671000
+      },
+      {
+        "wallet": "0xa273164a466dbf9f0173996078fb382acc73f9e3",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 10130.95147204681,
+        "usdgReceived": 0,
+        "usdgSpent": 5000,
+        "firstSwap": 1759933139000,
+        "lastSwap": 1759933139000
+      },
+      {
+        "wallet": "0x97d26b343fbc3f36a30998ae4cccdc2e7870bbb4",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 3927.7396221021577,
+        "usdgReceived": 0,
+        "usdgSpent": 2563.51372,
+        "firstSwap": 1759936403000,
+        "lastSwap": 1759936403000
+      },
+      {
+        "wallet": "0xe8f37093e86e2e5cc56a58e6045af19878169fc2",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 1523.1811256346873,
+        "usdgReceived": 0,
+        "usdgSpent": 890,
+        "firstSwap": 1759951535000,
+        "lastSwap": 1759951535000
+      },
+      {
+        "wallet": "0x92a4a59984cf86fd979477be4449e7ebc562c964",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 426.2826260419486,
+        "usdgReceived": 0,
+        "usdgSpent": 251,
+        "firstSwap": 1759954691000,
+        "lastSwap": 1759954691000
+      },
+      {
+        "wallet": "0x27cd1d7515721773318d0312ad25e52c9b543ed1",
+        "swapCount": 1,
+        "glwSold": 1341,
+        "glwBought": 0,
+        "usdgReceived": 787.73125,
+        "usdgSpent": 0,
+        "firstSwap": 1759978739000,
+        "lastSwap": 1759978739000
+      },
+      {
+        "wallet": "0xb713814c5643fd8e76dc2ff2eb7504bf12d47406",
+        "swapCount": 2,
+        "glwSold": 10150.3,
+        "glwBought": 813.286309001106,
+        "usdgReceived": 4862.846968,
+        "usdgSpent": 481.46,
+        "firstSwap": 1760011763000,
+        "lastSwap": 1760422775000
+      },
+      {
+        "wallet": "0x8680092b8c97bf973434cde47e8792215942d888",
+        "swapCount": 4,
+        "glwSold": 4000,
+        "glwBought": 2664.8713998381227,
+        "usdgReceived": 2355.949562,
+        "usdgSpent": 726.625,
+        "firstSwap": 1760045711000,
+        "lastSwap": 1760901443000
+      },
+      {
+        "wallet": "0x1105651b56bba4325dcdee943ad3adfe8f658acd",
+        "swapCount": 3,
+        "glwSold": 5963.51029,
+        "glwBought": 2489.534582352224,
+        "usdgReceived": 2050.429636,
+        "usdgSpent": 1253.977984,
+        "firstSwap": 1760052143000,
+        "lastSwap": 1762168079000
+      },
+      {
+        "wallet": "0xdee8574b1473291de7e0e3f7fd29c7b36405239f",
+        "swapCount": 1,
+        "glwSold": 22.099994,
+        "glwBought": 0,
+        "usdgReceived": 13.014686,
+        "usdgSpent": 0,
+        "firstSwap": 1760055707000,
+        "lastSwap": 1760055707000
+      },
+      {
+        "wallet": "0x497d32a3f4e9a4aced0a485c905a167b0517fe0d",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 891.6190175956074,
+        "usdgReceived": 0,
+        "usdgSpent": 530,
+        "firstSwap": 1760066567000,
+        "lastSwap": 1760066567000
+      },
+      {
+        "wallet": "0x97852657d38e6d4f4ba79c70ad6961bc384cba7e",
+        "swapCount": 3,
+        "glwSold": 434.1,
+        "glwBought": 0,
+        "usdgReceived": 247.248731,
+        "usdgSpent": 0,
+        "firstSwap": 1760117915000,
+        "lastSwap": 1760284895000
+      },
+      {
+        "wallet": "0x1d20d526b211ac720a7d4d65282422b057ed1bf2",
+        "swapCount": 1,
+        "glwSold": 5727.01,
+        "glwBought": 0,
+        "usdgReceived": 3293.645642,
+        "usdgSpent": 0,
+        "firstSwap": 1760145143000,
+        "lastSwap": 1760145143000
+      },
+      {
+        "wallet": "0xf56d93f9dc499aa59d45329b89602dc3af07ffff",
+        "swapCount": 1,
+        "glwSold": 650,
+        "glwBought": 0,
+        "usdgReceived": 365.180329,
+        "usdgSpent": 0,
+        "firstSwap": 1760169647000,
+        "lastSwap": 1760169647000
+      },
+      {
+        "wallet": "0xc864b0ab18b0ed0beab72f915bacb12971fdb73a",
+        "swapCount": 1,
+        "glwSold": 1462.19,
+        "glwBought": 0,
+        "usdgReceived": 807.871475,
+        "usdgSpent": 0,
+        "firstSwap": 1760210171000,
+        "lastSwap": 1760210171000
+      },
+      {
+        "wallet": "0x13b5d85ca06d13c2aea48393328f1ed4e91881ad",
+        "swapCount": 1,
+        "glwSold": 1075.692821,
+        "glwBought": 0,
+        "usdgReceived": 588.799557,
+        "usdgSpent": 0,
+        "firstSwap": 1760217527000,
+        "lastSwap": 1760217527000
+      },
+      {
+        "wallet": "0x912f02d9fe0aaf23b1fbe7ce6bb70b31d9ea6860",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 312.10033093557837,
+        "usdgReceived": 0,
+        "usdgSpent": 171.38106,
+        "firstSwap": 1760267723000,
+        "lastSwap": 1760267723000
+      },
+      {
+        "wallet": "0x98749212eac32d408eadf1397c664e1336122d44",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 363.9378121660256,
+        "usdgReceived": 0,
+        "usdgSpent": 200,
+        "firstSwap": 1760335847000,
+        "lastSwap": 1760335847000
+      },
+      {
+        "wallet": "0x246b27b407a236bacc3b9d1fd9e54434f79608bd",
+        "swapCount": 1,
+        "glwSold": 91.77,
+        "glwBought": 0,
+        "usdgReceived": 50.17995,
+        "usdgSpent": 0,
+        "firstSwap": 1760345099000,
+        "lastSwap": 1760345099000
+      },
+      {
+        "wallet": "0xb30a28d2b97f4f909cfd60ab090f79e10982e5de",
+        "swapCount": 1,
+        "glwSold": 2081.894877,
+        "glwBought": 0,
+        "usdgReceived": 1129.383612,
+        "usdgSpent": 0,
+        "firstSwap": 1760375615000,
+        "lastSwap": 1760375615000
+      },
+      {
+        "wallet": "0x3cd8596d364050bba75b1eab7d90331ca8c511e5",
+        "swapCount": 1,
+        "glwSold": 643.5,
+        "glwBought": 0,
+        "usdgReceived": 345.625672,
+        "usdgSpent": 0,
+        "firstSwap": 1760377355000,
+        "lastSwap": 1760377355000
+      },
+      {
+        "wallet": "0x7c5370624ec28eaaf6683eea975c0995c774c92e",
+        "swapCount": 1,
+        "glwSold": 1565,
+        "glwBought": 0,
+        "usdgReceived": 780.605313,
+        "usdgSpent": 0,
+        "firstSwap": 1760394899000,
+        "lastSwap": 1760394899000
+      },
+      {
+        "wallet": "0x8b6a8903c8ac057af4db7df4057170faf91f2a85",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 24907.072316959704,
+        "usdgReceived": 0,
+        "usdgSpent": 12055.153969,
+        "firstSwap": 1760461595000,
+        "lastSwap": 1760461595000
+      },
+      {
+        "wallet": "0x3f085b29e53cfa47b3a8c41c74f8fed99b8b4123",
+        "swapCount": 2,
+        "glwSold": 13300,
+        "glwBought": 0,
+        "usdgReceived": 5331.077574999999,
+        "usdgSpent": 0,
+        "firstSwap": 1760484671000,
+        "lastSwap": 1762201391000
+      },
+      {
+        "wallet": "0xd3dd62e5ad098d2220e3921d41494fb9754c1bf1",
+        "swapCount": 3,
+        "glwSold": 0,
+        "glwBought": 753.7172835417699,
+        "usdgReceived": 0,
+        "usdgSpent": 350,
+        "firstSwap": 1760573411000,
+        "lastSwap": 1760576603000
+      },
+      {
+        "wallet": "0xbfa384b5cd0ecebb4f9e70eebc52f44bcd20732c",
+        "swapCount": 1,
+        "glwSold": 8452.87068,
+        "glwBought": 0,
+        "usdgReceived": 3822.501414,
+        "usdgSpent": 0,
+        "firstSwap": 1760660543000,
+        "lastSwap": 1760660543000
+      },
+      {
+        "wallet": "0x1004976dbd65437cbb10360c679b768cc6106b5d",
+        "swapCount": 13,
+        "glwSold": 8610,
+        "glwBought": 20860.776288187004,
+        "usdgReceived": 2859.468412,
+        "usdgSpent": 7411,
+        "firstSwap": 1760675747000,
+        "lastSwap": 1764719111000
+      },
+      {
+        "wallet": "0x3d6c8b2d4a7e8f526612d4f2aa49fc623d18225f",
+        "swapCount": 1,
+        "glwSold": 2160,
+        "glwBought": 0,
+        "usdgReceived": 944.24715,
+        "usdgSpent": 0,
+        "firstSwap": 1760713367000,
+        "lastSwap": 1760713367000
+      },
+      {
+        "wallet": "0x62322df7df43662c7e0eb13475e761bd1d5a5cec",
+        "swapCount": 2,
+        "glwSold": 0,
+        "glwBought": 188.72169241778255,
+        "usdgReceived": 0,
+        "usdgSpent": 86.20805200000001,
+        "firstSwap": 1760747567000,
+        "lastSwap": 1760748419000
+      },
+      {
+        "wallet": "0x5fa5d55f11ba187d4c318b21a2c1b67714b5a9e4",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 12.01030737770698,
+        "usdgReceived": 0,
+        "usdgSpent": 5.49,
+        "firstSwap": 1760767727000,
+        "lastSwap": 1760767727000
+      },
+      {
+        "wallet": "0xd9e391abe558d10f7b9e5b99f3dd61cc37921782",
+        "swapCount": 1,
+        "glwSold": 54012.09,
+        "glwBought": 0,
+        "usdgReceived": 18925.152143,
+        "usdgSpent": 0,
+        "firstSwap": 1760889815000,
+        "lastSwap": 1760889815000
+      },
+      {
+        "wallet": "0x53fef9e197b35dc83dba6c09f6058dbc1c24011c",
+        "swapCount": 1,
+        "glwSold": 29840,
+        "glwBought": 0,
+        "usdgReceived": 8235.29479,
+        "usdgSpent": 0,
+        "firstSwap": 1760890139000,
+        "lastSwap": 1760890139000
+      },
+      {
+        "wallet": "0x9919e044780142ff74d74512ccb11da36f0c2958",
+        "swapCount": 2,
+        "glwSold": 0,
+        "glwBought": 5677.870699223085,
+        "usdgReceived": 0,
+        "usdgSpent": 1500,
+        "firstSwap": 1760899943000,
+        "lastSwap": 1760900135000
+      },
+      {
+        "wallet": "0xdc71a1bdeabd3c347dc21e9354aff91ad375eb97",
+        "swapCount": 5,
+        "glwSold": 20350,
+        "glwBought": 8892.648867948094,
+        "usdgReceived": 7663.652938,
+        "usdgSpent": 2500,
+        "firstSwap": 1760902691000,
+        "lastSwap": 1764735803000
+      },
+      {
+        "wallet": "0xdc02c6c84e311adfb32a88cda312e97a5c029ad6",
+        "swapCount": 1,
+        "glwSold": 1996.893132,
+        "glwBought": 0,
+        "usdgReceived": 568.347708,
+        "usdgSpent": 0,
+        "firstSwap": 1760904923000,
+        "lastSwap": 1760904923000
+      },
+      {
+        "wallet": "0x005679cae803224443c7f96440a175eff6de003a",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 8257.76053468367,
+        "usdgReceived": 0,
+        "usdgSpent": 3026.949409,
+        "firstSwap": 1761055775000,
+        "lastSwap": 1761055775000
+      },
+      {
+        "wallet": "0x6f0d28e78f45122f829be51d4b39b8566245ccda",
+        "swapCount": 2,
+        "glwSold": 22500,
+        "glwBought": 0,
+        "usdgReceived": 7770.0697789999995,
+        "usdgSpent": 0,
+        "firstSwap": 1761104111000,
+        "lastSwap": 1762269839000
+      },
+      {
+        "wallet": "0xfc8d91a2094baba633c2bbaa5935ad307c0b6142",
+        "swapCount": 2,
+        "glwSold": 0,
+        "glwBought": 590.3157569611209,
+        "usdgReceived": 0,
+        "usdgSpent": 198,
+        "firstSwap": 1761151247000,
+        "lastSwap": 1761153023000
+      },
+      {
+        "wallet": "0xd7b24d46dbfe6466510b7e056939d7bd0d827dae",
+        "swapCount": 4,
+        "glwSold": 0,
+        "glwBought": 72777.13972802606,
+        "usdgReceived": 0,
+        "usdgSpent": 25933.790382,
+        "firstSwap": 1761155399000,
+        "lastSwap": 1761675875000
+      },
+      {
+        "wallet": "0x1d3d1f19a338e5a05a78a0630b811ffb3996e04c",
+        "swapCount": 1,
+        "glwSold": 106.410571,
+        "glwBought": 0,
+        "usdgReceived": 41.657539,
+        "usdgSpent": 0,
+        "firstSwap": 1761160331000,
+        "lastSwap": 1761160331000
+      },
+      {
+        "wallet": "0x491b4ac4cc2b123f4c4dc6d8d1499ec118c3830f",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 679.3465546394626,
+        "usdgReceived": 0,
+        "usdgSpent": 270,
+        "firstSwap": 1761478211000,
+        "lastSwap": 1761478211000
+      },
+      {
+        "wallet": "0xf4c40bf7070fdcf64ecf020bcb583738a6cc3bcd",
+        "swapCount": 1,
+        "glwSold": 389.025,
+        "glwBought": 0,
+        "usdgReceived": 158.61853,
+        "usdgSpent": 0,
+        "firstSwap": 1761501755000,
+        "lastSwap": 1761501755000
+      },
+      {
+        "wallet": "0x4bdfd3ce7bfb07b75a2a59a8f723910dd7147b9c",
+        "swapCount": 1,
+        "glwSold": 728.248552,
+        "glwBought": 0,
+        "usdgReceived": 295.919998,
+        "usdgSpent": 0,
+        "firstSwap": 1761556679000,
+        "lastSwap": 1761556679000
+      },
+      {
+        "wallet": "0xfca00d3d40c8bc763651defef4bf454c45e290e6",
+        "swapCount": 1,
+        "glwSold": 5097,
+        "glwBought": 0,
+        "usdgReceived": 2220.621684,
+        "usdgSpent": 0,
+        "firstSwap": 1761592439000,
+        "lastSwap": 1761592439000
+      },
+      {
+        "wallet": "0x42bdd7820c01d9ceb6318d3dddb4ec44a0db631b",
+        "swapCount": 1,
+        "glwSold": 85.826968,
+        "glwBought": 0,
+        "usdgReceived": 38.690978,
+        "usdgSpent": 0,
+        "firstSwap": 1761658691000,
+        "lastSwap": 1761658691000
+      },
+      {
+        "wallet": "0xd86ac74165f26cb77383e0947c182bd2885f527b",
+        "swapCount": 2,
+        "glwSold": 57558.095079,
+        "glwBought": 0,
+        "usdgReceived": 21892.266707000002,
+        "usdgSpent": 0,
+        "firstSwap": 1761673679000,
+        "lastSwap": 1761674975000
+      },
+      {
+        "wallet": "0x8e8745acd6fbe3e70afc96042c7f3ec84b1f0e9f",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 1293.9210689063586,
+        "usdgReceived": 0,
+        "usdgSpent": 500,
+        "firstSwap": 1761676343000,
+        "lastSwap": 1761676343000
+      },
+      {
+        "wallet": "0x5704be4870fe521723ec57a1c32de8ca1b508b15",
+        "swapCount": 1,
+        "glwSold": 1457.051105,
+        "glwBought": 0,
+        "usdgReceived": 559.41624,
+        "usdgSpent": 0,
+        "firstSwap": 1761707795000,
+        "lastSwap": 1761707795000
+      },
+      {
+        "wallet": "0x4e459f60115b6a23eea7718089479f7fb5a3ce0f",
+        "swapCount": 2,
+        "glwSold": 0,
+        "glwBought": 34172.67317480461,
+        "usdgReceived": 0,
+        "usdgSpent": 11710.789257,
+        "firstSwap": 1761871655000,
+        "lastSwap": 1762208051000
+      },
+      {
+        "wallet": "0x6e26e1cd15c91713019eae673e27e234bf4bf7d3",
+        "swapCount": 1,
+        "glwSold": 8875,
+        "glwBought": 0,
+        "usdgReceived": 3273.304115,
+        "usdgSpent": 0,
+        "firstSwap": 1761883043000,
+        "lastSwap": 1761883043000
+      },
+      {
+        "wallet": "0x0b650820dde452b204de44885fc0fbb788fc5e37",
+        "swapCount": 40,
+        "glwSold": 51289.235969975285,
+        "glwBought": 67618.5033373203,
+        "usdgReceived": 19211.363888,
+        "usdgSpent": 22226.303769000006,
+        "firstSwap": 1761894935000,
+        "lastSwap": 1765452899000
+      },
+      {
+        "wallet": "0xa232d9bee41b556e77b9ccc59a59d3b9c56549e8",
+        "swapCount": 2,
+        "glwSold": 11639,
+        "glwBought": 0,
+        "usdgReceived": 3812.618714,
+        "usdgSpent": 0,
+        "firstSwap": 1762184843000,
+        "lastSwap": 1762185215000
+      },
+      {
+        "wallet": "0x1848e14b7ab9419d06e162d26df34af391147b51",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 38.447064802709,
+        "usdgReceived": 0,
+        "usdgSpent": 14,
+        "firstSwap": 1762248011000,
+        "lastSwap": 1762248011000
+      },
+      {
+        "wallet": "0x70eb416ad3ec2a3804ff63306dcc8d64879e6091",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 323.2557249524618,
+        "usdgReceived": 0,
+        "usdgSpent": 110,
+        "firstSwap": 1762274807000,
+        "lastSwap": 1762274807000
+      },
+      {
+        "wallet": "0x126fe2743088e3d6717666c3f4d2f29eb77ccd26",
+        "swapCount": 1,
+        "glwSold": 2826.189244,
+        "glwBought": 0,
+        "usdgReceived": 949.386254,
+        "usdgSpent": 0,
+        "firstSwap": 1762289879000,
+        "lastSwap": 1762289879000
+      },
+      {
+        "wallet": "0x3395addf4b103ae0b6c12084880d681faa8393c3",
+        "swapCount": 3,
+        "glwSold": 685.912236,
+        "glwBought": 0,
+        "usdgReceived": 255.34123599999998,
+        "usdgSpent": 0,
+        "firstSwap": 1762295927000,
+        "lastSwap": 1763650631000
+      },
+      {
+        "wallet": "0x186bc78e64cc208aaf0c3da4a09167c51df1d33c",
+        "swapCount": 2,
+        "glwSold": 0,
+        "glwBought": 49146.03704016864,
+        "usdgReceived": 0,
+        "usdgSpent": 19022.6838,
+        "firstSwap": 1762445759000,
+        "lastSwap": 1762453403000
+      },
+      {
+        "wallet": "0x0e9c3c8c10900c899c5681f87114fe0b6fb2a198",
+        "swapCount": 1,
+        "glwSold": 10000,
+        "glwBought": 0,
+        "usdgReceived": 4195.637593,
+        "usdgSpent": 0,
+        "firstSwap": 1762469723000,
+        "lastSwap": 1762469723000
+      },
+      {
+        "wallet": "0x2e565baa402c232799690d311f4b43d17212a709",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 1207.6829053584183,
+        "usdgReceived": 0,
+        "usdgSpent": 500,
+        "firstSwap": 1762470143000,
+        "lastSwap": 1762470143000
+      },
+      {
+        "wallet": "0xe552f8a9794b5de74b790a2bc2970333c184483e",
+        "swapCount": 1,
+        "glwSold": 1150,
+        "glwBought": 0,
+        "usdgReceived": 473.359592,
+        "usdgSpent": 0,
+        "firstSwap": 1762522607000,
+        "lastSwap": 1762522607000
+      },
+      {
+        "wallet": "0x56b41d4efa88e42fb38a915c1a1550d8e14697e2",
+        "swapCount": 6,
+        "glwSold": 12181.039455999999,
+        "glwBought": 30698.75809754262,
+        "usdgReceived": 3920.2534189999997,
+        "usdgSpent": 13116.681062,
+        "firstSwap": 1762527947000,
+        "lastSwap": 1765202207000
+      },
+      {
+        "wallet": "0x1c2fa1e9dd73303fd08b5789282732f01a988704",
+        "swapCount": 3,
+        "glwSold": 127.830066,
+        "glwBought": 254.8946188955281,
+        "usdgReceived": 59.972088,
+        "usdgSpent": 120.305484,
+        "firstSwap": 1762551023000,
+        "lastSwap": 1762551875000
+      },
+      {
+        "wallet": "0x67ab165a1e0a0f3038807331e0202e737017da1d",
+        "swapCount": 1,
+        "glwSold": 6000,
+        "glwBought": 0,
+        "usdgReceived": 2297.482349,
+        "usdgSpent": 0,
+        "firstSwap": 1762650911000,
+        "lastSwap": 1762650911000
+      },
+      {
+        "wallet": "0x73d4e8632ba37cc9bf9de5045e3e8834f78efa85",
+        "swapCount": 1,
+        "glwSold": 1465.705205,
+        "glwBought": 0,
+        "usdgReceived": 548.580894,
+        "usdgSpent": 0,
+        "firstSwap": 1762657331000,
+        "lastSwap": 1762657331000
+      },
+      {
+        "wallet": "0x19dc7cfae2bff62b2483d91b3428726493b84912",
+        "swapCount": 2,
+        "glwSold": 5310.033831000001,
+        "glwBought": 0,
+        "usdgReceived": 1704.954122,
+        "usdgSpent": 0,
+        "firstSwap": 1762731671000,
+        "lastSwap": 1765452827000
+      },
+      {
+        "wallet": "0xd178a10b8805927988880459931a04096268d6d1",
+        "swapCount": 1,
+        "glwSold": 58.32,
+        "glwBought": 0,
+        "usdgReceived": 19.539626,
+        "usdgSpent": 0,
+        "firstSwap": 1762758227000,
+        "lastSwap": 1762758227000
+      },
+      {
+        "wallet": "0xaab581c83da7a86337ff339295a4da9d2b50451a",
+        "swapCount": 1,
+        "glwSold": 83.63,
+        "glwBought": 0,
+        "usdgReceived": 26.956251,
+        "usdgSpent": 0,
+        "firstSwap": 1762888919000,
+        "lastSwap": 1762888919000
+      },
+      {
+        "wallet": "0x2af9f436e75620d855c74135db8e67d84b6cedd4",
+        "swapCount": 1,
+        "glwSold": 2012,
+        "glwBought": 0,
+        "usdgReceived": 618.946331,
+        "usdgSpent": 0,
+        "firstSwap": 1763112443000,
+        "lastSwap": 1763112443000
+      },
+      {
+        "wallet": "0x0bf577194d261ada9b69e0726daa65fb8d8d1bf8",
+        "swapCount": 3,
+        "glwSold": 0,
+        "glwBought": 78722.01489882749,
+        "usdgReceived": 0,
+        "usdgSpent": 28957,
+        "firstSwap": 1763163083000,
+        "lastSwap": 1763512859000
+      },
+      {
+        "wallet": "0xee53605c08d8a3cd07f2a4e0c83cb4054d6e2573",
+        "swapCount": 1,
+        "glwSold": 10110.79,
+        "glwBought": 0,
+        "usdgReceived": 3670.331901,
+        "usdgSpent": 0,
+        "firstSwap": 1763487371000,
+        "lastSwap": 1763487371000
+      },
+      {
+        "wallet": "0x7e3c76b40d7e32e1e3382cccf57c583a88b8c61d",
+        "swapCount": 1,
+        "glwSold": 3500,
+        "glwBought": 0,
+        "usdgReceived": 1408.182868,
+        "usdgSpent": 0,
+        "firstSwap": 1763587139000,
+        "lastSwap": 1763587139000
+      },
+      {
+        "wallet": "0xf8fb7f435cb0bebdf8cf7c490da333fcca456c70",
+        "swapCount": 1,
+        "glwSold": 2288.722698,
+        "glwBought": 0,
+        "usdgReceived": 912.64985,
+        "usdgSpent": 0,
+        "firstSwap": 1763663087000,
+        "lastSwap": 1763663087000
+      },
+      {
+        "wallet": "0x27a45873644c0181aa7c48c913cdd36169b3fea5",
+        "swapCount": 1,
+        "glwSold": 10310.323269,
+        "glwBought": 0,
+        "usdgReceived": 3936.092627,
+        "usdgSpent": 0,
+        "firstSwap": 1763709899000,
+        "lastSwap": 1763709899000
+      },
+      {
+        "wallet": "0x66cd48ddec669942dea2df87a896b4fd8e3abc8d",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 11259.967761011043,
+        "usdgReceived": 0,
+        "usdgSpent": 4443.896765,
+        "firstSwap": 1763761535000,
+        "lastSwap": 1763761535000
+      },
+      {
+        "wallet": "0x91a7a6f69f6ca562a5c8ffa4c67c91ec155d1acd",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 704.1998492697934,
+        "usdgReceived": 0,
+        "usdgSpent": 261.856139,
+        "firstSwap": 1763835251000,
+        "lastSwap": 1763835251000
+      },
+      {
+        "wallet": "0x2b4cfb747b09f5d1c4df880d6b6f7757787ee33c",
+        "swapCount": 1,
+        "glwSold": 1258.95514,
+        "glwBought": 0,
+        "usdgReceived": 464.473553,
+        "usdgSpent": 0,
+        "firstSwap": 1763955287000,
+        "lastSwap": 1763955287000
+      },
+      {
+        "wallet": "0x15bcbe7e263e36ff70d474a550ded4383328b317",
+        "swapCount": 2,
+        "glwSold": 7500,
+        "glwBought": 12304.279635916359,
+        "usdgReceived": 2665.307422,
+        "usdgSpent": 4417.307422,
+        "firstSwap": 1764094259000,
+        "lastSwap": 1764687911000
+      },
+      {
+        "wallet": "0xfe2418a132c585850cc15e18a03eb2a32ba14c84",
+        "swapCount": 1,
+        "glwSold": 2700,
+        "glwBought": 0,
+        "usdgReceived": 951.095916,
+        "usdgSpent": 0,
+        "firstSwap": 1764188687000,
+        "lastSwap": 1764188687000
+      },
+      {
+        "wallet": "0x4a77dd1906b314e8b8531b31df7ae990d661e2cd",
+        "swapCount": 1,
+        "glwSold": 3927.739622,
+        "glwBought": 0,
+        "usdgReceived": 1353.588664,
+        "usdgSpent": 0,
+        "firstSwap": 1764251411000,
+        "lastSwap": 1764251411000
+      },
+      {
+        "wallet": "0x5a519af203be58ddd699562fcd1280422c7846ea",
+        "swapCount": 1,
+        "glwSold": 466.521994,
+        "glwBought": 0,
+        "usdgReceived": 160.137033,
+        "usdgSpent": 0,
+        "firstSwap": 1764398351000,
+        "lastSwap": 1764398351000
+      },
+      {
+        "wallet": "0x86c57991eafdd3eb8b0d27be7e42be5e269c5c0a",
+        "swapCount": 3,
+        "glwSold": 0,
+        "glwBought": 6.15211492499991,
+        "usdgReceived": 0,
+        "usdgSpent": 2.096013,
+        "firstSwap": 1764675911000,
+        "lastSwap": 1764677519000
+      },
+      {
+        "wallet": "0x5026d1d2418c9f9e1ada4732fffeb6892220f0af",
+        "swapCount": 2,
+        "glwSold": 16000,
+        "glwBought": 0,
+        "usdgReceived": 4462.349769,
+        "usdgSpent": 0,
+        "firstSwap": 1764698939000,
+        "lastSwap": 1765303619000
+      },
+      {
+        "wallet": "0x127a14fef5c6cd4e9180a5048c962511ab8d781c",
+        "swapCount": 1,
+        "glwSold": 1990.74,
+        "glwBought": 0,
+        "usdgReceived": 662.183196,
+        "usdgSpent": 0,
+        "firstSwap": 1764769667000,
+        "lastSwap": 1764769667000
+      },
+      {
+        "wallet": "0xdea52254d99c8f2a0a0f0d0b691a2042b12184b2",
+        "swapCount": 1,
+        "glwSold": 16689,
+        "glwBought": 0,
+        "usdgReceived": 5234.477344,
+        "usdgSpent": 0,
+        "firstSwap": 1764770603000,
+        "lastSwap": 1764770603000
+      },
+      {
+        "wallet": "0x2c6f997d89dbd9d6085b8a77e1ee7ee7f24d5ff1",
+        "swapCount": 2,
+        "glwSold": 7690,
+        "glwBought": 0,
+        "usdgReceived": 2235.004682,
+        "usdgSpent": 0,
+        "firstSwap": 1764798575000,
+        "lastSwap": 1764798983000
+      },
+      {
+        "wallet": "0x39be20d7577f5584b545540dd18312f3c2890d2a",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 40.88202171204231,
+        "usdgReceived": 0,
+        "usdgSpent": 11.68,
+        "firstSwap": 1764963683000,
+        "lastSwap": 1764963683000
+      },
+      {
+        "wallet": "0xab06b20416bbf3bc19cac99ca1da068f38380d28",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 3634.0767201482736,
+        "usdgReceived": 0,
+        "usdgSpent": 1000,
+        "firstSwap": 1765305623000,
+        "lastSwap": 1765305623000
+      },
+      {
+        "wallet": "0xda24d5e7a68a945fa8dca4cc49beb6c574ed83ce",
+        "swapCount": 2,
+        "glwSold": 0,
+        "glwBought": 37474.727383013094,
+        "usdgReceived": 0,
+        "usdgSpent": 11575,
+        "firstSwap": 1765377827000,
+        "lastSwap": 1765387295000
+      },
+      {
+        "wallet": "0xc7a8c94c29fc6002102224fc8e7a53783ac31f77",
+        "swapCount": 1,
+        "glwSold": 0,
+        "glwBought": 1724.5881092762427,
+        "usdgReceived": 0,
+        "usdgSpent": 500,
+        "firstSwap": 1765380911000,
+        "lastSwap": 1765380911000
+      }
+    ]
+  }
+}
