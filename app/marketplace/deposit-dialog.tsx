@@ -30,6 +30,9 @@ import Decimal from "decimal.js";
 import Link from "next/link";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
+import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
+
+const BUY_GLOW_USDC_BUFFER = new Decimal(1);
 
 export type LaunchpadRewardScore = {
   userWeeklyGlwRewards: string;
@@ -78,6 +81,7 @@ export function DepositDialog({
   const currency = selectedCurrency;
   const [stepsToBuy, setStepsToBuy] = React.useState(1);
   const [quantityInput, setQuantityInput] = React.useState<string>("1");
+  const [isBuyGlowDialogOpen, setIsBuyGlowDialogOpen] = React.useState(false);
 
   // Transaction states
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -181,7 +185,7 @@ export function DepositDialog({
         fractions.isSignerAvailable &&
         open &&
         signerAddress &&
-        currency === "USDC"
+        (currency === "USDC" || currency === "GLW")
     ),
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
@@ -237,6 +241,113 @@ export function DepositDialog({
 
   // Display currency is based on the selected currency
   const displayCurrency = currency;
+
+  const usdcBalanceBigInt = React.useMemo(() => {
+    try {
+      if (!usdcBalance) return null;
+      return parseUnits(usdcBalance, DECIMALS_BY_TOKEN.USDC as number);
+    } catch {
+      return null;
+    }
+  }, [usdcBalance]);
+
+  const glwShortfall = React.useMemo(() => {
+    try {
+      if (!isConnected) return null;
+      if (currency !== "GLW") return null;
+      if (!application?.activeFraction) return null;
+
+      const requiredGlwUnits =
+        BigInt(application.activeFraction.stepPrice) * BigInt(stepsToBuy);
+      const requiredGlw = new Decimal(
+        formatUnits(requiredGlwUnits, DECIMALS_BY_TOKEN.GLW)
+      );
+
+      if (isGlwLoading || glwBalance == null) {
+        return {
+          requiredGlw,
+          currentGlw: null,
+          missingGlw: null,
+          estimatedUsdcNeeded: null,
+          hasInsufficientGlw: false,
+          isBalanceKnown: false,
+        };
+      }
+
+      const currentGlw = new Decimal(glwBalance);
+      const missingGlw = Decimal.max(
+        new Decimal(0),
+        requiredGlw.minus(currentGlw)
+      );
+      const estimatedUsdcNeeded =
+        glwSpotPrice > 0 ? missingGlw.mul(new Decimal(glwSpotPrice)) : null;
+
+      return {
+        requiredGlw,
+        currentGlw,
+        missingGlw,
+        estimatedUsdcNeeded,
+        hasInsufficientGlw: missingGlw.gt(0),
+        isBalanceKnown: true,
+      };
+    } catch {
+      return null;
+    }
+  }, [
+    isConnected,
+    currency,
+    application?.activeFraction,
+    stepsToBuy,
+    isGlwLoading,
+    glwBalance,
+    glwSpotPrice,
+  ]);
+
+  const usdcBalanceDecimal = React.useMemo(() => {
+    try {
+      if (!isConnected) return null;
+      if (isUsdcLoading || usdcBalance == null) return null;
+      return new Decimal(usdcBalance);
+    } catch {
+      return null;
+    }
+  }, [isConnected, isUsdcLoading, usdcBalance]);
+
+  const buyGlowInitialUsdcAmount = React.useMemo(() => {
+    try {
+      if (currency !== "GLW") return null;
+      if (!application?.activeFraction) return null;
+      if (!glwSpotPrice || glwSpotPrice <= 0) return null;
+
+      const requiredGlwUnits =
+        BigInt(application.activeFraction.stepPrice) * BigInt(stepsToBuy);
+      const requiredGlw = new Decimal(
+        formatUnits(requiredGlwUnits, DECIMALS_BY_TOKEN.GLW)
+      );
+      const currentGlw = new Decimal(glwBalance || "0");
+      const missingGlw = Decimal.max(
+        new Decimal(0),
+        requiredGlw.minus(currentGlw)
+      );
+
+      if (missingGlw.lte(0)) return null;
+
+      const usdcNeeded = missingGlw
+        .mul(new Decimal(glwSpotPrice))
+        .add(BUY_GLOW_USDC_BUFFER);
+      return usdcNeeded
+        .toDecimalPlaces(DECIMALS_BY_TOKEN.USDC as number, Decimal.ROUND_UP)
+        .toString();
+    } catch {
+      return null;
+    }
+  }, [
+    currency,
+    application?.activeFraction,
+    glwSpotPrice,
+    glwBalance,
+    stepsToBuy,
+  ]);
 
   // Reset states when dialog opens/closes
   React.useEffect(() => {
@@ -552,12 +663,38 @@ export function DepositDialog({
   // Early return conditions - check these in render
   if (!application) return null;
 
+  const isStepPurchaseTokenBalanceSufficient = (() => {
+    try {
+      if (!application.activeFraction) return true;
+      if (!isConnected) return false;
+
+      const pricePerStep = BigInt(application.activeFraction.stepPrice);
+      const totalCost = pricePerStep * BigInt(stepsToBuy);
+
+      if (currency === "GLW") {
+        if (!glwShortfall?.isBalanceKnown) return false;
+        return !glwShortfall.hasInsufficientGlw;
+      }
+
+      // USDC (miners)
+      if (isUsdcLoading || usdcBalance == null) return false;
+      const requiredUsdc = parseFloat(
+        formatUnits(totalCost, DECIMALS_BY_TOKEN.USDC)
+      );
+      const currentUsdc = parseFloat(usdcBalance);
+      return currentUsdc >= requiredUsdc;
+    } catch {
+      return false;
+    }
+  })();
+
   const canConfirm = application.activeFraction
     ? // For step-based purchasing
       !isSubmitting &&
       !isProcessing &&
       stepsToBuy > 0 &&
       stepsToBuy <= (application.activeFraction.remainingSteps || 0) &&
+      isStepPurchaseTokenBalanceSufficient &&
       isConnected
     : // For full sponsorship
       !isSubmitting && !isProcessing && !hasInsufficientBalance && isConnected;
@@ -580,7 +717,7 @@ export function DepositDialog({
           value: stepsToBuy.toString(),
         },
         {
-          label: `Total ${currency} Paid`,
+          label: `Total ${currency} Delegated`,
           value: formatNumber(
             parseFloat(
               formatUnits(
@@ -801,15 +938,25 @@ export function DepositDialog({
             <span className="text-sm text-muted-foreground">
               Your {currency} Balance
             </span>
-            <span className="text-sm font-mono">
-              {formatNumber(
-                currency === "USDC"
-                  ? parseFloat(usdcBalance || "0")
-                  : parseFloat(glwBalance || "0"),
-                2
-              )}{" "}
-              {currency}
-            </span>
+            {!isConnected ? (
+              <span className="text-sm text-muted-foreground">
+                Connect wallet
+              </span>
+            ) : currency === "USDC" ? (
+              isUsdcLoading || usdcBalance == null ? (
+                <span className="text-sm text-muted-foreground">Loading…</span>
+              ) : (
+                <span className="text-sm font-mono">
+                  {formatNumber(parseFloat(usdcBalance), 2)} USDC
+                </span>
+              )
+            ) : isGlwLoading || glwBalance == null ? (
+              <span className="text-sm text-muted-foreground">Loading…</span>
+            ) : (
+              <span className="text-sm font-mono">
+                {formatNumber(parseFloat(glwBalance), 2)} GLW
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -882,33 +1029,154 @@ export function DepositDialog({
       {/* Insufficient Token Balance Warning for Step Purchases */}
       {application.activeFraction &&
         (() => {
+          if (!isConnected) return null;
+
           const pricePerStep = BigInt(application.activeFraction.stepPrice);
           const totalCost = pricePerStep * BigInt(stepsToBuy);
           const tokenDecimals = DECIMALS_BY_TOKEN[currency];
-          const currentBalance =
-            currency === "USDC"
-              ? parseFloat(usdcBalance || "0")
-              : parseFloat(glwBalance || "0");
-          const requiredAmount = parseFloat(
-            formatUnits(totalCost, tokenDecimals)
-          );
 
-          return currentBalance < requiredAmount ? (
-            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-2">
-              <div className="text-sm text-destructive">
-                Insufficient {currency} balance
-              </div>
-              {currency === "GLW" && (
-                <Link href="/glow-swap">
+          if (currency === "GLW") {
+            if (
+              !glwShortfall?.isBalanceKnown ||
+              !glwShortfall.hasInsufficientGlw
+            )
+              return null;
+
+            const estimatedUsdcNeededRounded = glwShortfall.estimatedUsdcNeeded
+              ? glwShortfall.estimatedUsdcNeeded
+                  .add(BUY_GLOW_USDC_BUFFER)
+                  .toDecimalPlaces(
+                    DECIMALS_BY_TOKEN.USDC as number,
+                    Decimal.ROUND_UP
+                  )
+              : null;
+
+            const hasUsdcInfo = usdcBalanceDecimal !== null;
+            const hasEstimate = estimatedUsdcNeededRounded !== null;
+            const hasEnoughUsdc =
+              hasUsdcInfo && hasEstimate
+                ? usdcBalanceDecimal.gte(estimatedUsdcNeededRounded)
+                : null;
+
+            return (
+              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-foreground">
+                    Top up GLW to continue
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Required{" "}
+                    <span className="font-mono text-foreground">
+                      {formatNumber(glwShortfall.requiredGlw.toNumber(), 2)} GLW
+                    </span>
+                    {" • "}
+                    Balance{" "}
+                    <span className="font-mono text-foreground">
+                      {formatNumber(glwShortfall.currentGlw!.toNumber(), 2)} GLW
+                    </span>
+                    {" • "}
+                    Missing{" "}
+                    <span className="font-mono text-amber-500">
+                      {formatNumber(glwShortfall.missingGlw!.toNumber(), 2)} GLW
+                    </span>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-background/40 p-3">
+                  {hasEstimate ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        Est. cost to buy missing GLW
+                      </span>
+                      <span className="text-xs font-mono text-foreground">
+                        ≈{" "}
+                        {formatNumber(
+                          estimatedUsdcNeededRounded!.toNumber(),
+                          2
+                        )}{" "}
+                        USDC
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground">
+                      Loading price… we’ll show an estimate once it’s ready.
+                    </div>
+                  )}
+                  {hasEstimate && (
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      Includes a $1 buffer to avoid being short on GLW.
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Your USDC balance
+                    </span>
+                    {hasUsdcInfo ? (
+                      <span
+                        className={[
+                          "text-xs font-mono",
+                          hasEnoughUsdc === false
+                            ? "text-amber-500"
+                            : "text-foreground",
+                        ].join(" ")}
+                      >
+                        {formatNumber(usdcBalanceDecimal.toNumber(), 2)} USDC
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        Loading…
+                      </span>
+                    )}
+                  </div>
+
+                  {hasEnoughUsdc === false && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      To buy more GLW, you must first add/purchase USDC to this
+                      wallet. Once you have USDC, you can buy GLW and then
+                      delegate.
+                    </div>
+                  )}
+                </div>
+
+                {hasEnoughUsdc === true && (
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full border-destructive/20 hover:bg-destructive/20"
+                    className="w-full"
+                    onClick={() => setIsBuyGlowDialogOpen(true)}
                   >
                     Buy GLW
                   </Button>
-                </Link>
-              )}
+                )}
+              </div>
+            );
+          }
+
+          // USDC (miners) warning: keep basic behavior but avoid false positives while loading
+          if (isUsdcLoading || usdcBalance == null) return null;
+
+          const currentUsdc = parseFloat(usdcBalance);
+          const requiredUsdc = parseFloat(
+            formatUnits(totalCost, tokenDecimals)
+          );
+
+          return currentUsdc < requiredUsdc ? (
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+              <div className="text-sm font-medium text-foreground">
+                Top up USDC to continue
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Required{" "}
+                <span className="font-mono text-foreground">
+                  {formatNumber(requiredUsdc, 2)} USDC
+                </span>
+                {" • "}
+                Balance{" "}
+                <span className="font-mono text-foreground">
+                  {formatNumber(currentUsdc, 2)} USDC
+                </span>
+              </div>
             </div>
           ) : null;
         })()}
@@ -1044,6 +1312,16 @@ export function DepositDialog({
       <SmartAccountWarningDialog
         open={isSmartAccountWarningOpen}
         onOpenChange={setIsSmartAccountWarningOpen}
+      />
+      <BuyGlowDialog
+        open={isBuyGlowDialogOpen}
+        onOpenChange={setIsBuyGlowDialogOpen}
+        usdcBalance={usdcBalanceBigInt}
+        glowSpotPrice={glwSpotPrice || 0}
+        initialUsdcAmount={buyGlowInitialUsdcAmount ?? undefined}
+        onSuccess={async () => {
+          await Promise.all([refetchGlwBalance(), refetchUsdcBalance()]);
+        }}
       />
       <TransactionDialog
         open={open}
