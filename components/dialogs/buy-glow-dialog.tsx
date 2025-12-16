@@ -38,6 +38,7 @@ import { motion } from "framer-motion";
 import { waitingToSuccessVariants } from "@/animations/variants";
 import clsx from "clsx";
 import { GlowSymbol } from "../glow-symbol";
+import { trackEvent } from "@/lib/telemetry";
 
 interface BuyGlowDialogProps {
   open: boolean;
@@ -115,6 +116,7 @@ export function BuyGlowDialog({
   const [txHash, setTxHash] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const hasPrefilledForOpenRef = React.useRef(false);
+  const wasOpenRef = React.useRef(false);
 
   const {
     getSmartBalancingAmounts,
@@ -198,6 +200,12 @@ export function BuyGlowDialog({
       onError: handleEstimateError,
     }
   );
+
+  React.useEffect(() => {
+    if (open && !wasOpenRef.current) trackEvent("buy_glw_dialog_open");
+    if (!open && wasOpenRef.current) trackEvent("buy_glw_dialog_close");
+    wasOpenRef.current = open;
+  }, [open]);
 
   const handleInputChange = React.useCallback(
     (value: string) => {
@@ -286,13 +294,27 @@ export function BuyGlowDialog({
 
     setPhase("processing");
     setPendingStates(getInitialPendingStates(hasBondingOutput));
+    trackEvent("buy_glw_submit_click", {
+      usdc_amount: inputAmount,
+      usdc_balance: usdcBalanceFormatted,
+      has_bonding_step: hasBondingOutput,
+    });
 
     try {
       setPendingStatePending("SWAP_USDC_TO_USDG");
       const swapUsdcResult = await swapUSDCToUSDG(usdcAmount);
       if (!swapUsdcResult.ok) {
+        trackEvent("buy_glw_step_result", {
+          step: "swap_usdc_to_usdg",
+          ok: false,
+          error_message: String(swapUsdcResult.val),
+        });
         throw new Error(String(swapUsdcResult.val));
       }
+      trackEvent("buy_glw_step_result", {
+        step: "swap_usdc_to_usdg",
+        ok: true,
+      });
       completePendingStates("SWAP_USDC_TO_USDG");
 
       const hasUniswapAllocation = smartAmounts.amount_in_uni > BigInt(0);
@@ -303,8 +325,17 @@ export function BuyGlowDialog({
           slippagePercentTenThousandDenominator: BigInt(100),
         });
         if (!uniswapResult.ok) {
+          trackEvent("buy_glw_step_result", {
+            step: "swap_usdg_to_glw_uniswap",
+            ok: false,
+            error_message: String(uniswapResult.val),
+          });
           throw new Error(String(uniswapResult.val));
         }
+        trackEvent("buy_glw_step_result", {
+          step: "swap_usdg_to_glw_uniswap",
+          ok: true,
+        });
         completePendingStates("SWAP_USDG_TO_GLOW_ON_UNISWAP");
       } else {
         completePendingStates("SWAP_USDG_TO_GLOW_ON_UNISWAP");
@@ -317,6 +348,11 @@ export function BuyGlowDialog({
           incrementsToPurchase
         );
         if (!quoteResult.ok) {
+          trackEvent("buy_glw_step_result", {
+            step: "purchase_glw_bonding",
+            ok: false,
+            error_message: String(quoteResult.val),
+          });
           throw new Error(String(quoteResult.val));
         }
 
@@ -329,15 +365,30 @@ export function BuyGlowDialog({
             }
           );
           completePendingStates("PURCHASING_GLOW");
+          trackEvent("buy_glw_step_result", {
+            step: "purchase_glw_bonding",
+            ok: true,
+            skipped: true,
+          });
         } else {
           const purchaseResult = await purchaseGlowEarlyLiquidity({
             incrementsToPurchase,
             slippagePointsTenThousandths: BigInt(100),
           });
           if (!purchaseResult.ok) {
+            trackEvent("buy_glw_step_result", {
+              step: "purchase_glw_bonding",
+              ok: false,
+              error_message: String(purchaseResult.val),
+            });
             throw new Error(String(purchaseResult.val));
           }
           completePendingStates("PURCHASING_GLOW");
+          trackEvent("buy_glw_step_result", {
+            step: "purchase_glw_bonding",
+            ok: true,
+            skipped: false,
+          });
         }
       }
 
@@ -346,6 +397,11 @@ export function BuyGlowDialog({
 
       setPhase("success");
       toast.success("Successfully purchased GLW!");
+      trackEvent("buy_glw_success", {
+        usdc_amount: inputAmount,
+        estimated_glw: estimatedGlw,
+        has_bonding_step: hasBondingOutput,
+      });
       onSuccess?.();
     } catch (error: any) {
       console.error("Purchase failed:", error);
@@ -355,6 +411,9 @@ export function BuyGlowDialog({
         prev.map((state) => ({ ...state, pending: false }))
       );
       toast.error(error?.message || "Failed to purchase GLW");
+      trackEvent("buy_glw_error", {
+        error_message: error?.message || "Failed to purchase GLW",
+      });
     }
   }, [
     inputAmount,
@@ -467,7 +526,12 @@ export function BuyGlowDialog({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleInputChange(usdcBalanceFormatted)}
+                        onClick={() => {
+                          trackEvent("buy_glw_max_click", {
+                            usdc_balance: usdcBalanceFormatted,
+                          });
+                          handleInputChange(usdcBalanceFormatted);
+                        }}
                         className="h-9 px-3 text-xs font-medium hover:bg-secondary"
                       >
                         MAX

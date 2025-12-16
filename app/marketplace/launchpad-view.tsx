@@ -79,6 +79,7 @@ import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
 import { ArrowRight, HelpCircle } from "lucide-react";
 import { LaunchpadStatsDialog } from "./launchpad-stats-dialog";
 import { MiningStatsDialog } from "./mining-stats-dialog";
+import { trackEvent } from "@/lib/telemetry";
 
 // Extended type for applications with type tagging
 export type TaggedAuctionApplication = AuctionApplication & {
@@ -431,10 +432,18 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
     selectedType,
     zones,
     onZoneChange: (v: string | null) => {
+      trackEvent("marketplace_launchpad_filter_change", {
+        filter: "zone",
+        value: v ?? "all",
+      });
       setZoneParam(v);
       setIsDrawerOpen(false);
     },
     onTypeChange: (v: string) => {
+      trackEvent("marketplace_launchpad_filter_change", {
+        filter: "type",
+        value: v,
+      });
       setTypeParam(v);
       setIsDrawerOpen(false);
     },
@@ -516,7 +525,13 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                 </span>
                 <Select
                   value={selectedType}
-                  onValueChange={(v) => setTypeParam(v)}
+                  onValueChange={(v) => {
+                    trackEvent("marketplace_launchpad_filter_change", {
+                      filter: "type",
+                      value: v,
+                    });
+                    setTypeParam(v);
+                  }}
                 >
                   <SelectTrigger className="w-[160px]">
                     <SelectValue />
@@ -536,7 +551,13 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                 </span>
                 <Select
                   value={selectedZoneId?.toString() || "all"}
-                  onValueChange={(v) => setZoneParam(v === "all" ? null : v)}
+                  onValueChange={(v) => {
+                    trackEvent("marketplace_launchpad_filter_change", {
+                      filter: "zone",
+                      value: v,
+                    });
+                    setZoneParam(v === "all" ? null : v);
+                  }}
                 >
                   <SelectTrigger className="w-[220px]">
                     <SelectValue placeholder="All zones" />
@@ -1317,14 +1338,19 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                       <div className="space-y-3">
                         <Button
                           className="w-full rounded-full h-11"
-                          onClick={() =>
+                          onClick={() => {
+                            trackEvent("marketplace_launchpad_pay_click", {
+                              application_id: application.id,
+                              app_type: application._type,
+                              zone_id: application.zone?.id ?? null,
+                            });
                             onPayDeposit(
                               application,
                               application._type === "miners"
                                 ? miningScore
                                 : rewardScore
-                            )
-                          }
+                            );
+                          }}
                           disabled={
                             application.activeFraction
                               ? application.activeFraction.isFilled ||
@@ -1353,6 +1379,14 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                           variant="outline"
                           className="w-full rounded-full h-11"
                           onClick={() => {
+                            trackEvent(
+                              "marketplace_launchpad_advanced_stats_open",
+                              {
+                                application_id: application.id,
+                                app_type: application._type,
+                                zone_id: application.zone?.id ?? null,
+                              }
+                            );
                             setSelectedApplicationForStats(application);
                             setSelectedRewardScoreForStats(
                               application._type === "miners"

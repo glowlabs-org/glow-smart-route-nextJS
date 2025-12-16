@@ -70,6 +70,7 @@ import { RewardsBreakdownPanel } from "./rewards-breakdown-panel";
 import Image from "next/image";
 import { ConnectButton } from "@/components/connect-button";
 import { DiscordLogoIcon } from "@radix-ui/react-icons";
+import { trackEvent } from "@/lib/telemetry";
 
 // Lazy-load RecentActivity to defer its network work off the critical path
 const RecentActivity = dynamic(
@@ -143,6 +144,9 @@ export default function View() {
   const [isAlreadySubscribed, setIsAlreadySubscribed] = React.useState(false);
   const [isCheckingSubscription, setIsCheckingSubscription] =
     React.useState(false);
+
+  const hasTrackedWalletViewRef = React.useRef(false);
+  const hasTrackedGettingStartedViewRef = React.useRef(false);
 
   // USDC to USDG swap hook
   const { swapUSDCToUSDG } = useSwapUSDCToUSDG();
@@ -374,6 +378,7 @@ export default function View() {
 
       // Clear input and open amount input dialog
       setInputAmount("");
+      trackEvent("wallet_convert_usdc_to_usdg_open");
       setAmountInputDialogOpen(true);
     } catch (error: any) {
       toast.error(error?.message || "Failed to prepare USDC to USDG swap");
@@ -395,6 +400,9 @@ export default function View() {
       return;
     }
 
+    trackEvent("wallet_convert_usdc_to_usdg_submit", {
+      amount: inputAmount,
+    });
     setAmountToConvert(inputAmount);
     setAmountInputDialogOpen(false);
     setUsdcToUsdgDialogOpen(true);
@@ -409,6 +417,7 @@ export default function View() {
 
   // Buy Glow handlers for zero-state
   const handleBuyGlow = () => {
+    trackEvent("wallet_buy_glw_open");
     setBuyGlowDialogOpen(true);
   };
 
@@ -478,8 +487,18 @@ export default function View() {
       );
       const data = await res.json().catch(() => ({}));
       setIsAlreadySubscribed(data?.subscribed === true);
+      trackEvent("wallet_newsletter_check_result", {
+        ok: res.ok,
+        status: res.status,
+        subscribed: data?.subscribed === true,
+      });
     } catch {
       setIsAlreadySubscribed(false);
+      trackEvent("wallet_newsletter_check_result", {
+        ok: false,
+        status: -1,
+        subscribed: false,
+      });
     } finally {
       setIsCheckingSubscription(false);
     }
@@ -501,6 +520,24 @@ export default function View() {
     !hasAnyFarmsOrRewards &&
     !hasGctl &&
     !hasPendingMigrationClaim;
+
+  React.useEffect(() => {
+    if (hasTrackedWalletViewRef.current) return;
+    hasTrackedWalletViewRef.current = true;
+    trackEvent("wallet_view", {
+      connected: isConnected,
+      connector: activeConnector?.id || null,
+    });
+  }, [activeConnector?.id, isConnected]);
+
+  React.useEffect(() => {
+    if (!shouldShowGettingStarted) return;
+    if (hasTrackedGettingStartedViewRef.current) return;
+    hasTrackedGettingStartedViewRef.current = true;
+    trackEvent("wallet_getting_started_view", {
+      connected: isConnected,
+    });
+  }, [isConnected, shouldShowGettingStarted]);
 
   if (isWalletDataLoading) {
     return (
@@ -585,16 +622,23 @@ export default function View() {
     e.preventDefault();
     const email = newsletterEmail.trim();
     if (!email || !email.includes("@")) {
+      trackEvent("wallet_newsletter_submit_blocked", {
+        reason: "invalid_email",
+      });
       toast.error("Please enter a valid email.");
       return;
     }
     if (isAlreadySubscribed) {
+      trackEvent("wallet_newsletter_submit_blocked", {
+        reason: "already_subscribed",
+      });
       toast.info("You're already subscribed!");
       return;
     }
     try {
       setIsNewsletterSubmitting(true);
       setHasNewsletterSuccess(false);
+      trackEvent("wallet_newsletter_submit", { ok: null });
       const res = await fetch("/api/newsletter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -602,13 +646,21 @@ export default function View() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        trackEvent("wallet_newsletter_submit", {
+          ok: false,
+          status: res.status,
+        });
         throw new Error(data?.error || "Failed to subscribe to newsletter");
       }
       toast.success(data?.message || "Successfully subscribed to newsletter");
+      trackEvent("wallet_newsletter_submit", { ok: true, status: res.status });
       setHasNewsletterSuccess(true);
       setNewsletterEmail("");
     } catch (err: any) {
       toast.error(err?.message || "Failed to subscribe. Please try again.");
+      trackEvent("wallet_newsletter_error", {
+        error_message: err?.message || "Failed to subscribe. Please try again.",
+      });
     } finally {
       setIsNewsletterSubmitting(false);
     }
@@ -953,7 +1005,10 @@ export default function View() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={refreshBalances}
+                          onClick={() => {
+                            trackEvent("wallet_refresh_balances_click");
+                            refreshBalances();
+                          }}
                           className="h-6 px-2 text-xs"
                         >
                           <RefreshCw className="w-3 h-3 mr-1" />
@@ -966,7 +1021,10 @@ export default function View() {
                     <Button
                       size="default"
                       variant="outline"
-                      onClick={() => setSendDialogOpen(true)}
+                      onClick={() => {
+                        trackEvent("wallet_send_open");
+                        setSendDialogOpen(true);
+                      }}
                       className="flex-1 sm:flex-initial"
                     >
                       <Send className="w-4 h-4 mr-2" />
@@ -1024,7 +1082,10 @@ export default function View() {
                           <Button
                             size="default"
                             variant="outline"
-                            onClick={() => setSendDialogOpen(true)}
+                            onClick={() => {
+                              trackEvent("wallet_send_open");
+                              setSendDialogOpen(true);
+                            }}
                             className="flex-1 sm:flex-initial"
                           >
                             <Send className="w-4 h-4 mr-2" />
@@ -1103,7 +1164,10 @@ export default function View() {
                         <Button
                           size="default"
                           variant="outline"
-                          onClick={() => setSendDialogOpen(true)}
+                          onClick={() => {
+                            trackEvent("wallet_send_open");
+                            setSendDialogOpen(true);
+                          }}
                           className="flex-1 sm:flex-initial"
                         >
                           <Send className="w-4 h-4 mr-2" />
@@ -1151,6 +1215,7 @@ export default function View() {
                         size="default"
                         variant="outline"
                         onClick={() => {
+                          trackEvent("wallet_manage_staking_click");
                           window.open(
                             "https://impact.glow.org",
                             "_blank",
@@ -1168,7 +1233,10 @@ export default function View() {
                           <Button
                             size="default"
                             variant="outline"
-                            onClick={() => setRegionalBreakdownOpen(true)}
+                            onClick={() => {
+                              trackEvent("wallet_gctl_breakdown_open");
+                              setRegionalBreakdownOpen(true);
+                            }}
                             className="w-full sm:w-auto"
                           >
                             Breakdown
@@ -1376,7 +1444,12 @@ export default function View() {
       {/* Amount Input Dialog */}
       <Dialog
         open={amountInputDialogOpen}
-        onOpenChange={setAmountInputDialogOpen}
+        onOpenChange={(open) => {
+          setAmountInputDialogOpen(open);
+          trackEvent("wallet_convert_usdc_to_usdg_amount_dialog", {
+            open,
+          });
+        }}
       >
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
@@ -1407,6 +1480,7 @@ export default function View() {
                         const maxAmount = usdcBalance
                           ? formatUnits(usdcBalance, DECIMALS_BY_TOKEN.USDC)
                           : "0";
+                        trackEvent("wallet_convert_usdc_to_usdg_max_click");
                         setInputAmount(maxAmount);
                       }}
                       className="h-auto p-0 text-xs font-medium hover:bg-transparent"
@@ -1472,7 +1546,10 @@ export default function View() {
           <DialogFooter className="gap-2 sm:gap-2">
             <Button
               variant="outline"
-              onClick={() => setAmountInputDialogOpen(false)}
+              onClick={() => {
+                trackEvent("wallet_convert_usdc_to_usdg_cancel");
+                setAmountInputDialogOpen(false);
+              }}
               className="flex-1"
             >
               Cancel
@@ -1489,7 +1566,13 @@ export default function View() {
       </Dialog>
 
       {/* Send Dialog */}
-      <SendDialog open={sendDialogOpen} onOpenChange={setSendDialogOpen} />
+      <SendDialog
+        open={sendDialogOpen}
+        onOpenChange={(open) => {
+          setSendDialogOpen(open);
+          trackEvent("wallet_send_dialog", { open });
+        }}
+      />
 
       {/* USDC to USDG Dialog */}
       <UsdcToTokenDialog
@@ -1515,7 +1598,12 @@ export default function View() {
       {/* Regional Breakdown Dialog */}
       <Dialog
         open={regionalBreakdownOpen}
-        onOpenChange={setRegionalBreakdownOpen}
+        onOpenChange={(open) => {
+          setRegionalBreakdownOpen(open);
+          if (!open) {
+            trackEvent("wallet_gctl_breakdown_close");
+          }
+        }}
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -1565,6 +1653,7 @@ export default function View() {
         open={buyGlowDialogOpen}
         onOpenChange={(open) => {
           setBuyGlowDialogOpen(open);
+          trackEvent("wallet_buy_glw_dialog", { open });
           if (!open) {
             refreshBalances();
           }

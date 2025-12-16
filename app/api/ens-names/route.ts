@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http, namehash, isAddress } from "viem";
 import { mainnet } from "viem/chains";
+import { trackServerEvent } from "@/lib/telemetry-server";
 
 const publicClient = createPublicClient({
   chain: mainnet,
@@ -168,11 +169,16 @@ async function batchLookupWithMulticall(addresses: string[]) {
 }
 
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
   try {
     const body = await request.json();
     const { addresses } = body;
 
     if (!addresses || !Array.isArray(addresses)) {
+      await trackServerEvent("api_ens_names_invalid", {
+        duration_ms: Date.now() - startedAt,
+        reason: "addresses_array_required",
+      });
       return NextResponse.json(
         { error: "Invalid request, addresses array required" },
         { status: 400 }
@@ -180,14 +186,33 @@ export async function POST(request: NextRequest) {
     }
 
     if (addresses.length === 0) {
+      await trackServerEvent("api_ens_names_success", {
+        duration_ms: Date.now() - startedAt,
+        addresses_count: 0,
+        ens_found_count: 0,
+      });
       return NextResponse.json({ ensNames: {} });
     }
 
+    await trackServerEvent("api_ens_names_request", {
+      addresses_count: addresses.length,
+    });
     const ensNames = await batchLookupWithMulticall(addresses);
+    const ensFoundCount = Object.values(ensNames).filter(Boolean).length;
+
+    await trackServerEvent("api_ens_names_success", {
+      duration_ms: Date.now() - startedAt,
+      addresses_count: addresses.length,
+      ens_found_count: ensFoundCount,
+    });
 
     return NextResponse.json({ ensNames });
   } catch (error) {
     console.error("Error in ENS API route:", error);
+    await trackServerEvent("api_ens_names_error", {
+      duration_ms: Date.now() - startedAt,
+      error_name: error instanceof Error ? error.name : "unknown",
+    });
     return NextResponse.json(
       { error: "Failed to fetch ENS names" },
       { status: 500 }

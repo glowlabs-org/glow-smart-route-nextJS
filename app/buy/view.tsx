@@ -70,6 +70,7 @@ import { ContributeDialog } from "@/components/dialogs/ContributeDialog";
 import { StatsSidebar } from "./stats-sidebar";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
+import { trackEvent } from "@/lib/telemetry";
 
 export const tokens = {
   USDG: {
@@ -350,8 +351,19 @@ export default function View({
           6
         )} ${selectedTokenBuy.label}`
       );
+      trackEvent("buy_swap_result", {
+        ok: true,
+        sell_token: selectedTokenSell.label,
+        buy_token: selectedTokenBuy.label,
+      });
     } else {
       toast.error(data.val);
+      trackEvent("buy_swap_result", {
+        ok: false,
+        sell_token: selectedTokenSell.label,
+        buy_token: selectedTokenBuy.label,
+        error_message: data.val,
+      });
     }
   }
 
@@ -406,6 +418,10 @@ export default function View({
                 cancel: {
                   label: "No",
                   onClick: () => {
+                    trackEvent("buy_usdc_to_token_dialog_open", {
+                      sell_token: selectedTokenSell.label,
+                      buy_token: selectedTokenBuy.label,
+                    });
                     setIsDialogOpen(true);
                     toast.dismiss();
                   },
@@ -482,8 +498,16 @@ export default function View({
               // Check for smart account before proceeding
               const isSmartAccount = await checkSmartAccountBeforeSwap();
               if (isSmartAccount) {
+                trackEvent("buy_swap_blocked_smart_account", {
+                  sell_token: selectedTokenSell.label,
+                  buy_token: selectedTokenBuy.label,
+                });
                 return; // Block the swap if smart account is detected
               }
+              trackEvent("buy_usdc_to_token_dialog_open", {
+                sell_token: selectedTokenSell.label,
+                buy_token: selectedTokenBuy.label,
+              });
               setIsDialogOpen(true);
             },
           };
@@ -506,8 +530,16 @@ export default function View({
             // Check for smart account before proceeding
             const isSmartAccount = await checkSmartAccountBeforeSwap();
             if (isSmartAccount) {
+              trackEvent("buy_swap_blocked_smart_account", {
+                sell_token: selectedTokenSell.label,
+                buy_token: selectedTokenBuy.label,
+              });
               return; // Block the swap if smart account is detected
             }
+            trackEvent("buy_usdc_to_token_dialog_open", {
+              sell_token: selectedTokenSell.label,
+              buy_token: selectedTokenBuy.label,
+            });
             setIsDialogOpen(true);
           },
         };
@@ -522,8 +554,16 @@ export default function View({
             // Check for smart account before proceeding
             const isSmartAccount = await checkSmartAccountBeforeSwap();
             if (isSmartAccount) {
+              trackEvent("buy_swap_blocked_smart_account", {
+                sell_token: selectedTokenSell.label,
+                buy_token: selectedTokenBuy.label,
+              });
               return; // Block the swap if smart account is detected
             }
+            trackEvent("buy_usdc_to_token_dialog_open", {
+              sell_token: selectedTokenSell.label,
+              buy_token: selectedTokenBuy.label,
+            });
             setIsDialogOpen(true);
           },
         };
@@ -549,8 +589,16 @@ export default function View({
             // Check for smart account before proceeding
             const isSmartAccount = await checkSmartAccountBeforeSwap();
             if (isSmartAccount) {
+              trackEvent("buy_swap_blocked_smart_account", {
+                sell_token: selectedTokenSell.label,
+                buy_token: selectedTokenBuy.label,
+              });
               return; // Block the swap if smart account is detected
             }
+            trackEvent("buy_glow_to_usdc_dialog_open", {
+              sell_token: selectedTokenSell.label,
+              buy_token: selectedTokenBuy.label,
+            });
             setIsGlowToUsdcDialogOpen(true);
           },
         };
@@ -570,6 +618,10 @@ export default function View({
     // Check for smart account before proceeding
     const isSmartAccount = await checkSmartAccountBeforeSwap();
     if (isSmartAccount) {
+      trackEvent("buy_swap_blocked_smart_account", {
+        sell_token: selectedTokenSell.label,
+        buy_token: selectedTokenBuy.label,
+      });
       return; // Block the swap if smart account is detected
     }
 
@@ -633,6 +685,10 @@ export default function View({
         selectedTokenSell.label === "USDG"
       ) {
         // Open the USDG to USDC redemption dialog instead of executing directly
+        trackEvent("buy_usdg_redemption_dialog_open", {
+          sell_token: selectedTokenSell.label,
+          buy_token: selectedTokenBuy.label,
+        });
         setIsUsdgToUsdcRedemptionDialogOpen(true);
         setPendingTx(false);
         return;
@@ -641,6 +697,10 @@ export default function View({
         selectedTokenSell.label === "GLOW"
       ) {
         // Open the GLOW to USDC dialog instead of executing directly
+        trackEvent("buy_glow_to_usdc_dialog_open", {
+          sell_token: selectedTokenSell.label,
+          buy_token: selectedTokenBuy.label,
+        });
         setIsGlowToUsdcDialogOpen(true);
         setPendingTx(false);
         return;
@@ -696,6 +756,11 @@ export default function View({
             address as `0x${string}`,
             selectedTokenSell.label === "USDC" ? "USDC" : "USDG"
           );
+          trackEvent("buy_gctl_mint_submitted", {
+            tx_hash: txHash,
+            pay_token: selectedTokenSell.label,
+            pay_amount: amountToSell,
+          });
 
           // Close pre-transaction dialog once tx is sent
           setIsGctlPreTxSubmitting(false);
@@ -802,6 +867,12 @@ export default function View({
       }
 
       toast.error(errorMessage);
+      trackEvent("buy_swap_result", {
+        ok: false,
+        sell_token: selectedTokenSell.label,
+        buy_token: selectedTokenBuy.label,
+        error_message: errorMessage,
+      });
     }
   };
 
@@ -1586,7 +1657,22 @@ export default function View({
                                 isEstimateLoading ||
                                 balancesLoading
                           }
-                          onClick={buttonProps.callback}
+                          onClick={async () => {
+                            const isSwapAction =
+                              buttonProps.label === "SWAP" ||
+                              buttonProps.label === "BUY" ||
+                              buttonProps.label === "CONVERT USDC TO USDG";
+                            if (isSwapAction) {
+                              trackEvent("buy_swap_click", {
+                                sell_token: selectedTokenSell.label,
+                                buy_token: selectedTokenBuy.label,
+                                amount_in: amountToSell,
+                                slippage_pct: slippageTolerance,
+                                has_network_issues: hasNetworkIssues,
+                              });
+                            }
+                            await Promise.resolve(buttonProps.callback?.());
+                          }}
                           className="w-full h-12 lg:h-16"
                         >
                           {pendingTx && (
