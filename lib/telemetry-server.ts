@@ -1,4 +1,6 @@
 import { track } from "@vercel/analytics/server";
+import { NextRequest } from "next/server";
+import { getGeoContextFromRequest as getGeoContext } from "@/lib/geo-context";
 
 export interface TelemetryData {
   [key: string]: string | number | boolean | null;
@@ -46,7 +48,9 @@ function sanitizeValue(
   return value;
 }
 
-function sanitizeData(data?: Record<string, unknown>): TelemetryData | undefined {
+function sanitizeData(
+  data?: Record<string, unknown>
+): TelemetryData | undefined {
   if (!data) return undefined;
   const out: TelemetryData = {};
   for (const [k, v] of Object.entries(data)) {
@@ -76,4 +80,6 @@ export async function trackServerEvent(
   }
 }
 
-
+export function getGeoContextFromRequest(request: NextRequest) {
+  return getGeoContext(request);
+}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { trackServerEvent } from "@/lib/telemetry-server";
+import { getGeoContextFromRequest, trackServerEvent } from "@/lib/telemetry-server";
 
 // Simple in-memory rate limiter
 const rateLimit = new Map<string, { count: number; resetTime: number }>();
@@ -46,6 +46,7 @@ const BREVO_API_BASE = "https://api.brevo.com/v3";
 
 export async function POST(request: NextRequest) {
   const startedAt = Date.now();
+  const geo = getGeoContextFromRequest(request);
   try {
     // Get client IP for rate limiting
     const ip =
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
     if (!checkRateLimit(ip)) {
       await trackServerEvent("api_newsletter_subscribe_rate_limited", {
         duration_ms: Date.now() - startedAt,
+        ...(geo || {}),
       });
       return NextResponse.json(
         { error: "Too many requests. Please try again later." },
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest) {
       await trackServerEvent("api_newsletter_subscribe_invalid", {
         duration_ms: Date.now() - startedAt,
         reason: "email_required",
+        ...(geo || {}),
       });
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
@@ -82,6 +85,7 @@ export async function POST(request: NextRequest) {
       await trackServerEvent("api_newsletter_subscribe_invalid", {
         duration_ms: Date.now() - startedAt,
         reason: "invalid_email_format",
+        ...(geo || {}),
       });
       return NextResponse.json(
         { error: "Invalid email format" },
@@ -95,6 +99,7 @@ export async function POST(request: NextRequest) {
       await trackServerEvent("api_newsletter_subscribe_error", {
         duration_ms: Date.now() - startedAt,
         stage: "missing_brevo_token",
+        ...(geo || {}),
       });
       return NextResponse.json(
         { error: "Newsletter service is not configured" },
@@ -105,6 +110,7 @@ export async function POST(request: NextRequest) {
     await trackServerEvent("api_newsletter_subscribe_request", {
       duration_ms: Date.now() - startedAt,
       has_email: true,
+      ...(geo || {}),
     });
 
     // Create or update the contact in Brevo (subscribe = not blacklisted)
@@ -135,6 +141,7 @@ export async function POST(request: NextRequest) {
           duration_ms: Date.now() - startedAt,
           stage: "brevo_400",
           provider_status: response.status,
+          ...(geo || {}),
         });
         return NextResponse.json(
           { error: body?.message || "Invalid request" },
@@ -146,6 +153,7 @@ export async function POST(request: NextRequest) {
           duration_ms: Date.now() - startedAt,
           stage: "brevo_401",
           provider_status: response.status,
+          ...(geo || {}),
         });
         return NextResponse.json(
           { error: "Authentication failed with newsletter provider" },
@@ -157,6 +165,7 @@ export async function POST(request: NextRequest) {
           duration_ms: Date.now() - startedAt,
           stage: "brevo_425",
           provider_status: response.status,
+          ...(geo || {}),
         });
         return NextResponse.json(
           { error: "Please try again shortly" },
@@ -168,6 +177,7 @@ export async function POST(request: NextRequest) {
         duration_ms: Date.now() - startedAt,
         stage: "brevo_unknown",
         provider_status: response.status,
+        ...(geo || {}),
       });
       return NextResponse.json(
         { error: body?.message || "Failed to subscribe. Please try again." },
@@ -177,6 +187,7 @@ export async function POST(request: NextRequest) {
 
     await trackServerEvent("api_newsletter_subscribe_success", {
       duration_ms: Date.now() - startedAt,
+      ...(geo || {}),
     });
     return NextResponse.json(
       { message: "Successfully subscribed to newsletter" },
@@ -188,6 +199,7 @@ export async function POST(request: NextRequest) {
       duration_ms: Date.now() - startedAt,
       stage: "exception",
       error_name: error instanceof Error ? error.name : "unknown",
+      ...(geo || {}),
     });
 
     return NextResponse.json(
@@ -199,6 +211,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const startedAt = Date.now();
+  const geo = getGeoContextFromRequest(request);
   try {
     const { searchParams } = new URL(request.url);
     const email = searchParams.get("email");
@@ -207,6 +220,7 @@ export async function GET(request: NextRequest) {
       await trackServerEvent("api_newsletter_check_invalid", {
         duration_ms: Date.now() - startedAt,
         reason: "email_required",
+        ...(geo || {}),
       });
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
@@ -217,6 +231,7 @@ export async function GET(request: NextRequest) {
       await trackServerEvent("api_newsletter_check_invalid", {
         duration_ms: Date.now() - startedAt,
         reason: "invalid_email_format",
+        ...(geo || {}),
       });
       return NextResponse.json(
         { error: "Invalid email format" },
@@ -228,6 +243,7 @@ export async function GET(request: NextRequest) {
       await trackServerEvent("api_newsletter_check_error", {
         duration_ms: Date.now() - startedAt,
         stage: "missing_brevo_token",
+        ...(geo || {}),
       });
       return NextResponse.json(
         { error: "Newsletter service is not configured" },
@@ -238,6 +254,7 @@ export async function GET(request: NextRequest) {
     await trackServerEvent("api_newsletter_check_request", {
       duration_ms: Date.now() - startedAt,
       has_email: true,
+      ...(geo || {}),
     });
 
     // Check if contact exists in Brevo
@@ -257,6 +274,7 @@ export async function GET(request: NextRequest) {
         duration_ms: Date.now() - startedAt,
         subscribed: false,
         provider_status: response.status,
+        ...(geo || {}),
       });
       return NextResponse.json({ subscribed: false }, { status: 200 });
     }
@@ -266,6 +284,7 @@ export async function GET(request: NextRequest) {
         duration_ms: Date.now() - startedAt,
         stage: "brevo_not_ok",
         provider_status: response.status,
+        ...(geo || {}),
       });
       return NextResponse.json({ subscribed: false }, { status: 200 });
     }
@@ -280,6 +299,7 @@ export async function GET(request: NextRequest) {
       duration_ms: Date.now() - startedAt,
       subscribed: isSubscribed,
       provider_status: response.status,
+      ...(geo || {}),
     });
     return NextResponse.json({ subscribed: isSubscribed }, { status: 200 });
   } catch (error: any) {
@@ -288,6 +308,7 @@ export async function GET(request: NextRequest) {
       duration_ms: Date.now() - startedAt,
       stage: "exception",
       error_name: error instanceof Error ? error.name : "unknown",
+      ...(geo || {}),
     });
     return NextResponse.json({ subscribed: false }, { status: 200 });
   }

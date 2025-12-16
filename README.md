@@ -21,3 +21,6 @@ consistent with `revalidate` in the root `page.tsx` of the project. The current 
 
 ## Deployment
 This server is best deployed through Vercel, or any PaaS that supports NextJS.
+
+## Telemetry
+See `TELEMETRY.md`.
