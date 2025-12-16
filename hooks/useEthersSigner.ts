@@ -37,7 +37,13 @@ export function useEthersSigner({ chainId }: { chainId?: number } = {}) {
     return () => {
       isMounted = false;
     };
-  }, [walletClient]);
+  }, [
+    (walletClient as any)?.chain?.id,
+    walletClient?.account?.address,
+    (walletClient as any)?.transport?.config?.key,
+    (walletClient as any)?.transport?.config?.name,
+    (walletClient as any)?.transport?.config?.type,
+  ]);
 
   return {
     signer,

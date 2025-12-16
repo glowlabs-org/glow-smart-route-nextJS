@@ -1734,7 +1734,7 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
                   return (
                     <Collapsible
                       key={`${weekData.week}-${isClaimed}`}
-                      defaultOpen={!isClaimed && isClaimable}
+                      defaultOpen={false}
                       className={cn(
                         "border rounded-xl transition-all shadow-sm hover:shadow-md",
                         isClaimed && "opacity-60 bg-muted/20"
