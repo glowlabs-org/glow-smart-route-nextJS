@@ -114,6 +114,7 @@ export function BuyGlowDialog({
   const [pendingStates, setPendingStates] = React.useState<PendingState[]>([]);
   const [txHash, setTxHash] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const hasPrefilledForOpenRef = React.useRef(false);
 
   const {
     getSmartBalancingAmounts,
@@ -212,6 +213,20 @@ export function BuyGlowDialog({
     },
     [runEstimate]
   );
+
+  React.useEffect(() => {
+    if (!open) {
+      hasPrefilledForOpenRef.current = false;
+      return;
+    }
+    if (hasPrefilledForOpenRef.current) return;
+    if (phase !== "input") return;
+    if (inputAmount) return; // never overwrite manual edits
+
+    if (!defaultUsdcAmount) return;
+    hasPrefilledForOpenRef.current = true;
+    handleInputChange(defaultUsdcAmount);
+  }, [open, defaultUsdcAmount, phase, inputAmount, handleInputChange]);
 
   const pricePerGlw = React.useMemo(() => {
     if (!inputAmount || !estimatedGlw || Number(estimatedGlw) === 0)
@@ -356,6 +371,7 @@ export function BuyGlowDialog({
 
   const handleClose = React.useCallback(() => {
     onOpenChange(false);
+    hasPrefilledForOpenRef.current = false;
     // setTimeout needed for dialog close animation to complete before resetting state
     setTimeout(() => {
       setPhase("input");
@@ -493,6 +509,11 @@ export function BuyGlowDialog({
                       })}{" "}
                       USDC
                     </div>
+                    {Number(usdcBalanceFormatted) === 0 && (
+                      <div className="text-sm text-muted-foreground">
+                        You need USDC in this wallet to buy GLW.
+                      </div>
+                    )}
                   </div>
                 </div>
 

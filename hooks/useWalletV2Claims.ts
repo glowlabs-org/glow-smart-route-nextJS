@@ -58,25 +58,31 @@ export function useWalletV2Claims(
 ): WalletV2ClaimsResult {
   const currentEpoch = getCurrentEpoch();
 
-  const { data, isLoading, isError, error } = useQuery<WalletWeeklyRewardsResponse | null>({
-    queryKey: QUERY_KEY.v2Claims(walletAddress),
-    enabled: Boolean(walletAddress),
-    staleTime: 30_000,
-    gcTime: 5 * 60_000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    queryFn: async () => {
-      if (!walletAddress) return null;
-      return walletsRouter.fetchWalletWeeklyRewards(walletAddress, {
-        endWeek: currentEpoch - 1,
-        limit: 150,
-      });
-    },
-  });
+  const { data, isLoading, isError, error } =
+    useQuery<WalletWeeklyRewardsResponse | null>({
+      queryKey: QUERY_KEY.v2Claims(walletAddress),
+      enabled: Boolean(walletAddress),
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      refetchOnMount: true,
+      queryFn: async () => {
+        if (!walletAddress) return null;
+        return walletsRouter.fetchWalletWeeklyRewards(walletAddress, {
+          endWeek: currentEpoch - 1,
+          limit: 150,
+        });
+      },
+    });
 
   const processed = React.useMemo(() => {
     if (!data?.rewards?.length) {
-      return { claims: [] as WalletV2Claim[], totals: {} as Record<string, number> };
+      return {
+        protocolClaims: [],
+        protocolTotals: {},
+        inflationClaims: [],
+        inflationTotalGlw: 0,
+      };
     }
 
     const protocolTotals: Record<string, number> = {};
@@ -147,4 +153,3 @@ export function useWalletV2Claims(
     inflationTotalGlw: processed.inflationTotalGlw,
   };
 }
-
