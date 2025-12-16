@@ -31,6 +31,7 @@ import Link from "next/link";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
+import { trackEvent } from "@/lib/telemetry";
 
 const BUY_GLOW_USDC_BUFFER = new Decimal(1);
 
@@ -393,9 +394,22 @@ export function DepositDialog({
           ? "Missing required information for purchase"
           : "Missing required information for delegation"
       );
+      trackEvent("marketplace_deposit_error", {
+        stage: "precondition",
+        currency,
+        application_id: application?.id ?? null,
+        fraction_id: application?.activeFraction?.id ?? null,
+        error_message: "Missing required information for purchase/delegation",
+      });
       return;
     }
 
+    let stage:
+      | "balance_check"
+      | "buy_fractions"
+      | "confirm_splits"
+      | "refresh_balances"
+      | "sponsor_mutation" = "balance_check";
     try {
       setIsSubmitting(true);
       setIsError(false);
@@ -421,6 +435,7 @@ export function DepositDialog({
       const totalNeeded = pricePerStep * BigInt(stepsToBuy);
 
       // Check token balance
+      stage = "balance_check";
       const tokenBalance = await fractions.checkTokenBalance(
         userAddress,
         tokenAddress
@@ -438,6 +453,7 @@ export function DepositDialog({
         );
       }
 
+      stage = "buy_fractions";
       const txHash = await fractions.buyFractions({
         creator: activeFraction.owner,
         id: activeFraction.id,
@@ -451,8 +467,17 @@ export function DepositDialog({
       setTxHash(txHash);
       setIsSubmitting(false);
       setIsProcessing(true);
+      trackEvent("marketplace_deposit_tx_submitted", {
+        tx_hash: txHash,
+        currency,
+        application_id: application.id,
+        fraction_id: activeFraction.id,
+        steps_to_buy: stepsToBuy,
+        total_needed_base_units: totalNeeded.toString(),
+      });
 
       // Refresh splits immediately to start polling
+      stage = "confirm_splits";
       await refetchSplits();
 
       // Poll splits until we see the purchase reflected
@@ -493,8 +518,16 @@ export function DepositDialog({
       // Only set success after confirmation
       setIsProcessing(false);
       setIsSuccess(true);
+      trackEvent("marketplace_deposit_confirmed", {
+        tx_hash: txHash,
+        currency,
+        application_id: application.id,
+        fraction_id: activeFraction.id,
+        steps_to_buy: stepsToBuy,
+      });
 
       // Refresh balances
+      stage = "refresh_balances";
       if (isUSDC) {
         await refetchUsdcBalance();
       } else {
@@ -502,6 +535,7 @@ export function DepositDialog({
       }
 
       // Trigger the mutation to invalidate queries
+      stage = "sponsor_mutation";
       await sponsorMutation.mutateAsync({
         applicationId: application.id,
         amount: totalNeeded,
@@ -549,10 +583,28 @@ export function DepositDialog({
       setTxHash(error?.txHash ?? null);
       console.error("handleStepPurchase error", error);
       toast.error(message);
+      trackEvent("marketplace_deposit_error", {
+        stage:
+          typeof stage === "string"
+            ? stage
+            : "unknown",
+        currency,
+        application_id: application?.id ?? null,
+        fraction_id: application?.activeFraction?.id ?? null,
+        steps_to_buy: stepsToBuy,
+        error_message: message,
+        tx_hash: error?.txHash ?? txHash ?? null,
+      });
     }
   }
 
   async function handleConfirm() {
+    trackEvent("marketplace_deposit_confirm_click", {
+      currency,
+      application_id: application?.id ?? null,
+      fraction_id: application?.activeFraction?.id ?? null,
+      steps_to_buy: stepsToBuy,
+    });
     // Block if smart/delegated account detected
     setIsCheckingSmartAccount(true);
     try {
@@ -570,12 +622,27 @@ export function DepositDialog({
             status.hasWalletAABatching);
         if (isSmartAccount) {
           setIsSmartAccountWarningOpen(true);
+          trackEvent("marketplace_deposit_blocked_smart_account", {
+            currency,
+            application_id: application?.id ?? null,
+            fraction_id: application?.activeFraction?.id ?? null,
+            steps_to_buy: stepsToBuy,
+          });
           return; // Do not proceed
         }
       }
     } catch (error) {
       console.error("Smart account check failed:", error);
       // If the check fails, allow proceeding to avoid blocking legitimate users
+      trackEvent("marketplace_deposit_error", {
+        stage: "smart_account_check",
+        currency,
+        application_id: application?.id ?? null,
+        fraction_id: application?.activeFraction?.id ?? null,
+        steps_to_buy: stepsToBuy,
+        error_message:
+          error instanceof Error ? error.message : "Smart account check failed",
+      });
     } finally {
       setIsCheckingSmartAccount(false);
     }
@@ -1144,7 +1211,21 @@ export function DepositDialog({
                     variant="outline"
                     size="sm"
                     className="w-full"
-                    onClick={() => setIsBuyGlowDialogOpen(true)}
+                    onClick={() => {
+                      trackEvent("marketplace_deposit_buy_glw_click", {
+                        currency,
+                        application_id: application?.id ?? null,
+                        fraction_id: application?.activeFraction?.id ?? null,
+                        steps_to_buy: stepsToBuy,
+                        estimated_usdc_needed:
+                          estimatedUsdcNeededRounded?.toString() ?? null,
+                      });
+                      setIsBuyGlowDialogOpen(true);
+                      trackEvent("marketplace_deposit_buy_glw_dialog_open", {
+                        application_id: application?.id ?? null,
+                        fraction_id: application?.activeFraction?.id ?? null,
+                      });
+                    }}
                   >
                     Buy GLW
                   </Button>

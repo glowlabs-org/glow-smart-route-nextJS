@@ -52,6 +52,7 @@ import {
 } from "@/components/dialogs/transaction-dialog";
 import { getCurrentEpoch, GENESIS_TIMESTAMP } from "@/utils/getCurrentEpoch";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
+import { trackEvent } from "@/lib/telemetry";
 
 // Currency configurations
 const CURRENCY_CONFIG = {
@@ -184,12 +185,24 @@ function WeekClaimButton({
   } = useMerkleProofs(weekData.week, address);
 
   const handleOpenDialog = React.useCallback(() => {
+    trackEvent("wallet_claim_week_click", {
+      week: weekData.week,
+      claim_type: claimType,
+    });
     if (!isConnected) {
+      trackEvent("wallet_claim_week_blocked", {
+        week: weekData.week,
+        reason: "not_connected",
+      });
       toast.info("Connect your wallet to claim rewards.");
       return;
     }
 
     if (!userProof) {
+      trackEvent("wallet_claim_week_blocked", {
+        week: weekData.week,
+        reason: "no_proof",
+      });
       toast.error("No rewards found for your address in this week");
       return;
     }
@@ -202,10 +215,19 @@ function WeekClaimButton({
     }
 
     if (rewardsToClaim.length === 0) {
+      trackEvent("wallet_claim_week_blocked", {
+        week: weekData.week,
+        reason: "no_rewards",
+      });
       toast.info("No rewards available to claim for this selection");
       return;
     }
 
+    trackEvent("wallet_claim_dialog_open", {
+      week: weekData.week,
+      claim_type: claimType,
+      rewards_count: rewardsToClaim.length,
+    });
     onInitiateClaim({
       weekData,
       claimType,
@@ -599,11 +621,20 @@ function WeekRewardsContent({
   const handleClaimReward = React.useCallback(
     async (reward: ClaimableReward, isInflation: boolean) => {
       if (!address || !userProof) {
+        trackEvent("wallet_claim_single_reward_blocked", {
+          week: weekData.week,
+          reason: "missing_proof_or_address",
+        });
         toast.error("No proof found for this week");
         return;
       }
 
       const rewardType = isInflation ? "inflation" : "protocolDeposit";
+      trackEvent("wallet_claim_single_reward_click", {
+        week: weekData.week,
+        reward_type: rewardType,
+        currency: reward.currency,
+      });
       setClaimingRewardType(rewardType);
 
       try {
@@ -631,9 +662,22 @@ function WeekRewardsContent({
               isInflation ? "Inflation" : "Protocol Deposit"
             } rewards for week ${weekData.week}`
           );
+          trackEvent("wallet_claim_single_reward_result", {
+            week: weekData.week,
+            reward_type: rewardType,
+            ok: true,
+            tx_hash: txHash,
+          });
           if (onClaimSuccess) {
             onClaimSuccess();
           }
+        } else {
+          trackEvent("wallet_claim_single_reward_result", {
+            week: weekData.week,
+            reward_type: rewardType,
+            ok: false,
+            reason: "no_tx_hash",
+          });
         }
       } catch (error: any) {
         console.error("Claim error:", error);
@@ -645,6 +689,12 @@ function WeekRewardsContent({
             description: error?.message || "Unknown error",
           }
         );
+        trackEvent("wallet_claim_single_reward_result", {
+          week: weekData.week,
+          reward_type: rewardType,
+          ok: false,
+          error_name: error instanceof Error ? error.name : "unknown",
+        });
       } finally {
         setClaimingRewardType(null);
       }
@@ -817,6 +867,9 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
     });
   const claimStageStatusesRef = React.useRef<ClaimStageMap>(claimStageStatuses);
 
+  const trackedStageUpdatesRef = React.useRef<Set<string>>(new Set());
+  const trackedStageTxRef = React.useRef<Set<string>>(new Set());
+
   const handleClaimStatusChange = React.useCallback(
     (week: number, status: ClaimStatusSummary) => {
       setV1ClaimedWeeks((prev) => {
@@ -979,10 +1032,37 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
       claimStageStatusesRef.current = next;
       return next;
     });
-  }, []);
+
+    if (activeClaim) {
+      const key = `${activeClaim.weekData.week}:${update.stage}:${update.status}`;
+      if (!trackedStageUpdatesRef.current.has(key)) {
+        trackedStageUpdatesRef.current.add(key);
+        trackEvent("wallet_claim_stage_update", {
+          week: activeClaim.weekData.week,
+          stage: update.stage,
+          status: update.status,
+          has_tx_hash: Boolean(update.txHash),
+        });
+      }
+
+      if (update.txHash) {
+        const txKey = `${activeClaim.weekData.week}:${update.stage}`;
+        if (!trackedStageTxRef.current.has(txKey)) {
+          trackedStageTxRef.current.add(txKey);
+          trackEvent("wallet_claim_tx_submitted", {
+            week: activeClaim.weekData.week,
+            stage: update.stage,
+            tx_hash: update.txHash,
+          });
+        }
+      }
+    }
+  }, [activeClaim]);
 
   const handleInitiateClaim = React.useCallback(
     (payload: ClaimInitiationPayload) => {
+      trackedStageUpdatesRef.current = new Set();
+      trackedStageTxRef.current = new Set();
       const initialStatuses = createInitialStageState(payload);
       claimStageStatusesRef.current = initialStatuses;
       setClaimStageStatuses(initialStatuses);
@@ -1001,20 +1081,37 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
         if (claimDialogStatus === "processing") {
           return;
         }
+        if (activeClaim) {
+          trackEvent("wallet_claim_dialog_close", {
+            week: activeClaim.weekData.week,
+            claim_type: activeClaim.claimType,
+            status: claimDialogStatus,
+          });
+        }
         resetClaimDialog();
       } else {
         setIsClaimDialogOpen(true);
       }
     },
-    [claimDialogStatus, resetClaimDialog]
+    [activeClaim, claimDialogStatus, resetClaimDialog]
   );
 
   const handleConfirmClaim = React.useCallback(async () => {
     if (!activeClaim) return;
 
+    trackEvent("wallet_claim_confirm_click", {
+      week: activeClaim.weekData.week,
+      claim_type: activeClaim.claimType,
+      rewards_count: activeClaim.rewardsToClaim.length,
+    });
+
     // Check for smart account before proceeding
     const isSmartAccount = await checkSmartAccount();
     if (isSmartAccount) {
+      trackEvent("wallet_claim_blocked", {
+        week: activeClaim.weekData.week,
+        reason: "smart_account",
+      });
       setShowSmartAccountWarning(true);
       setTriggerSmartAccountCheck(true);
       return;
@@ -1023,6 +1120,11 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
     setClaimDialogStatus("processing");
     setClaimDialogError(null);
     setClaimDialogInfo(null);
+
+    trackEvent("wallet_claim_processing_start", {
+      week: activeClaim.weekData.week,
+      claim_type: activeClaim.claimType,
+    });
 
     const hotWalletAddress = getHotWalletAddress();
     const v1Proof = activeClaim.userProof.v1MerkleProof.map(
@@ -1068,6 +1170,13 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
         if (hasSuccess && onClaimSuccess) {
           onClaimSuccess();
         }
+
+        trackEvent("wallet_claim_result", {
+          week: activeClaim.weekData.week,
+          result: allSkipped ? "skipped" : "success",
+          inflation_status: inflationStatus,
+          protocol_status: protocolStatus,
+        });
       } else {
         setClaimDialogStatus("error");
         setClaimDialogError(
@@ -1075,6 +1184,13 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
             ? "Some rewards failed to claim. You can retry the remaining items."
             : "We were unable to complete your claim. Please try again."
         );
+
+        trackEvent("wallet_claim_result", {
+          week: activeClaim.weekData.week,
+          result: hasSuccess ? "partial_error" : "error",
+          inflation_status: inflationStatus,
+          protocol_status: protocolStatus,
+        });
       }
     } catch (error: any) {
       console.error("Claim confirmation error:", error);
@@ -1083,6 +1199,11 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
         error?.message ||
           "We were unable to complete your claim. Please try again."
       );
+      trackEvent("wallet_claim_result", {
+        week: activeClaim.weekData.week,
+        result: "exception",
+        error_name: error instanceof Error ? error.name : "unknown",
+      });
     } finally {
       refetch();
     }
@@ -1380,9 +1501,14 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
   const handleClaimAll = async () => {
     if (!address || weeklyBreakdown.length === 0) return;
 
+    trackEvent("wallet_claim_all_click", {
+      total_weeks: weeklyBreakdown.length,
+    });
+
     // Check for smart account before proceeding
     const isSmartAccount = await checkSmartAccount();
     if (isSmartAccount) {
+      trackEvent("wallet_claim_all_blocked", { reason: "smart_account" });
       setShowSmartAccountWarning(true);
       setTriggerSmartAccountCheck(true);
       return;
@@ -1440,6 +1566,10 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
 
     if (weeklyClaimData.length === 0) {
       toast.error("No claimable rewards found");
+      trackEvent("wallet_claim_all_result", {
+        ok: false,
+        reason: "no_claimable_weeks",
+      });
       return;
     }
 
@@ -1456,9 +1586,18 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
           onClaimSuccess();
         }
       }
+
+      trackEvent("wallet_claim_all_result", {
+        ok: successfulTxHashes.length > 0,
+        weeks_claimed: successfulTxHashes.length,
+      });
     } catch (error) {
       console.error("Claim all error:", error);
       toast.error("Failed to claim rewards");
+      trackEvent("wallet_claim_all_result", {
+        ok: false,
+        error_name: error instanceof Error ? error.name : "unknown",
+      });
     }
   };
 
