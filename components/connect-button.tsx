@@ -3,7 +3,7 @@ import { Loader2, Wallet } from "lucide-react";
 import { useAccount, useChainId } from "wagmi";
 import clsx from "clsx";
 import * as React from "react";
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ConnectKitButton } from "connectkit";
 import { Account } from "./account";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -22,6 +22,11 @@ export const ConnectButton = ({
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const onConnectRef = useRef(onConnect);
+
+  useEffect(() => {
+    onConnectRef.current = onConnect;
+  }, [onConnect]);
 
   // Check if on wrong network (assuming mainnet or sepolia are supported)
   const isWrongNetwork =
@@ -29,10 +34,9 @@ export const ConnectButton = ({
 
   // Call onConnect when wallet connects
   useEffect(() => {
-    if (isConnected && onConnect) {
-      onConnect();
-    }
-  }, [isConnected, onConnect]);
+    if (!isConnected) return;
+    onConnectRef.current?.();
+  }, [isConnected]);
 
   // Use ConnectKitButton which handles all wallet connection logic
   // Customize it with our styling and account modal

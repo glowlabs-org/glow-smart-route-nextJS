@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { useWalletClient } from "wagmi";
-import { parseAbi, type WalletClient } from "viem";
+import { useEffect, useMemo, useRef } from "react";
+import { type UseWalletClientReturnType, useWalletClient } from "wagmi";
+import { parseAbi } from "viem";
 import { EarlyLiquidityABI, USDGABI } from "@glowlabs-org/guarded-launch-abis";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { getAddresses } from "@glowlabs-org/utils/browser";
@@ -18,11 +18,22 @@ const erc20Abi = parseAbi([
 ]);
 
 type AnyAddress = `0x${string}`;
+type WalletClientFromWagmi = NonNullable<UseWalletClientReturnType["data"]>;
 
 export function useContracts(_signer: any) {
   const { data: walletClient } = useWalletClient();
+  const walletClientRef = useRef<WalletClientFromWagmi | null>(null);
 
-  const [isReady, setIsReady] = useState(false);
+  useEffect(() => {
+    walletClientRef.current = walletClient ?? null;
+  }, [walletClient]);
+
+  const walletClientKey = useMemo(() => {
+    const chainId = (walletClient as any)?.chain?.id;
+    const address = walletClient?.account?.address;
+    if (!chainId || !address) return "";
+    return `${chainId}:${address}`;
+  }, [walletClient?.account?.address, (walletClient as any)?.chain?.id]);
 
   const { earlyLiquidity, glow, usdg, usdc } = useMemo(() => {
     if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
@@ -44,10 +55,17 @@ export function useContracts(_signer: any) {
       } as any;
     }
 
-    function makeSignerLike(wc: WalletClient | undefined | null) {
+    function getWalletClientOrThrow() {
+      const wc = walletClientRef.current;
+      if (!wc) throw new Error("Wallet client not available");
+      return wc;
+    }
+
+    function makeSignerLike() {
       return {
         getAddress: async () => {
-          if (!wc?.account?.address)
+          const wc = getWalletClientOrThrow();
+          if (!wc.account?.address)
             throw new Error("Wallet client not available");
           return wc.account.address as AnyAddress;
         },
@@ -63,7 +81,7 @@ export function useContracts(_signer: any) {
     function makeErc20(address: AnyAddress) {
       return {
         address,
-        signer: makeSignerLike(walletClient),
+        signer: makeSignerLike(),
         provider: makeProviderLike(),
         balanceOf: async (owner: AnyAddress) =>
           (await publicClient.readContract({
@@ -81,8 +99,8 @@ export function useContracts(_signer: any) {
           })) as bigint,
         approve: async (spender: AnyAddress, amount: bigint) => {
           console.log("approve", spender, amount);
-          if (!walletClient) throw new Error("Wallet client not available");
-          const hash = await walletClient.writeContract({
+          const wc = getWalletClientOrThrow();
+          const hash = await wc.writeContract({
             address,
             abi: erc20Abi,
             functionName: "approve",
@@ -91,8 +109,8 @@ export function useContracts(_signer: any) {
           return makeTx(hash);
         },
         transfer: async (to: AnyAddress, amount: bigint) => {
-          if (!walletClient) throw new Error("Wallet client not available");
-          const hash = await walletClient.writeContract({
+          const wc = getWalletClientOrThrow();
+          const hash = await wc.writeContract({
             address,
             abi: erc20Abi,
             functionName: "transfer",
@@ -106,7 +124,7 @@ export function useContracts(_signer: any) {
               address,
               abi: erc20Abi,
               functionName: "approve",
-              account: walletClient?.account?.address as AnyAddress,
+              account: walletClientRef.current?.account?.address as AnyAddress,
               args: [spender, amount],
             }),
         },
@@ -123,8 +141,8 @@ export function useContracts(_signer: any) {
           args: [BigInt(increments)],
         })) as bigint,
       buy: async (increments: number, usdgMaxToSpend: bigint) => {
-        if (!walletClient) throw new Error("Wallet client not available");
-        const hash = await walletClient.writeContract({
+        const wc = getWalletClientOrThrow();
+        const hash = await wc.writeContract({
           address: EARLY_LIQUIDITY_ADDRESS,
           abi: EarlyLiquidityABI,
           functionName: "buy",
@@ -139,8 +157,8 @@ export function useContracts(_signer: any) {
     const usdg = {
       ...makeErc20(USDG_ADDRESS),
       swap: async (recipient: AnyAddress, usdcAmount: bigint) => {
-        if (!walletClient) throw new Error("Wallet client not available");
-        const hash = await walletClient.writeContract({
+        const wc = getWalletClientOrThrow();
+        const hash = await wc.writeContract({
           address: USDG_ADDRESS,
           abi: USDGABI,
           functionName: "swap",
@@ -153,22 +171,13 @@ export function useContracts(_signer: any) {
     const usdc = makeErc20(USDC_ADDRESS);
 
     return { earlyLiquidity, glow, usdg, usdc };
-  }, [walletClient]);
-
-  useEffect(() => {
-    console.log("useContracts - walletClient state:", {
-      hasWalletClient: !!walletClient,
-      walletClientAccount: walletClient?.account?.address,
-      isReady: Boolean(walletClient),
-    });
-    setIsReady(Boolean(walletClient));
-  }, [walletClient]);
+  }, [walletClientKey]);
 
   return {
     earlyLiquidity,
     glow,
     usdg,
     usdc,
-    isReady,
+    isReady: Boolean(walletClientKey),
   };
 }
