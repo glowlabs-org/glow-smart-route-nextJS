@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowDown,
   Copy,
@@ -50,6 +51,32 @@ import {
 import { useAccount, useBalance, useChainId } from "wagmi";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
+
+const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
+const ONE_E18 = 1_000_000_000_000_000_000n;
+const POINTS_PER_GLW_WORTH_SCALED6 = 1_000n; // 0.001 points per GLW per week (scaled by 1e6)
+
+function glwWeiToPointsScaled6(glwWei: bigint) {
+  return (glwWei * POINTS_PER_GLW_WORTH_SCALED6) / ONE_E18;
+}
+
+function formatPointsScaled6(pointsScaled6: bigint, maxFractionDigits = 2) {
+  const sign = pointsScaled6 < 0n ? "-" : "";
+  const v = pointsScaled6 < 0n ? -pointsScaled6 : pointsScaled6;
+  const i = v / 1_000_000n;
+
+  if (maxFractionDigits <= 0) return `${sign}${i}`;
+
+  const fFull = (v % 1_000_000n).toString().padStart(6, "0");
+  const f = fFull.slice(0, Math.min(6, maxFractionDigits));
+  return `${sign}${i}.${f}`;
+}
+
+function getWeeksInRange(weekRange: { startWeek: number; endWeek: number }) {
+  const raw = weekRange.endWeek - weekRange.startWeek + 1;
+  if (!Number.isFinite(raw)) return 1;
+  return Math.max(1, raw);
+}
 
 interface BuyGlowDialogProps {
   open: boolean;
@@ -130,9 +157,7 @@ export function BuyGlowDialog({
 }: BuyGlowDialogProps) {
   const [phase, setPhase] = React.useState<Phase>("input");
   const [payToken, setPayToken] = React.useState<PayToken>("USDC");
-  const [inputAmount, setInputAmount] = React.useState<string>(
-    defaultUsdcAmount ?? ""
-  );
+  const [inputAmount, setInputAmount] = React.useState<string>("");
   const [smartAmounts, setSmartAmounts] =
     React.useState<SmartBalancingAmounts>();
   const [estimatedGlw, setEstimatedGlw] = React.useState<string>("");
@@ -145,6 +170,29 @@ export function BuyGlowDialog({
   const wasOpenRef = React.useRef(false);
   const { address } = useAccount();
   const chainId = useChainId();
+
+  const impactWeekRangeQuery = useQuery({
+    queryKey: ["impact-week-range", address?.toLowerCase()],
+    enabled: Boolean(open && HUB_URL && address),
+    staleTime: 60_000,
+    retry: 0,
+    queryFn: async (): Promise<{ startWeek: number; endWeek: number } | null> => {
+      try {
+        if (!HUB_URL || !address) return null;
+        const url = new URL("/impact/glow-score", HUB_URL);
+        url.searchParams.set("walletAddress", address.toLowerCase());
+        const res = await fetch(url.toString());
+        if (!res.ok) return null;
+        const json = (await res.json()) as {
+          weekRange?: { startWeek: number; endWeek: number };
+        };
+        if (!json.weekRange) return null;
+        return json.weekRange;
+      } catch {
+        return null;
+      }
+    },
+  });
 
   const {
     getSmartBalancingAmounts,
@@ -208,6 +256,26 @@ export function BuyGlowDialog({
   const payTokenLabel = payToken;
 
   const ethBalanceWei = ethBalanceQuery.data?.value ?? null;
+
+  const impactQuote = React.useMemo(() => {
+    if (!estimatedGlw || Number(estimatedGlw) <= 0) return null;
+    try {
+      const deltaGlwWei = parseUnits(estimatedGlw, 18);
+      const deltaPerWeekScaled6 = glwWeiToPointsScaled6(deltaGlwWei);
+      const weekRange = impactWeekRangeQuery.data;
+      const weeksInRange = weekRange ? getWeeksInRange(weekRange) : 1;
+      const deltaTotalScaled6 = deltaPerWeekScaled6 * BigInt(weeksInRange);
+
+      return {
+        weekRange,
+        weeksInRange,
+        deltaPerWeekPoints: formatPointsScaled6(deltaPerWeekScaled6, 2),
+        deltaTotalPoints: formatPointsScaled6(deltaTotalScaled6, 2),
+      };
+    } catch {
+      return null;
+    }
+  }, [estimatedGlw, impactWeekRangeQuery.data]);
 
   const formatEthMaxFromWei = React.useCallback((valueWei: bigint) => {
     const raw = formatUnits(valueWei, 18);
@@ -290,14 +358,48 @@ export function BuyGlowDialog({
     setSmartAmounts(undefined);
   }, []);
 
-  const { run: runEstimate, isRunning: isEstimating } = useDebouncedAsync(
-    estimateRunner,
-    {
+  const estimateOptions = React.useMemo(
+    () => ({
       delayMs: 300,
       onResult: handleEstimateResult,
       onError: handleEstimateError,
-    }
+    }),
+    [handleEstimateError, handleEstimateResult]
   );
+
+  const { run: runEstimate, isRunning: isEstimating } = useDebouncedAsync(
+    estimateRunner,
+    estimateOptions
+  );
+
+  React.useEffect(() => {
+    if (!open) return;
+    if (phase !== "input") return;
+    if (!inputAmount || Number(inputAmount) <= 0) return;
+    if (isEstimating) return;
+    if (!Number.isFinite(earlyLiquidityCurrentPrice) || earlyLiquidityCurrentPrice <= 0)
+      return;
+    if (payToken === "ETH" && !isEthPayEnabled) return;
+
+    const hasQuoteForCurrentPrice =
+      lastEstimatedAmount === inputAmount &&
+      Boolean(smartAmounts) &&
+      smartAmounts?.earlyLiquidityCurrentPrice === earlyLiquidityCurrentPrice;
+
+    if (hasQuoteForCurrentPrice) return;
+    runEstimate(inputAmount);
+  }, [
+    earlyLiquidityCurrentPrice,
+    inputAmount,
+    isEstimating,
+    isEthPayEnabled,
+    lastEstimatedAmount,
+    open,
+    payToken,
+    phase,
+    runEstimate,
+    smartAmounts,
+  ]);
 
   React.useEffect(() => {
     if (open && !wasOpenRef.current) trackEvent("buy_glw_dialog_open");
@@ -906,6 +1008,41 @@ export function BuyGlowDialog({
                         ${pricePerGlw.toFixed(6)} per GLW
                       </div>
                     )}
+
+                  <div className="rounded-xl border border-border bg-muted/20 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                          Impact points estimate
+                        </div>
+                        {impactQuote ? (
+                          <>
+                            <div className="text-sm font-semibold tracking-tight">
+                              +{impactQuote.deltaPerWeekPoints} pts / week
+                            </div>
+                            {impactQuote.weekRange ? (
+                              <div className="text-xs text-muted-foreground font-mono">
+                                ≈ +{impactQuote.deltaTotalPoints} pts over weeks{" "}
+                                {impactQuote.weekRange.startWeek}–
+                                {impactQuote.weekRange.endWeek}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-muted-foreground font-mono">
+                                Continuous worth points (0.001 / GLW / week)
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-xs text-muted-foreground font-mono">
+                            Enter an amount to see estimated Impact Points.
+                          </div>
+                        )}
+                      </div>
+                      <div className="shrink-0 rounded-full border border-border bg-background/60 dark:bg-muted/20 px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                        Worth
+                      </div>
+                    </div>
+                  </div>
                   </div>
                 </div>
               </div>

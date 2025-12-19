@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FarmsView } from "./farms-view";
 import { DelegatorsView } from "./delegators-view";
 import { MinersView } from "./miners-view";
+import { ImpactView } from "./impact-view";
 
 export function RewardsSkeleton() {
   return (
@@ -53,54 +54,30 @@ export function RewardsSkeleton() {
 export default function RewardsView() {
   const [type, setType] = useQueryState(
     "type",
-    parseAsString.withDefault("farms")
+    parseAsString.withDefault("impact")
   );
   const [selectedFarmId, setSelectedFarmId] = useQueryState(
     "farmId",
     parseAsString.withDefault("")
   );
 
-  const validType = ["delegator", "miner", "farms"].includes(type)
-    ? (type as "delegator" | "miner" | "farms")
-    : "farms";
+  const validType = ["impact", "delegator", "miner", "farms"].includes(type)
+    ? (type as "impact" | "delegator" | "miner" | "farms")
+    : "impact";
 
   return (
     <div className="min-h-screen bg-background">
       <section className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 pb-16 pt-20">
         <div className="flex flex-col gap-8">
-          <header className="border border-border/60 bg-muted/20 rounded-2xl p-6 md:p-8">
-            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-              <div className="space-y-3">
-                <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
-                  Glow Leaderboard
-                </h1>
-                <p className="text-sm md:text-base text-muted-foreground max-w-2xl">
-                  {`Understand how ${
-                    validType === "delegator"
-                      ? "delegators"
-                      : validType === "miner"
-                      ? "miners"
-                      : "farms"
-                  } are deploying capital, earning GLW, and driving solar farm performance across the network.`}
-                </p>
-                <p className="text-xs uppercase text-muted-foreground tracking-wide">
-                  Latest network activity
-                </p>
-              </div>
-              <Badge variant="outline" className="w-fit">
-                <Activity className="mr-1 h-3 w-3" /> Updated weekly
-              </Badge>
-            </div>
-          </header>
-
           <div className="flex items-center justify-center">
             <Tabs
               value={validType}
               onValueChange={(value) =>
-                setType(value as "delegator" | "miner" | "farms")
+                setType(value as "impact" | "delegator" | "miner" | "farms")
               }
             >
-              <TabsList className="grid grid-cols-3">
+              <TabsList className="grid grid-cols-4">
+                <TabsTrigger value="impact">Impact</TabsTrigger>
                 <TabsTrigger value="farms">Farms</TabsTrigger>
                 <TabsTrigger value="delegator">Delegators</TabsTrigger>
                 <TabsTrigger value="miner">Miners</TabsTrigger>
@@ -108,7 +85,9 @@ export default function RewardsView() {
             </Tabs>
           </div>
 
-          {validType === "farms" ? (
+          {validType === "impact" ? (
+            <ImpactView />
+          ) : validType === "farms" ? (
             <FarmsView
               selectedFarmId={selectedFarmId}
               onSelectFarm={setSelectedFarmId}

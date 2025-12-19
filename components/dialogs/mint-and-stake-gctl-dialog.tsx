@@ -288,7 +288,7 @@ export function MintAndStakeGctlDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden">
+        <DialogContent className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-sm w-full border-border overflow-hidden">
           <DialogHeader className="p-6 pb-4">
             <DialogTitle className="text-base">
               {selectedRegionLabel
