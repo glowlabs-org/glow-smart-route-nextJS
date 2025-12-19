@@ -1,32 +1,22 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { parseAbi, formatUnits, decodeEventLog } from "viem";
+import { formatUnits } from "viem";
 import { useChainId } from "wagmi";
-import { publicClient } from "@/web3/web3/clients/publicClient";
-import { DECIMALS_BY_TOKEN, getAddresses } from "@glowlabs-org/utils/browser";
-import { glowUSDGPair } from "@/web3/constants/pairs/UniV2Pairs";
+import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 
-if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
-  throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
+const API_BASE = process.env.NEXT_PUBLIC_POSITIONS_API_BASE;
+if (!API_BASE) {
+  throw new Error("NEXT_PUBLIC_POSITIONS_API_BASE is not set");
 }
 
-const SDKAddresses = getAddresses(parseInt(process.env.NEXT_PUBLIC_CHAIN_ID!));
-const USDG_ADDRESS = SDKAddresses.USDG_UNISWAP;
-
-const PairAbi = parseAbi([
-  "function token0() view returns (address)",
-  "event Swap(address indexed sender, uint amount0In, uint amount1In, uint amount0Out, uint amount1Out, address indexed to)",
-]);
-
 export interface SwapEvent {
-  txHash: `0x${string}`;
+  txHash?: `0x${string}`;
   timestamp: number;
   glwIn: number;
   glwOut: number;
   usdgIn: number;
   usdgOut: number;
-  blockNumber: bigint;
 }
 
 export interface SwapTotals {
@@ -39,121 +29,92 @@ export interface SwapTotals {
 export interface WalletSwapsData {
   swaps: SwapEvent[];
   totals: SwapTotals;
+  indexingComplete: boolean;
 }
 
-const DAYS_TO_FETCH = 90;
-const BLOCKS_PER_DAY = 7200; // Approximate for Ethereum mainnet (12s block time)
-const BLOCKS_TO_FETCH = DAYS_TO_FETCH * BLOCKS_PER_DAY;
+interface WalletSwapActivityApiSwap {
+  id: number;
+  timestamp: number; // unix seconds
+  glowIn?: string;
+  glowOut?: string;
+  usdgIn?: string;
+  usdgOut?: string;
+  txHash?: string;
+  transactionHash?: string;
+}
 
-async function getBlockTimestamp(blockNumber: bigint): Promise<number> {
+interface WalletSwapActivityApiResponse {
+  indexingComplete: boolean;
+  swaps: WalletSwapActivityApiSwap[];
+}
+
+function parseAmount(value: string | undefined, decimals: number) {
+  if (!value) return 0;
   try {
-    const block = await publicClient.getBlock({ blockNumber });
-    return Number(block.timestamp) * 1000;
+    return Number(formatUnits(BigInt(value), decimals));
   } catch {
-    return Date.now();
+    return 0;
   }
 }
 
-async function fetchWalletSwaps(
-  walletAddress: `0x${string}`,
-  pairAddress: `0x${string}`
-): Promise<WalletSwapsData> {
-  const currentBlock = await publicClient.getBlockNumber();
-  const fromBlock = currentBlock - BigInt(BLOCKS_TO_FETCH);
+function asTxHash(value: string | undefined): `0x${string}` | undefined {
+  if (!value) return undefined;
+  if (!value.startsWith("0x")) return undefined;
+  if (value.length !== 66) return undefined;
+  return value as `0x${string}`;
+}
 
-  const token0 = (await publicClient.readContract({
-    address: pairAddress,
-    abi: PairAbi,
-    functionName: "token0",
-  })) as `0x${string}`;
+async function fetchWalletSwapsFromApi(params: {
+  walletAddress: `0x${string}`;
+  limit: number;
+}): Promise<WalletSwapsData> {
+  const { walletAddress, limit } = params;
 
-  const isToken0USDG = token0.toLowerCase() === USDG_ADDRESS.toLowerCase();
+  const res = await fetch(
+    `${API_BASE}/get-wallet-swap-activity/${walletAddress}?limit=${limit}`,
+    { cache: "no-store" }
+  );
 
-  const walletLower = walletAddress.toLowerCase();
+  const body = (await res.json().catch(() => null)) as
+    | WalletSwapActivityApiResponse
+    | { error?: string; indexingComplete?: boolean }
+    | null;
 
-  const allLogs = await publicClient.getLogs({
-    address: pairAddress,
-    event: parseAbi([
-      "event Swap(address indexed sender, uint amount0In, uint amount1In, uint amount0Out, uint amount1Out, address indexed to)",
-    ])[0],
-    fromBlock,
-    toBlock: "latest",
-  });
-
-  const swaps: SwapEvent[] = [];
-  const processedTxHashes = new Set<string>();
-
-  for (const log of allLogs) {
-    if (!log.transactionHash || processedTxHashes.has(log.transactionHash)) {
-      continue;
-    }
-
-    try {
-      const decoded = decodeEventLog({
-        abi: PairAbi,
-        data: log.data,
-        topics: log.topics,
-      });
-
-      if (decoded.eventName !== "Swap") continue;
-
-      const args = decoded.args as {
-        sender: `0x${string}`;
-        amount0In: bigint;
-        amount1In: bigint;
-        amount0Out: bigint;
-        amount1Out: bigint;
-        to: `0x${string}`;
+  // While indexing is incomplete, the service returns 503. We treat this as an
+  // "empty but not error" state to avoid noisy UIs.
+  if (!res.ok) {
+    const indexingComplete = (body as any)?.indexingComplete ?? true;
+    if (res.status === 503 && indexingComplete === false) {
+      return {
+        indexingComplete: false,
+        swaps: [],
+        totals: { totalGlwIn: 0, totalGlwOut: 0, totalUsdgIn: 0, totalUsdgOut: 0 },
       };
-
-      const tx = await publicClient.getTransaction({
-        hash: log.transactionHash,
-      });
-      const txFrom = tx.from.toLowerCase();
-
-      const isWalletInvolved =
-        txFrom === walletLower ||
-        args.sender.toLowerCase() === walletLower ||
-        args.to.toLowerCase() === walletLower;
-
-      if (!isWalletInvolved) continue;
-
-      processedTxHashes.add(log.transactionHash);
-
-      const timestamp = await getBlockTimestamp(log.blockNumber);
-
-      let glwIn = 0;
-      let glwOut = 0;
-      let usdgIn = 0;
-      let usdgOut = 0;
-
-      if (isToken0USDG) {
-        usdgIn = Number(formatUnits(args.amount0In, DECIMALS_BY_TOKEN.USDG));
-        glwIn = Number(formatUnits(args.amount1In, DECIMALS_BY_TOKEN.GLW));
-        usdgOut = Number(formatUnits(args.amount0Out, DECIMALS_BY_TOKEN.USDG));
-        glwOut = Number(formatUnits(args.amount1Out, DECIMALS_BY_TOKEN.GLW));
-      } else {
-        glwIn = Number(formatUnits(args.amount0In, DECIMALS_BY_TOKEN.GLW));
-        usdgIn = Number(formatUnits(args.amount1In, DECIMALS_BY_TOKEN.USDG));
-        glwOut = Number(formatUnits(args.amount0Out, DECIMALS_BY_TOKEN.GLW));
-        usdgOut = Number(formatUnits(args.amount1Out, DECIMALS_BY_TOKEN.USDG));
-      }
-
-      swaps.push({
-        txHash: log.transactionHash,
-        timestamp,
-        glwIn,
-        glwOut,
-        usdgIn,
-        usdgOut,
-        blockNumber: log.blockNumber,
-      });
-    } catch (error) {
-      console.error("Error processing swap log:", error);
     }
+
+    const message =
+      (body as any)?.error ||
+      `Failed to fetch wallet swap activity (status ${res.status})`;
+    throw new Error(message);
   }
 
-  swaps.sort((a, b) => Number(b.blockNumber) - Number(a.blockNumber));
+  const apiSwaps = (body as WalletSwapActivityApiResponse | null)?.swaps ?? [];
+  const indexingComplete =
+    (body as WalletSwapActivityApiResponse | null)?.indexingComplete ?? true;
+
+  const swaps: SwapEvent[] = apiSwaps
+    .map((swap) => {
+      const txHash = asTxHash(swap.txHash ?? swap.transactionHash);
+      return {
+        txHash,
+        timestamp: swap.timestamp * 1000,
+        glwIn: parseAmount(swap.glowIn, DECIMALS_BY_TOKEN.GLW),
+        glwOut: parseAmount(swap.glowOut, DECIMALS_BY_TOKEN.GLW),
+        usdgIn: parseAmount(swap.usdgIn, DECIMALS_BY_TOKEN.USDG),
+        usdgOut: parseAmount(swap.usdgOut, DECIMALS_BY_TOKEN.USDG),
+      };
+    })
+    .sort((a, b) => b.timestamp - a.timestamp);
 
   const totals: SwapTotals = {
     totalGlwIn: swaps.reduce((sum, s) => sum + s.glwIn, 0),
@@ -162,18 +123,24 @@ async function fetchWalletSwaps(
     totalUsdgOut: swaps.reduce((sum, s) => sum + s.usdgOut, 0),
   };
 
-  return { swaps, totals };
+  return { indexingComplete, swaps, totals };
 }
 
-export function useWalletSwaps(walletAddress: string | undefined) {
+export function useWalletSwaps(
+  walletAddress: string | undefined,
+  options?: { limit?: number; enabled?: boolean }
+) {
   const chainId = useChainId();
-  const pairAddress = glowUSDGPair.pairAddress;
+  const { limit = 500, enabled = true } = options ?? {};
 
   const { data, isLoading, isFetching, error } = useQuery<WalletSwapsData>({
-    queryKey: ["wallet-swaps", chainId, walletAddress],
-    enabled: Boolean(walletAddress && pairAddress),
+    queryKey: ["wallet-swaps", chainId, walletAddress, limit],
+    enabled: Boolean(enabled && walletAddress),
     queryFn: () =>
-      fetchWalletSwaps(walletAddress as `0x${string}`, pairAddress),
+      fetchWalletSwapsFromApi({
+        walletAddress: walletAddress as `0x${string}`,
+        limit,
+      }),
     staleTime: 30_000,
     refetchInterval: 60_000,
     refetchOnMount: true,
@@ -188,6 +155,7 @@ export function useWalletSwaps(walletAddress: string | undefined) {
       totalUsdgIn: 0,
       totalUsdgOut: 0,
     },
+    indexingComplete: data?.indexingComplete ?? false,
     isLoading,
     isFetching,
     error,

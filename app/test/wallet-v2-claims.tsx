@@ -154,7 +154,7 @@ export function WalletV2Claims({ walletAddress }: WalletV2ClaimsProps) {
           {inflationTotalGlw > 0 && (
             <div className="rounded-lg border p-4 space-y-1">
               <div className="text-sm text-muted-foreground uppercase font-semibold">
-                Inflation Claimed
+                Emissions Claimed
               </div>
               <div className="text-2xl font-bold">
                 {formatNumber(inflationTotalGlw, 4)} GLW
@@ -186,7 +186,7 @@ export function WalletV2Claims({ walletAddress }: WalletV2ClaimsProps) {
                       <TableHead>Week</TableHead>
 
                       <TableHead className="text-right">
-                        Inflation (GLW)
+                        Emissions (GLW)
                       </TableHead>
                       <TableHead className="text-right">
                         Protocol Deposit

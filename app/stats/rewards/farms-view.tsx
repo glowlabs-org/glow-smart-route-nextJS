@@ -776,7 +776,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                 <Card>
                   <CardContent>
                     <p className="text-xs text-muted-foreground mb-1.5">
-                      Total GLW Inflation
+                      Total GLW Emissions
                     </p>
                     <p className="font-mono font-semibold text-sm">
                       {formatRewardValue(
@@ -841,7 +841,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                         <th className="text-left p-3 font-medium">Week</th>
                         <th className="text-left p-3 font-medium">Currency</th>
                         <th className="text-right p-3 font-medium">
-                          GLW Inflation
+                          GLW Emissions
                         </th>
                         <th className="text-right p-3 font-medium">
                           PD Rewards Distributed

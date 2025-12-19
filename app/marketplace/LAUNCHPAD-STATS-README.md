@@ -61,7 +61,7 @@ The Launchpad Stats Dialog (`launchpad-stats-dialog.tsx`) displays detailed anal
   ```
 - **Data Sources:**
   - `rewardScore.userWeeklyPdRewards` (deposit recovery, 18 decimals)
-  - `rewardScore.userWeeklyGlwRewards` (inflation rewards, 18 decimals)
+  - `rewardScore.userWeeklyGlwRewards` (emission rewards, 18 decimals)
   - `application.activeFraction.step` (GLW to delegate, 18 decimals)
   - `glwSpotPrice` from `useGlowSpotPrice()`
 
@@ -70,8 +70,8 @@ The Launchpad Stats Dialog (`launchpad-stats-dialog.tsx`) displays detailed anal
 - **Source:** Combined from reward score
 - **Components:**
   - PD Recovery: `formatUnits(rewardScore.userWeeklyPdRewards, 18)`
-  - Inflation: `formatUnits(rewardScore.userWeeklyGlwRewards, 18)`
-- **Calculation:** `(pdRecovery + inflation) / totalSteps`
+  - Emissions: `formatUnits(rewardScore.userWeeklyGlwRewards, 18)`
+- **Calculation:** `(pdRecovery + emissions) / totalSteps`
 - **Secondary:** USD value at current GLW price
 
 #### 3. **GLW to Delegate (per fraction)**
@@ -103,7 +103,7 @@ The Launchpad Stats Dialog (`launchpad-stats-dialog.tsx`) displays detailed anal
 - **Division:** By `totalSteps`
 - **Note:** Weekly deposit recovery from competitive redistribution
 
-#### 6. **Weekly Inflation (per fraction)**
+#### 6. **Weekly Emissions (per fraction)**
 
 - **Source:** `rewardScore.userWeeklyGlwRewards`
 - **Conversion:** `formatUnits(BigInt(userWeeklyGlwRewards), 18)`
@@ -190,7 +190,7 @@ The Launchpad Stats Dialog (`launchpad-stats-dialog.tsx`) displays detailed anal
 
 - **Calculation:** `(totalRewardsUsd / costPerFraction - 1) × 100`
 - **Format:** Percentage with + prefix
-- **Note:** Expected return accounting for both PD recovery and inflation
+- **Note:** Expected return accounting for both PD recovery and emissions
 
 ---
 
@@ -325,7 +325,7 @@ RegionDetails {
 - Farms compete within their region
 - Above-average farms: Faster deposit recovery + surplus capture
 - Below-average farms: Slower recovery + partial forfeitures
-- GLW inflation helps offset forfeitures for moderately underperforming farms
+- GLW emission rewards help offset forfeitures for moderately underperforming farms
 
 ### Regional Competition
 
@@ -394,7 +394,7 @@ The disclaimer emphasizes:
    - Farms compete only within their region
    - Performance measured vs regional average
    - Above-average: Surplus capture
-   - Below-average: Partial forfeitures offset by GLW inflation
+  - Below-average: Partial forfeitures offset by GLW emission rewards
 
 ---
 
@@ -480,7 +480,7 @@ Rewards distribution:
   Below average → Partial recovery + forfeit to above-average
 ```
 
-### GLW Inflation Cushion
+### GLW Emission Rewards Cushion
 
 - Farms earn GLW regardless of competitive standing
 - Less competitive farms offer higher GLW % to delegators

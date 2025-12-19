@@ -433,10 +433,10 @@ export function WalletActivityKpis({ walletAddress }: WalletActivityKpisProps) {
       });
 
     // Add swap events
-    swaps.forEach((swap) => {
+    swaps.forEach((swap, idx) => {
       if (swap.glwIn <= 0) return;
       events.push({
-        id: `swap-${swap.txHash}`,
+        id: swap.txHash ? `swap-${swap.txHash}` : `swap-${swap.timestamp}-${idx}`,
         title: "GLW Sold",
         amount: `${formatNumber(swap.glwIn, 0)} GLW → ${formatNumber(
           swap.usdgOut,
@@ -444,7 +444,7 @@ export function WalletActivityKpis({ walletAddress }: WalletActivityKpisProps) {
         )} USD`,
         subtitle: "Swap via GLW/USDG pool",
         date: swap.timestamp,
-        link: getExplorerUrl(swap.txHash),
+        link: swap.txHash ? getExplorerUrl(swap.txHash) : undefined,
       });
     });
 
@@ -517,7 +517,7 @@ export function WalletActivityKpis({ walletAddress }: WalletActivityKpisProps) {
               <ActivityTile
                 label="GLW Claimed"
                 value={`${formatNumber(glwClaimed, 2)} GLW`}
-                helper="Inflation + protocol-deposit GLW"
+                helper="Emissions + protocol-deposit GLW"
               />
               <ActivityTile
                 label="GLW Sold (90d)"

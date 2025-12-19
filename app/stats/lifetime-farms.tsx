@@ -60,7 +60,7 @@ interface LifetimeFarmsProps {
   isGlwDataLoading?: boolean;
 }
 
-type ChartRangeValue = "2m" | "6m" | "all";
+type ChartRangeValue = "3m" | "6m" | "all";
 
 interface ChartRangeOption {
   value: ChartRangeValue;
@@ -70,12 +70,12 @@ interface ChartRangeOption {
 }
 
 const CHART_RANGE_OPTIONS: ChartRangeOption[] = [
-  { value: "2m", label: "2M", description: "last 2 months", months: 2 },
+  { value: "3m", label: "3M", description: "last 3 months", months: 3 },
   { value: "6m", label: "6M", description: "last 6 months", months: 6 },
   { value: "all", label: "All", description: "entire history" },
 ];
 
-const DEFAULT_CHART_RANGE: ChartRangeValue = "2m";
+const DEFAULT_CHART_RANGE: ChartRangeValue = "3m";
 
 function formatPayment(
   amount?: string,

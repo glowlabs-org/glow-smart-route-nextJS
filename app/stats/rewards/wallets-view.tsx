@@ -1183,7 +1183,7 @@ export function WalletsView({
                               </TooltipTrigger>
                               <TooltipContent className="max-w-xs">
                                 <p className="text-xs">
-                                  Total rewards earned (PD recovery + inflation)
+                                  Total rewards earned (PD recovery + emissions)
                                   minus the Protocol Deposit allocated to weeks
                                   that have passed. Shows your true profit.
                                 </p>

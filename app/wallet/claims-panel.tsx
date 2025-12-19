@@ -101,7 +101,7 @@ const CLAIM_STAGE_META: Record<
   { label: string; icon: React.ReactNode }
 > = {
   inflation: {
-    label: "Inflation Rewards",
+    label: "Emission Rewards",
     icon: <Sparkles className="w-4 h-4" />,
   },
   protocolDeposits: {
@@ -237,32 +237,22 @@ function WeekClaimButton({
     });
   }, [claimType, isConnected, nonce, onInitiateClaim, userProof, weekData]);
 
-  const weekSeconds = React.useMemo(() => 7 * 86400, []);
   const hasProtocolDeposits = React.useMemo(
     () => weekData.rewards.some((reward) => reward.type === "protocolDeposit"),
     [weekData.rewards]
   );
 
   const weeksToWait = hasProtocolDeposits ? 4 : 3;
-  const targetTimestampMs = React.useMemo(
-    () =>
-      (GENESIS_TIMESTAMP + (weekData.week + weeksToWait) * weekSeconds) * 1000,
-    [weekData.week, weekSeconds, weeksToWait]
-  );
+  const targetTimestampMs = React.useMemo(() => {
+    const weekSeconds = 7 * 86_400;
+    return (
+      (GENESIS_TIMESTAMP + (weekData.week + weeksToWait) * weekSeconds) * 1000
+    );
+  }, [weekData.week, weeksToWait]);
 
-  const [nowMs, setNowMs] = React.useState<number>(() => Date.now());
-
-  React.useEffect(() => {
-    if (weekData.isFinalized) return;
-
-    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [weekData.isFinalized]);
-
-  const remainingMs = React.useMemo(
-    () => Math.max(0, targetTimestampMs - nowMs),
-    [nowMs, targetTimestampMs]
-  );
+  // Avoid any ticking state here (it causes visible “flicker” across many rows).
+  // This will update whenever the component re-renders for other reasons.
+  const remainingMs = Math.max(0, targetTimestampMs - Date.now());
 
   const showCountdown = remainingMs < 24 * 3600 * 1000;
 
@@ -275,8 +265,7 @@ function WeekClaimButton({
     const totalSeconds = Math.floor(remainingMs / 1000);
     const totalHours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = Math.floor(totalSeconds % 60);
-    return `${totalHours}h ${minutes}m ${seconds}s`;
+    return `${totalHours}h ${minutes}m`;
   }, [remainingMs, showCountdown]);
 
   const isDisabled =
@@ -345,7 +334,7 @@ function WeekClaimButton({
 
     return (
       <>
-        Claim Inflation
+        Claim Emissions
         <ChevronRight className="w-4 h-4 ml-2" />
       </>
     );
@@ -408,7 +397,7 @@ function ClaimButtonsWrapper({
   protocolClaimed,
   weekData,
 }: ClaimButtonsWrapperProps) {
-  const [isChecking, setIsChecking] = React.useState(true);
+  const [isChecking, setIsChecking] = React.useState(false);
   const isClaimingThisWeek = isClaimingWeek === weekData.week;
 
   const currentEpoch = getCurrentEpoch();
@@ -427,45 +416,21 @@ function ClaimButtonsWrapper({
     let cancelled = false;
 
     const run = async () => {
-      if (!address) {
-        onClaimStatusChange(weekData.week, {
-          glwClaimed: false,
-          protocolClaimed: false,
-        });
-        if (!cancelled) {
-          setIsChecking(false);
-        }
-        return;
-      }
+      if (!address) return;
 
       const shouldCheckGlw = hasGlwRewards && isGlwFinalized;
       const shouldCheckProtocol = hasProtocolDeposits && isPdFinalized;
 
       if (!shouldCheckGlw && !shouldCheckProtocol) {
-        onClaimStatusChange(weekData.week, {
-          glwClaimed: !hasGlwRewards,
-          protocolClaimed: !hasProtocolDeposits,
-        });
-        if (!cancelled) {
-          setIsChecking(false);
-        }
         return;
       }
 
-      const needsCheck =
+      // Only show a spinner if the UI currently believes something is unclaimed
+      // (we still check in the background to confirm claim status).
+      const shouldShowChecking =
         (shouldCheckGlw && !glwClaimed) ||
         (shouldCheckProtocol && !protocolClaimed);
-
-      if (!needsCheck) {
-        if (!cancelled) {
-          setIsChecking(false);
-        }
-        return;
-      }
-
-      if (!cancelled) {
-        setIsChecking(true);
-      }
+      if (shouldShowChecking && !cancelled) setIsChecking(true);
 
       try {
         const [glwStatus, protocolStatus] = await Promise.all([
@@ -480,7 +445,10 @@ function ClaimButtonsWrapper({
             : Promise.resolve(!hasProtocolDeposits),
         ]);
 
-        if (!cancelled) {
+        if (cancelled) return;
+
+        // Only update parent if status actually changed.
+        if (glwStatus !== glwClaimed || protocolStatus !== protocolClaimed) {
           onClaimStatusChange(weekData.week, {
             glwClaimed: glwStatus,
             protocolClaimed: protocolStatus,
@@ -491,9 +459,7 @@ function ClaimButtonsWrapper({
           console.error("Error checking claim status:", error);
         }
       } finally {
-        if (!cancelled) {
-          setIsChecking(false);
-        }
+        if (!cancelled) setIsChecking(false);
       }
     };
 
@@ -507,13 +473,11 @@ function ClaimButtonsWrapper({
     claimDialogStatus,
     checkIfClaimed,
     checkIfGlwClaimed,
-    glwClaimed,
     hasGlwRewards,
     hasProtocolDeposits,
     isGlwFinalized,
     isPdFinalized,
     onClaimStatusChange,
-    protocolClaimed,
     weekData.week,
   ]);
 
@@ -659,7 +623,7 @@ function WeekRewardsContent({
         if (txHash) {
           toast.success(
             `Successfully claimed ${
-              isInflation ? "Inflation" : "Protocol Deposit"
+              isInflation ? "emission" : "protocol deposit"
             } rewards for week ${weekData.week}`
           );
           trackEvent("wallet_claim_single_reward_result", {
@@ -683,7 +647,7 @@ function WeekRewardsContent({
         console.error("Claim error:", error);
         toast.error(
           `Failed to claim ${
-            isInflation ? "Inflation" : "Protocol Deposit"
+            isInflation ? "emission" : "protocol deposit"
           } rewards`,
           {
             description: error?.message || "Unknown error",
@@ -715,7 +679,7 @@ function WeekRewardsContent({
         const isInflation = reward.type === "glowInflation";
         const canClaim = isInflation ? !glwClaimed : !protocolClaimed;
         const rewardLabel = isInflation
-          ? "Inflation Rewards"
+          ? "Emission Rewards"
           : "Protocol Deposit";
 
         return (
@@ -778,7 +742,7 @@ function WeekRewardsContent({
                     Claiming...
                   </>
                 ) : (
-                  <>Claim {isInflation ? "Inflation" : "PD"}</>
+                  <>Claim {isInflation ? "Emissions" : "PD"}</>
                 )}
               </Button>
             )}
@@ -790,7 +754,7 @@ function WeekRewardsContent({
       <div className="mt-3 p-3 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/50">
         <p className="text-xs text-blue-900 dark:text-blue-100 space-y-1">
           <span className="block">
-            <strong>Inflation Rewards:</strong> GLW tokens earned by solar farms
+            <strong>Emission Rewards:</strong> GLW tokens earned by solar farms
             and split between Glow Miners and Glow Delegators. These are the
             core mining rewards for operating competitive solar farms on the
             protocol.
@@ -970,10 +934,10 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
         ? payload.claimType === "v2Only"
           ? {
               status: "skipped",
-              message: "Inflation rewards already claimed.",
+              message: "Emission rewards already claimed.",
             }
           : { status: "pending" }
-        : { status: "skipped", message: "Inflation rewards already claimed." };
+        : { status: "skipped", message: "Emission rewards already claimed." };
 
       const protocolStage: ClaimStageState = hasProtocolDepositRewards
         ? { status: "pending" }
@@ -1004,60 +968,63 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
     setClaimStageStatuses(initial);
   }, []);
 
-  const updateStageStatus = React.useCallback((update: ClaimProgressUpdate) => {
-    setClaimStageStatuses((prev) => {
-      const previousStage = prev[update.stage];
-      const fallbackMessage: Partial<Record<ClaimStageStatus, string>> = {
-        inProgress: "Submitting transaction...",
-        success: "Transaction confirmed",
-        error: "Unable to complete",
-      };
+  const updateStageStatus = React.useCallback(
+    (update: ClaimProgressUpdate) => {
+      setClaimStageStatuses((prev) => {
+        const previousStage = prev[update.stage];
+        const fallbackMessage: Partial<Record<ClaimStageStatus, string>> = {
+          inProgress: "Submitting transaction...",
+          success: "Transaction confirmed",
+          error: "Unable to complete",
+        };
 
-      const nextStage: ClaimStageState = {
-        status: update.status,
-        txHash:
-          update.txHash !== undefined ? update.txHash : previousStage.txHash,
-        message:
-          update.message ??
-          (update.status === "skipped"
-            ? previousStage.message
-            : fallbackMessage[update.status] ?? previousStage.message),
-      };
-
-      const next = {
-        ...prev,
-        [update.stage]: nextStage,
-      } as ClaimStageMap;
-
-      claimStageStatusesRef.current = next;
-      return next;
-    });
-
-    if (activeClaim) {
-      const key = `${activeClaim.weekData.week}:${update.stage}:${update.status}`;
-      if (!trackedStageUpdatesRef.current.has(key)) {
-        trackedStageUpdatesRef.current.add(key);
-        trackEvent("wallet_claim_stage_update", {
-          week: activeClaim.weekData.week,
-          stage: update.stage,
+        const nextStage: ClaimStageState = {
           status: update.status,
-          has_tx_hash: Boolean(update.txHash),
-        });
-      }
+          txHash:
+            update.txHash !== undefined ? update.txHash : previousStage.txHash,
+          message:
+            update.message ??
+            (update.status === "skipped"
+              ? previousStage.message
+              : fallbackMessage[update.status] ?? previousStage.message),
+        };
 
-      if (update.txHash) {
-        const txKey = `${activeClaim.weekData.week}:${update.stage}`;
-        if (!trackedStageTxRef.current.has(txKey)) {
-          trackedStageTxRef.current.add(txKey);
-          trackEvent("wallet_claim_tx_submitted", {
+        const next = {
+          ...prev,
+          [update.stage]: nextStage,
+        } as ClaimStageMap;
+
+        claimStageStatusesRef.current = next;
+        return next;
+      });
+
+      if (activeClaim) {
+        const key = `${activeClaim.weekData.week}:${update.stage}:${update.status}`;
+        if (!trackedStageUpdatesRef.current.has(key)) {
+          trackedStageUpdatesRef.current.add(key);
+          trackEvent("wallet_claim_stage_update", {
             week: activeClaim.weekData.week,
             stage: update.stage,
-            tx_hash: update.txHash,
+            status: update.status,
+            has_tx_hash: Boolean(update.txHash),
           });
         }
+
+        if (update.txHash) {
+          const txKey = `${activeClaim.weekData.week}:${update.stage}`;
+          if (!trackedStageTxRef.current.has(txKey)) {
+            trackedStageTxRef.current.add(txKey);
+            trackEvent("wallet_claim_tx_submitted", {
+              week: activeClaim.weekData.week,
+              stage: update.stage,
+              tx_hash: update.txHash,
+            });
+          }
+        }
       }
-    }
-  }, [activeClaim]);
+    },
+    [activeClaim]
+  );
 
   const handleInitiateClaim = React.useCallback(
     (payload: ClaimInitiationPayload) => {
@@ -1235,7 +1202,7 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
         0
       );
       details.push({
-        label: "Inflation Rewards",
+        label: "Emission Rewards",
         value: `${total.toFixed(4)} GLW`,
       });
     }
@@ -1733,7 +1700,7 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
 
                   return (
                     <Collapsible
-                      key={`${weekData.week}-${isClaimed}`}
+                      key={weekData.week}
                       defaultOpen={false}
                       className={cn(
                         "border rounded-xl transition-all shadow-sm hover:shadow-md",

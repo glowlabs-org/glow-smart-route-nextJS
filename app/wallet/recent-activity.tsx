@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useAccount } from "wagmi";
 import {
   useWallets,
   type MintedEvent,
@@ -23,8 +24,9 @@ import {
 import { formatUnits } from "viem";
 import type { SplitActivity } from "@/hooks/useGlowLaunchpad";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
+import type { SwapActivity } from "@/hooks/useRecentActivityFeed";
 
-type ActivityKind = "mint" | "stake" | "unstake" | "fraction-purchase";
+type ActivityKind = "mint" | "stake" | "unstake" | "fraction-purchase" | "swap";
 
 interface ActivityItem {
   id: string;
@@ -41,7 +43,11 @@ interface ActivityItem {
 interface RecentActivityProps {
   walletAddress?: string;
   splitsActivity: SplitActivity[];
+  swapsActivity?: SwapActivity[];
   isSplitsActivityLoading?: boolean;
+  isSwapsActivityLoading?: boolean;
+  hideIfEmpty?: boolean;
+  className?: string;
 }
 
 function formatCompactNumber(value: number, maximumFractionDigits: number) {
@@ -98,7 +104,7 @@ function buildMintActivity(event: MintedEvent): ActivityItem | null {
     subtitle,
     pill: event.epoch ? `Epoch ${event.epoch}` : undefined,
     icon: <Sparkles className="h-4 w-4" />,
-    iconClassName: "text-yellow-600 bg-yellow-50 dark:bg-yellow-950/20",
+    iconClassName: "text-[#22D3EE] bg-[#22D3EE]/10",
   };
 }
 
@@ -134,8 +140,8 @@ function buildStakeActivity(event: StakedEvent): ActivityItem | null {
       ),
     iconClassName:
       direction === "stake"
-        ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20"
-        : "text-orange-600 bg-orange-50 dark:bg-orange-950/20",
+        ? "text-[#22D3EE] bg-[#22D3EE]/10"
+        : "text-zinc-400 bg-zinc-900/40",
   };
 }
 
@@ -172,15 +178,68 @@ function buildSplitActivity(split: SplitActivity): ActivityItem | null {
     subtitle,
     pill,
     icon: <ShoppingCart className="h-4 w-4" />,
-    iconClassName: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950/20",
+    iconClassName: isMiningCenter
+      ? "text-[#D9F368] bg-[#D9F368]/10"
+      : "text-[#C084FC] bg-[#C084FC]/10",
+  };
+}
+
+function buildSwapActivity(swap: SwapActivity): ActivityItem | null {
+  const timestampMs = swap.timestampMs;
+  if (!Number.isFinite(timestampMs)) return null;
+
+  const glwIn = swap.glwIn ?? 0;
+  const glwOut = swap.glwOut ?? 0;
+  const usdgIn = swap.usdgIn ?? 0;
+  const usdgOut = swap.usdgOut ?? 0;
+
+  const isSellingGlw = glwIn > 0 && usdgOut > 0;
+  const title = isSellingGlw
+    ? `Swapped ${formatCompactNumber(glwIn, 2)} GLW → ${formatCompactNumber(
+        usdgOut,
+        2
+      )} USDG`
+    : usdgIn > 0 && glwOut > 0
+    ? `Swapped ${formatCompactNumber(usdgIn, 2)} USDG → ${formatCompactNumber(
+        glwOut,
+        2
+      )} GLW`
+    : "Swap";
+
+  const subtitle = "GLW/USDG pool";
+
+  return {
+    id: swap.txHash ? `swap-${swap.txHash}` : `swap-${timestampMs}`,
+    kind: "swap",
+    timestampMs,
+    txHash: swap.txHash,
+    title,
+    subtitle,
+    pill: isSellingGlw ? "Sell" : "Buy",
+    icon: isSellingGlw ? (
+      <TrendingDown className="h-4 w-4" />
+    ) : (
+      <TrendingUp className="h-4 w-4" />
+    ),
+    iconClassName: isSellingGlw
+      ? "text-red-400 bg-red-500/10"
+      : "text-emerald-400 bg-emerald-500/10",
   };
 }
 
 export function RecentActivity({
   walletAddress,
   splitsActivity,
+  swapsActivity = [],
   isSplitsActivityLoading = false,
+  isSwapsActivityLoading = false,
+  hideIfEmpty = false,
+  className,
 }: RecentActivityProps) {
+  const { isConnecting, isReconnecting } = useAccount();
+  const isWalletConnecting =
+    (isConnecting || isReconnecting) && !Boolean(walletAddress);
+
   // Fetch wallet events data
   const {
     mintedEvents,
@@ -212,11 +271,20 @@ export function RecentActivity({
       if (item) all.push(item);
     });
 
+    swapsActivity.forEach((swap) => {
+      const item = buildSwapActivity(swap);
+      if (item) all.push(item);
+    });
+
     return all.sort((a, b) => b.timestampMs - a.timestampMs);
-  }, [mintedEvents, stakeEvents, splitsActivity]);
+  }, [mintedEvents, stakeEvents, splitsActivity, swapsActivity]);
 
   const isLoading =
-    isMintedEventsLoading || isStakeEventsLoading || isSplitsActivityLoading;
+    isMintedEventsLoading ||
+    isStakeEventsLoading ||
+    isSplitsActivityLoading ||
+    isSwapsActivityLoading ||
+    isWalletConnecting;
 
   const handleViewTransaction = React.useCallback((activity: ActivityItem) => {
     if (!activity.txHash) {
@@ -230,8 +298,15 @@ export function RecentActivity({
     );
   }, []);
 
+  if (hideIfEmpty && !isLoading && activities.length === 0) return null;
+
   return (
-    <Card className="h-full max-h-[360px] overflow-hidden flex flex-col">
+    <Card
+      className={cn(
+        "h-full max-h-[380px] overflow-hidden flex flex-col",
+        className
+      )}
+    >
       <CardHeader className="pb-0">
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="tracking-tight">Recent Activity</CardTitle>
@@ -288,7 +363,7 @@ export function RecentActivity({
                   >
                     <div
                       className={cn(
-                        "h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0",
+                        "h-9 w-9 rounded-xl border border-border bg-background/60 flex items-center justify-center flex-shrink-0",
                         activity.iconClassName
                       )}
                     >

@@ -20,7 +20,10 @@ if (!CONTROL_API_URL) {
 const walletsRouter = WalletsRouter(CONTROL_API_URL);
 
 const QUERY_KEY = {
-  v2Claims: (wallet?: string) => ["wallet-v2-claims", wallet] as const,
+  v2Claims: (wallet?: string, refreshKey?: string | number) => {
+    if (refreshKey == null) return ["wallet-v2-claims", wallet] as const;
+    return ["wallet-v2-claims", wallet, refreshKey] as const;
+  },
 };
 
 export interface WalletProtocolClaim {
@@ -48,24 +51,41 @@ interface WalletV2ClaimsResult {
   inflationTotalGlw: number;
 }
 
+export interface UseWalletV2ClaimsQueryOverrides {
+  staleTime?: number;
+  gcTime?: number;
+  refetchOnMount?: boolean;
+  refetchOnWindowFocus?: boolean;
+  refetchOnReconnect?: boolean;
+}
+
+export interface UseWalletV2ClaimsOptions {
+  refreshKey?: string | number;
+  query?: UseWalletV2ClaimsQueryOverrides;
+}
+
 function weekToTimestamp(week: number) {
   const secondsPerWeek = 7 * 86_400;
   return (GENESIS_TIMESTAMP + week * secondsPerWeek) * 1000;
 }
 
 export function useWalletV2Claims(
-  walletAddress: string | undefined
+  walletAddress: string | undefined,
+  options: UseWalletV2ClaimsOptions = {}
 ): WalletV2ClaimsResult {
   const currentEpoch = getCurrentEpoch();
 
   const { data, isLoading, isError, error } =
     useQuery<WalletWeeklyRewardsResponse | null>({
-      queryKey: QUERY_KEY.v2Claims(walletAddress),
+      queryKey: QUERY_KEY.v2Claims(walletAddress, options.refreshKey),
       enabled: Boolean(walletAddress),
-      staleTime: 30_000,
-      gcTime: 5 * 60_000,
-      refetchOnWindowFocus: false,
-      refetchOnMount: true,
+      staleTime: options.query?.staleTime ?? 30_000,
+      gcTime: options.query?.gcTime ?? 5 * 60_000,
+      refetchOnWindowFocus: options.query?.refetchOnWindowFocus ?? false,
+      refetchOnMount: options.query?.refetchOnMount ?? true,
+      ...(options.query?.refetchOnReconnect !== undefined
+        ? { refetchOnReconnect: options.query.refetchOnReconnect }
+        : {}),
       queryFn: async () => {
         if (!walletAddress) return null;
         return walletsRouter.fetchWalletWeeklyRewards(walletAddress, {

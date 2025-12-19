@@ -60,6 +60,8 @@ import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
 import { FallbackImage } from "@/components/ui/fallback-image";
 import { useGlowLaunchpad, useSplitsActivity } from "@/hooks/useGlowLaunchpad";
+import { useWalletSwaps } from "@/hooks/useWalletSwaps";
+import type { SwapActivity } from "@/hooks/useRecentActivityFeed";
 import {
   useRewardScore,
   getRewardScoreForApplication,
@@ -196,6 +198,19 @@ export default function View() {
       enabled: Boolean(isConnected && address),
       limit: 100,
     });
+
+  const { swaps, isLoading: isSwapsActivityLoading } = useWalletSwaps(address);
+
+  const swapsActivity = React.useMemo<SwapActivity[]>(() => {
+    return swaps.map((swap) => ({
+      txHash: swap.txHash,
+      timestampMs: swap.timestamp,
+      glwIn: swap.glwIn,
+      glwOut: swap.glwOut,
+      usdgIn: swap.usdgIn,
+      usdgOut: swap.usdgOut,
+    }));
+  }, [swaps]);
 
   const { applications: sponsorListings, isLoading: isSponsorListingsLoading } =
     useGlowLaunchpad({
@@ -1438,6 +1453,9 @@ export default function View() {
         <RecentActivity
           walletAddress={address}
           splitsActivity={splitsActivity || []}
+          swapsActivity={swapsActivity}
+          isSplitsActivityLoading={isSplitsActivityLoading}
+          isSwapsActivityLoading={isSwapsActivityLoading}
         />
       </div>
 

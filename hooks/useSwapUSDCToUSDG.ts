@@ -1,4 +1,5 @@
 import { formatEther } from "viem";
+import React from "react";
 import { useContracts } from "./useContracts";
 import { useEthersSigner } from "./useEthersSigner";
 import { Result, Ok, Err } from "ts-results";
@@ -68,6 +69,13 @@ function parseSwapError(error: any): string {
 export const useSwapUSDCToUSDG = () => {
   const { signer } = useEthersSigner();
   const { usdc, usdg, isReady } = useContracts(signer);
+  const [lastTxHash, setLastTxHash] = React.useState<`0x${string}` | null>(null);
+  const lastTxHashRef = React.useRef<`0x${string}` | null>(null);
+
+  const resetLastTxHash = React.useCallback(() => {
+    lastTxHashRef.current = null;
+    setLastTxHash(null);
+  }, []);
 
   const estimateGasForswapUSDCToUSDG = async (
     amount: bigint,
@@ -141,6 +149,8 @@ export const useSwapUSDCToUSDG = () => {
       if (allowance < amount) {
         try {
           const tx = await usdc.approve(usdg.address, amount);
+          lastTxHashRef.current = tx.hash as `0x${string}`;
+          setLastTxHash(tx.hash as `0x${string}`);
           await waitForEthersTransactionWithRetry(signer!, tx.hash, {
             maxRetries: 10, // Increased retries for USDG-related approvals
             timeoutMs: 300000, // 5 minutes timeout
@@ -161,6 +171,8 @@ export const useSwapUSDCToUSDG = () => {
             "Failed to get transaction hash from swap. Please try again."
           );
         }
+        lastTxHashRef.current = tx.hash as `0x${string}`;
+        setLastTxHash(tx.hash as `0x${string}`);
 
         await waitForEthersTransactionWithRetry(signer!, tx.hash, {
           maxRetries: 10, // Increased retries for USDG swaps
@@ -193,5 +205,11 @@ export const useSwapUSDCToUSDG = () => {
     }
   };
 
-  return { swapUSDCToUSDG, estimateGasForswapUSDCToUSDG };
+  return {
+    swapUSDCToUSDG,
+    estimateGasForswapUSDCToUSDG,
+    lastTxHash,
+    lastTxHashRef,
+    resetLastTxHash,
+  };
 };

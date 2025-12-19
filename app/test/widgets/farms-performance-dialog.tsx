@@ -29,63 +29,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ConnectButton } from "@/components/connect-button";
 
-// --- MOCK DATA: DETAILED LIST ---
-const MINERS = [
-  {
-    id: "Effervecent Hollow",
-    region: "Arizona, US",
-    type: "miner" as const,
-    initialCost: 50000,
-    recovered: 0, // Miners don't recover deposit
-    inflation: 28400, // Pure yield
-    weeksActive: 42,
-    totalWeeks: 99,
-  },
-  {
-    id: "Coronet Cliffs",
-    region: "Texas, US",
-    type: "miner" as const,
-    initialCost: 30000,
-    recovered: 0,
-    inflation: 8500,
-    weeksActive: 25,
-    totalWeeks: 99,
-  },
-];
-
-const DELEGATIONS = [
-  {
-    id: "Darkgrove Meadows", // The Winner
-    region: "Nevada, US",
-    type: "delegation" as const,
-    initialCost: 10000,
-    recovered: 8500, // 85% of principal back
-    inflation: 4500, // + 45% yield
-    weeksActive: 90,
-    totalWeeks: 100,
-  },
-  {
-    id: "Pinecrest Hills", // The Underperformer
-    region: "Arizona, US",
-    type: "delegation" as const,
-    initialCost: 10000,
-    recovered: 2000, // Only 20% back
-    inflation: 1000, // Low yield
-    weeksActive: 50,
-    totalWeeks: 100,
-  },
-  {
-    id: "Riverside View", // On Track
-    region: "Texas, US",
-    type: "delegation" as const,
-    initialCost: 10000,
-    recovered: 3500,
-    inflation: 500,
-    weeksActive: 40,
-    totalWeeks: 100,
-  },
-];
+import { useRewardsBreakdown } from "@/hooks/useRewardsBreakdown";
+import { useWalletFarms } from "@/hooks/useWalletFarms";
+import { useRegions } from "@/hooks/useRegions";
+import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 
 // --- HELPER: FORMATTERS ---
 const fmtGlw = (n: number) =>
@@ -107,12 +57,31 @@ function isFilterValue(value: string): value is FilterValue {
   return (FILTER_VALUES as readonly string[]).includes(value);
 }
 
+interface PerformanceRowData {
+  id: string;
+  region: string;
+  type: "miner" | "delegation";
+  initialCost: number;
+  recovered: number;
+  inflation: number;
+  weeksActive: number;
+  totalWeeks: number;
+}
+
+function parseUsdcFromBaseUnits(value: string) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return num / 1e6;
+}
+
+function parseGlwFromWei(value: string) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return num / 1e18;
+}
+
 // --- COMPONENT: THE FARM ROW ---
-const FarmPerformanceRow = ({
-  data,
-}: {
-  data: (typeof MINERS)[0] | (typeof DELEGATIONS)[0];
-}) => {
+const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
   // 1. Calculations
   const totalValue = data.recovered + data.inflation;
   const isMiner = data.type === "miner";
@@ -136,15 +105,15 @@ const FarmPerformanceRow = ({
   const isLagging = totalValuePct < timePct - 10; // Buffer of 10% before warning
 
   return (
-    <div className="grid grid-cols-12 items-center p-4 rounded-xl border border-zinc-800/60 bg-[#09090b] hover:bg-zinc-900/40 hover:border-zinc-700 transition-all group">
+    <div className="grid grid-cols-12 items-center p-4 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 hover:border-border/80 transition-colors group">
       {/* COLUMN 1: IDENTITY (3 Cols) */}
       <div className="col-span-3 flex items-center gap-3">
         <div
           className={cn(
             "h-10 w-10 rounded-lg flex items-center justify-center border",
             data.type === "miner"
-              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-              : "bg-purple-500/10 border-purple-500/20 text-purple-400"
+              ? "bg-[color:var(--color-glow-yellow)]/15 border-[color:var(--color-glow-yellow)]/30 text-[color:var(--color-glow-yellow)]"
+              : "bg-[color:var(--color-glow-purple)]/15 border-[color:var(--color-glow-purple)]/30 text-[color:var(--color-glow-purple)]"
           )}
         >
           {data.type === "miner" ? (
@@ -154,10 +123,12 @@ const FarmPerformanceRow = ({
           )}
         </div>
         <div className="flex flex-col">
-          <span className="font-bold text-base text-zinc-200 leading-tight">
+          <span className="font-bold text-base text-foreground leading-tight">
             {data.id}
           </span>
-          <span className="text-sm font-mono text-zinc-500">{data.region}</span>
+          <span className="text-sm font-mono text-muted-foreground">
+            {data.region}
+          </span>
         </div>
       </div>
 
@@ -165,29 +136,29 @@ const FarmPerformanceRow = ({
       <div className="col-span-7 px-4 flex flex-col justify-center gap-3">
         {/* Track A: TIME */}
         <div className="flex items-center gap-3">
-          <span className="text-xs font-mono text-zinc-500 w-10 text-right uppercase tracking-wider">
+          <span className="text-xs font-mono text-muted-foreground w-10 text-right uppercase tracking-wider">
             Time
           </span>
           <div className="flex-1 relative group/tooltip">
-            <div className="relative w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="relative w-full h-1.5 bg-muted rounded-full overflow-hidden">
               <div
                 className="h-full bg-glow-yellow"
                 style={{ width: `${timePct}%` }}
               />
             </div>
             {/* Hover Data */}
-            <div className="absolute -top-8 left-0 hidden group-hover/tooltip:block bg-zinc-900 border border-zinc-800 text-sm px-2.5 py-1.5 rounded text-zinc-200 whitespace-nowrap z-10 leading-snug">
+            <div className="absolute -top-8 left-0 hidden group-hover/tooltip:block bg-popover text-popover-foreground border border-border text-sm px-2.5 py-1.5 rounded whitespace-nowrap z-10 leading-snug">
               {data.weeksActive} weeks elapsed
             </div>
           </div>
-          <span className="text-xs font-mono text-zinc-500 w-16 text-right">
+          <span className="text-xs font-mono text-muted-foreground w-16 text-right">
             {data.totalWeeks - data.weeksActive} Left
           </span>
         </div>
 
         {/* Track B: MONEY */}
         <div className="flex items-center gap-3">
-          <span className="text-xs font-mono text-zinc-500 w-10 text-right uppercase tracking-wider">
+          <span className="text-xs font-mono text-muted-foreground w-10 text-right uppercase tracking-wider">
             Value
           </span>
           <div className="flex-1 relative">
@@ -195,7 +166,7 @@ const FarmPerformanceRow = ({
               <TooltipTrigger asChild>
                 <div
                   className={cn(
-                    "relative w-full h-2.5 bg-muted rounded-full overflow-hidden border border-zinc-700/50 cursor-help",
+                    "relative w-full h-2.5 bg-muted rounded-full overflow-hidden border border-border/70 cursor-help",
                     isProfit &&
                       "ring-1 ring-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]"
                   )}
@@ -207,7 +178,7 @@ const FarmPerformanceRow = ({
                   />
                   {/* Segment 2: Inflation Yield (Green) */}
                   <div
-                    className="absolute h-full bg-emerald-400"
+                    className="absolute h-full bg-[color:var(--color-glow-yellow)]"
                     style={{
                       left: `${principalPct}%`,
                       width: `${inflationPct}%`,
@@ -215,32 +186,32 @@ const FarmPerformanceRow = ({
                   />
                 </div>
               </TooltipTrigger>
-              <TooltipContent className="bg-zinc-950 border-zinc-800 text-sm font-mono px-4 py-3 text-zinc-200">
+              <TooltipContent className="bg-popover text-popover-foreground border-border text-sm font-mono px-4 py-3">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                  <span className="text-zinc-500">Initial:</span>
-                  <span className="text-right text-zinc-200">
+                  <span className="text-muted-foreground">Initial:</span>
+                  <span className="text-right text-foreground">
                     {isMiner
                       ? fmtUsd(data.initialCost)
                       : `${fmtGlw(data.initialCost)} GLW`}
                   </span>
 
-                  <span className="text-zinc-500">Recovered:</span>
+                  <span className="text-muted-foreground">Recovered:</span>
                   <span className="text-right text-accent">
                     {isMiner
                       ? fmtUsd(data.recovered)
                       : `${fmtGlw(data.recovered)} GLW`}
                   </span>
 
-                  <span className="text-zinc-500">Inflation:</span>
-                  <span className="text-right text-emerald-400">
+                  <span className="text-muted-foreground">Emissions:</span>
+                  <span className="text-right text-[color:var(--color-glow-yellow)]">
                     {isMiner
                       ? `+${fmtUsd(data.inflation)}`
                       : `+${fmtGlw(data.inflation)} GLW`}
                   </span>
 
-                  <div className="col-span-2 h-px bg-zinc-800 my-1" />
+                  <div className="col-span-2 h-px bg-border my-1" />
 
-                  <span className="text-zinc-500">Total:</span>
+                  <span className="text-muted-foreground">Total:</span>
                   <span className="text-right font-bold">
                     {isMiner ? fmtUsd(totalValue) : `${fmtGlw(totalValue)} GLW`}
                   </span>
@@ -250,7 +221,7 @@ const FarmPerformanceRow = ({
 
             {/* Profit Overflow Marker */}
             {isProfit && (
-              <div className="absolute top-1/2 -translate-y-1/2 -right-1 w-1 h-3 bg-white shadow-[0_0_8px_white] rounded-full z-10" />
+              <div className="absolute top-1/2 -translate-y-1/2 -right-1 w-1 h-3 bg-foreground rounded-full z-10" />
             )}
           </div>
 
@@ -258,7 +229,7 @@ const FarmPerformanceRow = ({
             <span
               className={cn(
                 "text-sm font-mono font-bold",
-                isProfit ? "text-emerald-400" : "text-zinc-300"
+                isProfit ? "text-emerald-500" : "text-foreground"
               )}
             >
               {Math.round(totalValuePct)}%
@@ -288,7 +259,7 @@ const FarmPerformanceRow = ({
           </div>
         ) : (
           <div
-            className="flex items-center gap-1.5 text-zinc-500"
+            className="flex items-center gap-1.5 text-muted-foreground"
             title="On track to break even"
           >
             <span className="text-xs font-mono uppercase tracking-wide">
@@ -302,26 +273,109 @@ const FarmPerformanceRow = ({
   );
 };
 
-export function FarmsPerformanceDialogContent() {
+interface FarmsPerformanceDialogContentProps {
+  walletAddress?: string;
+}
+
+export function FarmsPerformanceDialogContent({
+  walletAddress,
+}: FarmsPerformanceDialogContentProps) {
   const [filter, setFilter] = React.useState<FilterValue>("all");
 
+  const hasWallet = Boolean(walletAddress);
+
+  const {
+    data: rewardsBreakdown,
+    isLoading: isRewardsLoading,
+    isError: isRewardsError,
+    refetch: refetchRewards,
+  } = useRewardsBreakdown({
+    walletAddress: walletAddress ?? null,
+    enabled: hasWallet,
+  });
+
+  const {
+    farms: purchasedFarms,
+    isLoading: isFarmsLoading,
+    isError: isFarmsError,
+  } = useWalletFarms({
+    walletAddress: walletAddress ?? undefined,
+    enabled: hasWallet,
+  });
+
+  const { regions, isRegionsLoading } = useRegions();
+
+  const { spotPrice: glwSpotPriceUsd, isLoading: isSpotPriceLoading } =
+    useGlowSpotPrice();
+
+  const rows = React.useMemo<PerformanceRowData[]>(() => {
+    if (!rewardsBreakdown) return [];
+
+    return rewardsBreakdown.farmDetails.map((farm) => {
+      const farmMetadata = purchasedFarms.find((f) => f.farmId === farm.farmId);
+      const regionName = (() => {
+        if (!farmMetadata) return "—";
+        const region = regions.find((r) => r.id === farmMetadata.regionId);
+        return region?.name || `Region ${farmMetadata.regionId}`;
+      })();
+
+      const displayName =
+        farmMetadata?.name || `Farm ${farm.farmId.substring(0, 8)}`;
+
+      if (farm.type === "launchpad") {
+        const initialCost = parseGlwFromWei(farm.amountInvested);
+        const recovered = parseGlwFromWei(farm.totalProtocolDepositRewards);
+        const inflation = parseGlwFromWei(farm.totalInflationRewards);
+        return {
+          id: displayName,
+          region: regionName,
+          type: "delegation",
+          initialCost,
+          recovered,
+          inflation,
+          weeksActive: farm.totalWeeksEarned,
+          totalWeeks: 100,
+        };
+      }
+
+      const initialCostUsd = parseUsdcFromBaseUnits(farm.amountInvested);
+      const earnedGlw = parseGlwFromWei(farm.totalEarnedSoFar);
+      const inflationUsd =
+        Number.isFinite(glwSpotPriceUsd ?? NaN) && (glwSpotPriceUsd ?? 0) > 0
+          ? earnedGlw * (glwSpotPriceUsd ?? 0)
+          : 0;
+
+      return {
+        id: displayName,
+        region: regionName,
+        type: "miner",
+        initialCost: initialCostUsd,
+        recovered: 0,
+        inflation: inflationUsd,
+        weeksActive: farm.totalWeeksEarned,
+        totalWeeks: 99,
+      };
+    });
+  }, [purchasedFarms, regions, rewardsBreakdown, glwSpotPriceUsd]);
+
   const visibleRows = React.useMemo(() => {
-    let rows = [...MINERS, ...DELEGATIONS];
-    if (filter === "miners") rows = rows.filter((r) => r.type === "miner");
+    let filtered = [...rows];
+    if (filter === "miners")
+      filtered = filtered.filter((r) => r.type === "miner");
     if (filter === "delegations")
-      rows = rows.filter((r) => r.type === "delegation");
+      filtered = filtered.filter((r) => r.type === "delegation");
     // Sort by Total Value % (High performance first)
-    return rows.sort((a, b) => {
+    return filtered.sort((a, b) => {
       const valA = (a.recovered + a.inflation) / a.initialCost;
       const valB = (b.recovered + b.inflation) / b.initialCost;
       return valB - valA;
     });
-  }, [filter]);
+  }, [filter, rows]);
 
   return (
     <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0 overflow-hidden shadow-2xl">
       {/* Header */}
-      <DialogHeader className="px-6 py-5 border-b border-zinc-800 bg-zinc-900/40 flex-shrink-0 flex-row items-center justify-between space-y-0">
+      <DialogHeader className="px-6 py-5 border-b border-border bg-muted/20 flex-shrink-0 flex-row items-center justify-between space-y-0">
         <DialogTitle className="text-2xl font-bold font-mono uppercase tracking-wide">
           Farm Performance
         </DialogTitle>
@@ -332,22 +386,22 @@ export function FarmsPerformanceDialogContent() {
             setFilter(isFilterValue(value) ? value : "all")
           }
         >
-          <TabsList className="bg-zinc-900 border border-zinc-800 h-9 p-1">
+          <TabsList className="bg-muted/30 border border-border h-9 p-1">
             <TabsTrigger
               value="all"
-              className="h-7 text-xs font-mono px-4 text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-white"
+              className="h-7 text-xs font-mono px-4 text-muted-foreground"
             >
               ALL
             </TabsTrigger>
             <TabsTrigger
               value="miners"
-              className="h-7 text-xs font-mono px-4 text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400"
+              className="h-7 text-xs font-mono px-4 text-muted-foreground data-[state=active]:text-emerald-500"
             >
               MINERS
             </TabsTrigger>
             <TabsTrigger
               value="delegations"
-              className="h-7 text-xs font-mono px-4 text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-purple-400"
+              className="h-7 text-xs font-mono px-4 text-muted-foreground data-[state=active]:text-[color:var(--color-glow-purple)]"
             >
               DELEGATIONS
             </TabsTrigger>
@@ -356,25 +410,79 @@ export function FarmsPerformanceDialogContent() {
       </DialogHeader>
 
       {/* Legend / Columns */}
-      <div className="grid grid-cols-12 px-6 py-3 border-b border-zinc-800/50 bg-zinc-900/20 text-xs font-mono uppercase text-zinc-500 tracking-wider flex-shrink-0">
+      <div className="grid grid-cols-12 px-6 py-3 border-b border-border/60 bg-muted/10 text-xs font-mono uppercase text-muted-foreground tracking-wider flex-shrink-0">
         <div className="col-span-3">Identity</div>
         <div className="col-span-7 pl-4 flex gap-4">
           <span>Lifecycle (Time vs Money)</span>
-          <span className="ml-auto text-zinc-600 normal-case tracking-normal">
+          <span className="ml-auto text-muted-foreground normal-case tracking-normal">
             <span className="text-accent">■</span> Principal
-            <span className="ml-2 text-emerald-500">■</span> Inflation
+            <span className="ml-2 text-[color:var(--color-glow-yellow)]">
+              ■
+            </span>{" "}
+            Emissions
           </span>
         </div>
         <div className="col-span-2 text-right">Status</div>
       </div>
 
       {/* Scrollable List */}
-      <ScrollArea className="flex-1 bg-[#050505]">
+      <ScrollArea className="flex-1 bg-background">
         <TooltipProvider delayDuration={0}>
           <div className="p-6 space-y-3 pb-12">
-            {visibleRows.map((row) => (
-              <FarmPerformanceRow key={row.id} data={row} />
-            ))}
+            {!hasWallet ? (
+              <div className="py-16 flex flex-col items-center justify-center gap-3 text-center">
+                <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                  Connect your wallet to view farm performance
+                </div>
+                <ConnectButton
+                  variant="default"
+                  size="medium"
+                  className="w-full"
+                />
+              </div>
+            ) : isRewardsLoading || isFarmsLoading || isRegionsLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                ))}
+              </div>
+            ) : isRewardsError || isFarmsError ? (
+              <div className="py-16 flex flex-col items-center justify-center gap-3 text-center">
+                <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                  Unable to load farm performance
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="font-mono"
+                  onClick={() => refetchRewards()}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : rows.length === 0 ? (
+              <div className="py-16 text-center text-xs font-mono text-muted-foreground uppercase tracking-wider">
+                No farms found for this wallet
+              </div>
+            ) : (
+              <>
+                {filter === "miners" &&
+                  !isSpotPriceLoading &&
+                  (!Number.isFinite(glwSpotPriceUsd ?? NaN) ||
+                    (glwSpotPriceUsd ?? 0) <= 0) && (
+                    <div className="rounded-xl border border-border bg-muted/20 p-3 text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+                      Miner ROI requires GLW spot price; showing $0 until price
+                      is available.
+                    </div>
+                  )}
+                {visibleRows.map((row) => (
+                  <FarmPerformanceRow
+                    key={`${row.type}-${row.id}`}
+                    data={row}
+                  />
+                ))}
+              </>
+            )}
           </div>
         </TooltipProvider>
       </ScrollArea>
@@ -384,19 +492,25 @@ export function FarmsPerformanceDialogContent() {
 
 // --- STANDALONE WIDGET (OPTIONAL) ---
 
-export default function FarmsPerformanceDialogWidget() {
+interface FarmsPerformanceDialogWidgetProps {
+  walletAddress?: string;
+}
+
+export default function FarmsPerformanceDialogWidget({
+  walletAddress,
+}: FarmsPerformanceDialogWidgetProps) {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
 
   return (
     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-      <Card className="h-full max-h-[400px] flex flex-col overflow-hidden bg-[#09090b] border-zinc-800 shadow-2xl shadow-black/50">
-        <CardHeader className="pb-2 border-b border-zinc-800/50 bg-zinc-900/20">
+      <Card className="h-full max-h-[400px] flex flex-col overflow-hidden shadow-2xl shadow-black/10">
+        <CardHeader className="pb-2 border-b border-border/60 bg-muted/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CardTitle className="tracking-tight text-sm font-bold text-white uppercase font-mono">
-                Reward Flow
+              <CardTitle className="tracking-tight text-sm font-bold text-foreground uppercase font-mono">
+                Glow Mining
               </CardTitle>
-              <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-xs text-zinc-400 font-mono">
+              <span className="px-2 py-0.5 rounded-full bg-muted text-xs text-muted-foreground font-mono">
                 Last 10 Weeks
               </span>
             </div>
@@ -404,7 +518,7 @@ export default function FarmsPerformanceDialogWidget() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 text-xs font-mono text-zinc-400 hover:text-white hover:bg-zinc-800 gap-1"
+                className="h-7 text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-muted gap-1"
               >
                 <LayoutGrid className="w-3 h-3" />
                 View Details
@@ -414,13 +528,13 @@ export default function FarmsPerformanceDialogWidget() {
         </CardHeader>
 
         <CardContent className="flex-1 min-h-0 p-6 flex flex-col gap-6">
-          <div className="flex items-center justify-center h-full text-zinc-600 font-mono text-xs">
+          <div className="flex items-center justify-center h-full text-muted-foreground font-mono text-xs">
             [ Chart View Component ]
           </div>
         </CardContent>
       </Card>
 
-      <FarmsPerformanceDialogContent />
+      <FarmsPerformanceDialogContent walletAddress={walletAddress} />
     </Dialog>
   );
 }

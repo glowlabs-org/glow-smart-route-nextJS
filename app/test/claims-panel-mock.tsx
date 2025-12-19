@@ -86,7 +86,7 @@ const CLAIM_STAGE_META: Record<
   { label: string; icon: React.ReactNode }
 > = {
   inflation: {
-    label: "Inflation Rewards",
+    label: "Emission Rewards",
     icon: <Sparkles className="w-4 h-4" />,
   },
   protocolDeposits: {
@@ -294,10 +294,10 @@ export function ClaimsPanelMock() {
         ? payload.claimType === "v2Only"
           ? {
               status: "skipped",
-              message: "Inflation rewards already claimed.",
+              message: "Emission rewards already claimed.",
             }
           : { status: "pending" }
-        : { status: "skipped", message: "No inflation rewards this week." };
+        : { status: "skipped", message: "No emission rewards this week." };
 
       const protocolStage: ClaimStageState = hasProtocolDepositRewards
         ? { status: "pending" }
@@ -375,7 +375,7 @@ export function ClaimsPanelMock() {
           ...prev,
           inflation: {
             status: "inProgress",
-            message: "Submitting inflation rewards claim...",
+            message: "Submitting emission rewards claim...",
           },
         }));
 
@@ -388,7 +388,7 @@ export function ClaimsPanelMock() {
             txHash: `0x${Math.random()
               .toString(16)
               .substring(2)}1234567890abcdef1234567890`,
-            message: "Inflation rewards claimed successfully",
+            message: "Emission rewards claimed successfully",
           },
         }));
       }
@@ -456,7 +456,7 @@ export function ClaimsPanelMock() {
         0
       );
       details.push({
-        label: "Inflation Rewards",
+        label: "Emission Rewards",
         value: `${total.toFixed(4)} GLW`,
       });
     }
@@ -899,7 +899,7 @@ export function ClaimsPanelMock() {
                                     </div>
                                     <div className="text-xs text-muted-foreground truncate">
                                       {reward.type === "glowInflation"
-                                        ? "Inflation Rewards"
+                                        ? "Emission Rewards"
                                         : "Protocol Deposit"}
                                     </div>
                                   </div>

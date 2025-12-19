@@ -66,20 +66,53 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
+import { calculateFarmEfficiency } from "@glowlabs-org/utils/browser";
 import { formatUnits } from "viem";
 import { useAccount } from "wagmi";
 import { useFractionSplits } from "@/hooks/useFractionSplits";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { SlidersHorizontal, X, Info } from "lucide-react";
+import {
+  ArrowDownUp,
+  ExternalLink,
+  Filter,
+  HelpCircle,
+  Info,
+  MapPin,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { HowItWorks } from "@/components/how-it-works";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { LaunchCountdown } from "@/components/launch-countdown";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
-import { ArrowRight, HelpCircle } from "lucide-react";
 import { LaunchpadStatsDialog } from "./launchpad-stats-dialog";
 import { MiningStatsDialog } from "./mining-stats-dialog";
 import { trackEvent } from "@/lib/telemetry";
+import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+function countActiveListings(
+  applications: Array<{
+    activeFraction: { isFilled: boolean; remainingSteps: number | null } | null;
+  }>
+) {
+  return applications.reduce((count, app) => {
+    const fraction = app.activeFraction;
+    if (!fraction) return count;
+    const remainingSteps = fraction.remainingSteps ?? 0;
+    const hasAvailability = !fraction.isFilled && remainingSteps > 0;
+    return hasAvailability ? count + 1 : count;
+  }, 0);
+}
 
 // Extended type for applications with type tagging
 export type TaggedAuctionApplication = AuctionApplication & {
@@ -133,7 +166,7 @@ function OwnedFractionsDisplay({
         Your balance
       </div>
       <div
-        className="text-lg lg:text-xl text-black dark:text-white"
+        className="text-lg lg:text-xl text-foreground"
         style={{ fontFamily: "Söhne, sans-serif", fontWeight: 600 }}
       >
         {summary.totalStepsPurchased.toLocaleString()} of{" "}
@@ -232,9 +265,11 @@ interface LaunchpadViewProps {
         }
       | null
   ) => void;
+  variant?: "page" | "dialog";
 }
 
-function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
+function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
+  const isDialog = variant === "dialog";
   const [zoneParam, setZoneParam] = useQueryState("zone");
   const [typeParam, setTypeParam] = useQueryState("type", {
     defaultValue: "all",
@@ -384,6 +419,12 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
 
   const { zones } = useAvailableZones(allApplications);
 
+  const shouldShowFilters = React.useMemo(() => {
+    const activeDelegations = countActiveListings(allLaunchpadApplications);
+    const activeMiners = countActiveListings(allMinersApplications);
+    return activeDelegations > 2 && activeMiners > 2;
+  }, [allLaunchpadApplications, allMinersApplications]);
+
   // Fetch reward scores only for delegations
   const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
     applications: taggedLaunchpadApplications,
@@ -476,146 +517,151 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
           }
         />
       )}
-      {/* Mobile Filter Drawer */}
-      <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-        <DrawerContent className="md:hidden max-h-[85vh]">
-          <DrawerHeader className="border-b border-border/60">
-            <div className="flex items-center justify-between">
-              <DrawerTitle
-                className="text-2xl"
+      {shouldShowFilters ? (
+        <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+          <DrawerContent className="md:hidden max-h-[85vh]">
+            <DrawerHeader className="border-b border-border/60">
+              <div className="flex items-center justify-between">
+                <DrawerTitle
+                  className="text-2xl"
+                  style={{
+                    fontFamily: "Duplicate Slab, serif",
+                    fontWeight: 300,
+                  }}
+                >
+                  Filter
+                </DrawerTitle>
+                <DrawerClose asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </DrawerClose>
+              </div>
+              <p
+                className="text-sm text-muted-foreground text-left mt-1"
                 style={{
-                  fontFamily: "Duplicate Slab, serif",
-                  fontWeight: 300,
+                  fontFamily: "Söhne, sans-serif",
+                  fontWeight: 400,
                 }}
               >
-                Filter
-              </DrawerTitle>
-              <DrawerClose asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <X className="h-4 w-4" />
-                </Button>
-              </DrawerClose>
+                Refine your search
+              </p>
+            </DrawerHeader>
+            <div className="overflow-y-auto p-6">
+              <FilterBar {...filterBarProps} />
             </div>
-            <p
-              className="text-sm text-muted-foreground text-left mt-1"
-              style={{
-                fontFamily: "Söhne, sans-serif",
-                fontWeight: 400,
-              }}
-            >
-              Refine your search
-            </p>
-          </DrawerHeader>
-          <div className="overflow-y-auto p-6">
-            <FilterBar {...filterBarProps} />
-          </div>
-        </DrawerContent>
-      </Drawer>
+          </DrawerContent>
+        </Drawer>
+      ) : null}
 
-      <div className="p-4 md:p-6">
+      <div className={isDialog ? "p-4" : "p-4 md:p-6"}>
         {/* Filters - Desktop inline, Mobile button */}
-        <div className="hidden md:block bg-muted/30 rounded-2xl border border-border p-6 mb-6">
-          <h3 className="text-lg font-semibold mb-4">Filters</h3>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              {/* Type Filter */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Type
-                </span>
-                <Select
-                  value={selectedType}
-                  onValueChange={(v) => {
-                    trackEvent("marketplace_launchpad_filter_change", {
-                      filter: "type",
-                      value: v,
-                    });
-                    setTypeParam(v);
-                  }}
-                >
-                  <SelectTrigger className="w-[160px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="delegations">Delegation</SelectItem>
-                    <SelectItem value="miners">Miners</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+        {shouldShowFilters ? (
+          <div className="hidden md:block bg-muted/30 rounded-2xl border border-border p-6 mb-6">
+            <h3 className="text-lg font-semibold mb-4">Filters</h3>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                {/* Type Filter */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Type
+                  </span>
+                  <Select
+                    value={selectedType}
+                    onValueChange={(v) => {
+                      trackEvent("marketplace_launchpad_filter_change", {
+                        filter: "type",
+                        value: v,
+                      });
+                      setTypeParam(v);
+                    }}
+                  >
+                    <SelectTrigger className="w-[160px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="delegations">Delegation</SelectItem>
+                      <SelectItem value="miners">Miners</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {/* Zone Filter */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Zone
-                </span>
-                <Select
-                  value={selectedZoneId?.toString() || "all"}
-                  onValueChange={(v) => {
-                    trackEvent("marketplace_launchpad_filter_change", {
-                      filter: "zone",
-                      value: v,
-                    });
-                    setZoneParam(v === "all" ? null : v);
-                  }}
-                >
-                  <SelectTrigger className="w-[220px]">
-                    <SelectValue placeholder="All zones" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All zones</SelectItem>
-                    {zones.map((zone) => (
-                      <SelectItem key={zone.id} value={zone.id.toString()}>
-                        {zone.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* GLW Balance - Desktop only */}
-            {isConnected && hasMoreThanOneGlw && (
-              <div className="flex items-center gap-3 bg-background/50 rounded-xl border border-border px-4 py-2">
-                <span
-                  className="text-sm text-muted-foreground"
-                  style={{ fontFamily: "Söhne, sans-serif", fontWeight: 600 }}
-                >
-                  Your GLW
-                </span>
-                <div
-                  className="text-lg text-black dark:text-white"
-                  style={{ fontFamily: "Söhne, sans-serif", fontWeight: 600 }}
-                >
-                  {erc20Loading
-                    ? "..."
-                    : glowBalanceFormatted
-                    ? `${glowBalanceFormatted} GLW`
-                    : "0 GLW"}
+                {/* Zone Filter */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Zone
+                  </span>
+                  <Select
+                    value={selectedZoneId?.toString() || "all"}
+                    onValueChange={(v) => {
+                      trackEvent("marketplace_launchpad_filter_change", {
+                        filter: "zone",
+                        value: v,
+                      });
+                      setZoneParam(v === "all" ? null : v);
+                    }}
+                  >
+                    <SelectTrigger className="w-[220px]">
+                      <SelectValue placeholder="All zones" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All zones</SelectItem>
+                      {zones.map((zone) => (
+                        <SelectItem key={zone.id} value={zone.id.toString()}>
+                          {zone.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            )}
+
+              {/* GLW Balance - Desktop only */}
+              {isConnected && hasMoreThanOneGlw && (
+                <div className="flex items-center gap-3 bg-background/50 rounded-xl border border-border px-4 py-2">
+                  <span
+                    className="text-sm text-muted-foreground"
+                    style={{ fontFamily: "Söhne, sans-serif", fontWeight: 600 }}
+                  >
+                    Your GLW
+                  </span>
+                  <div
+                    className="text-lg text-foreground"
+                    style={{ fontFamily: "Söhne, sans-serif", fontWeight: 600 }}
+                  >
+                    {erc20Loading
+                      ? "..."
+                      : glowBalanceFormatted
+                      ? `${glowBalanceFormatted} GLW`
+                      : "0 GLW"}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        ) : null}
 
         {/* Mobile Filter Button */}
-        <div className="md:hidden mb-4">
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => setIsDrawerOpen(true)}
-          >
-            <SlidersHorizontal className="mr-2 h-4 w-4" />
-            <span
-              style={{
-                fontFamily: "Söhne, sans-serif",
-                fontWeight: 500,
-              }}
+        {shouldShowFilters ? (
+          <div className="md:hidden mb-4">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setIsDrawerOpen(true)}
             >
-              Filter & Sort
-            </span>
-          </Button>
-        </div>
+              <SlidersHorizontal className="mr-2 h-4 w-4" />
+              <span
+                style={{
+                  fontFamily: "Söhne, sans-serif",
+                  fontWeight: 500,
+                }}
+              >
+                Filter & Sort
+              </span>
+            </Button>
+          </div>
+        ) : null}
 
         {/* GLW Wallet Balance - Mobile only */}
         {isConnected && hasMoreThanOneGlw && (
@@ -628,7 +674,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                 Your GLW
               </span>
               <div
-                className="text-xl text-black dark:text-white"
+                className="text-xl text-foreground"
                 style={{ fontFamily: "Söhne, sans-serif", fontWeight: 600 }}
               >
                 {erc20Loading
@@ -643,11 +689,17 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
 
         {/* List */}
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div
+            className={
+              isDialog
+                ? "grid grid-cols-1 md:grid-cols-2 gap-4"
+                : "grid grid-cols-1 md:grid-cols-2 gap-6"
+            }
+          >
             {Array.from({ length: 6 }).map((_, i) => (
               <Card
                 key={i}
-                className="bg-white dark:bg-black rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden"
+                className="bg-background rounded-2xl border border-border overflow-hidden"
               >
                 <CardContent className="p-0">
                   <div className="grid grid-cols-2 gap-1">
@@ -698,7 +750,13 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
             />
           </>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
+          <div
+            className={
+              isDialog
+                ? "grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-2 gap-4"
+                : "grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6"
+            }
+          >
             {applications.map((application) => {
               const displayCurrency = selectedCurrency || "USDG";
               const depositAmountInCurrency = calculateProtocolDepositAmount(
@@ -721,7 +779,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
               return (
                 <Card
                   key={application.id}
-                  className="bg-white dark:bg-black rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200 overflow-hidden pt-0"
+                  className="overflow-hidden pt-0 bg-muted"
                 >
                   <CardContent className="p-0">
                     {/* Images */}
@@ -778,14 +836,14 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                       ) : (
                         <div className="grid grid-cols-2 gap-1">
                           <div className="col-span-2 relative">
-                            <div className="w-full h-56 bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
-                              <span className="text-gray-400">
+                            <div className="w-full h-56 bg-muted/60 flex items-center justify-center">
+                              <span className="text-muted-foreground">
                                 No images available
                               </span>
                             </div>
                           </div>
-                          <div className="w-full h-28 bg-gray-100 dark:bg-gray-900"></div>
-                          <div className="w-full h-28 bg-gray-100 dark:bg-gray-900"></div>
+                          <div className="w-full h-28 bg-muted/60"></div>
+                          <div className="w-full h-28 bg-muted/60"></div>
                         </div>
                       )}
                     </div>
@@ -806,11 +864,12 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                         )}
                         <Badge
                           variant="secondary"
-                          className={
+                          className={cn(
+                            "ml-auto text-xl font-semibold border",
                             application._type === "miners"
-                              ? "ml-auto text-xl text-[#5fb56f] dark:text-[#ccffd4] border-[#ccffd4]/20 bg-[#ccffd4]/10 dark:bg-[#5fb56f]/10 font-semibold"
-                              : "ml-auto text-xl text-[#9b7ac7] dark:text-[#dcc4ff] border-[#dcc4ff]/20 bg-[#dcc4ff]/10 dark:bg-[#9b7ac7]/10 font-semibold"
-                          }
+                              ? "border-yellow-500/30 bg-yellow-500/10 text-foreground"
+                              : "border-purple-500/30 bg-purple-500/10 text-foreground"
+                          )}
                         >
                           {application._type === "miners"
                             ? "Miner"
@@ -835,7 +894,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                               : "0/0"}
                           </div>
                           <div
-                            className="text-xs uppercase tracking-wider text-gray-500"
+                            className="text-xs uppercase tracking-wider text-muted-foreground"
                             style={{
                               fontFamily: "Söhne, sans-serif",
                               fontWeight: 600,
@@ -862,7 +921,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                             </div>
                             <div className="flex items-center justify-end gap-1">
                               <div
-                                className="text-xs uppercase tracking-wider text-gray-500"
+                                className="text-xs uppercase tracking-wider text-muted-foreground"
                                 style={{
                                   fontFamily: "Söhne, sans-serif",
                                   fontWeight: 600,
@@ -877,7 +936,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     aria-label="Learn about Reward Score"
-                                    className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                                    className="text-muted-foreground hover:text-foreground transition-colors"
                                   >
                                     <Info className="h-3.5 w-3.5" />
                                   </a>
@@ -886,7 +945,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                   <p>
                                     The Reward Score is a tool that combines
                                     both revenue streams (deposit recovery and
-                                    GLW inflation) into a single metric
+                                    GLW emission rewards) into a single metric
                                     representing expected rewards per dollar
                                     delegated. Higher Reward Scores generally
                                     indicate better delegation opportunities,
@@ -906,7 +965,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                         {/* Amount per Delegation/Miner - Left Column */}
                         <div className="bg-muted/50 border border-border rounded-xl p-4 flex flex-col">
                           <div
-                            className="text-xs uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-3"
+                            className="text-xs uppercase tracking-wider text-muted-foreground mb-3"
                             style={{
                               fontFamily: "Söhne, sans-serif",
                               fontWeight: 600,
@@ -920,7 +979,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                           application._type === "miners" ? (
                             <div className="flex-1 flex flex-col justify-center">
                               <div
-                                className="text-2xl lg:text-3xl text-black dark:text-white leading-tight"
+                                className="text-2xl lg:text-3xl text-foreground leading-tight"
                                 style={{
                                   fontFamily: "Söhne, sans-serif",
                                   fontWeight: 600,
@@ -939,7 +998,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                   0
                                 )}
                                 <span
-                                  className="text-base text-gray-600 dark:text-gray-400 ml-1"
+                                  className="text-base text-muted-foreground ml-1"
                                   style={{
                                     fontFamily: "Söhne, sans-serif",
                                     fontWeight: 500,
@@ -949,7 +1008,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                 </span>
                               </div>
                               <div
-                                className="text-[10px] text-gray-400 dark:text-gray-600 italic mt-3"
+                                className="text-[10px] text-muted-foreground italic mt-3"
                                 style={{
                                   fontFamily: "Söhne, sans-serif",
                                   fontWeight: 400,
@@ -961,7 +1020,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                           ) : application.activeFraction?.step ? (
                             <div className="flex-1 flex flex-col justify-center">
                               <div
-                                className="text-2xl lg:text-3xl text-black dark:text-white leading-tight"
+                                className="text-2xl lg:text-3xl text-foreground leading-tight"
                                 style={{
                                   fontFamily: "Söhne, sans-serif",
                                   fontWeight: 600,
@@ -977,7 +1036,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                   0
                                 )}
                                 <span
-                                  className="text-base text-gray-600 dark:text-gray-400 ml-1"
+                                  className="text-base text-muted-foreground ml-1"
                                   style={{
                                     fontFamily: "Söhne, sans-serif",
                                     fontWeight: 500,
@@ -989,7 +1048,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
 
                               {glwSpotPrice > 0 && (
                                 <div
-                                  className="text-sm text-gray-500 dark:text-gray-500 mt-2"
+                                  className="text-sm text-muted-foreground mt-2"
                                   style={{
                                     fontFamily: "Söhne, sans-serif",
                                     fontWeight: 400,
@@ -1009,7 +1068,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                 </div>
                               )}
                               <div
-                                className="text-[10px] text-gray-400 dark:text-gray-600 italic mt-3"
+                                className="text-[10px] text-muted-foreground italic mt-3"
                                 style={{
                                   fontFamily: "Söhne, sans-serif",
                                   fontWeight: 400,
@@ -1021,7 +1080,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                           ) : depositAmountInCurrency ? (
                             <div className="flex-1 flex flex-col justify-center">
                               <div
-                                className="text-2xl lg:text-3xl text-black dark:text-white"
+                                className="text-2xl lg:text-3xl text-foreground"
                                 style={{
                                   fontFamily: "Söhne, sans-serif",
                                   fontWeight: 600,
@@ -1036,7 +1095,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                 </span>
                               </div>
                               <div
-                                className="text-sm text-gray-500 dark:text-gray-500 mt-1"
+                                className="text-sm text-muted-foreground mt-1"
                                 style={{
                                   fontFamily: "Söhne, sans-serif",
                                   fontWeight: 300,
@@ -1047,7 +1106,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                             </div>
                           ) : (
                             <div
-                              className="text-base text-gray-500 flex-1 flex items-center"
+                              className="text-base text-muted-foreground flex-1 flex items-center"
                               style={{
                                 fontFamily: "Söhne, sans-serif",
                                 fontWeight: 400,
@@ -1064,7 +1123,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                             <div className="bg-muted/50 border border-border rounded-xl p-4 cursor-help flex flex-col">
                               <div className="flex items-center gap-2 mb-3">
                                 <div
-                                  className="text-xs uppercase tracking-wider text-gray-600 dark:text-gray-400"
+                                  className="text-xs uppercase tracking-wider text-muted-foreground"
                                   style={{
                                     fontFamily: "Söhne, sans-serif",
                                     fontWeight: 600,
@@ -1075,20 +1134,20 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                     : "Est. Weekly Rewards"}
                                 </div>
                                 <div className="group/help relative">
-                                  <HelpCircle className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                                  <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
                                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/help:block z-50 w-64">
-                                    <div className="bg-black text-white text-xs rounded-lg py-2 px-3 shadow-lg">
+                                    <div className="bg-popover text-popover-foreground border border-border text-xs rounded-lg py-2 px-3 shadow-lg">
                                       {application._type === "miners"
                                         ? "Current weekly rate based on regional GLW allocation. May decrease as new farms join the region and dilute emissions."
                                         : "Expected weekly rewards based on audited farm performance and regional competitiveness. May vary with network changes."}
-                                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black"></div>
+                                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[color:var(--color-popover)]"></div>
                                     </div>
                                   </div>
                                 </div>
                               </div>
                               <div className="flex-1 flex flex-col justify-center">
                                 <div
-                                  className="text-2xl lg:text-3xl text-black dark:text-white leading-tight"
+                                  className="text-2xl lg:text-3xl text-foreground leading-tight"
                                   style={{
                                     fontFamily: "Söhne, sans-serif",
                                     fontWeight: 600,
@@ -1154,7 +1213,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                     ? "..."
                                     : "0"}
                                   <span
-                                    className="text-base text-gray-600 dark:text-gray-400 ml-1"
+                                    className="text-base text-muted-foreground ml-1"
                                     style={{
                                       fontFamily: "Söhne, sans-serif",
                                       fontWeight: 500,
@@ -1168,7 +1227,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                   miningScore?.weeklyGlwRewards &&
                                   glwSpotPrice > 0 ? (
                                     <div
-                                      className="text-sm text-gray-500 dark:text-gray-500 mt-2"
+                                      className="text-sm text-muted-foreground mt-2"
                                       style={{
                                         fontFamily: "Söhne, sans-serif",
                                         fontWeight: 400,
@@ -1202,7 +1261,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                   application.activeFraction?.totalSteps &&
                                   glwSpotPrice > 0 ? (
                                   <div
-                                    className="text-sm text-gray-500 dark:text-gray-500 mt-2"
+                                    className="text-sm text-muted-foreground mt-2"
                                     style={{
                                       fontFamily: "Söhne, sans-serif",
                                       fontWeight: 400,
@@ -1246,7 +1305,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                   </div>
                                 ) : null}
                                 <div
-                                  className="text-[10px] text-gray-400 dark:text-gray-600 italic mt-3"
+                                  className="text-[10px] text-muted-foreground italic mt-3"
                                   style={{
                                     fontFamily: "Söhne, sans-serif",
                                     fontWeight: 400,
@@ -1315,7 +1374,7 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
                                               maximumFractionDigits: 2,
                                             }
                                           )}{" "}
-                                          GLW from Inflation
+                                          GLW from Emissions
                                         </div>
                                       </div>
                                     );
@@ -1415,22 +1474,969 @@ function LaunchpadViewContent({ onPayDeposit }: LaunchpadViewProps) {
         )}
       </div>
 
-      <HowItWorks
-        featuredCasestudy={{
-          tags: "GUIDES",
-          title: "A Guide to Delegating GLW",
-          subtitle:
-            "How token holders earn rewards by delegating their GLW to solar farms",
-          image: `https://glow.org/_next/image?url=${encodeURIComponent(
-            "/images/blog/guide-to-delegating-glow/header.jpg"
-          )}&w=3840&q=75`,
-          link: "https://glow.org/blog/guide-to-delegating-glow",
+      {!isDialog ? (
+        <HowItWorks
+          featuredCasestudy={{
+            tags: "GUIDES",
+            title: "A Guide to Delegating GLW",
+            subtitle:
+              "How token holders earn rewards by delegating their GLW to solar farms",
+            image: `https://glow.org/_next/image?url=${encodeURIComponent(
+              "/images/blog/guide-to-delegating-glow/header.jpg"
+            )}&w=3840&q=75`,
+            link: "https://glow.org/blog/guide-to-delegating-glow",
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+export function LaunchpadView({ onPayDeposit, variant }: LaunchpadViewProps) {
+  if (variant === "dialog") {
+    return <LaunchpadMarketplaceDialog onPayDeposit={onPayDeposit} />;
+  }
+  return <LaunchpadViewContent onPayDeposit={onPayDeposit} variant={variant} />;
+}
+
+function getActiveFractionAvailability(application: AuctionApplication) {
+  const fraction = application.activeFraction;
+  if (!fraction) {
+    return {
+      remaining: 0,
+      total: 0,
+      isSoldOut: true,
+      progressFilledPct: 0,
+    };
+  }
+  const total = fraction.totalSteps ?? 0;
+  const remaining = fraction.remainingSteps ?? 0;
+  const isSoldOut = fraction.isFilled || remaining <= 0 || total <= 0;
+  const sold = Math.max(0, total - Math.max(0, remaining));
+  const progressFilledPct =
+    total > 0 ? Math.max(0, Math.min(100, (sold / total) * 100)) : 0;
+  return {
+    remaining: Math.max(0, remaining),
+    total,
+    isSoldOut,
+    progressFilledPct,
+  };
+}
+
+function getFarmEfficiency(application: AuctionApplication) {
+  const weeklyCC = application.auditFields?.netCarbonCreditEarningWeekly ?? 0;
+  if (!application.finalProtocolFee || weeklyCC <= 0) return 0;
+  try {
+    const protocolDepositUsd6 = BigInt(application.finalProtocolFee);
+    const weeklyImpactAssetsWad = BigInt(Math.floor(weeklyCC * 10 ** 18));
+    return calculateFarmEfficiency(protocolDepositUsd6, weeklyImpactAssetsWad);
+  } catch {
+    return 0;
+  }
+}
+
+function LaunchpadMarketplaceDialog({
+  onPayDeposit,
+}: Pick<LaunchpadViewProps, "onPayDeposit">) {
+  const { address } = useAccount();
+  const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
+  const [tab, setTab] = React.useState<"all" | "delegations" | "miners">("all");
+  const [zoneId, setZoneId] = React.useState<number | null>(null);
+  const [sortBy, setSortBy] = React.useState<
+    "featured" | "newest" | "rewardScore" | "yieldPer1000"
+  >("featured");
+  const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
+  const [selectedApplicationForStats, setSelectedApplicationForStats] =
+    React.useState<TaggedAuctionApplication | null>(null);
+  const [selectedScoreDataForStats, setSelectedScoreDataForStats] =
+    React.useState<
+      | { userWeeklyGlwRewards: string; userWeeklyPdRewards: string }
+      | {
+          miningScore: number;
+          weeklyGlwRewards?: string;
+          weeklyGlwRewardsUsd?: string;
+        }
+      | null
+    >(null);
+
+  const {
+    applications: launchpadApplications,
+    isLoading: isLoadingLaunchpad,
+    isError: isErrorLaunchpad,
+    error: errorLaunchpad,
+  } = useGlowLaunchpad({
+    filters: { paymentCurrency: "GLW" },
+  });
+
+  const {
+    applications: minersApplications,
+    isLoading: isLoadingMiners,
+    isError: isErrorMiners,
+    error: errorMiners,
+  } = useMiningCenter({
+    filters: { paymentCurrency: "USDC" },
+  });
+
+  const allApplications = React.useMemo(
+    () => [
+      ...launchpadApplications.map((app) => ({
+        ...app,
+        _type: "delegations" as const,
+      })),
+      ...minersApplications.map((app) => ({
+        ...app,
+        _type: "miners" as const,
+      })),
+    ],
+    [launchpadApplications, minersApplications]
+  );
+
+  const { zones } = useAvailableZones(allApplications);
+
+  const shouldShowRegionFilter = React.useMemo(() => {
+    const activeDelegations = countActiveListings(launchpadApplications);
+    const activeMiners = countActiveListings(minersApplications);
+    return activeDelegations > 2 && activeMiners > 2;
+  }, [launchpadApplications, minersApplications]);
+
+  const filteredDelegations = React.useMemo(() => {
+    if (!zoneId) return launchpadApplications;
+    return launchpadApplications.filter((a) => a.zone.id === zoneId);
+  }, [launchpadApplications, zoneId]);
+
+  const filteredMiners = React.useMemo(() => {
+    if (!zoneId) return minersApplications;
+    return minersApplications.filter((a) => a.zone.id === zoneId);
+  }, [minersApplications, zoneId]);
+
+  const taggedDelegations = React.useMemo<TaggedAuctionApplication[]>(
+    () =>
+      filteredDelegations.map((app) => ({
+        ...app,
+        _type: "delegations" as const,
+      })),
+    [filteredDelegations]
+  );
+
+  const taggedMiners = React.useMemo<TaggedAuctionApplication[]>(
+    () => filteredMiners.map((app) => ({ ...app, _type: "miners" as const })),
+    [filteredMiners]
+  );
+
+  const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
+    applications: taggedDelegations,
+    paymentCurrency: "GLW",
+    enabled: taggedDelegations.length > 0,
+    walletAddress: address || null,
+  });
+
+  const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
+    applications: taggedMiners,
+    enabled: taggedMiners.length > 0,
+  });
+
+  const sortOptions = React.useMemo(() => {
+    if (tab === "delegations") {
+      return [
+        { value: "featured", label: "Featured" },
+        { value: "newest", label: "Newest" },
+        { value: "rewardScore", label: "Reward Score" },
+      ] as const;
+    }
+    if (tab === "miners") {
+      return [
+        { value: "featured", label: "Featured" },
+        { value: "newest", label: "Newest" },
+        { value: "yieldPer1000", label: "Yield / $1000" },
+      ] as const;
+    }
+    return [
+      { value: "featured", label: "Featured" },
+      { value: "newest", label: "Newest" },
+    ] as const;
+  }, [tab]);
+
+  const safeSortBy = React.useMemo(() => {
+    const allowed = new Set(sortOptions.map((o) => o.value));
+    return allowed.has(sortBy) ? sortBy : "featured";
+  }, [sortBy, sortOptions]);
+
+  const rows = React.useMemo(() => {
+    const listAll = [...taggedDelegations, ...taggedMiners];
+    const list =
+      tab === "delegations"
+        ? taggedDelegations
+        : tab === "miners"
+        ? taggedMiners
+        : listAll;
+
+    const zoneFiltered =
+      zoneId == null ? list : list.filter((a) => a.zone.id === zoneId);
+
+    const withMetrics = zoneFiltered.map((application) => {
+      const availability = getActiveFractionAvailability(application);
+      const efficiency = getFarmEfficiency(application);
+
+      const reward = getRewardScoreForApplication(
+        rewardScoreMap,
+        application.id
+      );
+      const mining = getMiningScoreForApplication(
+        miningScoreMap,
+        application.id
+      );
+
+      const rewardScore = application._type === "delegations" ? reward : null;
+      const miningScore = application._type === "miners" ? mining : null;
+
+      const score =
+        application._type === "delegations"
+          ? reward?.rewardScore ?? 0
+          : mining?.miningScore ?? 0;
+
+      const scoreData =
+        application._type === "delegations"
+          ? reward
+            ? {
+                userWeeklyGlwRewards: reward.userWeeklyGlwRewards,
+                userWeeklyPdRewards: reward.userWeeklyPdRewards,
+              }
+            : null
+          : mining
+          ? {
+              miningScore: mining.miningScore,
+              weeklyGlwRewards: mining.weeklyGlwRewards,
+              weeklyGlwRewardsUsd: mining.weeklyGlwRewardsUsd,
+            }
+          : null;
+
+      const cost = (() => {
+        try {
+          if (!application.activeFraction) return 0;
+          if (application._type === "miners") {
+            return parseFloat(
+              formatUnits(
+                BigInt(application.activeFraction.stepPrice || "0"),
+                DECIMALS_BY_TOKEN.USDC
+              )
+            );
+          }
+          return parseFloat(
+            formatUnits(
+              BigInt(application.activeFraction.step || "0"),
+              DECIMALS_BY_TOKEN.GLW
+            )
+          );
+        } catch {
+          return 0;
+        }
+      })();
+
+      const weeklyYield = (() => {
+        try {
+          if (application._type === "miners") {
+            if (!miningScore?.weeklyGlwRewards) return 0;
+            return parseFloat(
+              formatUnits(
+                BigInt(miningScore.weeklyGlwRewards),
+                DECIMALS_BY_TOKEN.GLW
+              )
+            );
+          }
+          const totalShares = application.activeFraction?.totalSteps || 0;
+          if (!rewardScore || !totalShares) return 0;
+          const glwRewards = parseFloat(
+            formatUnits(
+              BigInt(rewardScore.userWeeklyGlwRewards || "0"),
+              DECIMALS_BY_TOKEN.GLW
+            )
+          );
+          const pdRewards = parseFloat(
+            formatUnits(
+              BigInt(rewardScore.userWeeklyPdRewards || "0"),
+              DECIMALS_BY_TOKEN.GLW
+            )
+          );
+          return (glwRewards + pdRewards) / totalShares;
+        } catch {
+          return 0;
+        }
+      })();
+
+      const yieldUsdPerWeek = glwSpotPrice > 0 ? weeklyYield * glwSpotPrice : 0;
+      const yieldPer1000Usd =
+        application._type === "miners" && cost > 0 && yieldUsdPerWeek > 0
+          ? (yieldUsdPerWeek / cost) * 1000
+          : 0;
+
+      return {
+        application,
+        availability,
+        efficiency,
+        score,
+        scoreData,
+        cost,
+        weeklyYield,
+        rewardScore,
+        miningScore,
+        yieldUsdPerWeek,
+        yieldPer1000Usd,
+      };
+    });
+
+    const byNewest = (a: (typeof withMetrics)[number]) =>
+      Date.parse(a.application.publishedOnAuctionTimestamp || "") || 0;
+
+    if (tab === "all" && safeSortBy === "featured") {
+      const delegations = withMetrics
+        .filter((r) => r.application._type === "delegations")
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+      const miners = withMetrics
+        .filter((r) => r.application._type === "miners")
+        .sort((a, b) => (b.yieldPer1000Usd ?? 0) - (a.yieldPer1000Usd ?? 0));
+
+      const merged: Array<(typeof withMetrics)[number]> = [];
+      let i = 0;
+      let j = 0;
+      const denomD = Math.max(1, delegations.length - 1);
+      const denomM = Math.max(1, miners.length - 1);
+      while (i < delegations.length || j < miners.length) {
+        if (i >= delegations.length) {
+          merged.push(miners[j++]);
+          continue;
+        }
+        if (j >= miners.length) {
+          merged.push(delegations[i++]);
+          continue;
+        }
+        const nd = i / denomD;
+        const nm = j / denomM;
+        if (nd <= nm) {
+          merged.push(delegations[i++]);
+        } else {
+          merged.push(miners[j++]);
+        }
+      }
+      return merged;
+    }
+
+    const sorted = [...withMetrics].sort((a, b) => {
+      if (safeSortBy === "newest") return byNewest(b) - byNewest(a);
+      if (safeSortBy === "rewardScore") return (b.score ?? 0) - (a.score ?? 0);
+      if (safeSortBy === "yieldPer1000")
+        return (b.yieldPer1000Usd ?? 0) - (a.yieldPer1000Usd ?? 0);
+      if (safeSortBy === "featured") {
+        if (tab === "miners")
+          return (b.yieldPer1000Usd ?? 0) - (a.yieldPer1000Usd ?? 0);
+        return (b.score ?? 0) - (a.score ?? 0);
+      }
+      return 0;
+    });
+
+    return sorted;
+  }, [
+    glwSpotPrice,
+    miningScoreMap,
+    rewardScoreMap,
+    safeSortBy,
+    tab,
+    taggedDelegations,
+    taggedMiners,
+    zoneId,
+  ]);
+
+  const globalStats = React.useMemo(() => {
+    const list = rows.map((r) => r.application);
+    const activeFarms = rows.filter((r) => !r.availability.isSoldOut).length;
+    const totals = rows.reduce(
+      (acc, r) => {
+        acc.remaining += r.availability.remaining;
+        acc.total += r.availability.total;
+        return acc;
+      },
+      { remaining: 0, total: 0 }
+    );
+    const scores = rows
+      .map((r) => r.score)
+      .filter((s) => Number.isFinite(s) && s > 0);
+    const avgScore =
+      scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    const bestScore = scores.length > 0 ? Math.max(...scores) : 0;
+    const totalWattage = list.reduce(
+      (sum, app) => sum + (app.auditFields?.systemWattageOutput ?? 0),
+      0
+    );
+    const totalMw = totalWattage > 0 ? totalWattage / 1e6 : 0;
+
+    return {
+      activeFarms,
+      remaining: totals.remaining,
+      total: totals.total,
+      avgScore,
+      bestScore,
+      totalMw,
+    };
+  }, [rows]);
+
+  const isLoading = isLoadingLaunchpad || isLoadingMiners;
+  const isError = isErrorLaunchpad || isErrorMiners;
+  const error = (errorLaunchpad || errorMiners) as Error | null;
+
+  const tabCounts = React.useMemo(() => {
+    const list =
+      zoneId == null
+        ? allApplications
+        : allApplications.filter((a) => a.zone.id === zoneId);
+    const delegations = list.filter((a) => a._type === "delegations").length;
+    const miners = list.filter((a) => a._type === "miners").length;
+    return { all: list.length, delegations, miners };
+  }, [allApplications, zoneId]);
+
+  return (
+    <div className="p-4 md:p-6">
+      {selectedApplicationForStats?._type === "miners" ? (
+        <MiningStatsDialog
+          open={statsDialogOpen}
+          onOpenChange={setStatsDialogOpen}
+          application={selectedApplicationForStats}
+          miningScoreData={
+            selectedScoreDataForStats as {
+              miningScore: number;
+              weeklyGlwRewards?: string;
+              weeklyGlwRewardsUsd?: string;
+            } | null
+          }
+        />
+      ) : (
+        <LaunchpadStatsDialog
+          open={statsDialogOpen}
+          onOpenChange={setStatsDialogOpen}
+          application={selectedApplicationForStats}
+          rewardScore={
+            selectedScoreDataForStats as {
+              userWeeklyGlwRewards: string;
+              userWeeklyPdRewards: string;
+            } | null
+          }
+        />
+      )}
+      <LaunchpadMarketplaceDialogContent
+        tab={tab}
+        onTabChange={setTab}
+        sortBy={safeSortBy}
+        onSortByChange={setSortBy}
+        sortOptions={sortOptions}
+        tabCounts={tabCounts}
+        zoneId={zoneId}
+        onZoneIdChange={setZoneId}
+        shouldShowRegionFilter={shouldShowRegionFilter}
+        zones={zones}
+        isLoading={isLoading}
+        isError={isError}
+        error={error}
+        rows={rows}
+        isRewardScoresLoading={isRewardScoresLoading}
+        isMiningScoresLoading={isMiningScoresLoading}
+        globalStats={globalStats}
+        glwSpotPrice={glwSpotPrice}
+        onPayDeposit={onPayDeposit}
+        onOpenStats={(application, scoreData) => {
+          setSelectedApplicationForStats(application);
+          setSelectedScoreDataForStats(scoreData ?? null);
+          setStatsDialogOpen(true);
         }}
       />
     </div>
   );
 }
 
-export function LaunchpadView({ onPayDeposit }: LaunchpadViewProps) {
-  return <LaunchpadViewContent onPayDeposit={onPayDeposit} />;
+function getDialogCardImageSrc(application: AuctionApplication) {
+  return (
+    application.afterInstallPictures?.[0]?.url ||
+    "/images/sections/residential.jpg"
+  );
+}
+
+function LaunchpadMarketplaceDialogContent({
+  tab,
+  onTabChange,
+  sortBy,
+  onSortByChange,
+  sortOptions,
+  tabCounts,
+  zoneId,
+  onZoneIdChange,
+  shouldShowRegionFilter,
+  zones,
+  isLoading,
+  isError,
+  error,
+  rows,
+  isRewardScoresLoading,
+  isMiningScoresLoading,
+  globalStats,
+  glwSpotPrice,
+  onPayDeposit,
+  onOpenStats,
+}: {
+  tab: "all" | "delegations" | "miners";
+  onTabChange: (t: "all" | "delegations" | "miners") => void;
+  sortBy: "featured" | "newest" | "rewardScore" | "yieldPer1000";
+  onSortByChange: (
+    v: "featured" | "newest" | "rewardScore" | "yieldPer1000"
+  ) => void;
+  sortOptions: ReadonlyArray<{
+    value: "featured" | "newest" | "rewardScore" | "yieldPer1000";
+    label: string;
+  }>;
+  tabCounts: { all: number; delegations: number; miners: number };
+  zoneId: number | null;
+  onZoneIdChange: (v: number | null) => void;
+  shouldShowRegionFilter: boolean;
+  zones: Array<{ id: number; name: string }>;
+  isLoading: boolean;
+  isError: boolean;
+  error: Error | null;
+  rows: Array<{
+    application: TaggedAuctionApplication;
+    availability: ReturnType<typeof getActiveFractionAvailability>;
+    efficiency: number;
+    score: number;
+    scoreData:
+      | { userWeeklyGlwRewards: string; userWeeklyPdRewards: string }
+      | {
+          miningScore: number;
+          weeklyGlwRewards?: string;
+          weeklyGlwRewardsUsd?: string;
+        }
+      | null;
+    cost: number;
+    weeklyYield: number;
+    rewardScore: { rewardScore: number } | null;
+    miningScore: { miningScore: number } | null;
+    yieldUsdPerWeek: number;
+    yieldPer1000Usd: number;
+  }>;
+  isRewardScoresLoading: boolean;
+  isMiningScoresLoading: boolean;
+  globalStats: {
+    activeFarms: number;
+    remaining: number;
+    total: number;
+    avgScore: number;
+    bestScore: number;
+    totalMw: number;
+  };
+  glwSpotPrice: number;
+  onPayDeposit: LaunchpadViewProps["onPayDeposit"];
+  onOpenStats: (
+    application: TaggedAuctionApplication,
+    scoreData:
+      | { userWeeklyGlwRewards: string; userWeeklyPdRewards: string }
+      | {
+          miningScore: number;
+          weeklyGlwRewards?: string;
+          weeklyGlwRewardsUsd?: string;
+        }
+      | null
+  ) => void;
+}) {
+  return (
+    <div className="flex w-full flex-col gap-4 overflow-x-hidden">
+      <div className="rounded-2xl border border-border bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
+        <span className="text-foreground/90">
+          Unsure where to start? Learn about{" "}
+        </span>
+        <a
+          href="https://glow.org/blog/guide-to-delegating-glow"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-foreground hover:underline"
+        >
+          Delegating GLW <ExternalLink className="h-3.5 w-3.5" />
+        </a>{" "}
+        <span className="text-foreground/60">or</span>{" "}
+        <a
+          href="https://glow.org/blog/guide-to-glow-mining"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-foreground hover:underline"
+        >
+          Buying Miners <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+        .
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div
+            className={cn(
+              "grid grid-cols-3 gap-2 rounded-2xl border border-border bg-muted/20 p-2",
+              "w-full md:w-auto"
+            )}
+          >
+            <button
+              type="button"
+              onClick={() => onTabChange("all")}
+              className={cn(
+                "h-10 rounded-xl border px-3 text-sm font-semibold transition-colors",
+                tab === "all"
+                  ? "border-border bg-background/40 text-foreground"
+                  : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/30"
+              )}
+            >
+              All ({tabCounts.all})
+            </button>
+            <button
+              type="button"
+              onClick={() => onTabChange("delegations")}
+              className={cn(
+                "h-10 rounded-xl border px-3 text-sm font-semibold transition-colors",
+                tab === "delegations"
+                  ? "border-purple-500/40 bg-purple-500/10 text-foreground"
+                  : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/30"
+              )}
+            >
+              Delegations (GLW) ({tabCounts.delegations})
+            </button>
+            <button
+              type="button"
+              onClick={() => onTabChange("miners")}
+              className={cn(
+                "h-10 rounded-xl border px-3 text-sm font-semibold transition-colors",
+                tab === "miners"
+                  ? "border-yellow-500/40 bg-yellow-500/10 text-foreground"
+                  : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/30"
+              )}
+            >
+              Miners (USDC) ({tabCounts.miners})
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between md:justify-end gap-3">
+            {shouldShowRegionFilter ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-10">
+                    <Filter className="mr-2 h-4 w-4" />
+                    Filters
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Region</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup
+                    value={zoneId?.toString() || "all"}
+                    onValueChange={(v) =>
+                      onZoneIdChange(v === "all" ? null : Number(v))
+                    }
+                  >
+                    <DropdownMenuRadioItem value="all">
+                      All regions
+                    </DropdownMenuRadioItem>
+                    {zones.map((z) => (
+                      <DropdownMenuRadioItem key={z.id} value={z.id.toString()}>
+                        {z.name}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+
+            <Select
+              value={sortBy}
+              onValueChange={(v) =>
+                onSortByChange(
+                  v as "featured" | "newest" | "rewardScore" | "yieldPer1000"
+                )
+              }
+            >
+              <SelectTrigger className="h-10 w-[190px] bg-background/50">
+                <ArrowDownUp className="mr-2 h-4 w-4 text-muted-foreground" />
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                {sortOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
+          <span className="font-mono uppercase tracking-wider text-muted-foreground/80">
+            Global Stats:
+          </span>{" "}
+          <span className="ml-2">
+            {globalStats.activeFarms} Active Farms • {globalStats.remaining}/
+            {globalStats.total} Fractions Available
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-[140px] rounded-2xl border border-border bg-muted/10"
+              />
+            ))}
+          </div>
+        ) : isError ? (
+          <div className="py-10 text-center">
+            <div className="text-sm text-destructive">
+              Error loading marketplace: {error?.message}
+            </div>
+          </div>
+        ) : rows.length === 0 ? (
+          <LaunchCountdown
+            target={getNextTuesdayAt1pmET()}
+            title="Launchpad"
+            subtitle="The next batch of farms will be available soon"
+          />
+        ) : (
+          rows.map((row) => (
+            <LaunchpadAssetCard
+              key={row.application.id}
+              row={row}
+              isScoresLoading={
+                row.application._type === "delegations"
+                  ? isRewardScoresLoading
+                  : isMiningScoresLoading
+              }
+              glwSpotPrice={glwSpotPrice}
+              onPayDeposit={onPayDeposit}
+              onOpenStats={onOpenStats}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LaunchpadAssetCard({
+  row,
+  isScoresLoading,
+  glwSpotPrice,
+  onPayDeposit,
+  onOpenStats,
+}: {
+  row: {
+    application: TaggedAuctionApplication;
+    availability: ReturnType<typeof getActiveFractionAvailability>;
+    score: number;
+    scoreData:
+      | { userWeeklyGlwRewards: string; userWeeklyPdRewards: string }
+      | {
+          miningScore: number;
+          weeklyGlwRewards?: string;
+          weeklyGlwRewardsUsd?: string;
+        }
+      | null;
+    cost: number;
+    weeklyYield: number;
+    rewardScore: { rewardScore: number } | null;
+    miningScore: { miningScore: number } | null;
+    yieldUsdPerWeek: number;
+  };
+  isScoresLoading: boolean;
+  glwSpotPrice: number;
+  onPayDeposit: LaunchpadViewProps["onPayDeposit"];
+  onOpenStats: (
+    application: TaggedAuctionApplication,
+    scoreData:
+      | { userWeeklyGlwRewards: string; userWeeklyPdRewards: string }
+      | {
+          miningScore: number;
+          weeklyGlwRewards?: string;
+          weeklyGlwRewardsUsd?: string;
+        }
+      | null
+  ) => void;
+}) {
+  const { application, availability, scoreData, cost, weeklyYield } = row;
+  const isDelegation = application._type === "delegations";
+  const isSoldOut = availability.isSoldOut;
+  const remainingPct = React.useMemo(() => {
+    const total = availability.total || 0;
+    const remaining = availability.remaining || 0;
+    if (isSoldOut || total <= 0) return 0;
+    return Math.max(0, Math.min(100, (remaining / total) * 100));
+  }, [availability.remaining, availability.total, isSoldOut]);
+
+  const accent = isDelegation
+    ? {
+        badge: "text-foreground border-purple-500/30",
+        reward: "text-foreground",
+        progress: "bg-purple-500/70",
+        button:
+          "border-purple-500/30 text-foreground hover:bg-purple-500/10 hover:border-purple-500/50",
+      }
+    : {
+        badge: "text-foreground border-yellow-500/30",
+        reward: "text-foreground",
+        progress: "bg-yellow-500/70",
+        button:
+          "border-yellow-500/30 text-foreground hover:bg-yellow-500/10 hover:border-yellow-500/50",
+      };
+
+  const title = application.farmName || "Unnamed Farm";
+  const imageSrc = getDialogCardImageSrc(application);
+
+  const costLabel = isDelegation ? "Delegation Amount" : "PRICE / MINER";
+  const costMain = isDelegation
+    ? `${Math.round(cost).toLocaleString()} GLW`
+    : `$${cost.toLocaleString(undefined, { maximumFractionDigits: 0 })} USDC`;
+
+  const costSub = isDelegation
+    ? glwSpotPrice > 0
+      ? `≈ $${Math.round(cost * glwSpotPrice).toLocaleString()} USD`
+      : "—"
+    : "Stable Price";
+
+  const rewardsMain =
+    isScoresLoading && weeklyYield === 0
+      ? "…"
+      : `+${weeklyYield.toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} GLW/wk`;
+
+  const rewardsSub = isDelegation
+    ? isScoresLoading
+      ? "Score: …"
+      : `Score: ${
+          row.rewardScore?.rewardScore
+            ? Math.round(row.rewardScore.rewardScore).toLocaleString()
+            : "0"
+        }`
+    : glwSpotPrice > 0
+    ? `≈ $${Math.round(weeklyYield * glwSpotPrice).toLocaleString()} USD/wk`
+    : "—";
+
+  return (
+    <div
+      className={cn(
+        "w-full overflow-hidden rounded-2xl border border-border bg-muted/10 p-4 transition-colors",
+        "hover:bg-muted/20"
+      )}
+    >
+      <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-[minmax(0,22%)_minmax(0,18%)_minmax(0,35%)_minmax(0,25%)] md:items-center">
+        <div className="relative min-w-0">
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl">
+            <FallbackImage
+              src={imageSrc}
+              widthForProxy={520}
+              quality={70}
+              alt={title}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+          </div>
+          <div className="absolute left-2 top-2">
+            <Badge
+              variant="outline"
+              className={cn(
+                "border bg-background/90 font-semibold shadow-sm backdrop-blur-md",
+                accent.badge
+              )}
+            >
+              {isDelegation ? "Delegation" : "Miner"}
+            </Badge>
+          </div>
+        </div>
+
+        <div className="min-w-0">
+          <div className="text-base font-semibold text-foreground truncate">
+            {title}
+          </div>
+          <div className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-border/60 bg-background/40 px-2 py-1 text-xs text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5" />
+            <span className="truncate">{application.zone.name}</span>
+          </div>
+
+          {/* Availability moved under region */}
+          <div className="mt-3 w-full max-w-[260px]">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted/40">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-[width] duration-300 ease-out",
+                  accent.progress
+                )}
+                style={{ width: `${remainingPct}%` }}
+              />
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {isSoldOut
+                ? "SOLD OUT"
+                : `${availability.remaining} / ${availability.total} Left`}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-border bg-background/30 p-3">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              {costLabel}
+            </div>
+            <div className="mt-2 text-base font-semibold text-foreground">
+              {costMain}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">{costSub}</div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-background/30 p-3">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              {isDelegation ? "Est. REWARDS" : "YIELD"}
+            </div>
+            <div className={cn("mt-2 text-base font-semibold", accent.reward)}>
+              {rewardsMain}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {isDelegation ? (
+                <span>{rewardsSub}</span>
+              ) : (
+                <span>{rewardsSub}</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-3 md:items-end">
+          <Button
+            variant={isSoldOut ? "ghost" : "default"}
+            className={cn("h-11 w-full md:max-w-[190px] md:ml-auto")}
+            disabled={isSoldOut}
+            onClick={() => {
+              if (isSoldOut) return;
+              onPayDeposit(application, scoreData);
+            }}
+          >
+            {isSoldOut
+              ? "Waitlist"
+              : isDelegation
+              ? "Delegate GLW"
+              : "Buy Miners"}
+          </Button>
+
+          <Button
+            variant="outline"
+            className="h-11 w-full md:max-w-[190px] md:ml-auto"
+            onClick={() => onOpenStats(application, scoreData)}
+          >
+            Advanced Stats
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }

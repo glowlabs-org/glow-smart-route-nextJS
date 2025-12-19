@@ -23,8 +23,24 @@ const walletsRouter = WalletsRouter(CONTROL_API_URL);
 
 // Query key
 const QUERY_KEY = {
-  walletRewards: (wallet?: string) => ["wallet-rewards", wallet] as const,
+  walletRewards: (wallet?: string, refreshKey?: string | number) => {
+    if (refreshKey == null) return ["wallet-rewards", wallet] as const;
+    return ["wallet-rewards", wallet, refreshKey] as const;
+  },
 };
+
+export interface UseClaimableRewardsQueryOverrides {
+  staleTime?: number;
+  gcTime?: number;
+  refetchOnMount?: boolean;
+  refetchOnWindowFocus?: boolean;
+  refetchOnReconnect?: boolean;
+}
+
+export interface UseClaimableRewardsOptions {
+  refreshKey?: string | number;
+  query?: UseClaimableRewardsQueryOverrides;
+}
 
 export interface ClaimableReward {
   week: number;
@@ -57,7 +73,8 @@ export interface UseClaimableRewardsResult {
 }
 
 export function useClaimableRewards(
-  walletAddress?: string
+  walletAddress?: string,
+  options: UseClaimableRewardsOptions = {}
 ): UseClaimableRewardsResult {
   const currentEpoch = getCurrentEpoch();
   const glwFinalizedThresholdWeek = currentEpoch - 3; // GLW inflation finalized at week <= currentEpoch - 3
@@ -71,7 +88,7 @@ export function useClaimableRewards(
     error,
     refetch,
   } = useQuery({
-    queryKey: QUERY_KEY.walletRewards(walletAddress),
+    queryKey: QUERY_KEY.walletRewards(walletAddress, options.refreshKey),
     queryFn: async () => {
       if (!walletAddress) throw new Error("No wallet address");
 
@@ -86,10 +103,13 @@ export function useClaimableRewards(
       return response;
     },
     enabled: !!walletAddress,
-    staleTime: 30_000, // 30 seconds
-    gcTime: 5 * 60_000, // 5 minutes
-    refetchOnMount: true,
-    refetchOnWindowFocus: false,
+    staleTime: options.query?.staleTime ?? 30_000, // 30 seconds
+    gcTime: options.query?.gcTime ?? 5 * 60_000, // 5 minutes
+    refetchOnMount: options.query?.refetchOnMount ?? true,
+    refetchOnWindowFocus: options.query?.refetchOnWindowFocus ?? false,
+    ...(options.query?.refetchOnReconnect !== undefined
+      ? { refetchOnReconnect: options.query.refetchOnReconnect }
+      : {}),
   });
 
   // Process the rewards data

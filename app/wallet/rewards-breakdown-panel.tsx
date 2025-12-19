@@ -285,7 +285,7 @@ export function RewardsBreakdownPanel({
                       <tr className="border-b bg-muted/50">
                         <th className="text-left p-3 font-medium">Week</th>
                         <th className="text-right p-3 font-medium">
-                          Inflation
+                          Emissions
                         </th>
                         <th className="text-right p-3 font-medium">
                           Protocol Deposit
@@ -711,7 +711,7 @@ export function RewardsBreakdownPanel({
                                   <div className="flex items-center gap-1.5">
                                     <div className="w-2 h-2 rounded-full bg-accent" />
                                     <span className="text-muted-foreground">
-                                      Inflation:{" "}
+                                      Emissions:{" "}
                                       <span className="font-medium text-foreground">
                                         {formatGLW(farm.totalInflationRewards)}{" "}
                                         GLW
@@ -1049,7 +1049,7 @@ export function RewardsBreakdownPanel({
                                   <div className="flex items-center gap-1.5">
                                     <div className="w-2 h-2 rounded-full bg-accent" />
                                     <span className="text-muted-foreground">
-                                      Inflation:{" "}
+                                      Emissions:{" "}
                                       <span className="font-medium text-foreground">
                                         {formatGLW(farm.totalInflationRewards)}{" "}
                                         GLW
@@ -1243,7 +1243,7 @@ export function RewardsBreakdownPanel({
                               <div className="space-y-2 pt-2 border-t">
                                 <div className="flex justify-between items-center">
                                   <span className="text-xs text-muted-foreground">
-                                    Est. Weekly Inflation
+                                    Est. Weekly Emissions
                                   </span>
                                   <span className="font-medium">
                                     {weeklyRewardFormatted} GLW

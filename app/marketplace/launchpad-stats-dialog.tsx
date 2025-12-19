@@ -208,7 +208,7 @@ export function LaunchpadStatsDialog({
         label: "Estimated GLW Per Week",
         value: totalWeeklyGlw > 0 ? formatNumber(totalWeeklyGlw, 2) : "N/A",
         tooltip:
-          "Expected weekly rewards from deposit recovery and GLW inflation share.",
+          "Expected weekly rewards from deposit recovery and GLW emission rewards share.",
         secondary: weeklyRewardsUsd ? `≈ $${weeklyRewardsUsd} USD` : undefined,
       },
       {
@@ -255,9 +255,9 @@ export function LaunchpadStatsDialog({
       },
       {
         id: "glw-from-inflation",
-        label: "GLW from Inflation",
+        label: "GLW from Emissions",
         value: formatNumber(weeklyInflationPerFraction, 2),
-        tooltip: "Weekly GLW rewards from protocol inflation share.",
+        tooltip: "Weekly GLW rewards from protocol emissions share.",
         secondary:
           totalWeeklyGlw > 0
             ? `${formatNumber(

@@ -11,9 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
+import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
 import { AddLiquidityQuickDialog } from "./add-liquidity-quick-dialog";
-import { useEthersSigner } from "@/hooks/useEthersSigner";
-import { useER20Balances } from "@/hooks/useERC20Balances";
 import { useRewardsBreakdown } from "@/hooks/useRewardsBreakdown";
 import { getGlwFromWei } from "@/lib/rewards/weekly-delegations";
 import { useGlowLaunchpad } from "@/hooks/useGlowLaunchpad";
@@ -24,6 +23,7 @@ import {
   AnimatedCountdown,
   useCountdownTo,
 } from "@/app/components/animated-countdown";
+import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 
 interface ActionTileProps {
   href?: string;
@@ -53,7 +53,7 @@ function ActionTile({
     <Comp
       {...(compProps as any)}
       className={cn(
-        "group relative flex h-full flex-col rounded-2xl border border-zinc-800 bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "group relative flex h-full flex-col rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-foreground/20 dark:hover:border-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         className
       )}
     >
@@ -88,13 +88,23 @@ function countActiveListings(
   }, 0);
 }
 
-export default function QuickActionsWidget() {
-  const { address } = useAccount();
-  const { signer } = useEthersSigner();
-  const { glowBalance, usdcBalance } = useER20Balances({ signer });
+interface QuickActionsWidgetProps {
+  walletAddress?: string | null;
+  onMintAndStakeClick?: () => void;
+}
+
+export default function QuickActionsWidget({
+  walletAddress,
+  onMintAndStakeClick,
+}: QuickActionsWidgetProps) {
+  const { address: connectedAddress } = useAccount();
+  const effectiveWalletAddress = walletAddress ?? connectedAddress ?? null;
+  const { glwBalance, usdcBalance, usdgBalance } = useWalletTokenBalances(
+    effectiveWalletAddress
+  );
   const { data: rewardsData } = useRewardsBreakdown({
-    walletAddress: address || null,
-    enabled: Boolean(address),
+    walletAddress: effectiveWalletAddress,
+    enabled: Boolean(effectiveWalletAddress),
   });
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
 
@@ -107,6 +117,7 @@ export default function QuickActionsWidget() {
 
   const [isBuyGlwOpen, setIsBuyGlwOpen] = React.useState(false);
   const [isAddLiquidityOpen, setIsAddLiquidityOpen] = React.useState(false);
+  const [isLaunchpadOpen, setIsLaunchpadOpen] = React.useState(false);
   const [isOnboardingCtaHovered, setIsOnboardingCtaHovered] =
     React.useState(false);
   const [minersNextBatchAtMs, setMinersNextBatchAtMs] = React.useState(() =>
@@ -132,7 +143,7 @@ export default function QuickActionsWidget() {
     );
   }, [rewardsData]);
 
-  const hasGlwBalance = (glowBalance ?? BigInt(0)) > BigInt(0);
+  const hasGlwBalance = (glwBalance ?? BigInt(0)) > BigInt(0);
   const isNewUser =
     !hasGlwBalance && totalDelegatedGlw === 0 && !hasActiveMiners;
 
@@ -142,6 +153,12 @@ export default function QuickActionsWidget() {
       countActiveListings(minersApplications)
     );
   }, [launchpadApplications, minersApplications]);
+
+  const activeDelegationsListingsCount = React.useMemo(
+    () => countActiveListings(launchpadApplications),
+    [launchpadApplications]
+  );
+  const isDelegationsLive = activeDelegationsListingsCount > 0;
 
   const activeMinersListingsCount = React.useMemo(
     () => countActiveListings(minersApplications),
@@ -162,8 +179,8 @@ export default function QuickActionsWidget() {
   }, [glwSpotPrice]);
 
   return (
-    <Card className="flex h-full flex-col overflow-hidden">
-      <CardHeader className="pb-3">
+    <Card className="flex h-full flex-col overflow-hidden bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+      <CardHeader className="pb-2">
         <CardTitle>Quick Actions</CardTitle>
       </CardHeader>
 
@@ -229,12 +246,35 @@ export default function QuickActionsWidget() {
               />
 
               <ActionTile
-                href="/?tab=launchpad&type=miners"
                 title="Launchpad"
-                subtitle="Buy Miners"
+                subtitle={isDelegationsLive ? "Delegate GLW" : "Buy Miners"}
                 icon={Zap}
+                onClick={() => setIsLaunchpadOpen(true)}
+                className={cn(
+                  isDelegationsLive &&
+                    "border-[#C084FC]/50 bg-[#C084FC]/5 shadow-[0_0_0_1px_rgba(192,132,252,0.22)] hover:border-[#C084FC]/70 hover:bg-[#C084FC]/10 hover:shadow-[0_0_0_1px_rgba(192,132,252,0.32)]"
+                )}
                 meta={
-                  isMinersSoldOut ? (
+                  isDelegationsLive ? (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#C084FC]/60" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-[#C084FC]" />
+                        </span>
+                        <Badge className="h-5 rounded-full border border-[#C084FC]/25 bg-[#C084FC]/10 px-2 font-mono text-[10px] uppercase tracking-wider text-[#C084FC]">
+                          Live
+                        </Badge>
+                        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                          {activeDelegationsListingsCount} farm
+                          {activeDelegationsListingsCount === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                      <div className="font-mono text-[10px] uppercase tracking-wider text-[#C084FC]/85">
+                        Click to see Launchpad
+                      </div>
+                    </div>
+                  ) : isMinersSoldOut ? (
                     <div className="flex flex-col gap-1">
                       <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                         Next batch in
@@ -245,7 +285,7 @@ export default function QuickActionsWidget() {
                       />
                     </div>
                   ) : (
-                    <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <div className="font-mono text-[10px] uppercase tracking-wider text-[#D9F368]/80">
                       {activeMinersListingsCount} Active Farms
                     </div>
                   )
@@ -265,13 +305,13 @@ export default function QuickActionsWidget() {
               />
 
               <ActionTile
-                href="/glow-swap"
                 title="Amplify"
                 subtitle="Mint & Stake GCTL"
                 icon={Wind}
-                className="hover:border-cyan-400/60 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.35)]"
+                onClick={onMintAndStakeClick}
+                className="hover:border-[#22D3EE]/60 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.35)]"
                 meta={
-                  <div className="font-mono text-[10px] uppercase tracking-wider text-cyan-300/80">
+                  <div className="font-mono text-[10px] uppercase tracking-wider text-[#22D3EE]/80">
                     Boost Region
                   </div>
                 }
@@ -295,6 +335,12 @@ export default function QuickActionsWidget() {
               }
               open={isAddLiquidityOpen}
               onOpenChange={setIsAddLiquidityOpen}
+            />
+
+            <LaunchpadDialog
+              key={isLaunchpadOpen ? "launchpad-open" : "launchpad-closed"}
+              open={isLaunchpadOpen}
+              onOpenChange={setIsLaunchpadOpen}
             />
           </>
         )}

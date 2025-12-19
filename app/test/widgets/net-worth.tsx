@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Area,
   AreaChart,
@@ -19,51 +20,48 @@ import {
   TooltipProvider as UiTooltipProvider,
   TooltipTrigger as UiTooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { ConnectButton } from "@/components/connect-button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
 import { usePoolActivity } from "@/hooks/useGlowPrices";
+import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
+import { useGctlApi } from "@/hooks/useGctlApi";
+import { useRewardsBreakdown } from "@/hooks/useRewardsBreakdown";
+import { useClaimableRewards } from "@/hooks/useClaimableRewards";
+import { useRewardsKernelWrapper } from "@/hooks/useRewardsKernelWrapper";
+import { weekToNonce } from "@/hooks/useMerkleProofs";
+import { useWalletSwaps } from "@/hooks/useWalletSwaps";
 import { cn } from "@/lib/utils";
+import { formatUnits } from "viem";
+import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
+import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import { toFixedTruncate } from "@/utils/toFixedTruncate";
+import {
+  getWeekNumberFromTimestamp,
+  weekToTimestamp,
+} from "@/lib/rewards/weekly-delegations";
+import Link from "next/link";
+import { Sparkles } from "lucide-react";
+import { useAccount, useBalance } from "wagmi";
 
 const GLOW_GREEN = "#4ADE80";
 
-// Glow Worth = Liquid GLW + Delegated GLW + Unclaimed Rewards (in GLW)
-const MOCK_LIQUID_GLW = 35_200;
-const MOCK_DELEGATED_GLW = 9_100;
-const MOCK_UNCLAIMED_REWARDS_GLW = 900;
-const MOCK_WEEKLY_ACCUMULATED_GLW = 1_250;
+function parseGlwFromWei(value?: string | null) {
+  if (!value) return 0;
+  try {
+    return Number(formatUnits(BigInt(value), DECIMALS_BY_TOKEN.GLW));
+  } catch {
+    return 0;
+  }
+}
 
-const ACCUMULATION_DELTAS_GLW: number[] = [
-  0,
-  320,
-  540,
-  240,
-  0,
-  760,
-  -900, // outflow dip
-  1200,
-  420,
-  310,
-  0, // plateau
-  680,
-  430,
-  -250, // small outflow
-  920,
-  520,
-  0, // plateau
-  780,
-  260,
-  -600, // outflow dip
-  1050,
-  410,
-  360,
-  250,
-];
-
-const HOLDINGS = [
-  { symbol: "GLW", amount: 45_200 },
-  { symbol: "USDC", amount: 4200 },
-  { symbol: "USDG", amount: 0 },
-  { symbol: "GCTL", amount: 520 },
-] as const;
+function chunk<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size)
+    chunks.push(items.slice(i, i + size));
+  return chunks;
+}
 
 function formatCompact(value: number) {
   if (!Number.isFinite(value)) return "0";
@@ -91,6 +89,15 @@ function formatSpotPrice(value: number) {
 
 interface GlowWorthPoint {
   glw: number;
+  week?: number;
+  isCurrent?: boolean;
+  liquidGlw?: number;
+  delegatedActiveGlw?: number;
+  unclaimedGlwRewards?: number;
+}
+
+interface NetWorthWidgetProps {
+  walletAddress?: string | null;
 }
 
 function GlowWorthChartTooltip({
@@ -98,26 +105,516 @@ function GlowWorthChartTooltip({
   payload,
 }: RechartsTooltipProps<number, string>) {
   if (!active) return null;
-  const safeGlw =
-    (payload?.[0]?.payload as GlowWorthPoint | undefined)?.glw ?? NaN;
+  const point = payload?.[0]?.payload as GlowWorthPoint | undefined;
+  const safeGlw = point?.glw ?? NaN;
+  const week = point?.week;
+  const isCurrent = Boolean(point?.isCurrent);
+  const liquid = point?.liquidGlw ?? NaN;
+  const delegated = point?.delegatedActiveGlw ?? NaN;
+  const unclaimed = point?.unclaimedGlwRewards ?? NaN;
   if (!Number.isFinite(safeGlw)) return null;
 
+  const dateLabel = (() => {
+    if (typeof week !== "number" || !Number.isFinite(week)) return null;
+    const startMs = weekToTimestamp(week);
+    if (!Number.isFinite(startMs)) return null;
+    return new Date(startMs).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  })();
+
+  const currentDateLabel = new Date().toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
   return (
-    <div className="rounded-xl border border-zinc-800 bg-background/95 px-3 py-2 shadow-sm backdrop-blur">
-      <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
-        GLW worth
+    <div className="rounded-xl border border-foreground/10 dark:border-zinc-800 bg-popover/95 px-3 py-2 shadow-sm backdrop-blur">
+      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground dark:text-zinc-500">
+        {isCurrent
+          ? `Current · ${currentDateLabel}`
+          : dateLabel
+          ? `Week ${week} · ${dateLabel}`
+          : week
+          ? `Week ${week}`
+          : "GLW worth"}
       </div>
       <div className="font-mono text-sm font-bold tabular-nums text-foreground">
         {safeGlw.toLocaleString("en-US", { maximumFractionDigits: 0 })} GLW
+      </div>
+      {Number.isFinite(liquid) &&
+      Number.isFinite(delegated) &&
+      Number.isFinite(unclaimed) ? (
+        <div className="mt-2 space-y-1 text-[11px] font-mono text-muted-foreground/80 dark:text-zinc-400">
+          <div className="flex items-center justify-between gap-4">
+            <span>Liquid</span>
+            <span className="tabular-nums text-foreground">
+              {liquid.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <span>Delegated</span>
+            <span className="tabular-nums text-foreground">
+              {delegated.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <span>Unclaimed</span>
+            <span className="tabular-nums text-foreground">
+              {unclaimed.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+            </span>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function GlowWorthEmptyState() {
+  return (
+    <div className="h-full w-full rounded-2xl border border-dashed border-border/60 bg-muted/10 px-6 py-8">
+      <div className="flex h-full flex-col items-center justify-center text-center">
+        <div className="font-mono text-sm font-bold text-foreground">
+          No GLW worth yet
+        </div>
+        <div className="mt-1 max-w-[360px] text-xs text-muted-foreground">
+          Buy GLW, earn emission rewards, or receive transfers to start building
+          a Glow Worth history.
+        </div>
       </div>
     </div>
   );
 }
 
-export default function NetWorthWidget() {
-  const glowWorth =
-    MOCK_LIQUID_GLW + MOCK_DELEGATED_GLW + MOCK_UNCLAIMED_REWARDS_GLW;
-  const visibleHoldings = HOLDINGS.filter((h) => h.amount > 0);
+function NetWorthSkeleton() {
+  return (
+    <Card className="h-[340px] overflow-hidden flex flex-col gap-2 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+      <CardHeader className="pb-0">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs font-mono text-zinc-500 uppercase tracking-wider">
+            GLOW WORTH
+          </span>
+          <div className="inline-flex items-center gap-2 rounded-full border border-foreground/10 bg-muted/20 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-800/50">
+            <Skeleton className="h-4 w-16 rounded-md" />
+            <span className="font-mono text-[11px] text-muted-foreground">
+              GLW price
+            </span>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="flex flex-col flex-1 min-h-0 p-0">
+        <div className="flex flex-col flex-1 min-h-0">
+          <div className="flex flex-col gap-2 p-4 pb-3 pt-0 shrink-0">
+            <div className="flex items-baseline gap-3">
+              <Skeleton className="h-14 w-44 rounded-2xl" />
+              <Skeleton className="h-7 w-14 rounded-xl" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-6 w-24 rounded-md" />
+              <Skeleton className="h-4 w-36 rounded-md" />
+            </div>
+          </div>
+
+          <div className="px-4 flex-1 min-h-[100px]">
+            <div className="h-full w-full rounded-2xl border border-border/60 bg-muted/10" />
+          </div>
+
+          <div className="border-t border-border/60 bg-muted/10 shrink-0">
+            <div className="p-3">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {Array.from({ length: 4 }).map((_, idx) => (
+                  <div
+                    key={idx}
+                    className="shrink-0 rounded-xl border border-foreground/10 bg-muted/10 px-3 py-2 min-w-[132px] dark:border-zinc-800 dark:bg-background/40"
+                  >
+                    <Skeleton className="h-4 w-16 rounded-md" />
+                    <Skeleton className="mt-2 h-4 w-20 rounded-md" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
+  const { isConnecting, isReconnecting } = useAccount();
+  const hasWallet = Boolean(walletAddress);
+  const isWalletConnecting = isConnecting || isReconnecting;
+  const {
+    data: ethBalanceData,
+    isLoading: isEthBalanceLoading,
+    isFetching: isEthBalanceFetching,
+    isError: isEthBalanceError,
+  } = useBalance({
+    address: (walletAddress ?? undefined) as `0x${string}` | undefined,
+    query: { enabled: hasWallet && Boolean(walletAddress) },
+  });
+  const {
+    glwBalance,
+    usdcBalance,
+    usdgBalance,
+    isLoading: isTokenBalancesLoading,
+    isFetching: isTokenBalancesFetching,
+    isError: isTokenBalancesError,
+  } = useWalletTokenBalances(walletAddress);
+  const { gctlBalance, isGctlBalanceLoading, isGctlBalanceFetching } =
+    useGctlApi(walletAddress ?? undefined, {
+      enabled: hasWallet,
+    });
+  const {
+    data: rewardsBreakdown,
+    isLoading: isRewardsBreakdownLoading,
+    isError: isRewardsBreakdownError,
+  } = useRewardsBreakdown({
+    walletAddress: walletAddress ?? null,
+    enabled: hasWallet,
+  });
+  const {
+    weeklyBreakdown,
+    isLoading: isClaimableRewardsLoading,
+    isError: isClaimableRewardsError,
+  } = useClaimableRewards(walletAddress ?? undefined);
+  const { checkIfClaimed, checkIfGlwClaimed } = useRewardsKernelWrapper();
+  const {
+    swaps,
+    isLoading: isSwapsLoading,
+    isFetching: isSwapsFetching,
+    error: swapsError,
+  } = useWalletSwaps(walletAddress ?? undefined);
+
+  const liquidGlw = React.useMemo(() => {
+    if (!glwBalance) return 0;
+    try {
+      return Number(formatUnits(glwBalance, DECIMALS_BY_TOKEN.GLW));
+    } catch {
+      return 0;
+    }
+  }, [glwBalance]);
+
+  const usdc = React.useMemo(() => {
+    if (!usdcBalance) return 0;
+    try {
+      return Number(formatUnits(usdcBalance, DECIMALS_BY_TOKEN.USDC));
+    } catch {
+      return 0;
+    }
+  }, [usdcBalance]);
+
+  const usdg = React.useMemo(() => {
+    if (!usdgBalance) return 0;
+    try {
+      return Number(formatUnits(usdgBalance, DECIMALS_BY_TOKEN.USDG));
+    } catch {
+      return 0;
+    }
+  }, [usdgBalance]);
+
+  const eth = React.useMemo(() => {
+    const value = ethBalanceData?.value;
+    if (!value) return 0;
+    try {
+      return Number(formatUnits(value, 18));
+    } catch {
+      return 0;
+    }
+  }, [ethBalanceData?.value]);
+
+  const gctl = React.useMemo(() => {
+    if (!gctlBalance) return 0;
+    try {
+      return Number(formatUnits(BigInt(gctlBalance), DECIMALS_BY_TOKEN.GCTL));
+    } catch {
+      return 0;
+    }
+  }, [gctlBalance]);
+
+  const delegated = React.useMemo(() => {
+    if (!rewardsBreakdown) {
+      return {
+        delegatedGrossGlw: 0,
+        returnedDepositGlw: 0,
+        delegatedActiveGlw: 0,
+      };
+    }
+
+    const delegatedAfter = parseGlwFromWei(
+      rewardsBreakdown.delegatedAfterWeekRange?.totalGlwDelegatedAfter
+    );
+
+    let delegatedInvested = 0;
+    let returnedDeposit = 0;
+
+    for (const farm of rewardsBreakdown.farmDetails ?? []) {
+      if (farm.type !== "launchpad") continue;
+      delegatedInvested += parseGlwFromWei(farm.amountInvested);
+      returnedDeposit += parseGlwFromWei(farm.totalProtocolDepositRewards);
+    }
+
+    const delegatedGrossGlw = delegatedInvested + delegatedAfter;
+    const delegatedActiveGlw = Math.max(0, delegatedGrossGlw - returnedDeposit);
+    return {
+      delegatedGrossGlw,
+      returnedDepositGlw: returnedDeposit,
+      delegatedActiveGlw,
+    };
+  }, [rewardsBreakdown]);
+
+  const {
+    data: unclaimedGlwRewards = 0,
+    isLoading: isUnclaimedGlwLoading,
+    isFetching: isUnclaimedGlwFetching,
+    isError: isUnclaimedGlwError,
+  } = useQuery({
+    queryKey: [
+      "unclaimed-glw-rewards",
+      walletAddress,
+      weeklyBreakdown.at(0)?.week ?? null,
+      weeklyBreakdown.length,
+    ],
+    enabled: Boolean(hasWallet && walletAddress && weeklyBreakdown.length > 0),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      if (!walletAddress) return 0;
+
+      const eligibleWeeks = weeklyBreakdown
+        .filter((w) => w.isFinalized)
+        .filter((w) => w.rewards.some((r) => r.currency === "GLW"))
+        .map((w) => ({
+          week: w.week,
+          hasInflation: w.rewards.some((r) => r.type === "glowInflation"),
+          hasProtocolGlw: w.rewards.some(
+            (r) => r.type === "protocolDeposit" && r.currency === "GLW"
+          ),
+          inflationGlw: w.rewards
+            .filter((r) => r.type === "glowInflation" && r.currency === "GLW")
+            .reduce((sum, r) => sum + Number(r.amount || 0), 0),
+          protocolGlw: w.rewards
+            .filter((r) => r.type === "protocolDeposit" && r.currency === "GLW")
+            .reduce((sum, r) => sum + Number(r.amount || 0), 0),
+        }))
+        .filter(
+          (w) =>
+            (w.hasInflation && w.inflationGlw > 0) ||
+            (w.hasProtocolGlw && w.protocolGlw > 0)
+        );
+
+      // Keep RPC load sane
+      const batches = chunk(eligibleWeeks, 8);
+
+      let total = 0;
+      for (const batch of batches) {
+        const results = await Promise.all(
+          batch.map(async (w) => {
+            const [inflationClaimed, protocolClaimed] = await Promise.all([
+              w.hasInflation
+                ? checkIfGlwClaimed(w.week + 1, walletAddress as `0x${string}`)
+                : Promise.resolve(true),
+              w.hasProtocolGlw
+                ? checkIfClaimed(
+                    walletAddress as `0x${string}`,
+                    weekToNonce(w.week)
+                  )
+                : Promise.resolve(true),
+            ]);
+
+            const inflationUnclaimed = inflationClaimed ? 0 : w.inflationGlw;
+            const protocolUnclaimed = protocolClaimed ? 0 : w.protocolGlw;
+            return inflationUnclaimed + protocolUnclaimed;
+          })
+        );
+        total += results.reduce((sum, n) => sum + n, 0);
+      }
+
+      return total;
+    },
+  });
+
+  const MOCK_GLOW_WORTH = 125420;
+  const MOCK_WEEKLY_ACCUMULATED = 1250;
+  const MOCK_CHART_DATA = React.useMemo(() => {
+    const endWeek = 100;
+    return Array.from({ length: 13 }).map((_, i) => ({
+      glw: 100000 + i * 2000 + Math.random() * 1000,
+      week: endWeek - 12 + i,
+    }));
+  }, []);
+
+  const glowWorth = React.useMemo(() => {
+    if (!hasWallet) return MOCK_GLOW_WORTH;
+    return liquidGlw + delegated.delegatedActiveGlw + unclaimedGlwRewards;
+  }, [hasWallet, delegated.delegatedActiveGlw, liquidGlw, unclaimedGlwRewards]);
+
+  const hasWorthDataError =
+    isTokenBalancesError ||
+    isRewardsBreakdownError ||
+    isClaimableRewardsError ||
+    isEthBalanceError ||
+    Boolean(swapsError) ||
+    isUnclaimedGlwError;
+
+  const isWorthDataLoading =
+    hasWallet &&
+    !hasWorthDataError &&
+    (isTokenBalancesLoading ||
+      isTokenBalancesFetching ||
+      isEthBalanceLoading ||
+      isEthBalanceFetching ||
+      isGctlBalanceLoading ||
+      isGctlBalanceFetching ||
+      isRewardsBreakdownLoading ||
+      isClaimableRewardsLoading ||
+      isSwapsLoading ||
+      isSwapsFetching ||
+      (weeklyBreakdown.length > 0 &&
+        (isUnclaimedGlwLoading || isUnclaimedGlwFetching)));
+
+  const showEmptyState =
+    hasWallet && !isWorthDataLoading && !hasWorthDataError && glowWorth <= 0;
+
+  const glowWorthBreakdownShares = React.useMemo(() => {
+    if (!Number.isFinite(glowWorth) || glowWorth <= 0) {
+      return { delegatedShare: 0, unclaimedShare: 0 };
+    }
+
+    const delegatedShareRaw = delegated.delegatedActiveGlw / glowWorth;
+    const delegatedShare = Math.max(0, Math.min(1, delegatedShareRaw));
+
+    const unclaimedShareRaw = unclaimedGlwRewards / glowWorth;
+    const unclaimedShare = Math.max(
+      0,
+      Math.min(1 - delegatedShare, unclaimedShareRaw)
+    );
+
+    return { delegatedShare, unclaimedShare };
+  }, [delegated.delegatedActiveGlw, glowWorth, unclaimedGlwRewards]);
+
+  const weeklyAccumulatedGlw = React.useMemo(() => {
+    if (!hasWallet) return MOCK_WEEKLY_ACCUMULATED;
+    if (!rewardsBreakdown) return 0;
+    let maxWeek = -1;
+    let amount = 0;
+    for (const farm of rewardsBreakdown.farmDetails ?? []) {
+      for (const w of farm.weeklyBreakdown ?? []) {
+        const glw = parseGlwFromWei(w.totalRewards);
+        if (w.weekNumber > maxWeek) {
+          maxWeek = w.weekNumber;
+          amount = glw;
+        } else if (w.weekNumber === maxWeek) {
+          amount += glw;
+        }
+      }
+    }
+    return amount;
+  }, [hasWallet, rewardsBreakdown]);
+
+  const glowWorthChartData = React.useMemo(() => {
+    if (!hasWallet) return MOCK_CHART_DATA;
+
+    const endWeek = getCurrentEpoch();
+    const startWeek = Math.max(0, endWeek - 12);
+
+    const earnedByWeek = new Map<number, number>();
+    if (rewardsBreakdown) {
+      for (const farm of rewardsBreakdown.farmDetails ?? []) {
+        for (const w of farm.weeklyBreakdown ?? []) {
+          if (w.weekNumber < startWeek || w.weekNumber > endWeek) continue;
+          earnedByWeek.set(
+            w.weekNumber,
+            (earnedByWeek.get(w.weekNumber) ?? 0) +
+              parseGlwFromWei(w.totalRewards)
+          );
+        }
+      }
+    }
+
+    const swapDeltaByWeek = new Map<number, number>();
+    for (const swap of swaps) {
+      const week = getWeekNumberFromTimestamp(swap.timestamp);
+      if (week < startWeek || week > endWeek) continue;
+      const netGlw = (swap.glwOut ?? 0) - (swap.glwIn ?? 0);
+      swapDeltaByWeek.set(week, (swapDeltaByWeek.get(week) ?? 0) + netGlw);
+    }
+
+    const weeks = Array.from({ length: endWeek - startWeek + 1 }).map(
+      (_, idx) => startWeek + idx
+    );
+
+    const deltas = weeks.map((week) => {
+      const earned = earnedByWeek.get(week) ?? 0;
+      const netSwaps = swapDeltaByWeek.get(week) ?? 0;
+      return earned + netSwaps;
+    });
+
+    const totalDelta = deltas.reduce((sum, d) => sum + d, 0);
+    let current = glowWorth - totalDelta;
+
+    const points: GlowWorthPoint[] = [];
+    weeks.forEach((week, idx) => {
+      current += deltas[idx] ?? 0;
+      const isCurrent = idx === weeks.length - 1;
+      const total = Math.max(0, current);
+
+      if (isCurrent) {
+        points.push({
+          glw: total,
+          week,
+          isCurrent,
+          liquidGlw,
+          delegatedActiveGlw: delegated.delegatedActiveGlw,
+          unclaimedGlwRewards,
+        });
+        return;
+      }
+
+      const delegatedActiveGlw =
+        total * glowWorthBreakdownShares.delegatedShare;
+      const unclaimedGlw = total * glowWorthBreakdownShares.unclaimedShare;
+      const liquid = Math.max(0, total - delegatedActiveGlw - unclaimedGlw);
+
+      points.push({
+        glw: total,
+        week,
+        isCurrent,
+        liquidGlw: liquid,
+        delegatedActiveGlw,
+        unclaimedGlwRewards: unclaimedGlw,
+      });
+    });
+
+    return points;
+  }, [
+    hasWallet,
+    MOCK_CHART_DATA,
+    delegated.delegatedActiveGlw,
+    glowWorth,
+    glowWorthBreakdownShares.delegatedShare,
+    glowWorthBreakdownShares.unclaimedShare,
+    liquidGlw,
+    rewardsBreakdown,
+    swaps,
+    unclaimedGlwRewards,
+  ]);
+
+  const visibleHoldings = React.useMemo(() => {
+    const holdings = [
+      { symbol: "GLW", amount: liquidGlw },
+      { symbol: "USDC", amount: usdc },
+      { symbol: "USDG", amount: usdg },
+      { symbol: "GCTL", amount: gctl },
+      { symbol: "ETH", amount: eth },
+    ] as const;
+    return holdings.filter((h) => h.amount > 0);
+  }, [eth, gctl, liquidGlw, usdc, usdg]);
 
   const { glowPrice, marketCap } = useGlowCirculatingSupply();
   const { deltaPercent: deltaPercent24h, currentPrice: vwapPrice24h } =
@@ -148,19 +645,27 @@ export default function NetWorthWidget() {
       ? "text-green-400"
       : "text-red-400";
 
-  const chartData = React.useMemo(() => {
-    const totalDelta = ACCUMULATION_DELTAS_GLW.reduce((sum, d) => sum + d, 0);
-    let current = glowWorth - totalDelta;
-    const points: Array<{ glw: number }> = [{ glw: current }];
-    ACCUMULATION_DELTAS_GLW.forEach((d) => {
-      current += d;
-      points.push({ glw: current });
-    });
-    return points;
-  }, [glowWorth]);
+  const chartData = glowWorthChartData;
+  const yDomain = React.useMemo<[number, number]>(() => {
+    const values = chartData
+      .map((p) => p.glw)
+      .filter((v) => Number.isFinite(v));
+    if (values.length === 0) return [0, 1];
+
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min;
+    const pad = range > 0 ? Math.max(range * 0.15, 10) : 10;
+
+    return [Math.max(0, min - pad), max + pad];
+  }, [chartData]);
+
+  const shouldShowSkeleton =
+    (isWalletConnecting && !hasWallet) || (hasWallet && isWorthDataLoading);
+  if (shouldShowSkeleton) return <NetWorthSkeleton />;
 
   return (
-    <Card className="h-[340px] overflow-hidden flex flex-col gap-2">
+    <Card className="h-[340px] overflow-hidden flex flex-col gap-2 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
       <CardHeader className="pb-0">
         <div className="flex items-center justify-between gap-3">
           <span className="text-xs font-mono text-zinc-500 uppercase tracking-wider">
@@ -170,7 +675,7 @@ export default function NetWorthWidget() {
           <UiTooltipProvider delayDuration={150}>
             <UiTooltip>
               <UiTooltipTrigger asChild>
-                <div className="inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-800/50 px-2.5 py-1">
+                <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-2.5 py-1">
                   <span className="font-mono text-xs font-bold text-foreground tabular-nums">
                     {formattedSpotPrice}
                   </span>
@@ -188,109 +693,156 @@ export default function NetWorthWidget() {
       </CardHeader>
 
       <CardContent className="flex flex-col flex-1 min-h-0 p-0">
-        <div className="flex flex-col gap-2 p-4 pb-3 pt-0 shrink-0">
-          <div className="font-mono text-5xl md:text-6xl font-bold tracking-tighter text-foreground tabular-nums">
-            <NumberTicker
-              value={glowWorth}
-              decimalPlaces={0}
-              className="tracking-tighter"
-            />
-            <span className="ml-2 text-xl md:text-2xl font-mono font-semibold text-zinc-500">
-              GLW
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge className="px-2 py-1 rounded-md font-mono text-xs font-bold bg-green-500/10 text-green-400 border border-green-500/20">
-              +{MOCK_WEEKLY_ACCUMULATED_GLW.toLocaleString("en-US")} GLW
-            </Badge>
-            <span className="font-mono text-xs text-muted-foreground">
-              accumulated this week
-            </span>
-          </div>
-        </div>
-
-        <div className="px-4 flex-1 min-h-[100px]">
-          <div className="h-full w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={chartData}
-                margin={{ top: 8, right: 0, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid
-                  vertical={false}
-                  stroke="var(--border)"
-                  strokeOpacity={0.12}
-                />
-                <YAxis
-                  width={56}
-                  orientation="right"
-                  axisLine={false}
-                  tickLine={false}
-                  tickMargin={8}
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
-                  tickFormatter={(value: number) => formatCompact(value)}
-                  domain={[
-                    (min: number) => min - 900,
-                    (max: number) => max + 900,
-                  ]}
-                />
-                <RechartsTooltip
-                  cursor={{ stroke: "var(--border)", strokeOpacity: 0.35 }}
-                  content={GlowWorthChartTooltip}
-                />
-                <defs>
-                  <linearGradient
-                    id="glowWorthGradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="5%"
-                      stopColor={GLOW_GREEN}
-                      stopOpacity={0.35}
-                    />
-                    <stop offset="95%" stopColor={GLOW_GREEN} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <Area
-                  type="monotone"
-                  dataKey="glw"
-                  stroke={GLOW_GREEN}
-                  strokeWidth={3}
-                  fill="url(#glowWorthGradient)"
-                  dot={false}
-                  activeDot={{ r: 4, strokeWidth: 0 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="border-t border-border/60 bg-muted/10 shrink-0">
-          <div className="p-3">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              {visibleHoldings.map((holding) => (
-                <div
-                  key={holding.symbol}
-                  className="shrink-0 rounded-xl border border-zinc-800 bg-background/40 px-3 py-2 min-w-[132px]"
-                >
-                  <div className="flex items-baseline justify-between gap-3">
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
-                      {holding.symbol}
-                    </div>
-                    <div className="font-mono text-sm font-bold text-foreground tabular-nums">
-                      {holding.symbol === "GLW"
-                        ? `${formatCompact(holding.amount)}`
-                        : formatCompact(holding.amount)}
-                    </div>
-                  </div>
-                </div>
-              ))}
+        <div
+          aria-hidden={!hasWallet}
+          className={cn(
+            "flex flex-col flex-1 min-h-0",
+            !hasWallet &&
+              "pointer-events-none select-none blur-[5px] opacity-60 bg-background"
+          )}
+        >
+          <div className="flex flex-col gap-2 p-4 pb-3 pt-0 shrink-0">
+            <div className="font-mono text-5xl md:text-6xl font-bold tracking-tighter text-foreground tabular-nums">
+              <NumberTicker
+                value={glowWorth}
+                decimalPlaces={0}
+                className="tracking-tighter"
+              />
+              <span className="ml-2 text-xl md:text-2xl font-mono font-semibold text-zinc-500">
+                GLW
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className="px-2 py-1 rounded-md font-mono text-xs font-bold bg-green-500/10 text-green-400 border border-green-500/20">
+                +
+                {weeklyAccumulatedGlw.toLocaleString("en-US", {
+                  maximumFractionDigits: 0,
+                })}{" "}
+                GLW
+              </Badge>
+              <span className="font-mono text-xs text-muted-foreground">
+                accumulated this week
+              </span>
             </div>
           </div>
+
+          <div
+            className={cn(
+              "px-4 flex-1",
+              hasWallet ? "min-h-[100px]" : "min-h-[190px]"
+            )}
+          >
+            {showEmptyState ? (
+              <GlowWorthEmptyState />
+            ) : (
+              <div className="h-full w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={chartData}
+                    margin={{ top: 8, right: 0, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      vertical={false}
+                      stroke="var(--border)"
+                      strokeOpacity={0.12}
+                    />
+                    <YAxis
+                      width={56}
+                      orientation="right"
+                      axisLine={false}
+                      tickLine={false}
+                      tickMargin={8}
+                      tick={{
+                        fill: "var(--muted-foreground)",
+                        fontSize: 10,
+                      }}
+                      tickFormatter={(value: number) => formatCompact(value)}
+                      domain={yDomain}
+                    />
+                    <RechartsTooltip
+                      cursor={{ stroke: "var(--border)", strokeOpacity: 0.35 }}
+                      content={GlowWorthChartTooltip}
+                    />
+                    <defs>
+                      <linearGradient
+                        id="glowWorthGradient"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor={GLOW_GREEN}
+                          stopOpacity={0.35}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor={GLOW_GREEN}
+                          stopOpacity={0}
+                        />
+                      </linearGradient>
+                    </defs>
+                    <Area
+                      type="monotone"
+                      dataKey="glw"
+                      stroke={GLOW_GREEN}
+                      strokeWidth={3}
+                      fill="url(#glowWorthGradient)"
+                      dot={false}
+                      activeDot={{ r: 4, strokeWidth: 0 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {hasWallet && !showEmptyState ? (
+            <div className="border-t border-border/60 bg-muted/10 shrink-0">
+              <div className="p-3">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                  {visibleHoldings.map((holding) => (
+                    <div
+                      key={holding.symbol}
+                      className="shrink-0 rounded-xl border border-foreground/10 bg-muted/10 px-3 py-2 min-w-[132px] dark:border-border dark:bg-background/40"
+                    >
+                      <div className="flex items-baseline justify-between gap-3">
+                        <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                          {holding.symbol}
+                        </div>
+                        <div className="font-mono text-sm font-bold text-foreground tabular-nums">
+                          {holding.symbol === "GLW"
+                            ? `${formatCompact(holding.amount)}`
+                            : holding.symbol === "ETH"
+                            ? toFixedTruncate(holding.amount, 4)
+                            : formatCompact(holding.amount)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
+
+        {!hasWallet ? (
+          <div className="px-4 pb-4">
+            <div className="rounded-xl border border-border bg-muted/20 p-3 text-center max-w-xs mx-auto">
+              <div className="mt-1 text-sm text-muted-foreground">
+                Connect your wallet to Begin.
+              </div>
+              <div className="mt-3">
+                <ConnectButton
+                  className="w-full"
+                  variant="default"
+                  size="large"
+                />
+              </div>
+            </div>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

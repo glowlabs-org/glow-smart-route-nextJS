@@ -13,9 +13,30 @@ interface GlowSpotPriceResult {
   updatedAt: number;
 }
 
-export function useGlowSpotPrice() {
+export interface UseGlowSpotPriceQueryOverrides {
+  enabled?: boolean;
+  staleTime?: number;
+  gcTime?: number;
+  refetchInterval?: number | false;
+  refetchOnMount?: boolean;
+  refetchOnWindowFocus?: boolean;
+  refetchOnReconnect?: boolean;
+  retry?: number;
+}
+
+export interface UseGlowSpotPriceOptions {
+  refreshKey?: string | number;
+  query?: UseGlowSpotPriceQueryOverrides;
+}
+
+function buildSpotPriceQueryKey(refreshKey?: string | number) {
+  if (refreshKey == null) return ["glw-spot-price"] as const;
+  return ["glw-spot-price", refreshKey] as const;
+}
+
+export function useGlowSpotPrice(options: UseGlowSpotPriceOptions = {}) {
   const query = useQuery<GlowSpotPriceResult | null>({
-    queryKey: ["glw-spot-price"],
+    queryKey: buildSpotPriceQueryKey(options.refreshKey),
     queryFn: async () => {
       try {
         const factory = SDKAddresses.UNISWAP_V2_FACTORY as `0x${string}`;
@@ -74,12 +95,14 @@ export function useGlowSpotPrice() {
         return null;
       }
     },
-    staleTime: 15_000,
-    refetchInterval: 30_000,
-    refetchOnMount: true,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
-    retry: 2,
+    enabled: options.query?.enabled ?? true,
+    staleTime: options.query?.staleTime ?? 15_000,
+    gcTime: options.query?.gcTime,
+    refetchInterval: options.query?.refetchInterval ?? 30_000,
+    refetchOnMount: options.query?.refetchOnMount ?? true,
+    refetchOnWindowFocus: options.query?.refetchOnWindowFocus ?? false,
+    refetchOnReconnect: options.query?.refetchOnReconnect ?? true,
+    retry: options.query?.retry ?? 2,
   });
 
   return {

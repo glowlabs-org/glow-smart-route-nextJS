@@ -1,0 +1,99 @@
+---
+alwaysApply: true
+---
+
+# Glow Design System: Color Semantics
+
+To maintain cognitive ease across the "Super App," colors are strictly assigned to specific Assets, Roles, and Mechanics. Never mix these semantic meanings (e.g., do not use Purple for a Miner button).
+
+## 1. Asset Palette
+
+### **GLW (The Native Token)**
+
+- **Color:** **Emerald Green** (`#4ADE80`)
+- **Meaning:** Growth, Value, Accumulation.
+- **Usage:**
+  - GLW Balances & Prices.
+  - Net Worth / Glow Worth Chart Lines.
+  - "Profit" or "Surplus" states in progress bars.
+  - Positive trends (`+12.4%`).
+
+### **GCTL (Carbon Credits / Steering)**
+
+- **Color:** **Electric Cyan** (`#22D3EE`)
+- **Meaning:** Impact, Air, Steering Power, Amplification.
+- **Usage:**
+  - GCTL Balances.
+  - "Steering" rows in the Impact Score breakdown.
+  - Carbon Credit Heatmaps.
+  - "Amplify" actions in Quick Actions.
+
+### **USDC (Stablecoin)**
+
+- **Color:** **Slate Blue** (`#60A5FA`) or **Neutral White** (`#F8FAFC`)
+- **Meaning:** Stability, Cash, Liquidity.
+- **Usage:**
+  - USDC Price tags.
+  - "Cost" labels for Miners (since they are priced in dollars).
+
+---
+
+## 2. Protocol Role Palette
+
+### **Miners (The Hardware)**
+
+- **Color:** **Glow Yellow** (`#D9F368`)
+- **Meaning:** Electricity, Hardware, Cash Investment, "Prepackaged Rewards".
+- **Usage:**
+  - Miner Cards & Icons (`Cpu`).
+  - "Buy Miner" Buttons.
+  - "Inflation Earned" stats (since inflation comes from mining).
+  - Cash Miner Bonus (Multiplier) badges.
+
+### **Delegations (The Activation)**
+
+- **Color:** **Electric Purple** (`#C084FC`)
+- **Meaning:** Activation, Staking, Protocol Deposits, "Vaults".
+- **Usage:**
+  - Delegation Cards & Icons (`Layers` / `Zap`).
+  - "Delegate" Buttons.
+  - "Vault Bonus" in Impact Score.
+  - Deposit Recovery bars (The base recovery track).
+
+---
+
+## 3. Functional / UI Palette
+
+### **Surplus / Winning**
+
+- **Color:** **Emerald Green** (`#10B981`)
+- **Usage:**
+  - When a farm's Value Bar exceeds its Time Bar.
+  - "On Track" or "Profitable" badges.
+
+### **Forfeit / Lagging**
+
+- **Color:** **Alert Orange** (`#F97316`) or **Red** (`#EF4444`)
+- **Usage:**
+  - When a farm's Value Bar is behind its Time Bar.
+  - "Underperforming" badges.
+  - Hatched patterns showing lost deposits.
+
+### **Structural Elements (Dark Mode)**
+
+- **Background:** Deep Black (`#050505`)
+- **Cards:** Zinc-950 (`#09090b`)
+- **Borders:** Zinc-800 (`#27272a`)
+- **Text (Muted):** Zinc-500 (`#71717a`)
+
+---
+
+## 4. Cheat Sheet
+
+| Context        | Color  | Hex       | Visual Metaphor         |
+| :------------- | :----- | :-------- | :---------------------- |
+| **GLW**        | Green  | `#4ADE80` | "Number Go Up"          |
+| **GCTL**       | Cyan   | `#22D3EE` | "Clean Air / Energy"    |
+| **Miner**      | Yellow | `#D9F368` | "Electricity / Voltage" |
+| **Delegation** | Purple | `#C084FC` | "Magic / Activation"    |
+| **USDC**       | Slate  | `#60A5FA` | "Cold Hard Cash"        |

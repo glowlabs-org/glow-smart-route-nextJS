@@ -7,12 +7,6 @@ import { motion } from "framer-motion";
 import {
   Menu,
   X,
-  Wallet,
-  ChevronDown,
-  Copy,
-  LogOut,
-  User,
-  AlertTriangle,
 } from "lucide-react";
 import {
   NavigationMenu,
@@ -23,20 +17,8 @@ import {
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   useAccount,
-  useDisconnect,
-  useConnect,
-  useChainId,
-  useSwitchChain,
 } from "wagmi";
-import { mainnet, sepolia } from "wagmi/chains";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
@@ -51,14 +33,11 @@ import {
 
 import { cn } from "@/lib/utils";
 
-import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { GlowLockup } from "./glow-lockup";
-import { ConnectButton } from "./connect-button";
 import { TosDialog } from "./tos-dialog";
 import { ThemeToggle } from "./ui/theme-toggle";
-import { useER20Balances } from "@/hooks/useERC20Balances";
 import { useRefundableFractions } from "@/hooks/useFractionSplits";
-import { forceDisconnect } from "@/utils/forceDisconnect";
+import { WalletStatus } from "./wallet-status";
 
 // ListItem component for navigation menu content
 const ListItem = React.forwardRef<
@@ -473,44 +452,13 @@ export function Header({
 }) {
   const [scrolled, setScrolled] = React.useState(false);
   const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
-  const { connectors } = useConnect();
-  const { signer } = useEthersSigner();
   const router = useRouter();
-  const chainId = useChainId();
-  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
-
-  // Use ERC20 balance hook to check for network issues
-  const { hasError, hasSigner } = useER20Balances({ signer });
 
   // Check for refundable fractions
   const { refundableFractions, summary } = useRefundableFractions({
     walletAddress: address || null,
     enabled: Boolean(address && isConnected),
   });
-
-  const hasNetworkIssues = hasError || (!hasSigner && isConnected);
-  const isWrongNetwork =
-    isConnected && chainId !== parseInt(process.env.NEXT_PUBLIC_CHAIN_ID!);
-
-  const handleForceDisconnect = () => {
-    forceDisconnect(disconnect, connectors);
-  };
-
-  const handleSwitchToMainnet = async () => {
-    try {
-      if (process.env.NEXT_PUBLIC_CHAIN_ID === "1") {
-        await switchChain({ chainId: mainnet.id });
-        toast.success("Switched to Ethereum Mainnet");
-      } else {
-        await switchChain({ chainId: sepolia.id });
-        toast.success("Switched to Sepolia Testnet");
-      }
-    } catch (error: any) {
-      console.error("Failed to switch network:", error);
-      toast.error(error?.message || "Failed to switch network");
-    }
-  };
 
   // Clean up localStorage for claimed refunds and show toast for new refunds
   React.useEffect(() => {
@@ -798,105 +746,14 @@ export function Header({
 
             <div className="flex items-center gap-2">
               <ThemeToggle />
-
-              {isConnected && address ? (
-                hasNetworkIssues ? (
-                  <Button
-                    size={"sm"}
-                    variant={"orange"}
-                    onClick={handleForceDisconnect}
-                  >
-                    Reconnect Wallet
-                  </Button>
-                ) : isWrongNetwork ? (
-                  <Button
-                    size={"sm"}
-                    variant={"orange"}
-                    onClick={handleSwitchToMainnet}
-                    disabled={isSwitchingChain}
-                    className="flex items-center gap-2"
-                  >
-                    <AlertTriangle className="w-4 h-4" />
-                    {isSwitchingChain
-                      ? "Switching..."
-                      : `Switch to ${
-                          process.env.NEXT_PUBLIC_CHAIN_ID === "11155111"
-                            ? "Sepolia"
-                            : "Mainnet"
-                        }`}
-                  </Button>
-                ) : (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm transition-all duration-200 bg-background/95 backdrop-blur-xl border-border hover:bg-muted/30 hover:border-border/60 text-zinc-900 dark:text-zinc-100"
-                        aria-label="Wallet menu"
-                        title={address}
-                      >
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-foreground/10 backdrop-blur-sm">
-                          <Wallet className="w-3.5 h-3.5" />
-                        </span>
-                        <span
-                          style={{ fontFamily: "Söhne, sans-serif" }}
-                          className="font-medium"
-                        >
-                          {address.slice(0, 6)}...{address.slice(-4)}
-                        </span>
-                        <ChevronDown className="w-3.5 h-3.5 opacity-60" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="w-72 backdrop-blur-xl bg-background/95 border-border"
-                    >
-                      <DropdownMenuItem
-                        onSelect={async (e) => {
-                          e.preventDefault();
-                          try {
-                            await navigator.clipboard.writeText(address);
-                            toast.success("Address copied");
-                          } catch {
-                            toast.error("Failed to copy");
-                          }
-                        }}
-                        className="cursor-pointer"
-                      >
-                        <Copy className="w-4 h-4 mr-2" /> Copy address
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem asChild className="cursor-pointer">
-                        <Link href={`/wallet`} rel="noreferrer">
-                          <User className="w-4 h-4 mr-2" /> My Wallet
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          disconnect();
-                        }}
-                        className="cursor-pointer text-destructive focus:text-destructive"
-                      >
-                        <LogOut className="w-4 h-4 mr-2" /> Disconnect
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )
-              ) : (
-                <ConnectButton
-                  variant="default"
-                  className="w-auto"
-                  size="small"
-                />
-              )}
+              <WalletStatus />
             </div>
           </nav>
 
           {/* Mobile controls */}
           <div className="flex items-center gap-3 lg:hidden">
             {/* Always-visible connect button to the left of the hamburger */}
-            <ConnectButton variant="default" className="w-auto" size="small" />
+            <WalletStatus />
             <Drawer direction="right" shouldScaleBackground={false}>
               <DrawerTrigger asChild>
                 <motion.button
@@ -1268,82 +1125,7 @@ export function Header({
 
                 {/* Footer CTA */}
                 <div className="border-t border-border bg-muted p-4">
-                  {isConnected && address ? (
-                    isWrongNetwork ? (
-                      <Button
-                        onClick={handleSwitchToMainnet}
-                        disabled={isSwitchingChain}
-                        className="w-full flex items-center gap-2"
-                        variant="orange"
-                      >
-                        <AlertTriangle className="w-4 h-4" />
-                        {isSwitchingChain
-                          ? "Switching..."
-                          : "Switch to Mainnet"}
-                      </Button>
-                    ) : (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            className="w-full inline-flex items-center justify-between rounded-2xl border px-4 py-3 bg-background/95 backdrop-blur-xl hover:bg-muted/30 hover:border-border/60 transition-all duration-200"
-                            aria-label="Wallet menu"
-                            title={address}
-                          >
-                            <span className="inline-flex items-center gap-2">
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-foreground/10 backdrop-blur-sm">
-                                <Wallet className="w-3.5 h-3.5" />
-                              </span>
-                              <span
-                                style={{ fontFamily: "Söhne, sans-serif" }}
-                                className="font-medium"
-                              >
-                                {address.slice(0, 6)}...{address.slice(-4)}
-                              </span>
-                            </span>
-                            <ChevronDown className="w-4 h-4 opacity-60" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-72 backdrop-blur-xl bg-background/95 border-border"
-                        >
-                          <DropdownMenuItem
-                            onSelect={async (e) => {
-                              e.preventDefault();
-                              try {
-                                await navigator.clipboard.writeText(address);
-                                toast.success("Address copied");
-                              } catch {
-                                toast.error("Failed to copy");
-                              }
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Copy className="w-4 h-4 mr-2" /> Copy address
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem asChild className="cursor-pointer">
-                            <Link href={`/wallet`} rel="noreferrer">
-                              <User className="w-4 h-4 mr-2" /> My Wallet
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              disconnect();
-                            }}
-                            className="cursor-pointer text-destructive focus:text-destructive"
-                          >
-                            <LogOut className="w-4 h-4 mr-2" /> Disconnect
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )
-                  ) : (
-                    <ConnectButton className="w-full" variant="default" />
-                  )}
+                  <WalletStatus className="w-full justify-between h-12" />
                 </div>
               </DrawerContent>
             </Drawer>
