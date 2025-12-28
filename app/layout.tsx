@@ -1,3 +1,4 @@
+import "@/lib/server-web-storage";
 import "./globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Toaster } from "sonner";
