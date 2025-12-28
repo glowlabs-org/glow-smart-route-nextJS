@@ -40,6 +40,13 @@ const nextConfig = {
     ],
   },
   webpack: (config, { isServer }) => {
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      // Optional deps pulled in by some wallet SDKs; not needed in our bundles.
+      encoding: false,
+      "pino-pretty": false,
+    };
+
     // Handle web workers properly
     if (!isServer) {
       config.resolve.fallback = {

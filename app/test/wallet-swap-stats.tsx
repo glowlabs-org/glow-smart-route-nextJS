@@ -149,7 +149,12 @@ export function WalletSwapStats({ walletAddress }: WalletSwapStatsProps) {
                   </TableHeader>
                   <TableBody>
                     {swaps.map((swap) => (
-                      <TableRow key={swap.txHash}>
+                      <TableRow
+                        key={
+                          swap.txHash ??
+                          `${swap.timestamp}-${swap.glwIn}-${swap.glwOut}-${swap.usdgIn}-${swap.usdgOut}`
+                        }
+                      >
                         <TableCell className="font-medium">
                           {formatDate(swap.timestamp)}
                         </TableCell>
@@ -172,15 +177,19 @@ export function WalletSwapStats({ walletAddress }: WalletSwapStatsProps) {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <a
-                            href={getExplorerUrl(swap.txHash)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                          >
-                            View
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
+                          {swap.txHash ? (
+                            <a
+                              href={getExplorerUrl(swap.txHash)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                            >
+                              View
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
