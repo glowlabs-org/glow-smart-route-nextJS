@@ -434,7 +434,7 @@ function ImpactHero(props: {
                       Fastest boost
                     </div>
                     <div className="text-lg font-semibold tracking-tight">
-                      Buy GLW to instantly gain Impact Points
+                      Buy GLW to immediately start earning points
                     </div>
                     <div className="text-sm text-muted-foreground max-w-[42rem]">
                       Buying GLW increases GlowWorth, which adds continuous
