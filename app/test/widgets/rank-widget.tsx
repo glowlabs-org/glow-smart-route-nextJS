@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 
 import { useQuery } from "@tanstack/react-query";
 import { formatUnits, isAddress } from "viem";
@@ -10,8 +9,9 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ImpactScoreBreakdownDialogContent } from "@/components/dialogs/impact-score-breakdown-dialog";
+import { ImpactView } from "@/app/stats/rewards/impact-view";
 
 // --- Types & Helpers (Unchanged) ---
 
@@ -104,6 +104,7 @@ interface RankWidgetProps {
 export function RankWidget({ walletAddress }: RankWidgetProps) {
   const hasWallet = Boolean(walletAddress);
   const [isBreakdownOpen, setIsBreakdownOpen] = React.useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = React.useState(false);
 
   const isValidWalletAddress =
     Boolean(walletAddress) && isAddress(walletAddress as string);
@@ -159,13 +160,13 @@ export function RankWidget({ walletAddress }: RankWidgetProps) {
     if (Number.isFinite(steered) && steered > 0) {
       return `${formatGlwCompact(weeklySteeredGlw)} GLW steered`;
     }
-    return "Ramp impact with sGCTL + vaults";
+    return "Ramp impact with GCTL + vaults";
   }, [weeklySteeredGlw]);
 
   return (
-    <Dialog open={isBreakdownOpen} onOpenChange={setIsBreakdownOpen}>
-      {/* --- DASHBOARD CARD (Untouched) --- */}
-      <Card className="h-[340px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+    <>
+      {/* --- DASHBOARD CARD --- */}
+      <Card className="h-full overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
         <CardHeader className="pb-3 space-y-3">
           <CardTitle className="text-center">Impact Score</CardTitle>
         </CardHeader>
@@ -222,35 +223,61 @@ export function RankWidget({ walletAddress }: RankWidgetProps) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Button
-                  asChild
                   variant="outline"
-                  className="h-12 rounded-2xl font-mono font-bold text-base"
+                  className="h-12 font-mono font-bold text-base"
+                  type="button"
+                  onClick={() => setIsLeaderboardOpen(true)}
                 >
-                  <Link href="/stats/rewards">Leaderboard</Link>
+                  Leaderboard
                 </Button>
-                <DialogTrigger asChild>
-                  <Button
-                    className="h-12 rounded-2xl font-mono font-bold text-base"
-                    disabled={
-                      impactScoreQuery.isLoading ||
-                      impactScoreQuery.isError ||
-                      !impactScore
-                    }
-                  >
-                    Breakdown
-                  </Button>
-                </DialogTrigger>
+                <Button
+                  className="h-12 font-mono font-bold text-base"
+                  type="button"
+                  onClick={() => setIsBreakdownOpen(true)}
+                  disabled={
+                    impactScoreQuery.isLoading ||
+                    impactScoreQuery.isError ||
+                    !impactScore
+                  }
+                >
+                  Breakdown
+                </Button>
               </div>
             </>
           )}
         </CardContent>
       </Card>
 
-      {/* --- IMPROVED DIALOG CONTENT --- */}
-      {hasWallet && impactScore ? (
-        <ImpactScoreBreakdownDialogContent impactScore={impactScore} />
-      ) : null}
-    </Dialog>
+      {/* --- LEADERBOARD MODAL --- */}
+      <Dialog
+        key={isLeaderboardOpen ? "leaderboard-open" : "leaderboard-closed"}
+        open={isLeaderboardOpen}
+        onOpenChange={setIsLeaderboardOpen}
+      >
+        <DialogContent className="bg-background rounded-3xl p-0 sm:max-w-[1100px] w-full border-border shadow-2xl overflow-hidden">
+          <div className="max-h-[85vh] overflow-y-auto p-6">
+            <ImpactView
+              key={
+                isLeaderboardOpen
+                  ? "impact-leaderboard-open"
+                  : "impact-leaderboard-closed"
+              }
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* --- BREAKDOWN MODAL --- */}
+      <Dialog
+        key={isBreakdownOpen ? "breakdown-open" : "breakdown-closed"}
+        open={isBreakdownOpen}
+        onOpenChange={setIsBreakdownOpen}
+      >
+        {hasWallet && impactScore ? (
+          <ImpactScoreBreakdownDialogContent impactScore={impactScore} />
+        ) : null}
+      </Dialog>
+    </>
   );
 }
 

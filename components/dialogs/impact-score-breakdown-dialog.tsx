@@ -123,9 +123,10 @@ function getToneClasses(tone: BreakdownTone) {
   if (tone === "yellow")
     return {
       row: "border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10",
-      iconWrap: "bg-[#D9F368]/10 border-[#D9F368]/20 text-[#D9F368]",
-      label: "text-[#D9F368]",
-      value: "text-[#D9F368]",
+      iconWrap:
+        "bg-[color:var(--color-miner-yellow)]/10 border-[color:var(--color-miner-yellow)]/20 text-[color:var(--color-miner-yellow-contrast)]",
+      label: "text-[color:var(--color-miner-yellow-contrast)]",
+      value: "text-[color:var(--color-miner-yellow-contrast)]",
     } as const;
   if (tone === "emerald")
     return {
@@ -237,7 +238,7 @@ export function ImpactScoreBreakdownDialogContent(
 
   return (
     <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-3xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
-      <div className="px-6 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
+      <div className="px-6 pr-14 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -277,7 +278,7 @@ export function ImpactScoreBreakdownDialogContent(
             <div className="space-y-2">
               <BreakdownRow
                 icon={Zap}
-                label="Steering (sGCTL)"
+                label="Steering GLW (sGCTL)"
                 sublabel={`3.0x Multiplier • ${formatGlwCompact(
                   weeklySteeredGlw
                 )} GLW`}
@@ -320,21 +321,21 @@ export function ImpactScoreBreakdownDialogContent(
               <div className="absolute left-6 top-0 bottom-0 w-px bg-border/60 border-l border-dashed border-border/60 dark:bg-zinc-800 dark:border-zinc-700" />
               <div className="relative z-10 ml-12">
                 {hasCashMinerBonus ? (
-                  <div className="flex items-center justify-between p-3 bg-[#D9F368]/10 border border-[#D9F368]/20 rounded-xl">
+                  <div className="flex items-center justify-between p-3 bg-[color:var(--color-miner-yellow)]/10 border border-[color:var(--color-miner-yellow)]/20 rounded-xl">
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#D9F368] text-black font-bold font-mono text-sm">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[color:var(--color-miner-yellow)] text-black font-bold font-mono text-sm">
                         3x
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-[#D9F368] uppercase">
+                        <div className="text-xs font-bold text-[color:var(--color-miner-yellow-contrast)] uppercase">
                           Cash Miner Bonus
                         </div>
-                        <div className="text-[10px] text-[#D9F368]/60">
+                        <div className="text-[10px] text-[color:var(--color-miner-yellow-contrast)]/60">
                           Weekly points tripled
                         </div>
                       </div>
                     </div>
-                    <CheckCircle2 className="w-5 h-5 text-[#D9F368]" />
+                    <CheckCircle2 className="w-5 h-5 text-[color:var(--color-miner-yellow-contrast)]" />
                   </div>
                 ) : (
                   <div className="flex items-center justify-between p-3 bg-muted/20 border border-border rounded-xl opacity-60 dark:bg-zinc-900 dark:border-zinc-800">
@@ -411,7 +412,7 @@ export function ImpactScoreBreakdownDialog(
     <Dialog open={open} onOpenChange={onOpenChange}>
       {query.isLoading ? (
         <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-3xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
-          <div className="px-6 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
+          <div className="px-6 pr-14 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
             <div className="flex items-center justify-between">
               <div className="space-y-2">
                 <Skeleton className="h-5 w-48 rounded-md" />
@@ -432,7 +433,7 @@ export function ImpactScoreBreakdownDialog(
         </DialogContent>
       ) : query.isError ? (
         <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-3xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
-          <div className="px-6 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
+          <div className="px-6 pr-14 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
             <DialogHeader>
               <DialogTitle className="font-mono uppercase tracking-wide text-lg text-foreground dark:text-white">
                 {title ?? "Score Breakdown"}

@@ -112,8 +112,8 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
           className={cn(
             "h-10 w-10 rounded-lg flex items-center justify-center border",
             data.type === "miner"
-              ? "bg-[color:var(--color-glow-yellow)]/15 border-[color:var(--color-glow-yellow)]/30 text-[color:var(--color-glow-yellow)]"
-              : "bg-[color:var(--color-glow-purple)]/15 border-[color:var(--color-glow-purple)]/30 text-[color:var(--color-glow-purple)]"
+              ? "bg-[color:var(--color-miner-yellow)]/15 border-[color:var(--color-miner-yellow)]/30 text-[color:var(--color-miner-yellow-contrast)]"
+              : "bg-[#C084FC]/15 border-[#C084FC]/30 text-[#C084FC]"
           )}
         >
           {data.type === "miner" ? (
@@ -142,7 +142,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
           <div className="flex-1 relative group/tooltip">
             <div className="relative w-full h-1.5 bg-muted rounded-full overflow-hidden">
               <div
-                className="h-full bg-glow-yellow"
+                className="h-full bg-foreground/20 dark:bg-white/20"
                 style={{ width: `${timePct}%` }}
               />
             </div>
@@ -171,14 +171,17 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                       "ring-1 ring-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]"
                   )}
                 >
-                  {/* Segment 1: Recovered Principal (Zinc) */}
+                  {/* Segment 1: Recovered Principal / Deposit */}
                   <div
-                    className="absolute left-0 h-full bg-accent"
+                    className={cn(
+                      "absolute left-0 h-full",
+                      isMiner ? "bg-muted-foreground/35" : "bg-[#C084FC]"
+                    )}
                     style={{ width: `${principalPct}%` }}
                   />
-                  {/* Segment 2: Inflation Yield (Green) */}
+                  {/* Segment 2: Emissions */}
                   <div
-                    className="absolute h-full bg-[color:var(--color-glow-yellow)]"
+                    className="absolute h-full bg-[color:var(--color-miner-yellow)]"
                     style={{
                       left: `${principalPct}%`,
                       width: `${inflationPct}%`,
@@ -196,14 +199,19 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   </span>
 
                   <span className="text-muted-foreground">Recovered:</span>
-                  <span className="text-right text-accent">
+                  <span
+                    className={cn(
+                      "text-right",
+                      isMiner ? "text-muted-foreground" : "text-[#C084FC]"
+                    )}
+                  >
                     {isMiner
                       ? fmtUsd(data.recovered)
                       : `${fmtGlw(data.recovered)} GLW`}
                   </span>
 
                   <span className="text-muted-foreground">Emissions:</span>
-                  <span className="text-right text-[color:var(--color-glow-yellow)]">
+                  <span className="text-right text-[color:var(--color-miner-yellow-contrast)]">
                     {isMiner
                       ? `+${fmtUsd(data.inflation)}`
                       : `+${fmtGlw(data.inflation)} GLW`}
@@ -395,13 +403,13 @@ export function FarmsPerformanceDialogContent({
             </TabsTrigger>
             <TabsTrigger
               value="miners"
-              className="h-7 text-xs font-mono px-4 text-muted-foreground data-[state=active]:text-emerald-500"
+              className="h-7 text-xs font-mono px-4 text-muted-foreground data-[state=active]:text-miner-yellow"
             >
               MINERS
             </TabsTrigger>
             <TabsTrigger
               value="delegations"
-              className="h-7 text-xs font-mono px-4 text-muted-foreground data-[state=active]:text-[color:var(--color-glow-purple)]"
+              className="h-7 text-xs font-mono px-4 text-muted-foreground data-[state=active]:text-[#C084FC]"
             >
               DELEGATIONS
             </TabsTrigger>
@@ -415,8 +423,8 @@ export function FarmsPerformanceDialogContent({
         <div className="col-span-7 pl-4 flex gap-4">
           <span>Lifecycle (Time vs Money)</span>
           <span className="ml-auto text-muted-foreground normal-case tracking-normal">
-            <span className="text-accent">■</span> Principal
-            <span className="ml-2 text-[color:var(--color-glow-yellow)]">
+            <span className="text-[#C084FC]">■</span> Principal
+            <span className="ml-2 text-[color:var(--color-miner-yellow-contrast)]">
               ■
             </span>{" "}
             Emissions

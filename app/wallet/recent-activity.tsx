@@ -179,7 +179,7 @@ function buildSplitActivity(split: SplitActivity): ActivityItem | null {
     pill,
     icon: <ShoppingCart className="h-4 w-4" />,
     iconClassName: isMiningCenter
-      ? "text-[#D9F368] bg-[#D9F368]/10"
+      ? "text-[color:var(--color-miner-yellow-contrast)] bg-[color:var(--color-miner-yellow)]/10"
       : "text-[#C084FC] bg-[#C084FC]/10",
   };
 }
@@ -303,7 +303,7 @@ export function RecentActivity({
   return (
     <Card
       className={cn(
-        "h-full max-h-[380px] overflow-hidden flex flex-col",
+        "h-full lg:max-h-[380px] overflow-hidden flex flex-col",
         className
       )}
     >

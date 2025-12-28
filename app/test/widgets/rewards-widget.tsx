@@ -78,6 +78,7 @@ function safeGetCurrentEpoch() {
 interface RewardsWidgetProps {
   walletAddress?: string | null;
   initialDurationMs?: number;
+  hideIfEmpty?: boolean;
 }
 
 const DEFAULT_INITIAL_DURATION_MS = (4 * 60 * 60 + 12 * 60 + 33) * 1000;
@@ -85,6 +86,7 @@ const DEFAULT_INITIAL_DURATION_MS = (4 * 60 * 60 + 12 * 60 + 33) * 1000;
 export default function RewardsWidget({
   walletAddress,
   initialDurationMs = DEFAULT_INITIAL_DURATION_MS,
+  hideIfEmpty = true,
 }: RewardsWidgetProps) {
   const { isConnecting, isReconnecting } = useAccount();
   const hasWallet = Boolean(walletAddress);
@@ -274,10 +276,10 @@ export default function RewardsWidget({
     weeklyBreakdown.length === 0 &&
     !hasLifetimeEarned &&
     !hasClaimable;
-  if (shouldHide) return null;
+  if (shouldHide && hideIfEmpty) return null;
 
   return (
-    <Card className="col-span-12 lg:col-span-3 h-[340px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+    <Card className="h-full overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
       <CardHeader className="pb-3 space-y-3">
         <CardTitle className="text-center">Rewards</CardTitle>
 
@@ -353,6 +355,8 @@ export default function RewardsWidget({
                   <Skeleton className="h-4 w-48 rounded-md" />
                 ) : isWidgetError ? (
                   "Unable to load rewards"
+                ) : shouldHide ? (
+                  "No rewards yet"
                 ) : (
                   <>Lifetime earned: {formatUsd(lifetimeUsd ?? 0)}</>
                 )}
@@ -361,10 +365,10 @@ export default function RewardsWidget({
           )}
         </div>
 
-        {hasWallet ? (
+        {hasWallet && !shouldHide ? (
           <Dialog>
             <DialogTrigger asChild>
-              <Button className="w-full h-12 rounded-2xl font-mono font-bold text-base shrink-0">
+              <Button className="w-full h-12 font-mono font-bold text-base shrink-0">
                 Claim
               </Button>
             </DialogTrigger>
@@ -383,7 +387,7 @@ export default function RewardsWidget({
               <Skeleton className="h-12 w-full rounded-2xl shrink-0" />
             ) : (
               <Button
-                className="w-full h-12 rounded-2xl font-mono font-bold text-base shrink-0"
+                className="w-full h-12 font-mono font-bold text-base shrink-0"
                 disabled
               >
                 Claim

@@ -11,6 +11,8 @@ interface CountdownClockParts {
   seconds: string;
 }
 
+type CountdownSize = "sm" | "md" | "lg" | "xl";
+
 function formatHms(remainingMs: number): CountdownClockParts {
   const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -75,19 +77,36 @@ export function useCountdownTo(params: {
 function AnimatedTimePart({
   value,
   size = "md",
+  minWidthCh = 4,
 }: {
   value: string;
-  size?: "sm" | "md";
+  size?: CountdownSize;
+  minWidthCh?: number;
 }) {
-  const heightClass = size === "sm" ? "h-7" : "h-8";
-  const textClass = size === "sm" ? "text-xl" : "text-2xl";
+  const heightClass =
+    size === "sm"
+      ? "h-7"
+      : size === "md"
+        ? "h-8"
+        : size === "lg"
+          ? "h-10"
+          : "h-12";
+  const textClass =
+    size === "sm"
+      ? "text-xl"
+      : size === "md"
+        ? "text-2xl"
+        : size === "lg"
+          ? "text-3xl"
+          : "text-4xl";
 
   return (
     <span
       className={cn(
-        "relative inline-flex min-w-[4ch] items-center justify-center overflow-hidden rounded-lg bg-background/60 px-1.5 ring-1 ring-border/60",
+        "relative inline-flex items-center justify-center overflow-hidden rounded-lg bg-background/60 px-1.5 ring-1 ring-border/60",
         heightClass
       )}
+      style={{ minWidth: `${minWidthCh}ch` }}
     >
       <AnimatePresence initial={false} mode="popLayout">
         <motion.span
@@ -119,20 +138,30 @@ export function AnimatedCountdown({
   className,
 }: {
   remainingMs: number;
-  size?: "sm" | "md";
+  size?: CountdownSize;
   className?: string;
 }) {
   const { hours, minutes, seconds } = React.useMemo(
     () => formatHms(remainingMs),
     [remainingMs]
   );
-  const colonClass = size === "sm" ? "text-lg" : "text-xl";
+  const colonClass =
+    size === "sm"
+      ? "text-lg"
+      : size === "md"
+        ? "text-xl"
+        : size === "lg"
+          ? "text-2xl"
+          : "text-3xl";
 
   return (
     <div className={cn("inline-flex items-center gap-1.5", className)}>
       <AnimatedTimePart value={hours} size={size} />
       <motion.span
-        className={cn("px-0.5 font-mono font-bold text-muted-foreground", colonClass)}
+        className={cn(
+          "px-0.5 font-mono font-bold text-muted-foreground",
+          colonClass
+        )}
         animate={{ opacity: [0.4, 1, 0.4] }}
         transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
       >
@@ -140,7 +169,10 @@ export function AnimatedCountdown({
       </motion.span>
       <AnimatedTimePart value={minutes} size={size} />
       <motion.span
-        className={cn("px-0.5 font-mono font-bold text-muted-foreground", colonClass)}
+        className={cn(
+          "px-0.5 font-mono font-bold text-muted-foreground",
+          colonClass
+        )}
         animate={{ opacity: [0.4, 1, 0.4] }}
         transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
       >
@@ -197,6 +229,71 @@ export function CountdownGrid({
           Seconds
         </div>
       </div>
+    </div>
+  );
+}
+
+export function AnimatedCountdownDhms({
+  remainingMs,
+  size = "md",
+  className,
+}: {
+  remainingMs: number;
+  size?: CountdownSize;
+  className?: string;
+}) {
+  const { days, hours, minutes, seconds } = React.useMemo(
+    () => formatDhms(remainingMs),
+    [remainingMs]
+  );
+  const daysLabel = String(days).padStart(2, "0");
+  const colonClass =
+    size === "sm"
+      ? "text-lg"
+      : size === "md"
+        ? "text-xl"
+        : size === "lg"
+          ? "text-2xl"
+          : "text-3xl";
+  const minWidthCh =
+    size === "sm" ? 2 : size === "md" ? 3 : size === "lg" ? 3 : 3;
+
+  return (
+    <div className={cn("inline-flex items-center gap-1.5", className)}>
+      <AnimatedTimePart value={daysLabel} size={size} minWidthCh={minWidthCh} />
+      <motion.span
+        className={cn(
+          "px-0.5 font-mono font-bold text-muted-foreground",
+          colonClass
+        )}
+        animate={{ opacity: [0.4, 1, 0.4] }}
+        transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+      >
+        :
+      </motion.span>
+      <AnimatedTimePart value={hours} size={size} minWidthCh={minWidthCh} />
+      <motion.span
+        className={cn(
+          "px-0.5 font-mono font-bold text-muted-foreground",
+          colonClass
+        )}
+        animate={{ opacity: [0.4, 1, 0.4] }}
+        transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+      >
+        :
+      </motion.span>
+      <AnimatedTimePart value={minutes} size={size} minWidthCh={minWidthCh} />
+      <motion.span
+        className={cn(
+          "px-0.5 font-mono font-bold text-muted-foreground",
+          colonClass
+        )}
+        animate={{ opacity: [0.4, 1, 0.4] }}
+        transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+      >
+        :
+      </motion.span>
+      <AnimatedTimePart value={seconds} size={size} minWidthCh={minWidthCh} />
     </div>
   );
 }

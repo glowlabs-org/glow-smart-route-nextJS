@@ -170,7 +170,6 @@ function ImpactHeroSkeleton(props: { remainingMsToRollover: number }) {
             <div className="flex items-start justify-between gap-6">
               <div className="space-y-3">
                 <div className="inline-flex items-center gap-2 text-sm font-semibold">
-                  <Sparkles className="h-4 w-4" />
                   Current ranking
                 </div>
                 <Skeleton className="h-12 w-44 rounded-xl" />
@@ -343,9 +342,6 @@ function ImpactHero(props: {
           ) : null}
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">
-          <Badge variant="secondary" className="font-mono w-fit">
-            status-only
-          </Badge>
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 dark:bg-muted/20 px-3 py-2">
             <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
               Next rollover
@@ -363,67 +359,74 @@ function ImpactHero(props: {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="border-border/60 bg-background/60 dark:bg-muted/20 py-0">
           <CardContent className="px-6 py-6 space-y-4">
-            <div className="flex items-start justify-between gap-6">
-              <div className="min-w-0 flex-1 space-y-2">
-                <div className="inline-flex items-center gap-2 text-sm font-semibold">
-                  <Sparkles className="h-4 w-4" />
-                  Current ranking
-                </div>
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 text-sm font-semibold">
+                Current ranking
+              </div>
 
-                {!address ? (
-                  <ConnectWalletRankingEmptyState />
-                ) : isSelfLoading ? (
+              {!address ? (
+                <ConnectWalletRankingEmptyState />
+              ) : isSelfLoading ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Skeleton className="h-12 w-52 rounded-xl" />
-                    <Skeleton className="h-4 w-40 rounded-md" />
+                    <Skeleton className="h-4 w-20 rounded-md" />
+                    <Skeleton className="h-12 w-40 rounded-xl" />
+                    <Skeleton className="h-4 w-32 rounded-md" />
                   </div>
-                ) : selfScoreQuery.isError ? (
-                  <div className="text-sm text-muted-foreground">
-                    Unable to load your score.
+                  <div className="space-y-2 sm:text-right">
+                    <Skeleton className="h-4 w-20 rounded-md sm:ml-auto" />
+                    <Skeleton className="h-12 w-44 rounded-xl sm:ml-auto" />
+                    <Skeleton className="h-4 w-28 rounded-md sm:ml-auto" />
                   </div>
-                ) : (
-                  <div className="space-y-1">
+                </div>
+              ) : selfScoreQuery.isError ? (
+                <div className="text-sm text-muted-foreground">
+                  Unable to load your score.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="min-w-0 space-y-1">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                      Rank
+                    </div>
                     <div className="font-mono text-3xl md:text-5xl font-bold tracking-tight tabular-nums">
+                      {selfGlobalRank ? (
+                        <>#{selfGlobalRank.toLocaleString("en-US")}</>
+                      ) : (
+                        <>
+                          Below Top{" "}
+                          {formatTopPercentile(listThresholdPercentile)}
+                        </>
+                      )}
+                    </div>
+                    {selfGlobalRank ? (
+                      <div className="text-xs text-muted-foreground font-mono">
+                        Top {formatTopPercentile(selfPercentile)}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground font-mono">
+                        Rank not available outside current list
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 space-y-1 sm:text-right">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                      Points
+                    </div>
+                    <div className="font-mono text-2xl md:text-4xl font-bold tracking-tight tabular-nums">
                       {formatImpactPoints(
                         selfScoreQuery.data?.totals?.totalPoints,
                         2
-                      )}
+                      )}{" "}
+                      <span className="text-xs text-muted-foreground">pts</span>
                     </div>
                     <div className="text-xs text-muted-foreground font-mono">
                       {shortAddress(address)}
                     </div>
                   </div>
-                )}
-              </div>
-
-              {address ? (
-                <div className="flex flex-col items-end gap-3">
-                  {isSelfLoading ? (
-                    <Skeleton className="h-10 w-32 rounded-full" />
-                  ) : selfGlobalRank && selfGlobalRank <= 3 ? (
-                    <Badge
-                      variant="secondary"
-                      className="font-mono px-4 py-2 text-sm rounded-full"
-                    >
-                      #{selfGlobalRank.toLocaleString("en-US")}
-                    </Badge>
-                  ) : selfGlobalRank ? (
-                    <Badge
-                      variant="secondary"
-                      className="font-mono px-4 py-2 text-sm rounded-full"
-                    >
-                      Top {formatTopPercentile(selfPercentile)}
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="secondary"
-                      className="font-mono px-4 py-2 text-sm rounded-full"
-                    >
-                      Below Top {formatTopPercentile(listThresholdPercentile)}
-                    </Badge>
-                  )}
                 </div>
-              ) : null}
+              )}
             </div>
 
             {isZeroScore ? (
@@ -549,7 +552,7 @@ function ImpactHero(props: {
                         className={cn(
                           "ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono",
                           hasMinerMultiplier
-                            ? "border-[#D9F368]/35 bg-[#D9F368]/15 text-foreground"
+                            ? "border-[color:var(--color-miner-yellow)]/35 bg-[color:var(--color-miner-yellow)]/15 text-foreground"
                             : "border-border bg-muted/20 text-muted-foreground"
                         )}
                       >

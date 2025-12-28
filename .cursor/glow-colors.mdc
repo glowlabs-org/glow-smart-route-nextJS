@@ -49,6 +49,7 @@ To maintain cognitive ease across the "Super App," colors are strictly assigned 
   - "Buy Miner" Buttons.
   - "Inflation Earned" stats (since inflation comes from mining).
   - Cash Miner Bonus (Multiplier) badges.
+  - **Light mode contrast rule**: when the yellow is used for **text/icons on light backgrounds**, use the contrast-safe token (`--color-miner-yellow-contrast`) via `text-miner-yellow`. Keep `#D9F368` as the base color for fills, borders, and tints.
 
 ### **Delegations (The Activation)**
 

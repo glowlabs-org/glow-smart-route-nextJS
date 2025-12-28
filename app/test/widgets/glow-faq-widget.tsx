@@ -9,6 +9,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface FaqItem {
   q: string;
@@ -61,9 +62,14 @@ const faqItems: FaqItem[] = [
   },
 ];
 
-export default function GlowFaqWidget() {
+export default function GlowFaqWidget({ className }: { className?: string }) {
   return (
-    <Card className="col-span-12 lg:col-span-9 h-full max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+    <Card
+      className={cn(
+        "h-full lg:max-h-[400px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border",
+        className
+      )}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="tracking-tight">Glow FAQ</CardTitle>

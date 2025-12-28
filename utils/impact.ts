@@ -60,7 +60,7 @@ export function getStrategyPillClasses(key: "steering" | "worth" | "inflation" |
   if (key === "steering")
     return "border-[#22D3EE]/30 bg-[#22D3EE]/10 text-foreground dark:text-foreground";
   if (key === "inflation")
-    return "border-[#D9F368]/35 bg-[#D9F368]/15 text-foreground dark:text-foreground";
+    return "border-[color:var(--color-miner-yellow)]/35 bg-[color:var(--color-miner-yellow)]/15 text-foreground dark:text-foreground";
   if (key === "vault")
     return "border-[#C084FC]/35 bg-[#C084FC]/15 text-foreground dark:text-foreground";
   return "border-[#4ADE80]/30 bg-[#4ADE80]/10 text-foreground dark:text-foreground";

@@ -46,7 +46,7 @@ function formatCompact(value: number) {
 
 function GctlHeatmapSkeleton() {
   return (
-    <Card className="col-span-12 lg:col-span-5 h-full max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+    <Card className="h-full lg:max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
       <CardHeader className="pb-0">
         <div className="flex items-center justify-between">
           <CardTitle className="tracking-tight">GCTL</CardTitle>
@@ -168,7 +168,7 @@ export default function GctlHeatmapWidget({
 
   if (!isEnabled) {
     return (
-      <Card className="col-span-12 lg:col-span-5 h-full max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+      <Card className="h-full lg:max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
         <CardHeader className="pb-0">
           <div className="flex items-center justify-between">
             <CardTitle className="tracking-tight">GCTL</CardTitle>
@@ -258,7 +258,7 @@ export default function GctlHeatmapWidget({
 
   if (!isLoading && totalBalanceGctl <= 0) {
     return (
-      <Card className="col-span-12 lg:col-span-3 h-full max-h-[380px] overflow-hidden flex flex-col pb-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+      <Card className="h-full lg:max-h-[380px] overflow-hidden flex flex-col pb-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
         <CardContent className="min-h-0 flex-1 flex flex-col p-0">
           <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden p-6 flex flex-col">
             <div className="relative flex flex-col items-center justify-center text-center flex-1 gap-6">
@@ -274,7 +274,7 @@ export default function GctlHeatmapWidget({
 
               <div className="w-full max-w-md space-y-2">
                 <Button
-                  className="h-12 w-full rounded-2xl bg-foreground text-background hover:bg-foreground/90 font-mono dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+                  className="h-12 w-full bg-foreground text-background hover:bg-foreground/90 font-mono dark:bg-white dark:text-black dark:hover:bg-zinc-200"
                   onClick={onMintAndStakeClick}
                 >
                   <Rocket className="mr-2 h-4 w-4" />
@@ -314,7 +314,7 @@ export default function GctlHeatmapWidget({
   const maxStake = Math.max(1, ...stakes.map((t) => t.amountGctl));
 
   return (
-    <Card className="col-span-12 lg:col-span-5 h-full max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+    <Card className="h-full lg:max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
       <CardHeader className="pb-0">
         <div className="flex items-center justify-between">
           <CardTitle className="tracking-tight">GCTL</CardTitle>

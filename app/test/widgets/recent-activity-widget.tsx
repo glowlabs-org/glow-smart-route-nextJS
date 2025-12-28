@@ -7,10 +7,12 @@ import { RecentActivity } from "@/app/wallet/recent-activity";
 
 interface RecentActivityWidgetProps {
   walletAddress?: string | null;
+  hideIfEmpty?: boolean;
 }
 
 export default function RecentActivityWidget({
   walletAddress,
+  hideIfEmpty = true,
 }: RecentActivityWidgetProps) {
   const { address: connectedAddress } = useAccount();
   const address = walletAddress ?? connectedAddress;
@@ -29,13 +31,13 @@ export default function RecentActivityWidget({
 
   return (
     <RecentActivity
-      className="col-span-12 lg:col-span-4 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+      className="bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
       walletAddress={address}
       splitsActivity={splitsActivity}
       swapsActivity={swapsActivity}
       isSplitsActivityLoading={isSplitsActivityLoading}
       isSwapsActivityLoading={isSwapsActivityLoading}
-      hideIfEmpty
+      hideIfEmpty={hideIfEmpty}
     />
   );
 }

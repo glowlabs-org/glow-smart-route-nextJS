@@ -31,7 +31,7 @@ type WeekStatus = "missed" | "delegated" | "miner" | "both";
 
 function getWeekStyle(status: WeekStatus) {
   if (status === "delegated") return "bg-[#C084FC]/25";
-  if (status === "miner") return "bg-[#D9F368]/25";
+  if (status === "miner") return "bg-[color:var(--color-miner-yellow)]/25";
   if (status === "both") return "bg-[#4ADE80]/25";
   return "bg-muted";
 }
@@ -87,6 +87,7 @@ function getWeekStatus(params: {
 
 interface WeeklyActivityWidgetProps {
   walletAddress?: string | null;
+  hideIfEmpty?: boolean;
 }
 
 const PLACEHOLDER_ACTIVE_WEEKS = 17;
@@ -120,7 +121,7 @@ const PLACEHOLDER_CELLS: WeekStatus[] = [
 
 function WeeklyActivitySkeleton() {
   return (
-    <Card className="col-span-12 lg:col-span-3 overflow-hidden h-full max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+    <Card className="overflow-hidden h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
       <CardHeader className="pb-0">
         <CardTitle className="text-center">Weekly Streak</CardTitle>
       </CardHeader>
@@ -142,6 +143,7 @@ function WeeklyActivitySkeleton() {
 
 export default function WeeklyActivityWidget({
   walletAddress,
+  hideIfEmpty = true,
 }: WeeklyActivityWidgetProps) {
   const weeksCount = 24;
   const hasWallet = Boolean(walletAddress);
@@ -264,12 +266,12 @@ export default function WeeklyActivityWidget({
     !isError &&
     weekCells.length > 0 &&
     activeWeeks === 0;
-  if (shouldHide) return null;
+  if (shouldHide && hideIfEmpty) return null;
 
   if (!hasWallet && isWalletConnecting) return <WeeklyActivitySkeleton />;
 
   return (
-    <Card className="col-span-12 lg:col-span-3 overflow-hidden h-full max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+    <Card className="overflow-hidden h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
       <CardHeader className="pb-0">
         <CardTitle className="text-center">Weekly Streak</CardTitle>
       </CardHeader>
@@ -326,6 +328,15 @@ export default function WeeklyActivityWidget({
                 Unable to load weekly activity.
               </div>
             </div>
+          ) : shouldHide ? (
+            <div className="flex flex-1 min-h-0 flex-col items-center justify-center text-center gap-2 px-4">
+              <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                No streak yet
+              </div>
+              <div className="text-sm text-muted-foreground max-w-[320px]">
+                Delegate GLW or buy miners to start building your weekly streak.
+              </div>
+            </div>
           ) : (
             <>
               <div className="flex flex-col items-center justify-center text-center mb-4">
@@ -341,14 +352,14 @@ export default function WeeklyActivityWidget({
               </div>
 
               <TooltipProvider delayDuration={200}>
-                <div className="grid grid-cols-8 grid-rows-3 gap-2">
+                <div className="grid grid-cols-5 grid-rows-3 gap-2">
                   {weekCells.map((cell) => {
                     return (
                       <Tooltip key={cell.id}>
                         <TooltipTrigger asChild>
                           <div
                             className={cn(
-                              "h-5 w-5 rounded-[4px] border border-border/60",
+                              "h-8 w-8 rounded-[4px] border border-border/60",
                               "hover:ring-2 hover:ring-foreground/10 hover:ring-offset-2 hover:ring-offset-background",
                               getWeekStyle(cell.status)
                             )}
@@ -376,7 +387,7 @@ export default function WeeklyActivityWidget({
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono uppercase">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-[#D9F368] opacity-80 border border-border/40" />
+                      <span className="h-2 w-2 rounded-full bg-[color:var(--color-miner-yellow)] opacity-80 border border-border/40" />
                       <span>Miner</span>
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -392,7 +403,7 @@ export default function WeeklyActivityWidget({
 
                 <Button
                   variant="outline"
-                  className="w-full rounded-xl"
+                  className="w-full"
                   onClick={handleShareOnX}
                   disabled={!walletAddress || weekCells.length === 0}
                 >

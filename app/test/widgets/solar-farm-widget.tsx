@@ -26,6 +26,7 @@ import { useRewardsBreakdown } from "@/hooks/useRewardsBreakdown";
 import { cn } from "@/lib/utils";
 import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
+import { countActiveListings } from "@/utils/launchpad";
 import {
   AnimatedCountdown,
   useCountdownTo,
@@ -73,20 +74,6 @@ function parseGlwFromWei(value: string) {
   const num = Number(value);
   if (!Number.isFinite(num)) return 0;
   return num / 1e18;
-}
-
-function countActiveListings(
-  applications: Array<{
-    activeFraction: { isFilled: boolean; remainingSteps: number | null } | null;
-  }>
-) {
-  return applications.reduce((count, app) => {
-    const fraction = app.activeFraction;
-    if (!fraction) return count;
-    const remainingSteps = fraction.remainingSteps ?? 0;
-    const hasAvailability = !fraction.isFilled && remainingSteps > 0;
-    return hasAvailability ? count + 1 : count;
-  }, 0);
 }
 
 function SolarFarmSkeleton() {
@@ -396,7 +383,7 @@ export default function SolarFarmWidget({
   return (
     <Dialog>
       {/* --- DASHBOARD CARD --- */}
-      <Card className="h-full max-h-[380px] flex flex-col overflow-hidden pt-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+      <Card className="h-full lg:max-h-[380px] flex flex-col overflow-hidden pt-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
         {!isEmptyButConnected && (
           <CardHeader className="pb-2 border-b border-border/60 bg-muted/20 pt-6">
             <div className="flex items-center justify-between">
@@ -466,7 +453,7 @@ export default function SolarFarmWidget({
                           <span className="text-lg font-bold text-foreground font-mono">
                             3
                           </span>
-                          <Cpu className="w-4 h-4 text-glow-yellow" />
+                          <Cpu className="w-4 h-4 text-miner-yellow" />
                         </div>
                         <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
                           Miners
@@ -511,7 +498,7 @@ export default function SolarFarmWidget({
                         <Bar
                           dataKey="minerReward"
                           stackId="a"
-                          fill="var(--color-glow-yellow)"
+                          fill="var(--color-miner-yellow)"
                           radius={[0, 0, 4, 4]}
                           animationDuration={1500}
                         />
@@ -570,7 +557,7 @@ export default function SolarFarmWidget({
                   <div className="w-full max-w-md space-y-3">
                     {activeListingsCount > 0 ? (
                       <Button
-                        className="h-12 w-full rounded-2xl bg-foreground text-background hover:bg-foreground/90 font-mono dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+                        className="h-12 w-full bg-foreground text-background hover:bg-foreground/90 font-mono dark:bg-white dark:text-black dark:hover:bg-zinc-200"
                         onClick={() => setIsLaunchpadOpen(true)}
                       >
                         <Rocket className="mr-2 h-4 w-4" />
@@ -597,14 +584,14 @@ export default function SolarFarmWidget({
                         href="https://glow.org/blog/guide-to-glow-mining"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-[#D9F368]/50"
+                        className="group rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-[color:var(--color-miner-yellow)]/50"
                       >
                         <div className="flex items-start gap-3">
                           <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/50">
-                            <Cpu className="h-4 w-4 text-[#D9F368]" />
+                            <Cpu className="h-4 w-4 text-[color:var(--color-miner-yellow-contrast)]" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm font-semibold text-foreground transition-colors group-hover:text-[#D9F368]">
+                            <div className="text-sm font-semibold text-foreground transition-colors group-hover:text-[color:var(--color-miner-yellow-contrast)]">
                               How Mining Works
                             </div>
                             <div className="mt-1 text-xs text-zinc-500">
@@ -694,7 +681,7 @@ export default function SolarFarmWidget({
                       <span className="text-lg font-bold text-foreground font-mono">
                         {stats.activeMiners}
                       </span>
-                      <Cpu className="w-4 h-4 text-glow-yellow" />
+                      <Cpu className="w-4 h-4 text-miner-yellow" />
                     </div>
                     <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
                       Miners

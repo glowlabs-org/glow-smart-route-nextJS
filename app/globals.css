@@ -271,6 +271,10 @@
   --color-glow-green: #ccffd4;
   --color-glow-purple: #dcc4ff;
 
+  /* Semantic: Protocol role colors */
+  --color-miner-yellow: #d9f368;
+  --color-miner-yellow-contrast: #7a8a12;
+
   /* Ultrawide Responsive Design System */
   --container-sm: 640px;
   --container-md: 768px;
@@ -350,6 +354,10 @@
   --color-glow-yellow: #f7fcc4;
   --color-glow-green: #ccffd4;
   --color-glow-purple: #dcc4ff;
+
+  /* Semantic: Protocol role colors */
+  --color-miner-yellow: #d9f368;
+  --color-miner-yellow-contrast: var(--color-miner-yellow);
 
   /* Dark mode - Inverted theme colors */
   --background: var(--color-glow-black);
@@ -639,6 +647,10 @@
 
 .text-glow-yellow {
   color: var(--color-glow-yellow);
+}
+
+.text-miner-yellow {
+  color: var(--color-miner-yellow-contrast);
 }
 
 .text-glow-purple {

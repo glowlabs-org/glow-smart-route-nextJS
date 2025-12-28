@@ -191,7 +191,7 @@ function GlowWorthEmptyState() {
 
 function NetWorthSkeleton() {
   return (
-    <Card className="h-[340px] overflow-hidden flex flex-col gap-2 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+    <Card className="h-full overflow-hidden flex flex-col gap-2 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
       <CardHeader className="pb-0">
         <div className="flex items-center justify-between gap-3">
           <span className="text-xs font-mono text-zinc-500 uppercase tracking-wider">
@@ -665,7 +665,7 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
   if (shouldShowSkeleton) return <NetWorthSkeleton />;
 
   return (
-    <Card className="h-[340px] overflow-hidden flex flex-col gap-2 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+    <Card className="h-full overflow-hidden flex flex-col gap-2 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
       <CardHeader className="pb-0">
         <div className="flex items-center justify-between gap-3">
           <span className="text-xs font-mono text-zinc-500 uppercase tracking-wider">

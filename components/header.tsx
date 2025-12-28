@@ -2,12 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import {
-  Menu,
-  X,
-} from "lucide-react";
+import { Menu, X } from "lucide-react";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -16,9 +12,7 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
-import {
-  useAccount,
-} from "wagmi";
+import { useAccount } from "wagmi";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
@@ -38,6 +32,7 @@ import { TosDialog } from "./tos-dialog";
 import { ThemeToggle } from "./ui/theme-toggle";
 import { useRefundableFractions } from "@/hooks/useFractionSplits";
 import { WalletStatus } from "./wallet-status";
+import { GlowSymbol } from "./glow-symbol";
 
 // ListItem component for navigation menu content
 const ListItem = React.forwardRef<
@@ -114,7 +109,8 @@ export function HeaderHamburgerMenu({
           </div>
           <DrawerTitle className="sr-only">Navigation Menu</DrawerTitle>
           <DrawerDescription className="sr-only">
-            Main navigation menu with links to different sections of the website.
+            Main navigation menu with links to different sections of the
+            website.
           </DrawerDescription>
         </DrawerHeader>
 
@@ -127,70 +123,6 @@ export function HeaderHamburgerMenu({
                     App
                   </div>
                   <div className="ml-4 space-y-1">
-                    <DrawerClose asChild>
-                      <Link
-                        href="/?tab=launchpad"
-                        onClick={() => {
-                          setTimeout(() => {
-                            window.scrollTo({
-                              top: 0,
-                              behavior: "smooth",
-                            });
-                          }, 100);
-                        }}
-                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
-                      >
-                        Glow Launchpad
-                      </Link>
-                    </DrawerClose>
-                    <DrawerClose asChild>
-                      <Link
-                        href="/glow-swap?tab=swap"
-                        onClick={() => {
-                          setTimeout(() => {
-                            window.scrollTo({
-                              top: 0,
-                              behavior: "smooth",
-                            });
-                          }, 100);
-                        }}
-                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
-                      >
-                        Swap
-                      </Link>
-                    </DrawerClose>
-                    <DrawerClose asChild>
-                      <Link
-                        href="/glow-swap?tab=liquidity"
-                        onClick={() => {
-                          setTimeout(() => {
-                            window.scrollTo({
-                              top: 0,
-                              behavior: "smooth",
-                            });
-                          }, 100);
-                        }}
-                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
-                      >
-                        Liquidity
-                      </Link>
-                    </DrawerClose>
-                    <DrawerClose asChild>
-                      <Link
-                        href="/wallet"
-                        onClick={() => {
-                          setTimeout(() => {
-                            window.scrollTo({
-                              top: 0,
-                              behavior: "smooth",
-                            });
-                          }, 100);
-                        }}
-                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
-                      >
-                        Wallet
-                      </Link>
-                    </DrawerClose>
                     <DrawerClose asChild>
                       <Link
                         href="/stats/rewards"
@@ -450,7 +382,6 @@ export function Header({
 }: {
   withIsScrolled?: boolean;
 }) {
-  const [scrolled, setScrolled] = React.useState(false);
   const { address, isConnected } = useAccount();
   const router = useRouter();
 
@@ -547,40 +478,20 @@ export function Header({
     }
   }, [refundableFractions, summary.totalRefundableFractions]);
 
-  React.useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 10);
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [withIsScrolled]);
+  const headerClassName = cn(
+    "relative isolate z-50 h-[72px] w-full border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60",
+    !withIsScrolled && "bg-transparent border-transparent backdrop-blur-0"
+  );
 
   return (
     <>
-      <motion.header
-        className={cn(
-          "fixed w-full z-50 transition-all duration-300 px-6 md:px-12 xl:px-16",
-          withIsScrolled && scrolled
-            ? "bg-background shadow-sm"
-            : "bg-transparent"
-        )}
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto h-20 flex items-center justify-between">
+      <header className={headerClassName}>
+        <div className="mx-auto flex h-[72px] w-full max-w-screen-2xl items-center justify-between gap-6 px-6">
           <Link href="/" className="flex items-center space-x-2 group">
-            <GlowLockup className="w-24 md:w-36 h-12 relative z-10 text-zinc-900 dark:text-zinc-100" />
+            <GlowSymbol className="w-10 md:w-12 shrink-0 relative z-10 text-zinc-900 dark:text-zinc-100" />
           </Link>
 
-          <nav className="hidden lg:flex items-center gap-2">
-            <Link
-              href="/glow-swap?tab=swap"
-              className="text-zinc-900 dark:text-zinc-100 transition-colors text-base px-4 py-2 rounded-xl hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 font-medium"
-            >
-              Swap
-            </Link>
+          <nav className="hidden lg:flex flex-1 items-center justify-center gap-4">
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
@@ -589,20 +500,8 @@ export function Header({
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
                     <ul className="grid gap-3 p-6 md:w-[300px]">
-                      <ListItem href="/?tab=launchpad" title="Glow Launchpad">
-                        Delegate GLW to solar farms or buy miners with USDC
-                      </ListItem>
-                      <ListItem href="/glow-swap?tab=swap" title="Swap">
-                        Swap GLW, USDG, and more
-                      </ListItem>
-                      <ListItem
-                        href="/glow-swap?tab=liquidity"
-                        title="Liquidity"
-                      >
-                        Add liquidity to the GLW/USDG pool and earn rewards
-                      </ListItem>
-                      <ListItem href="/wallet" title="Wallet">
-                        View your balances, delegations, and claim rewards
+                      <ListItem href="/" title="Home">
+                        Back to the dashboard
                       </ListItem>
                       <ListItem href="/stats/rewards" title="Glow Leaderboard">
                         View top wallets and rewards leaderboard
@@ -641,6 +540,7 @@ export function Header({
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
+
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
@@ -675,6 +575,7 @@ export function Header({
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
+
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
@@ -709,10 +610,11 @@ export function Header({
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
+
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger className="text-zinc-900 dark:text-zinc-100 transition-colors relative group text-base bg-transparent hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 data-[state=open]:bg-foreground data-[state=open]:text-background dark:data-[state=open]:bg-accent/10 dark:data-[state=open]:text-zinc-100 mr-6">
+                  <NavigationMenuTrigger className="text-zinc-900 dark:text-zinc-100 transition-colors relative group text-base bg-transparent hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 data-[state=open]:bg-foreground data-[state=open]:text-background dark:data-[state=open]:bg-accent/10 dark:data-[state=open]:text-zinc-100">
                     Data
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
@@ -743,16 +645,14 @@ export function Header({
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
-
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <WalletStatus />
-            </div>
           </nav>
 
-          {/* Mobile controls */}
+          <div className="hidden lg:flex items-center gap-2">
+            <ThemeToggle />
+            <WalletStatus />
+          </div>
+
           <div className="flex items-center gap-3 lg:hidden">
-            {/* Always-visible connect button to the left of the hamburger */}
             <WalletStatus />
             <Drawer direction="right" shouldScaleBackground={false}>
               <DrawerTrigger asChild>
@@ -773,7 +673,6 @@ export function Header({
                   <div className="flex items-center justify-between">
                     <GlowLockup className="w-32 h-10" />
                     <div className="flex items-center gap-2">
-                      {/* Theme toggle moved inside the drawer on mobile */}
                       <ThemeToggle />
                       <DrawerClose asChild>
                         <motion.button
@@ -793,13 +692,10 @@ export function Header({
                   </DrawerDescription>
                 </DrawerHeader>
 
-                {/* Navigation Items */}
                 <div className="p-6 flex-1 overflow-y-auto">
                   <nav className="space-y-2">
-                    {/* Dropdown Menus */}
                     <div className="pt-4 border-t border-border mt-4">
                       <div className="space-y-2">
-                        {/* App Menu */}
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
                             App
@@ -807,7 +703,7 @@ export function Header({
                           <div className="ml-4 space-y-1">
                             <DrawerClose asChild>
                               <Link
-                                href="/?tab=launchpad"
+                                href="/"
                                 onClick={() => {
                                   setTimeout(() => {
                                     window.scrollTo({
@@ -818,55 +714,7 @@ export function Header({
                                 }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Glow Launchpad
-                              </Link>
-                            </DrawerClose>
-                            <DrawerClose asChild>
-                              <Link
-                                href="/glow-swap?tab=swap"
-                                onClick={() => {
-                                  setTimeout(() => {
-                                    window.scrollTo({
-                                      top: 0,
-                                      behavior: "smooth",
-                                    });
-                                  }, 100);
-                                }}
-                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
-                              >
-                                Swap
-                              </Link>
-                            </DrawerClose>
-                            <DrawerClose asChild>
-                              <Link
-                                href="/glow-swap?tab=liquidity"
-                                onClick={() => {
-                                  setTimeout(() => {
-                                    window.scrollTo({
-                                      top: 0,
-                                      behavior: "smooth",
-                                    });
-                                  }, 100);
-                                }}
-                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
-                              >
-                                Liquidity
-                              </Link>
-                            </DrawerClose>
-                            <DrawerClose asChild>
-                              <Link
-                                href="/wallet"
-                                onClick={() => {
-                                  setTimeout(() => {
-                                    window.scrollTo({
-                                      top: 0,
-                                      behavior: "smooth",
-                                    });
-                                  }, 100);
-                                }}
-                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
-                              >
-                                Wallet
+                                Home
                               </Link>
                             </DrawerClose>
                             <DrawerClose asChild>
@@ -904,7 +752,6 @@ export function Header({
                           </div>
                         </div>
 
-                        {/* Impact Menu */}
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
                             Impact
@@ -933,7 +780,6 @@ export function Header({
                           </div>
                         </div>
 
-                        {/* Resources Menu */}
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
                             Resources
@@ -995,7 +841,6 @@ export function Header({
                           </div>
                         </div>
 
-                        {/* Audits Menu */}
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
                             Audits
@@ -1057,7 +902,6 @@ export function Header({
                           </div>
                         </div>
 
-                        {/* Data Menu */}
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
                             Data
@@ -1123,7 +967,6 @@ export function Header({
                   </nav>
                 </div>
 
-                {/* Footer CTA */}
                 <div className="border-t border-border bg-muted p-4">
                   <WalletStatus className="w-full justify-between h-12" />
                 </div>
@@ -1131,7 +974,8 @@ export function Header({
             </Drawer>
           </div>
         </div>
-      </motion.header>
+      </header>
+
       <TosDialog />
     </>
   );
