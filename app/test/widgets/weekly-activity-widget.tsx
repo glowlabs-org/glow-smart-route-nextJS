@@ -264,8 +264,7 @@ export default function WeeklyActivityWidget({
     !isWalletConnecting &&
     !isLoading &&
     !isError &&
-    weekCells.length > 0 &&
-    activeWeeks === 0;
+    (weekCells.length === 0 || activeWeeks === 0);
   if (shouldHide && hideIfEmpty) return null;
 
   if (!hasWallet && isWalletConnecting) return <WeeklyActivitySkeleton />;

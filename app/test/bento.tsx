@@ -40,7 +40,7 @@ export default function GlowSoftDashboard({
     <div className="min-h-screen bg-muted dark:bg-background text-foreground p-6 selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
       <div className="max-w-screen-2xl mx-auto">
         {hasWallet ? (
-          <div className="grid grid-cols-12 gap-4 grid-flow-row-dense">
+          <div className="grid grid-cols-12 gap-4 grid-flow-row-dense [&:has(.solar-farm-next-batch-countdown)_.quick-actions-launchpad-next-batch-countdown]:hidden">
             <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[340px]">
               <NetWorthWidget walletAddress={walletAddress} />
             </div>
@@ -102,37 +102,50 @@ export default function GlowSoftDashboard({
               </motion.div>
             </AnimatePresence>
 
-            <AnimatePresence mode="popLayout">
-              <motion.div
-                key="recent-activity"
-                className="col-span-12 lg:col-span-4 min-h-0 lg:h-[380px]"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-              >
-                <RecentActivityWidget
-                  walletAddress={walletAddress}
-                  hideIfEmpty={false}
-                />
-              </motion.div>
-            </AnimatePresence>
+            <div
+              className={[
+                "col-span-12 lg:col-span-7 min-h-0 lg:h-[380px]",
+                "grid grid-cols-7 gap-4",
+                "[&:has(.activity-slot:not(:empty))_.faq-fallback]:hidden",
+              ].join(" ")}
+            >
+              <AnimatePresence mode="popLayout">
+                <motion.div
+                  key="recent-activity"
+                  className="activity-slot col-span-7 lg:col-span-4 min-h-0 lg:h-[380px] empty:hidden"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <RecentActivityWidget walletAddress={walletAddress} />
+                </motion.div>
+              </AnimatePresence>
 
-            <AnimatePresence mode="popLayout">
+              <AnimatePresence mode="popLayout">
+                <motion.div
+                  key="weekly-activity-bottom"
+                  className="activity-slot col-span-7 lg:col-span-3 min-h-0 lg:h-[380px] empty:hidden"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <WeeklyActivityWidget walletAddress={walletAddress} />
+                </motion.div>
+              </AnimatePresence>
+
               <motion.div
-                key="weekly-activity-bottom"
-                className="col-span-12 lg:col-span-3 min-h-0 lg:h-[380px]"
-                initial={{ opacity: 0, scale: 0.95 }}
+                key="faq-fallback"
+                className="faq-fallback col-span-7 min-h-0 lg:h-[380px]"
+                initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
+                exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.2 }}
               >
-                <WeeklyActivityWidget
-                  walletAddress={walletAddress}
-                  hideIfEmpty={false}
-                />
+                <GlowFaqWidget className="w-full h-full lg:max-h-[380px]" />
               </motion.div>
-            </AnimatePresence>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-12 gap-4 grid-flow-row-dense">

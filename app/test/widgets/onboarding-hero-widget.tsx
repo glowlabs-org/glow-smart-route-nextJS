@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ConnectKitButton } from "connectkit";
 import { Wallet, CreditCard, ArrowRight } from "lucide-react";
+import { useAccount } from "wagmi";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ export default function OnboardingHeroWidget({
 }: OnboardingHeroWidgetProps) {
   const [isBuyOpen, setIsBuyOpen] = React.useState(false);
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
+  const { isConnected } = useAccount();
 
   return (
     <Card
@@ -75,29 +77,38 @@ export default function OnboardingHeroWidget({
         </div>
 
         {/* Action Buttons Area - Pushed to bottom with mt-auto */}
-        <div className="mt-auto pt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-          {/* Primary: Connect Wallet */}
-          <ConnectKitButton.Custom>
-            {({ show, isConnected, truncatedAddress, ensName }) => (
-              <Button
-                onClick={show}
-                className="group relative w-full h-11 sm:h-12 "
-              >
-                <Wallet className="mr-2 h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover:-rotate-12" />
-                {isConnected ? ensName ?? truncatedAddress : "Connect Wallet"}
-              </Button>
-            )}
-          </ConnectKitButton.Custom>
+        <div className="mt-auto pt-6">
+          {isConnected ? (
+            <Button
+              onClick={() => setIsBuyOpen(true)}
+              className="group w-full h-11 sm:h-12"
+            >
+              Buy GLW
+            </Button>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <ConnectKitButton.Custom>
+                {({ show }) => (
+                  <Button
+                    onClick={show}
+                    className="group relative w-full h-11 sm:h-12"
+                  >
+                    <Wallet className="mr-2 h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover:-rotate-12" />
+                    Connect Wallet
+                  </Button>
+                )}
+              </ConnectKitButton.Custom>
 
-          {/* Secondary: Buy GLW */}
-          <Button
-            onClick={() => setIsBuyOpen(true)}
-            variant="outline"
-            className="group w-full h-11 sm:h-12 "
-          >
-            <CreditCard className="mr-2 h-4 w-4 sm:h-5 sm:w-5 opacity-70 group-hover:opacity-100" />
-            Buy $20 GLW
-          </Button>
+              <Button
+                onClick={() => setIsBuyOpen(true)}
+                variant="outline"
+                className="group w-full h-11 sm:h-12"
+              >
+                <CreditCard className="mr-2 h-4 w-4 sm:h-5 sm:w-5 opacity-70 group-hover:opacity-100" />
+                Buy GLW
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
 

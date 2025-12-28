@@ -110,6 +110,10 @@ export default function QuickActionsWidget({
   );
   const isDelegationsLive = activeDelegationsListingsCount > 0;
 
+  const highlightedAction = React.useMemo(() => {
+    return isDelegationsLive ? "launchpad" : "buy-glw";
+  }, [isDelegationsLive]);
+
   const activeMinersListingsCount = React.useMemo(
     () => countActiveListings(minersApplications),
     [minersApplications]
@@ -154,7 +158,7 @@ export default function QuickActionsWidget({
             icon={Zap}
             onClick={() => setIsLaunchpadOpen(true)}
             className={cn(
-              isDelegationsLive &&
+              highlightedAction === "launchpad" &&
                 "border-[#C084FC]/50 bg-[#C084FC]/5 shadow-[0_0_0_1px_rgba(192,132,252,0.22)] hover:border-[#C084FC]/70 hover:bg-[#C084FC]/10 hover:shadow-[0_0_0_1px_rgba(192,132,252,0.32)]"
             )}
             meta={
@@ -180,9 +184,14 @@ export default function QuickActionsWidget({
               ) : isMinersSoldOut ? (
                 <div className="flex flex-col gap-1">
                   <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Next batch in
+                    Next batch Tuesday 1pm ET
                   </div>
-                  <AnimatedCountdown remainingMs={minersRemainingMs} size="sm" />
+                  <div className="quick-actions-launchpad-next-batch-countdown">
+                    <AnimatedCountdown
+                      remainingMs={minersRemainingMs}
+                      size="sm"
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--color-miner-yellow-contrast)]/80">
@@ -193,10 +202,14 @@ export default function QuickActionsWidget({
           />
 
           <ActionTile
-            title="Buy GLW"
-            subtitle="Top Up Wallet"
+            title="Top Up Wallet"
+            subtitle="Buy GLW"
             icon={CreditCard}
             onClick={() => setIsBuyGlwOpen(true)}
+            className={cn(
+              highlightedAction === "buy-glw" &&
+                "border-[#C084FC]/50 bg-[#C084FC]/5 shadow-[0_0_0_1px_rgba(192,132,252,0.22)] hover:border-[#C084FC]/70 hover:bg-[#C084FC]/10 hover:shadow-[0_0_0_1px_rgba(192,132,252,0.32)]"
+            )}
             meta={
               <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                 {glwPriceLabel}

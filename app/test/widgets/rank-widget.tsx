@@ -143,7 +143,18 @@ export function RankWidget({ walletAddress }: RankWidgetProps) {
   }, [impactScore?.weekly]);
 
   const totalsPoints = impactScore?.totals?.totalPoints ?? undefined;
-  const weeklySteeredGlw = safeGlwFromWei(latestWeek?.steeringGlwWei);
+  const weeklyPoints = latestWeek?.totalPoints ?? undefined;
+
+  const totalPointsNumber = React.useMemo(() => {
+    const num = Number(totalsPoints ?? "0");
+    if (!Number.isFinite(num)) return 0;
+    return num;
+  }, [totalsPoints]);
+
+  const shouldShowBreakdownButton =
+    Boolean(impactScore) &&
+    !impactScoreQuery.isLoading &&
+    totalPointsNumber > 0;
 
   // Tier Logic
   const tier = React.useMemo(() => {
@@ -156,12 +167,11 @@ export function RankWidget({ walletAddress }: RankWidgetProps) {
   }, [totalsPoints]);
 
   const subtitle = React.useMemo(() => {
-    const steered = Number(weeklySteeredGlw);
-    if (Number.isFinite(steered) && steered > 0) {
-      return `${formatGlwCompact(weeklySteeredGlw)} GLW steered`;
-    }
+    const points = Number(weeklyPoints ?? "0");
+    if (Number.isFinite(points) && points > 0)
+      return `${formatPoints(weeklyPoints)} points this week`;
     return "Ramp impact with GCTL + vaults";
-  }, [weeklySteeredGlw]);
+  }, [weeklyPoints]);
 
   return (
     <>
@@ -221,7 +231,13 @@ export function RankWidget({ walletAddress }: RankWidgetProps) {
                   {tier}
                 </Badge>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div
+                className={
+                  shouldShowBreakdownButton
+                    ? "grid grid-cols-2 gap-3"
+                    : "grid grid-cols-1 gap-3"
+                }
+              >
                 <Button
                   variant="outline"
                   className="h-12 font-mono font-bold text-base"
@@ -230,18 +246,16 @@ export function RankWidget({ walletAddress }: RankWidgetProps) {
                 >
                   Leaderboard
                 </Button>
-                <Button
-                  className="h-12 font-mono font-bold text-base"
-                  type="button"
-                  onClick={() => setIsBreakdownOpen(true)}
-                  disabled={
-                    impactScoreQuery.isLoading ||
-                    impactScoreQuery.isError ||
-                    !impactScore
-                  }
-                >
-                  Breakdown
-                </Button>
+                {shouldShowBreakdownButton ? (
+                  <Button
+                    className="h-12 font-mono font-bold text-base"
+                    type="button"
+                    onClick={() => setIsBreakdownOpen(true)}
+                    disabled={impactScoreQuery.isError || !impactScore}
+                  >
+                    Breakdown
+                  </Button>
+                ) : null}
               </div>
             </>
           )}

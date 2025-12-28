@@ -44,6 +44,7 @@ import {
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { useAccount, useBalance } from "wagmi";
+import OnboardingHeroWidget from "./onboarding-hero-widget";
 
 const GLOW_GREEN = "#4ADE80";
 
@@ -181,8 +182,8 @@ function GlowWorthEmptyState() {
           No GLW worth yet
         </div>
         <div className="mt-1 max-w-[360px] text-xs text-muted-foreground">
-          Buy GLW, earn emission rewards, or receive transfers to start building
-          a Glow Worth history.
+          Buy GLW, Delegate, or Stake GCTL to start building your Glow Worth
+          history.
         </div>
       </div>
     </div>
@@ -663,6 +664,8 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
   const shouldShowSkeleton =
     (isWalletConnecting && !hasWallet) || (hasWallet && isWorthDataLoading);
   if (shouldShowSkeleton) return <NetWorthSkeleton />;
+
+  if (showEmptyState) return <OnboardingHeroWidget className="h-full" />;
 
   return (
     <Card className="h-full overflow-hidden flex flex-col gap-2 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">

@@ -39,7 +39,12 @@ function formatDhms(remainingMs: number): {
   const seconds = totalSeconds % 60;
   const pad2 = (n: number) => String(n).padStart(2, "0");
 
-  return { days, hours: pad2(hours), minutes: pad2(minutes), seconds: pad2(seconds) };
+  return {
+    days,
+    hours: pad2(hours),
+    minutes: pad2(minutes),
+    seconds: pad2(seconds),
+  };
 }
 
 export function useCountdownTo(params: {
@@ -87,18 +92,20 @@ function AnimatedTimePart({
     size === "sm"
       ? "h-7"
       : size === "md"
-        ? "h-8"
-        : size === "lg"
-          ? "h-10"
-          : "h-12";
+      ? "h-8"
+      : size === "lg"
+      ? "h-10"
+      : size === "xl"
+      ? "h-14 w-16"
+      : "h-12";
   const textClass =
     size === "sm"
       ? "text-xl"
       : size === "md"
-        ? "text-2xl"
-        : size === "lg"
-          ? "text-3xl"
-          : "text-4xl";
+      ? "text-2xl"
+      : size === "lg"
+      ? "text-3xl"
+      : "text-4xl";
 
   return (
     <span
@@ -149,10 +156,10 @@ export function AnimatedCountdown({
     size === "sm"
       ? "text-lg"
       : size === "md"
-        ? "text-xl"
-        : size === "lg"
-          ? "text-2xl"
-          : "text-3xl";
+      ? "text-xl"
+      : size === "lg"
+      ? "text-2xl"
+      : "text-3xl";
 
   return (
     <div className={cn("inline-flex items-center gap-1.5", className)}>
@@ -196,7 +203,12 @@ export function CountdownGrid({
   );
 
   return (
-    <div className={cn("grid grid-cols-4 gap-3 md:gap-4 place-items-center", className)}>
+    <div
+      className={cn(
+        "grid grid-cols-4 gap-3 md:gap-4 place-items-center",
+        className
+      )}
+    >
       <div className="bg-muted/30 border border-border rounded-xl p-4 w-full">
         <div className="font-mono text-3xl md:text-5xl font-bold tabular-nums text-foreground">
           {days}
@@ -251,10 +263,10 @@ export function AnimatedCountdownDhms({
     size === "sm"
       ? "text-lg"
       : size === "md"
-        ? "text-xl"
-        : size === "lg"
-          ? "text-2xl"
-          : "text-3xl";
+      ? "text-xl"
+      : size === "lg"
+      ? "text-2xl"
+      : "text-3xl";
   const minWidthCh =
     size === "sm" ? 2 : size === "md" ? 3 : size === "lg" ? 3 : 3;
 
@@ -297,5 +309,3 @@ export function AnimatedCountdownDhms({
     </div>
   );
 }
-
-

@@ -568,10 +568,12 @@ export default function SolarFarmWidget({
                         <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
                           Next batch in
                         </div>
-                        <AnimatedCountdown
-                          remainingMs={remainingMs}
-                          size="sm"
-                        />
+                        <div className="solar-farm-next-batch-countdown">
+                          <AnimatedCountdown
+                            remainingMs={remainingMs}
+                            size="xl"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>

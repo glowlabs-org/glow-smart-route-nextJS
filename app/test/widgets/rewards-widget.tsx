@@ -83,6 +83,48 @@ interface RewardsWidgetProps {
 
 const DEFAULT_INITIAL_DURATION_MS = (4 * 60 * 60 + 12 * 60 + 33) * 1000;
 
+function RewardsCountdown(props: { initialDurationMs: number }) {
+  const { initialDurationMs } = props;
+
+  const remainingMs = useCountdownTo({
+    targetAtMs: React.useMemo(() => {
+      try {
+        const nextEpoch = getCurrentEpoch() + 1;
+        const weekSeconds = 7 * 86_400;
+        return (GENESIS_TIMESTAMP + nextEpoch * weekSeconds) * 1000;
+      } catch {
+        return Date.now() + Math.max(0, initialDurationMs);
+      }
+    }, [initialDurationMs]),
+  });
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-muted/30 p-3">
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute -inset-16 opacity-45"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+        style={{
+          background:
+            "conic-gradient(from 0deg, transparent, hsl(var(--primary) / 0.25), transparent)",
+        }}
+      />
+      <div className="relative flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <Timer className="h-4 w-4 text-muted-foreground" />
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Next distribution in
+          </span>
+        </div>
+        <div className="flex justify-center">
+          <AnimatedCountdown remainingMs={remainingMs} size="sm" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RewardsWidget({
   walletAddress,
   initialDurationMs = DEFAULT_INITIAL_DURATION_MS,
@@ -223,18 +265,6 @@ export default function RewardsWidget({
     lifetimeProtocolTotals,
   ]);
 
-  const remainingMs = useCountdownTo({
-    targetAtMs: React.useMemo(() => {
-      try {
-        const nextEpoch = getCurrentEpoch() + 1;
-        const weekSeconds = 7 * 86_400;
-        return (GENESIS_TIMESTAMP + nextEpoch * weekSeconds) * 1000;
-      } catch {
-        return Date.now() + Math.max(0, initialDurationMs);
-      }
-    }, [initialDurationMs]),
-  });
-
   const isWidgetLoading =
     hasWallet &&
     (isRewardsLoading || isClaimableTotalsLoading || isLifetimeLoading);
@@ -278,34 +308,21 @@ export default function RewardsWidget({
     !hasClaimable;
   if (shouldHide && hideIfEmpty) return null;
 
+  const shouldShowCountdown =
+    hasWallet &&
+    !isWalletConnecting &&
+    !isWidgetLoading &&
+    !isWidgetError &&
+    !shouldHide;
+
   return (
     <Card className="h-full overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
       <CardHeader className="pb-3 space-y-3">
         <CardTitle className="text-center">Rewards</CardTitle>
 
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-muted/30 p-3">
-          <motion.div
-            aria-hidden
-            className="pointer-events-none absolute -inset-16 opacity-45"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
-            style={{
-              background:
-                "conic-gradient(from 0deg, transparent, hsl(var(--primary) / 0.25), transparent)",
-            }}
-          />
-          <div className="relative flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <Timer className="h-4 w-4 text-muted-foreground" />
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                Next distribution in
-              </span>
-            </div>
-            <div className="flex justify-center">
-              <AnimatedCountdown remainingMs={remainingMs} size="sm" />
-            </div>
-          </div>
-        </div>
+        {shouldShowCountdown ? (
+          <RewardsCountdown initialDurationMs={initialDurationMs} />
+        ) : null}
       </CardHeader>
 
       <CardContent className="flex flex-col flex-1 min-h-0 gap-4 pt-0">
