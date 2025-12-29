@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useRegions } from "@/hooks/useRegions";
+import { useRegions } from "@/hooks";
 import { useQueryState, parseAsString } from "nuqs";
 import { toast } from "sonner";
 

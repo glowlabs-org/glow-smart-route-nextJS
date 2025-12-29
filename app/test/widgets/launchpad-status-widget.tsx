@@ -174,7 +174,7 @@ export default function LaunchpadStatusWidget({
                   <Sparkles className="size-3.5 text-glow-orange" />
                 </div>
                 <div className="space-y-0.5">
-                  <p className="text-xs font-semibold text-foreground">
+                  <p className="text-xl font-semibold text-foreground">
                     Every Tuesday at 1pm ET
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">

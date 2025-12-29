@@ -14,11 +14,11 @@ import {
   useCountdownTo,
 } from "@/app/components/animated-countdown";
 import { ClaimsPanel } from "@/app/wallet/claims-panel";
-import { useClaimableRewards } from "@/hooks/useClaimableRewards";
+import { useClaimableRewards } from "@/hooks";
 import { useRewardsKernelWrapper } from "@/hooks/useRewardsKernelWrapper";
 import { weekToNonce } from "@/hooks/useMerkleProofs";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
-import { useWalletV2Claims } from "@/hooks/useWalletV2Claims";
+import { useWalletV2Claims } from "@/hooks";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import { useAccount } from "wagmi";
 

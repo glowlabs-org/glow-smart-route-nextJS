@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Copy, ExternalLink, XCircle } from "lucide-react";
 import { toast } from "sonner";
-import { useGctlApi } from "@/hooks/useGctlApi";
+import { useGctlApi } from "@/hooks";
 import { SuccessState } from "@/components/buy-gctl/success-state";
 import { useQueryState } from "nuqs";
 import { GlowSymbolAnimated } from "../glow-symbol-animated";

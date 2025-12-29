@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 import type {
   ClaimableReward,
   WeeklyClaimableRewards,
-} from "@/hooks/useClaimableRewards";
+} from "@/hooks";
 import type {
   ClaimStage,
   ClaimStageStatus,

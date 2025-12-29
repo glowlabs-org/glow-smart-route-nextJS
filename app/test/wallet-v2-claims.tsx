@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { useWalletV2Claims } from "@/hooks/useWalletV2Claims";
+import { useWalletV2Claims } from "@/hooks";
 
 interface WalletV2ClaimsProps {
   walletAddress: string | undefined;

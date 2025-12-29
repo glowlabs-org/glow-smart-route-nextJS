@@ -2,8 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-
-const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
+import { hubGet } from "@/lib/api/hub-client";
 
 export interface ImpactWeekRange {
   startWeek: number;
@@ -88,21 +87,21 @@ export interface UseImpactLeaderboardQueryArgs {
   enabled?: boolean;
 }
 
-export function useImpactLeaderboardQuery(args: UseImpactLeaderboardQueryArgs = {}) {
+export function useImpactLeaderboardQuery(
+  args: UseImpactLeaderboardQueryArgs = {}
+) {
   const { enabled = true } = args;
 
   return useQuery({
-    queryKey: ["impact-leaderboard"],
+    queryKey: ["impact-leaderboard"] as const,
     enabled,
     staleTime: 60_000,
     retry: 0,
     queryFn: async (): Promise<ImpactGlowScoreLeaderboardResponse> => {
       try {
-        if (!HUB_URL) throw new Error("NEXT_PUBLIC_HUB_URL is not set");
-        const url = new URL("/impact/glow-score", HUB_URL);
-        const res = await fetch(url.toString());
-        if (!res.ok) throw new Error(await res.text());
-        return (await res.json()) as ImpactGlowScoreLeaderboardResponse;
+        return await hubGet<ImpactGlowScoreLeaderboardResponse>(
+          "/impact/glow-score"
+        );
       } catch (error) {
         toast.error("Failed to load Impact leaderboard", {
           description: error instanceof Error ? error.message : String(error),
@@ -150,18 +149,16 @@ export function useImpactScoreQuery(args: UseImpactScoreQueryArgs) {
     retry: 0,
     queryFn: async (): Promise<ImpactGlowScoreResponse> => {
       try {
-        if (!HUB_URL) throw new Error("NEXT_PUBLIC_HUB_URL is not set");
         if (!normalizedWalletAddress) throw new Error("Missing wallet address");
         if (!weekRange) throw new Error("Missing week range");
 
-        const url = new URL("/impact/glow-score", HUB_URL);
-        url.searchParams.set("walletAddress", normalizedWalletAddress);
-        url.searchParams.set("startWeek", String(weekRange.startWeek));
-        url.searchParams.set("endWeek", String(weekRange.endWeek));
-
-        const res = await fetch(url.toString());
-        if (!res.ok) throw new Error(await res.text());
-        return (await res.json()) as ImpactGlowScoreResponse;
+        return await hubGet<ImpactGlowScoreResponse>("/impact/glow-score", {
+          params: {
+            walletAddress: normalizedWalletAddress,
+            startWeek: weekRange.startWeek,
+            endWeek: weekRange.endWeek,
+          },
+        });
       } catch (error) {
         toast.error(toastTitle, {
           description: error instanceof Error ? error.message : String(error),
@@ -171,5 +168,3 @@ export function useImpactScoreQuery(args: UseImpactScoreQueryArgs) {
     },
   });
 }
-
-

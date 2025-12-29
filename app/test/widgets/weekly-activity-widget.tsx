@@ -16,8 +16,8 @@ import {
 import {
   useSplitsActivity,
   type SplitActivity,
-} from "@/hooks/useGlowLaunchpad";
-import { useRewardsBreakdown } from "@/hooks/useRewardsBreakdown";
+  useRewardsBreakdown,
+} from "@/hooks";
 import {
   buildWeeklyDelegations,
   getCurrentWeekNumber,

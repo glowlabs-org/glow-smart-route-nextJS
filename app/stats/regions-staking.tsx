@@ -18,7 +18,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { useActiveRegionsSummary } from "@/hooks/useActiveRegionsSummary";
+import { useActiveRegionsSummary } from "@/hooks";
 import { useToast } from "@/hooks/use-toast";
 
 interface RegionData {

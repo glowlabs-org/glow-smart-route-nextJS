@@ -24,9 +24,8 @@ import {
   useForwarder,
 } from "@glowlabs-org/utils/browser";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
-import { useGctlApi } from "@/hooks/useGctlApi";
+import { useGctlApi, useRegions } from "@/hooks";
 import { ProcessingModal } from "../buy-gctl/processing-modal";
-import { useRegions } from "@/hooks/useRegions";
 import {
   Select,
   SelectContent,

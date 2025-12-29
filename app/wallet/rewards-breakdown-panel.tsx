@@ -16,9 +16,8 @@ import {
   useRewardsBreakdown,
   formatGLW,
   formatUSDC,
-} from "@/hooks/useRewardsBreakdown";
-import { useWalletFarms } from "@/hooks/useWalletFarms";
-import { useRegions } from "@/hooks/useRegions";
+} from "@/hooks";
+import { useWalletFarms, useRegions } from "@/hooks";
 import { FallbackImage } from "@/components/ui/fallback-image";
 import { useGlowSpotPrice } from "@/hooks/useGlowPrices";
 import { formatUnits } from "viem";

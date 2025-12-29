@@ -16,8 +16,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { formatUnits } from "viem";
-import { useGctlApi } from "@/hooks/useGctlApi";
-import { useKickstarters } from "@/hooks/useKickstarters";
+import { useGctlApi, useKickstarters } from "@/hooks";
 import {
   DECIMALS_BY_TOKEN,
   MintedEvent,

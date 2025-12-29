@@ -22,10 +22,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import {
-  useImpactScoreQuery,
-  type ImpactWeekRange,
-} from "@/hooks/useImpactGlowScore";
+import { useImpactScoreQuery, type ImpactWeekRange } from "@/hooks";
 
 interface GlowWorthResponse {
   glowWorthWei: string;

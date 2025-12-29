@@ -17,8 +17,8 @@ import {
   useSplitsActivity,
   type SplitActivity,
   type SplitsActivityResponse,
-} from "@/hooks/useGlowLaunchpad";
-import { useFractionsSummary } from "@/hooks/useFractionsSummary";
+} from "@/hooks";
+import { useFractionsSummary } from "@/hooks";
 import { parseFractionsSummary } from "@/lib/fractions";
 import { cn } from "@/lib/utils";
 import { useEnsNames } from "@/hooks/useEnsNames";

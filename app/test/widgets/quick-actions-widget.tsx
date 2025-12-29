@@ -12,8 +12,7 @@ import { Button } from "@/components/ui/button";
 import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
 import { AddLiquidityQuickDialog } from "./add-liquidity-quick-dialog";
-import { useGlowLaunchpad } from "@/hooks/useGlowLaunchpad";
-import { useMiningCenter } from "@/hooks/useMiningCenter";
+import { useSponsorListings } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
 import {
@@ -90,11 +89,11 @@ export default function QuickActionsWidget({
   );
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
 
-  const { applications: launchpadApplications } = useGlowLaunchpad({
+  const { applications: launchpadApplications } = useSponsorListings({
     filters: { paymentCurrency: "GLW" },
   });
-  const { applications: minersApplications } = useMiningCenter({
-    filters: { paymentCurrency: "USDC" },
+  const { applications: minersApplications } = useSponsorListings({
+    filters: { paymentCurrency: "USDC", type: "mining-center" },
   });
 
   const [isBuyGlwOpen, setIsBuyGlwOpen] = React.useState(false);

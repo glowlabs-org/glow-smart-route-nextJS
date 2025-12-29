@@ -70,7 +70,7 @@ import {
   formatUSDC,
   type WalletActivity,
   type FarmActivity,
-} from "@/hooks/useWalletsActivity";
+} from "@/hooks";
 import { useEnsNames } from "@/hooks/useEnsNames";
 import { MetricCard } from "./farms-view";
 import { RewardsSkeleton } from "./view";

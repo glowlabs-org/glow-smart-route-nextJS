@@ -1,25 +1,38 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-
-import {
-  type ActiveRegionsSummaryResponse,
-  RegionRouter,
-} from "@glowlabs-org/utils/browser";
-
-if (!process.env.NEXT_PUBLIC_CONTROL_API_URL) {
-  throw new Error("NEXT_PUBLIC_CONTROL_API_URL is not set");
-}
-
-const regionRouter = RegionRouter(
-  process.env.NEXT_PUBLIC_CONTROL_API_URL
-) as ReturnType<typeof RegionRouter> & {
-  fetchActiveSummary: () => Promise<ActiveRegionsSummaryResponse>;
-};
+import type { RegionWithMetadata } from "@glowlabs-org/utils/browser";
+import type { ActiveRegionsSummaryResponse } from "@glowlabs-org/utils/browser";
+import { getRegionRouter } from "@/lib/api/control-routers";
 
 const QUERY_KEYS = {
+  regions: () => ["regions"],
   activeSummary: () => ["regions", "active-summary"],
 } as const;
+
+export function useRegions() {
+  const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
+  const {
+    data: regions = [],
+    refetch: refetchRegions,
+    isLoading: isRegionsLoading,
+  } = useQuery({
+    queryKey: QUERY_KEYS.regions(),
+    enabled: isConfigured,
+    queryFn: () =>
+      (getRegionRouter() as any).fetchRegions() as Promise<
+        RegionWithMetadata[]
+      >,
+    staleTime: 30_000,
+    retry: 2,
+  });
+
+  return {
+    regions,
+    refetchRegions,
+    isRegionsLoading,
+  } as const;
+}
 
 export interface ActiveRegionSummaryDerived {
   id: number;
@@ -88,12 +101,9 @@ function getChurnEpoch(
   currentStaked: number
 ): number {
   if (!data || data.length < 2 || currentStaked === 0) return 0;
-
-  // Get the most recent snapshot and the one before it
   const sortedData = [...data].sort((a, b) => b.epoch - a.epoch);
   const currentSnapshot = sortedData[0];
   const previousSnapshot = sortedData[1];
-
   if (!currentSnapshot || !previousSnapshot) return 0;
 
   const currentGctl = parseGctlAmount(currentSnapshot.gctlStaked);
@@ -116,7 +126,6 @@ function mapSummary(
     const glwPerWeek = parseGlwAmount(region.glwRewardPerWeek);
     const rewardSharePercent = parseNumber(region.rewardShare);
 
-    // Get the latest data point for pending values
     const latestDataPoint =
       region.data.length > 0
         ? [...region.data].sort((a, b) => b.epoch - a.epoch)[0]
@@ -169,23 +178,17 @@ function mapSummary(
 
 export function useActiveRegionsSummary(options?: { enabled?: boolean }) {
   const { enabled = true } = options ?? {};
+  const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
+
   const query = useQuery({
     queryKey: QUERY_KEYS.activeSummary(),
-    enabled,
-    queryFn: async () => {
-      try {
-        const summary = await regionRouter.fetchActiveSummary();
-        return summary;
-      } catch (error) {
-        throw error instanceof Error
-          ? new Error(
-              `Failed to fetch active regions summary: ${error.message}`
-            )
-          : new Error("Failed to fetch active regions summary");
-      }
-    },
-    staleTime: 30 * 1000,
+    enabled: enabled && isConfigured,
+    staleTime: 30_000,
     retry: 2,
+    queryFn: async () =>
+      (await (
+        getRegionRouter() as any
+      ).fetchActiveSummary()) as ActiveRegionsSummaryResponse,
   });
 
   return {

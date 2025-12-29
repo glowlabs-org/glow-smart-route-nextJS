@@ -8,12 +8,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { type AuctionApplication } from "@/hooks/useMiningCenter";
+import { type AuctionApplication } from "@/hooks";
 import { formatUnits } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { formatNumber } from "./utils";
-import { useActiveRegionsSummary } from "@/hooks/useActiveRegionsSummary";
-import { useRegions } from "@/hooks/useRegions";
+import { useActiveRegionsSummary, useRegions } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { Skeleton } from "@/components/ui/skeleton";
 import {

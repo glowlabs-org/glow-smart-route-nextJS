@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { useGlowLaunchpad } from "@/hooks/useGlowLaunchpad";
+import { useSponsorListings } from "@/hooks";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
 import { countActiveListings } from "@/utils/launchpad";
 
@@ -16,7 +16,7 @@ export interface LaunchpadStatus {
 }
 
 export function useLaunchpadStatus(): LaunchpadStatus {
-  const { applications, isLoading, isError } = useGlowLaunchpad({
+  const { applications, isLoading, isError } = useSponsorListings({
     filters: { paymentCurrency: "GLW" },
   });
 

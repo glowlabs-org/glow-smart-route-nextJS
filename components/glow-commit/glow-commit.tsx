@@ -6,11 +6,7 @@ import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  useSplitsActivity,
-  type SplitActivity,
-} from "@/hooks/useGlowLaunchpad";
-import { useRewardsBreakdown } from "@/hooks/useRewardsBreakdown";
+import { useSplitsActivity, type SplitActivity, useRewardsBreakdown } from "@/hooks";
 import {
   buildWeeklyDelegations,
   getCurrentWeekNumber,

@@ -25,9 +25,7 @@ import {
 import { ProcessingModal } from "../buy-gctl/processing-modal";
 import { ConnectButton } from "../connect-button";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
-import { useRegions } from "@/hooks/useRegions";
-import { useGctlApi } from "@/hooks/useGctlApi";
-import { useActiveRegionsSummary } from "@/hooks/useActiveRegionsSummary";
+import { useActiveRegionsSummary, useGctlApi, useRegions } from "@/hooks";
 
 interface MintAndStakeGctlDialogProps {
   open: boolean;

@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 import { GlowLockup } from "./glow-lockup";
 import { TosDialog } from "./tos-dialog";
 import { ThemeToggle } from "./ui/theme-toggle";
-import { useRefundableFractions } from "@/hooks/useFractionSplits";
+import { useRefundableFractions } from "@/hooks";
 import { WalletStatus } from "./wallet-status";
 import { GlowSymbol } from "./glow-symbol";
 

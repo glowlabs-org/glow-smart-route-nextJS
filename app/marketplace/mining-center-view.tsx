@@ -42,12 +42,12 @@ import {
   type SortBy,
   type SortOrder,
   type AuctionApplication,
-} from "@/hooks/useMiningCenter";
-import { useAvailableZones } from "@/hooks/useGlowLaunchpad";
+} from "@/hooks";
+import { useAvailableZones } from "@/hooks";
 import {
   useMiningScore,
   getMiningScoreForApplication,
-} from "@/hooks/useMiningScore";
+} from "@/hooks";
 import { DepositDialog } from "./deposit-dialog";
 import { MiningStatsDialog } from "./mining-stats-dialog";
 
@@ -56,7 +56,7 @@ import { GlowSymbol } from "@/components/glow-symbol";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { formatUnits } from "viem";
 import { useAccount } from "wagmi";
-import { useFractionSplits } from "@/hooks/useFractionSplits";
+import { useFractionSplits } from "@/hooks";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SlidersHorizontal, X, ArrowRight, HelpCircle } from "lucide-react";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";

@@ -16,13 +16,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
-import {
-  useWallets,
-  type MintedEvent,
-  type StakedEvent,
-} from "@/hooks/useWallets";
+import { useWallets, type MintedEvent, type StakedEvent, type SplitActivity } from "@/hooks";
 import { formatUnits } from "viem";
-import type { SplitActivity } from "@/hooks/useGlowLaunchpad";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import type { SwapActivity } from "@/hooks/useRecentActivityFeed";
 

@@ -27,7 +27,7 @@ import { publicClient } from "@/web3/web3/clients/publicClient";
 import {
   useRefundableFractions,
   type RefundableFraction,
-} from "@/hooks/useFractionSplits";
+} from "@/hooks";
 import { usePolling } from "@/utils/use-polling";
 
 interface RefundClaimsPanelProps {

@@ -12,7 +12,7 @@ import { useEnsNames } from "@/hooks/useEnsNames";
 import {
   useImpactLeaderboardQuery,
   type ImpactGlowScoreLeaderboardRow,
-} from "@/hooks/useImpactGlowScore";
+} from "@/hooks";
 import { formatImpactPoints, shortAddress, safeNumber } from "@/utils/impact";
 
 interface GlobalLeaderboardWidgetProps {

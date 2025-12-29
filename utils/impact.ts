@@ -1,6 +1,6 @@
 import { formatUnits } from "viem";
 import { formatNumber } from "@/utils/format";
-import type { ImpactGlowScoreComposition } from "@/hooks/useImpactGlowScore";
+import type { ImpactGlowScoreComposition } from "@/hooks";
 
 export function shortAddress(address: string) {
   if (!address) return "—";

@@ -3,9 +3,9 @@
 import React from "react";
 import { WalletsView } from "./wallets-view";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
-import { useFractionsSummary } from "@/hooks/useFractionsSummary";
+import { useFractionsSummary } from "@/hooks";
 import { useGlowHolderCount } from "@/hooks/useGlowHolderCount";
-import { useYieldPer100 } from "@/hooks/useYieldPer100";
+import { useYieldPer100 } from "@/hooks";
 import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
 
 export function DelegatorsView() {

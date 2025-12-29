@@ -26,9 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
 import { usePoolActivity } from "@/hooks/useGlowPrices";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
-import { useGctlApi } from "@/hooks/useGctlApi";
-import { useRewardsBreakdown } from "@/hooks/useRewardsBreakdown";
-import { useClaimableRewards } from "@/hooks/useClaimableRewards";
+import { useGctlApi, useRewardsBreakdown, useClaimableRewards } from "@/hooks";
 import { useRewardsKernelWrapper } from "@/hooks/useRewardsKernelWrapper";
 import { weekToNonce } from "@/hooks/useMerkleProofs";
 import { useWalletSwaps } from "@/hooks/useWalletSwaps";
@@ -252,24 +250,33 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
   const {
     data: ethBalanceData,
     isLoading: isEthBalanceLoading,
-    isFetching: isEthBalanceFetching,
     isError: isEthBalanceError,
   } = useBalance({
     address: (walletAddress ?? undefined) as `0x${string}` | undefined,
-    query: { enabled: hasWallet && Boolean(walletAddress) },
+    query: {
+      enabled: hasWallet && Boolean(walletAddress),
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+    },
   });
   const {
     glwBalance,
     usdcBalance,
     usdgBalance,
     isLoading: isTokenBalancesLoading,
-    isFetching: isTokenBalancesFetching,
     isError: isTokenBalancesError,
-  } = useWalletTokenBalances(walletAddress);
-  const { gctlBalance, isGctlBalanceLoading, isGctlBalanceFetching } =
-    useGctlApi(walletAddress ?? undefined, {
+  } = useWalletTokenBalances(walletAddress, {
+    query: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+    },
+  });
+  const { gctlBalance, isGctlBalanceLoading } = useGctlApi(
+    walletAddress ?? undefined,
+    {
       enabled: hasWallet,
-    });
+    }
+  );
   const {
     data: rewardsBreakdown,
     isLoading: isRewardsBreakdownLoading,
@@ -282,12 +289,16 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
     weeklyBreakdown,
     isLoading: isClaimableRewardsLoading,
     isError: isClaimableRewardsError,
-  } = useClaimableRewards(walletAddress ?? undefined);
+  } = useClaimableRewards(walletAddress ?? undefined, {
+    query: {
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+    },
+  });
   const { checkIfClaimed, checkIfGlwClaimed } = useRewardsKernelWrapper();
   const {
     swaps,
     isLoading: isSwapsLoading,
-    isFetching: isSwapsFetching,
     error: swapsError,
   } = useWalletSwaps(walletAddress ?? undefined);
 
@@ -368,49 +379,58 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
     };
   }, [rewardsBreakdown]);
 
+  const eligibleWeeksForUnclaimed = React.useMemo(() => {
+    return weeklyBreakdown
+      .filter((w) => w.isFinalized)
+      .filter((w) => w.rewards.some((r) => r.currency === "GLW"))
+      .map((w) => ({
+        week: w.week,
+        hasInflation: w.rewards.some((r) => r.type === "glowInflation"),
+        hasProtocolGlw: w.rewards.some(
+          (r) => r.type === "protocolDeposit" && r.currency === "GLW"
+        ),
+        inflationGlw: w.rewards
+          .filter((r) => r.type === "glowInflation" && r.currency === "GLW")
+          .reduce((sum, r) => sum + Number(r.amount || 0), 0),
+        protocolGlw: w.rewards
+          .filter((r) => r.type === "protocolDeposit" && r.currency === "GLW")
+          .reduce((sum, r) => sum + Number(r.amount || 0), 0),
+      }))
+      .filter(
+        (w) =>
+          (w.hasInflation && w.inflationGlw > 0) ||
+          (w.hasProtocolGlw && w.protocolGlw > 0)
+      );
+  }, [weeklyBreakdown]);
+
+  const eligibleWeeksForUnclaimedKey = React.useMemo(() => {
+    return eligibleWeeksForUnclaimed
+      .map((w) => `${w.week}:${w.inflationGlw}:${w.protocolGlw}`)
+      .join("|");
+  }, [eligibleWeeksForUnclaimed]);
+
   const {
     data: unclaimedGlwRewards = 0,
     isLoading: isUnclaimedGlwLoading,
-    isFetching: isUnclaimedGlwFetching,
     isError: isUnclaimedGlwError,
   } = useQuery({
     queryKey: [
       "unclaimed-glw-rewards",
       walletAddress,
-      weeklyBreakdown.at(0)?.week ?? null,
-      weeklyBreakdown.length,
+      eligibleWeeksForUnclaimedKey,
     ],
-    enabled: Boolean(hasWallet && walletAddress && weeklyBreakdown.length > 0),
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    enabled: Boolean(
+      hasWallet && walletAddress && eligibleWeeksForUnclaimed.length > 0
+    ),
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchInterval: false,
     refetchOnWindowFocus: true,
     queryFn: async () => {
       if (!walletAddress) return 0;
 
-      const eligibleWeeks = weeklyBreakdown
-        .filter((w) => w.isFinalized)
-        .filter((w) => w.rewards.some((r) => r.currency === "GLW"))
-        .map((w) => ({
-          week: w.week,
-          hasInflation: w.rewards.some((r) => r.type === "glowInflation"),
-          hasProtocolGlw: w.rewards.some(
-            (r) => r.type === "protocolDeposit" && r.currency === "GLW"
-          ),
-          inflationGlw: w.rewards
-            .filter((r) => r.type === "glowInflation" && r.currency === "GLW")
-            .reduce((sum, r) => sum + Number(r.amount || 0), 0),
-          protocolGlw: w.rewards
-            .filter((r) => r.type === "protocolDeposit" && r.currency === "GLW")
-            .reduce((sum, r) => sum + Number(r.amount || 0), 0),
-        }))
-        .filter(
-          (w) =>
-            (w.hasInflation && w.inflationGlw > 0) ||
-            (w.hasProtocolGlw && w.protocolGlw > 0)
-        );
-
       // Keep RPC load sane
-      const batches = chunk(eligibleWeeks, 8);
+      const batches = chunk(eligibleWeeksForUnclaimed, 8);
 
       let total = 0;
       for (const batch of batches) {
@@ -463,24 +483,22 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
     Boolean(swapsError) ||
     isUnclaimedGlwError;
 
-  const isWorthDataLoading =
+  const isWorthDataInitialLoading =
     hasWallet &&
     !hasWorthDataError &&
     (isTokenBalancesLoading ||
-      isTokenBalancesFetching ||
       isEthBalanceLoading ||
-      isEthBalanceFetching ||
       isGctlBalanceLoading ||
-      isGctlBalanceFetching ||
       isRewardsBreakdownLoading ||
       isClaimableRewardsLoading ||
       isSwapsLoading ||
-      isSwapsFetching ||
-      (weeklyBreakdown.length > 0 &&
-        (isUnclaimedGlwLoading || isUnclaimedGlwFetching)));
+      (weeklyBreakdown.length > 0 && isUnclaimedGlwLoading));
 
   const showEmptyState =
-    hasWallet && !isWorthDataLoading && !hasWorthDataError && glowWorth <= 0;
+    hasWallet &&
+    !isWorthDataInitialLoading &&
+    !hasWorthDataError &&
+    glowWorth <= 0;
 
   const glowWorthBreakdownShares = React.useMemo(() => {
     if (!Number.isFinite(glowWorth) || glowWorth <= 0) {
@@ -662,7 +680,8 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
   }, [chartData]);
 
   const shouldShowSkeleton =
-    (isWalletConnecting && !hasWallet) || (hasWallet && isWorthDataLoading);
+    (isWalletConnecting && !hasWallet) ||
+    (hasWallet && isWorthDataInitialLoading);
   if (shouldShowSkeleton) return <NetWorthSkeleton />;
 
   if (showEmptyState) return <OnboardingHeroWidget className="h-full" />;

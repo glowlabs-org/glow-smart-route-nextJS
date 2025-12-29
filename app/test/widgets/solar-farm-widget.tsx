@@ -9,10 +9,9 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { Cpu, Zap, LayoutGrid, Sun, Rocket, Layers } from "lucide-react";
+import { Cpu, Zap, LayoutGrid, Sun, Rocket, Layers, Gift } from "lucide-react";
 import Link from "next/link";
-import { useGlowLaunchpad } from "@/hooks/useGlowLaunchpad";
-import { useMiningCenter } from "@/hooks/useMiningCenter";
+import { useSponsorListings, useRewardsBreakdown } from "@/hooks";
 import { useAccount } from "wagmi";
 
 // --- Shadcn UI Components ---
@@ -22,7 +21,6 @@ import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { FarmsPerformanceDialogContent } from "./farms-performance-dialog";
-import { useRewardsBreakdown } from "@/hooks/useRewardsBreakdown";
 import { cn } from "@/lib/utils";
 import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
@@ -37,6 +35,8 @@ interface HistoryDataPoint {
   week: string;
   minerReward: number;
   delegationReward: number;
+  otherReward: number;
+  protocolDepositUsd: number;
   total: number;
 }
 
@@ -76,6 +76,22 @@ function parseGlwFromWei(value: string) {
   return num / 1e18;
 }
 
+function parseUsdFromBaseUnits(value: string) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return num / 1e6;
+}
+
+function formatUsdPrecise(value: number) {
+  if (!Number.isFinite(value)) return "—";
+  return value.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 function SolarFarmSkeleton() {
   return (
     <div className="space-y-5">
@@ -107,7 +123,11 @@ const CustomTooltip = ({
       payload.find((p) => p.dataKey === "minerReward")?.value ?? 0;
     const delVal =
       payload.find((p) => p.dataKey === "delegationReward")?.value ?? 0;
-    const total = minerVal + delVal;
+    const otherVal =
+      payload.find((p) => p.dataKey === "otherReward")?.value ?? 0;
+    const pdUsd =
+      payload.find((p) => p.dataKey === "protocolDepositUsd")?.value ?? 0;
+    const total = minerVal + delVal + otherVal;
     return (
       <div className="bg-popover text-popover-foreground border border-border p-3 rounded-xl shadow-xl min-w-[160px]">
         <p className="text-muted-foreground text-[10px] font-mono uppercase mb-2">
@@ -142,14 +162,51 @@ const CustomTooltip = ({
               {formatGlwPrecise(delVal)}
             </span>
           </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{ background: "var(--color-glow-green)" }}
+              />
+              <span className="text-xs text-muted-foreground font-mono">
+                Other
+              </span>
+            </div>
+            <span className="text-xs font-bold text-foreground font-mono">
+              {formatGlwPrecise(otherVal)}
+            </span>
+          </div>
+          {pdUsd > 0 ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <div
+                  className="w-2 h-2 rounded-full"
+                  style={{ background: "var(--color-glow-orange)" }}
+                />
+                <span className="text-xs text-muted-foreground font-mono">
+                  PD Rewards (USDG)
+                </span>
+              </div>
+              <span className="text-xs font-bold text-foreground font-mono">
+                {formatUsdPrecise(pdUsd)}
+              </span>
+            </div>
+          ) : null}
           <div className="h-px bg-border my-1" />
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground font-mono uppercase">
               Total
             </span>
-            <span className="text-sm font-bold text-foreground font-mono">
-              {formatGlwPrecise(total)} GLW
-            </span>
+            <div className="flex flex-col items-end">
+              <span className="text-sm font-bold text-foreground font-mono">
+                {formatGlwPrecise(total)} GLW
+              </span>
+              {pdUsd > 0 ? (
+                <span className="text-[11px] font-bold text-muted-foreground font-mono">
+                  {formatUsdPrecise(pdUsd)} USDG
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
@@ -180,11 +237,11 @@ export default function SolarFarmWidget({
     enabled: hasWallet,
   });
 
-  const { applications: launchpadApplications } = useGlowLaunchpad({
+  const { applications: launchpadApplications } = useSponsorListings({
     filters: { paymentCurrency: "GLW" },
   });
-  const { applications: minersApplications } = useMiningCenter({
-    filters: { paymentCurrency: "USDC" },
+  const { applications: minersApplications } = useSponsorListings({
+    filters: { paymentCurrency: "USDC", type: "mining-center" },
   });
 
   const activeListingsCount = React.useMemo(() => {
@@ -199,7 +256,12 @@ export default function SolarFarmWidget({
 
     const buckets = new Map<
       number,
-      { minerReward: number; delegationReward: number }
+      {
+        minerReward: number;
+        delegationReward: number;
+        otherReward: number;
+        protocolDepositUsd: number;
+      }
     >();
 
     for (const farm of data.farmDetails) {
@@ -208,12 +270,41 @@ export default function SolarFarmWidget({
         const prev = buckets.get(week.weekNumber) ?? {
           minerReward: 0,
           delegationReward: 0,
+          otherReward: 0,
+          protocolDepositUsd: 0,
         };
 
         const totalGlw = parseGlwFromWei(week.totalRewards);
         buckets.set(week.weekNumber, {
           minerReward: prev.minerReward + (isMiner ? totalGlw : 0),
           delegationReward: prev.delegationReward + (isMiner ? 0 : totalGlw),
+          otherReward: prev.otherReward,
+          protocolDepositUsd: prev.protocolDepositUsd,
+        });
+      }
+    }
+
+    for (const farm of data.otherFarmsWithRewards?.farms ?? []) {
+      const asset = farm.asset;
+      const isPdUsdAsset = asset === "USDG";
+      for (const week of farm.weeklyBreakdown) {
+        const prev = buckets.get(week.weekNumber) ?? {
+          minerReward: 0,
+          delegationReward: 0,
+          otherReward: 0,
+          protocolDepositUsd: 0,
+        };
+
+        const inflationGlw = parseGlwFromWei(week.inflationRewards);
+        const pdUsd = isPdUsdAsset
+          ? parseUsdFromBaseUnits(week.protocolDepositRewards)
+          : 0;
+        const pdGlw = !isPdUsdAsset ? parseGlwFromWei(week.protocolDepositRewards) : 0;
+        buckets.set(week.weekNumber, {
+          minerReward: prev.minerReward,
+          delegationReward: prev.delegationReward,
+          otherReward: prev.otherReward + inflationGlw + pdGlw,
+          protocolDepositUsd: prev.protocolDepositUsd + pdUsd,
         });
       }
     }
@@ -221,12 +312,17 @@ export default function SolarFarmWidget({
     const points = Array.from(buckets.entries())
       .sort(([a], [b]) => a - b)
       .map(([weekNumber, value]) => {
-        const total = value.minerReward + value.delegationReward;
+        const total =
+          value.minerReward +
+          value.delegationReward +
+          value.otherReward;
         return {
           weekNumber,
           week: `Wk ${weekNumber}`,
           minerReward: value.minerReward,
           delegationReward: value.delegationReward,
+          otherReward: value.otherReward,
+          protocolDepositUsd: value.protocolDepositUsd,
           total,
         };
       });
@@ -237,6 +333,7 @@ export default function SolarFarmWidget({
   const stats = React.useMemo(() => {
     const last = historyData.at(-1)?.total ?? 0;
     const prev = historyData.at(-2)?.total ?? 0;
+    const lastPdUsd = historyData.at(-1)?.protocolDepositUsd ?? 0;
     const trendPercent =
       Number.isFinite(last) && Number.isFinite(prev) && prev > 0
         ? ((last - prev) / prev) * 100
@@ -254,8 +351,13 @@ export default function SolarFarmWidget({
       weeklyPayout: last,
       trend: formatTrendPercent({ current: last, previous: prev }),
       trendPercent,
+      weeklyProtocolDepositUsd: lastPdUsd,
       activeMiners,
       activeDelegations,
+      activeOtherRewards:
+        data?.otherFarmsWithRewards?.count ??
+        data?.otherFarmsWithRewards?.farms.length ??
+        0,
     };
   }, [data, historyData]);
 
@@ -273,6 +375,8 @@ export default function SolarFarmWidget({
     const hasPendingPurchases =
       (data.recentPurchasesWithoutRewards?.length ?? 0) > 0;
 
+    const hasOtherRewards = (data.otherFarmsWithRewards?.count ?? 0) > 0;
+
     const totalGlwDelegatedAfter = Number(
       data.delegatedAfterWeekRange?.totalGlwDelegatedAfter ?? 0
     );
@@ -283,6 +387,7 @@ export default function SolarFarmWidget({
     return (
       hasMiners ||
       hasDelegations ||
+      hasOtherRewards ||
       hasPendingPurchases ||
       totalGlwDelegatedAfter > 0 ||
       totalUsdcSpentAfter > 0
@@ -311,70 +416,90 @@ export default function SolarFarmWidget({
         week: "Wk 1",
         minerReward: 1200,
         delegationReward: 800,
-        total: 2000,
+        otherReward: 250,
+        protocolDepositUsd: 125,
+        total: 2250,
       },
       {
         weekNumber: 2,
         week: "Wk 2",
         minerReward: 900,
         delegationReward: 1000,
-        total: 1900,
+        otherReward: 200,
+        protocolDepositUsd: 80,
+        total: 2100,
       },
       {
         weekNumber: 3,
         week: "Wk 3",
         minerReward: 1400,
         delegationReward: 700,
-        total: 2100,
+        otherReward: 300,
+        protocolDepositUsd: 140,
+        total: 2400,
       },
       {
         weekNumber: 4,
         week: "Wk 4",
         minerReward: 800,
         delegationReward: 900,
-        total: 1700,
+        otherReward: 150,
+        protocolDepositUsd: 60,
+        total: 1850,
       },
       {
         weekNumber: 5,
         week: "Wk 5",
         minerReward: 1500,
         delegationReward: 1100,
-        total: 2600,
+        otherReward: 400,
+        protocolDepositUsd: 160,
+        total: 3000,
       },
       {
         weekNumber: 6,
         week: "Wk 6",
         minerReward: 1100,
         delegationReward: 950,
-        total: 2050,
+        otherReward: 225,
+        protocolDepositUsd: 95,
+        total: 2275,
       },
       {
         weekNumber: 7,
         week: "Wk 7",
         minerReward: 1300,
         delegationReward: 900,
-        total: 2200,
+        otherReward: 275,
+        protocolDepositUsd: 110,
+        total: 2475,
       },
       {
         weekNumber: 8,
         week: "Wk 8",
         minerReward: 1000,
         delegationReward: 850,
-        total: 1850,
+        otherReward: 180,
+        protocolDepositUsd: 75,
+        total: 2030,
       },
       {
         weekNumber: 9,
         week: "Wk 9",
         minerReward: 1600,
         delegationReward: 900,
-        total: 2500,
+        otherReward: 420,
+        protocolDepositUsd: 190,
+        total: 2920,
       },
       {
         weekNumber: 10,
         week: "Wk 10",
         minerReward: 1250,
         delegationReward: 1050,
-        total: 2300,
+        otherReward: 260,
+        protocolDepositUsd: 105,
+        total: 2560,
       },
     ],
     []
@@ -471,6 +596,18 @@ export default function SolarFarmWidget({
                           Delegations
                         </span>
                       </div>
+                      <div className="w-px h-8 bg-border" />
+                      <div className="flex flex-col items-end">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-lg font-bold text-foreground font-mono">
+                            1
+                          </span>
+                          <Gift className="w-4 h-4 text-[color:var(--color-glow-green)]" />
+                        </div>
+                        <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                          Other
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -506,6 +643,19 @@ export default function SolarFarmWidget({
                           dataKey="delegationReward"
                           stackId="a"
                           fill="var(--color-glow-purple)"
+                          radius={[0, 0, 0, 0]}
+                          animationDuration={1500}
+                        />
+                        <Bar
+                          dataKey="otherReward"
+                          stackId="a"
+                          fill="var(--color-glow-green)"
+                          radius={[4, 4, 0, 0]}
+                          animationDuration={1500}
+                        />
+                        <Bar
+                          dataKey="protocolDepositUsd"
+                          fill="var(--color-glow-orange)"
                           radius={[4, 4, 0, 0]}
                           animationDuration={1500}
                         />
@@ -655,12 +805,22 @@ export default function SolarFarmWidget({
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
                       <Sun className="w-5 h-5 text-emerald-500 fill-emerald-500/20" />
-                      <span className="text-3xl font-bold text-foreground tracking-tight font-mono">
-                        {formatGlwCompact(stats.weeklyPayout)}
-                      </span>
-                      <span className="text-sm font-bold text-muted-foreground font-mono">
-                        GLW
-                      </span>
+                      <div className="flex flex-col leading-none">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-bold text-foreground tracking-tight font-mono">
+                            {formatGlwCompact(stats.weeklyPayout)}
+                          </span>
+                          <span className="text-sm font-bold text-muted-foreground font-mono">
+                            GLW
+                          </span>
+                        </div>
+                        {stats.weeklyProtocolDepositUsd > 0 ? (
+                          <div className="text-[11px] font-bold text-muted-foreground font-mono">
+                            + {formatUsdPrecise(stats.weeklyProtocolDepositUsd)}{" "}
+                            USDG
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                     {/* <span
                       className={cn(
@@ -699,6 +859,18 @@ export default function SolarFarmWidget({
                     </div>
                     <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
                       Delegations
+                    </span>
+                  </div>
+                  <div className="w-px h-8 bg-border" />
+                  <div className="flex flex-col items-end">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-lg font-bold text-foreground font-mono">
+                        {stats.activeOtherRewards}
+                      </span>
+                      <Gift className="w-4 h-4 text-[color:var(--color-glow-green)]" />
+                    </div>
+                    <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                      Other
                     </span>
                   </div>
                 </div>
@@ -740,6 +912,19 @@ export default function SolarFarmWidget({
                       dataKey="delegationReward"
                       stackId="a"
                       fill="var(--color-glow-purple)"
+                      radius={[0, 0, 0, 0]}
+                      animationDuration={1500}
+                    />
+                    <Bar
+                      dataKey="otherReward"
+                      stackId="a"
+                      fill="var(--color-glow-green)"
+                      radius={[4, 4, 0, 0]}
+                      animationDuration={1500}
+                    />
+                    <Bar
+                      dataKey="protocolDepositUsd"
+                      fill="var(--color-glow-orange)"
                       radius={[4, 4, 0, 0]}
                       animationDuration={1500}
                     />

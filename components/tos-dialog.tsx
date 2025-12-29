@@ -14,7 +14,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { keccak256, toHex } from "viem";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
-import { useGctlApi } from "@/hooks/useGctlApi";
+import { useGctlApi } from "@/hooks";
 import { WalletsRouter } from "@glowlabs-org/utils/browser";
 import * as Sentry from "@sentry/nextjs";
 

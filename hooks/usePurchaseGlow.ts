@@ -2,18 +2,18 @@ import { useContracts } from "./useContracts";
 import { Ok, Err, Result } from "ts-results";
 import { useState, useRef, useCallback } from "react";
 import { estimateGlowFromUSDG } from "@/utils/math/estimateGlowFromUSDG";
-import { formatEther, formatUnits, parseUnits } from "viem";
+import { formatEther, formatUnits, parseAbi, parseUnits } from "viem";
 import { getOptimalUSDGAmounts } from "@/utils/glowSmartBalancing";
 import { getReserves } from "@/utils/uniswapv2/getReserves";
-import { Contract } from "ethers";
 import { addresses } from "@/web3/constants/addresses";
+import { publicClient } from "@/web3/web3/clients/publicClient";
 import { useEthersSigner } from "./useEthersSigner";
 import Decimal from "decimal.js";
 import { waitForEthersTransactionWithRetry } from "@glowlabs-org/utils/browser";
 
-const UNISWAP_V2_FACTORY_ABI = [
+const UNISWAP_V2_FACTORY_ABI = parseAbi([
   "function getPair(address tokenA, address tokenB) external view returns (address pair)",
-];
+]);
 
 const UNISWAP_V2_FACTORY_ADDRESS: `0x${string}` =
   "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f" as `0x${string}`;
@@ -343,8 +343,6 @@ export function usePurchaseGlow() {
     amountUsdgIn: number | string;
     earlyLiquidityCurrentPrice: number;
   }): Promise<Result<SmartBalancingAmounts, string>> {
-    if (!signer) return new Err("Signer not available");
-
     let amountUsdgInNumber: number;
     try {
       const d = new Decimal(String(amountUsdgIn ?? "0"));
@@ -373,17 +371,23 @@ export function usePurchaseGlow() {
         usdgToSpend: amountUsdgInNumber,
       });
     }
-    const factory = new Contract(
-      UNISWAP_V2_FACTORY_ADDRESS,
-      UNISWAP_V2_FACTORY_ABI,
-      signer
-    );
-    const pairAddress = await factory.getPair(addresses.usdg, addresses.glow);
+    const pairAddress = (await publicClient.readContract({
+      address: UNISWAP_V2_FACTORY_ADDRESS,
+      abi: UNISWAP_V2_FACTORY_ABI,
+      functionName: "getPair",
+      args: [addresses.usdg, addresses.glow],
+    })) as `0x${string}`;
+
+    if (
+      !pairAddress ||
+      pairAddress === "0x0000000000000000000000000000000000000000"
+    )
+      return new Err("Uniswap pair not available");
+
     const getReservesResult = await getReserves({
       tokenA: addresses.usdg,
       tokenB: addresses.glow,
       pairAddress: pairAddress,
-      signer,
     });
 
     if (!getReservesResult.ok) return new Err("Error getting reserves");

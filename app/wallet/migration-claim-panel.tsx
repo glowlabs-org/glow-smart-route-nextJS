@@ -29,8 +29,7 @@ import {
   Info,
   ExternalLink,
 } from "lucide-react";
-import { useMigrationClaim } from "@/hooks/useMigrationClaim";
-import { useRegions } from "@/hooks/useRegions";
+import { useMigrationClaim, useRegions } from "@/hooks";
 import FallbackImage from "@/components/ui/fallback-image";
 
 interface MigrationData {

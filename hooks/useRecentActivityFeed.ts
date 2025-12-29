@@ -2,7 +2,7 @@
 
 import React from "react";
 
-import { useSplitsActivity } from "@/hooks/useGlowLaunchpad";
+import { useSplitsActivity } from "@/hooks";
 import { useWalletSwaps, type SwapEvent } from "@/hooks/useWalletSwaps";
 
 export interface SwapActivity {

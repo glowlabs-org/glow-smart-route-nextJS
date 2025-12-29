@@ -1,6 +1,6 @@
 import { formatUnits } from "viem";
 
-import type { RewardsBreakdownResponse } from "@/hooks/useRewardsBreakdown";
+import type { RewardsBreakdownResponse } from "@/hooks";
 import { GENESIS_TIMESTAMP } from "@/utils/getCurrentEpoch";
 
 const GLW_DECIMALS = 18;

@@ -11,15 +11,13 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWalletSwaps } from "@/hooks/useWalletSwaps";
-import { useWalletV2Claims } from "@/hooks/useWalletV2Claims";
 import {
+  useWalletV2Claims,
   useRewardsBreakdown,
   type RewardsBreakdownResponse,
-} from "@/hooks/useRewardsBreakdown";
-import {
   useSplitsActivity,
   type SplitActivity,
-} from "@/hooks/useGlowLaunchpad";
+} from "@/hooks";
 import { formatUnits, parseAbiItem } from "viem";
 import { ExternalLink } from "lucide-react";
 import { publicClient } from "@/web3/web3/clients/publicClient";

@@ -5,11 +5,9 @@ import { TrendingUp, Users, DollarSign, Coins } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
 import { usePoolInfo } from "@/hooks/useLiquidityPositionsOptimized";
-import { useGctlApi } from "@/hooks/useGctlApi";
-import { useGctlHoldersCount } from "@/hooks/useGctlHoldersCount";
-import { useActiveRegionsSummary } from "@/hooks/useActiveRegionsSummary";
+import { useActiveRegionsSummary, useGctlApi, useGctlHoldersCount } from "@/hooks";
 import { useEndowmentLPPosition } from "@/hooks/useEndowmentLPPosition";
-import { useFractionsSummary } from "@/hooks/useFractionsSummary";
+import { useFractionsSummary } from "@/hooks";
 import { parseFractionsSummary } from "@/lib/fractions";
 
 interface EconomyOverviewProps {

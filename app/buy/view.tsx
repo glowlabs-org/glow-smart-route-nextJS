@@ -61,7 +61,7 @@ import { MaxUint256 } from "ethers";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import PositionsView from "../liquidity/view";
-import { useGctlApi } from "@/hooks/useGctlApi";
+import { useGctlApi } from "@/hooks";
 import * as Sentry from "@sentry/nextjs";
 import { WalletDashboardTab } from "@/components/wallet/wallet-dashboard-tab";
 import { RestakeAssistant } from "@/app/wallet/restake-assistant";

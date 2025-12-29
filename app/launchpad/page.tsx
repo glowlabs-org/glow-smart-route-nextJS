@@ -3,11 +3,7 @@
 import React from "react";
 
 import { useQueryState } from "nuqs";
-import {
-  type AuctionApplication,
-  useGlowLaunchpad,
-} from "@/hooks/useGlowLaunchpad";
-import { useMiningCenter } from "@/hooks/useMiningCenter";
+import { type AuctionApplication, useGlowLaunchpad, useMiningCenter } from "@/hooks";
 import {
   DepositDialog,
   type LaunchpadRewardScore,

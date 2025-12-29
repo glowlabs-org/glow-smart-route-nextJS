@@ -8,6 +8,7 @@ import {
   TrendingUp,
   AlertCircle,
   CheckCircle2,
+  Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,9 +33,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConnectButton } from "@/components/connect-button";
 
-import { useRewardsBreakdown } from "@/hooks/useRewardsBreakdown";
-import { useWalletFarms } from "@/hooks/useWalletFarms";
-import { useRegions } from "@/hooks/useRegions";
+import { useRewardsBreakdown, useWalletFarms, useRegions } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 
 // --- HELPER: FORMATTERS ---
@@ -50,7 +49,12 @@ const fmtUsd = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n);
 
-const FILTER_VALUES = ["all", "miners", "delegations"] as const;
+const fmtUsdAmount = (n: number) =>
+  new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+  }).format(n);
+
+const FILTER_VALUES = ["all", "miners", "delegations", "other"] as const;
 type FilterValue = (typeof FILTER_VALUES)[number];
 
 function isFilterValue(value: string): value is FilterValue {
@@ -58,12 +62,16 @@ function isFilterValue(value: string): value is FilterValue {
 }
 
 interface PerformanceRowData {
+  farmId: string;
   id: string;
   region: string;
-  type: "miner" | "delegation";
+  type: "miner" | "delegation" | "other";
   initialCost: number;
   recovered: number;
   inflation: number;
+  inflationGlw: number;
+  protocolDepositAsset: string | null;
+  isProtocolDepositUsd: boolean;
   weeksActive: number;
   totalWeeks: number;
 }
@@ -72,6 +80,16 @@ function parseUsdcFromBaseUnits(value: string) {
   const num = Number(value);
   if (!Number.isFinite(num)) return 0;
   return num / 1e6;
+}
+
+function parsePdRewardsUsd(params: { value: string; asset: string | null }) {
+  const { value, asset } = params;
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+
+  // USDG is 1:1 with USDC (6 decimals). We keep this logic extensible.
+  const is6Decimals = asset === "USDG" || asset === "USDC" || asset === "GCTL";
+  return num / (is6Decimals ? 1e6 : 1e18);
 }
 
 function parseGlwFromWei(value: string) {
@@ -85,24 +103,28 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
   // 1. Calculations
   const totalValue = data.recovered + data.inflation;
   const isMiner = data.type === "miner";
+  const isOther = data.type === "other";
+  const isProtocolDepositUsd = data.isProtocolDepositUsd;
+  const isUsdRow = isMiner || (isOther && isProtocolDepositUsd);
 
   // Percentages (0-100 for bar width)
   const timePct = Math.min((data.weeksActive / data.totalWeeks) * 100, 100);
 
   // Stacking Logic:
-  const principalPct = Math.min((data.recovered / data.initialCost) * 100, 100);
+  const denom = isOther ? Math.max(totalValue, 1) : Math.max(data.initialCost, 1);
+  const principalPct = Math.min((data.recovered / denom) * 100, 100);
   // Inflation sits on top of principal. If total > 100, we clamp for the main bar
   // and handle the overflow visually.
   const inflationPct = Math.min(
-    (data.inflation / data.initialCost) * 100,
+    (data.inflation / denom) * 100,
     100 - principalPct
   );
 
-  const totalValuePct = (totalValue / data.initialCost) * 100;
+  const totalValuePct = (totalValue / denom) * 100;
 
   // Status Flags
-  const isProfit = totalValuePct >= 100;
-  const isLagging = totalValuePct < timePct - 10; // Buffer of 10% before warning
+  const isProfit = !isOther && totalValuePct >= 100;
+  const isLagging = !isOther && totalValuePct < timePct - 10; // Buffer of 10% before warning
 
   return (
     <div className="grid grid-cols-12 items-center p-4 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 hover:border-border/80 transition-colors group">
@@ -113,13 +135,17 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             "h-10 w-10 rounded-lg flex items-center justify-center border",
             data.type === "miner"
               ? "bg-[color:var(--color-miner-yellow)]/15 border-[color:var(--color-miner-yellow)]/30 text-[color:var(--color-miner-yellow-contrast)]"
-              : "bg-[#C084FC]/15 border-[#C084FC]/30 text-[#C084FC]"
+              : data.type === "delegation"
+              ? "bg-[#C084FC]/15 border-[#C084FC]/30 text-[#C084FC]"
+              : "bg-[color:var(--color-glow-green)]/15 border-[color:var(--color-glow-green)]/30 text-[color:var(--color-glow-green)]"
           )}
         >
           {data.type === "miner" ? (
             <Cpu className="w-5 h-5" />
-          ) : (
+          ) : data.type === "delegation" ? (
             <Layers className="w-5 h-5" />
+          ) : (
+            <Gift className="w-5 h-5" />
           )}
         </div>
         <div className="flex flex-col">
@@ -175,7 +201,13 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   <div
                     className={cn(
                       "absolute left-0 h-full",
-                      isMiner ? "bg-muted-foreground/35" : "bg-[#C084FC]"
+                      isMiner
+                        ? "bg-muted-foreground/35"
+                        : isOther
+                        ? data.isProtocolDepositUsd
+                          ? "bg-[color:var(--color-glow-green)]"
+                          : "bg-[color:var(--color-glow-orange)]"
+                        : "bg-[#C084FC]"
                     )}
                     style={{ width: `${principalPct}%` }}
                   />
@@ -191,37 +223,69 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
               </TooltipTrigger>
               <TooltipContent className="bg-popover text-popover-foreground border-border text-sm font-mono px-4 py-3">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                  <span className="text-muted-foreground">Initial:</span>
-                  <span className="text-right text-foreground">
-                    {isMiner
-                      ? fmtUsd(data.initialCost)
-                      : `${fmtGlw(data.initialCost)} GLW`}
-                  </span>
+                  {!isOther ? (
+                    <>
+                      <span className="text-muted-foreground">Initial:</span>
+                      <span className="text-right text-foreground">
+                        {isMiner
+                          ? fmtUsd(data.initialCost)
+                          : `${fmtGlw(data.initialCost)} GLW`}
+                      </span>
+                    </>
+                  ) : null}
 
-                  <span className="text-muted-foreground">Recovered:</span>
+                  <span className="text-muted-foreground">
+                    {isOther
+                      ? `PD rewards (${data.protocolDepositAsset ?? "—"}):`
+                      : "Recovered:"}
+                  </span>
                   <span
                     className={cn(
                       "text-right",
-                      isMiner ? "text-muted-foreground" : "text-[#C084FC]"
+                      isMiner
+                        ? "text-muted-foreground"
+                        : isOther
+                        ? "text-[color:var(--color-glow-green)]"
+                        : "text-[#C084FC]"
                     )}
                   >
-                    {isMiner
-                      ? fmtUsd(data.recovered)
-                      : `${fmtGlw(data.recovered)} GLW`}
+                    {isOther ? (
+                      data.isProtocolDepositUsd ? (
+                        `${fmtUsdAmount(data.recovered)} USDG`
+                      ) : (
+                        `${fmtGlw(data.recovered)} GLW`
+                      )
+                    ) : isUsdRow ? (
+                      fmtUsd(data.recovered)
+                    ) : (
+                      `${fmtGlw(data.recovered)} GLW`
+                    )}
                   </span>
 
-                  <span className="text-muted-foreground">Emissions:</span>
+                  <span className="text-muted-foreground">
+                    {isOther ? "Inflation:" : "Emissions:"}
+                  </span>
                   <span className="text-right text-[color:var(--color-miner-yellow-contrast)]">
-                    {isMiner
-                      ? `+${fmtUsd(data.inflation)}`
-                      : `+${fmtGlw(data.inflation)} GLW`}
+                    {`+${fmtGlw(data.inflationGlw)} GLW`}
                   </span>
 
                   <div className="col-span-2 h-px bg-border my-1" />
 
                   <span className="text-muted-foreground">Total:</span>
                   <span className="text-right font-bold">
-                    {isMiner ? fmtUsd(totalValue) : `${fmtGlw(totalValue)} GLW`}
+                    {isOther ? (
+                      data.isProtocolDepositUsd ? (
+                        `${fmtGlw(data.inflationGlw)} GLW + ${fmtUsdAmount(
+                          data.recovered
+                        )} USDG`
+                      ) : (
+                        `${fmtGlw(data.inflationGlw + data.recovered)} GLW`
+                      )
+                    ) : isUsdRow ? (
+                      fmtUsd(totalValue)
+                    ) : (
+                      `${fmtGlw(totalValue)} GLW`
+                    )}
                   </span>
                 </div>
               </TooltipContent>
@@ -237,10 +301,14 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             <span
               className={cn(
                 "text-sm font-mono font-bold",
-                isProfit ? "text-emerald-500" : "text-foreground"
+                isOther
+                  ? "text-[color:var(--color-glow-green)]"
+                  : isProfit
+                  ? "text-emerald-500"
+                  : "text-foreground"
               )}
             >
-              {Math.round(totalValuePct)}%
+              {isOther ? "—" : `${Math.round(totalValuePct)}%`}
             </span>
           </div>
         </div>
@@ -248,7 +316,14 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
 
       {/* COLUMN 3: STATUS (2 Cols) */}
       <div className="col-span-2 flex justify-end">
-        {isProfit ? (
+        {isOther ? (
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-1.5 text-[color:var(--color-glow-green)] bg-[color:var(--color-glow-green)]/10 px-2 py-1 rounded border border-[color:var(--color-glow-green)]/20">
+              <Gift className="w-3 h-3" />
+              <span className="text-xs font-bold font-mono">REWARDS</span>
+            </div>
+          </div>
+        ) : isProfit ? (
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-1.5 text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded border border-emerald-400/20">
               <TrendingUp className="w-3 h-3" />
@@ -319,7 +394,8 @@ export function FarmsPerformanceDialogContent({
   const rows = React.useMemo<PerformanceRowData[]>(() => {
     if (!rewardsBreakdown) return [];
 
-    return rewardsBreakdown.farmDetails.map((farm) => {
+    const farmRows: PerformanceRowData[] = rewardsBreakdown.farmDetails.map(
+      (farm): PerformanceRowData => {
       const farmMetadata = purchasedFarms.find((f) => f.farmId === farm.farmId);
       const regionName = (() => {
         if (!farmMetadata) return "—";
@@ -335,35 +411,90 @@ export function FarmsPerformanceDialogContent({
         const recovered = parseGlwFromWei(farm.totalProtocolDepositRewards);
         const inflation = parseGlwFromWei(farm.totalInflationRewards);
         return {
+          farmId: farm.farmId,
           id: displayName,
           region: regionName,
           type: "delegation",
           initialCost,
           recovered,
           inflation,
+          inflationGlw: inflation,
+          protocolDepositAsset: "GLW",
+          isProtocolDepositUsd: false,
           weeksActive: farm.totalWeeksEarned,
           totalWeeks: 100,
         };
       }
 
       const initialCostUsd = parseUsdcFromBaseUnits(farm.amountInvested);
-      const earnedGlw = parseGlwFromWei(farm.totalEarnedSoFar);
+      const inflationGlw = parseGlwFromWei(farm.totalInflationRewards);
       const inflationUsd =
         Number.isFinite(glwSpotPriceUsd ?? NaN) && (glwSpotPriceUsd ?? 0) > 0
-          ? earnedGlw * (glwSpotPriceUsd ?? 0)
+          ? inflationGlw * (glwSpotPriceUsd ?? 0)
           : 0;
 
       return {
+        farmId: farm.farmId,
         id: displayName,
         region: regionName,
         type: "miner",
         initialCost: initialCostUsd,
         recovered: 0,
         inflation: inflationUsd,
+        inflationGlw,
+        protocolDepositAsset: "USDC",
+        isProtocolDepositUsd: true,
         weeksActive: farm.totalWeeksEarned,
         totalWeeks: 99,
       };
-    });
+      }
+    );
+
+    const otherRows: PerformanceRowData[] = (
+      rewardsBreakdown.otherFarmsWithRewards?.farms ?? []
+    ).map((farm): PerformanceRowData => {
+        const displayName =
+          farm.farmName || `Farm ${farm.farmId.substring(0, 8)}`;
+        const identityDetail = farm.asset ?? "—";
+
+        const isProtocolDepositUsd =
+          farm.asset === "USDG" || farm.asset === "USDC" || farm.asset === "GCTL";
+        const recovered = isProtocolDepositUsd
+          ? parsePdRewardsUsd({
+              value: farm.totalProtocolDepositRewards,
+              asset: farm.asset,
+            })
+          : parseGlwFromWei(farm.totalProtocolDepositRewards);
+        const inflationGlw = parseGlwFromWei(farm.totalInflationRewards);
+        const inflation = isProtocolDepositUsd
+          ? Number.isFinite(glwSpotPriceUsd ?? NaN) && (glwSpotPriceUsd ?? 0) > 0
+            ? inflationGlw * (glwSpotPriceUsd ?? 0)
+            : 0
+          : inflationGlw;
+
+        const weeksActive = farm.weeklyBreakdown.length;
+        const totalWeeks =
+          farm.weeksLeft !== null
+            ? Math.max(weeksActive + farm.weeksLeft, 1)
+            : Math.max(weeksActive, 1);
+
+        return {
+          farmId: farm.farmId,
+          id: displayName,
+          region: identityDetail,
+          type: "other",
+          initialCost: 0,
+          recovered,
+          inflation,
+          inflationGlw,
+          protocolDepositAsset: farm.asset,
+          isProtocolDepositUsd,
+          weeksActive,
+          totalWeeks,
+        };
+      });
+
+    return [...farmRows, ...otherRows];
   }, [purchasedFarms, regions, rewardsBreakdown, glwSpotPriceUsd]);
 
   const visibleRows = React.useMemo(() => {
@@ -372,16 +503,23 @@ export function FarmsPerformanceDialogContent({
       filtered = filtered.filter((r) => r.type === "miner");
     if (filter === "delegations")
       filtered = filtered.filter((r) => r.type === "delegation");
+    if (filter === "other") filtered = filtered.filter((r) => r.type === "other");
     // Sort by Total Value % (High performance first)
     return filtered.sort((a, b) => {
-      const valA = (a.recovered + a.inflation) / a.initialCost;
-      const valB = (b.recovered + b.inflation) / b.initialCost;
-      return valB - valA;
+      const totalA = a.recovered + a.inflation;
+      const totalB = b.recovered + b.inflation;
+
+      const scoreA =
+        a.type === "other" ? totalA : totalA / Math.max(a.initialCost, 1);
+      const scoreB =
+        b.type === "other" ? totalB : totalB / Math.max(b.initialCost, 1);
+
+      return scoreB - scoreA;
     });
   }, [filter, rows]);
 
   return (
-    <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0 overflow-hidden shadow-2xl">
+    <DialogContent className="max-w-4xl h-[80vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden shadow-2xl">
       {/* Header */}
       <DialogHeader className="px-6 py-5 border-b border-border bg-muted/20 flex-shrink-0 flex-row items-center justify-between space-y-0">
         <DialogTitle className="text-2xl font-bold font-mono uppercase tracking-wide">
@@ -413,6 +551,12 @@ export function FarmsPerformanceDialogContent({
             >
               DELEGATIONS
             </TabsTrigger>
+            <TabsTrigger
+              value="other"
+              className="h-7 text-xs font-mono px-4 text-muted-foreground data-[state=active]:text-[color:var(--color-glow-green)]"
+            >
+              OTHER
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </DialogHeader>
@@ -434,9 +578,9 @@ export function FarmsPerformanceDialogContent({
       </div>
 
       {/* Scrollable List */}
-      <ScrollArea className="flex-1 bg-background">
+      <ScrollArea className="flex-1 min-h-0 bg-background">
         <TooltipProvider delayDuration={0}>
-          <div className="p-6 space-y-3 pb-12">
+          <div className="p-6 space-y-3 pb-12 min-h-0">
             {!hasWallet ? (
               <div className="py-16 flex flex-col items-center justify-center gap-3 text-center">
                 <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
@@ -474,18 +618,20 @@ export function FarmsPerformanceDialogContent({
               </div>
             ) : (
               <>
-                {filter === "miners" &&
+                {((filter === "miners" ||
+                  (filter === "other" &&
+                    visibleRows.some((r) => r.isProtocolDepositUsd))) &&
                   !isSpotPriceLoading &&
                   (!Number.isFinite(glwSpotPriceUsd ?? NaN) ||
-                    (glwSpotPriceUsd ?? 0) <= 0) && (
+                    (glwSpotPriceUsd ?? 0) <= 0)) && (
                     <div className="rounded-xl border border-border bg-muted/20 p-3 text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
-                      Miner ROI requires GLW spot price; showing $0 until price
-                      is available.
+                      ROI requires GLW spot price; showing $0 until price is
+                      available.
                     </div>
                   )}
                 {visibleRows.map((row) => (
                   <FarmPerformanceRow
-                    key={`${row.type}-${row.id}`}
+                    key={`${row.type}-${row.farmId}`}
                     data={row}
                   />
                 ))}

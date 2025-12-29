@@ -39,7 +39,7 @@ import { ClaimsPanel } from "@/app/wallet/claims-panel";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
-import { useGctlApi } from "@/hooks/useGctlApi";
+import { useGctlApi } from "@/hooks";
 import { formatUnits } from "ethers";
 import { formatUnits as formatUnitsViem } from "viem";
 import { Header } from "@/components/header";
@@ -50,23 +50,22 @@ import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
 import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { addresses, SDKAddresses } from "@/web3/constants/addresses";
-import { useWalletFarms } from "@/hooks/useWalletFarms";
-import { useWallets } from "@/hooks/useWallets";
+import { useWalletFarms, useWallets } from "@/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useRegions } from "@/hooks/useRegions";
+import { useRegions } from "@/hooks";
 import { RefundClaimsPanel } from "./refund-claims-panel";
 import { MigrationClaimPanel } from "./migration-claim-panel";
 import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
 import { FallbackImage } from "@/components/ui/fallback-image";
-import { useGlowLaunchpad, useSplitsActivity } from "@/hooks/useGlowLaunchpad";
+import { useGlowLaunchpad, useSplitsActivity } from "@/hooks";
 import { useWalletSwaps } from "@/hooks/useWalletSwaps";
 import type { SwapActivity } from "@/hooks/useRecentActivityFeed";
 import {
   useRewardScore,
   getRewardScoreForApplication,
-} from "@/hooks/useRewardScore";
-import { useRewardsBreakdown } from "@/hooks/useRewardsBreakdown";
+} from "@/hooks";
+import { useRewardsBreakdown } from "@/hooks";
 import { Badge } from "@/components/ui/badge";
 import { RewardsBreakdownPanel } from "./rewards-breakdown-panel";
 import Image from "next/image";

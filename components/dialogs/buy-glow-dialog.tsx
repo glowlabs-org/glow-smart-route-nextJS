@@ -19,6 +19,7 @@ import {
   Loader2,
   ArrowLeftRight,
   X,
+  Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
@@ -51,6 +52,7 @@ import {
 import { useAccount, useBalance, useChainId } from "wagmi";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
+import { ConnectKitButton } from "connectkit";
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 const ONE_E18 = 1_000_000_000_000_000_000n;
@@ -168,7 +170,7 @@ export function BuyGlowDialog({
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const hasPrefilledForOpenRef = React.useRef(false);
   const wasOpenRef = React.useRef(false);
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
   const chainId = useChainId();
 
   const impactWeekRangeQuery = useQuery({
@@ -176,7 +178,10 @@ export function BuyGlowDialog({
     enabled: Boolean(open && HUB_URL && address),
     staleTime: 60_000,
     retry: 0,
-    queryFn: async (): Promise<{ startWeek: number; endWeek: number } | null> => {
+    queryFn: async (): Promise<{
+      startWeek: number;
+      endWeek: number;
+    } | null> => {
       try {
         if (!HUB_URL || !address) return null;
         const url = new URL("/impact/glow-score", HUB_URL);
@@ -203,8 +208,11 @@ export function BuyGlowDialog({
     resetLastTxHash: resetGlowLastTxHash,
   } = usePurchaseGlow();
 
-  const { swapUSDCToUSDG, lastTxHashRef: usdcToUsdgLastTxHashRef, resetLastTxHash: resetUsdcToUsdgLastTxHash } =
-    useSwapUSDCToUSDG();
+  const {
+    swapUSDCToUSDG,
+    lastTxHashRef: usdcToUsdgLastTxHashRef,
+    resetLastTxHash: resetUsdcToUsdgLastTxHash,
+  } = useSwapUSDCToUSDG();
   const { estimateEthToUsdc, estimateGasForSwapEthToUsdc, swapEthToUsdc } =
     useSwapETHToUSDC();
 
@@ -237,7 +245,9 @@ export function BuyGlowDialog({
   const ethBalanceQuery = useBalance({
     address,
     query: {
-      enabled: Boolean(open && address && payToken === "ETH" && isEthPayEnabled),
+      enabled: Boolean(
+        open && address && payToken === "ETH" && isEthPayEnabled
+      ),
     },
   });
 
@@ -251,7 +261,12 @@ export function BuyGlowDialog({
     if (payToken === "USDC") return usdcBalanceFormatted;
     if (payToken === "USDG") return usdgBalanceFormatted;
     return ethBalanceFormatted;
-  }, [ethBalanceFormatted, payToken, usdcBalanceFormatted, usdgBalanceFormatted]);
+  }, [
+    ethBalanceFormatted,
+    payToken,
+    usdcBalanceFormatted,
+    usdgBalanceFormatted,
+  ]);
 
   const payTokenLabel = payToken;
 
@@ -377,7 +392,10 @@ export function BuyGlowDialog({
     if (phase !== "input") return;
     if (!inputAmount || Number(inputAmount) <= 0) return;
     if (isEstimating) return;
-    if (!Number.isFinite(earlyLiquidityCurrentPrice) || earlyLiquidityCurrentPrice <= 0)
+    if (
+      !Number.isFinite(earlyLiquidityCurrentPrice) ||
+      earlyLiquidityCurrentPrice <= 0
+    )
       return;
     if (payToken === "ETH" && !isEthPayEnabled) return;
 
@@ -460,7 +478,14 @@ export function BuyGlowDialog({
     if (payToken !== "USDC") return;
     hasPrefilledForOpenRef.current = true;
     handleInputChange(defaultUsdcAmount);
-  }, [open, defaultUsdcAmount, phase, inputAmount, handleInputChange, payToken]);
+  }, [
+    open,
+    defaultUsdcAmount,
+    phase,
+    inputAmount,
+    handleInputChange,
+    payToken,
+  ]);
 
   const pricePerGlw = React.useMemo(() => {
     if (payToken === "ETH") return null;
@@ -506,6 +531,12 @@ export function BuyGlowDialog({
       return;
     }
 
+    if (!isConnected) {
+      toast.error("Connect your wallet to continue");
+      trackEvent("buy_glw_connect_required");
+      return;
+    }
+
     if (inputAmount !== lastEstimatedAmount) {
       toast.error("Price estimate is updating. Please wait and try again.");
       return;
@@ -516,7 +547,9 @@ export function BuyGlowDialog({
 
       const bondingAllocationInitial =
         effectiveSmartAmounts.amount_in_glow_bonding_curve ?? BigInt(0);
-      const bondingOutputInitial = Number(effectiveSmartAmounts.amount_out_glow || "0");
+      const bondingOutputInitial = Number(
+        effectiveSmartAmounts.amount_out_glow || "0"
+      );
       const hasBondingOutputInitial =
         bondingAllocationInitial > BigInt(0) && bondingOutputInitial > 0;
 
@@ -540,7 +573,8 @@ export function BuyGlowDialog({
       let usdcAmountToSwapToUsdg: bigint | null = null;
 
       if (payToken === "ETH") {
-        if (!isEthPayEnabled) throw new Error("ETH pay is only supported on mainnet.");
+        if (!isEthPayEnabled)
+          throw new Error("ETH pay is only supported on mainnet.");
 
         setPendingStatePending("SWAP_ETH_TO_USDC");
         const swapEthRes = await swapEthToUsdc({
@@ -555,7 +589,10 @@ export function BuyGlowDialog({
           });
           throw new Error(String(swapEthRes.val));
         }
-        trackEvent("buy_glw_step_result", { step: "swap_eth_to_usdc", ok: true });
+        trackEvent("buy_glw_step_result", {
+          step: "swap_eth_to_usdc",
+          ok: true,
+        });
         completePendingStates("SWAP_ETH_TO_USDC");
         setTxHash(swapEthRes.val.txHash);
 
@@ -572,13 +609,18 @@ export function BuyGlowDialog({
 
         const bondingAllocation =
           effectiveSmartAmounts.amount_in_glow_bonding_curve ?? BigInt(0);
-        const bondingOutput = Number(effectiveSmartAmounts.amount_out_glow || "0");
-        const hasBondingOutput = bondingAllocation > BigInt(0) && bondingOutput > 0;
+        const bondingOutput = Number(
+          effectiveSmartAmounts.amount_out_glow || "0"
+        );
+        const hasBondingOutput =
+          bondingAllocation > BigInt(0) && bondingOutput > 0;
         const uniswapOut = Number(effectiveSmartAmounts.amount_out_uni || "0");
         const bondingOut = Number(effectiveSmartAmounts.amount_out_glow || "0");
         setEstimatedGlw((uniswapOut + bondingOut).toString());
         setPendingStates((prev) => {
-          const hasBondingState = prev.some((s) => s.code === "PURCHASING_GLOW");
+          const hasBondingState = prev.some(
+            (s) => s.code === "PURCHASING_GLOW"
+          );
           if (hasBondingOutput && !hasBondingState) {
             const doneIndex = prev.findIndex((s) => s.code === "DONE");
             const next = [...prev];
@@ -599,7 +641,10 @@ export function BuyGlowDialog({
       }
 
       if (payToken === "USDC") {
-        usdcAmountToSwapToUsdg = parseUnits(inputAmount, DECIMALS_BY_TOKEN.USDC as number);
+        usdcAmountToSwapToUsdg = parseUnits(
+          inputAmount,
+          DECIMALS_BY_TOKEN.USDC as number
+        );
       }
 
       if (usdcAmountToSwapToUsdg) {
@@ -624,13 +669,21 @@ export function BuyGlowDialog({
 
       const bondingAllocation =
         effectiveSmartAmounts.amount_in_glow_bonding_curve ?? BigInt(0);
-      const bondingOutput = Number(effectiveSmartAmounts.amount_out_glow || "0");
-      const hasBondingOutput = bondingAllocation > BigInt(0) && bondingOutput > 0;
-      const finalUniswapOut = Number(effectiveSmartAmounts.amount_out_uni || "0");
-      const finalBondingOut = Number(effectiveSmartAmounts.amount_out_glow || "0");
+      const bondingOutput = Number(
+        effectiveSmartAmounts.amount_out_glow || "0"
+      );
+      const hasBondingOutput =
+        bondingAllocation > BigInt(0) && bondingOutput > 0;
+      const finalUniswapOut = Number(
+        effectiveSmartAmounts.amount_out_uni || "0"
+      );
+      const finalBondingOut = Number(
+        effectiveSmartAmounts.amount_out_glow || "0"
+      );
       const finalEstimatedGlw = (finalUniswapOut + finalBondingOut).toString();
 
-      const hasUniswapAllocation = effectiveSmartAmounts.amount_in_uni > BigInt(0);
+      const hasUniswapAllocation =
+        effectiveSmartAmounts.amount_in_uni > BigInt(0);
       if (hasUniswapAllocation) {
         setPendingStatePending("SWAP_USDG_TO_GLOW_ON_UNISWAP");
         const uniswapResult = await swapUsdGToGlow({
@@ -650,7 +703,8 @@ export function BuyGlowDialog({
           ok: true,
         });
         completePendingStates("SWAP_USDG_TO_GLOW_ON_UNISWAP");
-        if (uniswapLastTxHashRef.current) setTxHash(uniswapLastTxHashRef.current);
+        if (uniswapLastTxHashRef.current)
+          setTxHash(uniswapLastTxHashRef.current);
       } else {
         completePendingStates("SWAP_USDG_TO_GLOW_ON_UNISWAP");
       }
@@ -751,6 +805,7 @@ export function BuyGlowDialog({
     usdcBalanceFormatted,
     usdgBalanceFormatted,
     isEthPayEnabled,
+    isConnected,
   ]);
 
   const handleClose = React.useCallback(() => {
@@ -861,48 +916,66 @@ export function BuyGlowDialog({
                       >
                         You pay
                       </Label>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={async () => {
-                          trackEvent("buy_glw_max_click", {
-                            pay_token: payToken,
-                            pay_balance: availablePayBalanceFormatted,
-                          });
-                          if (payToken === "ETH") {
-                            if (!ethBalanceWei) return;
-                            try {
-                              const probeWei =
-                                ethBalanceWei > parseUnits("0.05", 18)
-                                  ? parseUnits("0.05", 18)
-                                  : ethBalanceWei;
-                              const gasRes = await estimateGasForSwapEthToUsdc({
-                                amountInWei: probeWei,
-                                slippageBps: BigInt(100),
+                      <ConnectKitButton.Custom>
+                        {({ isConnected: isCkConnected, show }) => (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              if (!isCkConnected) {
+                                trackEvent("buy_glw_connect_wallet_click", {
+                                  location: "dialog_max",
+                                });
+                                show?.();
+                                return;
+                              }
+
+                              trackEvent("buy_glw_max_click", {
+                                pay_token: payToken,
+                                pay_balance: availablePayBalanceFormatted,
                               });
-                              const feeWei = gasRes.ok
-                                ? gasRes.val.estimatedFeeWei
-                                : BigInt(0);
-                              const bufferedFeeWei =
-                                (feeWei * BigInt(12)) / BigInt(10); // +20%
-                              const maxSpendWei =
-                                ethBalanceWei > bufferedFeeWei
-                                  ? ethBalanceWei - bufferedFeeWei
-                                  : BigInt(0);
-                              handleInputChange(formatEthMaxFromWei(maxSpendWei));
-                            } catch (e: any) {
-                              toast.error(
-                                e?.message || "Failed to compute max ETH amount"
-                              );
-                            }
-                            return;
-                          }
-                          handleInputChange(availablePayBalanceFormatted);
-                        }}
-                        className="h-9 px-3 text-xs font-medium hover:bg-secondary"
-                      >
-                        MAX
-                      </Button>
+
+                              if (payToken === "ETH") {
+                                if (!ethBalanceWei) return;
+                                try {
+                                  const probeWei =
+                                    ethBalanceWei > parseUnits("0.05", 18)
+                                      ? parseUnits("0.05", 18)
+                                      : ethBalanceWei;
+                                  const gasRes =
+                                    await estimateGasForSwapEthToUsdc({
+                                      amountInWei: probeWei,
+                                      slippageBps: BigInt(100),
+                                    });
+                                  const feeWei = gasRes.ok
+                                    ? gasRes.val.estimatedFeeWei
+                                    : BigInt(0);
+                                  const bufferedFeeWei =
+                                    (feeWei * BigInt(12)) / BigInt(10); // +20%
+                                  const maxSpendWei =
+                                    ethBalanceWei > bufferedFeeWei
+                                      ? ethBalanceWei - bufferedFeeWei
+                                      : BigInt(0);
+                                  handleInputChange(
+                                    formatEthMaxFromWei(maxSpendWei)
+                                  );
+                                } catch (e: any) {
+                                  toast.error(
+                                    e?.message ||
+                                      "Failed to compute max ETH amount"
+                                  );
+                                }
+                                return;
+                              }
+
+                              handleInputChange(availablePayBalanceFormatted);
+                            }}
+                            className="h-9 px-3 text-xs font-medium hover:bg-secondary"
+                          >
+                            MAX
+                          </Button>
+                        )}
+                      </ConnectKitButton.Custom>
                     </div>
                     <div className="flex items-baseline gap-2">
                       <Input
@@ -918,8 +991,9 @@ export function BuyGlowDialog({
                         }}
                         className={clsx(
                           "text-lg sm:text-xl lg:text-2xl font-bold border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0 w-full",
-                          Number(inputAmount) >
-                            Number(availablePayBalanceFormatted) &&
+                          isConnected &&
+                            Number(inputAmount) >
+                              Number(availablePayBalanceFormatted) &&
                             "text-destructive"
                         )}
                       />
@@ -946,36 +1020,42 @@ export function BuyGlowDialog({
                     <div
                       className={clsx(
                         "text-sm",
-                        Number(inputAmount) >
-                          Number(availablePayBalanceFormatted)
+                        isConnected &&
+                          Number(inputAmount) >
+                            Number(availablePayBalanceFormatted)
                           ? "text-destructive"
                           : "text-muted-foreground"
                       )}
                     >
-                      Available:{" "}
-                      {payToken === "ETH"
-                        ? toFixedTruncate(
-                            Number(availablePayBalanceFormatted || "0"),
-                            4
-                          )
-                        : Number(availablePayBalanceFormatted).toLocaleString(
-                            "en-US",
-                            {
-                              maximumFractionDigits: 2,
-                            }
-                          )}{" "}
-                      {payTokenLabel}
+                      {isConnected ? (
+                        <>
+                          Available:{" "}
+                          {payToken === "ETH"
+                            ? toFixedTruncate(
+                                Number(availablePayBalanceFormatted || "0"),
+                                4
+                              )
+                            : Number(
+                                availablePayBalanceFormatted
+                              ).toLocaleString("en-US", {
+                                maximumFractionDigits: 2,
+                              })}{" "}
+                          {payTokenLabel}
+                        </>
+                      ) : (
+                        "Connect wallet to view balances."
+                      )}
                     </div>
-                    {Number(availablePayBalanceFormatted) === 0 && (
-                      <div className="text-sm text-muted-foreground">
-                        You need {payTokenLabel} in this wallet to buy GLW.
-                      </div>
-                    )}
+                    {isConnected &&
+                      Number(availablePayBalanceFormatted) === 0 && (
+                        <div className="text-sm text-muted-foreground">
+                          You need {payTokenLabel} in this wallet to buy GLW.
+                        </div>
+                      )}
                   </div>
                 </div>
-
-                {/* Arrow - positioned between boxes */}
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 z-10">
+                {/* Arrow - between boxes (stable even when bottom box is taller) */}
+                <div className="relative z-10 flex justify-center -mt-5 -mb-5 pointer-events-none">
                   <div className="bg-background rounded-full p-2 border border-border shadow-sm">
                     <ArrowDown className="w-6 h-6 text-muted-foreground" />
                   </div>
@@ -1009,40 +1089,40 @@ export function BuyGlowDialog({
                       </div>
                     )}
 
-                  <div className="rounded-xl border border-border bg-muted/20 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                          Impact points estimate
-                        </div>
-                        {impactQuote ? (
-                          <>
-                            <div className="text-sm font-semibold tracking-tight">
-                              +{impactQuote.deltaPerWeekPoints} pts / week
-                            </div>
-                            {impactQuote.weekRange ? (
-                              <div className="text-xs text-muted-foreground font-mono">
-                                ≈ +{impactQuote.deltaTotalPoints} pts over weeks{" "}
-                                {impactQuote.weekRange.startWeek}–
-                                {impactQuote.weekRange.endWeek}
-                              </div>
-                            ) : (
-                              <div className="text-xs text-muted-foreground font-mono">
-                                Continuous worth points (0.001 / GLW / week)
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <div className="text-xs text-muted-foreground font-mono">
-                            Enter an amount to see estimated Impact Points.
+                    <div className="rounded-xl border border-border bg-muted/20 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                            Impact points estimate
                           </div>
-                        )}
-                      </div>
-                      <div className="shrink-0 rounded-full border border-border bg-background/60 dark:bg-muted/20 px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                        Worth
+                          {impactQuote ? (
+                            <>
+                              <div className="text-sm font-semibold tracking-tight">
+                                +{impactQuote.deltaPerWeekPoints} pts / week
+                              </div>
+                              {impactQuote.weekRange ? (
+                                <div className="text-xs text-muted-foreground font-mono">
+                                  ≈ +{impactQuote.deltaTotalPoints} pts over
+                                  weeks {impactQuote.weekRange.startWeek}–
+                                  {impactQuote.weekRange.endWeek}
+                                </div>
+                              ) : (
+                                <div className="text-xs text-muted-foreground font-mono">
+                                  Continuous worth points (0.001 / GLW / week)
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div className="text-xs text-muted-foreground font-mono">
+                              Enter an amount to see estimated Impact Points.
+                            </div>
+                          )}
+                        </div>
+                        <div className="shrink-0 rounded-full border border-border bg-background/60 dark:bg-muted/20 px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                          Worth
+                        </div>
                       </div>
                     </div>
-                  </div>
                   </div>
                 </div>
               </div>
@@ -1056,20 +1136,40 @@ export function BuyGlowDialog({
                 >
                   Cancel
                 </Button>
-                <Button
-                  onClick={handleBuyGlow}
-                  disabled={
-                    !inputAmount ||
-                    Number(inputAmount) <= 0 ||
-                    Number(inputAmount) > Number(availablePayBalanceFormatted) ||
-                    !estimatedGlw ||
-                    isEstimating ||
-                    inputAmount !== lastEstimatedAmount
-                  }
-                  className="flex-1"
-                >
-                  Buy GLW
-                </Button>
+                {isConnected ? (
+                  <Button
+                    onClick={handleBuyGlow}
+                    disabled={
+                      !inputAmount ||
+                      Number(inputAmount) <= 0 ||
+                      Number(inputAmount) >
+                        Number(availablePayBalanceFormatted) ||
+                      !estimatedGlw ||
+                      isEstimating ||
+                      inputAmount !== lastEstimatedAmount
+                    }
+                    className="flex-1"
+                  >
+                    Buy GLW
+                  </Button>
+                ) : (
+                  <ConnectKitButton.Custom>
+                    {({ show }) => (
+                      <Button
+                        onClick={() => {
+                          trackEvent("buy_glw_connect_wallet_click", {
+                            location: "dialog_footer",
+                          });
+                          show?.();
+                        }}
+                        className="flex-1"
+                      >
+                        <Wallet className="mr-2 h-4 w-4" />
+                        Connect Wallet
+                      </Button>
+                    )}
+                  </ConnectKitButton.Custom>
+                )}
               </div>
             </div>
           )}

@@ -1,0 +1,491 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import Decimal from "decimal.js";
+import { formatUnits, parseUnits } from "viem";
+import {
+  DECIMALS_BY_TOKEN,
+  type FarmEfficiencyScore,
+  type FarmWeeklyRewardsQuery,
+  type FarmWeeklyRewardsResponse,
+  type FarmWithRewards,
+  type MiningScoreParams,
+  type MiningScoresBatchResponse,
+  type BatchMiningScoreResult,
+} from "@glowlabs-org/utils/browser";
+import type { Kickstarter } from "@glowlabs-org/utils/browser";
+import { getFarmsRouter, getKickstarterRouter } from "@/lib/api/control-routers";
+import { generateRandomEthAddress } from "@/utils/eth";
+import type { AuctionApplication, PaymentCurrency } from "@/hooks/hub-listings";
+import { calculateProtocolDepositAmount } from "@/hooks/hub-listings";
+
+export function useWalletFarms(params: { walletAddress?: string; enabled?: boolean }) {
+  const { walletAddress, enabled = true } = params;
+  const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
+
+  const query = useQuery({
+    queryKey: ["wallet-farms", walletAddress] as const,
+    enabled: enabled && isConfigured && Boolean(walletAddress),
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    queryFn: async (): Promise<FarmWithRewards[]> => {
+      if (!walletAddress) return [];
+      try {
+        return await (getFarmsRouter() as any).fetchWalletFarmsWithRewards(walletAddress);
+      } catch (error) {
+        console.error("Error fetching wallet farms:", error);
+        return [];
+      }
+    },
+  });
+
+  return {
+    farms: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  } as const;
+}
+
+export function useFarmWeeklyRewards(params: {
+  farmId: string;
+  startWeek?: number;
+  endWeek?: number;
+  paymentCurrency?: string;
+  limit?: number;
+  enabled?: boolean;
+}) {
+  const { farmId, startWeek, endWeek, paymentCurrency, limit, enabled = true } = params;
+  const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
+
+  const query = useQuery<FarmWeeklyRewardsResponse>({
+    queryKey: ["farm-weekly-rewards", farmId, startWeek, endWeek, paymentCurrency, limit] as const,
+    enabled: enabled && isConfigured && Boolean(farmId),
+    staleTime: 2 * 60_000,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      if (!farmId) throw new Error("Farm ID is required");
+
+      const queryParams: FarmWeeklyRewardsQuery = {};
+      if (startWeek !== undefined) queryParams.startWeek = startWeek;
+      if (endWeek !== undefined) queryParams.endWeek = endWeek;
+      if (paymentCurrency) queryParams.paymentCurrency = paymentCurrency as any;
+      if (limit !== undefined) queryParams.limit = limit;
+
+      try {
+        return await (getFarmsRouter() as any).fetchFarmWeeklyRewards(farmId, queryParams);
+      } catch (error) {
+        console.error("Error fetching farm weekly rewards:", error);
+        throw error;
+      }
+    },
+  });
+
+  return {
+    data: query.data ?? null,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  } as const;
+}
+
+export function useFarmsEfficiencyScores(params: { farmId?: string; enabled?: boolean } = {}) {
+  const { farmId, enabled = true } = params;
+  const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
+
+  const query = useQuery<FarmEfficiencyScore | FarmEfficiencyScore[]>({
+    queryKey: ["farms-efficiency-scores", farmId] as const,
+    enabled: enabled && isConfigured,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      try {
+        return await (getFarmsRouter() as any).fetchEfficiencyScores(farmId);
+      } catch (error) {
+        console.error("Error fetching farms efficiency scores:", error);
+        throw error;
+      }
+    },
+  });
+
+  return {
+    data: query.data ?? null,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  } as const;
+}
+
+export function useFarmWeeklyRewardsBatch(params: {
+  farmIds: string[];
+  startWeek?: number;
+  endWeek?: number;
+  enabled?: boolean;
+}) {
+  const { farmIds, startWeek, endWeek, enabled = true } = params;
+  const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
+
+  const query = useQuery({
+    queryKey: ["farm-weekly-rewards-batch", farmIds, startWeek, endWeek] as const,
+    enabled: enabled && isConfigured && farmIds.length > 0,
+    staleTime: 2 * 60_000,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      if (farmIds.length === 0) return null;
+      try {
+        return await (getFarmsRouter() as any).fetchFarmWeeklyRewardsBatch({
+          farmIds,
+          startWeek,
+          endWeek,
+        });
+      } catch (error) {
+        console.error("Error fetching farm weekly rewards batch:", error);
+        throw error;
+      }
+    },
+  });
+
+  return {
+    data: query.data ?? null,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  } as const;
+}
+
+export function formatRewardValue(value: string, decimals: number): string {
+  try {
+    const divisor = Math.pow(10, decimals);
+    const num = Number(value) / divisor;
+    return num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  } catch {
+    return "0.00";
+  }
+}
+
+export interface RewardScoreParams {
+  applications: AuctionApplication[];
+  paymentCurrency: PaymentCurrency;
+  enabled?: boolean;
+  walletAddress?: string | null;
+}
+
+export interface ApplicationRewardScore {
+  applicationId: string;
+  rewardScore: number;
+  userWeeklyGlwRewards: string;
+  userWeeklyGlwValueUsd: string;
+  userWeeklyPdRewards: string;
+  userWeeklyPdRewardsUsd: string;
+  userEstimatedWeeklyCash: string;
+  userProtocolDeposit: string;
+  error?: string;
+}
+
+export function useRewardScore(params: RewardScoreParams) {
+  const { applications, paymentCurrency, enabled = true, walletAddress } = params;
+
+  const query = useQuery({
+    queryKey: [
+      "reward-scores",
+      applications.map((app) => app.id),
+      paymentCurrency,
+      walletAddress || null,
+    ] as const,
+    enabled: enabled && applications.length > 0,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    queryFn: async (): Promise<ApplicationRewardScore[]> => {
+      if (!applications.length) return [];
+
+      const addressForEstimation = walletAddress || generateRandomEthAddress();
+
+      const requestList = applications
+        .map((app) => {
+          const protocolDepositAmount = calculateProtocolDepositAmount(
+            app.finalProtocolFee,
+            app.applicationPriceQuotes,
+            paymentCurrency
+          );
+
+          if (!protocolDepositAmount || !app.auditFields?.netCarbonCreditEarningWeekly) return null;
+
+          const decimals = DECIMALS_BY_TOKEN[paymentCurrency];
+          const protocolDepositAmountBigInt = (() => {
+            const amount = Number(protocolDepositAmount);
+            if (!Number.isFinite(amount)) return BigInt(0);
+            const base = new Decimal(10).pow(decimals);
+            const scaled = new Decimal(amount).mul(base).toFixed(0, Decimal.ROUND_DOWN);
+            return BigInt(scaled);
+          })();
+
+          return {
+            applicationId: app.id,
+            params: {
+              userId: addressForEstimation,
+              sponsorSplitPercent: app.sponsorSplitPercent,
+              protocolDepositAmount: protocolDepositAmountBigInt.toString(),
+              paymentCurrency,
+              expectedWeeklyCarbonCredits: app.auditFields.netCarbonCreditEarningWeekly,
+              regionId: app.zone.id,
+            },
+          } as const;
+        })
+        .filter((entry): entry is { applicationId: string; params: any } => entry !== null);
+
+      const batchParams = requestList.map((r) => r.params);
+      if (!batchParams.length) {
+        return applications.map((app) => ({
+          applicationId: app.id,
+          rewardScore: 0,
+          userWeeklyGlwRewards: "0",
+          userWeeklyGlwValueUsd: "0",
+          userWeeklyPdRewards: "0",
+          userWeeklyPdRewardsUsd: "0",
+          userEstimatedWeeklyCash: "0",
+          userProtocolDeposit: "0",
+          error: "Missing required data for calculation",
+        }));
+      }
+
+      try {
+        const response = await (getFarmsRouter() as any).estimateRewardScoresBatch({
+          farms: batchParams,
+        });
+
+        const resultByApplicationId = new Map<string, ApplicationRewardScore>();
+        requestList.forEach((req, idx) => {
+          const res = response.results[idx];
+          if (res && (res as any).success) {
+            const data = (res as any).data;
+            resultByApplicationId.set(req.applicationId, {
+              applicationId: req.applicationId,
+              rewardScore: data.rewardScore,
+              userWeeklyGlwRewards: data.userWeeklyGlwRewards,
+              userWeeklyGlwValueUsd: data.userWeeklyGlwValueUsd,
+              userWeeklyPdRewards: data.userWeeklyPdRewards,
+              userWeeklyPdRewardsUsd: data.userWeeklyPdRewardsUsd,
+              userEstimatedWeeklyCash: data.userEstimatedWeeklyCash,
+              userProtocolDeposit: data.userProtocolDeposit,
+            });
+          } else {
+            const err = (res as any)?.error || "Failed to calculate reward score";
+            resultByApplicationId.set(req.applicationId, {
+              applicationId: req.applicationId,
+              rewardScore: 0,
+              userWeeklyGlwRewards: "0",
+              userWeeklyGlwValueUsd: "0",
+              userWeeklyPdRewards: "0",
+              userWeeklyPdRewardsUsd: "0",
+              userEstimatedWeeklyCash: "0",
+              userProtocolDeposit: "0",
+              error: String(err),
+            });
+          }
+        });
+
+        return applications.map((app) => {
+          const found = resultByApplicationId.get(app.id);
+          if (found) return found;
+          return {
+            applicationId: app.id,
+            rewardScore: 0,
+            userWeeklyGlwRewards: "0",
+            userWeeklyGlwValueUsd: "0",
+            userWeeklyPdRewards: "0",
+            userWeeklyPdRewardsUsd: "0",
+            userEstimatedWeeklyCash: "0",
+            userProtocolDeposit: "0",
+            error: "Missing required data for calculation",
+          };
+        });
+      } catch (error) {
+        console.error("Error fetching reward scores:", error);
+        return applications.map((app) => ({
+          applicationId: app.id,
+          rewardScore: 0,
+          userWeeklyGlwRewards: "0",
+          userWeeklyGlwValueUsd: "0",
+          userWeeklyPdRewards: "0",
+          userWeeklyPdRewardsUsd: "0",
+          userEstimatedWeeklyCash: "0",
+          userProtocolDeposit: "0",
+          error: "Failed to fetch reward score",
+        }));
+      }
+    },
+  });
+
+  const rewardScoreMap = new Map<string, ApplicationRewardScore>();
+  if (query.data) query.data.forEach((score) => rewardScoreMap.set(score.applicationId, score));
+
+  return {
+    rewardScores: query.data || [],
+    rewardScoreMap,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  } as const;
+}
+
+export function getRewardScoreForApplication(
+  rewardScoreMap: Map<string, ApplicationRewardScore>,
+  applicationId: string
+): ApplicationRewardScore | null {
+  return rewardScoreMap.get(applicationId) || null;
+}
+
+export interface UseMiningScoreParams {
+  applications: AuctionApplication[];
+  enabled?: boolean;
+}
+
+export interface ApplicationMiningScore {
+  applicationId: string;
+  farmId: string;
+  miningScore: number;
+  weeklyGlwRewards?: string;
+  weeklyGlwRewardsUsd?: string;
+  error?: string;
+}
+
+export function useMiningScore(params: UseMiningScoreParams) {
+  const { applications, enabled = true } = params;
+
+  const query = useQuery({
+    queryKey: ["mining-scores", applications.map((app) => app.id)] as const,
+    enabled: enabled && applications.length > 0,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    queryFn: async (): Promise<ApplicationMiningScore[]> => {
+      if (!applications.length) return [];
+
+      const applicationsWithFarmIds = applications.filter((app) => app.farmId !== null);
+      if (!applicationsWithFarmIds.length) {
+        return applications.map((app) => ({
+          applicationId: app.id,
+          farmId: app.farmId || "",
+          miningScore: 0,
+          error: "No farmId available",
+        }));
+      }
+
+      try {
+        const farmParams: MiningScoreParams[] = applicationsWithFarmIds.map((app) => {
+          const userIdForEstimation = app.userId || generateRandomEthAddress();
+
+          return {
+            farmId: app.farmId!,
+            userId: userIdForEstimation,
+            dollarCostOfMiner: String(app.activeFraction?.stepPrice || "0"),
+            numberOfMiners: app.activeFraction?.totalSteps || 0,
+            minerRewardSplit: app.activeFraction?.sponsorSplitPercent
+              ? parseUnits(String(app.activeFraction?.sponsorSplitPercent), 4).toString()
+              : "0",
+          };
+        });
+
+        const response = (await (getFarmsRouter() as any).calculateMiningScoresBatch({
+          farms: farmParams,
+        })) as MiningScoresBatchResponse;
+
+        return applications.map((app) => {
+          if (!app.farmId) {
+            return {
+              applicationId: app.id,
+              farmId: "",
+              miningScore: 0,
+              error: "No farmId available",
+            };
+          }
+
+          const paramIndex = farmParams.findIndex((p) => p.farmId === app.farmId);
+          const farmResult: BatchMiningScoreResult | undefined =
+            paramIndex >= 0 ? response.results[paramIndex] : undefined;
+
+          if (farmResult?.success) {
+            const glwRewards = farmResult.data.userWeeklyGlwRewards;
+            const glwPrice = farmResult.data.glwPriceUsd6;
+
+            let weeklyGlwRewardsUsd: string | undefined;
+            if (glwPrice) {
+              const glwRewardsDecimal = new Decimal(glwRewards).div(1e18);
+              const glwPriceDecimal = new Decimal(glwPrice).div(1e6);
+              weeklyGlwRewardsUsd = glwRewardsDecimal.mul(glwPriceDecimal).toFixed(2);
+            }
+
+            return {
+              applicationId: app.id,
+              farmId: app.farmId,
+              miningScore: farmResult.data.miningScore || 0,
+              weeklyGlwRewards: glwRewards,
+              weeklyGlwRewardsUsd,
+            };
+          }
+
+          return {
+            applicationId: app.id,
+            farmId: app.farmId,
+            miningScore: 0,
+            error:
+              farmResult && !farmResult.success
+                ? (farmResult as any).error
+                : "Failed to calculate mining score",
+          };
+        });
+      } catch (error) {
+        console.error("Error fetching mining scores:", error);
+        return applications.map((app) => ({
+          applicationId: app.id,
+          farmId: app.farmId || "",
+          miningScore: 0,
+          error: "Failed to fetch mining score",
+        }));
+      }
+    },
+  });
+
+  const miningScoreMap = new Map<string, ApplicationMiningScore>();
+  if (query.data) query.data.forEach((score) => miningScoreMap.set(score.applicationId, score));
+
+  return {
+    miningScores: query.data || [],
+    miningScoreMap,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  } as const;
+}
+
+export function getMiningScoreForApplication(
+  miningScoreMap: Map<string, ApplicationMiningScore>,
+  applicationId: string
+): ApplicationMiningScore | null {
+  return miningScoreMap.get(applicationId) || null;
+}
+
+export function useKickstarters() {
+  const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
+  const { data: kickstarters = [], refetch: refetchKickstarters, isLoading: isKickstartersLoading } =
+    useQuery({
+      queryKey: ["kickstarters"] as const,
+      enabled: isConfigured,
+      queryFn: () =>
+        (getKickstarterRouter() as any).fetchKickstarters() as Promise<Kickstarter[]>,
+      staleTime: 30_000,
+      retry: 2,
+    });
+
+  return { kickstarters, refetchKickstarters, isKickstartersLoading } as const;
+}
+
+

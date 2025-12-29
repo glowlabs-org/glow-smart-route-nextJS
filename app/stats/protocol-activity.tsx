@@ -14,23 +14,23 @@ import { FallbackImage } from "@/components/ui/fallback-image";
 import {
   useFractionsSummary,
   type FractionsSummaryResponse,
-} from "@/hooks/useFractionsSummary";
+} from "@/hooks";
 import {
   useGlowLaunchpad,
   useSplitsActivity,
   calculateProtocolDepositAmount,
   type AuctionApplication,
-} from "@/hooks/useGlowLaunchpad";
-import { useMiningCenter } from "@/hooks/useMiningCenter";
+} from "@/hooks";
+import { useMiningCenter } from "@/hooks";
 import {
   useRewardScore,
   getRewardScoreForApplication,
-} from "@/hooks/useRewardScore";
+} from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import {
   useMiningScore,
   getMiningScoreForApplication,
-} from "@/hooks/useMiningScore";
+} from "@/hooks";
 import { formatNumber } from "@/app/marketplace/utils";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { formatUnits } from "viem";

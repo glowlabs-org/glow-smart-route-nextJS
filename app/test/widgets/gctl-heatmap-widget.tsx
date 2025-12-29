@@ -17,9 +17,7 @@ import {
 import { formatUnits } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { cn } from "@/lib/utils";
-import { useGctlApi } from "@/hooks/useGctlApi";
-import { useWallets } from "@/hooks/useWallets";
-import { useRegions } from "@/hooks/useRegions";
+import { useGctlApi, useWallets, useRegions } from "@/hooks";
 import { ConnectButton } from "@/components/connect-button";
 
 interface RegionStakeTile {

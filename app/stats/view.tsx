@@ -32,9 +32,7 @@ import { EconomyOverview } from "./economy-overview";
 import { RegionsStaking } from "./regions-staking";
 import { MintedEventsTab } from "@/components/buy-gctl/minted-events-tab";
 import { StakedEventsTab } from "@/components/buy-gctl/staked-events-tab";
-import { useGctlApi } from "@/hooks/useGctlApi";
-import { useRegion } from "@/hooks/useRegion";
-import { useFractionsSummary } from "@/hooks/useFractionsSummary";
+import { useGctlApi, useRegions, useFractionsSummary } from "@/hooks";
 import { parseFractionsSummary } from "@/lib/fractions";
 
 export default function StatsView() {
@@ -56,7 +54,7 @@ export default function StatsView() {
   const [eventsLoading, setEventsLoading] = React.useState(false);
 
   const { fetchMintedEvents, fetchStakedEvents } = useGctlApi();
-  const { regions, isRegionsLoading } = useRegion();
+  const { regions, isRegionsLoading } = useRegions();
   const {
     summary,
     isLoading: summaryLoading,

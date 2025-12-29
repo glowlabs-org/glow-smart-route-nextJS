@@ -21,17 +21,35 @@ export interface UseWalletTokenBalancesResult extends WalletTokenBalances {
   refetch: () => void;
 }
 
+export interface UseWalletTokenBalancesOptions {
+  enabled?: boolean;
+  query?: {
+    staleTime?: number;
+    gcTime?: number;
+    refetchInterval?: number | false;
+    refetchOnMount?: boolean;
+    refetchOnWindowFocus?: boolean;
+    refetchOnReconnect?: boolean;
+  };
+}
+
 export function useWalletTokenBalances(
-  walletAddress?: string | null
+  walletAddress?: string | null,
+  options?: UseWalletTokenBalancesOptions
 ): UseWalletTokenBalancesResult {
   const chainId = useChainId();
 
   const query = useQuery({
     queryKey: ["wallet-token-balances", chainId, walletAddress],
-    enabled: Boolean(walletAddress),
-    staleTime: 10_000,
-    gcTime: 5 * 60_000,
-    refetchOnWindowFocus: true,
+    enabled: Boolean(options?.enabled ?? true) && Boolean(walletAddress),
+    staleTime: options?.query?.staleTime ?? 10_000,
+    gcTime: options?.query?.gcTime ?? 5 * 60_000,
+    refetchInterval: options?.query?.refetchInterval,
+    refetchOnMount: options?.query?.refetchOnMount,
+    refetchOnWindowFocus: options?.query?.refetchOnWindowFocus ?? true,
+    ...(options?.query?.refetchOnReconnect !== undefined
+      ? { refetchOnReconnect: options.query.refetchOnReconnect }
+      : {}),
     queryFn: async (): Promise<WalletTokenBalances> => {
       if (!walletAddress) {
         return { glwBalance: null, usdcBalance: null, usdgBalance: null };

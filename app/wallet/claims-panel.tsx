@@ -33,7 +33,7 @@ import {
   useClaimableRewards,
   type ClaimableReward,
   type WeeklyClaimableRewards,
-} from "@/hooks/useClaimableRewards";
+} from "@/hooks";
 import {
   useRewardsKernelWrapper,
   type ClaimProgressUpdate,

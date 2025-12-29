@@ -24,8 +24,8 @@ import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import {
   useSponsorApplication,
   type AuctionApplication,
-} from "@/hooks/useGlowLaunchpad";
-import { useFractionSplits } from "@/hooks/useFractionSplits";
+} from "@/hooks";
+import { useFractionSplits } from "@/hooks";
 import Decimal from "decimal.js";
 import Link from "next/link";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";

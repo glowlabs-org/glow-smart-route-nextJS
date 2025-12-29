@@ -57,7 +57,7 @@ import {
   useImpactLeaderboardQuery,
   useImpactScoreQuery,
   type ImpactGlowScoreLeaderboardRow,
-} from "@/hooks/useImpactGlowScore";
+} from "@/hooks";
 import { copyTextToClipboard } from "@/utils/clipboard";
 import {
   formatGlwFromWei,

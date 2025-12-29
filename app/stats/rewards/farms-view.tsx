@@ -59,9 +59,9 @@ import {
   useFarmWeeklyRewards,
   useFarmWeeklyRewardsBatch,
   formatRewardValue,
-} from "@/hooks/useFarmsRewards";
+} from "@/hooks";
 import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
-import { useRegions } from "@/hooks/useRegions";
+import { useRegions } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useGlowPrices } from "@/hooks/useGlowPrices";
 import { calculateFarmEfficiency } from "@glowlabs-org/utils/browser";
@@ -524,7 +524,8 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
           .toNumber();
 
         paymentCurrency = mostRecentWeekReward.paymentCurrency;
-        const decimals = paymentCurrency === "GLW" ? 1e18 : 1e6;
+        const currency = paymentCurrency ?? "USDC";
+        const decimals = currency === "GLW" ? 1e18 : 1e6;
         weeklyProtocolDepositRewards = new Decimal(
           mostRecentWeekReward.protocolDepositRewardsDistributed
         )
@@ -533,7 +534,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
 
         const glwRewardsUsd = weeklyGlwRewards * (glwSpotPrice || 0);
         const pdCurrencyPrice = getCurrencyPrice(
-          paymentCurrency,
+          currency,
           glwSpotPrice,
           gctlMintPrice
         );

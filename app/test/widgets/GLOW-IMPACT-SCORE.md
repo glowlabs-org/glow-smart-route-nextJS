@@ -14,7 +14,19 @@ These points are computed at weekly rollover and then applied for that week:
 
 ### Weekly multiplier (calculated on week rollover)
 
-- **Cash miner bonus**: Weeks where the user **bought a miner with cash** get a **3× multiplier** applied to **all weekly rollover points** for that week.
+Your Total Multiplier is the sum of your **Base Multiplier** plus your **Streak Bonus**.
+
+1.  **Base Multiplier**:
+
+    - **Standard**: **1×** (Default).
+    - **Cash Miner Bonus**: **3×** (If you **bought a miner with cash** this week).
+
+2.  **Streak Bonus (Impact Streak)**:
+    - Earn **+0.25×** (or +25%) for every consecutive week you **increase your delegated GLW** or **buy a miner**.
+    - **Cap**: The bonus caps at **+1.0×** (after 4 consecutive weeks).
+    - **Reset**: If you fail to increase delegation or buy a miner in a week, the streak bonus resets to **0×**.
+
+_(Formula: Total Multiplier = Base + Streak Bonus)_
 
 ### Continuous points (calculated continuously)
 
@@ -23,8 +35,7 @@ These points are computed at weekly rollover and then applied for that week:
 ## Important details
 
 - **Delegated GLW double-counts intentionally**:
-
-  Delegated GLW contributes to **GLW Worth** (continuous) *and* earns the **vault bonus** (+0.005/week) on rollover.
+  Delegated GLW contributes to **GLW Worth** (continuous) _and_ earns the **vault bonus** (+0.005/week) on rollover.
 - The rollover system is meant to align incentives around “showing up every week” and making high-impact moves, while the continuous component rewards long-term accumulation.
 
 ## Example
@@ -36,6 +47,7 @@ Assume for a given week:
 - Delegated GLW: **10,000 GLW**
 - GLW Worth: **50,000 GLW**
 - Bought a miner with cash this week: **Yes**
+- Impact Streak: **4 weeks active** (Max streak)
 
 Weekly rollover points (pre-multiplier):
 
@@ -44,12 +56,16 @@ Weekly rollover points (pre-multiplier):
 - Delegated (vault): \(10,000 × 0.005 = 50\)
 - Total rollover points: \(100 + 600 + 50 = 750\)
 
-Apply 3× weekly multiplier:
+Calculate Total Multiplier:
 
-- Weekly rollover points: \(750 × 3 = 2,250\)
+- Base (Cash Miner): **3.0×**
+- Streak Bonus (4 weeks): **+1.0×**
+- Total Multiplier: **4.0×**
+
+Apply Multiplier:
+
+- Weekly rollover points: \(750 × 4.0 = 3,000\)
 
 Continuous rate:
 
 - GLW Worth: \(50,000 × 0.001 = 50\) points per week (continuous)
-
-

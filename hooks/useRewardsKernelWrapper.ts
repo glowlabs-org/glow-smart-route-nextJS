@@ -15,7 +15,7 @@ import {
 } from "@glowlabs-org/utils/browser";
 import { MinerPoolAndGCAABI } from "@glowlabs-org/guarded-launch-abis";
 import { addresses } from "@/web3/constants/addresses";
-import type { ClaimableReward } from "./useClaimableRewards";
+import type { ClaimableReward } from "./control-wallets";
 import * as Sentry from "@sentry/nextjs";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 
