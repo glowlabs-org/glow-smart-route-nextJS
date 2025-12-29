@@ -23,6 +23,7 @@ export interface ImpactGlowScoreLeaderboardRow {
   composition?: ImpactGlowScoreComposition;
   lastWeekPoints?: string;
   activeMultiplier?: boolean;
+  endWeekMultiplier?: number;
 }
 
 export interface ImpactGlowScoreLeaderboardResponse {
@@ -45,6 +46,10 @@ export interface ImpactGlowScoreProjection {
   weekNumber: number;
   hasMinerMultiplier: boolean;
   hasSteeringStake: boolean;
+  impactStreakWeeks?: number;
+  baseMultiplier?: number;
+  streakBonusMultiplier?: number;
+  totalMultiplier?: number;
   projectedPoints: {
     steeringGlwWei: string;
     inflationGlwWei: string;
@@ -63,12 +68,20 @@ export interface ImpactGlowScoreWeeklyRow {
   inflationGlwWei: string;
   steeringGlwWei: string;
   delegatedActiveGlwWei: string;
+  protocolDepositRecoveredGlwWei?: string;
   inflationPoints: string;
   steeringPoints: string;
   vaultBonusPoints: string;
+  rolloverPointsPreMultiplier?: string;
+  rolloverMultiplier?: number;
   rolloverPoints: string;
+  glowWorthGlwWei?: string;
   continuousPoints: string;
+  totalPoints?: string;
   hasCashMinerBonus: boolean;
+  baseMultiplier?: number;
+  streakBonusMultiplier?: number;
+  impactStreakWeeks?: number;
 }
 
 export interface ImpactGlowScoreResponse {

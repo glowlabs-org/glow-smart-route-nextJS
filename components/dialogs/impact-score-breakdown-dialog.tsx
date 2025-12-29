@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { formatUnits } from "viem";
 import {
   CheckCircle2,
@@ -11,6 +10,7 @@ import {
   Zap,
   ArrowRight,
 } from "lucide-react";
+import { useAccount } from "wagmi";
 
 import {
   Dialog,
@@ -22,39 +22,19 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useImpactScoreQuery, type ImpactWeekRange } from "@/hooks";
-
-interface GlowWorthResponse {
-  glowWorthWei: string;
-}
-
-interface ImpactScoreTotals {
-  totalPoints: string;
-}
-
-interface ImpactScoreWeeklyRow {
-  weekNumber: number;
-  inflationGlwWei: string;
-  steeringGlwWei: string;
-  delegatedActiveGlwWei: string;
-  inflationPoints: string;
-  steeringPoints: string;
-  vaultBonusPoints: string;
-  rolloverPoints: string;
-  continuousPoints: string;
-  hasCashMinerBonus: boolean;
-}
-
-interface ImpactScoreResponse {
-  walletAddress: string;
-  weekRange: ImpactWeekRange;
-  glowWorth: GlowWorthResponse;
-  totals: ImpactScoreTotals;
-  weekly: ImpactScoreWeeklyRow[];
-}
+import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
+import { MintAndStakeGctlDialog } from "@/components/dialogs/mint-and-stake-gctl-dialog";
+import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
+import {
+  useImpactScoreQuery,
+  type ImpactGlowScoreResponse,
+  type ImpactWeekRange,
+} from "@/hooks";
+import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
+import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 
 interface ImpactScoreBreakdownDialogContentProps {
-  impactScore: ImpactScoreResponse;
+  impactScore: ImpactGlowScoreResponse;
   title?: string;
   description?: string;
 }
@@ -107,6 +87,15 @@ function formatPointsRate(value?: string) {
   }).format(num);
 }
 
+function formatMultiplier(value: number | undefined) {
+  if (value == null) return "—";
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "—";
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(
+    num
+  );
+}
+
 type BreakdownTone = "cyan" | "purple" | "yellow" | "emerald";
 
 function getToneClasses(tone: BreakdownTone) {
@@ -147,6 +136,7 @@ function BreakdownRow({
   value,
   ctaText,
   ctaHref,
+  onCtaClick,
   tone,
   isPassive = false,
 }: {
@@ -156,6 +146,7 @@ function BreakdownRow({
   value: string;
   ctaText?: string;
   ctaHref?: string;
+  onCtaClick?: () => void;
   tone: BreakdownTone;
   isPassive?: boolean;
 }) {
@@ -203,13 +194,14 @@ function BreakdownRow({
         >
           {value}
         </span>
-        {ctaText && ctaHref ? (
-          <Link
-            href={ctaHref}
+        {ctaText && (ctaHref || onCtaClick) ? (
+          <button
+            type="button"
+            onClick={onCtaClick}
             className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors dark:text-zinc-500 dark:hover:text-white"
           >
             {ctaText} <ArrowRight className="w-3 h-3" />
-          </Link>
+          </button>
         ) : null}
       </div>
     </div>
@@ -221,10 +213,19 @@ export function ImpactScoreBreakdownDialogContent(
 ) {
   const { impactScore, title = "Score Breakdown", description } = props;
 
+  const { address } = useAccount();
+  const { usdcBalance, usdgBalance } = useWalletTokenBalances(address);
+  const { spotPrice: glowSpotPrice } = useGlowSpotPrice();
+
+  const [isLaunchpadOpen, setIsLaunchpadOpen] = React.useState(false);
+  const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
+  const [isBuyGlowOpen, setIsBuyGlowOpen] = React.useState(false);
+
   const latestWeek = React.useMemo(() => {
-    if (!impactScore?.weekly?.length) return null;
-    return impactScore.weekly[impactScore.weekly.length - 1] ?? null;
-  }, [impactScore.weekly]);
+    const weekly = impactScore?.weekly ?? [];
+    if (weekly.length === 0) return null;
+    return weekly[weekly.length - 1] ?? null;
+  }, [impactScore?.weekly]);
 
   const totalsPoints = impactScore?.totals?.totalPoints ?? undefined;
   const weeklySteeredGlw = safeGlwFromWei(latestWeek?.steeringGlwWei);
@@ -232,91 +233,98 @@ export function ImpactScoreBreakdownDialogContent(
   const delegatedActiveGlw = safeGlwFromWei(latestWeek?.delegatedActiveGlwWei);
   const glowWorthGlw = safeGlwFromWei(impactScore?.glowWorth?.glowWorthWei);
   const hasCashMinerBonus = Boolean(latestWeek?.hasCashMinerBonus);
+  const impactStreakWeeks = latestWeek?.impactStreakWeeks ?? 0;
+  const streakBonusMultiplier = latestWeek?.streakBonusMultiplier ?? 0;
+  const baseMultiplier = latestWeek?.baseMultiplier ?? (hasCashMinerBonus ? 3 : 1);
+  const rolloverMultiplier =
+    latestWeek?.rolloverMultiplier ?? baseMultiplier + streakBonusMultiplier;
+  const hasStreakBonus = impactStreakWeeks > 0 && streakBonusMultiplier > 0;
 
   return (
-    <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-3xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
-      <div className="px-6 pr-14 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="font-mono uppercase tracking-wide text-lg text-foreground dark:text-white">
-                {title}
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground mt-1 dark:text-zinc-400">
-                {description ??
-                  "Updates weekly based on your onchain activity."}
-              </DialogDescription>
-            </div>
-
-            <div className="text-right">
-              <div className="text-[10px] uppercase text-muted-foreground font-mono dark:text-zinc-500">
-                Current Score
-              </div>
-              <div className="text-xl font-bold font-mono text-foreground tracking-tight dark:text-white">
-                {formatPoints(totalsPoints)}
-              </div>
-            </div>
-          </div>
-        </DialogHeader>
-      </div>
-
-      <ScrollArea className="max-h-[70vh]">
-        <div className="p-6 space-y-8">
-          <div className="space-y-4">
+    <>
+      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-3xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
+        <div className="px-6 pr-14 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
+          <DialogHeader>
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider dark:text-zinc-500">
-                Weekly Rollover
-              </h4>
-              <span className="text-[10px] text-muted-foreground/80 font-mono dark:text-zinc-600">
-                Week {latestWeek?.weekNumber ?? "—"}
-              </span>
+              <div>
+                <DialogTitle className="font-mono uppercase tracking-wide text-lg text-foreground dark:text-white">
+                  {title}
+                </DialogTitle>
+                <DialogDescription className="text-muted-foreground mt-1 dark:text-zinc-400">
+                  {description ??
+                    "Updates weekly based on your onchain activity."}
+                </DialogDescription>
+              </div>
+
+              <div className="text-right">
+                <div className="text-[10px] uppercase text-muted-foreground font-mono dark:text-zinc-500">
+                  Current Score
+                </div>
+                <div className="text-xl font-bold font-mono text-foreground tracking-tight dark:text-white">
+                  {formatPoints(totalsPoints)}
+                </div>
+              </div>
             </div>
+          </DialogHeader>
+        </div>
 
-            <div className="space-y-2">
-              <BreakdownRow
-                icon={Zap}
-                label="Steering GLW (sGCTL)"
-                sublabel={`3.0x Multiplier • ${formatGlwCompact(
-                  weeklySteeredGlw
-                )} GLW`}
-                value={`+${formatPoints(latestWeek?.steeringPoints, {
-                  maximumFractionDigits: 2,
-                })}`}
-                ctaText="Stake GCTL"
-                ctaHref="/glow-swap"
-                tone="cyan"
-              />
+        <ScrollArea className="max-h-[70vh]">
+          <div className="p-6 space-y-8">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider dark:text-zinc-500">
+                  Weekly Rollover
+                </h4>
+                <span className="text-[10px] text-muted-foreground/80 font-mono dark:text-zinc-600">
+                  Week {latestWeek?.weekNumber ?? "—"}
+                </span>
+              </div>
 
-              <BreakdownRow
-                icon={Coins}
-                label="Emissions Earned"
-                sublabel={`1.0x Multiplier • ${formatGlwCompact(
-                  weeklyInflationGlw
-                )} GLW`}
-                value={`+${formatPoints(latestWeek?.inflationPoints, {
-                  maximumFractionDigits: 2,
-                })}`}
-                ctaText="Buy Miner"
-                ctaHref="/?tab=launchpad&type=miners"
-                tone="yellow"
-              />
+              <div className="space-y-2">
+                <BreakdownRow
+                  icon={Zap}
+                  label="Steering GLW (sGCTL)"
+                  sublabel={`3.0x Multiplier • ${formatGlwCompact(
+                    weeklySteeredGlw
+                  )} GLW`}
+                  value={`+${formatPoints(latestWeek?.steeringPoints, {
+                    maximumFractionDigits: 2,
+                  })}`}
+                  ctaText="Stake GCTL"
+                  onCtaClick={() => setIsMintAndStakeOpen(true)}
+                  tone="cyan"
+                />
 
-              <BreakdownRow
-                icon={Lock}
-                label="Vault Bonus"
-                sublabel={`0.005x Multiplier • ${formatGlwCompact(
-                  delegatedActiveGlw
-                )} GLW`}
-                value={`+${formatPointsRate(latestWeek?.vaultBonusPoints)}`}
-                ctaText="Delegate"
-                ctaHref="/?tab=launchpad&type=delegations"
-                tone="purple"
-              />
-            </div>
+                <BreakdownRow
+                  icon={Coins}
+                  label="Emissions Earned"
+                  sublabel={`1.0x Multiplier • ${formatGlwCompact(
+                    weeklyInflationGlw
+                  )} GLW`}
+                  value={`+${formatPoints(latestWeek?.inflationPoints, {
+                    maximumFractionDigits: 2,
+                  })}`}
+                  ctaText="Buy Miner"
+                  onCtaClick={() => setIsLaunchpadOpen(true)}
+                  tone="yellow"
+                />
+
+                <BreakdownRow
+                  icon={Lock}
+                  label="Vault Bonus"
+                  sublabel={`0.005x Multiplier • ${formatGlwCompact(
+                    delegatedActiveGlw
+                  )} GLW`}
+                  value={`+${formatPointsRate(latestWeek?.vaultBonusPoints)}`}
+                  ctaText="Delegate"
+                  onCtaClick={() => setIsLaunchpadOpen(true)}
+                  tone="purple"
+                />
+              </div>
 
             <div className="relative py-2">
               <div className="absolute left-6 top-0 bottom-0 w-px bg-border/60 border-l border-dashed border-border/60 dark:bg-zinc-800 dark:border-zinc-700" />
-              <div className="relative z-10 ml-12">
+              <div className="relative z-10 ml-12 space-y-2">
                 {hasCashMinerBonus ? (
                   <div className="flex items-center justify-between p-3 bg-[color:var(--color-miner-yellow)]/10 border border-[color:var(--color-miner-yellow)]/20 rounded-xl">
                     <div className="flex items-center gap-3">
@@ -346,6 +354,42 @@ export function ImpactScoreBreakdownDialogContent(
                         </div>
                         <div className="text-[10px] text-muted-foreground dark:text-zinc-600">
                           Buy a miner to triple points
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {hasStreakBonus ? (
+                  <div className="flex items-center justify-between p-3 bg-[#C084FC]/10 border border-[#C084FC]/20 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#C084FC] text-black font-bold font-mono text-xs">
+                        {Math.min(impactStreakWeeks, 4)}/4
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#C084FC] uppercase">
+                          Impact streak
+                        </div>
+                        <div className="text-[10px] text-[#C084FC]/70 font-mono">
+                          +{formatMultiplier(streakBonusMultiplier)}× bonus •{" "}
+                          {formatMultiplier(rolloverMultiplier)}× total
+                        </div>
+                      </div>
+                    </div>
+                    <CheckCircle2 className="w-5 h-5 text-[#C084FC]" />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between p-3 bg-muted/20 border border-border rounded-xl opacity-60 dark:bg-zinc-900 dark:border-zinc-800">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-bold font-mono text-xs dark:bg-zinc-800 dark:text-zinc-500">
+                        0/4
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-foreground/80 uppercase dark:text-zinc-400">
+                          Impact streak
+                        </div>
+                        <div className="text-[10px] text-muted-foreground dark:text-zinc-600">
+                          Increase delegation weekly for +0.25× (max +1.0×)
                         </div>
                       </div>
                     </div>
@@ -381,14 +425,40 @@ export function ImpactScoreBreakdownDialogContent(
                 latestWeek?.continuousPoints
               )} / week`}
               ctaText="Buy GLW"
-              ctaHref="/glow-swap"
+                onCtaClick={() => setIsBuyGlowOpen(true)}
               tone="emerald"
               isPassive
             />
           </div>
         </div>
-      </ScrollArea>
-    </DialogContent>
+        </ScrollArea>
+      </DialogContent>
+
+      <LaunchpadDialog
+        key={isLaunchpadOpen ? "launchpad-open" : "launchpad-closed"}
+        open={isLaunchpadOpen}
+        onOpenChange={setIsLaunchpadOpen}
+      />
+
+      <MintAndStakeGctlDialog
+        key={
+          isMintAndStakeOpen ? "mint-and-stake-open" : "mint-and-stake-closed"
+        }
+        open={isMintAndStakeOpen}
+        onOpenChange={setIsMintAndStakeOpen}
+        usdcBalance={usdcBalance}
+        usdgBalance={usdgBalance}
+      />
+
+      <BuyGlowDialog
+        key={isBuyGlowOpen ? "buy-glow-open" : "buy-glow-closed"}
+        open={isBuyGlowOpen}
+        onOpenChange={setIsBuyGlowOpen}
+        usdcBalance={usdcBalance}
+        glowSpotPrice={glowSpotPrice || 0}
+        defaultUsdcAmount="20"
+      />
+    </>
   );
 }
 
@@ -446,7 +516,7 @@ export function ImpactScoreBreakdownDialog(
         </DialogContent>
       ) : query.data ? (
         <ImpactScoreBreakdownDialogContent
-          impactScore={query.data as ImpactScoreResponse}
+          impactScore={query.data}
           title={title}
           description={description}
         />

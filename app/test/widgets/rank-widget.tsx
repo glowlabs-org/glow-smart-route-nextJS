@@ -12,58 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ImpactScoreBreakdownDialogContent } from "@/components/dialogs/impact-score-breakdown-dialog";
 import { ImpactView } from "@/app/stats/rewards/impact-view";
-
-// --- Types & Helpers (Unchanged) ---
-
-interface GlowWorthResponse {
-  walletAddress: string;
-  liquidGlwWei: string;
-  delegatedActiveGlwWei: string;
-  unclaimedGlwRewardsWei: string;
-  glowWorthWei: string;
-  dataSources: {
-    liquidGlw: string;
-    delegatedActiveGlw: string;
-    unclaimedGlwRewards: string;
-  };
-}
-
-interface ImpactScoreTotals {
-  totalPoints: string;
-  rolloverPoints: string;
-  continuousPoints: string;
-  inflationPoints: string;
-  steeringPoints: string;
-  vaultBonusPoints: string;
-  totalInflationGlwWei: string;
-  totalSteeringGlwWei: string;
-}
-
-interface ImpactScoreWeeklyRow {
-  weekNumber: number;
-  inflationGlwWei: string;
-  steeringGlwWei: string;
-  delegatedActiveGlwWei: string;
-  protocolDepositRecoveredGlwWei: string;
-  inflationPoints: string;
-  steeringPoints: string;
-  vaultBonusPoints: string;
-  rolloverPointsPreMultiplier: string;
-  rolloverMultiplier: number;
-  rolloverPoints: string;
-  glowWorthGlwWei: string;
-  continuousPoints: string;
-  totalPoints: string;
-  hasCashMinerBonus: boolean;
-}
-
-interface ImpactScoreResponse {
-  walletAddress: string;
-  weekRange: { startWeek: number; endWeek: number };
-  glowWorth: GlowWorthResponse;
-  totals: ImpactScoreTotals;
-  weekly: ImpactScoreWeeklyRow[];
-}
+import { hubGet } from "@/lib/api/hub-client";
+import type { ImpactGlowScoreResponse } from "@/hooks";
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 
@@ -116,17 +66,13 @@ export function RankWidget({ walletAddress }: RankWidgetProps) {
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
     retry: 0,
-    queryFn: async (): Promise<ImpactScoreResponse> => {
+    queryFn: async (): Promise<ImpactGlowScoreResponse> => {
       try {
         if (!HUB_URL) throw new Error("NEXT_PUBLIC_HUB_URL is not set");
         if (!walletAddress) throw new Error("Missing wallet address");
-
-        const url = new URL("/impact/glow-score", HUB_URL);
-        url.searchParams.set("walletAddress", walletAddress);
-
-        const res = await fetch(url.toString());
-        if (!res.ok) throw new Error(await res.text());
-        return (await res.json()) as ImpactScoreResponse;
+        return await hubGet<ImpactGlowScoreResponse>("/impact/glow-score", {
+          params: { walletAddress },
+        });
       } catch (error) {
         toast.error("Failed to load Impact Score", {
           description: error instanceof Error ? error.message : String(error),
@@ -158,12 +104,16 @@ export function RankWidget({ walletAddress }: RankWidgetProps) {
 
   // Tier Logic
   const tier = React.useMemo(() => {
-    const num = Number(totalsPoints ?? "0");
-    if (!Number.isFinite(num)) return "SOLAR MINNOW";
-    if (num >= 25_000) return "SOLAR KRAKEN";
-    if (num >= 10_000) return "SOLAR WHALE";
-    if (num >= 2_500) return "SOLAR DOLPHIN";
-    return "SOLAR MINNOW";
+    const num = Number(totalsPoints ?? 0);
+
+    if (!Number.isFinite(num)) return "PHOTON";
+
+    if (num >= 1_000_000) return "QUASAR"; // The brightest object in the universe
+    if (num >= 500_000) return "SUPERNOVA"; // The Top 3 (1.5M - 600k pts)
+    if (num >= 100_000) return "SOLAR FLARE"; // The Top ~7 (300k - 100k pts)
+    if (num >= 25_000) return "SUN RAY"; // The Top ~20 (99k - 25k pts)
+
+    return "PHOTON"; // Everyone else
   }, [totalsPoints]);
 
   const subtitle = React.useMemo(() => {
