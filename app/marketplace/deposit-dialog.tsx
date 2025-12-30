@@ -17,14 +17,11 @@ import {
   useOffchainFractions,
 } from "@glowlabs-org/utils/browser";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
-import { useAccount, useWalletClient } from "wagmi";
+import { useAccount, useBalance, useChainId, useWalletClient } from "wagmi";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { ConnectButton } from "@/components/connect-button";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
-import {
-  useSponsorApplication,
-  type AuctionApplication,
-} from "@/hooks";
+import { useSponsorApplication, type AuctionApplication } from "@/hooks";
 import { useFractionSplits } from "@/hooks";
 import Decimal from "decimal.js";
 import Link from "next/link";
@@ -32,8 +29,45 @@ import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-war
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { trackEvent } from "@/lib/telemetry";
+import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const BUY_GLOW_USDC_BUFFER = new Decimal(1);
+
+type MinersPayToken = "USDC" | "ETH";
+
+interface MinersEthPayQuote {
+  missingUsdcBase: bigint;
+  amountInWei: bigint;
+  amountOutUsdc: bigint;
+  amountOutMinUsdc: bigint;
+  feeBufferWei: bigint;
+  feeEstimateWei: bigint | null;
+  isGasEstimateExact: boolean;
+}
+
+function ceilDiv(a: bigint, b: bigint) {
+  if (b === 0n) return 0n;
+  return (a + b - 1n) / b;
+}
+
+function formatEthFromWei(valueWei: bigint, maxFractionDigits = 6) {
+  try {
+    const raw = formatUnits(valueWei, 18);
+    const [i, f = ""] = raw.split(".");
+    if (maxFractionDigits <= 0) return i;
+    const trimmed = f.slice(0, Math.min(maxFractionDigits, f.length));
+    return trimmed ? `${i}.${trimmed}` : i;
+  } catch {
+    return "0";
+  }
+}
 
 export type LaunchpadRewardScore = {
   userWeeklyGlwRewards: string;
@@ -74,7 +108,7 @@ export function DepositDialog({
   rewardScore,
   onSuccess,
 }: DepositDialogProps) {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   // const [quoteId, setQuoteId] = React.useState<string>(generateQuoteId());
   const [lockedAtMs, setLockedAtMs] = React.useState<number>(Date.now());
   const [nowMs, setNowMs] = React.useState<number>(Date.now());
@@ -83,10 +117,20 @@ export function DepositDialog({
   const [stepsToBuy, setStepsToBuy] = React.useState(1);
   const [quantityInput, setQuantityInput] = React.useState<string>("1");
   const [isBuyGlowDialogOpen, setIsBuyGlowDialogOpen] = React.useState(false);
+  const [minersPayToken, setMinersPayToken] =
+    React.useState<MinersPayToken>("USDC");
 
   // Transaction states
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isProcessing, setIsProcessing] = React.useState(false);
+  const [processingStep, setProcessingStep] = React.useState<
+    | "swap_eth_to_usdc"
+    | "buy_fractions"
+    | "confirm_splits"
+    | "refresh_balances"
+    | "sponsor_mutation"
+    | null
+  >(null);
   const [isSuccess, setIsSuccess] = React.useState(false);
   const [isError, setIsError] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -105,6 +149,27 @@ export function DepositDialog({
     React.useState(false);
   const [isCheckingSmartAccount, setIsCheckingSmartAccount] =
     React.useState(false);
+  const chainId = useChainId();
+  const isEthPayEnabled = chainId === 1 || chainId === 11155111;
+  const { estimateEthToUsdc, estimateGasForSwapEthToUsdc, swapEthToUsdc } =
+    useSwapETHToUSDC();
+
+  const ethBalanceQuery = useBalance({
+    address,
+    query: {
+      enabled: Boolean(
+        open &&
+          address &&
+          currency === "USDC" &&
+          minersPayToken === "ETH" &&
+          isEthPayEnabled
+      ),
+    },
+  });
+
+  React.useEffect(() => {
+    if (minersPayToken === "ETH" && !isEthPayEnabled) setMinersPayToken("USDC");
+  }, [isEthPayEnabled, minersPayToken]);
 
   React.useEffect(() => {
     if (signer) {
@@ -252,6 +317,116 @@ export function DepositDialog({
     }
   }, [usdcBalance]);
 
+  const requiredMinersUsdcBase = React.useMemo(() => {
+    try {
+      if (!application?.activeFraction) return null;
+      if (currency !== "USDC") return null;
+      return (
+        BigInt(application.activeFraction.stepPrice) * BigInt(stepsToBuy || 0)
+      );
+    } catch {
+      return null;
+    }
+  }, [application?.activeFraction, currency, stepsToBuy]);
+
+  const missingMinersUsdcBase = React.useMemo(() => {
+    try {
+      if (requiredMinersUsdcBase == null) return null;
+      if (!isConnected) return null;
+      if (usdcBalanceBigInt == null) return requiredMinersUsdcBase;
+      return requiredMinersUsdcBase > usdcBalanceBigInt
+        ? requiredMinersUsdcBase - usdcBalanceBigInt
+        : 0n;
+    } catch {
+      return null;
+    }
+  }, [isConnected, requiredMinersUsdcBase, usdcBalanceBigInt]);
+
+  const minersEthPayQuoteQuery = useQuery({
+    queryKey: [
+      "miners-eth-pay-quote",
+      missingMinersUsdcBase?.toString() ?? null,
+      chainId,
+    ],
+    enabled: Boolean(
+      open &&
+        isConnected &&
+        currency === "USDC" &&
+        minersPayToken === "ETH" &&
+        isEthPayEnabled &&
+        missingMinersUsdcBase != null
+    ),
+    staleTime: 10_000,
+    retry: 0,
+    queryFn: async (): Promise<MinersEthPayQuote> => {
+      try {
+        const missingUsdcBase = missingMinersUsdcBase ?? 0n;
+        if (missingUsdcBase <= 0n) {
+          return {
+            missingUsdcBase,
+            amountInWei: 0n,
+            amountOutUsdc: 0n,
+            amountOutMinUsdc: 0n,
+            feeBufferWei: 0n,
+            feeEstimateWei: null,
+            isGasEstimateExact: true,
+          };
+        }
+
+        const probeWei = parseUnits("0.05", 18);
+        const probeRes = await estimateEthToUsdc({
+          amountInWei: probeWei,
+          slippageBps: 100n,
+        });
+        if (!probeRes.ok) throw new Error(String(probeRes.val));
+        if (probeRes.val.amountOutUsdc <= 0n)
+          throw new Error("Failed to quote ETH to USDC.");
+
+        let amountInWei = ceilDiv(
+          probeWei * missingUsdcBase,
+          probeRes.val.amountOutUsdc
+        );
+        amountInWei = ceilDiv(amountInWei * 102n, 100n); // +2% buffer
+
+        let amountOutUsdc = 0n;
+        let amountOutMinUsdc = 0n;
+        for (let i = 0; i < 4; i += 1) {
+          const res = await estimateEthToUsdc({
+            amountInWei,
+            slippageBps: 100n,
+          });
+          if (!res.ok) throw new Error(String(res.val));
+          amountOutUsdc = res.val.amountOutUsdc;
+          amountOutMinUsdc = res.val.amountOutMinUsdc;
+          if (amountOutMinUsdc >= missingUsdcBase) break;
+          amountInWei = ceilDiv(amountInWei * 105n, 100n); // +5% bump
+        }
+
+        const gasRes = await estimateGasForSwapEthToUsdc({
+          amountInWei,
+          slippageBps: 100n,
+        });
+        const feeEstimateWei = gasRes.ok ? gasRes.val.estimatedFeeWei : null;
+        const minFeeBufferWei = parseUnits("0.0015", 18);
+        const feeBufferWei = gasRes.ok
+          ? (gasRes.val.estimatedFeeWei * 12n) / 10n // +20%
+          : minFeeBufferWei;
+
+        return {
+          missingUsdcBase,
+          amountInWei,
+          amountOutUsdc,
+          amountOutMinUsdc,
+          feeBufferWei,
+          feeEstimateWei,
+          isGasEstimateExact: gasRes.ok,
+        };
+      } catch (e: any) {
+        throw new Error(e?.message || "Failed to estimate ETH cost.");
+      }
+    },
+  });
+
   const glwShortfall = React.useMemo(() => {
     try {
       if (!isConnected) return null;
@@ -355,11 +530,13 @@ export function DepositDialog({
     if (!open) {
       setIsSubmitting(false);
       setIsProcessing(false);
+      setProcessingStep(null);
       setIsSuccess(false);
       setIsError(false);
       setErrorMessage(null);
       setTxHash(null);
       setNetworkCostUSD("");
+      setMinersPayToken("USDC");
     } else {
       // setQuoteId(generateQuoteId());
       setLockedAtMs(Date.now());
@@ -406,12 +583,14 @@ export function DepositDialog({
 
     let stage:
       | "balance_check"
+      | "swap_eth_to_usdc"
       | "buy_fractions"
       | "confirm_splits"
       | "refresh_balances"
       | "sponsor_mutation" = "balance_check";
     try {
       setIsSubmitting(true);
+      setProcessingStep(null);
       setIsError(false);
       setErrorMessage(null);
 
@@ -433,13 +612,94 @@ export function DepositDialog({
       const pricePerStep = BigInt(activeFraction.stepPrice);
 
       const totalNeeded = pricePerStep * BigInt(stepsToBuy);
+      const shouldPayWithEth = isUSDC && minersPayToken === "ETH";
 
       // Check token balance
       stage = "balance_check";
-      const tokenBalance = await fractions.checkTokenBalance(
+      let tokenBalance = await fractions.checkTokenBalance(
         userAddress,
         tokenAddress
       );
+
+      if (shouldPayWithEth) {
+        if (!isEthPayEnabled)
+          throw new Error(
+            "ETH payment is only supported on mainnet or sepolia."
+          );
+
+        const missingUsdcBase =
+          tokenBalance < totalNeeded ? totalNeeded - tokenBalance : 0n;
+
+        if (missingUsdcBase > 0n) {
+          stage = "swap_eth_to_usdc";
+          setProcessingStep("swap_eth_to_usdc");
+
+          async function estimateEthInWeiForUsdc(
+            missingUsdc: bigint
+          ): Promise<bigint> {
+            const probeWei = parseUnits("0.05", 18);
+            const probeRes = await estimateEthToUsdc({
+              amountInWei: probeWei,
+              slippageBps: 100n,
+            });
+            if (!probeRes.ok) throw new Error(String(probeRes.val));
+            if (probeRes.val.amountOutUsdc <= 0n)
+              throw new Error("Failed to quote ETH to USDC.");
+
+            let amountInWei = ceilDiv(
+              probeWei * missingUsdc,
+              probeRes.val.amountOutUsdc
+            );
+            amountInWei = ceilDiv(amountInWei * 102n, 100n); // +2% buffer
+
+            for (let i = 0; i < 4; i += 1) {
+              const res = await estimateEthToUsdc({
+                amountInWei,
+                slippageBps: 100n,
+              });
+              if (!res.ok) throw new Error(String(res.val));
+              if (res.val.amountOutMinUsdc >= missingUsdc) return amountInWei;
+              amountInWei = ceilDiv(amountInWei * 105n, 100n);
+            }
+
+            return amountInWei;
+          }
+
+          const amountInWei = await estimateEthInWeiForUsdc(missingUsdcBase);
+
+          trackEvent("marketplace_deposit_eth_swap_submit", {
+            application_id: application.id,
+            fraction_id: activeFraction.id,
+            steps_to_buy: stepsToBuy,
+            missing_usdc_base_units: missingUsdcBase.toString(),
+            amount_in_wei: amountInWei.toString(),
+          });
+
+          const swapRes = await swapEthToUsdc({
+            amountInWei,
+            slippageBps: 100n,
+          });
+          if (!swapRes.ok) throw new Error(String(swapRes.val));
+
+          trackEvent("marketplace_deposit_eth_swap_confirmed", {
+            application_id: application.id,
+            fraction_id: activeFraction.id,
+            steps_to_buy: stepsToBuy,
+            tx_hash: swapRes.val.txHash,
+            usdc_received_base_units: swapRes.val.usdcReceived.toString(),
+          });
+
+          try {
+            await refetchUsdcBalance();
+          } catch {}
+
+          // Re-check USDC after swap
+          tokenBalance = await fractions.checkTokenBalance(
+            userAddress,
+            tokenAddress
+          );
+        }
+      }
 
       if (tokenBalance < totalNeeded) {
         throw new Error(
@@ -454,6 +714,7 @@ export function DepositDialog({
       }
 
       stage = "buy_fractions";
+      setProcessingStep("buy_fractions");
       const txHash = await fractions.buyFractions({
         creator: activeFraction.owner,
         id: activeFraction.id,
@@ -467,9 +728,11 @@ export function DepositDialog({
       setTxHash(txHash);
       setIsSubmitting(false);
       setIsProcessing(true);
+      setProcessingStep("confirm_splits");
       trackEvent("marketplace_deposit_tx_submitted", {
         tx_hash: txHash,
         currency,
+        pay_token: isUSDC ? minersPayToken : undefined,
         application_id: application.id,
         fraction_id: activeFraction.id,
         steps_to_buy: stepsToBuy,
@@ -517,10 +780,12 @@ export function DepositDialog({
 
       // Only set success after confirmation
       setIsProcessing(false);
+      setProcessingStep(null);
       setIsSuccess(true);
       trackEvent("marketplace_deposit_confirmed", {
         tx_hash: txHash,
         currency,
+        pay_token: isUSDC ? minersPayToken : undefined,
         application_id: application.id,
         fraction_id: activeFraction.id,
         steps_to_buy: stepsToBuy,
@@ -528,6 +793,7 @@ export function DepositDialog({
 
       // Refresh balances
       stage = "refresh_balances";
+      setProcessingStep("refresh_balances");
       if (isUSDC) {
         await refetchUsdcBalance();
       } else {
@@ -536,6 +802,7 @@ export function DepositDialog({
 
       // Trigger the mutation to invalidate queries
       stage = "sponsor_mutation";
+      setProcessingStep("sponsor_mutation");
       await sponsorMutation.mutateAsync({
         applicationId: application.id,
         amount: totalNeeded,
@@ -546,6 +813,7 @@ export function DepositDialog({
     } catch (error: any) {
       setIsSubmitting(false);
       setIsProcessing(false);
+      setProcessingStep(null);
       setIsError(true);
 
       let message =
@@ -584,11 +852,9 @@ export function DepositDialog({
       console.error("handleStepPurchase error", error);
       toast.error(message);
       trackEvent("marketplace_deposit_error", {
-        stage:
-          typeof stage === "string"
-            ? stage
-            : "unknown",
+        stage: typeof stage === "string" ? stage : "unknown",
         currency,
+        pay_token: currency === "USDC" ? minersPayToken : undefined,
         application_id: application?.id ?? null,
         fraction_id: application?.activeFraction?.id ?? null,
         steps_to_buy: stepsToBuy,
@@ -601,6 +867,7 @@ export function DepositDialog({
   async function handleConfirm() {
     trackEvent("marketplace_deposit_confirm_click", {
       currency,
+      pay_token: currency === "USDC" ? minersPayToken : undefined,
       application_id: application?.id ?? null,
       fraction_id: application?.activeFraction?.id ?? null,
       steps_to_buy: stepsToBuy,
@@ -624,6 +891,7 @@ export function DepositDialog({
           setIsSmartAccountWarningOpen(true);
           trackEvent("marketplace_deposit_blocked_smart_account", {
             currency,
+            pay_token: currency === "USDC" ? minersPayToken : undefined,
             application_id: application?.id ?? null,
             fraction_id: application?.activeFraction?.id ?? null,
             steps_to_buy: stepsToBuy,
@@ -744,6 +1012,29 @@ export function DepositDialog({
       }
 
       // USDC (miners)
+      if (minersPayToken === "ETH") {
+        if (!isEthPayEnabled) return false;
+
+        const quote = minersEthPayQuoteQuery.data;
+        if (!quote) return false;
+
+        // If the wallet already has enough USDC, we can proceed without swapping.
+        if (quote.missingUsdcBase <= 0n) {
+          if (isUsdcLoading || usdcBalance == null) return false;
+          const requiredUsdc = parseFloat(
+            formatUnits(totalCost, DECIMALS_BY_TOKEN.USDC)
+          );
+          const currentUsdc = parseFloat(usdcBalance);
+          return currentUsdc >= requiredUsdc;
+        }
+
+        const ethBalanceWei = ethBalanceQuery.data?.value ?? null;
+        if (!ethBalanceWei) return false;
+
+        const totalSpendWei = quote.amountInWei + quote.feeBufferWei;
+        return ethBalanceWei >= totalSpendWei;
+      }
+
       if (isUsdcLoading || usdcBalance == null) return false;
       const requiredUsdc = parseFloat(
         formatUnits(totalCost, DECIMALS_BY_TOKEN.USDC)
@@ -968,6 +1259,120 @@ export function DepositDialog({
               </Button>
             </div>
           </div>
+
+          {currency === "USDC" && (
+            <div className="pt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">You pay</span>
+                <Select
+                  value={minersPayToken}
+                  onValueChange={(v) => setMinersPayToken(v as MinersPayToken)}
+                  disabled={isSubmitting}
+                >
+                  <SelectTrigger className="h-9 w-[120px] rounded-xl border-border bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USDC">USDC</SelectItem>
+                    {isEthPayEnabled && (
+                      <SelectItem value="ETH">ETH</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {!isEthPayEnabled && (
+                <div className="text-xs text-muted-foreground">
+                  ETH payment is only available on Ethereum mainnet or sepolia.
+                </div>
+              )}
+
+              {minersPayToken === "ETH" && isEthPayEnabled && (
+                <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Your ETH balance
+                    </span>
+                    {!isConnected ? (
+                      <span className="text-xs text-muted-foreground">
+                        Connect wallet
+                      </span>
+                    ) : ethBalanceQuery.isLoading ? (
+                      <span className="text-xs text-muted-foreground">
+                        Loading…
+                      </span>
+                    ) : (
+                      <span className="text-xs font-mono text-foreground">
+                        {ethBalanceQuery.data?.value
+                          ? formatEthFromWei(ethBalanceQuery.data.value, 6)
+                          : "0"}{" "}
+                        ETH
+                      </span>
+                    )}
+                  </div>
+
+                  {minersEthPayQuoteQuery.isLoading ? (
+                    <div className="text-xs text-muted-foreground">
+                      Estimating ETH cost…
+                    </div>
+                  ) : minersEthPayQuoteQuery.isError ? (
+                    <div className="text-xs text-amber-500">
+                      Couldn’t estimate ETH cost. Please try again.
+                    </div>
+                  ) : minersEthPayQuoteQuery.data?.missingUsdcBase != null ? (
+                    minersEthPayQuoteQuery.data.missingUsdcBase <= 0n ? (
+                      <div className="text-xs text-muted-foreground">
+                        You already have enough USDC — no ETH swap needed.
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            Est. ETH to swap
+                          </span>
+                          <span className="text-xs font-mono text-foreground">
+                            ≈{" "}
+                            {formatEthFromWei(
+                              minersEthPayQuoteQuery.data.amountInWei,
+                              6
+                            )}{" "}
+                            ETH
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            Est. USDC received
+                          </span>
+                          <span className="text-xs font-mono text-foreground">
+                            ≈{" "}
+                            {formatNumber(
+                              parseFloat(
+                                formatUnits(
+                                  minersEthPayQuoteQuery.data.amountOutUsdc,
+                                  DECIMALS_BY_TOKEN.USDC
+                                )
+                              ),
+                              2
+                            )}{" "}
+                            USDC
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Swaps ETH → USDC on Uniswap V2, then buys miners with
+                          USDC.
+                        </div>
+                        {!minersEthPayQuoteQuery.data.isGasEstimateExact && (
+                          <div className="text-[11px] text-muted-foreground">
+                            Network fee is estimated with a buffer.
+                          </div>
+                        )}
+                      </>
+                    )
+                  ) : null}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-2">
@@ -1169,11 +1574,6 @@ export function DepositDialog({
                       Loading price… we’ll show an estimate once it’s ready.
                     </div>
                   )}
-                  {hasEstimate && (
-                    <div className="mt-1 text-[11px] text-muted-foreground">
-                      Includes a $1 buffer to avoid being short on GLW.
-                    </div>
-                  )}
 
                   <div className="mt-2 flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
@@ -1197,39 +1597,33 @@ export function DepositDialog({
                     )}
                   </div>
 
-                  {hasEnoughUsdc === false && (
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      To buy more GLW, you must first add/purchase USDC to this
-                      wallet. Once you have USDC, you can buy GLW and then
-                      delegate.
-                    </div>
-                  )}
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Next step supports paying with ETH, USDC, or USDG.
+                  </div>
                 </div>
 
-                {hasEnoughUsdc === true && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      trackEvent("marketplace_deposit_buy_glw_click", {
-                        currency,
-                        application_id: application?.id ?? null,
-                        fraction_id: application?.activeFraction?.id ?? null,
-                        steps_to_buy: stepsToBuy,
-                        estimated_usdc_needed:
-                          estimatedUsdcNeededRounded?.toString() ?? null,
-                      });
-                      setIsBuyGlowDialogOpen(true);
-                      trackEvent("marketplace_deposit_buy_glw_dialog_open", {
-                        application_id: application?.id ?? null,
-                        fraction_id: application?.activeFraction?.id ?? null,
-                      });
-                    }}
-                  >
-                    Buy GLW
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => {
+                    trackEvent("marketplace_deposit_buy_glw_click", {
+                      currency,
+                      application_id: application?.id ?? null,
+                      fraction_id: application?.activeFraction?.id ?? null,
+                      steps_to_buy: stepsToBuy,
+                      estimated_usdc_needed:
+                        estimatedUsdcNeededRounded?.toString() ?? null,
+                    });
+                    setIsBuyGlowDialogOpen(true);
+                    trackEvent("marketplace_deposit_buy_glw_dialog_open", {
+                      application_id: application?.id ?? null,
+                      fraction_id: application?.activeFraction?.id ?? null,
+                    });
+                  }}
+                >
+                  Buy GLW
+                </Button>
               </div>
             );
           }
@@ -1372,7 +1766,9 @@ export function DepositDialog({
             >
               {application.activeFraction
                 ? currency === "USDC"
-                  ? "Buy Miners"
+                  ? minersPayToken === "ETH"
+                    ? "Buy Miners (ETH)"
+                    : "Buy Miners"
                   : "Delegate GLW"
                 : "Confirm Sponsorship"}
             </Button>
@@ -1395,6 +1791,7 @@ export function DepositDialog({
         onOpenChange={setIsSmartAccountWarningOpen}
       />
       <BuyGlowDialog
+        key={isBuyGlowDialogOpen ? "buy-glow-open" : "buy-glow-closed"}
         open={isBuyGlowDialogOpen}
         onOpenChange={setIsBuyGlowDialogOpen}
         usdcBalance={usdcBalanceBigInt}
@@ -1413,7 +1810,9 @@ export function DepositDialog({
         title={
           application.activeFraction
             ? currency === "USDC"
-              ? "Buy Miners"
+              ? minersPayToken === "ETH"
+                ? "Buy Miners (ETH)"
+                : "Buy Miners"
               : "Delegate GLW"
             : "Confirm Sponsorship"
         }
@@ -1432,27 +1831,39 @@ export function DepositDialog({
             : "Sponsorship Failed"
         }
         processingTitle={
-          isProcessing
-            ? "Confirming Transaction"
-            : application.activeFraction
+          application.activeFraction
             ? currency === "USDC"
-              ? "Processing Miners Purchase"
+              ? minersPayToken === "ETH" &&
+                processingStep === "swap_eth_to_usdc"
+                ? "Swapping ETH → USDC"
+                : isProcessing && processingStep === "confirm_splits"
+                ? "Confirming Purchase"
+                : "Processing Miners Purchase"
+              : isProcessing && processingStep === "confirm_splits"
+              ? "Confirming Delegation"
               : "Processing Delegation"
             : "Processing Sponsorship"
         }
         description={
           application.activeFraction
             ? currency === "USDC"
-              ? "Review your purchase details"
+              ? minersPayToken === "ETH"
+                ? "Review your purchase details (ETH → USDC)"
+                : "Review your purchase details"
               : "Review your delegation details"
             : "Review your sponsorship details"
         }
         processingDescription={
-          isProcessing
-            ? "Confirming transaction and updating records..."
-            : application.activeFraction
+          application.activeFraction
             ? currency === "USDC"
-              ? "Please wait while we process your purchase"
+              ? minersPayToken === "ETH" &&
+                processingStep === "swap_eth_to_usdc"
+                ? "Swapping ETH for USDC on Uniswap…"
+                : isProcessing && processingStep === "confirm_splits"
+                ? "Confirming purchase and updating records…"
+                : "Please wait while we process your purchase"
+              : isProcessing && processingStep === "confirm_splits"
+              ? "Confirming delegation and updating records…"
               : "Please wait while we process your delegation"
             : "Please wait while we process your sponsorship"
         }

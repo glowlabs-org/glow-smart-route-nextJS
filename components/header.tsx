@@ -125,6 +125,22 @@ export function HeaderHamburgerMenu({
                   <div className="ml-4 space-y-1">
                     <DrawerClose asChild>
                       <Link
+                        href="/glow-swap"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        SWAP
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
                         href="/stats/rewards"
                         onClick={() => {
                           setTimeout(() => {
@@ -503,6 +519,9 @@ export function Header({
                       <ListItem href="/" title="Home">
                         Back to the dashboard
                       </ListItem>
+                      <ListItem href="/glow-swap" title="SWAP">
+                        Trade GLOW, USDG, and USDC
+                      </ListItem>
                       <ListItem href="/stats/rewards" title="Glow Leaderboard">
                         View top wallets and rewards leaderboard
                       </ListItem>
@@ -715,6 +734,22 @@ export function Header({
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
                                 Home
+                              </Link>
+                            </DrawerClose>
+                            <DrawerClose asChild>
+                              <Link
+                                href="/glow-swap"
+                                onClick={() => {
+                                  setTimeout(() => {
+                                    window.scrollTo({
+                                      top: 0,
+                                      behavior: "smooth",
+                                    });
+                                  }, 100);
+                                }}
+                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                              >
+                                SWAP
                               </Link>
                             </DrawerClose>
                             <DrawerClose asChild>

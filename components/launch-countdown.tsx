@@ -2,7 +2,10 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { CountdownGrid, useCountdownTo } from "@/app/components/animated-countdown";
+import {
+  CountdownGrid,
+  useCountdownTo,
+} from "@/app/components/animated-countdown";
 
 interface LaunchCountdownProps {
   target: Date;
@@ -18,7 +21,10 @@ export function LaunchCountdown({
   onComplete,
 }: LaunchCountdownProps) {
   const targetTimestamp = React.useMemo(() => target.getTime(), [target]);
-  const remainingMs = useCountdownTo({ targetAtMs: targetTimestamp, onComplete });
+  const remainingMs = useCountdownTo({
+    targetAtMs: targetTimestamp,
+    onComplete,
+  });
 
   return (
     <div className="w-full flex items-center justify-center py-16 md:py-24">

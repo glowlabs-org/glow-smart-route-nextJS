@@ -51,8 +51,9 @@ export function useSwapETHToUSDC() {
   const chainId = useChainId();
   const { data: walletClient } = useWalletClient();
 
-  const ensureMainnet = useCallback((): Result<true, string> => {
-    if (chainId !== 1) return new Err("ETH pay is only supported on mainnet.");
+  const ensureEthPayChain = useCallback((): Result<true, string> => {
+    if (chainId !== 1 && chainId !== 11155111)
+      return new Err("ETH pay is only supported on mainnet or sepolia.");
     return new Ok(true);
   }, [chainId]);
 
@@ -64,8 +65,8 @@ export function useSwapETHToUSDC() {
       amountInWei: bigint;
       slippageBps?: bigint;
     }): Promise<Result<EthToUsdcQuote, string>> => {
-      const mainnetOk = ensureMainnet();
-      if (!mainnetOk.ok) return new Err(mainnetOk.val);
+      const chainOk = ensureEthPayChain();
+      if (!chainOk.ok) return new Err(chainOk.val);
 
       if (amountInWei <= BigInt(0)) return new Err("Amount must be greater than 0.");
 
@@ -102,7 +103,7 @@ export function useSwapETHToUSDC() {
         return new Err(e?.message || "Failed to quote ETH to USDC.");
       }
     },
-    [ensureMainnet]
+    [ensureEthPayChain]
   );
 
   const swapEthToUsdc = useCallback(
@@ -113,8 +114,8 @@ export function useSwapETHToUSDC() {
       amountInWei: bigint;
       slippageBps?: bigint;
     }): Promise<Result<SwapEthToUsdcSuccess, string>> => {
-      const mainnetOk = ensureMainnet();
-      if (!mainnetOk.ok) return new Err(mainnetOk.val);
+      const chainOk = ensureEthPayChain();
+      if (!chainOk.ok) return new Err(chainOk.val);
 
       if (!walletClient?.account?.address) return new Err("Wallet not connected.");
 
@@ -162,7 +163,7 @@ export function useSwapETHToUSDC() {
         return new Err(e?.message || "Failed to swap ETH to USDC.");
       }
     },
-    [ensureMainnet, estimateEthToUsdc, walletClient]
+    [ensureEthPayChain, estimateEthToUsdc, walletClient]
   );
 
   const estimateGasForSwapEthToUsdc = useCallback(
@@ -173,8 +174,8 @@ export function useSwapETHToUSDC() {
       amountInWei: bigint;
       slippageBps?: bigint;
     }): Promise<Result<EstimateEthToUsdcGasResult, string>> => {
-      const mainnetOk = ensureMainnet();
-      if (!mainnetOk.ok) return new Err(mainnetOk.val);
+      const chainOk = ensureEthPayChain();
+      if (!chainOk.ok) return new Err(chainOk.val);
       if (!walletClient?.account?.address) return new Err("Wallet not connected.");
       if (amountInWei <= BigInt(0)) return new Err("Amount must be greater than 0.");
 
@@ -203,7 +204,7 @@ export function useSwapETHToUSDC() {
         return new Err(e?.message || "Failed to estimate gas for ETH to USDC.");
       }
     },
-    [ensureMainnet, estimateEthToUsdc, walletClient]
+    [ensureEthPayChain, estimateEthToUsdc, walletClient]
   );
 
   return { estimateEthToUsdc, estimateGasForSwapEthToUsdc, swapEthToUsdc } as const;

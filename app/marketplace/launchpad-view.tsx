@@ -49,19 +49,10 @@ import {
   type SortOrder,
   type AuctionApplication,
 } from "@/hooks";
-import {
-  useRewardScore,
-  getRewardScoreForApplication,
-} from "@/hooks";
+import { useRewardScore, getRewardScoreForApplication } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
-import {
-  useMiningCenter,
-  type MiningCenterFilters,
-} from "@/hooks";
-import {
-  useMiningScore,
-  getMiningScoreForApplication,
-} from "@/hooks";
+import { useMiningCenter, type MiningCenterFilters } from "@/hooks";
+import { useMiningScore, getMiningScoreForApplication } from "@/hooks";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowSymbol } from "@/components/glow-symbol";
@@ -265,7 +256,8 @@ interface LaunchpadViewProps {
         }
       | null
   ) => void;
-  variant?: "page" | "dialog";
+  variant?: "page" | "dialog" | "widget";
+  typeFilter?: "all" | "delegations" | "miners";
 }
 
 function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
@@ -867,7 +859,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                           className={cn(
                             "ml-auto text-xl font-semibold border",
                             application._type === "miners"
-                              ? "border-yellow-500/30 bg-yellow-500/10 text-foreground"
+                              ? "border-[color:var(--color-miner-yellow)]/30 bg-[color:var(--color-miner-yellow)]/10 text-miner-yellow"
                               : "border-purple-500/30 bg-purple-500/10 text-foreground"
                           )}
                         >
@@ -1492,9 +1484,21 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
   );
 }
 
-export function LaunchpadView({ onPayDeposit, variant }: LaunchpadViewProps) {
+export function LaunchpadView({
+  onPayDeposit,
+  variant,
+  typeFilter,
+}: LaunchpadViewProps) {
   if (variant === "dialog") {
     return <LaunchpadMarketplaceDialog onPayDeposit={onPayDeposit} />;
+  }
+  if (variant === "widget") {
+    return (
+      <LaunchpadMarketplaceWidget
+        onPayDeposit={onPayDeposit}
+        typeFilter={typeFilter}
+      />
+    );
   }
   return <LaunchpadViewContent onPayDeposit={onPayDeposit} variant={variant} />;
 }
@@ -1533,6 +1537,614 @@ function getFarmEfficiency(application: AuctionApplication) {
   } catch {
     return 0;
   }
+}
+
+function LaunchpadMarketplaceWidget({
+  onPayDeposit,
+  typeFilter,
+}: Pick<LaunchpadViewProps, "onPayDeposit" | "typeFilter">) {
+  const { address } = useAccount();
+  const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
+  const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
+  const [selectedApplicationForStats, setSelectedApplicationForStats] =
+    React.useState<TaggedAuctionApplication | null>(null);
+  const [selectedScoreDataForStats, setSelectedScoreDataForStats] =
+    React.useState<
+      | { userWeeklyGlwRewards: string; userWeeklyPdRewards: string }
+      | {
+          miningScore: number;
+          weeklyGlwRewards?: string;
+          weeklyGlwRewardsUsd?: string;
+        }
+      | null
+    >(null);
+
+  const {
+    applications: launchpadApplications,
+    isLoading: isLoadingLaunchpad,
+    isError: isErrorLaunchpad,
+    error: errorLaunchpad,
+  } = useGlowLaunchpad({
+    filters: { paymentCurrency: "GLW" },
+  });
+
+  const {
+    applications: minersApplications,
+    isLoading: isLoadingMiners,
+    isError: isErrorMiners,
+    error: errorMiners,
+  } = useMiningCenter({
+    filters: { paymentCurrency: "USDC" },
+  });
+
+  const taggedDelegations = React.useMemo<TaggedAuctionApplication[]>(
+    () =>
+      launchpadApplications.map((app) => ({
+        ...app,
+        _type: "delegations" as const,
+      })),
+    [launchpadApplications]
+  );
+
+  const taggedMiners = React.useMemo<TaggedAuctionApplication[]>(
+    () =>
+      minersApplications.map((app) => ({ ...app, _type: "miners" as const })),
+    [minersApplications]
+  );
+
+  const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
+    applications: taggedDelegations,
+    paymentCurrency: "GLW",
+    enabled: taggedDelegations.length > 0,
+    walletAddress: address || null,
+  });
+
+  const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
+    applications: taggedMiners,
+    enabled: taggedMiners.length > 0,
+  });
+
+  const rows = React.useMemo(() => {
+    const filter = typeFilter ?? "all";
+    const listAll =
+      filter === "delegations"
+        ? taggedDelegations
+        : filter === "miners"
+        ? taggedMiners
+        : [...taggedDelegations, ...taggedMiners];
+    const withMetrics = listAll.map((application) => {
+      const availability = getActiveFractionAvailability(application);
+      const efficiency = getFarmEfficiency(application);
+
+      const reward = getRewardScoreForApplication(
+        rewardScoreMap,
+        application.id
+      );
+      const mining = getMiningScoreForApplication(
+        miningScoreMap,
+        application.id
+      );
+
+      const score =
+        application._type === "delegations"
+          ? reward?.rewardScore ?? 0
+          : mining?.miningScore ?? 0;
+
+      const scoreData =
+        application._type === "delegations"
+          ? reward
+            ? {
+                userWeeklyGlwRewards: reward.userWeeklyGlwRewards,
+                userWeeklyPdRewards: reward.userWeeklyPdRewards,
+              }
+            : null
+          : mining
+          ? {
+              miningScore: mining.miningScore,
+              weeklyGlwRewards: mining.weeklyGlwRewards,
+              weeklyGlwRewardsUsd: mining.weeklyGlwRewardsUsd,
+            }
+          : null;
+
+      const cost = (() => {
+        try {
+          if (!application.activeFraction) return 0;
+          if (application._type === "miners") {
+            return parseFloat(
+              formatUnits(
+                BigInt(application.activeFraction.stepPrice || "0"),
+                DECIMALS_BY_TOKEN.USDC
+              )
+            );
+          }
+          return parseFloat(
+            formatUnits(
+              BigInt(application.activeFraction.step || "0"),
+              DECIMALS_BY_TOKEN.GLW
+            )
+          );
+        } catch {
+          return 0;
+        }
+      })();
+
+      const weeklyYield = (() => {
+        try {
+          if (application._type === "miners") {
+            if (!mining?.weeklyGlwRewards) return 0;
+            return parseFloat(
+              formatUnits(
+                BigInt(mining.weeklyGlwRewards),
+                DECIMALS_BY_TOKEN.GLW
+              )
+            );
+          }
+          const totalShares = application.activeFraction?.totalSteps || 0;
+          if (!reward || !totalShares) return 0;
+          const glwRewards = parseFloat(
+            formatUnits(
+              BigInt(reward.userWeeklyGlwRewards || "0"),
+              DECIMALS_BY_TOKEN.GLW
+            )
+          );
+          const pdRewards = parseFloat(
+            formatUnits(
+              BigInt(reward.userWeeklyPdRewards || "0"),
+              DECIMALS_BY_TOKEN.GLW
+            )
+          );
+          return (glwRewards + pdRewards) / totalShares;
+        } catch {
+          return 0;
+        }
+      })();
+
+      const yieldUsdPerWeek = glwSpotPrice > 0 ? weeklyYield * glwSpotPrice : 0;
+      const yieldPer1000Usd =
+        application._type === "miners" && cost > 0 && yieldUsdPerWeek > 0
+          ? (yieldUsdPerWeek / cost) * 1000
+          : 0;
+
+      return {
+        application,
+        availability,
+        efficiency,
+        score,
+        scoreData,
+        cost,
+        weeklyYield,
+        yieldUsdPerWeek,
+        yieldPer1000Usd,
+        rewardScore: application._type === "delegations" ? reward : null,
+        miningScore: application._type === "miners" ? mining : null,
+      };
+    });
+
+    const delegations = withMetrics
+      .filter((r) => r.application._type === "delegations")
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    const miners = withMetrics
+      .filter((r) => r.application._type === "miners")
+      .sort((a, b) => (b.yieldPer1000Usd ?? 0) - (a.yieldPer1000Usd ?? 0));
+
+    if ((typeFilter ?? "all") === "delegations") return delegations;
+    if ((typeFilter ?? "all") === "miners") return miners;
+
+    const merged: Array<(typeof withMetrics)[number]> = [];
+    let i = 0;
+    let j = 0;
+    const denomD = Math.max(1, delegations.length - 1);
+    const denomM = Math.max(1, miners.length - 1);
+    while (i < delegations.length || j < miners.length) {
+      if (i >= delegations.length) {
+        merged.push(miners[j++]);
+        continue;
+      }
+      if (j >= miners.length) {
+        merged.push(delegations[i++]);
+        continue;
+      }
+      const nd = i / denomD;
+      const nm = j / denomM;
+      if (nd <= nm) merged.push(delegations[i++]);
+      else merged.push(miners[j++]);
+    }
+
+    return merged;
+  }, [
+    glwSpotPrice,
+    miningScoreMap,
+    rewardScoreMap,
+    taggedDelegations,
+    taggedMiners,
+    typeFilter,
+  ]);
+
+  const isLoading = isLoadingLaunchpad || isLoadingMiners;
+  const isError = isErrorLaunchpad || isErrorMiners;
+  const error = (errorLaunchpad || errorMiners) as Error | null;
+
+  return (
+    <div className="w-full">
+      {selectedApplicationForStats?._type === "miners" ? (
+        <MiningStatsDialog
+          open={statsDialogOpen}
+          onOpenChange={setStatsDialogOpen}
+          application={selectedApplicationForStats}
+          miningScoreData={
+            selectedScoreDataForStats as {
+              miningScore: number;
+              weeklyGlwRewards?: string;
+              weeklyGlwRewardsUsd?: string;
+            } | null
+          }
+        />
+      ) : (
+        <LaunchpadStatsDialog
+          open={statsDialogOpen}
+          onOpenChange={setStatsDialogOpen}
+          application={selectedApplicationForStats}
+          rewardScore={
+            selectedScoreDataForStats as {
+              userWeeklyGlwRewards: string;
+              userWeeklyPdRewards: string;
+            } | null
+          }
+        />
+      )}
+      {isLoading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-[168px] w-full rounded-2xl border border-border bg-muted/10"
+            />
+          ))}
+        </div>
+      ) : isError ? (
+        <div className="py-10 text-center">
+          <div className="text-sm text-destructive">
+            Error loading marketplace: {error?.message}
+          </div>
+        </div>
+      ) : rows.length === 0 ? (
+        <LaunchCountdown
+          target={getNextTuesdayAt1pmET()}
+          title="Launchpad"
+          subtitle="The next batch of farms will be available soon"
+        />
+      ) : (
+        <div className="space-y-3">
+          {rows.map((row) => (
+            <LaunchpadWidgetAssetCard
+              key={row.application.id}
+              row={row}
+              isScoresLoading={
+                row.application._type === "delegations"
+                  ? isRewardScoresLoading
+                  : isMiningScoresLoading
+              }
+              glwSpotPrice={glwSpotPrice}
+              onPayDeposit={onPayDeposit}
+              onOpenStats={(application, scoreData) => {
+                setSelectedApplicationForStats(application);
+                setSelectedScoreDataForStats(scoreData ?? null);
+                setStatsDialogOpen(true);
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LaunchpadWidgetAssetCard({
+  row,
+  isScoresLoading,
+  glwSpotPrice,
+  onPayDeposit,
+  onOpenStats,
+}: {
+  row: {
+    application: TaggedAuctionApplication;
+    availability: ReturnType<typeof getActiveFractionAvailability>;
+    score: number;
+    scoreData:
+      | { userWeeklyGlwRewards: string; userWeeklyPdRewards: string }
+      | {
+          miningScore: number;
+          weeklyGlwRewards?: string;
+          weeklyGlwRewardsUsd?: string;
+        }
+      | null;
+    cost: number;
+    weeklyYield: number;
+    rewardScore: { rewardScore: number } | null;
+    miningScore: { miningScore: number } | null;
+    yieldUsdPerWeek: number;
+    yieldPer1000Usd: number;
+  };
+  isScoresLoading: boolean;
+  glwSpotPrice: number;
+  onPayDeposit: LaunchpadViewProps["onPayDeposit"];
+  onOpenStats: (
+    application: TaggedAuctionApplication,
+    scoreData:
+      | { userWeeklyGlwRewards: string; userWeeklyPdRewards: string }
+      | {
+          miningScore: number;
+          weeklyGlwRewards?: string;
+          weeklyGlwRewardsUsd?: string;
+        }
+      | null
+  ) => void;
+}) {
+  const { application, availability, scoreData, cost, weeklyYield } = row;
+  const isDelegation = application._type === "delegations";
+  const isSoldOut = availability.isSoldOut;
+  const remainingPct = React.useMemo(() => {
+    const total = availability.total || 0;
+    const remaining = availability.remaining || 0;
+    if (isSoldOut || total <= 0) return 0;
+    return Math.max(0, Math.min(100, (remaining / total) * 100));
+  }, [availability.remaining, availability.total, isSoldOut]);
+
+  const title = application.farmName || "Unnamed Farm";
+  const imageSrc = getDialogCardImageSrc(application);
+
+  const costLabel = isDelegation ? "Delegation Amount" : "Price / Miner";
+  const costMain = isDelegation
+    ? `${Math.round(cost).toLocaleString()} GLW`
+    : `$${cost.toLocaleString(undefined, { maximumFractionDigits: 0 })} USDC`;
+  const costSub = isDelegation
+    ? glwSpotPrice > 0
+      ? `≈ $${Math.round(cost * glwSpotPrice).toLocaleString()} USD`
+      : "—"
+    : "Stable price";
+
+  const rewardsMain =
+    isScoresLoading && weeklyYield === 0
+      ? "…"
+      : `+${weeklyYield.toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} GLW/wk`;
+
+  const delegationRewardsBreakdown = React.useMemo(() => {
+    if (!isDelegation) return null;
+    if (!application.activeFraction?.totalSteps) return null;
+    if (!scoreData) return null;
+    if (!("userWeeklyGlwRewards" in scoreData)) return null;
+    if (!("userWeeklyPdRewards" in scoreData)) return null;
+
+    try {
+      const totalShares = application.activeFraction.totalSteps;
+      const glwRewards = parseFloat(
+        formatUnits(
+          BigInt(scoreData.userWeeklyGlwRewards || "0"),
+          DECIMALS_BY_TOKEN.GLW
+        )
+      );
+      const pdRewards = parseFloat(
+        formatUnits(
+          BigInt(scoreData.userWeeklyPdRewards || "0"),
+          DECIMALS_BY_TOKEN.GLW
+        )
+      );
+
+      const inflationPerShare = totalShares > 0 ? glwRewards / totalShares : 0;
+      const pdPerShare = totalShares > 0 ? pdRewards / totalShares : 0;
+
+      return {
+        inflationPerShare,
+        pdPerShare,
+      };
+    } catch {
+      return null;
+    }
+  }, [application.activeFraction?.totalSteps, isDelegation, scoreData]);
+
+  const delegationScoreLabel = React.useMemo(() => {
+    if (!isDelegation) return null;
+    if (isScoresLoading) return "…";
+    return row.rewardScore?.rewardScore
+      ? Math.round(row.rewardScore.rewardScore).toLocaleString()
+      : "0";
+  }, [isDelegation, isScoresLoading, row.rewardScore?.rewardScore]);
+
+  const rewardsSub = isDelegation
+    ? null
+    : glwSpotPrice > 0
+    ? `≈ $${Math.round(weeklyYield * glwSpotPrice).toLocaleString()} USD/wk`
+    : "—";
+
+  const accent = isDelegation
+    ? {
+        badge: "border-purple-500/30 bg-purple-500/10 text-purple-500 p-2",
+        progress: "bg-purple-500/70",
+      }
+    : {
+        badge:
+          "border-[color:var(--color-miner-yellow)]/30 bg-[color:var(--color-miner-yellow)]/10 text-miner-yellow",
+        progress: "bg-[color:var(--color-miner-yellow)]/70",
+      };
+
+  return (
+    <div className="w-full overflow-hidden rounded-2xl border border-border bg-muted/10 p-4">
+      <div className="flex min-w-0 items-start gap-3">
+        <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-xl border border-border/60 bg-muted/20">
+          <FallbackImage
+            src={imageSrc}
+            widthForProxy={280}
+            quality={70}
+            alt={title}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="truncate text-lg font-semibold text-foreground">
+              {title}
+            </div>
+            <Badge
+              variant="secondary"
+              className={cn(
+                "shrink-0 border px-2 py-0.5 text-xs leading-none",
+                accent.badge
+              )}
+            >
+              {isDelegation ? "Delegation" : "Miner"}
+            </Badge>
+          </div>
+          <div className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-border/60 bg-background/40 px-2 py-1 text-xs text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5" />
+            <span className="truncate">{application.zone.name}</span>
+          </div>
+
+          <div className="mt-3 flex min-w-0 items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="relative h-10 w-full overflow-hidden rounded-full bg-muted/40">
+                <div
+                  className={cn(
+                    "absolute inset-y-0 left-0 rounded-full",
+                    accent.progress
+                  )}
+                  style={{ width: `${remainingPct}%` }}
+                />
+                <div className="absolute inset-0 flex items-center justify-start px-3">
+                  <span className="text-xs font-mono font-medium tabular-nums text-foreground/80">
+                    {isSoldOut
+                      ? "SOLD OUT"
+                      : `${availability.remaining} / ${availability.total} Left`}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <Button
+              className="h-10 shrink-0 rounded-full px-4 text-sm whitespace-nowrap"
+              disabled={isSoldOut}
+              onClick={() => {
+                if (isSoldOut) return;
+                onPayDeposit(application, scoreData);
+              }}
+            >
+              {isSoldOut
+                ? "Waitlist"
+                : isDelegation
+                ? "Delegate GLW"
+                : "Buy Miners"}
+            </Button>
+            <Button
+              variant="outline"
+              className="h-10 shrink-0 rounded-full px-3 text-sm whitespace-nowrap"
+              onClick={() => onOpenStats(application, scoreData)}
+            >
+              Advanced Stats
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 min-w-0">
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="rounded-xl border border-border bg-background/30 p-3">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              {costLabel}
+            </div>
+            <div className="mt-2 text-sm font-semibold text-foreground">
+              {costMain}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">{costSub}</div>
+          </div>
+          <div className="rounded-xl border border-border bg-background/30 p-3">
+            {isDelegation ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="inline-flex cursor-help items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                    Est. Rewards
+                    <Info className="h-3.5 w-3.5 opacity-70" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  align="start"
+                  sideOffset={8}
+                  className="max-w-[280px] p-3"
+                >
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold text-primary-foreground">
+                      Estimated rewards
+                    </div>
+                    <div className="text-[11px] leading-snug text-primary-foreground/80">
+                      Weekly estimate per delegation. Can decrease as regions
+                      fill. See Advanced Stats for details.
+                    </div>
+                    <div className="h-px bg-primary-foreground/15" />
+                    {delegationRewardsBreakdown ? (
+                      <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-[11px]">
+                        <div className="text-primary-foreground/80">
+                          GLW from PDs
+                        </div>
+                        <div className="font-mono tabular-nums text-primary-foreground">
+                          {delegationRewardsBreakdown.pdPerShare.toLocaleString(
+                            undefined,
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }
+                          )}
+                        </div>
+                        <div className="text-primary-foreground/80">
+                          GLW from Inflation
+                        </div>
+                        <div className="font-mono tabular-nums text-primary-foreground">
+                          {delegationRewardsBreakdown.inflationPerShare.toLocaleString(
+                            undefined,
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-primary-foreground/70">
+                        Calculating breakdown…
+                      </div>
+                    )}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Yield
+              </div>
+            )}
+            <div className="mt-2 text-sm font-semibold text-foreground">
+              {rewardsMain}
+            </div>
+            {isDelegation ? (
+              <div className="mt-1 text-xs">
+                <span className="text-muted-foreground">Score:</span>{" "}
+                <span className="font-semibold tabular-nums text-foreground">
+                  {delegationScoreLabel}
+                </span>
+              </div>
+            ) : (
+              <div className="mt-1 text-xs text-muted-foreground">
+                {rewardsSub}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function LaunchpadMarketplaceDialog({
@@ -2105,7 +2717,7 @@ function LaunchpadMarketplaceDialogContent({
               className={cn(
                 "h-10 rounded-xl border px-3 text-sm font-semibold transition-colors",
                 tab === "miners"
-                  ? "border-yellow-500/40 bg-yellow-500/10 text-foreground"
+                  ? "border-[color:var(--color-miner-yellow)]/40 bg-[color:var(--color-miner-yellow)]/10 text-miner-yellow"
                   : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/30"
               )}
             >
@@ -2165,16 +2777,6 @@ function LaunchpadMarketplaceDialogContent({
               </SelectContent>
             </Select>
           </div>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
-          <span className="font-mono uppercase tracking-wider text-muted-foreground/80">
-            Global Stats:
-          </span>{" "}
-          <span className="ml-2">
-            {globalStats.activeFarms} Active Farms • {globalStats.remaining}/
-            {globalStats.total} Fractions Available
-          </span>
         </div>
       </div>
 
@@ -2280,11 +2882,11 @@ function LaunchpadAssetCard({
           "border-purple-500/30 text-foreground hover:bg-purple-500/10 hover:border-purple-500/50",
       }
     : {
-        badge: "text-foreground border-yellow-500/30",
+        badge: "text-miner-yellow border-[color:var(--color-miner-yellow)]/30",
         reward: "text-foreground",
-        progress: "bg-yellow-500/70",
+        progress: "bg-[color:var(--color-miner-yellow)]/70",
         button:
-          "border-yellow-500/30 text-foreground hover:bg-yellow-500/10 hover:border-yellow-500/50",
+          "border-[color:var(--color-miner-yellow)]/30 text-foreground hover:bg-[color:var(--color-miner-yellow)]/10 hover:border-[color:var(--color-miner-yellow)]/50",
       };
 
   const title = application.farmName || "Unnamed Farm";

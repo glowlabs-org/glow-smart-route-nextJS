@@ -241,7 +241,7 @@ export function BuyGlowDialog({
     return formatUnits(usdgBalance, DECIMALS_BY_TOKEN.USDG);
   }, [usdgBalance]);
 
-  const isEthPayEnabled = chainId === 1;
+  const isEthPayEnabled = chainId === 1 || chainId === 11155111;
   const ethBalanceQuery = useBalance({
     address,
     query: {
@@ -574,7 +574,7 @@ export function BuyGlowDialog({
 
       if (payToken === "ETH") {
         if (!isEthPayEnabled)
-          throw new Error("ETH pay is only supported on mainnet.");
+          throw new Error("ETH pay is only supported on mainnet or sepolia.");
 
         setPendingStatePending("SWAP_ETH_TO_USDC");
         const swapEthRes = await swapEthToUsdc({

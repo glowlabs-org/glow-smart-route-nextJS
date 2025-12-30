@@ -13,6 +13,7 @@ import { Cpu, Zap, LayoutGrid, Sun, Rocket, Layers, Gift } from "lucide-react";
 import Link from "next/link";
 import { useSponsorListings, useRewardsBreakdown } from "@/hooks";
 import { useAccount } from "wagmi";
+import { useQueryClient } from "@tanstack/react-query";
 
 // --- Shadcn UI Components ---
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -224,6 +225,7 @@ interface SolarFarmWidgetProps {
 export default function SolarFarmWidget({
   walletAddress,
 }: SolarFarmWidgetProps) {
+  const queryClient = useQueryClient();
   const { isConnecting, isReconnecting } = useAccount();
   const hasWallet = Boolean(walletAddress);
   const isWalletConnecting = isConnecting || isReconnecting;
@@ -403,7 +405,12 @@ export default function SolarFarmWidget({
 
   const handleBatchCountdownComplete = React.useCallback(() => {
     setNextBatchAtMs(getNextTuesdayAt1pmET().getTime());
-  }, []);
+    void (async () => {
+      try {
+        await queryClient.refetchQueries({ queryKey: ["sponsor-listings"] });
+      } catch {}
+    })();
+  }, [queryClient]);
   const remainingMs = useCountdownTo({
     targetAtMs: nextBatchAtMs,
     onComplete: handleBatchCountdownComplete,

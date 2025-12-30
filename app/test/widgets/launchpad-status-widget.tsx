@@ -1,15 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { ConnectKitButton } from "connectkit";
-import { Rocket, Sparkles, TrendingUp, TrendingDown } from "lucide-react";
-import { useAccount } from "wagmi";
+import { useQueryClient } from "@tanstack/react-query";
+import { Sparkles } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
-import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
   AnimatedCountdownDhms,
@@ -17,6 +15,14 @@ import {
 } from "@/app/components/animated-countdown";
 import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
+import { useGlowLaunchpad, useMiningCenter } from "@/hooks";
+import { DepositDialog } from "@/app/marketplace/deposit-dialog";
+import type {
+  LaunchpadRewardScore,
+  MiningCenterScore,
+} from "@/app/marketplace/deposit-dialog";
+import { LaunchpadView } from "@/app/marketplace/launchpad-view";
+import type { TaggedAuctionApplication } from "@/app/marketplace/launchpad-view";
 
 function formatUsdPrice(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "$—";
@@ -30,6 +36,20 @@ function formatSignedPercent(value: number | null) {
   return `${sign}${value.toFixed(1)}%`;
 }
 
+function countAvailableApplications(
+  applications: Array<{
+    activeFraction: { isFilled: boolean; remainingSteps: number | null } | null;
+  }>
+) {
+  return applications.reduce((count, app) => {
+    const fraction = app.activeFraction;
+    if (!fraction) return count;
+    const remainingSteps = fraction.remainingSteps ?? 0;
+    const hasAvailability = !fraction.isFilled && remainingSteps > 0;
+    return hasAvailability ? count + 1 : count;
+  }, 0);
+}
+
 interface LaunchpadStatusWidgetProps {
   className?: string;
 }
@@ -37,48 +57,98 @@ interface LaunchpadStatusWidgetProps {
 export default function LaunchpadStatusWidget({
   className,
 }: LaunchpadStatusWidgetProps) {
-  const { isConnected } = useAccount();
-  const {
-    isLive,
-    activeFarmsCount,
-    nextBatchAtMs,
-    refreshNextBatchAtMs,
-    isLoading,
-    isError,
-  } = useLaunchpadStatus();
-  const { spotPriceUsd, deltaPercent24h } = useGlowSpotPriceSummary();
+  const queryClient = useQueryClient();
+  const { isLive, nextBatchAtMs, refreshNextBatchAtMs, isLoading, isError } =
+    useLaunchpadStatus();
+  const { spotPriceUsd } = useGlowSpotPriceSummary();
 
-  const [isBuyOpen, setIsBuyOpen] = React.useState(false);
-  const [isLaunchpadOpen, setIsLaunchpadOpen] = React.useState(false);
-  const [shouldOpenLaunchpadOnConnect, setShouldOpenLaunchpadOnConnect] =
-    React.useState(false);
+  const [liveTypeFilter, setLiveTypeFilter] = React.useState<
+    "delegations" | "miners"
+  >("delegations");
+
+  const {
+    applications: delegationApplications,
+    isLoading: isDelegationsLoading,
+  } = useGlowLaunchpad({
+    filters: { paymentCurrency: "GLW" },
+    enabled: isLive,
+  });
+  const { applications: minerApplications, isLoading: isMinersLoading } =
+    useMiningCenter({
+      filters: { paymentCurrency: "USDC" },
+      enabled: isLive,
+    });
+
+  const delegationsAvailableCount = React.useMemo(
+    () => countAvailableApplications(delegationApplications),
+    [delegationApplications]
+  );
+  const minersAvailableCount = React.useMemo(
+    () => countAvailableApplications(minerApplications),
+    [minerApplications]
+  );
+  const hasDelegationsAvailable = delegationsAvailableCount > 0;
+  const hasMinersAvailable = minersAvailableCount > 0;
+  const availableTypesCount =
+    Number(hasDelegationsAvailable) + Number(hasMinersAvailable);
+  const shouldShowTypeTabs = isLive && availableTypesCount > 1;
+  const listTypeFilter = shouldShowTypeTabs
+    ? liveTypeFilter
+    : hasDelegationsAvailable
+    ? "delegations"
+    : hasMinersAvailable
+    ? "miners"
+    : liveTypeFilter;
+
+  const [depositOpen, setDepositOpen] = React.useState(false);
+  const [selectedApplicationForDeposit, setSelectedApplicationForDeposit] =
+    React.useState<TaggedAuctionApplication | null>(null);
+  const [selectedRewardScore, setSelectedRewardScore] = React.useState<
+    LaunchpadRewardScore | MiningCenterScore | null
+  >(null);
+
+  const handleCountdownComplete = React.useCallback(() => {
+    refreshNextBatchAtMs();
+    void (async () => {
+      try {
+        await queryClient.refetchQueries({ queryKey: ["sponsor-listings"] });
+      } catch {}
+    })();
+  }, [queryClient, refreshNextBatchAtMs]);
 
   const remainingMs = useCountdownTo({
     targetAtMs: nextBatchAtMs,
-    onComplete: refreshNextBatchAtMs,
+    onComplete: handleCountdownComplete,
   });
 
   const priceLabel = React.useMemo(
     () => formatUsdPrice(spotPriceUsd),
     [spotPriceUsd]
   );
-  const deltaLabel = React.useMemo(
-    () => formatSignedPercent(deltaPercent24h),
-    [deltaPercent24h]
-  );
-  const isPositive = (deltaPercent24h ?? 0) >= 0;
 
-  React.useEffect(() => {
-    if (!isConnected) return;
-    if (!shouldOpenLaunchpadOnConnect) return;
-    setShouldOpenLaunchpadOnConnect(false);
-    setIsLaunchpadOpen(true);
-  }, [isConnected, shouldOpenLaunchpadOnConnect]);
+  const handlePayDeposit = React.useCallback(
+    (
+      application: TaggedAuctionApplication,
+      scoreData?: LaunchpadRewardScore | MiningCenterScore | null
+    ) => {
+      setSelectedApplicationForDeposit(application);
+      setSelectedRewardScore(scoreData ?? null);
+      setDepositOpen(true);
+    },
+    []
+  );
+
+  const handleDepositOpenChange = React.useCallback((nextOpen: boolean) => {
+    setDepositOpen(nextOpen);
+    if (nextOpen) return;
+    setSelectedApplicationForDeposit(null);
+    setSelectedRewardScore(null);
+  }, []);
 
   return (
     <Card
       className={cn(
-        "flex h-full flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm",
+        "flex h-full flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm gap-2",
         className
       )}
     >
@@ -95,68 +165,89 @@ export default function LaunchpadStatusWidget({
             ) : null}
           </div>
 
-          <div className="shrink-0 inline-flex items-center gap-2 rounded-full border border-border bg-muted/10 px-3 py-1">
-            <span className="text-xs font-mono font-medium text-foreground tabular-nums">
-              GLW {priceLabel}
-            </span>
-          </div>
+          {isLive ? (
+            shouldShowTypeTabs ? (
+              <Tabs
+                value={listTypeFilter}
+                onValueChange={(v) =>
+                  setLiveTypeFilter(v as "delegations" | "miners")
+                }
+                className="shrink-0"
+              >
+                <TabsList className="rounded-full border border-border bg-muted/10 p-1 h-9">
+                  {hasDelegationsAvailable ? (
+                    <TabsTrigger
+                      value="delegations"
+                      className="rounded-full px-3 h-7 text-xs data-[state=active]:bg-[#C084FC]/15 data-[state=active]:text-foreground"
+                    >
+                      Delegations{" "}
+                      <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
+                        {isDelegationsLoading ? "…" : delegationsAvailableCount}
+                      </span>
+                    </TabsTrigger>
+                  ) : null}
+                  {hasMinersAvailable ? (
+                    <TabsTrigger
+                      value="miners"
+                      className="rounded-full px-3 h-7 text-xs data-[state=active]:bg-[color:var(--color-miner-yellow)]/15 data-[state=active]:text-foreground"
+                    >
+                      Miners{" "}
+                      <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
+                        {isMinersLoading ? "…" : minersAvailableCount}
+                      </span>
+                    </TabsTrigger>
+                  ) : null}
+                </TabsList>
+              </Tabs>
+            ) : (
+              <div className="shrink-0 inline-flex items-center gap-2 rounded-full border border-border bg-muted/10 px-3 py-1">
+                <span className="text-xs font-mono font-medium text-foreground tabular-nums">
+                  {hasDelegationsAvailable
+                    ? `Delegations ${
+                        isDelegationsLoading ? "…" : delegationsAvailableCount
+                      }`
+                    : hasMinersAvailable
+                    ? `Miners ${isMinersLoading ? "…" : minersAvailableCount}`
+                    : "No farms"}
+                </span>
+              </div>
+            )
+          ) : (
+            <div className="shrink-0 inline-flex items-center gap-2 rounded-full border border-border bg-muted/10 px-3 py-1">
+              <span className="text-xs font-mono font-medium text-foreground tabular-nums">
+                GLW {priceLabel}
+              </span>
+            </div>
+          )}
         </div>
       </CardHeader>
 
-      <CardContent className="min-h-0 flex-1 flex flex-col px-5 pb-5">
+      <CardContent className="min-h-0 flex-1 flex flex-col p-0">
         {isLoading ? (
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 px-5 pb-5">
             <Skeleton className="h-16 w-3/4 mx-auto rounded-xl" />
             <Skeleton className="h-12 w-full rounded-xl" />
           </div>
         ) : isError ? (
-          <div className="flex flex-1 flex-col items-center justify-center text-center gap-2">
+          <div className="flex flex-1 flex-col items-center justify-center text-center gap-2 px-5 pb-5">
             <div className="text-sm text-muted-foreground">
               Status currently unavailable.
             </div>
           </div>
         ) : isLive ? (
           // --- LIVE STATE ---
-          <div className="flex-1 flex flex-col justify-between">
-            <div className="py-2">
-              <div className="text-3xl sm:text-4xl font-mono font-bold tracking-tighter text-foreground mb-2">
-                {activeFarmsCount}{" "}
-                <span className="text-xl sm:text-2xl font-sans font-normal text-muted-foreground">
-                  Farms
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Solar farms are currently accepting delegations. Connect your
-                wallet to steer rewards.
-              </p>
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="px-5 pb-5">
+              <LaunchpadView
+                variant="widget"
+                typeFilter={listTypeFilter}
+                onPayDeposit={handlePayDeposit}
+              />
             </div>
-
-            <div className="mt-4 space-y-3">
-              <ConnectKitButton.Custom>
-                {({ isConnected: isConnectKitConnected, show }) => (
-                  <Button
-                    type="button"
-                    size="lg"
-                    className="w-full font-semibold shadow-lg shadow-purple-500/10 hover:shadow-purple-500/20 transition-all bg-[#C084FC] hover:bg-[#a668e0] text-white border-0"
-                    onClick={() => {
-                      if (!isConnectKitConnected) {
-                        setShouldOpenLaunchpadOnConnect(true);
-                        show?.();
-                        return;
-                      }
-                      setIsLaunchpadOpen(true);
-                    }}
-                  >
-                    <Rocket className="mr-2 size-4" />
-                    Browse Active Farms
-                  </Button>
-                )}
-              </ConnectKitButton.Custom>
-            </div>
-          </div>
+          </ScrollArea>
         ) : (
           // --- COUNTDOWN STATE ---
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col px-5 pb-5">
             {/* Big Countdown Hero */}
             <div className="flex-1 flex flex-col items-center justify-center py-2">
               <div className="font-mono text-4xl sm:text-5xl font-bold tracking-tighter tabular-nums text-foreground">
@@ -190,19 +281,23 @@ export default function LaunchpadStatusWidget({
           </div>
         )}
 
-        {/* Dialogs */}
-        <LaunchpadDialog
-          open={isLaunchpadOpen}
-          onOpenChange={setIsLaunchpadOpen}
-        />
-        <BuyGlowDialog
-          key={isBuyOpen ? "buy-glow-open" : "buy-glow-closed"}
-          open={isBuyOpen}
-          onOpenChange={setIsBuyOpen}
-          usdcBalance={null}
-          glowSpotPrice={spotPriceUsd || 0}
-          defaultUsdcAmount="20"
-        />
+        {selectedApplicationForDeposit?._type === "miners" ? (
+          <DepositDialog
+            open={depositOpen}
+            onOpenChange={handleDepositOpenChange}
+            application={selectedApplicationForDeposit}
+            selectedCurrency="USDC"
+            rewardScore={selectedRewardScore as MiningCenterScore | null}
+          />
+        ) : (
+          <DepositDialog
+            open={depositOpen}
+            onOpenChange={handleDepositOpenChange}
+            application={selectedApplicationForDeposit}
+            selectedCurrency="GLW"
+            rewardScore={selectedRewardScore as LaunchpadRewardScore | null}
+          />
+        )}
       </CardContent>
     </Card>
   );

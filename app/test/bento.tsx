@@ -37,7 +37,7 @@ export default function GlowSoftDashboard({
   const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
 
   return (
-    <div className="min-h-screen bg-muted dark:bg-background text-foreground p-6 selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
+    <div className="min-h-screen bg-muted dark:bg-background text-foreground p-6 pt-4 selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
       <div className="max-w-screen-2xl mx-auto">
         {hasWallet ? (
           <div className="grid grid-cols-12 gap-4 grid-flow-row-dense [&:has(.solar-farm-next-batch-countdown)_.quick-actions-launchpad-next-batch-countdown]:hidden">
@@ -149,10 +149,10 @@ export default function GlowSoftDashboard({
           </div>
         ) : (
           <div className="grid grid-cols-12 gap-4 grid-flow-row-dense">
-            <div className="col-span-12 lg:col-span-7 min-h-0 lg:h-[340px]">
+            <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[340px]">
               <OnboardingHeroWidget className="h-full" />
             </div>
-            <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[340px]">
+            <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[340px]">
               <LaunchpadStatusWidget className="h-full" />
             </div>
 

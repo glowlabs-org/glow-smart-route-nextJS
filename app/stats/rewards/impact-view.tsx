@@ -584,51 +584,6 @@ function ImpactHero(props: {
               <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-muted/10 p-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-muted-foreground" />
-                    <div className="text-sm font-semibold">
-                      Impact streak bonus
-                    </div>
-                    {isSelfLoading ? (
-                      <Skeleton className="h-5 w-20 rounded-full ml-2" />
-                    ) : (
-                      <span
-                        className={cn(
-                          "ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono",
-                          hasStreakBonus
-                            ? "border-[#C084FC]/35 bg-[#C084FC]/15 text-foreground"
-                            : "border-border bg-muted/20 text-muted-foreground"
-                        )}
-                      >
-                        {hasStreakBonus
-                          ? `+${streakBonusMultiplier.toFixed(2)}×`
-                          : "INACTIVE"}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {isSelfLoading ? (
-                      "—"
-                    ) : (
-                      <>
-                        {Math.min(impactStreakWeeks, 4)}/4 weeks • Total{" "}
-                        {totalMultiplier.toFixed(2)}×
-                      </>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  variant={hasStreakBonus ? "outline" : "default"}
-                  className="h-9 rounded-2xl px-4"
-                  type="button"
-                  onClick={() => setIsLaunchpadOpen(true)}
-                >
-                  Increase
-                </Button>
-              </div>
-
-              <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-muted/10 p-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
                     <Zap className="h-4 w-4 text-muted-foreground" />
                     <div className="text-sm font-semibold">
                       Steering Power (sGCTL)

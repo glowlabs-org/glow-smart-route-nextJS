@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useAccount } from "wagmi";
+import { useQueryClient } from "@tanstack/react-query";
 import { Droplets, Zap, CreditCard, Wind } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -82,6 +83,7 @@ export default function QuickActionsWidget({
   walletAddress,
   onMintAndStakeClick,
 }: QuickActionsWidgetProps) {
+  const queryClient = useQueryClient();
   const { address: connectedAddress } = useAccount();
   const effectiveWalletAddress = walletAddress ?? connectedAddress ?? null;
   const { glwBalance, usdcBalance, usdgBalance } = useWalletTokenBalances(
@@ -117,10 +119,17 @@ export default function QuickActionsWidget({
     () => countActiveListings(minersApplications),
     [minersApplications]
   );
+  const activeLaunchpadFarmsCount =
+    activeDelegationsListingsCount + activeMinersListingsCount;
   const isMinersSoldOut = activeMinersListingsCount === 0;
   const handleMinersCountdownComplete = React.useCallback(() => {
     setMinersNextBatchAtMs(getNextTuesdayAt1pmET().getTime());
-  }, []);
+    void (async () => {
+      try {
+        await queryClient.refetchQueries({ queryKey: ["sponsor-listings"] });
+      } catch {}
+    })();
+  }, [queryClient]);
   const minersRemainingMs = useCountdownTo({
     targetAtMs: minersNextBatchAtMs,
     onComplete: handleMinersCountdownComplete,
@@ -172,10 +181,11 @@ export default function QuickActionsWidget({
                       Live
                     </Badge>
                     <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                      {activeDelegationsListingsCount} farm
-                      {activeDelegationsListingsCount === 1 ? "" : "s"}
+                      {activeLaunchpadFarmsCount} farm
+                      {activeLaunchpadFarmsCount === 1 ? "" : "s"}
                     </span>
                   </div>
+
                   <div className="font-mono text-[10px] uppercase tracking-wider text-[#C084FC]/85">
                     Click to see Launchpad
                   </div>
