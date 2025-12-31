@@ -396,7 +396,7 @@ const AddLiquidityPanel = React.memo(function AddLiquidityPanel({
                 </p>
               </div>
               <Link
-                href="/?tab=swap"
+                href="/glow-swap"
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
               >
                 Go to Swap

@@ -61,10 +61,7 @@ import { FallbackImage } from "@/components/ui/fallback-image";
 import { useGlowLaunchpad, useSplitsActivity } from "@/hooks";
 import { useWalletSwaps } from "@/hooks/useWalletSwaps";
 import type { SwapActivity } from "@/hooks/useRecentActivityFeed";
-import {
-  useRewardScore,
-  getRewardScoreForApplication,
-} from "@/hooks";
+import { useRewardScore, getRewardScoreForApplication } from "@/hooks";
 import { useRewardsBreakdown } from "@/hooks";
 import { Badge } from "@/components/ui/badge";
 import { RewardsBreakdownPanel } from "./rewards-breakdown-panel";
@@ -98,14 +95,14 @@ export const tokens = {
     label: "USDC",
     address: SDKAddresses.USDC as `0x${string}`,
     decimals: 6,
-    allowedPairs: ["GLOW", "USDG", "GCTL"],
+    allowedPairs: ["GLOW", "USDG"],
     toFixed: 6,
   },
   USDG: {
     label: "USDG",
     address: SDKAddresses.USDG,
     decimals: 6,
-    allowedPairs: ["GLOW", "USDC", "GCTL"],
+    allowedPairs: ["GLOW", "USDC"],
     toFixed: 6,
   },
   GLOW: {
@@ -1446,7 +1443,7 @@ export default function View() {
 
         {/* D. Claims Panel */}
 
-        <ClaimsPanel onClaimSuccess={refreshBalances} />
+        <ClaimsPanel variant="card" onClaimSuccess={refreshBalances} />
 
         {/* H. Recent Activity */}
         <RecentActivity

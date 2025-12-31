@@ -4,23 +4,24 @@ import React from "react";
 import { Timer } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAccount } from "wagmi";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { ClaimsPanel } from "@/app/wallet/claims-panel";
 import {
   AnimatedCountdown,
   useCountdownTo,
 } from "@/app/components/animated-countdown";
-import { ClaimsPanel } from "@/app/wallet/claims-panel";
-import { useClaimableRewards } from "@/hooks";
+import { useClaimableRewards, useWalletV2Claims } from "@/hooks";
 import { useRewardsKernelWrapper } from "@/hooks/useRewardsKernelWrapper";
 import { weekToNonce } from "@/hooks/useMerkleProofs";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
-import { useWalletV2Claims } from "@/hooks";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
-import { useAccount } from "wagmi";
+import { cn } from "@/lib/utils";
 
 const STICKY_QUERY_BEHAVIOR = {
   staleTime: 24 * 60 * 60_000,
@@ -30,6 +31,8 @@ const STICKY_QUERY_BEHAVIOR = {
   refetchOnReconnect: false,
 } as const;
 
+const DEFAULT_INITIAL_DURATION_MS = (4 * 60 * 60 + 12 * 60 + 33) * 1000;
+
 function formatUsd(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -38,32 +41,32 @@ function formatUsd(value: number) {
   }).format(value);
 }
 
+function formatUsdWhole(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 function estimateUsdTotal(params: {
   totalsByCurrency: Record<string, number>;
   glwSpotPriceUsd: number;
 }) {
   const { totalsByCurrency, glwSpotPriceUsd } = params;
-  if (!Number.isFinite(glwSpotPriceUsd) || glwSpotPriceUsd <= 0) {
-    // Still allow stablecoins to count toward the estimate
-    // (GLW will be ignored until we have a price).
-  }
-
   let total = 0;
   for (const [currency, amount] of Object.entries(totalsByCurrency)) {
     if (!Number.isFinite(amount) || amount <= 0) continue;
-
     if (currency === "USDC" || currency === "USDG") {
       total += amount;
       continue;
     }
-
     if (currency === "GLW") {
       if (Number.isFinite(glwSpotPriceUsd) && glwSpotPriceUsd > 0) {
         total += amount * glwSpotPriceUsd;
       }
     }
   }
-
   return total;
 }
 
@@ -75,13 +78,58 @@ function safeGetCurrentEpoch() {
   }
 }
 
-interface RewardsWidgetProps {
-  walletAddress?: string | null;
-  initialDurationMs?: number;
-  hideIfEmpty?: boolean;
+function formatTokenAmount(
+  value: number,
+  params?: { maximumFractionDigits?: number }
+) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: params?.maximumFractionDigits ?? 0,
+  }).format(value);
 }
 
-const DEFAULT_INITIAL_DURATION_MS = (4 * 60 * 60 + 12 * 60 + 33) * 1000;
+function getClaimableBreakdown(params: {
+  claimableTotalsByCurrency: Record<string, number> | undefined;
+}) {
+  const { claimableTotalsByCurrency } = params;
+  const totals = claimableTotalsByCurrency ?? {};
+
+  const glw = totals.GLW ?? 0;
+  const usdg = totals.USDG ?? 0;
+  const sgctl = totals.SGCTL ?? 0;
+
+  const entries = [
+    {
+      currency: "GLW",
+      value: glw,
+      label: `${formatTokenAmount(glw, { maximumFractionDigits: 0 })} GLW`,
+      isPrimary: true,
+    },
+    {
+      currency: "USDG",
+      value: usdg,
+      label: formatUsdWhole(usdg),
+      subLabel: "USDG",
+      isPrimary: false,
+    },
+    {
+      currency: "SGCTL",
+      value: sgctl,
+      label: `${formatTokenAmount(sgctl, { maximumFractionDigits: 0 })} SGCTL`,
+      isPrimary: false,
+    },
+  ].filter((entry) => Number.isFinite(entry.value) && entry.value > 0);
+
+  if (entries.length > 0) return entries;
+
+  return [
+    {
+      currency: "GLW",
+      value: 0,
+      label: "0 GLW",
+      isPrimary: true,
+    },
+  ];
+}
 
 function RewardsCountdown(props: { initialDurationMs: number }) {
   const { initialDurationMs } = props;
@@ -99,25 +147,23 @@ function RewardsCountdown(props: { initialDurationMs: number }) {
   });
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-muted/30 p-3">
+    <div className="relative overflow-hidden rounded-xl border border-border/60 bg-muted/20 py-2 px-3">
       <motion.div
         aria-hidden
-        className="pointer-events-none absolute -inset-16 opacity-45"
+        className="pointer-events-none absolute -inset-16 opacity-30 dark:opacity-20"
         animate={{ rotate: 360 }}
-        transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
         style={{
           background:
-            "conic-gradient(from 0deg, transparent, hsl(var(--primary) / 0.25), transparent)",
+            "conic-gradient(from 0deg, transparent, hsl(var(--primary) / 0.15), transparent)",
         }}
       />
-      <div className="relative flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <Timer className="h-4 w-4 text-muted-foreground" />
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            Next distribution in
-          </span>
+      <div className="relative flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80">
+          <Timer className="h-3.5 w-3.5" />
+          <span>Next Claim</span>
         </div>
-        <div className="flex justify-center">
+        <div className="flex justify-end">
           <AnimatedCountdown remainingMs={remainingMs} size="sm" />
         </div>
       </div>
@@ -125,10 +171,16 @@ function RewardsCountdown(props: { initialDurationMs: number }) {
   );
 }
 
+interface RewardsWidgetProps {
+  walletAddress?: string | null;
+  hideIfEmpty?: boolean;
+  initialDurationMs?: number;
+}
+
 export default function RewardsWidget({
   walletAddress,
-  initialDurationMs = DEFAULT_INITIAL_DURATION_MS,
   hideIfEmpty = true,
+  initialDurationMs = DEFAULT_INITIAL_DURATION_MS,
 }: RewardsWidgetProps) {
   const { isConnecting, isReconnecting } = useAccount();
   const hasWallet = Boolean(walletAddress);
@@ -136,6 +188,7 @@ export default function RewardsWidget({
   const address = walletAddress ?? undefined;
   const queryClient = useQueryClient();
   const refreshKey = safeGetCurrentEpoch();
+
   const {
     weeklyBreakdown,
     isLoading: isRewardsLoading,
@@ -144,6 +197,7 @@ export default function RewardsWidget({
     refreshKey,
     query: STICKY_QUERY_BEHAVIOR,
   });
+
   const { checkIfClaimed, checkIfGlwClaimed } = useRewardsKernelWrapper();
   const { spotPrice: glwSpotPriceUsd } = useGlowSpotPrice({
     refreshKey,
@@ -153,6 +207,7 @@ export default function RewardsWidget({
       retry: 0,
     },
   });
+
   const {
     protocolTotals: lifetimeProtocolTotals,
     inflationTotalGlw: lifetimeInflationGlw,
@@ -223,7 +278,6 @@ export default function RewardsWidget({
               totals.GLW = (totals.GLW ?? 0) + amount;
               continue;
             }
-
             if (reward.type === "protocolDeposit" && !protocolClaimed) {
               const amount = Number.parseFloat(reward.amount);
               if (!Number.isFinite(amount) || amount <= 0) continue;
@@ -232,28 +286,16 @@ export default function RewardsWidget({
           }
         })
       );
-
       return totals;
     },
   });
 
-  const claimableUsd = React.useMemo(() => {
-    if (!hasWallet) return null;
-    if (!claimableTotalsByCurrency) return 0;
-    return estimateUsdTotal({
-      totalsByCurrency: claimableTotalsByCurrency,
-      glwSpotPriceUsd,
-    });
-  }, [claimableTotalsByCurrency, glwSpotPriceUsd, hasWallet]);
-
   const lifetimeUsd = React.useMemo(() => {
     if (!hasWallet) return null;
-
     const totals: Record<string, number> = {
       ...lifetimeProtocolTotals,
       GLW: lifetimeInflationGlw,
     };
-
     return estimateUsdTotal({
       totalsByCurrency: totals,
       glwSpotPriceUsd,
@@ -271,6 +313,11 @@ export default function RewardsWidget({
 
   const isWidgetError =
     hasWallet && (isRewardsError || isClaimableTotalsError || isLifetimeError);
+
+  const claimableBreakdown = React.useMemo(
+    () => getClaimableBreakdown({ claimableTotalsByCurrency }),
+    [claimableTotalsByCurrency]
+  );
 
   const handleClaimSuccess = React.useCallback(() => {
     if (!address) return;
@@ -306,112 +353,132 @@ export default function RewardsWidget({
     weeklyBreakdown.length === 0 &&
     !hasLifetimeEarned &&
     !hasClaimable;
+
   if (shouldHide && hideIfEmpty) return null;
 
-  const shouldShowCountdown =
-    hasWallet &&
-    !isWalletConnecting &&
-    !isWidgetLoading &&
-    !isWidgetError &&
-    !shouldHide;
-
   return (
-    <Card className="h-full overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
-      <CardHeader className="pb-3 space-y-3">
-        <CardTitle className="text-center">Rewards</CardTitle>
-
-        {shouldShowCountdown ? (
-          <RewardsCountdown initialDurationMs={initialDurationMs} />
-        ) : null}
+    <Card className="h-full flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border overflow-hidden">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0">
+        <CardTitle className="text-sm font-medium">Rewards</CardTitle>
+        {hasWallet && !isWalletConnecting && hasClaimable && (
+          <Badge
+            variant="secondary"
+            className="text-[10px] uppercase tracking-wider font-mono px-2 py-0.5 h-5 rounded-md bg-muted/50 text-muted-foreground hover:bg-muted"
+          >
+            Ready to claim
+          </Badge>
+        )}
       </CardHeader>
 
-      <CardContent className="flex flex-col flex-1 min-h-0 gap-4 pt-0">
-        <div className="relative flex flex-1 min-h-0 flex-col items-center justify-center text-center px-1">
+      <CardContent className="flex flex-col flex-1 min-h-0 pt-0 pb-6 px-6 gap-4">
+        {/* Countdown Area */}
+        {hasWallet &&
+          !isWalletConnecting &&
+          !isWidgetLoading &&
+          !isWidgetError && (
+            <div className="pt-0">
+              <RewardsCountdown initialDurationMs={initialDurationMs} />
+            </div>
+          )}
+
+        {/* Main Content: Vertically Centered */}
+        <div className="flex-1 flex flex-col items-center justify-center min-h-[120px]">
           {!hasWallet ? (
             isWalletConnecting ? (
-              <>
-                <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                  Claimable
-                </div>
-                <div className="mt-2">
-                  <Skeleton className="h-10 w-36 rounded-xl mx-auto" />
-                </div>
-                <div className="mt-3">
-                  <Skeleton className="h-4 w-48 rounded-md mx-auto" />
-                </div>
-              </>
+              <div className="space-y-4 w-full flex flex-col items-center">
+                <Skeleton className="h-8 w-32 rounded-lg" />
+                <Skeleton className="h-4 w-24 rounded-md opacity-50" />
+              </div>
             ) : (
-              <>
-                <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                  Claimable
+              <div className="text-center space-y-1">
+                <div className="text-3xl font-bold tracking-tighter text-muted-foreground/30">
+                  —
                 </div>
-                <div className="mt-2 font-mono text-4xl font-bold tracking-tighter text-foreground tabular-nums">
-                  {formatUsd(0)}
+                <div className="text-xs text-muted-foreground">
+                  Connect to view
                 </div>
-                <div className="mt-3 font-mono text-xs text-muted-foreground">
-                  Lifetime earned: {formatUsd(0)}
-                </div>
-              </>
+              </div>
             )
           ) : (
-            <>
-              <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                Claimable
-              </div>
-              <div className="mt-2 font-mono text-4xl font-bold tracking-tighter text-foreground tabular-nums">
-                {isWidgetLoading ? (
-                  <Skeleton className="h-10 w-36 rounded-xl" />
-                ) : isWidgetError ? (
-                  "$—"
-                ) : (
-                  formatUsd(claimableUsd ?? 0)
-                )}
-              </div>
-              <div className="mt-3 font-mono text-xs text-muted-foreground">
-                {isWidgetLoading ? (
-                  <Skeleton className="h-4 w-48 rounded-md" />
-                ) : isWidgetError ? (
-                  "Unable to load rewards"
-                ) : shouldHide ? (
-                  "No rewards yet"
-                ) : (
-                  <>Lifetime earned: {formatUsd(lifetimeUsd ?? 0)}</>
-                )}
-              </div>
-            </>
+            <div className="flex flex-col gap-1 w-full items-center text-center">
+              {isWidgetLoading ? (
+                <div className="space-y-2 w-full flex flex-col items-center">
+                  <Skeleton className="h-10 w-48 rounded-lg" />
+                  <Skeleton className="h-5 w-24 rounded-md opacity-50" />
+                  <Skeleton className="h-6 w-32 rounded-full mt-2" />
+                </div>
+              ) : isWidgetError ? (
+                <div className="text-center text-destructive text-sm font-medium">
+                  Unable to load
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-col items-center gap-0.5 animate-in fade-in zoom-in-95 duration-300">
+                    {claimableBreakdown.map((entry, idx) => (
+                      <div
+                        key={entry.currency}
+                        className={cn(
+                          "leading-tight",
+                          entry.isPrimary
+                            ? "text-4xl font-bold tracking-tighter text-foreground"
+                            : "text-lg font-medium text-muted-foreground/80 flex items-center gap-1.5"
+                        )}
+                      >
+                        {entry.label}
+                        {entry.subLabel && !entry.isPrimary && (
+                          <span className="text-xs font-mono uppercase text-muted-foreground/60 mt-0.5">
+                            {entry.subLabel}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-3">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background/50 border border-border shadow-sm">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
+                        Lifetime
+                      </span>
+                      <span className="text-[11px] font-mono font-medium text-foreground tabular-nums">
+                        {formatUsd(lifetimeUsd ?? 0)}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
 
-        {hasWallet && !shouldHide ? (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="w-full h-12 font-mono font-bold text-base shrink-0">
-                Claim
-              </Button>
-            </DialogTrigger>
-            <DialogContent
-              className="bg-background rounded-3xl p-0 sm:max-w-[980px] w-full border-border shadow-2xl overflow-hidden"
-              onInteractOutside={(e) => e.preventDefault()}
-            >
-              <div className="max-h-[85vh] overflow-y-auto p-6">
-                <ClaimsPanel onClaimSuccess={handleClaimSuccess} />
-              </div>
-            </DialogContent>
-          </Dialog>
-        ) : (
-          <>
-            {isWalletConnecting ? (
-              <Skeleton className="h-12 w-full rounded-2xl shrink-0" />
-            ) : (
-              <Button
-                className="w-full h-12 font-mono font-bold text-base shrink-0"
-                disabled
+        {/* Footer Action Button */}
+        <div className="shrink-0 pt-2">
+          {hasWallet && !shouldHide ? (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button className="w-full h-10 font-semibold shadow-sm transition-all hover:scale-[1.01]">
+                  Claim Rewards
+                </Button>
+              </DialogTrigger>
+              <DialogContent
+                className="bg-background rounded-3xl p-0 sm:max-w-[980px] w-full border-border shadow-2xl overflow-hidden"
+                onInteractOutside={(e) => e.preventDefault()}
               >
-                Claim
-              </Button>
-            )}
-          </>
-        )}
+                <ClaimsPanel
+                  variant="dialog"
+                  onClaimSuccess={handleClaimSuccess}
+                />
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <Button
+              variant="outline"
+              className="w-full h-10 opacity-50 cursor-not-allowed"
+              disabled
+            >
+              No Rewards
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

@@ -18,6 +18,11 @@ import { addresses } from "@/web3/constants/addresses";
 import type { ClaimableReward } from "./control-wallets";
 import * as Sentry from "@sentry/nextjs";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
+import {
+  DEFAULT_WALLET_CLAIMS_LIMIT,
+  fetchWalletRewardClaimsIndex,
+  type WalletRewardClaimsIndex,
+} from "@/lib/api/wallet-reward-claims-index";
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
   throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
@@ -37,8 +42,6 @@ const TOKEN_ADDRESSES: Record<string, `0x${string}`> = {
 
 const POSITIONS_API_BASE =
   process.env.NEXT_PUBLIC_POSITIONS_API_BASE || "http://localhost:42069";
-
-const WALLET_CLAIMS_LIMIT = 5000;
 
 export type ClaimStage = "inflation" | "protocolDeposits";
 
@@ -123,93 +126,8 @@ export interface UseRewardsKernelWrapperResult {
   checkSmartAccount: () => Promise<boolean>;
 }
 
-interface WalletRewardClaimRow {
-  id: string;
-  source: "minerPool" | "rewardsKernel";
-  wallet: `0x${string}`;
-  claimant?: `0x${string}` | null;
-  token: `0x${string}`;
-  amount: string;
-  nonce?: string | null;
-  timestamp: number;
-  blockNumber: number;
-  txHash: `0x${string}`;
-  logIndex: number;
-  subIndex: number;
-}
-
-interface WalletRewardClaimsResponse {
-  address: `0x${string}`;
-  limit: number;
-  indexingComplete: boolean;
-  claims: WalletRewardClaimRow[];
-}
-
-interface WalletRewardClaimsIndex {
-  indexingComplete: boolean;
-  claimedV2Nonces: Set<string>;
-  claimedV1Buckets: Set<string>;
-  hasMinerPoolBucketIds: boolean;
-}
-
 function asLowerHexAddress(value: `0x${string}`): `0x${string}` {
   return value.toLowerCase() as `0x${string}`;
-}
-
-async function fetchWalletRewardClaimsIndex(params: {
-  walletAddress: `0x${string}`;
-  limit: number;
-}): Promise<WalletRewardClaimsIndex> {
-  const { walletAddress, limit } = params;
-  const url = `${POSITIONS_API_BASE}/rewards/claims/${walletAddress}?limit=${limit}`;
-
-  const res = await fetch(url, { cache: "no-store" });
-
-  const body = (await res.json().catch(() => null)) as
-    | WalletRewardClaimsResponse
-    | { error?: string; indexingComplete?: boolean }
-    | null;
-
-  if (!res.ok) {
-    const indexingComplete = (body as any)?.indexingComplete ?? true;
-    if (res.status === 503 && indexingComplete === false) {
-      return {
-        indexingComplete: false,
-        claimedV2Nonces: new Set(),
-        claimedV1Buckets: new Set(),
-        hasMinerPoolBucketIds: false,
-      };
-    }
-
-    const message =
-      (body as any)?.error || `Failed to fetch wallet reward claims`;
-    throw new Error(message);
-  }
-
-  const claims = (body as WalletRewardClaimsResponse | null)?.claims ?? [];
-
-  const claimedV2Nonces = new Set<string>();
-  const claimedV1Buckets = new Set<string>();
-  let hasMinerPoolBucketIds = false;
-
-  for (const claim of claims) {
-    if (claim.source === "rewardsKernel" && claim.nonce) {
-      claimedV2Nonces.add(claim.nonce);
-      continue;
-    }
-
-    if (claim.source === "minerPool" && claim.nonce) {
-      hasMinerPoolBucketIds = true;
-      claimedV1Buckets.add(claim.nonce);
-    }
-  }
-
-  return {
-    indexingComplete: (body as WalletRewardClaimsResponse).indexingComplete,
-    claimedV2Nonces,
-    claimedV1Buckets,
-    hasMinerPoolBucketIds,
-  };
 }
 
 export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
@@ -256,7 +174,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         "wallet-reward-claims-index",
         CHAIN_ID,
         addressLower,
-        WALLET_CLAIMS_LIMIT,
+        DEFAULT_WALLET_CLAIMS_LIMIT,
       ] as const;
 
       const cached =
@@ -268,7 +186,8 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         queryFn: () =>
           fetchWalletRewardClaimsIndex({
             walletAddress: addressLower,
-            limit: WALLET_CLAIMS_LIMIT,
+            limit: DEFAULT_WALLET_CLAIMS_LIMIT,
+            baseUrl: POSITIONS_API_BASE,
           }),
         staleTime: 60_000,
         gcTime: 10 * 60_000,

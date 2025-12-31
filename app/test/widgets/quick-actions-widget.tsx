@@ -149,13 +149,17 @@ export default function QuickActionsWidget({
       <CardContent className="flex min-h-0 flex-1 flex-col pt-0">
         <div className="grid h-full grid-cols-2 grid-rows-2 gap-3">
           <ActionTile
-            title="Liquidity"
-            subtitle="Add Liquidity"
-            icon={Droplets}
-            onClick={() => setIsAddLiquidityOpen(true)}
+            title="Top Up Wallet"
+            subtitle="Buy GLW"
+            icon={CreditCard}
+            onClick={() => setIsBuyGlwOpen(true)}
+            className={cn(
+              highlightedAction === "buy-glw" &&
+                "border-[#C084FC]/50 bg-[#C084FC]/5 shadow-[0_0_0_1px_rgba(192,132,252,0.22)] hover:border-[#C084FC]/70 hover:bg-[#C084FC]/10 hover:shadow-[0_0_0_1px_rgba(192,132,252,0.32)]"
+            )}
             meta={
               <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                GLW / USDG Pool
+                {glwPriceLabel}
               </div>
             }
           />
@@ -211,17 +215,13 @@ export default function QuickActionsWidget({
           />
 
           <ActionTile
-            title="Top Up Wallet"
-            subtitle="Buy GLW"
-            icon={CreditCard}
-            onClick={() => setIsBuyGlwOpen(true)}
-            className={cn(
-              highlightedAction === "buy-glw" &&
-                "border-[#C084FC]/50 bg-[#C084FC]/5 shadow-[0_0_0_1px_rgba(192,132,252,0.22)] hover:border-[#C084FC]/70 hover:bg-[#C084FC]/10 hover:shadow-[0_0_0_1px_rgba(192,132,252,0.32)]"
-            )}
+            title="Liquidity"
+            subtitle="Add Liquidity"
+            icon={Droplets}
+            onClick={() => setIsAddLiquidityOpen(true)}
             meta={
               <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                {glwPriceLabel}
+                GLW / USDG Pool
               </div>
             }
           />

@@ -31,12 +31,17 @@ import { useRewardsKernelWrapper } from "@/hooks/useRewardsKernelWrapper";
 import { weekToNonce } from "@/hooks/useMerkleProofs";
 import { useWalletSwaps } from "@/hooks/useWalletSwaps";
 import { cn } from "@/lib/utils";
+import {
+  DEFAULT_WALLET_CLAIMS_LIMIT,
+  fetchWalletRewardClaimsIndex,
+} from "@/lib/api/wallet-reward-claims-index";
 import { formatUnits } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
 import {
   getWeekNumberFromTimestamp,
+  getCurrentWeekNumber,
   weekToTimestamp,
 } from "@/lib/rewards/weekly-delegations";
 import Link from "next/link";
@@ -429,6 +434,20 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
     queryFn: async () => {
       if (!walletAddress) return 0;
 
+      const addressLower = walletAddress.toLowerCase() as `0x${string}`;
+
+      let claimsIndex: Awaited<
+        ReturnType<typeof fetchWalletRewardClaimsIndex>
+      > | null = null;
+      try {
+        claimsIndex = await fetchWalletRewardClaimsIndex({
+          walletAddress: addressLower,
+          limit: DEFAULT_WALLET_CLAIMS_LIMIT,
+        });
+      } catch {
+        claimsIndex = null;
+      }
+
       // Keep RPC load sane
       const batches = chunk(eligibleWeeksForUnclaimed, 8);
 
@@ -436,17 +455,32 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
       for (const batch of batches) {
         const results = await Promise.all(
           batch.map(async (w) => {
-            const [inflationClaimed, protocolClaimed] = await Promise.all([
-              w.hasInflation
-                ? checkIfGlwClaimed(w.week + 1, walletAddress as `0x${string}`)
-                : Promise.resolve(true),
-              w.hasProtocolGlw
-                ? checkIfClaimed(
-                    walletAddress as `0x${string}`,
-                    weekToNonce(w.week)
-                  )
-                : Promise.resolve(true),
-            ]);
+            const inflationClaimed = await (async () => {
+              if (!w.hasInflation) return true;
+
+              if (
+                claimsIndex?.indexingComplete &&
+                claimsIndex.hasMinerPoolBucketIds
+              ) {
+                return claimsIndex.claimedV1Buckets.has(
+                  BigInt(w.week + 1).toString()
+                );
+              }
+
+              return await checkIfGlwClaimed(w.week + 1, addressLower);
+            })();
+
+            const protocolClaimed = await (async () => {
+              if (!w.hasProtocolGlw) return true;
+
+              if (claimsIndex?.indexingComplete) {
+                return claimsIndex.claimedV2Nonces.has(
+                  weekToNonce(w.week).toString()
+                );
+              }
+
+              return await checkIfClaimed(addressLower, weekToNonce(w.week));
+            })();
 
             const inflationUnclaimed = inflationClaimed ? 0 : w.inflationGlw;
             const protocolUnclaimed = protocolClaimed ? 0 : w.protocolGlw;
@@ -539,7 +573,16 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
   const glowWorthChartData = React.useMemo(() => {
     if (!hasWallet) return MOCK_CHART_DATA;
 
-    const endWeek = getCurrentEpoch();
+    const endWeek = (() => {
+      const apiEndWeek = rewardsBreakdown?.weekRange?.endWeek;
+      if (typeof apiEndWeek === "number" && Number.isFinite(apiEndWeek))
+        return apiEndWeek;
+      try {
+        return getCurrentEpoch();
+      } catch {
+        return getCurrentWeekNumber();
+      }
+    })();
     const startWeek = Math.max(0, endWeek - 12);
 
     const earnedByWeek = new Map<number, number>();
@@ -553,6 +596,20 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
               parseGlwFromWei(w.totalRewards)
           );
         }
+      }
+    }
+
+    if (earnedByWeek.size === 0 && weeklyBreakdown.length > 0) {
+      for (const weekEntry of weeklyBreakdown) {
+        if (weekEntry.week < startWeek || weekEntry.week > endWeek) continue;
+        const glwEarned = weekEntry.rewards
+          .filter((r) => r.currency === "GLW")
+          .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+        if (glwEarned <= 0) continue;
+        earnedByWeek.set(
+          weekEntry.week,
+          (earnedByWeek.get(weekEntry.week) ?? 0) + glwEarned
+        );
       }
     }
 
@@ -622,6 +679,7 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
     rewardsBreakdown,
     swaps,
     unclaimedGlwRewards,
+    weeklyBreakdown,
   ]);
 
   const visibleHoldings = React.useMemo(() => {

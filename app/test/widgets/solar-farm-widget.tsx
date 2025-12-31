@@ -198,7 +198,7 @@ const CustomTooltip = ({
             <span className="text-xs text-muted-foreground font-mono uppercase">
               Total
             </span>
-            <div className="flex flex-col items-end">
+            <div className="flex flex-col items-end ml-1">
               <span className="text-sm font-bold text-foreground font-mono">
                 {formatGlwPrecise(total)} GLW
               </span>
@@ -301,7 +301,9 @@ export default function SolarFarmWidget({
         const pdUsd = isPdUsdAsset
           ? parseUsdFromBaseUnits(week.protocolDepositRewards)
           : 0;
-        const pdGlw = !isPdUsdAsset ? parseGlwFromWei(week.protocolDepositRewards) : 0;
+        const pdGlw = !isPdUsdAsset
+          ? parseGlwFromWei(week.protocolDepositRewards)
+          : 0;
         buckets.set(week.weekNumber, {
           minerReward: prev.minerReward,
           delegationReward: prev.delegationReward,
@@ -315,9 +317,7 @@ export default function SolarFarmWidget({
       .sort(([a], [b]) => a - b)
       .map(([weekNumber, value]) => {
         const total =
-          value.minerReward +
-          value.delegationReward +
-          value.otherReward;
+          value.minerReward + value.delegationReward + value.otherReward;
         return {
           weekNumber,
           week: `Wk ${weekNumber}`,
@@ -844,43 +844,53 @@ export default function SolarFarmWidget({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 bg-muted/30 px-4 py-2 rounded-xl border border-border">
-                  <div className="flex flex-col items-end">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-lg font-bold text-foreground font-mono">
-                        {stats.activeMiners}
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Open farm performance details"
+                    className={cn(
+                      "flex items-center gap-4 bg-muted/30 px-4 py-2 rounded-xl border border-border transition-colors cursor-pointer",
+                      "hover:bg-muted/40 hover:border-border/80",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    )}
+                  >
+                    <div className="flex flex-col items-end">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-lg font-bold text-foreground font-mono">
+                          {stats.activeMiners}
+                        </span>
+                        <Cpu className="w-4 h-4 text-miner-yellow" />
+                      </div>
+                      <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                        Miners
                       </span>
-                      <Cpu className="w-4 h-4 text-miner-yellow" />
                     </div>
-                    <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                      Miners
-                    </span>
-                  </div>
-                  <div className="w-px h-8 bg-border" />
-                  <div className="flex flex-col items-end">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-lg font-bold text-foreground font-mono">
-                        {stats.activeDelegations}
+                    <div className="w-px h-8 bg-border" />
+                    <div className="flex flex-col items-end">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-lg font-bold text-foreground font-mono">
+                          {stats.activeDelegations}
+                        </span>
+                        <Zap className="w-4 h-4 text-glow-purple" />
+                      </div>
+                      <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                        Delegations
                       </span>
-                      <Zap className="w-4 h-4 text-glow-purple" />
                     </div>
-                    <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                      Delegations
-                    </span>
-                  </div>
-                  <div className="w-px h-8 bg-border" />
-                  <div className="flex flex-col items-end">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-lg font-bold text-foreground font-mono">
-                        {stats.activeOtherRewards}
+                    <div className="w-px h-8 bg-border" />
+                    <div className="flex flex-col items-end">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-lg font-bold text-foreground font-mono">
+                          {stats.activeOtherRewards}
+                        </span>
+                        <Gift className="w-4 h-4 text-[color:var(--color-glow-green)]" />
+                      </div>
+                      <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                        Other
                       </span>
-                      <Gift className="w-4 h-4 text-[color:var(--color-glow-green)]" />
                     </div>
-                    <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                      Other
-                    </span>
-                  </div>
-                </div>
+                  </button>
+                </DialogTrigger>
               </div>
 
               {/* Chart */}

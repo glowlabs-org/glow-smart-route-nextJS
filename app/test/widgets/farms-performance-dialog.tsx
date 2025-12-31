@@ -111,7 +111,9 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
   const timePct = Math.min((data.weeksActive / data.totalWeeks) * 100, 100);
 
   // Stacking Logic:
-  const denom = isOther ? Math.max(totalValue, 1) : Math.max(data.initialCost, 1);
+  const denom = isOther
+    ? Math.max(totalValue, 1)
+    : Math.max(data.initialCost, 1);
   const principalPct = Math.min((data.recovered / denom) * 100, 100);
   // Inflation sits on top of principal. If total > 100, we clamp for the main bar
   // and handle the overflow visually.
@@ -249,17 +251,13 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                         : "text-[#C084FC]"
                     )}
                   >
-                    {isOther ? (
-                      data.isProtocolDepositUsd ? (
-                        `${fmtUsdAmount(data.recovered)} USDG`
-                      ) : (
-                        `${fmtGlw(data.recovered)} GLW`
-                      )
-                    ) : isUsdRow ? (
-                      fmtUsd(data.recovered)
-                    ) : (
-                      `${fmtGlw(data.recovered)} GLW`
-                    )}
+                    {isOther
+                      ? data.isProtocolDepositUsd
+                        ? `${fmtUsdAmount(data.recovered)} USDG`
+                        : `${fmtGlw(data.recovered)} GLW`
+                      : isUsdRow
+                      ? fmtUsd(data.recovered)
+                      : `${fmtGlw(data.recovered)} GLW`}
                   </span>
 
                   <span className="text-muted-foreground">
@@ -273,19 +271,15 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
 
                   <span className="text-muted-foreground">Total:</span>
                   <span className="text-right font-bold">
-                    {isOther ? (
-                      data.isProtocolDepositUsd ? (
-                        `${fmtGlw(data.inflationGlw)} GLW + ${fmtUsdAmount(
-                          data.recovered
-                        )} USDG`
-                      ) : (
-                        `${fmtGlw(data.inflationGlw + data.recovered)} GLW`
-                      )
-                    ) : isUsdRow ? (
-                      fmtUsd(totalValue)
-                    ) : (
-                      `${fmtGlw(totalValue)} GLW`
-                    )}
+                    {isOther
+                      ? data.isProtocolDepositUsd
+                        ? `${fmtGlw(data.inflationGlw)} GLW + ${fmtUsdAmount(
+                            data.recovered
+                          )} USDG`
+                        : `${fmtGlw(data.inflationGlw + data.recovered)} GLW`
+                      : isUsdRow
+                      ? fmtUsd(totalValue)
+                      : `${fmtGlw(totalValue)} GLW`}
                   </span>
                 </div>
               </TooltipContent>
@@ -396,103 +390,105 @@ export function FarmsPerformanceDialogContent({
 
     const farmRows: PerformanceRowData[] = rewardsBreakdown.farmDetails.map(
       (farm): PerformanceRowData => {
-      const farmMetadata = purchasedFarms.find((f) => f.farmId === farm.farmId);
-      const regionName = (() => {
-        if (!farmMetadata) return "—";
-        const region = regions.find((r) => r.id === farmMetadata.regionId);
-        return region?.name || `Region ${farmMetadata.regionId}`;
-      })();
+        const farmMetadata = purchasedFarms.find(
+          (f) => f.farmId === farm.farmId
+        );
+        const regionName = (() => {
+          if (!farmMetadata) return "—";
+          const region = regions.find((r) => r.id === farmMetadata.regionId);
+          return region?.name || `Region ${farmMetadata.regionId}`;
+        })();
 
-      const displayName =
-        farmMetadata?.name || `Farm ${farm.farmId.substring(0, 8)}`;
+        const displayName =
+          farmMetadata?.name || `Farm ${farm.farmId.substring(0, 8)}`;
 
-      if (farm.type === "launchpad") {
-        const initialCost = parseGlwFromWei(farm.amountInvested);
-        const recovered = parseGlwFromWei(farm.totalProtocolDepositRewards);
-        const inflation = parseGlwFromWei(farm.totalInflationRewards);
+        if (farm.type === "launchpad") {
+          const initialCost = parseGlwFromWei(farm.amountInvested);
+          const recovered = parseGlwFromWei(farm.totalProtocolDepositRewards);
+          const inflation = parseGlwFromWei(farm.totalInflationRewards);
+          return {
+            farmId: farm.farmId,
+            id: displayName,
+            region: regionName,
+            type: "delegation",
+            initialCost,
+            recovered,
+            inflation,
+            inflationGlw: inflation,
+            protocolDepositAsset: "GLW",
+            isProtocolDepositUsd: false,
+            weeksActive: farm.totalWeeksEarned,
+            totalWeeks: 100,
+          };
+        }
+
+        const initialCostUsd = parseUsdcFromBaseUnits(farm.amountInvested);
+        const inflationGlw = parseGlwFromWei(farm.totalInflationRewards);
+        const inflationUsd =
+          Number.isFinite(glwSpotPriceUsd ?? NaN) && (glwSpotPriceUsd ?? 0) > 0
+            ? inflationGlw * (glwSpotPriceUsd ?? 0)
+            : 0;
+
         return {
           farmId: farm.farmId,
           id: displayName,
           region: regionName,
-          type: "delegation",
-          initialCost,
-          recovered,
-          inflation,
-          inflationGlw: inflation,
-          protocolDepositAsset: "GLW",
-          isProtocolDepositUsd: false,
+          type: "miner",
+          initialCost: initialCostUsd,
+          recovered: 0,
+          inflation: inflationUsd,
+          inflationGlw,
+          protocolDepositAsset: "USDC",
+          isProtocolDepositUsd: true,
           weeksActive: farm.totalWeeksEarned,
-          totalWeeks: 100,
+          totalWeeks: 99,
         };
-      }
-
-      const initialCostUsd = parseUsdcFromBaseUnits(farm.amountInvested);
-      const inflationGlw = parseGlwFromWei(farm.totalInflationRewards);
-      const inflationUsd =
-        Number.isFinite(glwSpotPriceUsd ?? NaN) && (glwSpotPriceUsd ?? 0) > 0
-          ? inflationGlw * (glwSpotPriceUsd ?? 0)
-          : 0;
-
-      return {
-        farmId: farm.farmId,
-        id: displayName,
-        region: regionName,
-        type: "miner",
-        initialCost: initialCostUsd,
-        recovered: 0,
-        inflation: inflationUsd,
-        inflationGlw,
-        protocolDepositAsset: "USDC",
-        isProtocolDepositUsd: true,
-        weeksActive: farm.totalWeeksEarned,
-        totalWeeks: 99,
-      };
       }
     );
 
     const otherRows: PerformanceRowData[] = (
       rewardsBreakdown.otherFarmsWithRewards?.farms ?? []
     ).map((farm): PerformanceRowData => {
-        const displayName =
-          farm.farmName || `Farm ${farm.farmId.substring(0, 8)}`;
-        const identityDetail = farm.asset ?? "—";
+      const displayName =
+        farm.farmName || `Farm ${farm.farmId.substring(0, 8)}`;
+      const identityDetail = farm.asset ?? "—";
 
-        const isProtocolDepositUsd =
-          farm.asset === "USDG" || farm.asset === "USDC" || farm.asset === "GCTL";
-        const recovered = isProtocolDepositUsd
-          ? parsePdRewardsUsd({
-              value: farm.totalProtocolDepositRewards,
-              asset: farm.asset,
-            })
-          : parseGlwFromWei(farm.totalProtocolDepositRewards);
-        const inflationGlw = parseGlwFromWei(farm.totalInflationRewards);
-        const inflation = isProtocolDepositUsd
-          ? Number.isFinite(glwSpotPriceUsd ?? NaN) && (glwSpotPriceUsd ?? 0) > 0
-            ? inflationGlw * (glwSpotPriceUsd ?? 0)
-            : 0
-          : inflationGlw;
+      const isProtocolDepositUsd =
+        farm.asset === "USDG" || farm.asset === "USDC" || farm.asset === "GCTL";
+      const recovered = isProtocolDepositUsd
+        ? parsePdRewardsUsd({
+            value: farm.totalProtocolDepositRewards,
+            asset: farm.asset,
+          })
+        : parseGlwFromWei(farm.totalProtocolDepositRewards);
+      const inflationGlw = parseGlwFromWei(farm.totalInflationRewards);
+      const inflation = isProtocolDepositUsd
+        ? Number.isFinite(glwSpotPriceUsd ?? NaN) && (glwSpotPriceUsd ?? 0) > 0
+          ? inflationGlw * (glwSpotPriceUsd ?? 0)
+          : 0
+        : inflationGlw;
 
-        const weeksActive = farm.weeklyBreakdown.length;
-        const totalWeeks =
-          farm.weeksLeft !== null
-            ? Math.max(weeksActive + farm.weeksLeft, 1)
-            : Math.max(weeksActive, 1);
+      const weeksActive = farm.weeklyBreakdown.length;
+      const totalWeeks =
+        farm.weeksLeft !== null
+          ? Math.max(weeksActive + farm.weeksLeft, 1)
+          : Math.max(weeksActive, 1);
 
-        return {
-          farmId: farm.farmId,
-          id: displayName,
-          region: identityDetail,
-          type: "other",
-          initialCost: 0,
-          recovered,
-          inflation,
-          inflationGlw,
-          protocolDepositAsset: farm.asset,
-          isProtocolDepositUsd,
-          weeksActive,
-          totalWeeks,
-        };
-      });
+      return {
+        farmId: farm.farmId,
+        id: displayName,
+        region: identityDetail,
+        type: "other",
+        initialCost: 0,
+        recovered,
+        inflation,
+        inflationGlw,
+        protocolDepositAsset: farm.asset,
+        isProtocolDepositUsd,
+        weeksActive,
+        totalWeeks,
+      };
+    });
 
     return [...farmRows, ...otherRows];
   }, [purchasedFarms, regions, rewardsBreakdown, glwSpotPriceUsd]);
@@ -503,7 +499,8 @@ export function FarmsPerformanceDialogContent({
       filtered = filtered.filter((r) => r.type === "miner");
     if (filter === "delegations")
       filtered = filtered.filter((r) => r.type === "delegation");
-    if (filter === "other") filtered = filtered.filter((r) => r.type === "other");
+    if (filter === "other")
+      filtered = filtered.filter((r) => r.type === "other");
     // Sort by Total Value % (High performance first)
     return filtered.sort((a, b) => {
       const totalA = a.recovered + a.inflation;
@@ -532,7 +529,7 @@ export function FarmsPerformanceDialogContent({
             setFilter(isFilterValue(value) ? value : "all")
           }
         >
-          <TabsList className="bg-muted/30 border border-border h-9 p-1">
+          <TabsList className="bg-muted/30 border border-border h-12 p-1">
             <TabsTrigger
               value="all"
               className="h-7 text-xs font-mono px-4 text-muted-foreground"
@@ -618,12 +615,12 @@ export function FarmsPerformanceDialogContent({
               </div>
             ) : (
               <>
-                {((filter === "miners" ||
+                {(filter === "miners" ||
                   (filter === "other" &&
                     visibleRows.some((r) => r.isProtocolDepositUsd))) &&
                   !isSpotPriceLoading &&
                   (!Number.isFinite(glwSpotPriceUsd ?? NaN) ||
-                    (glwSpotPriceUsd ?? 0) <= 0)) && (
+                    (glwSpotPriceUsd ?? 0) <= 0) && (
                     <div className="rounded-xl border border-border bg-muted/20 p-3 text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
                       ROI requires GLW spot price; showing $0 until price is
                       available.
