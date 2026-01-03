@@ -204,20 +204,20 @@ function ImpactHeroSkeleton(props: { remainingMsToRollover: number }) {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-muted/10 p-3">
+              <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/10 p-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-56 rounded-md" />
                   <Skeleton className="h-3 w-72 rounded-md" />
                 </div>
-                <Skeleton className="h-9 w-28 rounded-2xl" />
+                <Skeleton className="h-9 w-full rounded-2xl sm:w-28" />
               </div>
 
-              <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-muted/10 p-3">
+              <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/10 p-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-56 rounded-md" />
                   <Skeleton className="h-3 w-72 rounded-md" />
                 </div>
-                <Skeleton className="h-9 w-28 rounded-2xl" />
+                <Skeleton className="h-9 w-full rounded-2xl sm:w-28" />
               </div>
             </div>
 
@@ -394,11 +394,11 @@ function ImpactHero(props: {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="min-w-0 space-y-1">
                     <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                      Rank
+                      Percentile
                     </div>
                     <div className="font-mono text-3xl md:text-5xl font-bold tracking-tight tabular-nums">
                       {selfGlobalRank ? (
-                        <>#{selfGlobalRank.toLocaleString("en-US")}</>
+                        <>Top {formatTopPercentile(selfPercentile)}</>
                       ) : (
                         <>
                           Below Top{" "}
@@ -406,15 +406,13 @@ function ImpactHero(props: {
                         </>
                       )}
                     </div>
-                    {selfGlobalRank ? (
-                      <div className="text-xs text-muted-foreground font-mono">
-                        Top {formatTopPercentile(selfPercentile)}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground font-mono">
-                        Rank not available outside current list
-                      </div>
-                    )}
+                    <div className="text-xs text-muted-foreground font-mono">
+                      {selfGlobalRank ? (
+                        <>Rank #{selfGlobalRank.toLocaleString("en-US")}</>
+                      ) : (
+                        <>Rank not available outside current list</>
+                      )}
+                    </div>
                   </div>
 
                   <div className="min-w-0 space-y-1 sm:text-right">
@@ -545,7 +543,7 @@ function ImpactHero(props: {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-muted/10 p-3">
+              <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/10 p-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <Cpu className="h-4 w-4 text-muted-foreground" />
@@ -573,7 +571,7 @@ function ImpactHero(props: {
                 </div>
                 <Button
                   variant={hasMinerMultiplier ? "outline" : "default"}
-                  className="h-9 rounded-2xl px-4"
+                  className="h-9 w-full rounded-2xl px-4 sm:w-auto"
                   type="button"
                   onClick={() => setIsLaunchpadOpen(true)}
                 >
@@ -581,7 +579,7 @@ function ImpactHero(props: {
                 </Button>
               </div>
 
-              <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-muted/10 p-3">
+              <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/10 p-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <Zap className="h-4 w-4 text-muted-foreground" />
@@ -609,7 +607,7 @@ function ImpactHero(props: {
                 </div>
                 <Button
                   variant={hasSteeringStake ? "outline" : "default"}
-                  className="h-9 rounded-2xl px-4"
+                  className="h-9 w-full rounded-2xl px-4 sm:w-auto"
                   type="button"
                   onClick={() => setIsMintAndStakeOpen(true)}
                 >
@@ -618,7 +616,7 @@ function ImpactHero(props: {
               </div>
             </div>
 
-            <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-muted/10 p-3">
+            <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/10 p-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <Layers className="h-4 w-4 text-muted-foreground" />
@@ -651,11 +649,11 @@ function ImpactHero(props: {
               </div>
 
               {isSelfLoading ? (
-                <Skeleton className="h-9 w-28 rounded-2xl" />
+                <Skeleton className="h-9 w-full rounded-2xl sm:w-28" />
               ) : (
                 <Button
                   variant={address && hasDelegations ? "outline" : "default"}
-                  className="h-9 rounded-2xl px-4"
+                  className="h-9 w-full rounded-2xl px-4 sm:w-auto"
                   type="button"
                   onClick={() => setIsLaunchpadOpen(true)}
                 >

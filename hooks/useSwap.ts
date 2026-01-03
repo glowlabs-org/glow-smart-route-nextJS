@@ -13,6 +13,8 @@ import Decimal from "decimal.js";
 import { waitForViemTransactionWithRetry } from "@glowlabs-org/utils/browser";
 import * as Sentry from "@sentry/nextjs";
 
+const MAX_UINT256 = (BigInt(1) << BigInt(256)) - BigInt(1);
+
 const UNISWAP_V2_FACTORY_ABI = parseAbi([
   "function getPair(address tokenA, address tokenB) external view returns (address pair)",
 ]);
@@ -337,7 +339,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     if (allowanceTokenA < amountBigInt) {
       const estimatedGas: bigint = await tokenA.estimateGas.approve(
         uniswapRouter.address,
-        amountBigInt
+        MAX_UINT256
       );
       const gasPrice: bigint = await tokenA.provider.getGasPrice();
       const estimatedCost: bigint = estimatedGas * gasPrice;
@@ -397,7 +399,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         setUniswapPurchaseState("REQUESTING_TOKEN_APPROVAL");
         const approveTx = await tokenA.approve(
           uniswapRouter.address,
-          amountBigInt
+          MAX_UINT256
         );
         setUniswapPurchaseState("APPROVING_TOKEN");
         await approveTx.wait();
@@ -614,7 +616,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         setUniswapPurchaseState("REQUESTING_TOKEN_APPROVAL");
         const approveTx = await glowToken.approve(
           uniswapRouter.address,
-          amountBigInt
+          MAX_UINT256
         );
         setUniswapPurchaseState("APPROVING_TOKEN");
         await approveTx.wait();

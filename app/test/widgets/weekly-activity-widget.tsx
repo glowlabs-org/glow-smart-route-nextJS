@@ -17,6 +17,7 @@ import {
   useSplitsActivity,
   type SplitActivity,
   useRewardsBreakdown,
+  useImpactLeaderboardQuery,
 } from "@/hooks";
 import {
   buildWeeklyDelegations,
@@ -35,6 +36,8 @@ function getWeekStyle(status: WeekStatus) {
   if (status === "both") return "bg-[#4ADE80]/25";
   return "bg-muted";
 }
+
+const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 
 const V2_START_ISO = "2025-10-11T00:00:00Z";
 const V2_START_WEEK = getWeekNumberFromTimestamp(
@@ -150,6 +153,10 @@ export default function WeeklyActivityWidget({
   const { isConnecting, isReconnecting } = useAccount();
   const isWalletConnecting = isConnecting || isReconnecting;
 
+  const impactLeaderboardQuery = useImpactLeaderboardQuery({
+    enabled: Boolean(HUB_URL && hasWallet),
+  });
+
   const {
     data: rewardsData,
     isLoading: isRewardsLoading,
@@ -193,6 +200,7 @@ export default function WeeklyActivityWidget({
   }, [rewardsDelegations, splitDelegations]);
 
   const currentWeek = React.useMemo(() => getCurrentWeekNumber(), []);
+  const impactEndWeek = impactLeaderboardQuery.data?.weekRange?.endWeek ?? null;
 
   const lastKnownWeek = React.useMemo(() => {
     const latestRewardsWeek = rewardsData?.weekRange?.endWeek ?? 0;
@@ -204,12 +212,14 @@ export default function WeeklyActivityWidget({
       : 0;
     return Math.max(
       currentWeek,
+      impactEndWeek ?? 0,
       latestRewardsWeek,
       latestDelegationWeek,
       latestMinerWeek
     );
   }, [
     currentWeek,
+    impactEndWeek,
     minerWeeks,
     rewardsData?.weekRange?.endWeek,
     weeklyDelegations,

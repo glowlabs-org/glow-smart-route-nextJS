@@ -45,7 +45,10 @@ export default function GlowSoftDashboard({
               <NetWorthWidget walletAddress={walletAddress} />
             </div>
             <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[340px]">
-              <RankWidget walletAddress={walletAddress} />
+              <RankWidget
+                walletAddress={walletAddress}
+                onMintAndStakeClick={() => setIsMintAndStakeOpen(true)}
+              />
             </div>
 
             <AnimatePresence mode="popLayout" initial={false}>
@@ -111,19 +114,6 @@ export default function GlowSoftDashboard({
             >
               <AnimatePresence mode="popLayout">
                 <motion.div
-                  key="recent-activity"
-                  className="activity-slot col-span-7 lg:col-span-4 min-h-0 lg:h-[380px] empty:hidden"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <RecentActivityWidget walletAddress={walletAddress} />
-                </motion.div>
-              </AnimatePresence>
-
-              <AnimatePresence mode="popLayout">
-                <motion.div
                   key="weekly-activity-bottom"
                   className="activity-slot col-span-7 lg:col-span-3 min-h-0 lg:h-[380px] empty:hidden"
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -132,6 +122,18 @@ export default function GlowSoftDashboard({
                   transition={{ duration: 0.2 }}
                 >
                   <WeeklyActivityWidget walletAddress={walletAddress} />
+                </motion.div>
+              </AnimatePresence>
+              <AnimatePresence mode="popLayout">
+                <motion.div
+                  key="recent-activity"
+                  className="activity-slot col-span-7 lg:col-span-4 min-h-0 lg:h-[380px] empty:hidden"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <RecentActivityWidget walletAddress={walletAddress} />
                 </motion.div>
               </AnimatePresence>
 

@@ -15,7 +15,7 @@ import { ConnectButton } from "@/components/connect-button";
 import { toast } from "sonner";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
 import { SYMBOLS, useER20Balances } from "@/hooks/useERC20Balances";
-import { Token } from "./view";
+import { Token } from "./constants";
 import { useERC20 } from "@/hooks/useERC20";
 import { formatUnits, isAddress, parseUnits } from "viem";
 import { InstructionsDialog } from "@/components/instructions-dialog";
@@ -243,14 +243,6 @@ export function SendTab({ tokens }: SendTabProps) {
             {pendingSendTx ? "Sending..." : getSendButtonProps().label}
           </Button>
         )}
-      </div>
-      <div className="text-center">
-        <InstructionsDialog>
-          <Button variant="ghost">
-            <Info className="w-4 h-4 mr-1" />
-            Learn about Glow&apos;s guarded launch
-          </Button>
-        </InstructionsDialog>
       </div>
     </div>
   );

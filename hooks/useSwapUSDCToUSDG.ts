@@ -5,6 +5,8 @@ import { useEthersSigner } from "./useEthersSigner";
 import { Result, Ok, Err } from "ts-results";
 import { waitForEthersTransactionWithRetry } from "@glowlabs-org/utils/browser";
 
+const MAX_UINT256 = (BigInt(1) << BigInt(256)) - BigInt(1);
+
 export enum SwapUSDCToUSDGError {
   CONTRACTS_NOT_AVAILABLE = "Contracts not available",
   SIGNER_NOT_AVAILABLE = "Signer not available",
@@ -93,7 +95,7 @@ export const useSwapUSDCToUSDG = () => {
       if (allowance < amount) {
         const estimatedGas = await usdc.estimateGas.approve(
           usdg.address,
-          amount
+          MAX_UINT256
         );
 
         const estimatedCost = estimatedGas * BigInt(usdcGasPrice);
@@ -148,15 +150,47 @@ export const useSwapUSDCToUSDG = () => {
 
       if (allowance < amount) {
         try {
-          const tx = await usdc.approve(usdg.address, amount);
-          lastTxHashRef.current = tx.hash as `0x${string}`;
-          setLastTxHash(tx.hash as `0x${string}`);
-          await waitForEthersTransactionWithRetry(signer!, tx.hash, {
-            maxRetries: 10, // Increased retries for USDG-related approvals
-            timeoutMs: 300000, // 5 minutes timeout
-            enableLogging: true,
-            pollIntervalMs: 3000, // Poll every 3 seconds to avoid rate limiting
-          });
+          try {
+            const tx = await usdc.approve(usdg.address, MAX_UINT256);
+            lastTxHashRef.current = tx.hash as `0x${string}`;
+            setLastTxHash(tx.hash as `0x${string}`);
+            await waitForEthersTransactionWithRetry(signer!, tx.hash, {
+              maxRetries: 10, // Increased retries for USDG-related approvals
+              timeoutMs: 300000, // 5 minutes timeout
+              enableLogging: true,
+              pollIntervalMs: 3000, // Poll every 3 seconds to avoid rate limiting
+            });
+          } catch (approvalErr: any) {
+            // Some tokens require setting allowance to 0 before raising it.
+            const message = String(approvalErr?.message || "");
+            if (
+              message.toLowerCase().includes("non-zero") ||
+              message.toLowerCase().includes("nonzero") ||
+              message.toLowerCase().includes("reset")
+            ) {
+              const resetTx = await usdc.approve(usdg.address, BigInt(0));
+              lastTxHashRef.current = resetTx.hash as `0x${string}`;
+              setLastTxHash(resetTx.hash as `0x${string}`);
+              await waitForEthersTransactionWithRetry(signer!, resetTx.hash, {
+                maxRetries: 10,
+                timeoutMs: 300000,
+                enableLogging: true,
+                pollIntervalMs: 3000,
+              });
+
+              const tx = await usdc.approve(usdg.address, MAX_UINT256);
+              lastTxHashRef.current = tx.hash as `0x${string}`;
+              setLastTxHash(tx.hash as `0x${string}`);
+              await waitForEthersTransactionWithRetry(signer!, tx.hash, {
+                maxRetries: 10,
+                timeoutMs: 300000,
+                enableLogging: true,
+                pollIntervalMs: 3000,
+              });
+            } else {
+              throw approvalErr;
+            }
+          }
         } catch (approvalError: any) {
           return new Err(parseSwapError(approvalError));
         }

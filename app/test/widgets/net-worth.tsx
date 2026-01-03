@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Area,
   AreaChart,
@@ -27,6 +27,7 @@ import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
 import { usePoolActivity } from "@/hooks/useGlowPrices";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useGctlApi, useRewardsBreakdown, useClaimableRewards } from "@/hooks";
+import { useSwapDialogData } from "@/hooks/useSwapDialogData";
 import { useRewardsKernelWrapper } from "@/hooks/useRewardsKernelWrapper";
 import { weekToNonce } from "@/hooks/useMerkleProofs";
 import { useWalletSwaps } from "@/hooks/useWalletSwaps";
@@ -45,11 +46,14 @@ import {
   weekToTimestamp,
 } from "@/lib/rewards/weekly-delegations";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
-import { useAccount, useBalance } from "wagmi";
+import { Sparkles, Send, ArrowLeftRight } from "lucide-react";
+import { useAccount, useBalance, useChainId } from "wagmi";
 import OnboardingHeroWidget from "./onboarding-hero-widget";
+import { SwapDialog } from "@/components/dialogs/swap-dialog";
+import { SendDialog } from "@/components/send-dialog";
 
 const GLOW_GREEN = "#4ADE80";
+const ZERO_WORTH_THRESHOLD_GLW = 0.01;
 
 function parseGlwFromWei(value?: string | null) {
   if (!value) return 0;
@@ -136,7 +140,7 @@ function GlowWorthChartTooltip({
   });
 
   return (
-    <div className="rounded-xl border border-foreground/10 dark:border-zinc-800 bg-popover/95 px-3 py-2 shadow-sm backdrop-blur">
+    <div className="rounded-xl border border-foreground/10 dark:border-zinc-800 bg-popover/95 px-3 py-2">
       <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground dark:text-zinc-500">
         {isCurrent
           ? `Current · ${currentDateLabel}`
@@ -250,8 +254,39 @@ function NetWorthSkeleton() {
 
 export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
   const { isConnecting, isReconnecting } = useAccount();
+  const chainId = useChainId();
+  const queryClient = useQueryClient();
+  const [isSwapOpen, setIsSwapOpen] = React.useState(false);
+  const [isSendOpen, setIsSendOpen] = React.useState(false);
   const hasWallet = Boolean(walletAddress);
+  const { headlineStats, ethPriceInUSD } = useSwapDialogData({
+    enabled: hasWallet,
+  });
   const isWalletConnecting = isConnecting || isReconnecting;
+  const handleSwapOpenChange = React.useCallback(
+    (nextOpen: boolean) => {
+      setIsSwapOpen(nextOpen);
+      if (nextOpen) return;
+      if (!walletAddress) return;
+
+      void (async () => {
+        try {
+          await Promise.all([
+            queryClient.invalidateQueries({
+              queryKey: ["wallet-token-balances", chainId, walletAddress],
+            }),
+            queryClient.invalidateQueries({
+              queryKey: ["wallet-swaps", chainId, walletAddress],
+            }),
+            queryClient.invalidateQueries({
+              queryKey: ["unclaimed-glw-rewards", walletAddress],
+            }),
+          ]);
+        } catch {}
+      })();
+    },
+    [chainId, queryClient, walletAddress]
+  );
   const {
     data: ethBalanceData,
     isLoading: isEthBalanceLoading,
@@ -532,7 +567,8 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
     hasWallet &&
     !isWorthDataInitialLoading &&
     !hasWorthDataError &&
-    glowWorth <= 0;
+    Number.isFinite(glowWorth) &&
+    glowWorth < ZERO_WORTH_THRESHOLD_GLW;
 
   const glowWorthBreakdownShares = React.useMemo(() => {
     if (!Number.isFinite(glowWorth) || glowWorth <= 0) {
@@ -745,21 +781,50 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
   if (showEmptyState) return <OnboardingHeroWidget className="h-full" />;
 
   return (
-    <Card className="h-full overflow-hidden flex flex-col gap-2 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+    <Card className="h-full min-h-[420px] lg:min-h-0 overflow-hidden flex flex-col gap-2 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
       <CardHeader className="pb-0">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-mono text-zinc-500 uppercase tracking-wider">
-            GLOW WORTH
-          </span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xs font-mono text-zinc-500 uppercase tracking-wider">
+              GLOW WORTH
+            </span>
+
+            {hasWallet && (
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 sm:px-2.5 text-[11px] font-mono uppercase tracking-wider gap-1.5"
+                  onClick={() => setIsSwapOpen(true)}
+                >
+                  <ArrowLeftRight className="h-3 w-3 hidden sm:block" />
+                  <span className="text-xs sm:inline">Swap</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 sm:px-2.5 text-[11px] font-mono uppercase tracking-wider gap-1.5"
+                  onClick={() => setIsSendOpen(true)}
+                >
+                  <Send className="h-3 w-3" />
+                  <span className="hidden sm:inline">Send</span>
+                </Button>
+              </div>
+            )}
+          </div>
 
           <UiTooltipProvider delayDuration={150}>
             <UiTooltip>
               <UiTooltipTrigger asChild>
-                <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-2.5 py-1">
+                <div className="inline-flex shrink-0 w-fit items-center gap-2 rounded-full border border-border bg-background/60 px-2.5 py-1">
                   <span className="font-mono text-xs font-bold text-foreground tabular-nums">
                     {formattedSpotPrice}
                   </span>
-                  <span className={cn("font-mono text-[11px]")}>GLW price</span>
+                  <span
+                    className={cn("font-mono text-[11px] hidden sm:inline")}
+                  >
+                    GLW price
+                  </span>
                 </div>
               </UiTooltipTrigger>
               <UiTooltipContent side="bottom" align="end" sideOffset={10}>
@@ -782,7 +847,7 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
           )}
         >
           <div className="flex flex-col gap-2 p-4 pb-3 pt-0 shrink-0">
-            <div className="font-mono text-5xl md:text-6xl font-bold tracking-tighter text-foreground tabular-nums">
+            <div className="font-mono text-4xl sm:text-5xl md:text-6xl font-bold tracking-tighter text-foreground tabular-nums">
               <NumberTicker
                 value={glowWorth}
                 decimalPlaces={0}
@@ -809,7 +874,9 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
           <div
             className={cn(
               "px-4 flex-1",
-              hasWallet ? "min-h-[100px]" : "min-h-[190px]"
+              hasWallet
+                ? "min-h-[180px] lg:min-h-[100px]"
+                : "min-h-[220px] lg:min-h-[190px]"
             )}
           >
             {showEmptyState ? (
@@ -924,6 +991,14 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
           </div>
         ) : null}
       </CardContent>
+
+      <SwapDialog
+        open={isSwapOpen}
+        onOpenChange={handleSwapOpenChange}
+        headlineStats={headlineStats}
+        ethPriceInUSD={ethPriceInUSD}
+      />
+      <SendDialog open={isSendOpen} onOpenChange={setIsSendOpen} />
     </Card>
   );
 }

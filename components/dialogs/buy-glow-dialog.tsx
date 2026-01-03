@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
   Copy,
@@ -58,6 +58,21 @@ const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 const ONE_E18 = 1_000_000_000_000_000_000n;
 const POINTS_PER_GLW_WORTH_SCALED6 = 1_000n; // 0.001 points per GLW per week (scaled by 1e6)
 
+function trimToDecimals(value: string, decimals: number) {
+  if (!value) return "";
+  const [i, f = ""] = value.split(".");
+  if (!f) return i;
+  return `${i}.${f.slice(0, Math.max(0, decimals))}`;
+}
+
+function formatLocaleAmount(value: string, maxFractionDigits: number) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return value;
+  return n.toLocaleString("en-US", {
+    maximumFractionDigits: maxFractionDigits,
+  });
+}
+
 function glwWeiToPointsScaled6(glwWei: bigint) {
   return (glwWei * POINTS_PER_GLW_WORTH_SCALED6) / ONE_E18;
 }
@@ -101,7 +116,8 @@ interface PendingState {
 
 const getInitialPendingStates = (
   payToken: PayToken,
-  includeBondingStep: boolean
+  includeBondingStep: boolean,
+  includeUsdcToUsdgSwap: boolean
 ): PendingState[] => {
   const states: PendingState[] = [];
 
@@ -114,7 +130,7 @@ const getInitialPendingStates = (
     });
   }
 
-  if (payToken === "USDC" || payToken === "ETH") {
+  if (includeUsdcToUsdgSwap) {
     states.push({
       code: "SWAP_USDC_TO_USDG",
       message: "Swapping USDC for USDG",
@@ -157,6 +173,7 @@ export function BuyGlowDialog({
   defaultUsdcAmount,
   onSuccess,
 }: BuyGlowDialogProps) {
+  const queryClient = useQueryClient();
   const [phase, setPhase] = React.useState<Phase>("input");
   const [payToken, setPayToken] = React.useState<PayToken>("USDC");
   const [inputAmount, setInputAmount] = React.useState<string>("");
@@ -235,6 +252,13 @@ export function BuyGlowDialog({
   );
 
   const { usdgBalance } = useWalletTokenBalances(address);
+  const usdcBalanceWei = usdcBalance ?? 0n;
+  const usdgBalanceWei = usdgBalance ?? 0n;
+  const combinedStableBalanceWei = usdcBalanceWei + usdgBalanceWei;
+  const combinedStableBalanceFormatted = React.useMemo(
+    () => formatUnits(combinedStableBalanceWei, DECIMALS_BY_TOKEN.USDC),
+    [combinedStableBalanceWei]
+  );
 
   const usdgBalanceFormatted = React.useMemo(() => {
     if (!usdgBalance) return "0";
@@ -258,15 +282,18 @@ export function BuyGlowDialog({
   }, [ethBalanceQuery.data?.formatted, ethBalanceQuery.data?.value]);
 
   const availablePayBalanceFormatted = React.useMemo(() => {
-    if (payToken === "USDC") return usdcBalanceFormatted;
+    if (payToken === "USDC") return combinedStableBalanceFormatted;
     if (payToken === "USDG") return usdgBalanceFormatted;
     return ethBalanceFormatted;
   }, [
+    combinedStableBalanceFormatted,
     ethBalanceFormatted,
     payToken,
     usdcBalanceFormatted,
     usdgBalanceFormatted,
   ]);
+
+  const availablePayBalanceLabel = payToken === "USDC" ? "USDC+USDG" : payToken;
 
   const payTokenLabel = payToken;
 
@@ -298,6 +325,61 @@ export function BuyGlowDialog({
     const trimmed = f.slice(0, 6);
     return trimmed ? `${i}.${trimmed}` : i;
   }, []);
+
+  const isUsdcModeBalanceInsufficient = React.useMemo(() => {
+    if (!isConnected) return false;
+    if (payToken !== "USDC") return false;
+    if (!inputAmount || Number(inputAmount) <= 0) return false;
+
+    try {
+      const requestedWei = parseUnits(
+        trimToDecimals(inputAmount, DECIMALS_BY_TOKEN.USDC as number),
+        DECIMALS_BY_TOKEN.USDC as number
+      );
+      return requestedWei > combinedStableBalanceWei;
+    } catch {
+      return false;
+    }
+  }, [combinedStableBalanceWei, inputAmount, isConnected, payToken]);
+
+  const usdcTopUpSplit = React.useMemo(() => {
+    if (!isConnected) return null;
+    if (payToken !== "USDC") return null;
+    if (!inputAmount || Number(inputAmount) <= 0) return null;
+
+    try {
+      const requestedWei = parseUnits(
+        trimToDecimals(inputAmount, DECIMALS_BY_TOKEN.USDC as number),
+        DECIMALS_BY_TOKEN.USDC as number
+      );
+      if (requestedWei > combinedStableBalanceWei) return null;
+
+      const usdcPortionWei =
+        requestedWei > usdcBalanceWei ? usdcBalanceWei : requestedWei;
+      const usdgPortionWei =
+        requestedWei > usdcPortionWei ? requestedWei - usdcPortionWei : 0n;
+      if (usdgPortionWei <= 0n) return null;
+
+      return {
+        usdcPortionFormatted: formatUnits(
+          usdcPortionWei,
+          DECIMALS_BY_TOKEN.USDC
+        ),
+        usdgPortionFormatted: formatUnits(
+          usdgPortionWei,
+          DECIMALS_BY_TOKEN.USDG
+        ),
+      };
+    } catch {
+      return null;
+    }
+  }, [
+    combinedStableBalanceWei,
+    inputAmount,
+    isConnected,
+    payToken,
+    usdcBalanceWei,
+  ]);
 
   // Debounced estimate calculation using callback pattern
   const estimateRunner = React.useCallback(
@@ -544,6 +626,29 @@ export function BuyGlowDialog({
 
     try {
       let effectiveSmartAmounts: SmartBalancingAmounts = smartAmounts;
+      let includeUsdcToUsdgSwap = payToken === "ETH";
+      let usdcAmountToSwapToUsdg: bigint | null = null;
+      let usdgTopUpWei = 0n;
+
+      if (payToken === "USDC") {
+        const requestedWei = parseUnits(
+          trimToDecimals(inputAmount, DECIMALS_BY_TOKEN.USDC as number),
+          DECIMALS_BY_TOKEN.USDC as number
+        );
+        const combinedWei = usdcBalanceWei + usdgBalanceWei;
+        if (requestedWei > combinedWei)
+          throw new Error("Insufficient USDC + USDG balance");
+
+        const usdcPortionWei =
+          requestedWei > usdcBalanceWei ? usdcBalanceWei : requestedWei;
+        usdgTopUpWei =
+          requestedWei > usdcPortionWei ? requestedWei - usdcPortionWei : 0n;
+        if (usdgTopUpWei > usdgBalanceWei)
+          throw new Error("Insufficient USDC + USDG balance");
+
+        usdcAmountToSwapToUsdg = usdcPortionWei;
+        includeUsdcToUsdgSwap = usdcPortionWei > 0n;
+      }
 
       const bondingAllocationInitial =
         effectiveSmartAmounts.amount_in_glow_bonding_curve ?? BigInt(0);
@@ -557,20 +662,26 @@ export function BuyGlowDialog({
       setPendingStates(
         getInitialPendingStates(
           payToken,
-          payToken === "ETH" ? true : hasBondingOutputInitial
+          payToken === "ETH" ? true : hasBondingOutputInitial,
+          includeUsdcToUsdgSwap
         )
       );
 
       trackEvent("buy_glw_submit_click", {
         pay_token: payToken,
         pay_amount: inputAmount,
-        usdc_amount: payToken === "USDC" ? inputAmount : undefined,
+        usdc_amount:
+          payToken === "USDC" && usdcAmountToSwapToUsdg
+            ? formatUnits(usdcAmountToSwapToUsdg, DECIMALS_BY_TOKEN.USDC)
+            : undefined,
+        usdg_from_balance:
+          payToken === "USDC" && usdgTopUpWei > 0n
+            ? formatUnits(usdgTopUpWei, DECIMALS_BY_TOKEN.USDG)
+            : undefined,
         usdc_balance: usdcBalanceFormatted,
         usdg_balance: usdgBalanceFormatted,
         has_bonding_step: hasBondingOutputInitial,
       });
-
-      let usdcAmountToSwapToUsdg: bigint | null = null;
 
       if (payToken === "ETH") {
         if (!isEthPayEnabled)
@@ -641,13 +752,10 @@ export function BuyGlowDialog({
       }
 
       if (payToken === "USDC") {
-        usdcAmountToSwapToUsdg = parseUnits(
-          inputAmount,
-          DECIMALS_BY_TOKEN.USDC as number
-        );
+        // usdcAmountToSwapToUsdg already computed above (may be 0 if wallet has enough USDG)
       }
 
-      if (usdcAmountToSwapToUsdg) {
+      if (usdcAmountToSwapToUsdg && usdcAmountToSwapToUsdg > 0n) {
         setPendingStatePending("SWAP_USDC_TO_USDG");
         const swapUsdcResult = await swapUSDCToUSDG(usdcAmountToSwapToUsdg);
         if (!swapUsdcResult.ok) {
@@ -665,6 +773,8 @@ export function BuyGlowDialog({
         completePendingStates("SWAP_USDC_TO_USDG");
         if (usdcToUsdgLastTxHashRef.current)
           setTxHash(usdcToUsdgLastTxHashRef.current);
+      } else {
+        completePendingStates("SWAP_USDC_TO_USDG");
       }
 
       const bondingAllocation =
@@ -806,9 +916,29 @@ export function BuyGlowDialog({
     usdgBalanceFormatted,
     isEthPayEnabled,
     isConnected,
+    usdcBalanceWei,
+    usdgBalanceWei,
   ]);
 
   const handleClose = React.useCallback(() => {
+    if (address) {
+      void (async () => {
+        try {
+          await Promise.all([
+            queryClient.invalidateQueries({
+              queryKey: ["wallet-token-balances", chainId, address],
+            }),
+            queryClient.invalidateQueries({
+              queryKey: ["wallet-swaps", chainId, address],
+            }),
+            queryClient.invalidateQueries({
+              queryKey: ["unclaimed-glw-rewards", address],
+            }),
+          ]);
+        } catch {}
+      })();
+    }
+
     onOpenChange(false);
     hasPrefilledForOpenRef.current = false;
     // setTimeout needed for dialog close animation to complete before resetting state
@@ -829,7 +959,10 @@ export function BuyGlowDialog({
       resetUniswapPurchaseState();
     }, 300);
   }, [
+    address,
+    chainId,
     onOpenChange,
+    queryClient,
     resetGlowLastTxHash,
     resetGlowPurchaseState,
     resetUniswapLastTxHash,
@@ -1030,26 +1163,60 @@ export function BuyGlowDialog({
                       {isConnected ? (
                         <>
                           Available:{" "}
-                          {payToken === "ETH"
-                            ? toFixedTruncate(
+                          {payToken === "USDC" ? (
+                            <>
+                              {formatLocaleAmount(usdcBalanceFormatted, 2)} USDC
+                              {" + "}
+                              {formatLocaleAmount(usdgBalanceFormatted, 2)} USDG
+                            </>
+                          ) : payToken === "ETH" ? (
+                            <>
+                              {toFixedTruncate(
                                 Number(availablePayBalanceFormatted || "0"),
                                 4
-                              )
-                            : Number(
-                                availablePayBalanceFormatted
-                              ).toLocaleString("en-US", {
-                                maximumFractionDigits: 2,
-                              })}{" "}
-                          {payTokenLabel}
+                              )}{" "}
+                              {availablePayBalanceLabel}
+                            </>
+                          ) : (
+                            <>
+                              {formatLocaleAmount(
+                                availablePayBalanceFormatted,
+                                2
+                              )}{" "}
+                              {availablePayBalanceLabel}
+                            </>
+                          )}
                         </>
                       ) : (
                         "Connect wallet to view balances."
                       )}
                     </div>
+                    {isUsdcModeBalanceInsufficient && (
+                      <div className="text-xs text-destructive font-mono">
+                        Insufficient USDC + USDG balance
+                      </div>
+                    )}
+                    {usdcTopUpSplit && (
+                      <div className="text-xs text-muted-foreground font-mono">
+                        Will use:{" "}
+                        {formatLocaleAmount(
+                          usdcTopUpSplit.usdcPortionFormatted,
+                          2
+                        )}{" "}
+                        USDC +{" "}
+                        {formatLocaleAmount(
+                          usdcTopUpSplit.usdgPortionFormatted,
+                          2
+                        )}{" "}
+                        USDG
+                      </div>
+                    )}
                     {isConnected &&
                       Number(availablePayBalanceFormatted) === 0 && (
                         <div className="text-sm text-muted-foreground">
-                          You need {payTokenLabel} in this wallet to buy GLW.
+                          You need{" "}
+                          {payToken === "USDC" ? "USDC or USDG" : payTokenLabel}{" "}
+                          in this wallet to buy GLW.
                         </div>
                       )}
                   </div>
@@ -1089,7 +1256,7 @@ export function BuyGlowDialog({
                       </div>
                     )}
 
-                    <div className="rounded-xl border border-border bg-muted/20 p-4">
+                    <div className="hidden sm:block rounded-xl border border-border bg-muted/20 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
                           <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">

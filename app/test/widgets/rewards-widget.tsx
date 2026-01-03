@@ -435,7 +435,7 @@ export default function RewardsWidget({
                   </div>
 
                   <div className="pt-3">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background/50 border border-border shadow-sm">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background/50 border border-border">
                       <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
                         Lifetime
                       </span>

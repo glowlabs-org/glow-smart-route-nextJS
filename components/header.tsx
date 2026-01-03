@@ -93,7 +93,7 @@ export function HeaderHamburgerMenu({
       >
         <DrawerHeader className="border-b border-border">
           <div className="flex items-center justify-between">
-            <GlowLockup className="w-32 h-10" />
+            <WalletStatus className="h-10" />
             <div className="flex items-center gap-2">
               <ThemeToggle />
               <DrawerClose asChild>
@@ -519,7 +519,7 @@ export function Header({
                       <ListItem href="/" title="Home">
                         Back to the dashboard
                       </ListItem>
-                      <ListItem href="/glow-swap" title="SWAP">
+                      <ListItem href="/glow-swap" title="Swap">
                         Trade GLOW, USDG, and USDC
                       </ListItem>
                       <ListItem href="/stats/rewards" title="Glow Leaderboard">
@@ -690,7 +690,7 @@ export function Header({
               >
                 <DrawerHeader className="border-b border-border">
                   <div className="flex items-center justify-between">
-                    <GlowLockup className="w-32 h-10" />
+                    <WalletStatus className="h-10" />
                     <div className="flex items-center gap-2">
                       <ThemeToggle />
                       <DrawerClose asChild>
@@ -749,7 +749,7 @@ export function Header({
                                 }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                SWAP
+                                Swap
                               </Link>
                             </DrawerClose>
                             <DrawerClose asChild>
@@ -1000,10 +1000,6 @@ export function Header({
                       </div>
                     </div>
                   </nav>
-                </div>
-
-                <div className="border-t border-border bg-muted p-4">
-                  <WalletStatus className="w-full justify-between h-12" />
                 </div>
               </DrawerContent>
             </Drawer>

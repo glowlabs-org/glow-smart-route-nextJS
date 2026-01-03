@@ -518,21 +518,18 @@ export default function SolarFarmWidget({
       <Card className="h-full lg:max-h-[380px] flex flex-col overflow-hidden pt-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
         {!isEmptyButConnected && (
           <CardHeader className="pb-2 border-b border-border/60 bg-muted/20 pt-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 min-w-0">
                 <CardTitle className="tracking-tight text-sm font-bold text-foreground uppercase font-mono">
                   Glow Mining
                 </CardTitle>
-                <span className="px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground font-mono">
-                  Last 10 Weeks
-                </span>
               </div>
               <DialogTrigger asChild>
                 <Button
                   variant="ghost"
                   size="sm"
                   disabled={!hasWallet || isEmptyButConnected}
-                  className="h-7 text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-muted gap-1"
+                  className="h-7 w-full sm:w-auto justify-center text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-muted gap-1 shrink-0"
                 >
                   <LayoutGrid className="w-3 h-3" />
                   View Details
@@ -545,7 +542,7 @@ export default function SolarFarmWidget({
         <CardContent
           className={cn(
             "flex-1 min-h-0 flex flex-col gap-6",
-            !isEmptyButConnected ? "p-6 pt-2" : "p-0"
+            !isEmptyButConnected ? "p-4 pt-2 sm:p-6" : "p-0"
           )}
         >
           {!hasWallet ? (
@@ -558,8 +555,8 @@ export default function SolarFarmWidget({
                   className="pointer-events-none select-none blur-[10px] opacity-60"
                 >
                   {/* Dashboard Stats (placeholder) */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex flex-col gap-1 min-w-0">
                       <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
                         Current Weekly Payout
                       </span>
@@ -579,41 +576,41 @@ export default function SolarFarmWidget({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4 bg-muted/30 px-4 py-2 rounded-xl border border-border">
-                      <div className="flex flex-col items-end">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-lg font-bold text-foreground font-mono">
-                            3
+                    <div className="w-full sm:w-auto bg-muted/30 px-3 py-2 sm:px-4 rounded-xl border border-border">
+                      <div className="grid grid-cols-3 divide-x divide-border">
+                        <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-lg font-bold text-foreground font-mono">
+                              3
+                            </span>
+                            <Cpu className="w-4 h-4 text-miner-yellow" />
+                          </div>
+                          <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                            Miners
                           </span>
-                          <Cpu className="w-4 h-4 text-miner-yellow" />
                         </div>
-                        <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                          Miners
-                        </span>
-                      </div>
-                      <div className="w-px h-8 bg-border" />
-                      <div className="flex flex-col items-end">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-lg font-bold text-foreground font-mono">
-                            2
+                        <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-lg font-bold text-foreground font-mono">
+                              2
+                            </span>
+                            <Zap className="w-4 h-4 text-glow-purple" />
+                          </div>
+                          <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                            Delegations
                           </span>
-                          <Zap className="w-4 h-4 text-glow-purple" />
                         </div>
-                        <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                          Delegations
-                        </span>
-                      </div>
-                      <div className="w-px h-8 bg-border" />
-                      <div className="flex flex-col items-end">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-lg font-bold text-foreground font-mono">
-                            1
+                        <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-lg font-bold text-foreground font-mono">
+                              1
+                            </span>
+                            <Gift className="w-4 h-4 text-[color:var(--color-glow-green)]" />
+                          </div>
+                          <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                            Other
                           </span>
-                          <Gift className="w-4 h-4 text-[color:var(--color-glow-green)]" />
                         </div>
-                        <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                          Other
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -804,8 +801,8 @@ export default function SolarFarmWidget({
           ) : (
             <>
               {/* Dashboard Stats */}
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex flex-col gap-1 min-w-0">
                   <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
                     Current Weekly Payout
                   </span>
@@ -849,45 +846,45 @@ export default function SolarFarmWidget({
                     type="button"
                     aria-label="Open farm performance details"
                     className={cn(
-                      "flex items-center gap-4 bg-muted/30 px-4 py-2 rounded-xl border border-border transition-colors cursor-pointer",
+                      "w-full sm:w-auto bg-muted/30 px-3 py-2 sm:px-4 rounded-xl border border-border transition-colors cursor-pointer",
                       "hover:bg-muted/40 hover:border-border/80",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     )}
                   >
-                    <div className="flex flex-col items-end">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-lg font-bold text-foreground font-mono">
-                          {stats.activeMiners}
+                    <div className="grid grid-cols-3 divide-x divide-border">
+                      <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-lg font-bold text-foreground font-mono">
+                            {stats.activeMiners}
+                          </span>
+                          <Cpu className="w-4 h-4 text-miner-yellow" />
+                        </div>
+                        <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                          Miners
                         </span>
-                        <Cpu className="w-4 h-4 text-miner-yellow" />
                       </div>
-                      <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                        Miners
-                      </span>
-                    </div>
-                    <div className="w-px h-8 bg-border" />
-                    <div className="flex flex-col items-end">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-lg font-bold text-foreground font-mono">
-                          {stats.activeDelegations}
+                      <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-lg font-bold text-foreground font-mono">
+                            {stats.activeDelegations}
+                          </span>
+                          <Zap className="w-4 h-4 text-glow-purple" />
+                        </div>
+                        <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                          Delegations
                         </span>
-                        <Zap className="w-4 h-4 text-glow-purple" />
                       </div>
-                      <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                        Delegations
-                      </span>
-                    </div>
-                    <div className="w-px h-8 bg-border" />
-                    <div className="flex flex-col items-end">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-lg font-bold text-foreground font-mono">
-                          {stats.activeOtherRewards}
+                      <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-lg font-bold text-foreground font-mono">
+                            {stats.activeOtherRewards}
+                          </span>
+                          <Gift className="w-4 h-4 text-[color:var(--color-glow-green)]" />
+                        </div>
+                        <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                          Other
                         </span>
-                        <Gift className="w-4 h-4 text-[color:var(--color-glow-green)]" />
                       </div>
-                      <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                        Other
-                      </span>
                     </div>
                   </button>
                 </DialogTrigger>

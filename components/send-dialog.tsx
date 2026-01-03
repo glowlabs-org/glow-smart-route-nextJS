@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SendTab } from "@/app/buy/send-tab";
-import { tokens, type Token } from "@/app/buy/view";
+import { tokens, type Token } from "@/app/buy/constants";
 
 interface SendDialogProps {
   open: boolean;
@@ -18,7 +18,7 @@ interface SendDialogProps {
 export function SendDialog({ open, onOpenChange }: SendDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Send Tokens</DialogTitle>
         </DialogHeader>

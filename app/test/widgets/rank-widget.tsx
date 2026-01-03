@@ -218,9 +218,13 @@ function ImpactScoreHelp() {
 
 interface RankWidgetProps {
   walletAddress?: string | null;
+  onMintAndStakeClick?: () => void;
 }
 
-export function RankWidget({ walletAddress }: RankWidgetProps) {
+export function RankWidget({
+  walletAddress,
+  onMintAndStakeClick,
+}: RankWidgetProps) {
   const hasWallet = Boolean(walletAddress);
   const [isBreakdownOpen, setIsBreakdownOpen] = React.useState(false);
 
@@ -272,10 +276,12 @@ export function RankWidget({ walletAddress }: RankWidgetProps) {
     return num;
   }, [totalsPoints]);
 
+  const hasPositiveScore = totalPointsNumber > 0;
+  const shouldShowMintAndStakeCta =
+    Boolean(impactScore) && !impactScoreQuery.isLoading && !hasPositiveScore;
+
   const shouldShowBreakdownButton =
-    Boolean(impactScore) &&
-    !impactScoreQuery.isLoading &&
-    totalPointsNumber > 0;
+    Boolean(impactScore) && !impactScoreQuery.isLoading && hasPositiveScore;
 
   // Tier Logic
   const tier = React.useMemo(() => {
@@ -395,31 +401,49 @@ export function RankWidget({ walletAddress }: RankWidgetProps) {
                     ? "—"
                     : formatPoints(totalsPoints)}
                 </div>
-                <div className="mt-3 font-mono text-xs text-muted-foreground">
-                  {subtitle}
-                </div>
+                {!shouldShowMintAndStakeCta ? (
+                  <div className="mt-3 font-mono text-xs text-muted-foreground">
+                    {subtitle}
+                  </div>
+                ) : null}
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className="font-mono text-[10px] font-bold rounded-full bg-[#C084FC]/10 border-[#C084FC]/30 text-[#C084FC]"
-                  >
-                    {tier}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className="font-mono text-[10px] font-bold rounded-full bg-muted/20 border-border text-foreground"
-                  >
-                    {rankDisplay}
-                  </Badge>
+                  {!shouldShowMintAndStakeCta ? (
+                    <>
+                      <Badge
+                        variant="outline"
+                        className="font-mono text-[10px] font-bold rounded-full bg-[#C084FC]/10 border-[#C084FC]/30 text-[#C084FC]"
+                      >
+                        {tier}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="font-mono text-[10px] font-bold rounded-full bg-muted/20 border-border text-foreground"
+                      >
+                        {rankDisplay}
+                      </Badge>
+                    </>
+                  ) : null}
                 </div>
               </div>
-              <div
-                className={
-                  shouldShowBreakdownButton
-                    ? "grid grid-cols-2 gap-3"
-                    : "grid grid-cols-1 gap-3"
-                }
-              >
+              <div className={"grid grid-cols-2 gap-3"}>
+                {shouldShowMintAndStakeCta ? (
+                  onMintAndStakeClick ? (
+                    <Button
+                      className="h-12 font-mono font-bold text-base"
+                      type="button"
+                      onClick={onMintAndStakeClick}
+                    >
+                      Rank Up
+                    </Button>
+                  ) : (
+                    <Button
+                      className="h-12 font-mono font-bold text-base"
+                      asChild
+                    >
+                      <Link href="/buy">Mint &amp; stake GCTL</Link>
+                    </Button>
+                  )
+                ) : null}
                 <Button
                   variant="outline"
                   className="h-12 font-mono font-bold text-base"

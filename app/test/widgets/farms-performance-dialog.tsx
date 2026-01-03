@@ -129,67 +129,99 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
   const isLagging = !isOther && totalValuePct < timePct - 10; // Buffer of 10% before warning
 
   return (
-    <div className="grid grid-cols-12 items-center p-4 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 hover:border-border/80 transition-colors group">
-      {/* COLUMN 1: IDENTITY (3 Cols) */}
-      <div className="col-span-3 flex items-center gap-3">
-        <div
-          className={cn(
-            "h-10 w-10 rounded-lg flex items-center justify-center border",
-            data.type === "miner"
-              ? "bg-[color:var(--color-miner-yellow)]/15 border-[color:var(--color-miner-yellow)]/30 text-[color:var(--color-miner-yellow-contrast)]"
-              : data.type === "delegation"
-              ? "bg-[#C084FC]/15 border-[#C084FC]/30 text-[#C084FC]"
-              : "bg-[color:var(--color-glow-green)]/15 border-[color:var(--color-glow-green)]/30 text-[color:var(--color-glow-green)]"
-          )}
-        >
-          {data.type === "miner" ? (
-            <Cpu className="w-5 h-5" />
-          ) : data.type === "delegation" ? (
-            <Layers className="w-5 h-5" />
-          ) : (
-            <Gift className="w-5 h-5" />
-          )}
-        </div>
-        <div className="flex flex-col">
-          <span className="font-bold text-base text-foreground leading-tight">
-            {data.id}
-          </span>
-          <span className="text-sm font-mono text-muted-foreground">
-            {data.region}
-          </span>
-        </div>
-      </div>
-
-      {/* COLUMN 2: DUAL TRACKS (7 Cols) */}
-      <div className="col-span-7 px-4 flex flex-col justify-center gap-3">
-        {/* Track A: TIME */}
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-mono text-muted-foreground w-10 text-right uppercase tracking-wider">
-            Time
-          </span>
-          <div className="flex-1 relative group/tooltip">
-            <div className="relative w-full h-1.5 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-foreground/20 dark:bg-white/20"
-                style={{ width: `${timePct}%` }}
-              />
+    <>
+      {/* Mobile card */}
+      <div className="sm:hidden p-4 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 hover:border-border/80 transition-colors">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div
+              className={cn(
+                "h-10 w-10 shrink-0 rounded-lg flex items-center justify-center border",
+                data.type === "miner"
+                  ? "bg-[color:var(--color-miner-yellow)]/15 border-[color:var(--color-miner-yellow)]/30 text-[color:var(--color-miner-yellow-contrast)]"
+                  : data.type === "delegation"
+                  ? "bg-[#C084FC]/15 border-[#C084FC]/30 text-[#C084FC]"
+                  : "bg-[color:var(--color-glow-green)]/15 border-[color:var(--color-glow-green)]/30 text-[color:var(--color-glow-green)]"
+              )}
+            >
+              {data.type === "miner" ? (
+                <Cpu className="w-5 h-5" />
+              ) : data.type === "delegation" ? (
+                <Layers className="w-5 h-5" />
+              ) : (
+                <Gift className="w-5 h-5" />
+              )}
             </div>
-            {/* Hover Data */}
-            <div className="absolute -top-8 left-0 hidden group-hover/tooltip:block bg-popover text-popover-foreground border border-border text-sm px-2.5 py-1.5 rounded whitespace-nowrap z-10 leading-snug">
-              {data.weeksActive} weeks elapsed
+            <div className="min-w-0">
+              <div className="font-bold text-base text-foreground leading-tight truncate">
+                {data.id}
+              </div>
+              <div className="text-sm font-mono text-muted-foreground truncate">
+                {data.region}
+              </div>
             </div>
           </div>
-          <span className="text-xs font-mono text-muted-foreground w-16 text-right">
-            {data.totalWeeks - data.weeksActive} Left
-          </span>
+
+          <div className="shrink-0">
+            {isOther ? (
+              <div className="flex items-center gap-1.5 text-[color:var(--color-glow-green)] bg-[color:var(--color-glow-green)]/10 px-2 py-1 rounded border border-[color:var(--color-glow-green)]/20">
+                <Gift className="w-3 h-3" />
+                <span className="text-xs font-bold font-mono">REWARDS</span>
+              </div>
+            ) : isProfit ? (
+              <div className="flex items-center gap-1.5 text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded border border-emerald-400/20">
+                <TrendingUp className="w-3 h-3" />
+                <span className="text-xs font-bold font-mono">PROFIT</span>
+              </div>
+            ) : isLagging ? (
+              <div className="flex items-center gap-1.5 text-orange-400 bg-orange-400/10 px-2 py-1 rounded border border-orange-400/20">
+                <AlertCircle className="w-3 h-3" />
+                <span className="text-xs font-bold font-mono">LAGGING</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/20 px-2 py-1 rounded border border-border/60">
+                <CheckCircle2 className="w-3 h-3" />
+                <span className="text-xs font-bold font-mono">ON TRACK</span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Track B: MONEY */}
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-mono text-muted-foreground w-10 text-right uppercase tracking-wider">
-            Value
-          </span>
-          <div className="flex-1 relative">
+        <div className="mt-4 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Time
+            </div>
+            <div className="text-[10px] font-mono text-muted-foreground tabular-nums">
+              {data.totalWeeks - data.weeksActive} Left
+            </div>
+          </div>
+          <div className="relative w-full h-1.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-foreground/20 dark:bg-white/20"
+              style={{ width: `${timePct}%` }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Value
+            </div>
+            <div
+              className={cn(
+                "text-xs font-mono font-bold tabular-nums",
+                isOther
+                  ? "text-[color:var(--color-glow-green)]"
+                  : isProfit
+                  ? "text-emerald-500"
+                  : "text-foreground"
+              )}
+            >
+              {isOther ? "—" : `${Math.round(totalValuePct)}%`}
+            </div>
+          </div>
+
+          <div className="relative">
             <ShadTooltip>
               <TooltipTrigger asChild>
                 <div
@@ -199,7 +231,6 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                       "ring-1 ring-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]"
                   )}
                 >
-                  {/* Segment 1: Recovered Principal / Deposit */}
                   <div
                     className={cn(
                       "absolute left-0 h-full",
@@ -213,7 +244,6 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     )}
                     style={{ width: `${principalPct}%` }}
                   />
-                  {/* Segment 2: Emissions */}
                   <div
                     className="absolute h-full bg-[color:var(--color-miner-yellow)]"
                     style={{
@@ -285,68 +315,233 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
               </TooltipContent>
             </ShadTooltip>
 
-            {/* Profit Overflow Marker */}
-            {isProfit && (
+            {isProfit ? (
               <div className="absolute top-1/2 -translate-y-1/2 -right-1 w-1 h-3 bg-foreground rounded-full z-10" />
-            )}
-          </div>
-
-          <div className="flex flex-col items-end w-16">
-            <span
-              className={cn(
-                "text-sm font-mono font-bold",
-                isOther
-                  ? "text-[color:var(--color-glow-green)]"
-                  : isProfit
-                  ? "text-emerald-500"
-                  : "text-foreground"
-              )}
-            >
-              {isOther ? "—" : `${Math.round(totalValuePct)}%`}
-            </span>
+            ) : null}
           </div>
         </div>
       </div>
 
-      {/* COLUMN 3: STATUS (2 Cols) */}
-      <div className="col-span-2 flex justify-end">
-        {isOther ? (
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-1.5 text-[color:var(--color-glow-green)] bg-[color:var(--color-glow-green)]/10 px-2 py-1 rounded border border-[color:var(--color-glow-green)]/20">
-              <Gift className="w-3 h-3" />
-              <span className="text-xs font-bold font-mono">REWARDS</span>
+      {/* Desktop row */}
+      <div className="hidden sm:grid grid-cols-12 items-center p-4 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 hover:border-border/80 transition-colors group">
+        {/* COLUMN 1: IDENTITY (3 Cols) */}
+        <div className="col-span-3 flex items-center gap-3">
+          <div
+            className={cn(
+              "h-10 w-10 rounded-lg flex items-center justify-center border",
+              data.type === "miner"
+                ? "bg-[color:var(--color-miner-yellow)]/15 border-[color:var(--color-miner-yellow)]/30 text-[color:var(--color-miner-yellow-contrast)]"
+                : data.type === "delegation"
+                ? "bg-[#C084FC]/15 border-[#C084FC]/30 text-[#C084FC]"
+                : "bg-[color:var(--color-glow-green)]/15 border-[color:var(--color-glow-green)]/30 text-[color:var(--color-glow-green)]"
+            )}
+          >
+            {data.type === "miner" ? (
+              <Cpu className="w-5 h-5" />
+            ) : data.type === "delegation" ? (
+              <Layers className="w-5 h-5" />
+            ) : (
+              <Gift className="w-5 h-5" />
+            )}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="font-bold text-base text-foreground leading-tight truncate">
+              {data.id}
+            </span>
+            <span className="text-sm font-mono text-muted-foreground truncate">
+              {data.region}
+            </span>
+          </div>
+        </div>
+
+        {/* COLUMN 2: DUAL TRACKS (7 Cols) */}
+        <div className="col-span-7 px-4 flex flex-col justify-center gap-3 min-w-0">
+          {/* Track A: TIME */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-mono text-muted-foreground w-10 text-right uppercase tracking-wider">
+              Time
+            </span>
+            <div className="flex-1 relative group/tooltip min-w-0">
+              <div className="relative w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-foreground/20 dark:bg-white/20"
+                  style={{ width: `${timePct}%` }}
+                />
+              </div>
+              {/* Hover Data */}
+              <div className="absolute -top-8 left-0 hidden group-hover/tooltip:block bg-popover text-popover-foreground border border-border text-sm px-2.5 py-1.5 rounded whitespace-nowrap z-10 leading-snug">
+                {data.weeksActive} weeks elapsed
+              </div>
+            </div>
+            <span className="text-xs font-mono text-muted-foreground w-16 text-right">
+              {data.totalWeeks - data.weeksActive} Left
+            </span>
+          </div>
+
+          {/* Track B: MONEY */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-mono text-muted-foreground w-10 text-right uppercase tracking-wider">
+              Value
+            </span>
+            <div className="flex-1 relative min-w-0">
+              <ShadTooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className={cn(
+                      "relative w-full h-2.5 bg-muted rounded-full overflow-hidden border border-border/70 cursor-help",
+                      isProfit &&
+                        "ring-1 ring-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]"
+                    )}
+                  >
+                    {/* Segment 1: Recovered Principal / Deposit */}
+                    <div
+                      className={cn(
+                        "absolute left-0 h-full",
+                        isMiner
+                          ? "bg-muted-foreground/35"
+                          : isOther
+                          ? data.isProtocolDepositUsd
+                            ? "bg-[color:var(--color-glow-green)]"
+                            : "bg-[color:var(--color-glow-orange)]"
+                          : "bg-[#C084FC]"
+                      )}
+                      style={{ width: `${principalPct}%` }}
+                    />
+                    {/* Segment 2: Emissions */}
+                    <div
+                      className="absolute h-full bg-[color:var(--color-miner-yellow)]"
+                      style={{
+                        left: `${principalPct}%`,
+                        width: `${inflationPct}%`,
+                      }}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="bg-popover text-popover-foreground border-border text-sm font-mono px-4 py-3">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    {!isOther ? (
+                      <>
+                        <span className="text-muted-foreground">Initial:</span>
+                        <span className="text-right text-foreground">
+                          {isMiner
+                            ? fmtUsd(data.initialCost)
+                            : `${fmtGlw(data.initialCost)} GLW`}
+                        </span>
+                      </>
+                    ) : null}
+
+                    <span className="text-muted-foreground">
+                      {isOther
+                        ? `PD rewards (${data.protocolDepositAsset ?? "—"}):`
+                        : "Recovered:"}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-right",
+                        isMiner
+                          ? "text-muted-foreground"
+                          : isOther
+                          ? "text-[color:var(--color-glow-green)]"
+                          : "text-[#C084FC]"
+                      )}
+                    >
+                      {isOther
+                        ? data.isProtocolDepositUsd
+                          ? `${fmtUsdAmount(data.recovered)} USDG`
+                          : `${fmtGlw(data.recovered)} GLW`
+                        : isUsdRow
+                        ? fmtUsd(data.recovered)
+                        : `${fmtGlw(data.recovered)} GLW`}
+                    </span>
+
+                    <span className="text-muted-foreground">
+                      {isOther ? "Inflation:" : "Emissions:"}
+                    </span>
+                    <span className="text-right text-[color:var(--color-miner-yellow-contrast)]">
+                      {`+${fmtGlw(data.inflationGlw)} GLW`}
+                    </span>
+
+                    <div className="col-span-2 h-px bg-border my-1" />
+
+                    <span className="text-muted-foreground">Total:</span>
+                    <span className="text-right font-bold">
+                      {isOther
+                        ? data.isProtocolDepositUsd
+                          ? `${fmtGlw(data.inflationGlw)} GLW + ${fmtUsdAmount(
+                              data.recovered
+                            )} USDG`
+                          : `${fmtGlw(data.inflationGlw + data.recovered)} GLW`
+                        : isUsdRow
+                        ? fmtUsd(totalValue)
+                        : `${fmtGlw(totalValue)} GLW`}
+                    </span>
+                  </div>
+                </TooltipContent>
+              </ShadTooltip>
+
+              {/* Profit Overflow Marker */}
+              {isProfit && (
+                <div className="absolute top-1/2 -translate-y-1/2 -right-1 w-1 h-3 bg-foreground rounded-full z-10" />
+              )}
+            </div>
+
+            <div className="flex flex-col items-end w-16">
+              <span
+                className={cn(
+                  "text-sm font-mono font-bold",
+                  isOther
+                    ? "text-[color:var(--color-glow-green)]"
+                    : isProfit
+                    ? "text-emerald-500"
+                    : "text-foreground"
+                )}
+              >
+                {isOther ? "—" : `${Math.round(totalValuePct)}%`}
+              </span>
             </div>
           </div>
-        ) : isProfit ? (
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-1.5 text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded border border-emerald-400/20">
-              <TrendingUp className="w-3 h-3" />
-              <span className="text-xs font-bold font-mono">PROFIT</span>
+        </div>
+
+        {/* COLUMN 3: STATUS (2 Cols) */}
+        <div className="col-span-2 flex justify-end">
+          {isOther ? (
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-1.5 text-[color:var(--color-glow-green)] bg-[color:var(--color-glow-green)]/10 px-2 py-1 rounded border border-[color:var(--color-glow-green)]/20">
+                <Gift className="w-3 h-3" />
+                <span className="text-xs font-bold font-mono">REWARDS</span>
+              </div>
             </div>
-          </div>
-        ) : isLagging ? (
-          <div
-            className="flex items-center gap-1.5 text-orange-400 opacity-80"
-            title="Value is growing slower than time passed"
-          >
-            <span className="text-xs font-mono uppercase tracking-wide">
-              Lagging
-            </span>
-            <AlertCircle className="w-3.5 h-3.5" />
-          </div>
-        ) : (
-          <div
-            className="flex items-center gap-1.5 text-muted-foreground"
-            title="On track to break even"
-          >
-            <span className="text-xs font-mono uppercase tracking-wide">
-              On Track
-            </span>
-            <CheckCircle2 className="w-3.5 h-3.5" />
-          </div>
-        )}
+          ) : isProfit ? (
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-1.5 text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded border border-emerald-400/20">
+                <TrendingUp className="w-3 h-3" />
+                <span className="text-xs font-bold font-mono">PROFIT</span>
+              </div>
+            </div>
+          ) : isLagging ? (
+            <div
+              className="flex items-center gap-1.5 text-orange-400 opacity-80"
+              title="Value is growing slower than time passed"
+            >
+              <span className="text-xs font-mono uppercase tracking-wide">
+                Lagging
+              </span>
+              <AlertCircle className="w-3.5 h-3.5" />
+            </div>
+          ) : (
+            <div
+              className="flex items-center gap-1.5 text-muted-foreground"
+              title="On track to break even"
+            >
+              <span className="text-xs font-mono uppercase tracking-wide">
+                On Track
+              </span>
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
@@ -516,10 +711,10 @@ export function FarmsPerformanceDialogContent({
   }, [filter, rows]);
 
   return (
-    <DialogContent className="max-w-4xl h-[80vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden shadow-2xl">
+    <DialogContent className="max-w-4xl h-[92dvh] sm:h-[80vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden shadow-2xl">
       {/* Header */}
-      <DialogHeader className="px-6 py-5 border-b border-border bg-muted/20 flex-shrink-0 flex-row items-center justify-between space-y-0">
-        <DialogTitle className="text-2xl font-bold font-mono uppercase tracking-wide">
+      <DialogHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border bg-muted/20 flex-shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 space-y-0">
+        <DialogTitle className="text-xl sm:text-2xl font-bold font-mono uppercase tracking-wide leading-tight">
           Farm Performance
         </DialogTitle>
 
@@ -528,29 +723,30 @@ export function FarmsPerformanceDialogContent({
           onValueChange={(value) =>
             setFilter(isFilterValue(value) ? value : "all")
           }
+          className="w-full sm:w-auto"
         >
-          <TabsList className="bg-muted/30 border border-border h-12 p-1">
+          <TabsList className="w-full sm:w-auto bg-muted/30 border border-border h-10 sm:h-12 p-1 overflow-x-auto">
             <TabsTrigger
               value="all"
-              className="h-7 text-xs font-mono px-4 text-muted-foreground"
+              className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground"
             >
               ALL
             </TabsTrigger>
             <TabsTrigger
               value="miners"
-              className="h-7 text-xs font-mono px-4 text-muted-foreground data-[state=active]:text-miner-yellow"
+              className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-miner-yellow"
             >
               MINERS
             </TabsTrigger>
             <TabsTrigger
               value="delegations"
-              className="h-7 text-xs font-mono px-4 text-muted-foreground data-[state=active]:text-[#C084FC]"
+              className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[#C084FC]"
             >
               DELEGATIONS
             </TabsTrigger>
             <TabsTrigger
               value="other"
-              className="h-7 text-xs font-mono px-4 text-muted-foreground data-[state=active]:text-[color:var(--color-glow-green)]"
+              className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[color:var(--color-glow-green)]"
             >
               OTHER
             </TabsTrigger>
@@ -559,7 +755,7 @@ export function FarmsPerformanceDialogContent({
       </DialogHeader>
 
       {/* Legend / Columns */}
-      <div className="grid grid-cols-12 px-6 py-3 border-b border-border/60 bg-muted/10 text-xs font-mono uppercase text-muted-foreground tracking-wider flex-shrink-0">
+      <div className="hidden sm:grid grid-cols-12 px-6 py-3 border-b border-border/60 bg-muted/10 text-xs font-mono uppercase text-muted-foreground tracking-wider flex-shrink-0">
         <div className="col-span-3">Identity</div>
         <div className="col-span-7 pl-4 flex gap-4">
           <span>Lifecycle (Time vs Money)</span>
@@ -577,7 +773,7 @@ export function FarmsPerformanceDialogContent({
       {/* Scrollable List */}
       <ScrollArea className="flex-1 min-h-0 bg-background">
         <TooltipProvider delayDuration={0}>
-          <div className="p-6 space-y-3 pb-12 min-h-0">
+          <div className="p-4 sm:p-6 space-y-3 pb-12 min-h-0">
             {!hasWallet ? (
               <div className="py-16 flex flex-col items-center justify-center gap-3 text-center">
                 <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">

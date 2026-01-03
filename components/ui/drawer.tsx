@@ -28,7 +28,7 @@ const DrawerOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DrawerPrimitive.Overlay
     ref={ref}
-    className={cn("fixed inset-0 z-50 bg-black/80", className)}
+    className={cn("fixed inset-0 z-[1000] bg-black/80", className)}
     {...props}
   />
 ));
@@ -46,7 +46,7 @@ const DrawerContent = React.forwardRef<
       ref={ref}
       className={cn(
         // Direction-agnostic base. Consumers provide positioning (e.g., right sheet vs bottom sheet)
-        "fixed z-50 flex h-auto flex-col bg-background",
+        "fixed z-[1001] flex h-auto flex-col bg-background",
         // Helpful defaults for bottom sheet via data attribute when provided by vaul
         // data attributes are applied by vaul on the Content element
         "data-[vaul-drawer-direction=bottom]:inset-x-0 data-[vaul-drawer-direction=bottom]:bottom-0 data-[vaul-drawer-direction=bottom]:rounded-t-[10px]",

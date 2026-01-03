@@ -20,7 +20,7 @@ import { SwapError, useSwap } from "@/hooks/useSwap";
 import { Result } from "ts-results";
 import { SwapUSDCToUSDGError } from "@/hooks/useSwapUSDCToUSDG";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
-import { Token } from "@/app/buy/view";
+import { Token } from "@/app/buy/constants";
 
 import { formatUnits, parseUnits } from "viem";
 import { addresses } from "@/web3/constants/addresses";

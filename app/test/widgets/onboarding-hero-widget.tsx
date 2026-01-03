@@ -26,7 +26,7 @@ export default function OnboardingHeroWidget({
   return (
     <Card
       className={cn(
-        "relative flex h-full flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm",
+        "relative flex h-full flex-col overflow-hidden bg-card dark:bg-muted/20 border-foreground/10 dark:border-border",
         className
       )}
     >
@@ -34,9 +34,6 @@ export default function OnboardingHeroWidget({
       <div className="absolute -right-20 -top-40 opacity-[0.05] dark:opacity-[0.03] pointer-events-none select-none mix-blend-screen">
         <GlowSymbol className="h-[500px] w-[500px] text-foreground dark:text-white rotate-12" />
       </div>
-
-      {/* Background Decor: Subtle Gradient Mesh */}
-      <div className="absolute inset-0 bg-gradient-to-br from-foreground/[0.06] via-transparent to-transparent dark:from-white/[0.03] pointer-events-none" />
 
       {/* Main Content Container - Reduced vertical padding to fit buttons */}
       <CardContent className="relative z-10 flex flex-col h-full p-6 sm:p-7 md:p-8">

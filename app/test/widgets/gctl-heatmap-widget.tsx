@@ -66,7 +66,7 @@ function GctlHeatmapSkeleton() {
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 rounded-2xl overflow-hidden border border-border bg-muted/10 flex flex-col">
+          <div className="flex-1 min-h-[200px]  rounded-2xl overflow-hidden border border-border bg-muted/10 flex flex-col">
             <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border/60 shrink-0">
               <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
                 Staked across projects
@@ -201,7 +201,7 @@ export default function GctlHeatmapWidget({
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 rounded-2xl overflow-hidden border border-border bg-muted/10 flex flex-col">
+            <div className="flex-1 min-h-[200px]rounded-2xl overflow-hidden border border-border bg-muted/10 flex flex-col">
               <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border/60 shrink-0">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
                   Staked across projects
@@ -355,7 +355,7 @@ export default function GctlHeatmapWidget({
           </div>
 
           {/* Treemap */}
-          <div className="flex-1 min-h-0 rounded-2xl overflow-hidden border border-border bg-muted/10 flex flex-col">
+          <div className="flex-1 min-h-[200px] rounded-2xl overflow-hidden border border-border bg-muted/10 flex flex-col">
             <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border/60 shrink-0">
               <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
                 Staked across projects

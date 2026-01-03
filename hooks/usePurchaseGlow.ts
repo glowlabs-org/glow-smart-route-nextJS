@@ -18,6 +18,8 @@ const UNISWAP_V2_FACTORY_ABI = parseAbi([
 const UNISWAP_V2_FACTORY_ADDRESS: `0x${string}` =
   "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f" as `0x${string}`;
 
+const MAX_UINT256 = (BigInt(1) << BigInt(256)) - BigInt(1);
+
 export type SmartBalancingAmounts = {
   amount_in_uni: bigint;
   amount_in_glow_bonding_curve: bigint;
@@ -181,7 +183,7 @@ export function usePurchaseGlow() {
         setGlowPurchaseState("REQUESTING_USDC_APPROVAL_TO_OBTAIN_USDG");
 
         try {
-          const approveTx = await usdc.approve(usdg.address, usdcNeeded);
+          const approveTx = await usdc.approve(usdg.address, MAX_UINT256);
           lastTxHashRef.current = approveTx.hash as `0x${string}`;
           setLastTxHash(approveTx.hash as `0x${string}`);
           setGlowPurchaseState("APPROVING_USDC_TO_OBTAIN_USDG");
@@ -224,7 +226,7 @@ export function usePurchaseGlow() {
       try {
         const approveTx = await usdg.approve(
           earlyLiquidity.address,
-          usdgNeeded
+          MAX_UINT256
         );
         lastTxHashRef.current = approveTx.hash as `0x${string}`;
         setLastTxHash(approveTx.hash as `0x${string}`);
@@ -307,7 +309,7 @@ export function usePurchaseGlow() {
     if (usdgAllowance < usdgNeeded) {
       const estimatedGas = await usdg.estimateGas.approve(
         earlyLiquidity.address,
-        usdgNeeded
+        MAX_UINT256
       );
 
       const estimatedCost = estimatedGas * BigInt(usdcGasPrice);

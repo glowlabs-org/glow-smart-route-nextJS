@@ -250,8 +250,13 @@ export default function LaunchpadStatusWidget({
           <div className="flex-1 flex flex-col px-5 pb-5">
             {/* Big Countdown Hero */}
             <div className="flex-1 flex flex-col items-center justify-center py-2">
-              <div className="font-mono text-4xl sm:text-5xl font-bold tracking-tighter tabular-nums text-foreground">
-                <AnimatedCountdownDhms remainingMs={remainingMs} size="xl" />
+              <div className="font-mono font-bold tracking-tighter tabular-nums text-foreground">
+                <div className="sm:hidden text-3xl">
+                  <AnimatedCountdownDhms remainingMs={remainingMs} size="sm" />
+                </div>
+                <div className="hidden sm:block text-5xl">
+                  <AnimatedCountdownDhms remainingMs={remainingMs} size="xl" />
+                </div>
               </div>
               <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest mt-2 opacity-60">
                 Time Remaining
