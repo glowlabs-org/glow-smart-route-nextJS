@@ -1,12 +1,11 @@
 "use client";
 
-import { Suspense, ReactNode } from "react";
-import { Loading } from "@/components/loading";
+import { ReactNode } from "react";
 
 interface PageWrapperProps {
   children: ReactNode;
 }
 
 export function PageWrapper({ children }: PageWrapperProps) {
-  return <Suspense fallback={<Loading />}>{children}</Suspense>;
+  return <>{children}</>;
 }

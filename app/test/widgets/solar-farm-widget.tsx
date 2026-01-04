@@ -45,6 +45,7 @@ import {
   deriveMiningCenterSponsorshipsInProgress,
   getAggregatedEstimatedWeeklyGlw,
 } from "@/utils/sponsorships-in-progress";
+import { QUERY_KEYS } from "@/hooks/query-keys";
 
 interface HistoryDataPoint {
   weekNumber: number;
@@ -535,7 +536,9 @@ export default function SolarFarmWidget({
     setNextBatchAtMs(getNextTuesdayAt1pmET().getTime());
     void (async () => {
       try {
-        await queryClient.refetchQueries({ queryKey: ["sponsor-listings"] });
+        await queryClient.refetchQueries({
+          queryKey: QUERY_KEYS.listings.allSponsors,
+        });
       } catch {}
     })();
   }, [queryClient]);
@@ -767,7 +770,7 @@ export default function SolarFarmWidget({
                         <Bar
                           dataKey="minerReward"
                           stackId="a"
-                          fill="var(--color-miner-yellow)"
+                          fill="var(--color-glow-yellow)"
                           radius={[0, 0, 4, 4]}
                           animationDuration={1500}
                         />

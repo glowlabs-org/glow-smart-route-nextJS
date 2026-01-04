@@ -2,6 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { hubGet } from "@/lib/api/hub-client";
+import { QUERY_KEYS } from "@/hooks/query-keys";
+import { QUERY_CONFIG } from "@/hooks/query-config";
 
 export function formatGLW(value: string): string {
   try {
@@ -56,11 +58,12 @@ export function useYieldPer100(options: { enabled?: boolean } = {}) {
   const { enabled = true } = options;
 
   const query = useQuery<YieldPer100Response>({
-    queryKey: ["yield-per-100"] as const,
+    queryKey: QUERY_KEYS.fractions.yieldPer100(),
     enabled,
-    staleTime: 60 * 60_000,
-    refetchOnWindowFocus: false,
-    queryFn: async () => await hubGet<YieldPer100Response>("/fractions/yield-per-100"),
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
+    refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
+    queryFn: async () =>
+      await hubGet<YieldPer100Response>("/fractions/yield-per-100"),
   });
 
   return {
@@ -86,12 +89,13 @@ export function useFractionsSummary(options: { enabled?: boolean } = {}) {
   const { enabled = true } = options;
 
   const query = useQuery<FractionsSummaryResponse>({
-    queryKey: ["fractions", "summary"] as const,
+    queryKey: QUERY_KEYS.fractions.summary(),
     enabled,
-    staleTime: 60_000,
-    refetchInterval: enabled ? 60_000 : false,
-    refetchOnWindowFocus: false,
-    queryFn: async () => await hubGet<FractionsSummaryResponse>("/fractions/summary"),
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
+    refetchInterval: enabled ? QUERY_CONFIG.DEFAULT.staleTime : false,
+    refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
+    queryFn: async () =>
+      await hubGet<FractionsSummaryResponse>("/fractions/summary"),
   });
 
   return {
@@ -137,16 +141,18 @@ export interface FractionsAvailabilityGroupedResponse {
   miningCenter: FractionsAvailabilityResponse;
 }
 
-export function useFractionsAvailability(params: {
-  type?: "launchpad" | "mining-center";
-  enabled?: boolean;
-} = {}) {
+export function useFractionsAvailability(
+  params: {
+    type?: "launchpad" | "mining-center";
+    enabled?: boolean;
+  } = {}
+) {
   const { type, enabled = true } = params;
 
   const query = useQuery<
     FractionsAvailabilityResponse | FractionsAvailabilityGroupedResponse
   >({
-    queryKey: ["fractions", "available", type ?? "all"] as const,
+    queryKey: QUERY_KEYS.fractions.availability(type ?? "all"),
     enabled,
     staleTime: 30_000,
     refetchInterval: enabled ? 30_000 : false,
@@ -239,31 +245,40 @@ export interface RewardsBreakdownResponse {
   };
 }
 
-export function useRewardsBreakdown(params: {
-  walletAddress?: string | null;
-  farmId?: string | null;
-  startWeek?: number;
-  endWeek?: number;
-  enabled?: boolean;
-} = {}) {
+export function useRewardsBreakdown(
+  params: {
+    walletAddress?: string | null;
+    farmId?: string | null;
+    startWeek?: number;
+    endWeek?: number;
+    enabled?: boolean;
+  } = {}
+) {
   const { walletAddress, farmId, startWeek, endWeek, enabled = true } = params;
 
   const query = useQuery<RewardsBreakdownResponse | null>({
-    queryKey: [
-      "rewards-breakdown",
+    queryKey: QUERY_KEYS.fractions.rewardsBreakdown({
       walletAddress,
       farmId,
       startWeek,
       endWeek,
-    ] as const,
+    }),
     enabled: enabled && (Boolean(walletAddress) || Boolean(farmId)),
-    staleTime: 2 * 60_000,
-    refetchOnWindowFocus: false,
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime * 2,
+    refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
     queryFn: async () =>
-      await hubGet<RewardsBreakdownResponse | null>("/fractions/rewards-breakdown", {
-        params: { walletAddress: walletAddress ?? undefined, farmId: farmId ?? undefined, startWeek, endWeek },
-        notFound: null,
-      }),
+      await hubGet<RewardsBreakdownResponse | null>(
+        "/fractions/rewards-breakdown",
+        {
+          params: {
+            walletAddress: walletAddress ?? undefined,
+            farmId: farmId ?? undefined,
+            startWeek,
+            endWeek,
+          },
+          notFound: null,
+        }
+      ),
   });
 
   return {
@@ -292,24 +307,31 @@ export interface WalletsActivityResponse {
   wallets: WalletActivity[];
 }
 
-export function useWalletsActivity(params: {
-  type?: "delegator" | "miner";
-  sortBy?:
-    | "glwDelegated"
-    | "usdcSpentOnMiners"
-    | "delegatorRewardsEarned"
-    | "minerRewardsEarned"
-    | "totalRewardsEarned";
-  limit?: number;
-  enabled?: boolean;
-} = {}) {
-  const { type = "delegator", sortBy = "totalRewardsEarned", limit = 100, enabled = true } = params;
+export function useWalletsActivity(
+  params: {
+    type?: "delegator" | "miner";
+    sortBy?:
+      | "glwDelegated"
+      | "usdcSpentOnMiners"
+      | "delegatorRewardsEarned"
+      | "minerRewardsEarned"
+      | "totalRewardsEarned";
+    limit?: number;
+    enabled?: boolean;
+  } = {}
+) {
+  const {
+    type = "delegator",
+    sortBy = "totalRewardsEarned",
+    limit = 100,
+    enabled = true,
+  } = params;
 
   const query = useQuery<WalletsActivityResponse>({
     queryKey: ["wallets-activity", type, sortBy, limit] as const,
     enabled,
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
+    refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
     queryFn: async () =>
       await hubGet<WalletsActivityResponse>("/fractions/wallets/activity", {
         params: { type, sortBy, limit },
@@ -343,22 +365,29 @@ export interface FarmsActivityResponse {
   farms: FarmActivity[];
 }
 
-export function useFarmsActivity(params: {
-  type?: "delegator" | "miner" | "both";
-  sortBy?:
-    | "delegatorRewardsDistributed"
-    | "minerRewardsDistributed"
-    | "totalRewardsDistributed";
-  limit?: number;
-  enabled?: boolean;
-} = {}) {
-  const { type = "both", sortBy = "totalRewardsDistributed", limit = 50, enabled = true } = params;
+export function useFarmsActivity(
+  params: {
+    type?: "delegator" | "miner" | "both";
+    sortBy?:
+      | "delegatorRewardsDistributed"
+      | "minerRewardsDistributed"
+      | "totalRewardsDistributed";
+    limit?: number;
+    enabled?: boolean;
+  } = {}
+) {
+  const {
+    type = "both",
+    sortBy = "totalRewardsDistributed",
+    limit = 50,
+    enabled = true,
+  } = params;
 
   const query = useQuery<FarmsActivityResponse>({
-    queryKey: ["farms-activity", type, sortBy, limit] as const,
+    queryKey: QUERY_KEYS.farms.activity(type, sortBy, limit),
     enabled,
-    staleTime: 2 * 60_000,
-    refetchOnWindowFocus: false,
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime * 2,
+    refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
     queryFn: async () =>
       await hubGet<FarmsActivityResponse>("/fractions/farms/activity", {
         params: { type, sortBy, limit },
@@ -403,25 +432,37 @@ export function useFractionSplits(params: {
   enabled?: boolean;
   refetchInterval?: number;
 }) {
-  const { walletAddress, fractionId, enabled = true, refetchInterval = 10_000 } = params;
+  const {
+    walletAddress,
+    fractionId,
+    enabled = true,
+    refetchInterval = 10_000,
+  } = params;
 
   const query = useQuery<FractionSplitsResponse | null>({
-    queryKey: ["fraction-splits", walletAddress, fractionId] as const,
+    queryKey: QUERY_KEYS.fractions.splits(walletAddress, fractionId),
     enabled: enabled && Boolean(walletAddress && fractionId),
     refetchInterval,
     refetchOnWindowFocus: true,
     staleTime: 5_000,
     queryFn: async () => {
       if (!walletAddress || !fractionId) return null;
-      return await hubGet<FractionSplitsResponse | null>("/fractions/splits-by-wallet", {
-        params: { walletAddress, fractionId },
-        notFound: {
-          walletAddress,
-          fractionId,
-          splits: [],
-          summary: { totalTransactions: 0, totalStepsPurchased: 0, totalAmountSpent: "0" },
-        },
-      });
+      return await hubGet<FractionSplitsResponse | null>(
+        "/fractions/splits-by-wallet",
+        {
+          params: { walletAddress, fractionId },
+          notFound: {
+            walletAddress,
+            fractionId,
+            splits: [],
+            summary: {
+              totalTransactions: 0,
+              totalStepsPurchased: 0,
+              totalAmountSpent: "0",
+            },
+          },
+        }
+      );
     },
   });
 
@@ -487,7 +528,7 @@ export function useRefundableFractions(params: {
   const { walletAddress, enabled = true, refetchInterval = 60_000 } = params;
 
   const query = useQuery<RefundableFractionsResponse | null>({
-    queryKey: ["refundable-fractions", walletAddress] as const,
+    queryKey: QUERY_KEYS.fractions.refundable(walletAddress),
     enabled: enabled && Boolean(walletAddress),
     refetchInterval,
     refetchOnWindowFocus: true,

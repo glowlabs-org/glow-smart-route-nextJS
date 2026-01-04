@@ -342,13 +342,21 @@ export default function GctlHeatmapWidget({
               <div className="inline-flex items-center gap-1">
                 <Wallet className="w-3.5 h-3.5" />
                 <span>
-                  {isLoading ? "—" : Math.round(liquidPercent * 100)}% Liquid
+                  {isLoading
+                    ? "—"
+                    : `${formatCompact(walletBalanceGctl)} • ${Math.round(
+                        liquidPercent * 100
+                      )}% Liquid`}
                 </span>
               </div>
               <div className="inline-flex items-center gap-1 mt-1">
                 <Lock className="w-3.5 h-3.5" />
                 <span>
-                  {isLoading ? "—" : Math.round(stakedPercent * 100)}% Staked
+                  {isLoading
+                    ? "—"
+                    : `${formatCompact(stakedTotalGctl)} • ${Math.round(
+                        stakedPercent * 100
+                      )}% Staked`}
                 </span>
               </div>
             </div>

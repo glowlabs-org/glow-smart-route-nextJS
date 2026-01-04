@@ -88,6 +88,16 @@ function getWeekStatus(params: {
   return "missed";
 }
 
+function getWeekStatusLabel(params: {
+  status: WeekStatus;
+  week: number;
+  currentWeek: number;
+}) {
+  const { status, week, currentWeek } = params;
+  if (status === "missed" && week === currentWeek) return "current";
+  return status;
+}
+
 interface WeeklyActivityWidgetProps {
   walletAddress?: string | null;
   hideIfEmpty?: boolean;
@@ -382,7 +392,11 @@ export default function WeeklyActivityWidget({
                           <div className="font-mono text-[10px]">
                             <div>{cell.rangeLabel}</div>
                             <div className="text-muted-foreground">
-                              {cell.status}
+                              {getWeekStatusLabel({
+                                status: cell.status,
+                                week: cell.week,
+                                currentWeek,
+                              })}
                             </div>
                           </div>
                         </TooltipContent>

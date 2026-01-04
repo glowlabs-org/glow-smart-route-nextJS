@@ -3,6 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Decimal from "decimal.js";
 import { hubGet } from "@/lib/api/hub-client";
+import { QUERY_KEYS } from "@/hooks/query-keys";
+import { QUERY_CONFIG } from "@/hooks/query-config";
 
 export type PaymentCurrency = "USDG" | "USDC" | "GLW" | "GCTL";
 
@@ -133,13 +135,12 @@ export interface UseSponsorListingsParams {
 
 export function useSponsorListings(params: UseSponsorListingsParams = {}) {
   const { filters = {}, enabled = true } = params;
-  const queryKey = ["sponsor-listings", filters] as const;
 
   const query = useQuery({
-    queryKey,
+    queryKey: QUERY_KEYS.listings.sponsor(filters),
     enabled,
-    staleTime: 5 * 60_000,
-    refetchOnWindowFocus: false,
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
+    refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
     queryFn: async (): Promise<AuctionApplication[]> => {
       const searchParams: Record<string, string | number | undefined> = {};
 
@@ -150,7 +151,8 @@ export function useSponsorListings(params: UseSponsorListingsParams = {}) {
       if (filters.zoneId !== undefined) searchParams.zoneId = filters.zoneId;
       if (filters.sortBy) searchParams.sortBy = filters.sortBy;
       if (filters.sortOrder) searchParams.sortOrder = filters.sortOrder;
-      if (filters.paymentCurrency) searchParams.paymentCurrency = filters.paymentCurrency;
+      if (filters.paymentCurrency)
+        searchParams.paymentCurrency = filters.paymentCurrency;
 
       return await hubGet<AuctionApplication[]>(
         "/applications/sponsor-listings-applications",
@@ -328,12 +330,10 @@ export interface UseSplitsActivityParams {
 export function useSplitsActivity(params: UseSplitsActivityParams = {}) {
   const { limit = 50, walletAddress, fractionType, enabled = true } = params;
 
-  const queryKey = ["splits-activity", limit, walletAddress, fractionType] as const;
-
   const query = useQuery({
-    queryKey,
+    queryKey: QUERY_KEYS.activity.splits(limit, walletAddress, fractionType),
     enabled,
-    staleTime: 2 * 60_000,
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime * 2,
     refetchOnWindowFocus: true,
     refetchInterval: 10_000,
     queryFn: async (): Promise<SplitsActivityResponse> => {
@@ -396,5 +396,3 @@ export function useSponsorApplication() {
     },
   });
 }
-
-

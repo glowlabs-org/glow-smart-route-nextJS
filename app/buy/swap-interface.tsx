@@ -29,12 +29,8 @@ import {
   useConnect,
   useWalletClient,
   usePublicClient,
-  useChainId,
 } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
-import { useForwarder } from "@glowlabs-org/utils/browser";
-import { CHAIN_ID } from "@/web3/constants";
-import { ProcessingModal } from "@/components/buy-gctl/processing-modal";
 import { ArrowDownUp, Info, Settings } from "lucide-react";
 import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
 import { useER20Balances } from "@/hooks/useERC20Balances";
@@ -45,41 +41,44 @@ import {
   usePurchaseGlow,
 } from "@/hooks/usePurchaseGlow";
 import { formatPrice } from "@/utils/formatPrice";
-import { InstructionsDialog } from "@/components/instructions-dialog";
 import { UsdcToTokenDialog } from "@/components/usdc-to-token-dialog";
 import { GlowToUsdcDialog } from "@/components/glow-to-usdc-dialog";
 import { UsdgToUsdcRedemptionDialog } from "@/components/usdg-to-usdc-redemption-dialog";
-import {
-  TransactionDialog,
-  type TransactionDetail,
-} from "@/components/dialogs/transaction-dialog";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
 import { useDebouncedAsync } from "@/hooks/useDebouncedAsync";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getOptimalUSDGAmountsWithFees } from "@/utils/glowSmartBalancing";
 import { useRouter } from "next/navigation";
 import { useUSDGRedemption } from "@/hooks/useUSDGRedemption";
-import { useQueryState } from "nuqs";
 import Decimal from "decimal.js";
 import { forceDisconnect } from "@/utils/forceDisconnect";
 
 import { cn } from "@/lib/utils";
-import { useGctlApi } from "@/hooks";
 import * as Sentry from "@sentry/nextjs";
 import { StatsSidebar } from "./stats-sidebar";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { trackEvent } from "@/lib/telemetry";
-import { tokens, type Token } from "./constants";
+import { tokens } from "./constants";
 
 const defaultTokensEstimate = {
   GLOW: "",
   USDG: "",
   USDC: "",
-  GCTL: "",
 };
 
-type TOKENS_ENUM = keyof typeof tokens;
+const swapTokens = {
+  USDC: tokens.USDC,
+  USDG: tokens.USDG,
+  GLOW: tokens.GLOW,
+} as const;
+
+type SwapTokenLabel = keyof typeof swapTokens;
+type SwapToken = (typeof swapTokens)[SwapTokenLabel];
+
+function isSwapTokenLabel(value: string): value is SwapTokenLabel {
+  return Object.prototype.hasOwnProperty.call(swapTokens, value);
+}
 
 function normalizeSlippageTolerance(value: string, fallback: string) {
   const trimmed = value.trim();
@@ -119,10 +118,12 @@ export function SwapInterface({
     setIsUsdgToUsdcRedemptionDialogOpen,
   ] = useState<boolean>(false);
   const [amountToSell, setAmountToSell] = React.useState<string>("");
-  const [selectedTokenSell, setSelectedTokenSell] = useState<Token>(
-    tokens.USDC
+  const [selectedTokenSell, setSelectedTokenSell] = useState<SwapToken>(
+    swapTokens.USDC
   );
-  const [selectedTokenBuy, setSelectedTokenBuy] = useState<Token>(tokens.GLOW);
+  const [selectedTokenBuy, setSelectedTokenBuy] = useState<SwapToken>(
+    swapTokens.GLOW
+  );
   const [slippageTolerance, setSlippageTolerance] = useState("1");
   const [pendingTx, setPendingTx] = useState<boolean>(false);
   const [tokenSellBalance, setTokenSellBalance] = useState<string>("0");
@@ -131,7 +132,6 @@ export function SwapInterface({
   const { connectors } = useConnect();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
-  const chainId = useChainId();
 
   // Add a general loading state check
   const isWalletLoading = isConnecting;
@@ -139,12 +139,12 @@ export function SwapInterface({
   const handleSwapDirection = React.useCallback(() => {
     const nextSell = selectedTokenBuy;
     const nextBuyCandidate = selectedTokenSell;
-    const allowed = nextSell.allowedPairs as unknown as TOKENS_ENUM[];
+    const allowed = nextSell.allowedPairs as unknown as SwapTokenLabel[];
     if (allowed.length === 0) return;
 
-    const nextBuy = allowed.includes(nextBuyCandidate.label as TOKENS_ENUM)
+    const nextBuy = allowed.includes(nextBuyCandidate.label as SwapTokenLabel)
       ? nextBuyCandidate
-      : tokens[allowed[0]];
+      : swapTokens[allowed[0]];
 
     setSelectedTokenSell(nextSell);
     setSelectedTokenBuy(nextBuy);
@@ -168,48 +168,10 @@ export function SwapInterface({
   const [usdcInRedemption, setUsdcInRedemption] = useState<number>(0);
 
   const [balancesLoading, setBalancesLoading] = useState<boolean>(true);
-  // GCTL swap & modal state
-  const [isProcessingTransaction, setIsProcessingTransaction] =
-    useState<boolean>(false);
-  const [trackingTxHash, setTrackingTxHash] = useState<string | null>(null);
-  const [showSuccess, setShowSuccess] = useState<boolean>(false);
-  const [processedGctlAmount, setProcessedGctlAmount] = useState<string>("0");
-
   const [isSmartAccountWarningOpen, setIsSmartAccountWarningOpen] =
     useState(false);
 
-  // Pre-transaction modal for GCTL (approval + submit)
-  const [isGctlPreTxDialogOpen, setIsGctlPreTxDialogOpen] =
-    useState<boolean>(false);
-  const [isGctlPreTxSubmitting, setIsGctlPreTxSubmitting] =
-    useState<boolean>(false);
-  const [gctlPreTxError, setGctlPreTxError] = useState<string | null>(null);
-
-  // Test USDC minting state (Sepolia only)
-  const [isMintingTestUSDC, setIsMintingTestUSDC] = useState(false);
-  const isOnSepolia = chainId === 11155111;
-
-  // -------------------------------------------------------------------
-  // URL PARAM STATE (txId)
-  // -------------------------------------------------------------------
-  const [txIdParam, setTxIdParam] = useQueryState("txId", {
-    defaultValue: "",
-    clearOnDefault: true,
-  });
-
-  // Restore processing modal from query param on initial load / refresh
-  useEffect(() => {
-    if (txIdParam && !isProcessingTransaction) {
-      setTrackingTxHash(txIdParam);
-      setIsProcessingTransaction(true);
-    }
-  }, [txIdParam]);
-
   const { signer } = useEthersSigner();
-  // Forwarder & GCTL helpers
-  const chainIdNum = parseInt(CHAIN_ID.toString());
-  const { mintGCTL, checkTokenAllowance, approveToken, mintTestUSDC } =
-    useForwarder(signer as any, chainIdNum);
 
   // Smart account check function
   const checkSmartAccountBeforeSwap = async (): Promise<boolean> => {
@@ -237,39 +199,6 @@ export function SwapInterface({
     } catch (error) {
       console.error("Smart account check failed:", error);
       return false; // Allow the swap if check fails
-    }
-  };
-
-  const { gctlPrice, gctlPriceNumber, isGctlPriceLoading } =
-    useGctlApi(address);
-
-  // Mint test USDC function (Sepolia only)
-  const handleMintTestUSDC = async () => {
-    if (!address || !isOnSepolia) return;
-
-    try {
-      setIsMintingTestUSDC(true);
-      const amount = parseUnits("100000", 6); // Mint 1000 test USDC
-      const txHash = await mintTestUSDC(amount, address);
-
-      toast.success(
-        `Successfully minted 100000 test USDC! Transaction: ${txHash.slice(
-          0,
-          10
-        )}...`
-      );
-
-      // Refresh balances after minting
-      await Promise.all([
-        setUsdcBalanceForSigner(),
-        getTokenSellBalance(),
-        refreshBalances(),
-      ]);
-    } catch (error: any) {
-      console.error("Failed to mint test USDC:", error);
-      toast.error(error?.message || "Failed to mint test USDC");
-    } finally {
-      setIsMintingTestUSDC(false);
     }
   };
 
@@ -499,16 +428,6 @@ export function SwapInterface({
             },
           };
         }
-        // For USDC -> GCTL, also handle directly
-        if (selectedTokenBuy.label === "GCTL") {
-          return {
-            label: `SWAP`,
-            disabled: false,
-            callback: () => {
-              handleBuy();
-            },
-          };
-        }
         // Otherwise (e.g., USDC -> GLOW), open the combined flow dialog
         return {
           label: `SWAP`,
@@ -691,99 +610,6 @@ export function SwapInterface({
         setIsGlowToUsdcDialogOpen(true);
         setPendingTx(false);
         return;
-      } else if (
-        selectedTokenBuy.label === "GCTL" &&
-        (selectedTokenSell.label === "USDC" ||
-          selectedTokenSell.label === "USDG")
-      ) {
-        try {
-          // Open pre-transaction dialog while approving and submitting
-          setIsGctlPreTxDialogOpen(true);
-          setIsGctlPreTxSubmitting(true);
-          setGctlPreTxError(null);
-
-          const amountToSpend = BigInt(
-            parseUnits(amountToSell, selectedTokenSell.decimals).toString()
-          );
-
-          // 1. Ensure the forwarder is allowed to spend the required USDC/USDG
-          try {
-            const currentAllowance = await checkTokenAllowance(
-              address as `0x${string}`,
-              selectedTokenSell.label === "USDC" ? "USDC" : "USDG"
-            );
-
-            if (currentAllowance < amountToSpend) {
-              await approveToken(
-                amountToSpend,
-                selectedTokenSell.label === "USDC" ? "USDC" : "USDG"
-              );
-            }
-          } catch (approveError) {
-            console.error("Approval failed:", approveError);
-            toast.error(
-              approveError instanceof Error
-                ? approveError.message
-                : "Failed to approve token spending"
-            );
-            setIsGctlPreTxSubmitting(false);
-            setGctlPreTxError(
-              approveError instanceof Error
-                ? approveError.message
-                : "Failed to approve token spending"
-            );
-            setIsProcessingTransaction(false);
-            setPendingTx(false);
-            return;
-          }
-
-          // 2. Mint GCTL
-          const txHash = await mintGCTL(
-            amountToSpend,
-            address as `0x${string}`,
-            selectedTokenSell.label === "USDC" ? "USDC" : "USDG"
-          );
-          trackEvent("buy_gctl_mint_submitted", {
-            tx_hash: txHash,
-            pay_token: selectedTokenSell.label,
-            pay_amount: amountToSell,
-          });
-
-          // Close pre-transaction dialog once tx is sent
-          setIsGctlPreTxSubmitting(false);
-          setIsGctlPreTxDialogOpen(false);
-
-          setTrackingTxHash(txHash);
-          setTxIdParam(txHash); // persist txId to URL
-          setProcessedGctlAmount(estimatedOutputAmount[selectedTokenBuy.label]);
-
-          // Ensure any other transaction dialogs are closed while processing GCTL
-          setIsDialogOpen(false);
-          setIsGlowToUsdcDialogOpen(false);
-          setIsUsdgToUsdcRedemptionDialogOpen(false);
-
-          // Start processing modal
-          setIsProcessingTransaction(true);
-
-          await Promise.all([
-            setUsdcBalanceForSigner(),
-            setUsdgBalanceForSigner(),
-            getTokenSellBalance(),
-          ]);
-
-          startTransition(router.refresh);
-
-          setPendingTx(false);
-          return;
-        } catch (error: any) {
-          console.error("Failed to mint GCTL:", error);
-          toast.error(error?.message || "Failed to purchase GCTL");
-          setIsGctlPreTxSubmitting(false);
-          setGctlPreTxError(error?.message || "Failed to purchase GCTL");
-          setIsProcessingTransaction(false);
-          setPendingTx(false);
-          return;
-        }
       } else {
         const swapRes = await swap({ amount: amountIn });
         handleResponseMessage(swapRes);
@@ -978,7 +804,7 @@ export function SwapInterface({
             smartBalancingAmountsRes.val.uniswapGlowReserves
           ),
           earlyLiquidityCurrentPrice: Number(glowPrice),
-          usdgToSpend: Number(amountToSell),
+          usdgToSpend: Number(amountStr),
         });
 
         //uniswap fees
@@ -1122,30 +948,6 @@ export function SwapInterface({
         }
         return;
       }
-      if (
-        selectedTokenBuy.label === "GCTL" &&
-        (selectedTokenSell.label === "USDC" ||
-          selectedTokenSell.label === "USDG")
-      ) {
-        if (
-          !amountStr ||
-          Number(amountStr) <= 0 ||
-          isGctlPriceLoading ||
-          Number(gctlPrice) === 0
-        ) {
-          setEstimatedOutputAmount(defaultTokensEstimate);
-          return;
-        }
-
-        const estimatedGctl = Number(amountToSell) / gctlPriceNumber;
-
-        if (signal.aborted) return; // stale
-        setEstimatedOutputAmount({
-          ...defaultTokensEstimate,
-          [selectedTokenBuy.label]: toFixedTruncate(estimatedGctl, 6),
-        });
-        return;
-      }
       const estimateRes = await estimateOutputAmount({
         amountIn: toUnitsDecimal(amountStr, selectedTokenSell.decimals),
       });
@@ -1208,11 +1010,11 @@ export function SwapInterface({
     }
   };
 
-  const handleSelectTokenToSell = (value: TOKENS_ENUM) => {
-    const token = Object.values(tokens).find((t) => t.label === value)!;
-    if (token.allowedPairs[0]) {
-      setSelectedTokenBuy(tokens[token.allowedPairs[0]]);
-    }
+  const handleSelectTokenToSell = (value: string) => {
+    if (!isSwapTokenLabel(value)) return;
+    const token = swapTokens[value];
+    const nextBuyLabel = token.allowedPairs[0] as SwapTokenLabel | undefined;
+    if (nextBuyLabel) setSelectedTokenBuy(swapTokens[nextBuyLabel]);
 
     setSelectedTokenSell(token);
     setSmartBalancingAmounts(undefined);
@@ -1220,12 +1022,9 @@ export function SwapInterface({
     setEstimatedOutputAmount(defaultTokensEstimate);
   };
 
-  const handleSelectTokenToBuy = (value: TOKENS_ENUM) => {
-    // TODO: handle this better
-
-    const token = Object.values(tokens).find((t) => t.label === value)!;
-
-    setSelectedTokenBuy(token);
+  const handleSelectTokenToBuy = (value: string) => {
+    if (!isSwapTokenLabel(value)) return;
+    setSelectedTokenBuy(swapTokens[value]);
 
     setSmartBalancingAmounts(undefined);
 
@@ -1413,19 +1212,6 @@ export function SwapInterface({
                         </div>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    {/* Test USDC Mint Button - Sepolia Only */}
-                    {isOnSepolia && selectedTokenSell.label === "USDC" && (
-                      <Button
-                        variant="outline"
-                        className="h-7 px-2 py-0 text-xs"
-                        disabled={
-                          !isConnected || isWalletLoading || isMintingTestUSDC
-                        }
-                        onClick={handleMintTestUSDC}
-                      >
-                        {isMintingTestUSDC ? "Minting..." : "Mint Test USDC"}
-                      </Button>
-                    )}
                   </div>
                 </div>
               )}
@@ -1741,52 +1527,6 @@ export function SwapInterface({
             // Refresh the page data
             startTransition(() => router.refresh());
           }
-        }}
-      />
-      {/* GCTL Pre-transaction Dialog (approvals + mint submit) */}
-      <TransactionDialog
-        open={isGctlPreTxDialogOpen}
-        onOpenChange={(open) => {
-          setIsGctlPreTxDialogOpen(open);
-          if (!open) setGctlPreTxError(null);
-        }}
-        isSubmitting={isGctlPreTxSubmitting}
-        isError={!!gctlPreTxError}
-        title="Prepare Purchase"
-        processingTitle="Submitting Transaction"
-        description="Approve token spending and confirm the transaction in your wallet."
-        processingDescription="Please approve and wait while we submit your transaction."
-        transactionDetails={
-          [
-            {
-              label: "You Pay",
-              value: Number(amountToSell || "0").toLocaleString("en-US", {
-                maximumFractionDigits: 6,
-              }),
-              unit: selectedTokenSell.label,
-            },
-            {
-              label: "You Receive",
-              value: Number(
-                estimatedOutputAmount[selectedTokenBuy.label] || "0"
-              ).toLocaleString("en-US", { maximumFractionDigits: 6 }),
-              unit: "GCTL",
-            },
-          ] as TransactionDetail[]
-        }
-        errorDescription={gctlPreTxError || undefined}
-      />
-      {/* GCTL Processing & Success Modals */}
-      <ProcessingModal
-        isOpen={isProcessingTransaction}
-        trackingTxHash={trackingTxHash}
-        onClose={() => {
-          setIsProcessingTransaction(false);
-          setShowSuccess(false);
-          setTrackingTxHash(null);
-          setAmountToSell("");
-          setEstimatedOutputAmount(defaultTokensEstimate);
-          setSmartBalancingAmounts(undefined);
         }}
       />
 

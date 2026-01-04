@@ -612,6 +612,9 @@ export function ContributeDialog({
       <ProcessingModal
         isOpen={isProcessingModalOpen}
         trackingTxHash={processingTxHash}
+        onConfirmed={() => {
+          void invalidateAllQueries();
+        }}
         onClose={() => {
           setIsProcessingModalOpen(false);
           setProcessingTxHash(null);

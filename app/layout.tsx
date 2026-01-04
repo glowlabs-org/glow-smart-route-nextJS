@@ -1,7 +1,6 @@
 import "@/lib/server-web-storage";
 import "./globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
-import { Toaster } from "sonner";
 import { WagmiWrapper } from "./providers/wagmiWrapper";
 import { ThemeProvider } from "./providers/theme-provider";
 import { Analytics } from "@vercel/analytics/next";
@@ -127,7 +126,6 @@ export default function RootLayout({
           <WagmiWrapper>
             <Analytics />
             <NuqsAdapter>{children}</NuqsAdapter>
-            <Toaster position="bottom-right" />
           </WagmiWrapper>
         </ThemeProvider>
       </body>

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useChainId } from "wagmi";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,7 @@ export function SwapDialog({
   headlineStats,
   ethPriceInUSD,
 }: SwapDialogProps) {
+  const chainId = useChainId();
   const shouldFetchInternally = open && !headlineStats;
 
   const {
@@ -36,7 +38,7 @@ export function SwapDialog({
     isError: isStatsError,
     refetch: refetchStats,
   } = useQuery({
-    queryKey: ["headline-stats"],
+    queryKey: ["headline-stats", chainId] as const,
     queryFn: getHeadlineStats,
     enabled: shouldFetchInternally,
     staleTime: 30_000,

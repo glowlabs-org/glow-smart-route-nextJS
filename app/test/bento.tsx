@@ -29,6 +29,7 @@ import { useRefundableFractions } from "@/hooks";
 import { RefundClaimsPanel } from "@/app/wallet/refund-claims-panel";
 import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
 import { useGlowLaunchpad, useMiningCenter } from "@/hooks";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
@@ -62,12 +63,45 @@ function countAvailableApplications(
   }, 0);
 }
 
+function DashboardConnectingSkeleton() {
+  return (
+    <div className="grid grid-cols-12 gap-4 grid-flow-row-dense">
+      <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[340px]">
+        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+      </div>
+      <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[340px]">
+        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+      </div>
+      <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[340px]">
+        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+      </div>
+
+      <div className="col-span-12 lg:col-span-7 min-h-0 lg:h-[380px]">
+        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+      </div>
+      <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]">
+        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+      </div>
+
+      <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]">
+        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+      </div>
+      <div className="col-span-12 lg:col-span-7 min-h-0 lg:h-[380px]">
+        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+      </div>
+    </div>
+  );
+}
+
 export default function GlowSoftDashboard({
   walletAddressOverride,
 }: GlowSoftDashboardProps) {
   const { address: connectedAddress, isConnected } = useAccount();
   const walletAddress = walletAddressOverride ?? connectedAddress ?? null;
   const hasWallet = Boolean(walletAddress);
+  const { isConnecting, isReconnecting } = useAccount();
+  const isWalletSettling =
+    !walletAddressOverride && !hasWallet && (isConnecting || isReconnecting);
   const { signer } = useEthersSigner();
   const { usdcBalance, usdgBalance } = useER20Balances({ signer });
   const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
@@ -163,144 +197,173 @@ export default function GlowSoftDashboard({
   return (
     <div className="min-h-screen bg-muted dark:bg-background text-foreground p-6 pt-4 selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
       <div className="max-w-screen-2xl mx-auto">
-        {hasWallet ? (
-          <div className="grid grid-cols-12 gap-4 grid-flow-row-dense [&:has(.solar-farm-next-batch-countdown)_.quick-actions-launchpad-next-batch-countdown]:hidden">
-            {shouldShowLaunchpadStatusRow ? (
-              <div className="col-span-12 min-h-0 lg:h-[450px]">
-                <LaunchpadStatusWidget variant="full-row" className="h-full" />
-              </div>
-            ) : null}
-            <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[340px]">
-              <NetWorthWidget walletAddress={walletAddress} />
-            </div>
-            <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[340px]">
-              <RankWidget
-                walletAddress={walletAddress}
-                onMintAndStakeClick={() => setIsMintAndStakeOpen(true)}
-              />
-            </div>
-
-            <AnimatePresence mode="popLayout" initial={false}>
-              <motion.div
-                key="rewards"
-                className="col-span-12 lg:col-span-3 min-h-0 lg:h-[340px]"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-              >
-                <RewardsWidget
-                  walletAddress={walletAddress}
-                  hideIfEmpty={false}
-                />
-              </motion.div>
-            </AnimatePresence>
-
-            <div
-              id="bento-solar-farm"
-              className="col-span-12 lg:col-span-7 min-h-0 lg:h-[380px]"
+        <AnimatePresence mode="wait" initial={false}>
+          {hasWallet ? (
+            <motion.div
+              key="connected"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="grid grid-cols-12 gap-4 grid-flow-row-dense [&:has(.solar-farm-next-batch-countdown)_.quick-actions-launchpad-next-batch-countdown]:hidden"
             >
-              <motion.div
-                key="solar-farm"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.2 }}
-                className="h-full min-h-0"
-              >
-                <SolarFarmWidget walletAddress={walletAddress ?? undefined} />
-              </motion.div>
-            </div>
-
-            <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]">
-              <QuickActionsWidget
-                walletAddress={walletAddress}
-                onMintAndStakeClick={() => setIsMintAndStakeOpen(true)}
-              />
-            </div>
-
-            <AnimatePresence>
-              <motion.div
-                key="gctl-heatmap"
-                className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <GctlHeatmapWidget
+              {shouldShowLaunchpadStatusRow ? (
+                <div className="col-span-12 min-h-0 lg:h-[450px]">
+                  <LaunchpadStatusWidget
+                    variant="full-row"
+                    className="h-full"
+                  />
+                </div>
+              ) : null}
+              <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[340px]">
+                <NetWorthWidget walletAddress={walletAddress} />
+              </div>
+              <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[340px]">
+                <RankWidget
                   walletAddress={walletAddress}
                   onMintAndStakeClick={() => setIsMintAndStakeOpen(true)}
                 />
-              </motion.div>
-            </AnimatePresence>
+              </div>
 
-            <div
-              className={[
-                "col-span-12 lg:col-span-7 min-h-0 lg:h-[380px]",
-                "grid grid-cols-7 gap-4",
-                "[&:has(.activity-slot:not(:empty))_.faq-fallback]:hidden",
-              ].join(" ")}
-            >
-              <AnimatePresence mode="popLayout">
+              <AnimatePresence mode="popLayout" initial={false}>
                 <motion.div
-                  key="weekly-activity-bottom"
-                  className="activity-slot col-span-7 lg:col-span-3 min-h-0 lg:h-[380px] empty:hidden"
+                  key="rewards"
+                  className="col-span-12 lg:col-span-3 min-h-0 lg:h-[340px]"
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <WeeklyActivityWidget walletAddress={walletAddress} />
-                </motion.div>
-              </AnimatePresence>
-              <AnimatePresence mode="popLayout">
-                <motion.div
-                  key="recent-activity"
-                  className="activity-slot col-span-7 lg:col-span-4 min-h-0 lg:h-[380px] empty:hidden"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <RecentActivityWidget walletAddress={walletAddress} />
+                  <RewardsWidget
+                    walletAddress={walletAddress}
+                    hideIfEmpty={false}
+                  />
                 </motion.div>
               </AnimatePresence>
 
-              <motion.div
-                key="faq-fallback"
-                className="faq-fallback col-span-7 min-h-0 lg:h-[380px]"
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 0.2 }}
+              <div
+                id="bento-solar-farm"
+                className="col-span-12 lg:col-span-7 min-h-0 lg:h-[380px]"
               >
-                <GlowFaqWidget className="w-full h-full lg:max-h-[380px]" />
-              </motion.div>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-12 gap-4 grid-flow-row-dense">
-            <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[340px]">
-              <OnboardingHeroWidget className="h-full" />
-            </div>
-            <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[340px]">
-              <LaunchpadStatusWidget className="h-full" />
-            </div>
+                <motion.div
+                  key="solar-farm"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full min-h-0"
+                >
+                  <SolarFarmWidget walletAddress={walletAddress ?? undefined} />
+                </motion.div>
+              </div>
 
-            <div className="col-span-12 lg:col-span-8 min-h-0 lg:h-[400px]">
-              <GlowFaqWidget className="w-full h-full" />
-            </div>
-            <div className="col-span-12 lg:col-span-4 min-h-0 lg:h-[400px]">
-              <GlobalLeaderboardWidget className="h-full" />
-            </div>
-            <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[340px]">
-              <NewsletterWidget className="w-full h-full" />
-            </div>
-            <div className="col-span-12 lg:col-span-7 min-h-0 lg:h-[340px]">
-              <DiscordWidget className="w-full h-full" />
-            </div>
-          </div>
-        )}
+              <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]">
+                <QuickActionsWidget
+                  walletAddress={walletAddress}
+                  onMintAndStakeClick={() => setIsMintAndStakeOpen(true)}
+                />
+              </div>
+
+              <AnimatePresence>
+                <motion.div
+                  key="gctl-heatmap"
+                  className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <GctlHeatmapWidget
+                    walletAddress={walletAddress}
+                    onMintAndStakeClick={() => setIsMintAndStakeOpen(true)}
+                  />
+                </motion.div>
+              </AnimatePresence>
+
+              <div
+                className={[
+                  "col-span-12 lg:col-span-7 min-h-0 lg:h-[380px]",
+                  "grid grid-cols-7 gap-4",
+                  "[&:has(.activity-slot:not(:empty))_.faq-fallback]:hidden",
+                ].join(" ")}
+              >
+                <AnimatePresence mode="popLayout">
+                  <motion.div
+                    key="weekly-activity-bottom"
+                    className="activity-slot col-span-7 lg:col-span-3 min-h-0 lg:h-[380px] empty:hidden"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <WeeklyActivityWidget walletAddress={walletAddress} />
+                  </motion.div>
+                </AnimatePresence>
+                <AnimatePresence mode="popLayout">
+                  <motion.div
+                    key="recent-activity"
+                    className="activity-slot col-span-7 lg:col-span-4 min-h-0 lg:h-[380px] empty:hidden"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <RecentActivityWidget walletAddress={walletAddress} />
+                  </motion.div>
+                </AnimatePresence>
+
+                <motion.div
+                  key="faq-fallback"
+                  className="faq-fallback col-span-7 min-h-0 lg:h-[380px]"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <GlowFaqWidget className="w-full h-full lg:max-h-[380px]" />
+                </motion.div>
+              </div>
+            </motion.div>
+          ) : isWalletSettling ? (
+            <motion.div
+              key="connecting"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <DashboardConnectingSkeleton />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="disconnected"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="grid grid-cols-12 gap-4 grid-flow-row-dense"
+            >
+              <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[340px]">
+                <OnboardingHeroWidget className="h-full" />
+              </div>
+              <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[340px]">
+                <LaunchpadStatusWidget className="h-full" />
+              </div>
+
+              <div className="col-span-12 lg:col-span-8 min-h-0 lg:h-[400px]">
+                <GlowFaqWidget className="w-full h-full" />
+              </div>
+              <div className="col-span-12 lg:col-span-4 min-h-0 lg:h-[400px]">
+                <GlobalLeaderboardWidget className="h-full" />
+              </div>
+              <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[340px]">
+                <NewsletterWidget className="w-full h-full" />
+              </div>
+              <div className="col-span-12 lg:col-span-7 min-h-0 lg:h-[340px]">
+                <DiscordWidget className="w-full h-full" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <Dialog open={isRefundDialogOpen} onOpenChange={setIsRefundDialogOpen}>

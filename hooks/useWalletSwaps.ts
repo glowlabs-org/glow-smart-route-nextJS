@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { formatUnits } from "viem";
 import { useChainId } from "wagmi";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
+import { QUERY_KEYS } from "@/hooks/query-keys";
+import { QUERY_CONFIG } from "@/hooks/query-config";
 
 const API_BASE = process.env.NEXT_PUBLIC_POSITIONS_API_BASE;
 if (!API_BASE) {
@@ -88,7 +90,12 @@ async function fetchWalletSwapsFromApi(params: {
       return {
         indexingComplete: false,
         swaps: [],
-        totals: { totalGlwIn: 0, totalGlwOut: 0, totalUsdgIn: 0, totalUsdgOut: 0 },
+        totals: {
+          totalGlwIn: 0,
+          totalGlwOut: 0,
+          totalUsdgIn: 0,
+          totalUsdgOut: 0,
+        },
       };
     }
 
@@ -134,17 +141,17 @@ export function useWalletSwaps(
   const { limit = 500, enabled = true } = options ?? {};
 
   const { data, isLoading, isFetching, error } = useQuery<WalletSwapsData>({
-    queryKey: ["wallet-swaps", chainId, walletAddress, limit],
+    queryKey: QUERY_KEYS.swaps.history(chainId, walletAddress, limit),
     enabled: Boolean(enabled && walletAddress),
     queryFn: () =>
       fetchWalletSwapsFromApi({
         walletAddress: walletAddress as `0x${string}`,
         limit,
       }),
-    staleTime: 30_000,
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     refetchInterval: 60_000,
     refetchOnMount: true,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
   });
 
   return {

@@ -23,7 +23,7 @@ export const WagmiWrapper = ({ children }: { children: React.ReactNode }) => {
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <ConnectKitProvider>
-          <Toaster />
+          <Toaster position="bottom-right" />
           {children}
         </ConnectKitProvider>
       </QueryClientProvider>

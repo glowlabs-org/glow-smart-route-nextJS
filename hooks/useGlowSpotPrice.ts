@@ -7,6 +7,8 @@ import Decimal from "decimal.js";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { SDKAddresses } from "@/web3/constants/addresses";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
+import { QUERY_KEYS } from "@/hooks/query-keys";
+import { QUERY_CONFIG } from "@/hooks/query-config";
 
 interface GlowSpotPriceResult {
   spotPrice: number; // USDG per 1 GLW
@@ -29,14 +31,9 @@ export interface UseGlowSpotPriceOptions {
   query?: UseGlowSpotPriceQueryOverrides;
 }
 
-function buildSpotPriceQueryKey(refreshKey?: string | number) {
-  if (refreshKey == null) return ["glw-spot-price"] as const;
-  return ["glw-spot-price", refreshKey] as const;
-}
-
 export function useGlowSpotPrice(options: UseGlowSpotPriceOptions = {}) {
   const query = useQuery<GlowSpotPriceResult | null>({
-    queryKey: buildSpotPriceQueryKey(options.refreshKey),
+    queryKey: QUERY_KEYS.prices.glowSpot(options.refreshKey),
     queryFn: async () => {
       try {
         const factory = SDKAddresses.UNISWAP_V2_FACTORY as `0x${string}`;
@@ -96,11 +93,14 @@ export function useGlowSpotPrice(options: UseGlowSpotPriceOptions = {}) {
       }
     },
     enabled: options.query?.enabled ?? true,
-    staleTime: options.query?.staleTime ?? 15_000,
+    staleTime: options.query?.staleTime ?? QUERY_CONFIG.REALTIME.staleTime,
     gcTime: options.query?.gcTime,
-    refetchInterval: options.query?.refetchInterval ?? 30_000,
+    refetchInterval:
+      options.query?.refetchInterval ?? QUERY_CONFIG.REALTIME.refetchInterval,
     refetchOnMount: options.query?.refetchOnMount ?? true,
-    refetchOnWindowFocus: options.query?.refetchOnWindowFocus ?? false,
+    refetchOnWindowFocus:
+      options.query?.refetchOnWindowFocus ??
+      QUERY_CONFIG.REALTIME.refetchOnWindowFocus,
     refetchOnReconnect: options.query?.refetchOnReconnect ?? true,
     retry: options.query?.retry ?? 2,
   });

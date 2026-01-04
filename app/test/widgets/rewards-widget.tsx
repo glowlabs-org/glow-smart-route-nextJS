@@ -22,14 +22,8 @@ import { weekToNonce } from "@/hooks/useMerkleProofs";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import { cn } from "@/lib/utils";
-
-const STICKY_QUERY_BEHAVIOR = {
-  staleTime: 24 * 60 * 60_000,
-  gcTime: 24 * 60 * 60_000,
-  refetchOnMount: false,
-  refetchOnWindowFocus: false,
-  refetchOnReconnect: false,
-} as const;
+import { QUERY_KEYS } from "@/hooks/query-keys";
+import { QUERY_CONFIG } from "@/hooks/query-config";
 
 const DEFAULT_INITIAL_DURATION_MS = (4 * 60 * 60 + 12 * 60 + 33) * 1000;
 
@@ -195,14 +189,14 @@ export default function RewardsWidget({
     isError: isRewardsError,
   } = useClaimableRewards(address, {
     refreshKey,
-    query: STICKY_QUERY_BEHAVIOR,
+    query: QUERY_CONFIG.STICKY,
   });
 
   const { checkIfClaimed, checkIfGlwClaimed } = useRewardsKernelWrapper();
   const { spotPrice: glwSpotPriceUsd } = useGlowSpotPrice({
     refreshKey,
     query: {
-      ...STICKY_QUERY_BEHAVIOR,
+      ...QUERY_CONFIG.STICKY,
       refetchInterval: false,
       retry: 0,
     },
@@ -215,7 +209,7 @@ export default function RewardsWidget({
     isError: isLifetimeError,
   } = useWalletV2Claims(address, {
     refreshKey,
-    query: STICKY_QUERY_BEHAVIOR,
+    query: QUERY_CONFIG.STICKY,
   });
 
   const finalizedWeeks = React.useMemo(
@@ -233,15 +227,14 @@ export default function RewardsWidget({
     isLoading: isClaimableTotalsLoading,
     isError: isClaimableTotalsError,
   } = useQuery<Record<string, number>>({
-    queryKey: [
-      "wallet-claimable-totals",
+    queryKey: QUERY_KEYS.wallets.claimableTotals(
       address,
       finalizedWeeksKey,
-      refreshKey,
-    ],
+      refreshKey
+    ),
     enabled: Boolean(hasWallet && address && finalizedWeeks.length > 0),
-    staleTime: STICKY_QUERY_BEHAVIOR.staleTime,
-    gcTime: STICKY_QUERY_BEHAVIOR.gcTime,
+    staleTime: QUERY_CONFIG.STICKY.staleTime,
+    gcTime: QUERY_CONFIG.STICKY.gcTime,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -321,10 +314,17 @@ export default function RewardsWidget({
 
   const handleClaimSuccess = React.useCallback(() => {
     if (!address) return;
-    queryClient.invalidateQueries({ queryKey: ["wallet-rewards", address] });
-    queryClient.invalidateQueries({ queryKey: ["wallet-v2-claims", address] });
     queryClient.invalidateQueries({
-      queryKey: ["wallet-claimable-totals", address],
+      queryKey: QUERY_KEYS.wallets.rewards(address),
+    });
+    queryClient.invalidateQueries({
+      queryKey: QUERY_KEYS.wallets.v2Claims(address),
+    });
+    queryClient.invalidateQueries({
+      queryKey: QUERY_KEYS.wallets.claimableTotals(address),
+    });
+    queryClient.invalidateQueries({
+      queryKey: QUERY_KEYS.unclaimed.glw(address),
     });
   }, [address, queryClient]);
 

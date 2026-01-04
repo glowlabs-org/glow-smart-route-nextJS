@@ -15,6 +15,8 @@ import {
 } from "@glowlabs-org/utils/browser";
 import { getControlRouter, getWalletsRouter } from "@/lib/api/control-routers";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import { QUERY_KEYS } from "@/hooks/query-keys";
+import { QUERY_CONFIG } from "@/hooks/query-config";
 
 export type {
   MigrationAmountResponse,
@@ -22,32 +24,6 @@ export type {
   StakedEvent,
   WalletDetails,
 };
-
-const QUERY_KEYS = {
-  walletDetails: (wallet?: string) => ["wallet-details", wallet],
-  walletMintedEvents: (wallet?: string, page?: number, limit?: number) => [
-    "wallet-minted-events",
-    wallet,
-    page,
-    limit,
-  ],
-  walletStakeEvents: (
-    wallet?: string,
-    page?: number,
-    limit?: number,
-    regionId?: number
-  ) => ["wallet-stake-events", wallet, page, limit, regionId],
-  migrationAmount: (wallet?: string) => ["migration-amount", wallet],
-  allWallets: () => ["all-wallets"],
-  v2Claims: (wallet?: string, refreshKey?: string | number) => {
-    if (refreshKey == null) return ["wallet-v2-claims", wallet] as const;
-    return ["wallet-v2-claims", wallet, refreshKey] as const;
-  },
-  walletRewards: (wallet?: string, refreshKey?: string | number) => {
-    if (refreshKey == null) return ["wallet-rewards", wallet] as const;
-    return ["wallet-rewards", wallet, refreshKey] as const;
-  },
-} as const;
 
 export interface UseWalletsParams {
   walletAddress?: string;
@@ -68,16 +44,16 @@ export function useWallets(params: UseWalletsParams = {}) {
   const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
 
   const walletDetailsQuery = useQuery({
-    queryKey: QUERY_KEYS.walletDetails(walletAddress),
+    queryKey: QUERY_KEYS.wallets.details(walletAddress),
     queryFn: () =>
       (getWalletsRouter() as any).fetchWalletByAddress(walletAddress!),
     enabled: enabled && isConfigured && Boolean(walletAddress),
-    staleTime: 30_000,
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     retry: 2,
   });
 
   const mintedEventsQuery = useQuery({
-    queryKey: QUERY_KEYS.walletMintedEvents(walletAddress, page, limit),
+    queryKey: QUERY_KEYS.wallets.mintedEvents(walletAddress, page, limit),
     queryFn: () =>
       (getWalletsRouter() as any).fetchWalletMintedEvents(
         walletAddress!,
@@ -85,12 +61,12 @@ export function useWallets(params: UseWalletsParams = {}) {
         limit
       ),
     enabled: enabled && isConfigured && Boolean(walletAddress),
-    staleTime: 30_000,
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     retry: 2,
   });
 
   const stakeEventsQuery = useQuery({
-    queryKey: QUERY_KEYS.walletStakeEvents(
+    queryKey: QUERY_KEYS.wallets.stakeEvents(
       walletAddress,
       page,
       limit,
@@ -104,24 +80,24 @@ export function useWallets(params: UseWalletsParams = {}) {
         regionId
       ),
     enabled: enabled && isConfigured && Boolean(walletAddress),
-    staleTime: 30_000,
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     retry: 2,
   });
 
   const migrationQuery = useQuery({
-    queryKey: QUERY_KEYS.migrationAmount(walletAddress),
+    queryKey: QUERY_KEYS.wallets.migrationAmount(walletAddress),
     queryFn: () =>
       (getControlRouter() as any).fetchMigrationAmount(walletAddress!),
     enabled: enabled && isConfigured && Boolean(walletAddress),
-    staleTime: 60_000,
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     retry: 2,
   });
 
   const allWalletsQuery = useQuery({
-    queryKey: QUERY_KEYS.allWallets(),
+    queryKey: QUERY_KEYS.wallets.all(),
     queryFn: () => (getWalletsRouter() as any).fetchAllWallets(),
     enabled: false,
-    staleTime: 60_000,
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     retry: 2,
   });
 
@@ -202,11 +178,13 @@ export function useWalletV2Claims(
 
   const { data, isLoading, isError, error } =
     useQuery<WalletWeeklyRewardsResponse | null>({
-      queryKey: QUERY_KEYS.v2Claims(walletAddress, options.refreshKey),
+      queryKey: QUERY_KEYS.wallets.v2Claims(walletAddress, options.refreshKey),
       enabled: isConfigured && Boolean(walletAddress),
-      staleTime: options.query?.staleTime ?? 30_000,
+      staleTime: options.query?.staleTime ?? QUERY_CONFIG.DEFAULT.staleTime,
       gcTime: options.query?.gcTime ?? 5 * 60_000,
-      refetchOnWindowFocus: options.query?.refetchOnWindowFocus ?? false,
+      refetchOnWindowFocus:
+        options.query?.refetchOnWindowFocus ??
+        QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
       refetchOnMount: options.query?.refetchOnMount ?? true,
       ...(options.query?.refetchOnReconnect !== undefined
         ? { refetchOnReconnect: options.query.refetchOnReconnect }
@@ -358,12 +336,14 @@ export function useClaimableRewards(
     error,
     refetch,
   } = useQuery({
-    queryKey: QUERY_KEYS.walletRewards(walletAddress, options.refreshKey),
+    queryKey: QUERY_KEYS.wallets.rewards(walletAddress, options.refreshKey),
     enabled: isConfigured && Boolean(walletAddress),
-    staleTime: options.query?.staleTime ?? 30_000,
+    staleTime: options.query?.staleTime ?? QUERY_CONFIG.DEFAULT.staleTime,
     gcTime: options.query?.gcTime ?? 5 * 60_000,
     refetchOnMount: options.query?.refetchOnMount ?? true,
-    refetchOnWindowFocus: options.query?.refetchOnWindowFocus ?? false,
+    refetchOnWindowFocus:
+      options.query?.refetchOnWindowFocus ??
+      QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
     ...(options.query?.refetchOnReconnect !== undefined
       ? { refetchOnReconnect: options.query.refetchOnReconnect }
       : {}),

@@ -6,6 +6,8 @@ import { useChainId } from "wagmi";
 import { SDKAddresses } from "@/web3/constants/addresses";
 import { publicClient } from "@/web3/web3/clients/publicClient";
 import { getERC20Balance } from "@/web3/web3/queries/erc20";
+import { QUERY_KEYS } from "@/hooks/query-keys";
+import { QUERY_CONFIG } from "@/hooks/query-config";
 
 export interface WalletTokenBalances {
   glwBalance: bigint | null;
@@ -40,13 +42,18 @@ export function useWalletTokenBalances(
   const chainId = useChainId();
 
   const query = useQuery({
-    queryKey: ["wallet-token-balances", chainId, walletAddress],
+    queryKey: QUERY_KEYS.balances.tokens(
+      chainId,
+      walletAddress as string | undefined
+    ),
     enabled: Boolean(options?.enabled ?? true) && Boolean(walletAddress),
-    staleTime: options?.query?.staleTime ?? 10_000,
+    staleTime: options?.query?.staleTime ?? QUERY_CONFIG.DEFAULT.staleTime,
     gcTime: options?.query?.gcTime ?? 5 * 60_000,
     refetchInterval: options?.query?.refetchInterval,
     refetchOnMount: options?.query?.refetchOnMount,
-    refetchOnWindowFocus: options?.query?.refetchOnWindowFocus ?? true,
+    refetchOnWindowFocus:
+      options?.query?.refetchOnWindowFocus ??
+      QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
     ...(options?.query?.refetchOnReconnect !== undefined
       ? { refetchOnReconnect: options.query.refetchOnReconnect }
       : {}),
@@ -90,5 +97,3 @@ export function useWalletTokenBalances(
     refetch: query.refetch,
   };
 }
-
-

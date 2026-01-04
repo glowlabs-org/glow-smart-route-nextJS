@@ -1,6 +1,6 @@
 import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
 import View from "../buy/view";
-import { getHeadlineStats } from "@/web3/web3/queries/getHeadlineStats";
+import { getCachedHeadlineStats } from "@/lib/server/headline-stats";
 import { Error } from "@/components/loading";
 import { PageWrapper } from "../components/page-wrapper";
 import { Metadata } from "next";
@@ -99,7 +99,7 @@ function PageContent(props: PageContentProps) {
 export default async function TokenPage() {
   try {
     const [glowStats, ethPriceInUSD] = await Promise.all([
-      getHeadlineStats(),
+      getCachedHeadlineStats(),
       getEthPriceInUSD(),
     ]);
 

@@ -28,6 +28,7 @@ import {
 import { getControlRouter } from "@/lib/api/control-routers";
 import { parseUnknownError } from "@/utils/api-error";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
+import { QUERY_KEYS as APP_QUERY_KEYS } from "@/hooks/query-keys";
 
 const QUERY_KEYS = {
   gctlBalance: (wallet?: string) => ["gctl-balance", wallet],
@@ -563,7 +564,11 @@ export function useGctlApi(
       ...(wallet
         ? [
             queryClient.invalidateQueries({
-              queryKey: QUERY_KEYS.gctlBalance(wallet),
+              queryKey: APP_QUERY_KEYS.balances.gctl(wallet),
+            }),
+            // Used by `useWallets` consumers (e.g. GCTL heatmap widget).
+            queryClient.invalidateQueries({
+              queryKey: APP_QUERY_KEYS.wallets.details(wallet),
             }),
             queryClient.invalidateQueries({
               queryKey: QUERY_KEYS.latestNonce(wallet),

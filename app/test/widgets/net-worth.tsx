@@ -24,9 +24,8 @@ import { Button } from "@/components/ui/button";
 import { ConnectButton } from "@/components/connect-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
-import { usePoolActivity } from "@/hooks/useGlowPrices";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
-import { useGctlApi, useRewardsBreakdown, useClaimableRewards } from "@/hooks";
+import { useRewardsBreakdown, useClaimableRewards } from "@/hooks";
 import { useSwapDialogData } from "@/hooks/useSwapDialogData";
 import { useRewardsKernelWrapper } from "@/hooks/useRewardsKernelWrapper";
 import { weekToNonce } from "@/hooks/useMerkleProofs";
@@ -51,6 +50,8 @@ import { useAccount, useBalance, useChainId } from "wagmi";
 import OnboardingHeroWidget from "./onboarding-hero-widget";
 import { SwapDialog } from "@/components/dialogs/swap-dialog";
 import { SendDialog } from "@/components/send-dialog";
+import { QUERY_KEYS } from "@/hooks/query-keys";
+import { QUERY_CONFIG } from "@/hooks/query-config";
 
 const GLOW_GREEN = "#4ADE80";
 const ZERO_WORTH_THRESHOLD_GLW = 0.01;
@@ -189,8 +190,7 @@ function GlowWorthEmptyState() {
           No GLW worth yet
         </div>
         <div className="mt-1 max-w-[360px] text-xs text-muted-foreground">
-          Buy GLW, Delegate, or Stake GCTL to start building your Glow Worth
-          history.
+          Buy GLW or Delegate to start building your Glow Worth history.
         </div>
       </div>
     </div>
@@ -273,13 +273,13 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
         try {
           await Promise.all([
             queryClient.invalidateQueries({
-              queryKey: ["wallet-token-balances", chainId, walletAddress],
+              queryKey: QUERY_KEYS.balances.tokens(chainId, walletAddress),
             }),
             queryClient.invalidateQueries({
-              queryKey: ["wallet-swaps", chainId, walletAddress],
+              queryKey: QUERY_KEYS.swaps.history(chainId, walletAddress),
             }),
             queryClient.invalidateQueries({
-              queryKey: ["unclaimed-glw-rewards", walletAddress],
+              queryKey: QUERY_KEYS.unclaimed.glw(walletAddress),
             }),
           ]);
         } catch {}
@@ -295,8 +295,8 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
     address: (walletAddress ?? undefined) as `0x${string}` | undefined,
     query: {
       enabled: hasWallet && Boolean(walletAddress),
-      staleTime: 30_000,
-      refetchOnWindowFocus: false,
+      staleTime: QUERY_CONFIG.DEFAULT.staleTime,
+      refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
     },
   });
   const {
@@ -307,16 +307,10 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
     isError: isTokenBalancesError,
   } = useWalletTokenBalances(walletAddress, {
     query: {
-      staleTime: 30_000,
-      refetchOnWindowFocus: false,
+      staleTime: QUERY_CONFIG.DEFAULT.staleTime,
+      refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
     },
   });
-  const { gctlBalance, isGctlBalanceLoading } = useGctlApi(
-    walletAddress ?? undefined,
-    {
-      enabled: hasWallet,
-    }
-  );
   const {
     data: rewardsBreakdown,
     isLoading: isRewardsBreakdownLoading,
@@ -331,8 +325,8 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
     isError: isClaimableRewardsError,
   } = useClaimableRewards(walletAddress ?? undefined, {
     query: {
-      staleTime: 60_000,
-      refetchOnWindowFocus: false,
+      staleTime: QUERY_CONFIG.DEFAULT.staleTime,
+      refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
     },
   });
   const { checkIfClaimed, checkIfGlwClaimed } = useRewardsKernelWrapper();
@@ -378,15 +372,6 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
       return 0;
     }
   }, [ethBalanceData?.value]);
-
-  const gctl = React.useMemo(() => {
-    if (!gctlBalance) return 0;
-    try {
-      return Number(formatUnits(BigInt(gctlBalance), DECIMALS_BY_TOKEN.GCTL));
-    } catch {
-      return 0;
-    }
-  }, [gctlBalance]);
 
   const delegated = React.useMemo(() => {
     if (!rewardsBreakdown) {
@@ -454,15 +439,14 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
     isLoading: isUnclaimedGlwLoading,
     isError: isUnclaimedGlwError,
   } = useQuery({
-    queryKey: [
-      "unclaimed-glw-rewards",
-      walletAddress,
-      eligibleWeeksForUnclaimedKey,
-    ],
+    queryKey: QUERY_KEYS.unclaimed.glw(
+      walletAddress ?? undefined,
+      eligibleWeeksForUnclaimedKey
+    ),
     enabled: Boolean(
       hasWallet && walletAddress && eligibleWeeksForUnclaimed.length > 0
     ),
-    staleTime: 5 * 60_000,
+    staleTime: QUERY_CONFIG.STICKY.staleTime,
     gcTime: 30 * 60_000,
     refetchInterval: false,
     refetchOnWindowFocus: true,
@@ -557,7 +541,6 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
     !hasWorthDataError &&
     (isTokenBalancesLoading ||
       isEthBalanceLoading ||
-      isGctlBalanceLoading ||
       isRewardsBreakdownLoading ||
       isClaimableRewardsLoading ||
       isSwapsLoading ||
@@ -723,40 +706,14 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
       { symbol: "GLW", amount: liquidGlw },
       { symbol: "USDC", amount: usdc },
       { symbol: "USDG", amount: usdg },
-      { symbol: "GCTL", amount: gctl },
       { symbol: "ETH", amount: eth },
     ] as const;
     return holdings.filter((h) => h.amount > 0);
-  }, [eth, gctl, liquidGlw, usdc, usdg]);
+  }, [eth, liquidGlw, usdc, usdg]);
 
   const { glowPrice, marketCap } = useGlowCirculatingSupply();
-  const { deltaPercent: deltaPercent24h, currentPrice: vwapPrice24h } =
-    usePoolActivity("day", "hour");
 
-  const spotPrice = React.useMemo(() => {
-    if (Number.isFinite(glowPrice) && glowPrice > 0) return glowPrice;
-    if (Number.isFinite(vwapPrice24h) && (vwapPrice24h ?? 0) > 0)
-      return vwapPrice24h ?? 0;
-    return 0;
-  }, [glowPrice, vwapPrice24h]);
-
-  const formattedSpotPrice = React.useMemo(
-    () => formatSpotPrice(spotPrice),
-    [spotPrice]
-  );
-  const formattedDeltaPercent = React.useMemo(() => {
-    if (!Number.isFinite(deltaPercent24h as number) || deltaPercent24h === null)
-      return null;
-    const sign = deltaPercent24h >= 0 ? "+" : "";
-    return `${sign}${deltaPercent24h.toFixed(1)}%`;
-  }, [deltaPercent24h]);
-
-  const deltaClassName =
-    formattedDeltaPercent === null
-      ? "text-muted-foreground"
-      : (deltaPercent24h ?? 0) >= 0
-      ? "text-green-400"
-      : "text-red-400";
+  const formattedSpotPrice = formatSpotPrice(glowPrice);
 
   const chartData = glowWorthChartData;
   const yDomain = React.useMemo<[number, number]>(() => {

@@ -21,6 +21,8 @@ interface ProcessingModalProps {
   isOpen: boolean;
   trackingTxHash: string | null;
   onClose: () => void;
+  onConfirmed?: (transfer: PendingTransfer) => void;
+  onFailed?: (transfer: PendingTransfer) => void;
 }
 
 const POLL_INTERVAL = 10_000;
@@ -30,6 +32,8 @@ export function ProcessingModal({
   isOpen,
   trackingTxHash,
   onClose,
+  onConfirmed,
+  onFailed,
 }: ProcessingModalProps) {
   const copyTxHash = () => {
     if (trackingTxHash) {
@@ -51,6 +55,7 @@ export function ProcessingModal({
   );
   const [processedAmount, setProcessedAmount] = useState<string>("0");
   const failureInfoRef = useRef<PendingTransfer | null>(null);
+  const didNotifyFinalStateRef = useRef(false);
 
   const [txIdParam, setTxIdParam] = useQueryState("txId", {
     defaultValue: "",
@@ -81,6 +86,11 @@ export function ProcessingModal({
       return data.status === "confirmed" || data.status === "failed";
     },
     onSuccess: (data) => {
+      if (!didNotifyFinalStateRef.current) {
+        if (data.status === "confirmed") onConfirmed?.(data);
+        if (data.status === "failed") onFailed?.(data);
+        didNotifyFinalStateRef.current = true;
+      }
       if (data.status === "confirmed") {
         setStatus("success");
         setProcessedAmount(
@@ -103,6 +113,7 @@ export function ProcessingModal({
       setStatus("processing");
       setProcessedAmount("0");
       failureInfoRef.current = null;
+      didNotifyFinalStateRef.current = false;
       resetPolling();
       startPolling();
     } else if (!isOpen) {

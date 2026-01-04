@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useChainId } from "wagmi";
 import { getHeadlineStats } from "@/web3/web3/queries/getHeadlineStats";
 import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
 
@@ -12,9 +13,10 @@ interface UseSwapDialogDataOptions {
 
 export function useSwapDialogData(options?: UseSwapDialogDataOptions) {
   const { enabled = true } = options ?? {};
+  const chainId = useChainId();
 
   const headlineStatsQuery = useQuery({
-    queryKey: ["headline-stats"],
+    queryKey: ["headline-stats", chainId] as const,
     queryFn: getHeadlineStats,
     enabled,
     staleTime: 30_000,
