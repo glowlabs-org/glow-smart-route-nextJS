@@ -34,6 +34,7 @@ interface SponsoredFarmsActivityProps {
   summaryOverride?: SplitsActivityResponse["summary"];
   isLoadingOverride?: boolean;
   walletAddress?: string;
+  constrainHeight?: boolean;
 }
 
 export function SponsoredFarmsActivity({
@@ -43,6 +44,7 @@ export function SponsoredFarmsActivity({
   summaryOverride,
   isLoadingOverride,
   walletAddress,
+  constrainHeight,
 }: SponsoredFarmsActivityProps) {
   const {
     activity: fetchedActivity,
@@ -123,7 +125,12 @@ export function SponsoredFarmsActivity({
         </div>
 
         {/* Activity Table Skeleton */}
-        <div className="bg-white dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 overflow-x-auto">
+        <div
+          className={cn(
+            "bg-white dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 overflow-x-auto",
+            constrainHeight ? "overflow-y-auto max-h-[min(55vh,520px)]" : null
+          )}
+        >
           <Table>
             <TableHeader>
               <TableRow>
@@ -322,7 +329,12 @@ export function SponsoredFarmsActivity({
       </div>
 
       {/* Activity Table */}
-      <div className="bg-white dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 overflow-x-auto">
+      <div
+        className={cn(
+          "bg-white dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 overflow-x-auto",
+          constrainHeight ? "overflow-y-auto max-h-[min(55vh,520px)]" : null
+        )}
+      >
         <Table>
           <TableHeader>
             <TableRow>

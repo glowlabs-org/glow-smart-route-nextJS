@@ -1,10 +1,8 @@
 "use client";
 
 import React from "react";
-import { Share2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -94,8 +92,11 @@ function getWeekStatusLabel(params: {
   currentWeek: number;
 }) {
   const { status, week, currentWeek } = params;
-  if (status === "missed" && week === currentWeek) return "current";
-  return status;
+  if (status === "missed" && week === currentWeek) return "Current";
+  if (status === "delegated") return "Delegator";
+  if (status === "miner") return "Miner";
+  if (status === "both") return "Both";
+  return "Missed";
 }
 
 interface WeeklyActivityWidgetProps {
@@ -104,6 +105,8 @@ interface WeeklyActivityWidgetProps {
 }
 
 const PLACEHOLDER_ACTIVE_WEEKS = 17;
+const DISPLAY_WEEKS_CAP = 24;
+const GRID_COLUMNS = 8;
 
 const PLACEHOLDER_CELLS: WeekStatus[] = [
   "missed",
@@ -138,16 +141,16 @@ function WeeklyActivitySkeleton() {
       <CardHeader className="pb-0">
         <CardTitle className="text-center">Weekly Streak</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="flex flex-col h-full min-h-0">
-          <div className="space-y-4">
-            <div className="flex flex-col items-center justify-center text-center mb-4">
-              <Skeleton className="h-12 w-20 rounded-xl" />
-              <Skeleton className="mt-2 h-3 w-32 rounded-md" />
-            </div>
-            <Skeleton className="h-[92px] w-full rounded-xl" />
-            <Skeleton className="h-10 w-full rounded-xl" />
+      <CardContent className="flex flex-col flex-1 min-h-0 p-4 py-0">
+        <div className="flex flex-col flex-1 min-h-0 gap-4">
+          <div className="flex flex-col items-center justify-center text-center select-none">
+            <Skeleton className="h-12 w-20 rounded-xl" />
+            <Skeleton className="mt-2 h-3 w-32 rounded-md" />
           </div>
+          <div className="flex flex-1 min-h-0 items-center justify-center">
+            <Skeleton className="h-[128px] w-full rounded-xl" />
+          </div>
+          <Skeleton className="h-16 w-full rounded-xl" />
         </div>
       </CardContent>
     </Card>
@@ -158,7 +161,7 @@ export default function WeeklyActivityWidget({
   walletAddress,
   hideIfEmpty = true,
 }: WeeklyActivityWidgetProps) {
-  const weeksCount = 24;
+  const weeksCount = DISPLAY_WEEKS_CAP;
   const hasWallet = Boolean(walletAddress);
   const { isConnecting, isReconnecting } = useAccount();
   const isWalletConnecting = isConnecting || isReconnecting;
@@ -235,11 +238,27 @@ export default function WeeklyActivityWidget({
     weeklyDelegations,
   ]);
 
-  const weekCells = React.useMemo<WeekCell[]>(() => {
-    if (!hasWallet) return [];
+  const weekRange = React.useMemo(() => {
+    if (!hasWallet) return null;
     const endWeek = lastKnownWeek;
     const startWeek = Math.max(V2_START_WEEK, endWeek - (weeksCount - 1));
-    if (startWeek > endWeek) return [];
+    if (startWeek > endWeek) return null;
+    const displayWeeksCount = endWeek - startWeek + 1;
+    const gridRows = Math.max(1, Math.ceil(displayWeeksCount / GRID_COLUMNS));
+    return {
+      startWeek,
+      endWeek,
+      displayWeeksCount,
+      gridColumns: GRID_COLUMNS,
+      gridRows,
+      gridSize: GRID_COLUMNS * gridRows,
+    };
+  }, [hasWallet, lastKnownWeek, weeksCount]);
+
+  const weekCells = React.useMemo<WeekCell[]>(() => {
+    if (!hasWallet) return [];
+    if (!weekRange) return [];
+    const { startWeek, endWeek } = weekRange;
 
     const cells: WeekCell[] = [];
     for (let week = startWeek; week <= endWeek; week++) {
@@ -258,26 +277,29 @@ export default function WeeklyActivityWidget({
     }
 
     return cells;
-  }, [hasWallet, lastKnownWeek, minerWeeks, weeklyDelegations]);
+  }, [hasWallet, minerWeeks, weekRange, weeklyDelegations]);
 
   const activeWeeks = React.useMemo(
     () => weekCells.filter((w) => w.status !== "missed").length,
     [weekCells]
   );
 
+  const statusCounts = React.useMemo(() => {
+    let miner = 0;
+    let delegated = 0;
+    let both = 0;
+    let missed = 0;
+    weekCells.forEach((cell) => {
+      if (cell.status === "miner") miner++;
+      else if (cell.status === "delegated") delegated++;
+      else if (cell.status === "both") both++;
+      else missed++;
+    });
+    return { miner, delegated, both, missed };
+  }, [weekCells]);
+
   const isLoading = hasWallet && (isRewardsLoading || isSplitsLoading);
   const isError = hasWallet && (isRewardsError || isSplitsError);
-
-  const handleShareOnX = React.useCallback(() => {
-    if (typeof window === "undefined" || !walletAddress) return;
-    const displayedWeeks = weekCells.length;
-    const shareText = `🔥 My Glow weekly streak: ${activeWeeks}/${displayedWeeks} weeks`;
-    const shareUrl = `https://app.glow.org/share/streak/${walletAddress}`;
-    const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-      `${shareText} #GlowCommit @glowFND`
-    )}&url=${encodeURIComponent(shareUrl)}`;
-    window.open(intentUrl, "_blank", "noopener,noreferrer");
-  }, [activeWeeks, walletAddress, weekCells.length]);
 
   const shouldHide =
     hasWallet &&
@@ -294,11 +316,11 @@ export default function WeeklyActivityWidget({
       <CardHeader className="pb-0">
         <CardTitle className="text-center">Weekly Streak</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="flex flex-col h-full min-h-0">
+      <CardContent className="flex flex-col flex-1 min-h-0 p-4 py-0">
+        <div className="flex flex-col flex-1 min-h-0">
           {!hasWallet ? (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col items-center justify-center text-center mb-2 select-none">
+            <div className="flex flex-col flex-1 min-h-0 gap-4">
+              <div className="flex flex-col items-center justify-center text-center select-none">
                 <div className="font-mono text-5xl font-bold tracking-tight text-foreground leading-none blur-[2px] opacity-60">
                   {PLACEHOLDER_ACTIVE_WEEKS}
                   <span className="ml-2 text-sm font-mono font-semibold text-muted-foreground uppercase tracking-wider align-middle">
@@ -310,13 +332,16 @@ export default function WeeklyActivityWidget({
                 </div>
               </div>
 
-              <div aria-hidden className="blur-[1.5px] opacity-60">
+              <div
+                aria-hidden
+                className="flex flex-1 min-h-0 items-center justify-center blur-[1.5px] opacity-60"
+              >
                 <div className="grid grid-cols-8 grid-rows-3 gap-2">
                   {PLACEHOLDER_CELLS.map((status, idx) => (
                     <div
                       key={`placeholder-${idx}`}
                       className={cn(
-                        "h-5 w-5 rounded-[4px] border border-border/60",
+                        "h-7 w-7 sm:h-8 sm:w-8 rounded-[6px] border border-border/60",
                         getWeekStyle(status)
                       )}
                     />
@@ -324,7 +349,7 @@ export default function WeeklyActivityWidget({
                 </div>
               </div>
 
-              <div className="rounded-xl border border-border bg-muted/20 p-3 text-center">
+              <div className="mt-auto rounded-xl border border-border bg-muted/20 p-3 text-center">
                 <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                   Connect your wallet
                 </div>
@@ -334,12 +359,14 @@ export default function WeeklyActivityWidget({
               </div>
             </div>
           ) : isLoading ? (
-            <div className="space-y-4">
-              <div className="flex flex-col items-center justify-center text-center mb-4">
+            <div className="flex flex-col flex-1 min-h-0 gap-4">
+              <div className="flex flex-col items-center justify-center text-center select-none">
                 <Skeleton className="h-12 w-20 rounded-xl" />
                 <Skeleton className="mt-2 h-3 w-32 rounded-md" />
               </div>
-              <Skeleton className="h-[92px] w-full rounded-xl" />
+              <div className="flex flex-1 min-h-0 items-center justify-center">
+                <Skeleton className="h-[128px] w-full rounded-xl" />
+              </div>
             </div>
           ) : isError ? (
             <div className="flex flex-1 flex-col items-center justify-center text-center gap-2 py-10">
@@ -358,7 +385,7 @@ export default function WeeklyActivityWidget({
             </div>
           ) : (
             <>
-              <div className="flex flex-col items-center justify-center text-center mb-4">
+              <div className="flex flex-col items-center justify-center text-center select-none">
                 <div className="font-mono text-5xl font-bold tracking-tight text-foreground leading-none">
                   {activeWeeks}
                   <span className="ml-2 text-sm font-mono font-semibold text-muted-foreground uppercase tracking-wider align-middle">
@@ -370,69 +397,117 @@ export default function WeeklyActivityWidget({
                 </div>
               </div>
 
-              <TooltipProvider delayDuration={200}>
-                <div className="grid grid-cols-5 grid-rows-3 gap-2">
-                  {weekCells.map((cell) => {
-                    return (
-                      <Tooltip key={cell.id}>
-                        <TooltipTrigger asChild>
-                          <div
-                            className={cn(
-                              "h-8 w-8 rounded-[4px] border border-border/60",
-                              "hover:ring-2 hover:ring-foreground/10 hover:ring-offset-2 hover:ring-offset-background",
-                              getWeekStyle(cell.status)
-                            )}
-                          />
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side="top"
-                          align="center"
-                          sideOffset={10}
-                        >
-                          <div className="font-mono text-[10px]">
-                            <div>{cell.rangeLabel}</div>
-                            <div className="text-muted-foreground">
+              <div className="mt-4 flex flex-1 min-h-0 items-center justify-center">
+                <TooltipProvider delayDuration={200}>
+                  <div
+                    className="grid gap-2"
+                    style={{
+                      gridTemplateColumns: `repeat(${
+                        weekRange?.gridColumns ?? GRID_COLUMNS
+                      }, minmax(0, 1fr))`,
+                    }}
+                  >
+                    {weekCells.map((cell) => {
+                      const isCurrentWeek = cell.week === currentWeek;
+                      return (
+                        <Tooltip key={cell.id}>
+                          <TooltipTrigger asChild>
+                            <div
+                              className={cn(
+                                "h-7 w-7 sm:h-8 sm:w-8 rounded-[6px] border border-border/60",
+                                "outline-none focus-visible:ring-2 focus-visible:ring-foreground/10 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                                "hover:ring-2 hover:ring-foreground/10 hover:ring-offset-2 hover:ring-offset-background",
+                                isCurrentWeek && "ring-1 ring-foreground/10",
+                                getWeekStyle(cell.status)
+                              )}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="top"
+                            align="center"
+                            sideOffset={10}
+                            className="rounded-xl border border-foreground/10 dark:border-zinc-800 bg-popover/95 px-3 py-2"
+                          >
+                            <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground dark:text-zinc-500">
+                              {cell.rangeLabel}
+                            </div>
+                            <div className="mt-1 font-mono text-sm font-bold tabular-nums text-foreground">
                               {getWeekStatusLabel({
                                 status: cell.status,
                                 week: cell.week,
                                 currentWeek,
                               })}
                             </div>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    );
-                  })}
-                </div>
-              </TooltipProvider>
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })}
 
-              <div className="mt-auto pt-4 space-y-4">
-                <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono uppercase">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-[color:var(--color-miner-yellow)] opacity-80 border border-border/40" />
-                      <span>Miner</span>
+                    {Array.from({
+                      length: Math.max(
+                        0,
+                        (weekRange?.gridSize ?? 0) - weekCells.length
+                      ),
+                    }).map((_, idx) => (
+                      <div
+                        key={`filler-${idx}`}
+                        aria-hidden
+                        className="h-7 w-7 sm:h-8 sm:w-8 rounded-[6px] border border-border/60 bg-muted/40"
+                      />
+                    ))}
+                  </div>
+                </TooltipProvider>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-border bg-muted/20 p-3">
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-muted-foreground font-mono uppercase">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[color:var(--color-miner-yellow)] opacity-80 border border-border/40" />
+                        <span>Miner</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#C084FC] opacity-80 border border-border/40" />
+                        <span>Delegator</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#4ADE80] opacity-80 border border-border/40" />
+                        <span>Both</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-[#C084FC] opacity-80 border border-border/40" />
-                      <span>Delegator</span>
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                      Active {activeWeeks}/{weekCells.length}
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-[#4ADE80] opacity-80 border border-border/40" />
-                      <span>Both</span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-lg border border-border/60 bg-background/40 px-2 py-1">
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                        Miner
+                      </div>
+                      <div className="mt-0.5 font-mono text-sm font-bold tabular-nums text-foreground">
+                        {statusCounts.miner}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-background/40 px-2 py-1">
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                        Delegator
+                      </div>
+                      <div className="mt-0.5 font-mono text-sm font-bold tabular-nums text-foreground">
+                        {statusCounts.delegated}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-background/40 px-2 py-1">
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                        Both
+                      </div>
+                      <div className="mt-0.5 font-mono text-sm font-bold tabular-nums text-foreground">
+                        {statusCounts.both}
+                      </div>
                     </div>
                   </div>
                 </div>
-
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleShareOnX}
-                  disabled={!walletAddress || weekCells.length === 0}
-                >
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share on X
-                </Button>
               </div>
             </>
           )}

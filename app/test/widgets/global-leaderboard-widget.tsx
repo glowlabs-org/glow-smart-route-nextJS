@@ -13,7 +13,12 @@ import {
   useImpactLeaderboardQuery,
   type ImpactGlowScoreLeaderboardRow,
 } from "@/hooks";
-import { formatImpactPoints, shortAddress, safeNumber } from "@/utils/impact";
+import {
+  formatImpactPoints,
+  formatTopPercentile,
+  shortAddress,
+  safeNumber,
+} from "@/utils/impact";
 
 interface GlobalLeaderboardWidgetProps {
   className?: string;
@@ -33,6 +38,8 @@ export default function GlobalLeaderboardWidget({
 }: GlobalLeaderboardWidgetProps) {
   const leaderboardQuery = useImpactLeaderboardQuery();
   const rows = leaderboardQuery.data?.wallets ?? [];
+  const totalWalletCount =
+    leaderboardQuery.data?.totalWalletCount ?? rows.length;
 
   const topRows = React.useMemo(() => {
     if (!rows.length) return [];
@@ -90,6 +97,10 @@ export default function GlobalLeaderboardWidget({
               <div className="space-y-2">
                 {topRows.map((row, idx) => {
                   const rank = idx + 1;
+                  const percentile =
+                    totalWalletCount > 0
+                      ? (rank / totalWalletCount) * 100
+                      : NaN;
                   const name =
                     ensNames[row.walletAddress] ||
                     shortAddress(row.walletAddress);
@@ -104,10 +115,21 @@ export default function GlobalLeaderboardWidget({
                     >
                       <div className="min-w-0 flex items-center gap-3">
                         <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground tabular-nums shrink-0">
-                          {rank === 1 ? (
-                            <Crown className="h-4 w-4 text-[color:var(--color-glow-orange)]" />
-                          ) : null}
-                          <span>#{rank}</span>
+                          {rank <= 3 ? (
+                            <>
+                              {rank === 1 ? (
+                                <Crown className="h-4 w-4 text-[color:var(--color-glow-orange)]" />
+                              ) : null}
+                              <span>#{rank}</span>
+                            </>
+                          ) : (
+                            <span>
+                              Top{" "}
+                              {Number.isFinite(percentile)
+                                ? formatTopPercentile(percentile)
+                                : "—"}
+                            </span>
+                          )}
                         </div>
                         <div className="min-w-0">
                           <div className="truncate text-sm font-semibold text-foreground">

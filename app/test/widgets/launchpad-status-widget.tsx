@@ -224,7 +224,7 @@ export default function LaunchpadStatusWidget({
               <TabsList
                 className={cn(
                   "rounded-full border border-border bg-muted/10 p-1",
-                  isFullRow ? "h-10" : "h-12"
+                  "h-12"
                 )}
               >
                 {shouldForceType ? (

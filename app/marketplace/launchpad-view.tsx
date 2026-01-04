@@ -3377,7 +3377,7 @@ function LaunchpadMarketplaceDialogContent({
 
       <div className="space-y-3">
         {tab === "activity" ? (
-          <SponsoredFarmsActivity />
+          <SponsoredFarmsActivity constrainHeight />
         ) : isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
