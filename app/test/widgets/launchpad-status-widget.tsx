@@ -183,7 +183,9 @@ export default function LaunchpadStatusWidget({
   return (
     <Card
       className={cn(
-        "flex h-full flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm gap-2 pt-2",
+        isFullRow
+          ? "flex flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm gap-2 pt-2"
+          : "flex h-full flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm gap-2 pt-2",
         // full-row stays stacked (header above carousel/content)
         className
       )}
@@ -206,23 +208,11 @@ export default function LaunchpadStatusWidget({
             <CardTitle
               className={cn(
                 "tracking-tight",
-                isFullRow ? "text-sm leading-none" : "text-base"
+                isFullRow ? "text-xl" : "text-base"
               )}
             >
-              {isLive ? "Solar Launchpad" : "Next Solar Batch"}
+              {isLive ? "Glow Launchpad" : "Next Solar Batch"}
             </CardTitle>
-            {isLive ? (
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full border border-[#C084FC]/25 bg-[#C084FC]/10 font-mono uppercase tracking-wider text-[#C084FC]",
-                  isFullRow
-                    ? "px-1.5 py-0 text-[9px]"
-                    : "px-2 py-0.5 text-[10px]"
-                )}
-              >
-                Live
-              </span>
-            ) : null}
           </div>
 
           {isLive ? (
@@ -298,7 +288,7 @@ export default function LaunchpadStatusWidget({
                       <TabsTrigger
                         value="miners"
                         className={cn(
-                          "rounded-full data-[state=active]:bg-[color:var(--color-miner-yellow)]/15 data-[state=active]:text-foreground",
+                          "rounded-full data-[state=active]:bg-primary/15 data-[state=active]:text-foreground",
                           isFullRow
                             ? "px-2 h-5 text-[10px]"
                             : "px-3 h-7 text-xs"
@@ -345,7 +335,7 @@ export default function LaunchpadStatusWidget({
           variant === "full-row"
             ? resolvedTab === "activity"
               ? "p-0"
-              : "p-4 pt-3"
+              : "pt-3 pb-4"
             : "p-0"
         )}
       >
@@ -382,6 +372,7 @@ export default function LaunchpadStatusWidget({
                 variant="widget"
                 typeFilter={launchpadTypeFilter}
                 widgetLayout="carousel"
+                widgetCarouselVariant="hero"
                 onPayDeposit={handlePayDeposit}
               />
             </div>

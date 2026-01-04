@@ -60,7 +60,16 @@ export interface ImpactGlowScoreProjection {
 }
 
 export interface ImpactGlowWorthResponse {
+  walletAddress: string;
+  liquidGlwWei: string;
+  delegatedActiveGlwWei: string;
+  unclaimedGlwRewardsWei: string;
   glowWorthWei: string;
+  dataSources?: {
+    liquidGlw?: string;
+    delegatedActiveGlw?: string;
+    unclaimedGlwRewards?: string;
+  };
 }
 
 export interface ImpactGlowScoreWeeklyRow {
@@ -166,6 +175,63 @@ export function useImpactScoreQuery(args: UseImpactScoreQueryArgs) {
         if (!weekRange) throw new Error("Missing week range");
 
         return await hubGet<ImpactGlowScoreResponse>("/impact/glow-score", {
+          params: {
+            walletAddress: normalizedWalletAddress,
+            startWeek: weekRange.startWeek,
+            endWeek: weekRange.endWeek,
+          },
+        });
+      } catch (error) {
+        toast.error(toastTitle, {
+          description: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    },
+  });
+}
+
+export function getImpactGlowWorthQueryKey(args: {
+  walletAddress: string | null | undefined;
+  weekRange: ImpactWeekRange | null | undefined;
+}) {
+  const normalizedWalletAddress = args.walletAddress?.toLowerCase() ?? null;
+  return [
+    "impact-glow-worth",
+    normalizedWalletAddress,
+    args.weekRange?.startWeek,
+    args.weekRange?.endWeek,
+  ] as const;
+}
+
+export interface UseImpactGlowWorthQueryArgs {
+  walletAddress: string | null | undefined;
+  weekRange: ImpactWeekRange | null | undefined;
+  enabled?: boolean;
+  toastTitle?: string;
+}
+
+export function useImpactGlowWorthQuery(args: UseImpactGlowWorthQueryArgs) {
+  const {
+    walletAddress,
+    weekRange,
+    enabled = true,
+    toastTitle = "Failed to load Glow Worth",
+  } = args;
+
+  const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
+
+  return useQuery({
+    queryKey: getImpactGlowWorthQueryKey({ walletAddress, weekRange }),
+    enabled: Boolean(enabled && normalizedWalletAddress && weekRange),
+    staleTime: 60_000,
+    retry: 0,
+    queryFn: async (): Promise<ImpactGlowWorthResponse> => {
+      try {
+        if (!normalizedWalletAddress) throw new Error("Missing wallet address");
+        if (!weekRange) throw new Error("Missing week range");
+
+        return await hubGet<ImpactGlowWorthResponse>("/impact/glow-worth", {
           params: {
             walletAddress: normalizedWalletAddress,
             startWeek: weekRange.startWeek,

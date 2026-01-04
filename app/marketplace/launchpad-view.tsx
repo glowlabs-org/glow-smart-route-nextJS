@@ -262,6 +262,7 @@ interface LaunchpadViewProps {
   variant?: "page" | "dialog" | "widget";
   typeFilter?: "all" | "delegations" | "miners";
   widgetLayout?: "stack" | "grid" | "carousel";
+  widgetCarouselVariant?: "compact" | "hero";
 }
 
 function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
@@ -1510,6 +1511,7 @@ export function LaunchpadView({
   variant,
   typeFilter,
   widgetLayout,
+  widgetCarouselVariant,
 }: LaunchpadViewProps) {
   if (variant === "dialog") {
     return <LaunchpadMarketplaceDialog onPayDeposit={onPayDeposit} />;
@@ -1520,6 +1522,7 @@ export function LaunchpadView({
         onPayDeposit={onPayDeposit}
         typeFilter={typeFilter}
         layout={widgetLayout}
+        carouselVariant={widgetCarouselVariant}
       />
     );
   }
@@ -1562,13 +1565,19 @@ function getFarmEfficiency(application: AuctionApplication) {
   }
 }
 
+interface LaunchpadMarketplaceWidgetProps {
+  onPayDeposit: LaunchpadViewProps["onPayDeposit"];
+  typeFilter?: LaunchpadViewProps["typeFilter"];
+  layout?: "stack" | "grid" | "carousel";
+  carouselVariant?: LaunchpadViewProps["widgetCarouselVariant"];
+}
+
 function LaunchpadMarketplaceWidget({
   onPayDeposit,
   typeFilter,
   layout,
-}: Pick<LaunchpadViewProps, "onPayDeposit" | "typeFilter" | "widgetLayout"> & {
-  layout?: "stack" | "grid" | "carousel";
-}) {
+  carouselVariant,
+}: LaunchpadMarketplaceWidgetProps) {
   const { address } = useAccount();
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
   const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
@@ -1790,6 +1799,9 @@ function LaunchpadMarketplaceWidget({
   const isError = isErrorLaunchpad || isErrorMiners;
   const error = (errorLaunchpad || errorMiners) as Error | null;
   const resolvedLayout = layout ?? "stack";
+  const resolvedCarouselVariant = carouselVariant ?? "compact";
+  const isHeroCarousel =
+    resolvedLayout === "carousel" && resolvedCarouselVariant === "hero";
   const carouselScrollRef = React.useRef<HTMLDivElement | null>(null);
   const carouselStepPxRef = React.useRef(0);
   const [carouselIndex, setCarouselIndex] = React.useState(0);
@@ -1850,7 +1862,9 @@ function LaunchpadMarketplaceWidget({
       if (items.length >= 2) {
         carouselStepPxRef.current = items[1].offsetLeft - items[0].offsetLeft;
       } else if (items.length === 1) {
-        carouselStepPxRef.current = items[0].offsetWidth + 12;
+        carouselStepPxRef.current = isHeroCarousel
+          ? el.clientWidth + 16
+          : items[0].offsetWidth + 12;
       } else {
         carouselStepPxRef.current = 0;
       }
@@ -1860,7 +1874,76 @@ function LaunchpadMarketplaceWidget({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [resolvedLayout, rows.length, updateCarouselMeta]);
+  }, [isHeroCarousel, resolvedLayout, rows.length, updateCarouselMeta]);
+
+  const carouselControls = React.useMemo(() => {
+    if (resolvedLayout !== "carousel") return null;
+
+    const dotsCount = isLoading ? 3 : Math.max(1, rows.length);
+    const isDisabled = isLoading || rows.length <= 1;
+    const canPrev = !isDisabled && carouselCanPrev;
+    const canNext = !isDisabled && carouselCanNext;
+    const activeIndex = Math.max(0, Math.min(dotsCount - 1, carouselIndex));
+
+    return (
+      <div className="mt-2 flex items-center justify-center gap-3">
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 rounded-full"
+          onClick={() => scrollCarouselBy(-1)}
+          disabled={!canPrev}
+          aria-label="Previous"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+
+        <div className="flex items-center justify-center gap-2">
+          {Array.from({ length: dotsCount }).map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              aria-label={`Go to item ${i + 1}`}
+              onClick={() => {
+                if (isDisabled) return;
+                scrollCarouselTo(i);
+              }}
+              disabled={isDisabled}
+              className={cn(
+                "h-1.5 w-1.5 rounded-full transition-colors",
+                i === activeIndex
+                  ? "bg-foreground"
+                  : "bg-muted-foreground/30 hover:bg-muted-foreground/50",
+                isDisabled
+                  ? "cursor-not-allowed hover:bg-muted-foreground/30"
+                  : null
+              )}
+            />
+          ))}
+        </div>
+
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 rounded-full"
+          onClick={() => scrollCarouselBy(1)}
+          disabled={!canNext}
+          aria-label="Next"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }, [
+    carouselCanNext,
+    carouselCanPrev,
+    carouselIndex,
+    isLoading,
+    resolvedLayout,
+    rows.length,
+    scrollCarouselBy,
+    scrollCarouselTo,
+  ]);
 
   return (
     <div className="w-full">
@@ -1893,52 +1976,38 @@ function LaunchpadMarketplaceWidget({
       {isLoading ? (
         resolvedLayout === "carousel" ? (
           <div className="w-full">
-            <div className="mb-2 flex items-center justify-end gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 rounded-full"
-                disabled
-                aria-label="Previous"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 rounded-full"
-                disabled
-                aria-label="Next"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-
             <div
               ref={carouselScrollRef}
               className="w-full overflow-x-auto overflow-y-hidden pb-2 snap-x snap-mandatory scroll-smooth touch-pan-x overscroll-x-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             >
-              <div className="flex gap-3 pr-6">
+              <div
+                className={cn(
+                  "flex",
+                  isHeroCarousel ? "w-full gap-4 pr-0" : "gap-3 pr-6"
+                )}
+              >
                 {Array.from({ length: 3 }).map((_, i) => (
                   <div
                     key={i}
                     data-carousel-item
-                    className="snap-start shrink-0 w-[520px] max-w-[86vw]"
+                    className={cn(
+                      "snap-start shrink-0",
+                      isHeroCarousel
+                        ? "w-full max-w-full"
+                        : "w-[520px] max-w-[86vw]"
+                    )}
                   >
-                    <div className="h-[168px] w-full rounded-2xl border border-border bg-muted/10" />
+                    <div
+                      className={cn(
+                        "w-full rounded-2xl border border-border bg-muted/10",
+                        isHeroCarousel ? "h-[420px] sm:h-[340px]" : "h-[168px]"
+                      )}
+                    />
                   </div>
                 ))}
               </div>
             </div>
-
-            <div className="mt-1 flex items-center justify-center gap-2">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30"
-                />
-              ))}
-            </div>
+            {carouselControls}
           </div>
         ) : (
           <div
@@ -1972,33 +2041,13 @@ function LaunchpadMarketplaceWidget({
         />
       ) : resolvedLayout === "carousel" ? (
         <div className="w-full">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <div className="text-xs text-muted-foreground">
-              {rows.length} {rows.length === 1 ? "listing" : "listings"}
+          {!isHeroCarousel ? (
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="text-xs text-muted-foreground">
+                {rows.length} {rows.length === 1 ? "listing" : "listings"}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 rounded-full"
-                onClick={() => scrollCarouselBy(-1)}
-                disabled={!carouselCanPrev}
-                aria-label="Previous"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 rounded-full"
-                onClick={() => scrollCarouselBy(1)}
-                disabled={!carouselCanNext}
-                aria-label="Next"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          ) : null}
 
           <div
             ref={carouselScrollRef}
@@ -2011,51 +2060,61 @@ function LaunchpadMarketplaceWidget({
             tabIndex={0}
             className="w-full overflow-x-auto overflow-y-hidden pb-2 snap-x snap-mandatory scroll-smooth touch-pan-x overscroll-x-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
           >
-            <div className="flex gap-3 pr-6">
+            <div
+              className={cn(
+                "flex",
+                isHeroCarousel ? "w-full gap-4 pr-0" : "gap-3 pr-6"
+              )}
+            >
               {rows.map((row) => (
                 <div
                   key={row.application.id}
                   data-carousel-item
-                  className="snap-start shrink-0 w-[520px] max-w-[86vw]"
+                  className={cn(
+                    "snap-start shrink-0",
+                    isHeroCarousel
+                      ? "w-full max-w-full"
+                      : "w-[520px] max-w-[86vw]"
+                  )}
                 >
-                  <LaunchpadWidgetAssetCard
-                    row={row}
-                    isScoresLoading={
-                      row.application._type === "delegations"
-                        ? isRewardScoresLoading
-                        : isMiningScoresLoading
-                    }
-                    glwSpotPrice={glwSpotPrice}
-                    onPayDeposit={onPayDeposit}
-                    onOpenStats={(application, scoreData) => {
-                      setSelectedApplicationForStats(application);
-                      setSelectedScoreDataForStats(scoreData ?? null);
-                      setStatsDialogOpen(true);
-                    }}
-                  />
+                  {isHeroCarousel ? (
+                    <LaunchpadWidgetHeroCarouselCard
+                      row={row}
+                      isScoresLoading={
+                        row.application._type === "delegations"
+                          ? isRewardScoresLoading
+                          : isMiningScoresLoading
+                      }
+                      glwSpotPrice={glwSpotPrice}
+                      onPayDeposit={onPayDeposit}
+                      onOpenStats={(application, scoreData) => {
+                        setSelectedApplicationForStats(application);
+                        setSelectedScoreDataForStats(scoreData ?? null);
+                        setStatsDialogOpen(true);
+                      }}
+                    />
+                  ) : (
+                    <LaunchpadWidgetAssetCard
+                      row={row}
+                      isScoresLoading={
+                        row.application._type === "delegations"
+                          ? isRewardScoresLoading
+                          : isMiningScoresLoading
+                      }
+                      glwSpotPrice={glwSpotPrice}
+                      onPayDeposit={onPayDeposit}
+                      onOpenStats={(application, scoreData) => {
+                        setSelectedApplicationForStats(application);
+                        setSelectedScoreDataForStats(scoreData ?? null);
+                        setStatsDialogOpen(true);
+                      }}
+                    />
+                  )}
                 </div>
               ))}
             </div>
           </div>
-
-          {rows.length > 1 ? (
-            <div className="mt-1 flex items-center justify-center gap-2">
-              {rows.map((row, i) => (
-                <button
-                  key={row.application.id}
-                  type="button"
-                  aria-label={`Go to item ${i + 1}`}
-                  onClick={() => scrollCarouselTo(i)}
-                  className={cn(
-                    "h-1.5 w-1.5 rounded-full transition-colors",
-                    i === carouselIndex
-                      ? "bg-foreground"
-                      : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
-                  )}
-                />
-              ))}
-            </div>
-          ) : null}
+          {carouselControls}
         </div>
       ) : (
         <div
@@ -2212,12 +2271,12 @@ function LaunchpadWidgetAssetCard({
   const accent = isDelegation
     ? {
         badge: "border-purple-500/30 bg-purple-500/10 text-purple-500",
-        progress: "bg-purple-500/70",
+        progress: "bg-primary/70",
       }
     : {
         badge:
           "border-[color:var(--color-miner-yellow)]/30 bg-[color:var(--color-miner-yellow)]/10 text-miner-yellow",
-        progress: "bg-[color:var(--color-miner-yellow)]/70",
+        progress: "bg-primary/70",
       };
 
   return (
@@ -2391,6 +2450,252 @@ function LaunchpadWidgetAssetCard({
                 {rewardsSub}
               </div>
             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatSignedCompactNumber(value: number) {
+  if (!Number.isFinite(value)) return "0";
+  if (Math.abs(value) >= 1000)
+    return Math.round(value).toLocaleString(undefined, {
+      maximumFractionDigits: 0,
+    });
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+}
+
+function HeroStatColumn({
+  label,
+  value,
+  subValue,
+}: {
+  label: string;
+  value: string;
+  subValue?: string | null;
+}) {
+  return (
+    <div className={cn("px-3 py-2")}>
+      <div className="text-[9px] font-mono uppercase tracking-widest text-white/65">
+        {label}
+      </div>
+      <div className="mt-1.5 text-sm font-semibold text-white">{value}</div>
+      {subValue ? (
+        <div className="mt-1 text-[11px] text-white/60">{subValue}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function LaunchpadWidgetHeroCarouselCard({
+  row,
+  isScoresLoading,
+  glwSpotPrice,
+  onPayDeposit,
+  onOpenStats,
+}: {
+  row: {
+    application: TaggedAuctionApplication;
+    availability: ReturnType<typeof getActiveFractionAvailability>;
+    score: number;
+    scoreData:
+      | { userWeeklyGlwRewards: string; userWeeklyPdRewards: string }
+      | {
+          miningScore: number;
+          weeklyGlwRewards?: string;
+          weeklyGlwRewardsUsd?: string;
+        }
+      | null;
+    cost: number;
+    weeklyYield: number;
+    rewardScore: { rewardScore: number } | null;
+    miningScore: { miningScore: number } | null;
+    yieldUsdPerWeek: number;
+    yieldPer1000Usd: number;
+  };
+  isScoresLoading: boolean;
+  glwSpotPrice: number;
+  onPayDeposit: LaunchpadViewProps["onPayDeposit"];
+  onOpenStats: (
+    application: TaggedAuctionApplication,
+    scoreData:
+      | { userWeeklyGlwRewards: string; userWeeklyPdRewards: string }
+      | {
+          miningScore: number;
+          weeklyGlwRewards?: string;
+          weeklyGlwRewardsUsd?: string;
+        }
+      | null
+  ) => void;
+}) {
+  const { application, availability, scoreData, cost, weeklyYield } = row;
+  const isDelegation = application._type === "delegations";
+  const isSoldOut = availability.isSoldOut;
+
+  const title = application.farmName || "Unnamed Farm";
+  const imageSrc = getDialogCardImageSrc(application);
+
+  const priceValue = isDelegation
+    ? `${Math.round(cost).toLocaleString()} GLW`
+    : `$${Math.round(cost).toLocaleString()} USDC`;
+  const priceSubValue = isDelegation
+    ? glwSpotPrice > 0
+      ? `≈ $${Math.round(cost * glwSpotPrice).toLocaleString()} USD`
+      : "—"
+    : "Stable price";
+
+  const unitsValue = `${availability.remaining.toLocaleString()} / ${availability.total.toLocaleString()}`;
+  const unitsSubValue = isSoldOut ? "Sold out" : "Available";
+  const unitsRemainingPct = React.useMemo(() => {
+    const total = availability.total || 0;
+    const remaining = availability.remaining || 0;
+    if (total <= 0) return 0;
+    if (isSoldOut) return 0;
+    return Math.max(0, Math.min(100, (remaining / total) * 100));
+  }, [availability.remaining, availability.total, isSoldOut]);
+
+  const rewardsMain =
+    isScoresLoading && weeklyYield === 0
+      ? "…"
+      : `+${formatSignedCompactNumber(weeklyYield)} GLW / wk`;
+  const rewardsSub =
+    glwSpotPrice > 0 && weeklyYield > 0
+      ? `≈ $${formatSignedCompactNumber(weeklyYield * glwSpotPrice)} USD / wk`
+      : null;
+
+  const rewardScoreLabel = React.useMemo(() => {
+    if (!isDelegation) return null;
+    if (isScoresLoading) return "Score: …";
+    return `Score: ${
+      row.rewardScore?.rewardScore
+        ? Math.round(row.rewardScore.rewardScore).toLocaleString()
+        : "0"
+    }`;
+  }, [isDelegation, isScoresLoading, row.rewardScore?.rewardScore]);
+
+  return (
+    <div className="relative w-full overflow-hidden rounded-2xl border border-border bg-muted/10">
+      <FallbackImage
+        src={imageSrc}
+        widthForProxy={1400}
+        quality={70}
+        alt={title}
+        className="absolute inset-0 h-full w-full object-cover"
+        loading="lazy"
+        decoding="async"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/5" />
+
+      <div className="relative h-[420px] sm:h-[340px]">
+        <div className="absolute inset-x-4 bottom-4 flex flex-col gap-4 sm:inset-x-6 sm:bottom-6 sm:flex-row sm:items-end sm:justify-between">
+          <div className="w-full min-w-0 sm:w-auto">
+            <div className="mb-2 min-w-0">
+              <div className="truncate text-2xl font-semibold text-white sm:text-3xl">
+                {title}
+              </div>
+              <div className="mt-1 flex max-w-full items-center gap-2">
+                <div className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-xs text-white/80 backdrop-blur-md">
+                  <MapPin className="h-3.5 w-3.5" />
+                  <span className="truncate">{application.zone.name}</span>
+                </div>
+                <div
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-xs font-medium backdrop-blur-md",
+                    isDelegation ? "text-purple-300" : "text-miner-yellow"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      isDelegation ? "bg-purple-300" : "bg-miner-yellow"
+                    )}
+                  />
+                  {isDelegation ? "Delegation" : "Miner"}
+                </div>
+              </div>
+            </div>
+
+            <div className="w-full max-w-full overflow-hidden rounded-2xl border border-white/10 bg-black/25 backdrop-blur-xl sm:w-auto">
+              <div className="grid w-full grid-cols-2 overflow-hidden rounded-xl border border-white/10 bg-white/5 sm:grid-cols-3">
+                <div className="border-b border-white/10 sm:border-b-0 sm:border-r sm:border-white/10">
+                  <HeroStatColumn
+                    label={isDelegation ? "Price / Fraction" : "Price / Miner"}
+                    value={priceValue}
+                    subValue={priceSubValue}
+                  />
+                </div>
+
+                <div className="border-b border-white/10 sm:border-b-0 sm:border-r sm:border-white/10">
+                  <div className="px-3 py-2">
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-white/65">
+                      Units
+                    </div>
+                    <div className="mt-1.5 text-sm font-semibold text-white">
+                      {unitsValue}
+                    </div>
+                    <div className="mt-1 text-[11px] text-white/60">
+                      {isDelegation && rewardScoreLabel ? (
+                        <>
+                          <span>{unitsSubValue}</span>
+                          <span className="hidden sm:inline">
+                            {" "}
+                            • {rewardScoreLabel}
+                          </span>
+                        </>
+                      ) : (
+                        unitsSubValue
+                      )}
+                    </div>
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                      <div
+                        className={cn("h-full rounded-full", "bg-primary/70")}
+                        style={{ width: `${unitsRemainingPct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-span-2 sm:col-span-1">
+                  <HeroStatColumn
+                    label="Est. Weekly Rewards"
+                    value={rewardsMain}
+                    subValue={rewardsSub}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full shrink-0 sm:w-auto">
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-2 backdrop-blur-xl">
+              <div className="flex flex-col gap-2">
+                <Button
+                  className="h-9 w-full rounded-full bg-white px-6 text-black hover:bg-white/90 sm:w-auto sm:px-8"
+                  disabled={isSoldOut}
+                  onClick={() => {
+                    if (isSoldOut) return;
+                    onPayDeposit(application, scoreData);
+                  }}
+                >
+                  {isSoldOut
+                    ? "Waitlist"
+                    : isDelegation
+                    ? "Delegate GLW"
+                    : "Buy Miners"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-9 w-full rounded-full border-white/25 bg-white/5 px-6 text-white hover:bg-white/10 hover:text-white sm:w-auto sm:px-8"
+                  onClick={() => onOpenStats(application, scoreData)}
+                >
+                  Advanced Stats
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -3169,14 +3474,14 @@ function LaunchpadAssetCard({
     ? {
         badge: "text-foreground border-purple-500/30",
         reward: "text-foreground",
-        progress: "bg-purple-500/70",
+        progress: "bg-primary/70",
         button:
           "border-purple-500/30 text-foreground hover:bg-purple-500/10 hover:border-purple-500/50",
       }
     : {
         badge: "text-miner-yellow border-[color:var(--color-miner-yellow)]/30",
         reward: "text-foreground",
-        progress: "bg-[color:var(--color-miner-yellow)]/70",
+        progress: "bg-primary/70",
         button:
           "border-[color:var(--color-miner-yellow)]/30 text-foreground hover:bg-[color:var(--color-miner-yellow)]/10 hover:border-[color:var(--color-miner-yellow)]/50",
       };

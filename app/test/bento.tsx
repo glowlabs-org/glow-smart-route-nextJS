@@ -9,6 +9,7 @@ import { formatUnits } from "viem";
 
 import SolarFarmWidget from "./widgets/solar-farm-widget";
 import NetWorthWidget from "./widgets/net-worth";
+import PortfolioAllocationWidget from "./widgets/portfolio-allocation";
 import RankWidget from "./widgets/rank-widget";
 import RewardsWidget from "./widgets/rewards-widget";
 import WeeklyActivityWidget from "./widgets/weekly-activity-widget";
@@ -66,20 +67,23 @@ function countAvailableApplications(
 function DashboardConnectingSkeleton() {
   return (
     <div className="grid grid-cols-12 gap-4 grid-flow-row-dense">
-      <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[340px]">
+      <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[330px]">
         <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
       </div>
-      <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[340px]">
+      <div className="col-span-12 lg:col-span-4 min-h-0 lg:h-[330px]">
         <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
       </div>
-      <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[340px]">
+      <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[330px]">
         <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
       </div>
 
-      <div className="col-span-12 lg:col-span-7 min-h-0 lg:h-[380px]">
+      <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]">
         <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
       </div>
-      <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]">
+      <div className="col-span-12 lg:col-span-4 min-h-0 lg:h-[380px]">
+        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+      </div>
+      <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[380px]">
         <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
       </div>
 
@@ -208,42 +212,29 @@ export default function GlowSoftDashboard({
               className="grid grid-cols-12 gap-4 grid-flow-row-dense [&:has(.solar-farm-next-batch-countdown)_.quick-actions-launchpad-next-batch-countdown]:hidden"
             >
               {shouldShowLaunchpadStatusRow ? (
-                <div className="col-span-12 min-h-0 lg:h-[450px]">
+                <div className="col-span-12 min-h-0">
                   <LaunchpadStatusWidget
                     variant="full-row"
-                    className="h-full"
+                    className="w-full"
                   />
                 </div>
               ) : null}
-              <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[340px]">
+              <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[330px]">
                 <NetWorthWidget walletAddress={walletAddress} />
               </div>
-              <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[340px]">
+              <div className="col-span-12 lg:col-span-4 min-h-0 lg:h-[330px]">
+                <PortfolioAllocationWidget walletAddress={walletAddress} />
+              </div>
+              <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[330px]">
                 <RankWidget
                   walletAddress={walletAddress}
                   onMintAndStakeClick={() => setIsMintAndStakeOpen(true)}
                 />
               </div>
 
-              <AnimatePresence mode="popLayout" initial={false}>
-                <motion.div
-                  key="rewards"
-                  className="col-span-12 lg:col-span-3 min-h-0 lg:h-[340px]"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <RewardsWidget
-                    walletAddress={walletAddress}
-                    hideIfEmpty={false}
-                  />
-                </motion.div>
-              </AnimatePresence>
-
               <div
                 id="bento-solar-farm"
-                className="col-span-12 lg:col-span-7 min-h-0 lg:h-[380px]"
+                className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]"
               >
                 <motion.div
                   key="solar-farm"
@@ -256,12 +247,28 @@ export default function GlowSoftDashboard({
                 </motion.div>
               </div>
 
-              <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]">
+              <div className="col-span-12 lg:col-span-4 min-h-0 lg:h-[380px]">
                 <QuickActionsWidget
                   walletAddress={walletAddress}
                   onMintAndStakeClick={() => setIsMintAndStakeOpen(true)}
                 />
               </div>
+
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.div
+                  key="rewards"
+                  className="col-span-12 lg:col-span-3 min-h-0 lg:h-[380px]"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <RewardsWidget
+                    walletAddress={walletAddress}
+                    hideIfEmpty={false}
+                  />
+                </motion.div>
+              </AnimatePresence>
 
               <AnimatePresence>
                 <motion.div

@@ -374,6 +374,7 @@ export default function RewardsWidget({
         {/* Countdown Area */}
         {hasWallet &&
           !isWalletConnecting &&
+          hasClaimable &&
           !isWidgetLoading &&
           !isWidgetError && (
             <div className="pt-0">

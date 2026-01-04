@@ -360,8 +360,8 @@ export function RankWidget({
   return (
     <>
       {/* --- DASHBOARD CARD --- */}
-      <Card className="h-full overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
-        <CardHeader className="pb-3 space-y-3">
+      <Card className="h-full overflow-hidden flex flex-col gap-4 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+        <CardHeader className="pb-0">
           <CardTitle className="flex items-center justify-center gap-2 text-center">
             <span>Impact Score</span>
             <ImpactScoreHelp />

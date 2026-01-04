@@ -229,7 +229,7 @@ export default function QuickActionsWidget({
 
           <ActionTile
             title="Amplify"
-            subtitle="Mint & Stake GCTL"
+            subtitle="Stake GCTL"
             icon={Wind}
             onClick={onMintAndStakeClick}
             className="hover:border-[#22D3EE]/60 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.35)]"

@@ -187,23 +187,6 @@ export function TransactionDialog({
                 </div>
               </div>
 
-              {/* Status Badge */}
-              <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full mb-8">
-                <span className="text-foreground text-sm font-medium">
-                  Completed •{" "}
-                  {new Date().toLocaleDateString("en-US", {
-                    day: "numeric",
-                    month: "short",
-                  })}
-                  ,{" "}
-                  {new Date().toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false,
-                  })}
-                </span>
-              </div>
-
               {/* Success Content (custom or default) */}
               {successContent || (
                 <div className="space-y-4 mb-8 text-left">
@@ -256,12 +239,17 @@ export function TransactionDialog({
                   <Button
                     onClick={() => onOpenChange(false)}
                     className="flex-1"
+                    variant="outline"
                   >
                     Close
                   </Button>
                 </div>
               ) : (
-                <Button onClick={() => onOpenChange(false)} className="w-full">
+                <Button
+                  onClick={() => onOpenChange(false)}
+                  className="w-full"
+                  variant="outline"
+                >
                   Close
                 </Button>
               )}

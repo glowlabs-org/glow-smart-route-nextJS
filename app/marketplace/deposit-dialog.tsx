@@ -30,6 +30,7 @@ import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { trackEvent } from "@/lib/telemetry";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
+import { SegmentedCircleProgress } from "@/components/ui/circle-progress";
 import {
   Select,
   SelectContent,
@@ -50,6 +51,12 @@ interface MinersEthPayQuote {
   feeBufferWei: bigint;
   feeEstimateWei: bigint | null;
   isGasEstimateExact: boolean;
+}
+
+interface SuccessMetrics {
+  totalSteps: number;
+  filledBeforeSteps: number;
+  userSteps: number;
 }
 
 function ceilDiv(a: bigint, b: bigint) {
@@ -119,6 +126,8 @@ export function DepositDialog({
   const [isBuyGlowDialogOpen, setIsBuyGlowDialogOpen] = React.useState(false);
   const [minersPayToken, setMinersPayToken] =
     React.useState<MinersPayToken>("USDC");
+  const [successMetrics, setSuccessMetrics] =
+    React.useState<SuccessMetrics | null>(null);
 
   // Transaction states
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -537,6 +546,7 @@ export function DepositDialog({
       setTxHash(null);
       setNetworkCostUSD("");
       setMinersPayToken("USDC");
+      setSuccessMetrics(null);
     } else {
       // setQuoteId(generateQuoteId());
       setLockedAtMs(Date.now());
@@ -778,6 +788,40 @@ export function DepositDialog({
         );
       }
 
+      try {
+        const totalSteps = Math.max(
+          0,
+          Math.floor(activeFraction.totalSteps || 0)
+        );
+        let filledBeforeSteps = 0;
+
+        if (totalSteps > 0) {
+          if (activeFraction.remainingSteps != null) {
+            filledBeforeSteps = Math.max(
+              0,
+              Math.min(
+                totalSteps,
+                totalSteps -
+                  Math.max(0, Math.floor(activeFraction.remainingSteps))
+              )
+            );
+          } else {
+            filledBeforeSteps = Math.max(
+              0,
+              Math.min(totalSteps, Math.floor(activeFraction.splitsSold || 0))
+            );
+          }
+        }
+
+        setSuccessMetrics({
+          totalSteps,
+          filledBeforeSteps,
+          userSteps: Math.max(0, Math.floor(stepsToBuy)),
+        });
+      } catch {
+        setSuccessMetrics(null);
+      }
+
       // Only set success after confirmation
       setIsProcessing(false);
       setProcessingStep(null);
@@ -995,6 +1039,62 @@ export function DepositDialog({
       }
     }, [application?.activeFraction, rewardScore, stepsToBuy, glwSpotPrice]);
 
+  const delegatedAmountForShare = React.useMemo(() => {
+    try {
+      if (!application?.activeFraction) return null;
+      if (currency !== "GLW") return null;
+      const amount = parseFloat(
+        formatUnits(
+          BigInt(application.activeFraction.stepPrice) * BigInt(stepsToBuy),
+          DECIMALS_BY_TOKEN.GLW
+        )
+      );
+      return formatNumber(amount, 0);
+    } catch {
+      return null;
+    }
+  }, [application?.activeFraction, currency, stepsToBuy]);
+
+  const farmLabelForShare = React.useMemo(() => {
+    if (!application) return null;
+    if (application.farmName) return `${application.farmName} farm`;
+    return application.zone?.name ?? null;
+  }, [application]);
+
+  const shareUrl = React.useMemo(() => {
+    try {
+      if (currency !== "GLW") return null;
+      if (!delegatedAmountForShare) return null;
+      if (!farmLabelForShare) return null;
+      if (!successMetrics) return null;
+
+      const total = Math.max(0, Math.floor(successMetrics.totalSteps));
+      const filledAfter = Math.min(
+        total,
+        Math.max(
+          0,
+          Math.floor(successMetrics.filledBeforeSteps) +
+            Math.floor(successMetrics.userSteps)
+        )
+      );
+      const leftAfter = Math.max(0, total - filledAfter);
+
+      // Twitter auto-links domains; use dot-leader to keep it as plain text.
+      const appGlowOrgText = "app․glow․org";
+      const text = [
+        `I successfully delegated to ${farmLabelForShare} ${delegatedAmountForShare} GLW and there is ${leftAfter} units left.`,
+        "",
+        `Delegate at ${appGlowOrgText}`,
+      ].join("\n");
+
+      return `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+        text
+      )}`;
+    } catch {
+      return null;
+    }
+  }, [currency, delegatedAmountForShare, farmLabelForShare, successMetrics]);
+
   // Early return conditions - check these in render
   if (!application) return null;
 
@@ -1094,26 +1194,80 @@ export function DepositDialog({
   // Custom success content with processing delay notice
   const customSuccessContent = (
     <div className="space-y-4">
-      {successDetails.map((detail, index) => (
-        <div key={index} className="flex justify-between items-center">
-          <span className="text-sm text-muted-foreground">{detail.label}</span>
-          <div className="text-right">
-            <span className="text-sm font-mono">{detail.value}</span>
-            {detail.unit && (
-              <span className="text-xs text-muted-foreground ml-2">
-                {detail.unit}
-              </span>
-            )}
-          </div>
-        </div>
-      ))}
-      <div className="bg-accent/10 border border-accent/20 rounded-lg p-3 my-4">
-        <div className="text-sm">
-          Your {currency === "USDC" ? "purchase" : "delegation"} has been
-          confirmed on-chain. It may take up to 1 minute to appear due to
-          backend processing.
+      <div className="text-center space-y-2">
+        <div className="text-sm text-muted-foreground">
+          {currency === "USDC"
+            ? "You helped accelerate real-world solar deployment."
+            : "You just activated real-world solar rewards."}
         </div>
       </div>
+
+      {application.activeFraction && successMetrics ? (
+        <div className="flex flex-col items-center">
+          <SegmentedCircleProgress
+            totalSteps={successMetrics.totalSteps}
+            filledBeforeSteps={successMetrics.filledBeforeSteps}
+            userSteps={successMetrics.userSteps}
+            otherColor={
+              currency === "USDC" ? "rgba(255,255,255,0.18)" : "#C084FC"
+            }
+            userColor={
+              currency === "USDC" ? "var(--color-miner-yellow)" : "#4ADE80"
+            }
+            className="my-2"
+          />
+          <div className="mt-4 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{
+                  backgroundColor:
+                    currency === "USDC" ? "rgba(255,255,255,0.25)" : "#C084FC",
+                }}
+              />
+              <span>Already filled</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{
+                  backgroundColor:
+                    currency === "USDC"
+                      ? "var(--color-miner-yellow)"
+                      : "#4ADE80",
+                }}
+              />
+              <span>Your contribution</span>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="space-y-3">
+        {successDetails.map((detail, index) => (
+          <div key={index} className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">
+              {detail.label}
+            </span>
+            <div className="text-right">
+              <span className="text-sm font-mono">{detail.value}</span>
+              {detail.unit && (
+                <span className="text-xs text-muted-foreground ml-2">
+                  {detail.unit}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {currency === "GLW" && shareUrl ? (
+        <Button className="w-full mb-2" asChild>
+          <a target="_blank" rel="noopener noreferrer" href={shareUrl}>
+            Share on X
+          </a>
+        </Button>
+      ) : null}
     </div>
   );
 

@@ -27,6 +27,10 @@ export const QUERY_KEYS = {
     leaderboard: () => ["impact-leaderboard"] as const,
     score: (walletAddress?: string | null) =>
       ["impact-glow-score", walletAddress] as const,
+    glowWorth: (walletAddress?: string | null) =>
+      ["impact-glow-worth", walletAddress?.toLowerCase() ?? null] as const,
+    scoreBreakdown: (walletAddress?: string | null) =>
+      ["impact-score-breakdown", walletAddress?.toLowerCase() ?? null] as const,
   },
   listings: {
     allSponsors: ["sponsor-listings"] as const,

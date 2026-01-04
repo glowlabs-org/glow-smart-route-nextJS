@@ -14,28 +14,36 @@ The dashboard uses a **12-column grid** (`grid-cols-12`) with `grid-flow-row-den
 
 When `hasWallet = true`, the Bento layout stays as the full dashboard:
 
-- **Top row (h-[340px])**:
-  - `NetWorthWidget` (col-6)
+- **Optional row 0 (h-[500px])**:
+  - `LaunchpadStatusWidget(variant="full-row")` (col-12) — only shown when Launchpad is live and there are listings or the listings query is loading.
+- **Top row (h-[330px])**:
+  - `NetWorthWidget` (col-5)
+  - `PortfolioAllocationWidget` (col-4)
   - `RankWidget` (col-3)
-  - `RewardsWidget` (col-3)
 - **Middle row (h-[380px])**:
-  - `SolarFarmWidget` (col-7)
-  - `QuickActionsWidget` (col-5)
+  - `SolarFarmWidget` (col-5)
+  - `QuickActionsWidget` (col-4)
+  - `RewardsWidget` (col-3)
 - **Bottom row (h-[380px])**:
   - `GctlHeatmapWidget` (col-5)
-  - `RecentActivityWidget` (col-4)
-  - `WeeklyActivityWidget` (col-3)
+  - Activity cluster (col-7):
+    - `WeeklyActivityWidget` (col-3)
+    - `RecentActivityWidget` (col-4)
+    - `GlowFaqWidget` fallback (fills when activity widgets are empty)
 
 ### Guest state (desktop)
 
 When `hasWallet = false`, Bento switches to a dedicated onboarding topology (no blurred/locked “real widgets”):
 
 - **Row 1 (h-[340px])**:
-  - `OnboardingHeroWidget` (col-7)
-  - `LaunchpadStatusWidget` (col-5)
+  - `OnboardingHeroWidget` (col-6)
+  - `LaunchpadStatusWidget` (col-6)
 - **Row 2 (h-[400px])**:
-  - `GlowFaqWidget` (col-7)
-  - `GlobalLeaderboardWidget` (col-5)
+  - `GlowFaqWidget` (col-8)
+  - `GlobalLeaderboardWidget` (col-4)
+- **Row 3 (h-[340px])**:
+  - `NewsletterWidget` (col-5)
+  - `DiscordWidget` (col-7)
 
 ### Flow overview (connected vs guest)
 
@@ -50,9 +58,12 @@ flowchart TD
   guest --> LaunchpadGuest["LaunchpadStatusWidget"]
   guest --> FAQGuest["GlowFaqWidget"]
   guest --> LeadersGuest["GlobalLeaderboardWidget"]
+  guest --> NewsletterGuest["NewsletterWidget"]
+  guest --> DiscordGuest["DiscordWidget"]
 
   connected --> NetWorthConnected["NetWorthWidget"]
   connected --> RankConnected["RankWidget"]
+  connected --> PortfolioConnected["PortfolioAllocationWidget"]
   connected --> QuickActionsConnected["QuickActionsWidget"]
   connected --> RewardsConnected["RewardsWidget"]
   connected --> SolarConnected["SolarFarmWidget"]
@@ -72,7 +83,7 @@ flowchart TD
 The bento grid is **row-auto** by default, so widgets must follow a consistent height contract to avoid mismatched rows (e.g. Solar Farm next to Quick Actions).
 
 - **Desktop (`lg` and up)**:
-  - **Top row slots** are fixed to `340px` (`lg:h-[340px]`)
+  - **Top row slots** are fixed to `330px` (`lg:h-[330px]`)
   - **Connected state (other rows)** are fixed to `380px` (`lg:h-[380px]`)
   - **Guest state (Row 2)** is fixed to `400px` (`lg:h-[400px]`) to allow more reading room
   - Widgets are implemented to **fill the parent slot** (`h-full`) and use `min-h-0` + internal scrolling where needed.
@@ -91,23 +102,29 @@ The dashboard uses `framer-motion` for a polished feel:
 ### `NetWorthWidget` (Glow Worth + holdings)
 
 - **Purpose**: Give the user a single “how big is my Glow position?” number (Glow Worth), plus a quick glance at what they hold (GLW, stablecoins, GCTL, ETH) and recent movement.
-- **Appears**: Slot 1 (always).
+- **Appears**: Connected-only (top row).
 - **What it shows**:
   - **Glow Worth** headline value (GLW-denominated).
   - **GLW spot price** and 24h delta.
   - A **~13-week Glow Worth chart** (weekly), with a tooltip that can show breakdown (liquid / delegated / unclaimed) for the hovered point.
   - A row of **visible holdings** chips (only for non-zero assets).
 - **Key states**:
-  - **Disconnected (guest)**: shows _blurred/mock_ values + a strong “Connect your wallet” CTA (intentional: keeps the layout visually rich and explains the end-state).
+  - **No wallet**: Not rendered in Bento’s guest layout.
   - **Connecting / reconnecting**: shows a full-card skeleton to avoid “0 GLW” flashes.
   - **Empty** (connected): “No GLW worth yet”.
   - **Loaded**: chart + holdings + “accumulated this week” style signals.
 - **Implementation pointer**: `app/test/widgets/net-worth.tsx` (composes wallet balances + rewards breakdown + claim status + swap history into Glow Worth + chart).
 
+### `PortfolioAllocationWidget` (asset mix)
+
+- **Purpose**: Show how the wallet’s holdings are allocated across supported assets.
+- **Appears**: Connected-only (top row).
+- **Implementation pointer**: `app/test/widgets/portfolio-allocation.tsx`.
+
 ### `RankWidget` (Impact Score + tier)
 
 - **Purpose**: Give the user a quick “impact status” snapshot: total Impact Score, a tier label, and direct access to deeper breakdowns.
-- **Appears**: Slot 2 (always).
+- **Appears**: Connected-only (top row).
 - **What it shows**:
   - **Total Impact Score** and a **tier** (e.g. “SOLAR DOLPHIN” → “SOLAR KRAKEN”).
   - A short subtitle that highlights the latest behavior (e.g. weekly GLW steered when available).
@@ -115,14 +132,14 @@ The dashboard uses `framer-motion` for a polished feel:
   - **Leaderboard**: opens a modal rendering the full Impact leaderboard UI (same UI as the main Impact tab).
   - **Breakdown**: opens a modal showing the wallet’s weekly breakdown rows.
 - **Key states**:
-  - **Disconnected (guest)**: blurred numbers + “Connect your wallet” framing (intentional placeholder).
+  - **No wallet**: Not rendered in Bento’s guest layout.
   - **Loading**: shows “—” for totals; Breakdown button is disabled until data is present.
 - **Implementation pointer**: `app/test/widgets/rank-widget.tsx` (fetches `/impact/glow-score` for a single wallet and reuses `ImpactView` + `ImpactScoreBreakdownDialogContent`).
 
 ### `QuickActionsWidget` (start + do-the-next-thing)
 
 - **Purpose**: Provide the highest-leverage next actions with minimal navigation.
-- **Appears**: Slot 5 (always).
+- **Appears**: Connected-only (middle row).
 - **New user onboarding mode** (no GLW, no delegations, no miners):
   - Presents a single, bold CTA: **“BUY $20 GLW (Start Now)”**.
   - Opening this CTA brings up the Buy GLW flow prefilled with $20.
@@ -138,7 +155,7 @@ The dashboard uses `framer-motion` for a polished feel:
 ### `RewardsWidget` (claimable rewards + next distribution)
 
 - **Purpose**: Show “what can I claim?” and “when is the next distribution?” and provide a single entry point to claiming.
-- **Appears**: Slot 3 when connected (top-right).
+- **Appears**: Connected-only, in the middle row (alongside `SolarFarmWidget` + `QuickActionsWidget`).
 - **What it shows**:
   - **Countdown** to the next weekly distribution.
   - **Claimable USD estimate** (includes stablecoins; GLW uses spot price when available).
@@ -147,15 +164,13 @@ The dashboard uses `framer-motion` for a polished feel:
   - **Claim** opens a modal containing the full `ClaimsPanel`.
 - **Key states**:
   - **Disconnected**: renders in a “disabled” posture (Claim button disabled).
-  - **Empty**: can be hidden via `hideIfEmpty`, but Bento currently forces it visible in Slot 3.
+  - **Empty**: can be hidden via `hideIfEmpty`, but Bento currently forces it visible via `hideIfEmpty={false}`.
 - **Implementation pointer**: `app/test/widgets/rewards-widget.tsx` (derives claimable totals from finalized weeks + on-chain claim checks; “Claim” reuses `app/wallet/claims-panel`).
 
 ### `WeeklyActivityWidget` (Weekly Streak)
 
 - **Purpose**: Make weekly participation legible and shareable: “did I show up this week?” across the last N weeks.
-- **Appears**:
-  - Slot 3 when **disconnected** (top-right highlight for guests).
-  - Bottom row when **connected** (streak lives alongside advanced widgets).
+- **Appears**: Connected-only (bottom row activity cluster).
 - **How the streak works (user-facing)**:
   - Each week is classified as one of: **delegated**, **miner**, **both**, or **missed**.
   - The widget shows **active weeks count** over the displayed range (default last 24).
@@ -163,7 +178,6 @@ The dashboard uses `framer-motion` for a polished feel:
 - **Key CTAs / interactions**:
   - **Share on X**: opens a tweet intent that links to the app’s streak share page.
 - **Key states**:
-  - **Disconnected (guest)**: shows a _blurred/mock_ streak grid and count (intentional preview).
   - **Connected but no activity**: “No streak yet” empty-state prompting delegation/miners.
   - Can be hidden via `hideIfEmpty`, but Bento currently forces it visible in both positions.
 - **Implementation pointer**: `app/test/widgets/weekly-activity-widget.tsx` (combines delegation + miner activity into a week grid and shares via a deep link).
@@ -171,7 +185,7 @@ The dashboard uses `framer-motion` for a polished feel:
 ### `SolarFarmWidget` (Glow Mining performance)
 
 - **Purpose**: Provide a quick performance view of the user’s mining + delegation rewards and a path to deeper farm performance diagnostics.
-- **Appears**: Slot 4 when connected (middle-left).
+- **Appears**: Connected-only (middle row).
 - **What it shows**:
   - “Current weekly payout” (GLW) and counts for **active miners** and **active delegations**.
   - A stacked bar chart for the **last ~10 weeks** (miners vs delegations rewards).
@@ -230,9 +244,43 @@ The dashboard uses `framer-motion` for a polished feel:
 ### `GlowFaqWidget` (guest onboarding FAQ)
 
 - **Purpose**: Explain Glow in a low-friction way for guests: what Glow is, what GLW is, what delegation is, what miners are.
-- **Appears**: Slot 4 when disconnected (middle-left).
+- **Appears**:
+  - Guest layout (Row 2).
+  - Connected layout fallback in the bottom-row activity cluster (fills when activity widgets are empty).
 - **Key behavior**: Uses collapsible Q&A items; scrolls internally on desktop to respect the height contract.
 - **Implementation pointer**: `app/test/widgets/glow-faq-widget.tsx`.
+
+### `OnboardingHeroWidget` (guest hero)
+
+- **Purpose**: Give guests a clear “what is this?” and a path to connect / get started.
+- **Appears**: Guest layout (Row 1).
+- **Implementation pointer**: `app/test/widgets/onboarding-hero-widget.tsx`.
+
+### `LaunchpadStatusWidget` (launchpad status / CTA)
+
+- **Purpose**: Communicate whether the Launchpad is live and what’s available right now.
+- **Appears**:
+  - Guest layout (Row 1).
+  - Optional connected Row 0 when Launchpad is live and listings are loading/available.
+- **Implementation pointer**: `app/test/widgets/launchpad-status-widget.tsx`.
+
+### `GlobalLeaderboardWidget` (guest leaderboard teaser)
+
+- **Purpose**: Show global leaderboard context for guests without requiring a wallet.
+- **Appears**: Guest layout (Row 2).
+- **Implementation pointer**: `app/test/widgets/global-leaderboard-widget.tsx`.
+
+### `NewsletterWidget` (guest capture)
+
+- **Purpose**: Newsletter signup / updates surface for guests.
+- **Appears**: Guest layout (Row 3).
+- **Implementation pointer**: `app/test/widgets/newsletter-widget.tsx`.
+
+### `DiscordWidget` (guest community)
+
+- **Purpose**: Community entry point for guests.
+- **Appears**: Guest layout (Row 3).
+- **Implementation pointer**: `app/test/widgets/discord-widget.tsx`.
 
 ### `AddLiquidityQuickDialog` (GLW/USDG quick LP)
 
