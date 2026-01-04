@@ -1110,8 +1110,8 @@ export function DepositDialog({
       <div className="bg-accent/10 border border-accent/20 rounded-lg p-3 my-4">
         <div className="text-sm">
           Your {currency === "USDC" ? "purchase" : "delegation"} has been
-          confirmed on-chain. It may take up to 1 minute to appear on your power
-          wallet page due to backend processing.
+          confirmed on-chain. It may take up to 1 minute to appear due to
+          backend processing.
         </div>
       </div>
     </div>
@@ -1404,34 +1404,37 @@ export function DepositDialog({
       )}
 
       {/* Token Balance Info for Step Purchases */}
-      {application.activeFraction && (
-        <div className="bg-muted/50 border border-border rounded-lg p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              Your {currency} Balance
-            </span>
-            {!isConnected ? (
+      {application.activeFraction &&
+        !(currency === "USDC" && minersPayToken === "ETH") && (
+          <div className="bg-muted/50 border border-border rounded-lg p-3">
+            <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
-                Connect wallet
+                Your {currency} Balance
               </span>
-            ) : currency === "USDC" ? (
-              isUsdcLoading || usdcBalance == null ? (
+              {!isConnected ? (
+                <span className="text-sm text-muted-foreground">
+                  Connect wallet
+                </span>
+              ) : currency === "USDC" ? (
+                isUsdcLoading || usdcBalance == null ? (
+                  <span className="text-sm text-muted-foreground">
+                    Loading…
+                  </span>
+                ) : (
+                  <span className="text-sm font-mono">
+                    {formatNumber(parseFloat(usdcBalance), 2)} USDC
+                  </span>
+                )
+              ) : isGlwLoading || glwBalance == null ? (
                 <span className="text-sm text-muted-foreground">Loading…</span>
               ) : (
                 <span className="text-sm font-mono">
-                  {formatNumber(parseFloat(usdcBalance), 2)} USDC
+                  {formatNumber(parseFloat(glwBalance), 2)} GLW
                 </span>
-              )
-            ) : isGlwLoading || glwBalance == null ? (
-              <span className="text-sm text-muted-foreground">Loading…</span>
-            ) : (
-              <span className="text-sm font-mono">
-                {formatNumber(parseFloat(glwBalance), 2)} GLW
-              </span>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Estimated rewards for selected shares */}
       {application.activeFraction &&
@@ -1883,13 +1886,6 @@ export function DepositDialog({
         successContent={customSuccessContent}
         errorContent={customErrorContent}
         footer={customFooter}
-        successFooter={
-          application.activeFraction && currency === "GLW" ? (
-            <Button variant="outline" className="flex-1" asChild>
-              <Link href="/wallet">See Power Wallet</Link>
-            </Button>
-          ) : null
-        }
         showProcessingProgress={isProcessing}
         processingMaxSeconds={90}
         confirmDisabled={!canConfirm}

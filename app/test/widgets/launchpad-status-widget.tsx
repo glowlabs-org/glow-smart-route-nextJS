@@ -17,6 +17,7 @@ import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import { useGlowLaunchpad, useMiningCenter } from "@/hooks";
 import { DepositDialog } from "@/app/marketplace/deposit-dialog";
+import { SponsoredFarmsActivity } from "@/app/marketplace/sponsored-farms-activity";
 import type {
   LaunchpadRewardScore,
   MiningCenterScore,
@@ -52,31 +53,42 @@ function countAvailableApplications(
 
 interface LaunchpadStatusWidgetProps {
   className?: string;
+  forcedType?: "delegations" | "miners";
+  variant?: "card" | "full-row";
 }
 
 export default function LaunchpadStatusWidget({
   className,
+  forcedType,
+  variant = "card",
 }: LaunchpadStatusWidgetProps) {
   const queryClient = useQueryClient();
   const { isLive, nextBatchAtMs, refreshNextBatchAtMs, isLoading, isError } =
     useLaunchpadStatus();
   const { spotPriceUsd } = useGlowSpotPriceSummary();
+  const isFullRow = variant === "full-row";
 
-  const [liveTypeFilter, setLiveTypeFilter] = React.useState<
-    "delegations" | "miners"
-  >("delegations");
+  type ListTypeFilter = "all" | "delegations" | "miners" | "activity";
+  const [liveTypeFilter, setLiveTypeFilter] = React.useState<ListTypeFilter>(
+    () => (variant === "full-row" ? "all" : "delegations")
+  );
+
+  const shouldForceType = forcedType != null;
+  const delegationsEnabled =
+    isLive && (!shouldForceType || forcedType === "delegations");
+  const minersEnabled = isLive && (!shouldForceType || forcedType === "miners");
 
   const {
     applications: delegationApplications,
     isLoading: isDelegationsLoading,
   } = useGlowLaunchpad({
     filters: { paymentCurrency: "GLW" },
-    enabled: isLive,
+    enabled: delegationsEnabled,
   });
   const { applications: minerApplications, isLoading: isMinersLoading } =
     useMiningCenter({
       filters: { paymentCurrency: "USDC" },
-      enabled: isLive,
+      enabled: minersEnabled,
     });
 
   const delegationsAvailableCount = React.useMemo(
@@ -91,14 +103,37 @@ export default function LaunchpadStatusWidget({
   const hasMinersAvailable = minersAvailableCount > 0;
   const availableTypesCount =
     Number(hasDelegationsAvailable) + Number(hasMinersAvailable);
-  const shouldShowTypeTabs = isLive && availableTypesCount > 1;
-  const listTypeFilter = shouldShowTypeTabs
-    ? liveTypeFilter
-    : hasDelegationsAvailable
-    ? "delegations"
-    : hasMinersAvailable
-    ? "miners"
-    : liveTypeFilter;
+  const shouldShowAllTab = variant === "full-row" && availableTypesCount > 1;
+
+  const resolvedTab = React.useMemo((): ListTypeFilter => {
+    if (!isLive) return liveTypeFilter;
+    if (liveTypeFilter === "activity") return "activity";
+    if (shouldForceType) return forcedType!;
+    if (liveTypeFilter === "all" && !shouldShowAllTab)
+      return hasDelegationsAvailable ? "delegations" : "miners";
+    if (liveTypeFilter === "delegations" && !hasDelegationsAvailable)
+      return hasMinersAvailable ? "miners" : "all";
+    if (liveTypeFilter === "miners" && !hasMinersAvailable)
+      return hasDelegationsAvailable ? "delegations" : "all";
+    return liveTypeFilter;
+  }, [
+    forcedType,
+    hasDelegationsAvailable,
+    hasMinersAvailable,
+    isLive,
+    liveTypeFilter,
+    shouldForceType,
+    shouldShowAllTab,
+  ]);
+
+  const launchpadTypeFilter = React.useMemo(():
+    | "all"
+    | "delegations"
+    | "miners" => {
+    if (resolvedTab === "activity")
+      return hasDelegationsAvailable ? "delegations" : "miners";
+    return resolvedTab;
+  }, [hasDelegationsAvailable, resolvedTab]);
 
   const [depositOpen, setDepositOpen] = React.useState(false);
   const [selectedApplicationForDeposit, setSelectedApplicationForDeposit] =
@@ -148,72 +183,154 @@ export default function LaunchpadStatusWidget({
   return (
     <Card
       className={cn(
-        "flex h-full flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm gap-2",
+        "flex h-full flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm gap-2 pt-2",
+        // full-row stays stacked (header above carousel/content)
         className
       )}
     >
-      <CardHeader className="pb-0">
-        <div className="flex items-center justify-between gap-3">
+      <CardHeader
+        className={cn(
+          "pb-0",
+          isFullRow
+            ? "px-3 py-0 border-b border-border/40 [.border-b]:pb-2"
+            : null
+        )}
+      >
+        <div
+          className={cn(
+            "flex items-center justify-between gap-3",
+            isFullRow ? "min-h-0" : null
+          )}
+        >
           <div className="flex items-center gap-2 min-w-0">
-            <CardTitle className="tracking-tight text-base">
+            <CardTitle
+              className={cn(
+                "tracking-tight",
+                isFullRow ? "text-sm leading-none" : "text-base"
+              )}
+            >
               {isLive ? "Solar Launchpad" : "Next Solar Batch"}
             </CardTitle>
             {isLive ? (
-              <span className="inline-flex items-center rounded-full border border-[#C084FC]/25 bg-[#C084FC]/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[#C084FC]">
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full border border-[#C084FC]/25 bg-[#C084FC]/10 font-mono uppercase tracking-wider text-[#C084FC]",
+                  isFullRow
+                    ? "px-1.5 py-0 text-[9px]"
+                    : "px-2 py-0.5 text-[10px]"
+                )}
+              >
                 Live
               </span>
             ) : null}
           </div>
 
           {isLive ? (
-            shouldShowTypeTabs ? (
-              <Tabs
-                value={listTypeFilter}
-                onValueChange={(v) =>
-                  setLiveTypeFilter(v as "delegations" | "miners")
-                }
-                className="shrink-0"
+            <Tabs
+              value={resolvedTab}
+              onValueChange={(v) => setLiveTypeFilter(v as ListTypeFilter)}
+              className="shrink-0"
+            >
+              <TabsList
+                className={cn(
+                  "rounded-full border border-border bg-muted/10 p-1",
+                  isFullRow ? "h-10" : "h-12"
+                )}
               >
-                <TabsList className="rounded-full border border-border bg-muted/10 p-1 h-9">
-                  {hasDelegationsAvailable ? (
-                    <TabsTrigger
-                      value="delegations"
-                      className="rounded-full px-3 h-7 text-xs data-[state=active]:bg-[#C084FC]/15 data-[state=active]:text-foreground"
-                    >
-                      Delegations{" "}
-                      <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
-                        {isDelegationsLoading ? "…" : delegationsAvailableCount}
-                      </span>
-                    </TabsTrigger>
-                  ) : null}
-                  {hasMinersAvailable ? (
-                    <TabsTrigger
-                      value="miners"
-                      className="rounded-full px-3 h-7 text-xs data-[state=active]:bg-[color:var(--color-miner-yellow)]/15 data-[state=active]:text-foreground"
-                    >
-                      Miners{" "}
-                      <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
-                        {isMinersLoading ? "…" : minersAvailableCount}
-                      </span>
-                    </TabsTrigger>
-                  ) : null}
-                </TabsList>
-              </Tabs>
-            ) : (
-              <div className="shrink-0 inline-flex items-center gap-2 rounded-full border border-border bg-muted/10 px-3 py-1">
-                <span className="text-xs font-mono font-medium text-foreground tabular-nums">
-                  {hasDelegationsAvailable
-                    ? `Delegations ${
-                        isDelegationsLoading ? "…" : delegationsAvailableCount
-                      }`
-                    : hasMinersAvailable
-                    ? `Miners ${isMinersLoading ? "…" : minersAvailableCount}`
-                    : "No farms"}
-                </span>
-              </div>
-            )
+                {shouldForceType ? (
+                  <TabsTrigger
+                    value={forcedType}
+                    className={cn(
+                      "rounded-full data-[state=active]:bg-background/40 data-[state=active]:text-foreground",
+                      isFullRow ? "px-2 h-5 text-[10px]" : "px-3 h-7 text-xs"
+                    )}
+                  >
+                    {forcedType === "delegations" ? "Delegations" : "Miners"}{" "}
+                    <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
+                      {forcedType === "delegations"
+                        ? isDelegationsLoading
+                          ? "…"
+                          : delegationsAvailableCount
+                        : isMinersLoading
+                        ? "…"
+                        : minersAvailableCount}
+                    </span>
+                  </TabsTrigger>
+                ) : (
+                  <>
+                    {shouldShowAllTab ? (
+                      <TabsTrigger
+                        value="all"
+                        className={cn(
+                          "rounded-full data-[state=active]:bg-background/40 data-[state=active]:text-foreground",
+                          isFullRow
+                            ? "px-2 h-5 text-[10px]"
+                            : "px-3 h-7 text-xs"
+                        )}
+                      >
+                        All{" "}
+                        <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
+                          {isDelegationsLoading || isMinersLoading
+                            ? "…"
+                            : delegationsAvailableCount + minersAvailableCount}
+                        </span>
+                      </TabsTrigger>
+                    ) : null}
+                    {hasDelegationsAvailable ? (
+                      <TabsTrigger
+                        value="delegations"
+                        className={cn(
+                          "rounded-full data-[state=active]:bg-[#C084FC]/15 data-[state=active]:text-foreground",
+                          isFullRow
+                            ? "px-2 h-5 text-[10px]"
+                            : "px-3 h-7 text-xs"
+                        )}
+                      >
+                        Delegations{" "}
+                        <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
+                          {isDelegationsLoading
+                            ? "…"
+                            : delegationsAvailableCount}
+                        </span>
+                      </TabsTrigger>
+                    ) : null}
+                    {hasMinersAvailable ? (
+                      <TabsTrigger
+                        value="miners"
+                        className={cn(
+                          "rounded-full data-[state=active]:bg-[color:var(--color-miner-yellow)]/15 data-[state=active]:text-foreground",
+                          isFullRow
+                            ? "px-2 h-5 text-[10px]"
+                            : "px-3 h-7 text-xs"
+                        )}
+                      >
+                        Miners{" "}
+                        <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
+                          {isMinersLoading ? "…" : minersAvailableCount}
+                        </span>
+                      </TabsTrigger>
+                    ) : null}
+                  </>
+                )}
+
+                <TabsTrigger
+                  value="activity"
+                  className={cn(
+                    "rounded-full data-[state=active]:bg-background/40 data-[state=active]:text-foreground",
+                    isFullRow ? "px-2 h-5 text-[10px]" : "px-3 h-7 text-xs"
+                  )}
+                >
+                  Activity
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           ) : (
-            <div className="shrink-0 inline-flex items-center gap-2 rounded-full border border-border bg-muted/10 px-3 py-1">
+            <div
+              className={cn(
+                "shrink-0 inline-flex items-center gap-2 rounded-full border border-border bg-muted/10",
+                isFullRow ? "px-2 py-0.5" : "px-3 py-1"
+              )}
+            >
               <span className="text-xs font-mono font-medium text-foreground tabular-nums">
                 GLW {priceLabel}
               </span>
@@ -222,32 +339,72 @@ export default function LaunchpadStatusWidget({
         </div>
       </CardHeader>
 
-      <CardContent className="min-h-0 flex-1 flex flex-col p-0">
+      <CardContent
+        className={cn(
+          "min-h-0 flex-1 flex flex-col",
+          variant === "full-row"
+            ? resolvedTab === "activity"
+              ? "p-0"
+              : "p-4 pt-3"
+            : "p-0"
+        )}
+      >
         {isLoading ? (
-          <div className="space-y-4 py-4 px-5 pb-5">
+          <div
+            className={cn(
+              "space-y-4",
+              variant === "full-row" ? "p-0" : "py-4 px-5 pb-5"
+            )}
+          >
             <Skeleton className="h-16 w-3/4 mx-auto rounded-xl" />
             <Skeleton className="h-12 w-full rounded-xl" />
           </div>
         ) : isError ? (
-          <div className="flex flex-1 flex-col items-center justify-center text-center gap-2 px-5 pb-5">
+          <div
+            className={cn(
+              "flex flex-1 flex-col items-center justify-center text-center gap-2",
+              variant === "full-row" ? "p-0" : "px-5 pb-5"
+            )}
+          >
             <div className="text-sm text-muted-foreground">
               Status currently unavailable.
             </div>
           </div>
         ) : isLive ? (
           // --- LIVE STATE ---
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="px-5 pb-5">
+          resolvedTab === "activity" ? (
+            <ScrollArea className="min-h-0 flex-1">
+              <SponsoredFarmsActivity />
+            </ScrollArea>
+          ) : variant === "full-row" ? (
+            <div className="min-h-0 flex-1">
               <LaunchpadView
                 variant="widget"
-                typeFilter={listTypeFilter}
+                typeFilter={launchpadTypeFilter}
+                widgetLayout="carousel"
                 onPayDeposit={handlePayDeposit}
               />
             </div>
-          </ScrollArea>
+          ) : (
+            <ScrollArea className="min-h-0 flex-1">
+              <div className="px-5 pb-5">
+                <LaunchpadView
+                  variant="widget"
+                  typeFilter={launchpadTypeFilter}
+                  widgetLayout="stack"
+                  onPayDeposit={handlePayDeposit}
+                />
+              </div>
+            </ScrollArea>
+          )
         ) : (
           // --- COUNTDOWN STATE ---
-          <div className="flex-1 flex flex-col px-5 pb-5">
+          <div
+            className={cn(
+              "flex-1 flex flex-col",
+              variant === "full-row" ? "p-0" : "px-5 pb-5"
+            )}
+          >
             {/* Big Countdown Hero */}
             <div className="flex-1 flex flex-col items-center justify-center py-2">
               <div className="font-mono font-bold tracking-tighter tabular-nums text-foreground">

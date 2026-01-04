@@ -3,6 +3,9 @@
 import React from "react";
 import { useAccount } from "wagmi";
 import { AnimatePresence, motion } from "framer-motion";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { formatUnits } from "viem";
 
 import SolarFarmWidget from "./widgets/solar-farm-widget";
 import NetWorthWidget from "./widgets/net-worth";
@@ -21,26 +24,152 @@ import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import DiscordWidget from "./widgets/discord-widget";
 import NewsletterWidget from "./widgets/newsletter-widget";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useRefundableFractions } from "@/hooks";
+import { RefundClaimsPanel } from "@/app/wallet/refund-claims-panel";
+import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
+import { useGlowLaunchpad, useMiningCenter } from "@/hooks";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
 }
 
+function formatGlw(amount: string): string {
+  try {
+    const formatted = formatUnits(BigInt(amount), 18);
+    const num = Number.parseFloat(formatted);
+    if (!Number.isFinite(num) || num <= 0) return "0";
+    return num.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  } catch {
+    return "0";
+  }
+}
+
+function countAvailableApplications(
+  applications: Array<{
+    activeFraction: { isFilled: boolean; remainingSteps: number | null } | null;
+  }>
+) {
+  return applications.reduce((count, app) => {
+    const fraction = app.activeFraction;
+    if (!fraction) return count;
+    const remainingSteps = fraction.remainingSteps ?? 0;
+    const hasAvailability = !fraction.isFilled && remainingSteps > 0;
+    return hasAvailability ? count + 1 : count;
+  }, 0);
+}
+
 export default function GlowSoftDashboard({
   walletAddressOverride,
 }: GlowSoftDashboardProps) {
-  const { address: connectedAddress } = useAccount();
+  const { address: connectedAddress, isConnected } = useAccount();
   const walletAddress = walletAddressOverride ?? connectedAddress ?? null;
   const hasWallet = Boolean(walletAddress);
   const { signer } = useEthersSigner();
   const { usdcBalance, usdgBalance } = useER20Balances({ signer });
   const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
+  const [isRefundDialogOpen, setIsRefundDialogOpen] = React.useState(false);
+  const refundToastIdRef = React.useRef<string | number | null>(null);
+  const queryClient = useQueryClient();
+
+  const { isLive: isLaunchpadLive } = useLaunchpadStatus();
+  const launchpadListingsEnabled = isConnected && isLaunchpadLive;
+  const {
+    applications: delegationApplications,
+    isLoading: isDelegationsLoading,
+  } = useGlowLaunchpad({
+    filters: { paymentCurrency: "GLW" },
+    enabled: launchpadListingsEnabled,
+  });
+  const { applications: minerApplications, isLoading: isMinersLoading } =
+    useMiningCenter({
+      filters: { paymentCurrency: "USDC" },
+      enabled: launchpadListingsEnabled,
+    });
+
+  const hasLaunchpadListings = React.useMemo(() => {
+    if (!launchpadListingsEnabled) return false;
+    const delegationsAvailable = countAvailableApplications(
+      delegationApplications
+    );
+    const minersAvailable = countAvailableApplications(minerApplications);
+    return delegationsAvailable + minersAvailable > 0;
+  }, [delegationApplications, launchpadListingsEnabled, minerApplications]);
+
+  const shouldShowLaunchpadStatusRow =
+    isConnected &&
+    isLaunchpadLive &&
+    (isDelegationsLoading || isMinersLoading || hasLaunchpadListings);
+
+  const { refundableFractions, summary, isLoading, isError } =
+    useRefundableFractions({
+      walletAddress,
+      enabled: hasWallet,
+    });
+
+  const hasRefunds =
+    hasWallet && !isLoading && !isError && refundableFractions.length > 0;
+
+  React.useEffect(() => {
+    const existingToastId = refundToastIdRef.current;
+
+    if (!hasRefunds) {
+      if (existingToastId != null) toast.dismiss(existingToastId);
+      refundToastIdRef.current = null;
+      setIsRefundDialogOpen(false);
+      return;
+    }
+
+    if (existingToastId != null) return;
+
+    const toastId = toast("You have refunds available", {
+      description: `${summary.totalRefundableFractions} listings · ${formatGlw(
+        summary.totalRefundableAmount
+      )} GLW`,
+      duration: Infinity,
+      dismissible: false,
+      closeButton: false,
+      action: {
+        label: "Claim refunds",
+        onClick: () => setIsRefundDialogOpen(true),
+      },
+    });
+
+    refundToastIdRef.current = toastId;
+
+    return () => {
+      toast.dismiss(toastId);
+    };
+  }, [
+    hasRefunds,
+    summary.totalRefundableAmount,
+    summary.totalRefundableFractions,
+  ]);
+
+  const handleRefundClaimSuccess = React.useCallback(() => {
+    if (!walletAddress) return;
+    queryClient
+      .invalidateQueries({
+        queryKey: ["refundable-fractions", walletAddress],
+      })
+      .catch(() => {
+        // no-op
+      });
+  }, [queryClient, walletAddress]);
 
   return (
     <div className="min-h-screen bg-muted dark:bg-background text-foreground p-6 pt-4 selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
       <div className="max-w-screen-2xl mx-auto">
         {hasWallet ? (
           <div className="grid grid-cols-12 gap-4 grid-flow-row-dense [&:has(.solar-farm-next-batch-countdown)_.quick-actions-launchpad-next-batch-countdown]:hidden">
+            {shouldShowLaunchpadStatusRow ? (
+              <div className="col-span-12 min-h-0 lg:h-[450px]">
+                <LaunchpadStatusWidget variant="full-row" className="h-full" />
+              </div>
+            ) : null}
             <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[340px]">
               <NetWorthWidget walletAddress={walletAddress} />
             </div>
@@ -173,6 +302,19 @@ export default function GlowSoftDashboard({
           </div>
         )}
       </div>
+
+      <Dialog open={isRefundDialogOpen} onOpenChange={setIsRefundDialogOpen}>
+        <DialogContent
+          className="bg-background rounded-3xl p-0 sm:max-w-[980px] w-full border-border shadow-2xl overflow-hidden"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <RefundClaimsPanel
+            variant="dialog"
+            walletAddress={walletAddress ?? undefined}
+            onClaimSuccess={handleRefundClaimSuccess}
+          />
+        </DialogContent>
+      </Dialog>
 
       <MintAndStakeGctlDialog
         key={

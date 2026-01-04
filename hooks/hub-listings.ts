@@ -385,6 +385,7 @@ export function useSponsorApplication() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["sponsor-listings"] });
       queryClient.invalidateQueries({ queryKey: ["splits-activity"] });
+      queryClient.invalidateQueries({ queryKey: ["rewards-breakdown"] });
       queryClient.invalidateQueries({ queryKey: ["mining-scores"] });
       queryClient.invalidateQueries({ queryKey: ["reward-scores"] });
 

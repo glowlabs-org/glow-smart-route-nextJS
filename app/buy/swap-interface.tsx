@@ -1658,7 +1658,7 @@ export function SwapInterface({
         selectedTokenBuy={selectedTokenBuy}
         smartBalancingAmounts={smartBalancingAmounts}
         swapUSDCToUSDG={swapUSDCToUSDG}
-        onOpenChange={(open) => {
+        onOpenChange={async (open) => {
           setIsDialogOpen(open);
           if (!open) {
             // Reset input states
@@ -1668,16 +1668,18 @@ export function SwapInterface({
 
             // Refresh all balances
             if (selectedTokenSell && selectedTokenBuy && signer && isReady) {
-              Promise.all([
-                setUsdcBalanceForSigner(),
-                setUsdgBalanceForSigner(),
-                getTokenSellBalance(),
-                refreshBalances(),
-              ]);
+              try {
+                await Promise.all([
+                  setUsdcBalanceForSigner(),
+                  setUsdgBalanceForSigner(),
+                  getTokenSellBalance(),
+                  refreshBalances(),
+                ]);
+              } catch {}
             }
 
             // Refresh the page data
-            startTransition(router.refresh);
+            startTransition(() => router.refresh());
           }
         }}
         slippagePointsTenThousandths={BigInt(Number(slippageTolerance) * 100)}
@@ -1688,7 +1690,7 @@ export function SwapInterface({
         estimatedOutputAmount={currentTokenEstimatedOutputAmount}
         slippageTolerance={slippageTolerance}
         targetToken={selectedTokenBuy.label as "USDC" | "USDG"}
-        onOpenChange={(open) => {
+        onOpenChange={async (open) => {
           setIsGlowToUsdcDialogOpen(open);
           if (!open) {
             // Reset input states
@@ -1698,23 +1700,25 @@ export function SwapInterface({
 
             // Refresh all balances
             if (selectedTokenSell && selectedTokenBuy && signer && isReady) {
-              Promise.all([
-                setUsdcBalanceForSigner(),
-                setUsdgBalanceForSigner(),
-                getTokenSellBalance(),
-                refreshBalances(),
-              ]);
+              try {
+                await Promise.all([
+                  setUsdcBalanceForSigner(),
+                  setUsdgBalanceForSigner(),
+                  getTokenSellBalance(),
+                  refreshBalances(),
+                ]);
+              } catch {}
             }
 
             // Refresh the page data
-            startTransition(router.refresh);
+            startTransition(() => router.refresh());
           }
         }}
       />
       <UsdgToUsdcRedemptionDialog
         isOpen={isUsdgToUsdcRedemptionDialogOpen}
         amountToRedeem={amountToSell}
-        onOpenChange={(open) => {
+        onOpenChange={async (open) => {
           setIsUsdgToUsdcRedemptionDialogOpen(open);
           if (!open) {
             // Reset input states
@@ -1724,16 +1728,18 @@ export function SwapInterface({
 
             // Refresh all balances
             if (selectedTokenSell && selectedTokenBuy && signer && isReady) {
-              Promise.all([
-                setUsdcBalanceForSigner(),
-                setUsdgBalanceForSigner(),
-                getTokenSellBalance(),
-                refreshBalances(),
-              ]);
+              try {
+                await Promise.all([
+                  setUsdcBalanceForSigner(),
+                  setUsdgBalanceForSigner(),
+                  getTokenSellBalance(),
+                  refreshBalances(),
+                ]);
+              } catch {}
             }
 
             // Refresh the page data
-            startTransition(router.refresh);
+            startTransition(() => router.refresh());
           }
         }}
       />

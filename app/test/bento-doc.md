@@ -175,6 +175,9 @@ The dashboard uses `framer-motion` for a polished feel:
 - **What it shows**:
   - “Current weekly payout” (GLW) and counts for **active miners** and **active delegations**.
   - A stacked bar chart for the **last ~10 weeks** (miners vs delegations rewards).
+  - If the wallet has **in-progress positions** (not yet filled):
+    - Adds a final **“In progress”** bar with **estimated weekly GLW**.
+    - The bar can include both **miners (mining-center)** and **delegations (launchpad)** segments.
   - A “View details” entry point to a deeper performance dialog.
 - **Key CTAs / interactions**:
   - **View Details** opens the farm performance dialog.
@@ -183,8 +186,9 @@ The dashboard uses `framer-motion` for a polished feel:
 - **Key states**:
   - **Disconnected (guest)**: shows a _blurred/mock_ version of the performance card (intentional preview) plus connect framing.
   - **Connected but dormant**: “No Active Solar Streams” with guidance + CTAs.
+    - Note: if the wallet only has **in-progress** positions, we treat that as activity (so the UI doesn't incorrectly show a fully dormant state).
   - **Connected but too new**: “No weekly rewards data yet”.
-- **Implementation pointer**: `app/test/widgets/solar-farm-widget.tsx` (uses rewards breakdown to build a weekly bar chart and opens the farm performance dialog).
+- **Implementation pointer**: `app/test/widgets/solar-farm-widget.tsx` (uses rewards breakdown for realized history, and split activity + listing score estimates to render the “In progress” bar when applicable).
 
 ### `FarmsPerformanceDialogContent` (Farm Performance dialog)
 
@@ -194,7 +198,11 @@ The dashboard uses `framer-motion` for a polished feel:
   - A list of farms with two tracks:
     - **Time**: weeks elapsed vs total lifecycle weeks.
     - **Value**: recovered principal/deposit + emissions earned (in the farm’s denomination).
-  - A **filter** (All / Miners / Delegations) and sorting by performance.
+  - A **filter** (All / Miners / Delegations / Other / In progress) and sorting by performance.
+  - **In-progress rows** (both launchpad + mining-center) appear in:
+    - **ALL** (prepended to the list)
+    - **IN PROGRESS** (same row layout; scoped list)
+  - In-progress rows show **funding progress** plus **estimated weekly GLW** (`GLW/wk`).
   - Status flags like **Profit**, **Lagging**, **On track**.
 - **Implementation pointer**: `app/test/widgets/farms-performance-dialog.tsx` (maps farms into a consistent performance row model).
 

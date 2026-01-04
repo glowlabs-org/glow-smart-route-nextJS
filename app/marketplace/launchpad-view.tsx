@@ -2,6 +2,7 @@
 
 import React from "react";
 import { FallbackImage } from "@/components/ui/fallback-image";
+import { SponsoredFarmsActivity } from "@/app/marketplace/sponsored-farms-activity";
 
 // Image proxy helper for optimized caching with compression
 function getProxiedImageUrl(url: string, width?: number, quality: number = 75) {
@@ -64,6 +65,8 @@ import { useFractionSplits } from "@/hooks";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   ArrowDownUp,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   Filter,
   HelpCircle,
@@ -258,6 +261,7 @@ interface LaunchpadViewProps {
   ) => void;
   variant?: "page" | "dialog" | "widget";
   typeFilter?: "all" | "delegations" | "miners";
+  widgetLayout?: "stack" | "grid" | "carousel";
 }
 
 function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
@@ -1122,16 +1126,16 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                   }}
                                 >
                                   {application._type === "miners"
-                                    ? "Weekly Rewards per Miner"
-                                    : "Est. Weekly Rewards"}
+                                    ? "Weekly Rewards per Miner (99 weeks)"
+                                    : "Est. Weekly Rewards (100 weeks)"}
                                 </div>
                                 <div className="group/help relative">
                                   <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
                                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/help:block z-50 w-64">
                                     <div className="bg-popover text-popover-foreground border border-border text-xs rounded-lg py-2 px-3 shadow-lg">
                                       {application._type === "miners"
-                                        ? "Current weekly rate based on regional GLW allocation. May decrease as new farms join the region and dilute emissions."
-                                        : "Expected weekly rewards based on audited farm performance and regional competitiveness. May vary with network changes."}
+                                        ? "Current weekly rate per miner, paid weekly for 99 weeks. May decrease as new farms join the region and dilute emissions."
+                                        : "Expected weekly rewards per delegation, paid weekly for 100 weeks. May vary with network changes."}
                                       <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[color:var(--color-popover)]"></div>
                                     </div>
                                   </div>
@@ -1303,76 +1307,93 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                     fontWeight: 400,
                                   }}
                                 >
-                                  Estimated returns. See Advanced Stats.
+                                  {application._type === "miners"
+                                    ? "Paid weekly for 99 weeks. See Advanced Stats."
+                                    : "Paid weekly for 100 weeks. See Advanced Stats."}
                                 </div>
                               </div>
                             </div>
                           </TooltipTrigger>
                           <TooltipContent className="max-w-xs">
-                            <div className="text-sm">
-                              <div className="mb-2 text-background/80 text-xs">
-                                Estimated weekly rewards per delegation for 100
-                                weeks. These estimates may decrease as new farms
-                                join the region and dilute the regional GLW
-                                allocation. See Advanced Stats for detailed
-                                information.
+                            {application._type === "miners" ? (
+                              <div className="text-sm">
+                                <div className="mb-2 text-background/80 text-xs">
+                                  Estimated weekly rewards per miner, paid
+                                  weekly for 99 weeks. This rate may decrease as
+                                  new farms join the region and dilute the
+                                  regional GLW allocation. See Advanced Stats
+                                  for details.
+                                </div>
                               </div>
-                              {rewardScore?.userWeeklyGlwRewards &&
-                              rewardScore?.userWeeklyPdRewards &&
-                              application.activeFraction?.totalSteps
-                                ? (() => {
-                                    const glwRewards = parseFloat(
-                                      formatUnits(
-                                        BigInt(
-                                          rewardScore.userWeeklyGlwRewards
-                                        ),
-                                        DECIMALS_BY_TOKEN["GLW"]
-                                      )
-                                    );
-                                    const pdRewards = parseFloat(
-                                      formatUnits(
-                                        BigInt(rewardScore.userWeeklyPdRewards),
-                                        DECIMALS_BY_TOKEN["GLW"]
-                                      )
-                                    );
-                                    const totalShares =
-                                      application.activeFraction.totalSteps;
-                                    const glwPerShare =
-                                      glwRewards / totalShares;
-                                    const pdPerShare = pdRewards / totalShares;
+                            ) : (
+                              <div className="text-sm">
+                                <div className="mb-2 text-background/80 text-xs">
+                                  Estimated weekly rewards per delegation, paid
+                                  weekly for 100 weeks. These estimates may
+                                  decrease as new farms join the region and
+                                  dilute the regional GLW allocation. See
+                                  Advanced Stats for detailed information.
+                                </div>
+                                {rewardScore?.userWeeklyGlwRewards &&
+                                rewardScore?.userWeeklyPdRewards &&
+                                application.activeFraction?.totalSteps
+                                  ? (() => {
+                                      const glwRewards = parseFloat(
+                                        formatUnits(
+                                          BigInt(
+                                            rewardScore.userWeeklyGlwRewards
+                                          ),
+                                          DECIMALS_BY_TOKEN["GLW"]
+                                        )
+                                      );
+                                      const pdRewards = parseFloat(
+                                        formatUnits(
+                                          BigInt(
+                                            rewardScore.userWeeklyPdRewards
+                                          ),
+                                          DECIMALS_BY_TOKEN["GLW"]
+                                        )
+                                      );
+                                      const totalShares =
+                                        application.activeFraction.totalSteps;
+                                      const glwPerShare =
+                                        glwRewards / totalShares;
+                                      const pdPerShare =
+                                        pdRewards / totalShares;
 
-                                    return (
-                                      <div className="space-y-1">
-                                        <div>
-                                          <strong>
-                                            Weekly reward breakdown:
-                                          </strong>
+                                      return (
+                                        <div className="space-y-1">
+                                          <div>
+                                            <strong>
+                                              Weekly reward breakdown:
+                                            </strong>
+                                          </div>
+                                          <div>
+                                            {pdPerShare.toLocaleString(
+                                              undefined,
+                                              {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                              }
+                                            )}{" "}
+                                            GLW from PDs
+                                          </div>
+                                          <div>
+                                            {glwPerShare.toLocaleString(
+                                              undefined,
+                                              {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                              }
+                                            )}{" "}
+                                            GLW from Emissions
+                                          </div>
                                         </div>
-                                        <div>
-                                          {pdPerShare.toLocaleString(
-                                            undefined,
-                                            {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 2,
-                                            }
-                                          )}{" "}
-                                          GLW from PDs
-                                        </div>
-                                        <div>
-                                          {glwPerShare.toLocaleString(
-                                            undefined,
-                                            {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 2,
-                                            }
-                                          )}{" "}
-                                          GLW from Emissions
-                                        </div>
-                                      </div>
-                                    );
-                                  })()
-                                : "Calculating rewards..."}
-                            </div>
+                                      );
+                                    })()
+                                  : "Calculating rewards..."}
+                              </div>
+                            )}
                           </TooltipContent>
                         </Tooltip>
                       </div>
@@ -1488,6 +1509,7 @@ export function LaunchpadView({
   onPayDeposit,
   variant,
   typeFilter,
+  widgetLayout,
 }: LaunchpadViewProps) {
   if (variant === "dialog") {
     return <LaunchpadMarketplaceDialog onPayDeposit={onPayDeposit} />;
@@ -1497,6 +1519,7 @@ export function LaunchpadView({
       <LaunchpadMarketplaceWidget
         onPayDeposit={onPayDeposit}
         typeFilter={typeFilter}
+        layout={widgetLayout}
       />
     );
   }
@@ -1542,7 +1565,10 @@ function getFarmEfficiency(application: AuctionApplication) {
 function LaunchpadMarketplaceWidget({
   onPayDeposit,
   typeFilter,
-}: Pick<LaunchpadViewProps, "onPayDeposit" | "typeFilter">) {
+  layout,
+}: Pick<LaunchpadViewProps, "onPayDeposit" | "typeFilter" | "widgetLayout"> & {
+  layout?: "stack" | "grid" | "carousel";
+}) {
   const { address } = useAccount();
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
   const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
@@ -1763,6 +1789,78 @@ function LaunchpadMarketplaceWidget({
   const isLoading = isLoadingLaunchpad || isLoadingMiners;
   const isError = isErrorLaunchpad || isErrorMiners;
   const error = (errorLaunchpad || errorMiners) as Error | null;
+  const resolvedLayout = layout ?? "stack";
+  const carouselScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const carouselStepPxRef = React.useRef(0);
+  const [carouselIndex, setCarouselIndex] = React.useState(0);
+  const [carouselCanPrev, setCarouselCanPrev] = React.useState(false);
+  const [carouselCanNext, setCarouselCanNext] = React.useState(false);
+
+  const updateCarouselMeta = React.useCallback(() => {
+    if (resolvedLayout !== "carousel") return;
+    const el = carouselScrollRef.current;
+    if (!el) return;
+    const max = Math.max(0, el.scrollWidth - el.clientWidth);
+    const left = el.scrollLeft;
+    const step = carouselStepPxRef.current;
+    const rawIndex = step > 0 ? Math.round(left / step) : 0;
+    const clampedIndex = Math.max(0, Math.min(rows.length - 1, rawIndex));
+    setCarouselIndex(clampedIndex);
+    setCarouselCanPrev(left > 1);
+    setCarouselCanNext(left < max - 1);
+  }, [resolvedLayout, rows.length]);
+
+  const scrollCarouselBy = React.useCallback((delta: number) => {
+    const el = carouselScrollRef.current;
+    if (!el) return;
+    const step = carouselStepPxRef.current;
+    const fallbackStep = Math.max(320, Math.round(el.clientWidth * 0.9));
+    const px = step > 0 ? step * delta : fallbackStep * delta;
+    el.scrollBy({ left: px, behavior: "smooth" });
+  }, []);
+
+  const scrollCarouselTo = React.useCallback((index: number) => {
+    const el = carouselScrollRef.current;
+    if (!el) return;
+    const step = carouselStepPxRef.current;
+    if (step <= 0) return;
+    el.scrollTo({ left: step * index, behavior: "smooth" });
+  }, []);
+
+  const handleCarouselWheel = React.useCallback(
+    (e: React.WheelEvent<HTMLDivElement>) => {
+      const el = carouselScrollRef.current;
+      if (!el) return;
+      if (resolvedLayout !== "carousel") return;
+      const delta =
+        Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (delta === 0) return;
+      el.scrollLeft += delta;
+      e.preventDefault();
+    },
+    [resolvedLayout]
+  );
+
+  React.useLayoutEffect(() => {
+    if (resolvedLayout !== "carousel") return;
+    const el = carouselScrollRef.current;
+    if (!el) return;
+    const measure = () => {
+      const items = el.querySelectorAll<HTMLElement>("[data-carousel-item]");
+      if (items.length >= 2) {
+        carouselStepPxRef.current = items[1].offsetLeft - items[0].offsetLeft;
+      } else if (items.length === 1) {
+        carouselStepPxRef.current = items[0].offsetWidth + 12;
+      } else {
+        carouselStepPxRef.current = 0;
+      }
+      updateCarouselMeta();
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [resolvedLayout, rows.length, updateCarouselMeta]);
 
   return (
     <div className="w-full">
@@ -1793,14 +1891,73 @@ function LaunchpadMarketplaceWidget({
         />
       )}
       {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => (
+        resolvedLayout === "carousel" ? (
+          <div className="w-full">
+            <div className="mb-2 flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+                disabled
+                aria-label="Previous"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+                disabled
+                aria-label="Next"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
             <div
-              key={i}
-              className="h-[168px] w-full rounded-2xl border border-border bg-muted/10"
-            />
-          ))}
-        </div>
+              ref={carouselScrollRef}
+              className="w-full overflow-x-auto overflow-y-hidden pb-2 snap-x snap-mandatory scroll-smooth touch-pan-x overscroll-x-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            >
+              <div className="flex gap-3 pr-6">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div
+                    key={i}
+                    data-carousel-item
+                    className="snap-start shrink-0 w-[520px] max-w-[86vw]"
+                  >
+                    <div className="h-[168px] w-full rounded-2xl border border-border bg-muted/10" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-1 flex items-center justify-center gap-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30"
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div
+            className={
+              resolvedLayout === "grid"
+                ? "grid grid-cols-1 xl:grid-cols-2 gap-3"
+                : "space-y-3"
+            }
+          >
+            {Array.from({ length: resolvedLayout === "grid" ? 2 : 4 }).map(
+              (_, i) => (
+                <div
+                  key={i}
+                  className="h-[168px] w-full rounded-2xl border border-border bg-muted/10"
+                />
+              )
+            )}
+          </div>
+        )
       ) : isError ? (
         <div className="py-10 text-center">
           <div className="text-sm text-destructive">
@@ -1813,8 +1970,101 @@ function LaunchpadMarketplaceWidget({
           title="Launchpad"
           subtitle="The next batch of farms will be available soon"
         />
+      ) : resolvedLayout === "carousel" ? (
+        <div className="w-full">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div className="text-xs text-muted-foreground">
+              {rows.length} {rows.length === 1 ? "listing" : "listings"}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+                onClick={() => scrollCarouselBy(-1)}
+                disabled={!carouselCanPrev}
+                aria-label="Previous"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+                onClick={() => scrollCarouselBy(1)}
+                disabled={!carouselCanNext}
+                aria-label="Next"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <div
+            ref={carouselScrollRef}
+            onScroll={updateCarouselMeta}
+            onWheel={handleCarouselWheel}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft") scrollCarouselBy(-1);
+              if (e.key === "ArrowRight") scrollCarouselBy(1);
+            }}
+            tabIndex={0}
+            className="w-full overflow-x-auto overflow-y-hidden pb-2 snap-x snap-mandatory scroll-smooth touch-pan-x overscroll-x-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          >
+            <div className="flex gap-3 pr-6">
+              {rows.map((row) => (
+                <div
+                  key={row.application.id}
+                  data-carousel-item
+                  className="snap-start shrink-0 w-[520px] max-w-[86vw]"
+                >
+                  <LaunchpadWidgetAssetCard
+                    row={row}
+                    isScoresLoading={
+                      row.application._type === "delegations"
+                        ? isRewardScoresLoading
+                        : isMiningScoresLoading
+                    }
+                    glwSpotPrice={glwSpotPrice}
+                    onPayDeposit={onPayDeposit}
+                    onOpenStats={(application, scoreData) => {
+                      setSelectedApplicationForStats(application);
+                      setSelectedScoreDataForStats(scoreData ?? null);
+                      setStatsDialogOpen(true);
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {rows.length > 1 ? (
+            <div className="mt-1 flex items-center justify-center gap-2">
+              {rows.map((row, i) => (
+                <button
+                  key={row.application.id}
+                  type="button"
+                  aria-label={`Go to item ${i + 1}`}
+                  onClick={() => scrollCarouselTo(i)}
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full transition-colors",
+                    i === carouselIndex
+                      ? "bg-foreground"
+                      : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                  )}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
       ) : (
-        <div className="space-y-3">
+        <div
+          className={
+            resolvedLayout === "grid"
+              ? "grid grid-cols-1 xl:grid-cols-2 gap-3"
+              : "space-y-3"
+          }
+        >
           {rows.map((row) => (
             <LaunchpadWidgetAssetCard
               key={row.application.id}
@@ -1961,7 +2211,7 @@ function LaunchpadWidgetAssetCard({
 
   const accent = isDelegation
     ? {
-        badge: "border-purple-500/30 bg-purple-500/10 text-purple-500 p-2",
+        badge: "border-purple-500/30 bg-purple-500/10 text-purple-500",
         progress: "bg-purple-500/70",
       }
     : {
@@ -2007,7 +2257,7 @@ function LaunchpadWidgetAssetCard({
 
           <div className="mt-3 flex min-w-0 items-center gap-2">
             <div className="min-w-0 flex-1">
-              <div className="relative h-10 w-full overflow-hidden rounded-full bg-muted/40">
+              <div className="relative h-10 w-full overflow-hidden rounded-full bg-muted/40 border border-border/60">
                 <div
                   className={cn(
                     "absolute inset-y-0 left-0 rounded-full",
@@ -2066,7 +2316,7 @@ function LaunchpadWidgetAssetCard({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="inline-flex cursor-help items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                    Est. Rewards
+                    Est. Rewards (100 weeks)
                     <Info className="h-3.5 w-3.5 opacity-70" />
                   </div>
                 </TooltipTrigger>
@@ -2081,8 +2331,9 @@ function LaunchpadWidgetAssetCard({
                       Estimated rewards
                     </div>
                     <div className="text-[11px] leading-snug text-primary-foreground/80">
-                      Weekly estimate per delegation. Can decrease as regions
-                      fill. See Advanced Stats for details.
+                      Weekly estimate per delegation, paid weekly for 100 weeks.
+                      Can decrease as regions fill. See Advanced Stats for
+                      details.
                     </div>
                     <div className="h-px bg-primary-foreground/15" />
                     {delegationRewardsBreakdown ? (
@@ -2122,7 +2373,7 @@ function LaunchpadWidgetAssetCard({
               </Tooltip>
             ) : (
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                Yield
+                Weekly Rewards (99 weeks)
               </div>
             )}
             <div className="mt-2 text-sm font-semibold text-foreground">
@@ -2152,7 +2403,8 @@ function LaunchpadMarketplaceDialog({
 }: Pick<LaunchpadViewProps, "onPayDeposit">) {
   const { address } = useAccount();
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
-  const [tab, setTab] = React.useState<"all" | "delegations" | "miners">("all");
+  type DialogTab = "all" | "delegations" | "miners" | "activity";
+  const [tab, setTab] = React.useState<DialogTab>("all");
   const [zoneId, setZoneId] = React.useState<number | null>(null);
   const [sortBy, setSortBy] = React.useState<
     "featured" | "newest" | "rewardScore" | "yieldPer1000"
@@ -2188,6 +2440,14 @@ function LaunchpadMarketplaceDialog({
   } = useMiningCenter({
     filters: { paymentCurrency: "USDC" },
   });
+
+  const isLive = React.useMemo(() => {
+    const activeDelegations = countActiveListings(launchpadApplications);
+    const activeMiners = countActiveListings(minersApplications);
+    return activeDelegations + activeMiners > 0;
+  }, [launchpadApplications, minersApplications]);
+
+  const activeTab: DialogTab = isLive || tab !== "activity" ? tab : "all";
 
   const allApplications = React.useMemo(
     () => [
@@ -2248,6 +2508,12 @@ function LaunchpadMarketplaceDialog({
   });
 
   const sortOptions = React.useMemo(() => {
+    if (tab === "activity") {
+      return [
+        { value: "featured", label: "Featured" },
+        { value: "newest", label: "Newest" },
+      ] as const;
+    }
     if (tab === "delegations") {
       return [
         { value: "featured", label: "Featured" },
@@ -2533,12 +2799,13 @@ function LaunchpadMarketplaceDialog({
         />
       )}
       <LaunchpadMarketplaceDialogContent
-        tab={tab}
+        tab={activeTab}
         onTabChange={setTab}
         sortBy={safeSortBy}
         onSortByChange={setSortBy}
         sortOptions={sortOptions}
         tabCounts={tabCounts}
+        isLive={isLive}
         zoneId={zoneId}
         onZoneIdChange={setZoneId}
         shouldShowRegionFilter={shouldShowRegionFilter}
@@ -2576,6 +2843,7 @@ function LaunchpadMarketplaceDialogContent({
   onSortByChange,
   sortOptions,
   tabCounts,
+  isLive,
   zoneId,
   onZoneIdChange,
   shouldShowRegionFilter,
@@ -2591,8 +2859,8 @@ function LaunchpadMarketplaceDialogContent({
   onPayDeposit,
   onOpenStats,
 }: {
-  tab: "all" | "delegations" | "miners";
-  onTabChange: (t: "all" | "delegations" | "miners") => void;
+  tab: "all" | "delegations" | "miners" | "activity";
+  onTabChange: (t: "all" | "delegations" | "miners" | "activity") => void;
   sortBy: "featured" | "newest" | "rewardScore" | "yieldPer1000";
   onSortByChange: (
     v: "featured" | "newest" | "rewardScore" | "yieldPer1000"
@@ -2602,6 +2870,7 @@ function LaunchpadMarketplaceDialogContent({
     label: string;
   }>;
   tabCounts: { all: number; delegations: number; miners: number };
+  isLive: boolean;
   zoneId: number | null;
   onZoneIdChange: (v: number | null) => void;
   shouldShowRegionFilter: boolean;
@@ -2655,6 +2924,7 @@ function LaunchpadMarketplaceDialogContent({
 }) {
   return (
     <div className="flex w-full flex-col gap-4 overflow-x-hidden">
+      <h1 className="text-2xl font-bold hidden md:block">Glow Launchpad</h1>
       <div className="rounded-2xl border border-border bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
         <span className="text-foreground/90">
           Unsure where to start? Learn about{" "}
@@ -2683,7 +2953,8 @@ function LaunchpadMarketplaceDialogContent({
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div
             className={cn(
-              "grid grid-cols-3 gap-2 rounded-2xl border border-border bg-muted/20 p-2",
+              "grid gap-2 rounded-2xl border border-border bg-muted/20 p-2",
+              isLive ? "grid-cols-4" : "grid-cols-3",
               "w-full md:w-auto"
             )}
           >
@@ -2723,65 +2994,86 @@ function LaunchpadMarketplaceDialogContent({
             >
               Miners (USDC) ({tabCounts.miners})
             </button>
-          </div>
-
-          <div className="flex items-center justify-between md:justify-end gap-3">
-            {shouldShowRegionFilter ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-10">
-                    <Filter className="mr-2 h-4 w-4" />
-                    Filters
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Region</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuRadioGroup
-                    value={zoneId?.toString() || "all"}
-                    onValueChange={(v) =>
-                      onZoneIdChange(v === "all" ? null : Number(v))
-                    }
-                  >
-                    <DropdownMenuRadioItem value="all">
-                      All regions
-                    </DropdownMenuRadioItem>
-                    {zones.map((z) => (
-                      <DropdownMenuRadioItem key={z.id} value={z.id.toString()}>
-                        {z.name}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            {isLive ? (
+              <button
+                type="button"
+                onClick={() => onTabChange("activity")}
+                className={cn(
+                  "h-10 rounded-xl border px-3 text-sm font-semibold transition-colors",
+                  tab === "activity"
+                    ? "border-border bg-background/40 text-foreground"
+                    : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/30"
+                )}
+              >
+                Activity
+              </button>
             ) : null}
-
-            <Select
-              value={sortBy}
-              onValueChange={(v) =>
-                onSortByChange(
-                  v as "featured" | "newest" | "rewardScore" | "yieldPer1000"
-                )
-              }
-            >
-              <SelectTrigger className="h-10 w-[190px] bg-background/50">
-                <ArrowDownUp className="mr-2 h-4 w-4 text-muted-foreground" />
-                <SelectValue placeholder="Sort" />
-              </SelectTrigger>
-              <SelectContent>
-                {sortOptions.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
+
+          {tab === "activity" ? null : (
+            <div className="flex items-center justify-between md:justify-end gap-3">
+              {shouldShowRegionFilter ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-10">
+                      <Filter className="mr-2 h-4 w-4" />
+                      Filters
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Region</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup
+                      value={zoneId?.toString() || "all"}
+                      onValueChange={(v) =>
+                        onZoneIdChange(v === "all" ? null : Number(v))
+                      }
+                    >
+                      <DropdownMenuRadioItem value="all">
+                        All regions
+                      </DropdownMenuRadioItem>
+                      {zones.map((z) => (
+                        <DropdownMenuRadioItem
+                          key={z.id}
+                          value={z.id.toString()}
+                        >
+                          {z.name}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+
+              <Select
+                value={sortBy}
+                onValueChange={(v) =>
+                  onSortByChange(
+                    v as "featured" | "newest" | "rewardScore" | "yieldPer1000"
+                  )
+                }
+              >
+                <SelectTrigger className="h-10 w-[190px] bg-background/50">
+                  <ArrowDownUp className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortOptions.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="space-y-3">
-        {isLoading ? (
+        {tab === "activity" ? (
+          <SponsoredFarmsActivity />
+        ) : isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <div
@@ -2998,7 +3290,9 @@ function LaunchpadAssetCard({
 
           <div className="rounded-xl border border-border bg-background/30 p-3">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              {isDelegation ? "Est. REWARDS" : "YIELD"}
+              {isDelegation
+                ? "EST. REWARDS (100 WEEKS)"
+                : "WEEKLY REWARDS (99 WEEKS)"}
             </div>
             <div className={cn("mt-2 text-base font-semibold", accent.reward)}>
               {rewardsMain}

@@ -269,6 +269,9 @@ export function RankWidget({
 
   const totalsPoints = impactScore?.totals?.totalPoints ?? undefined;
   const weeklyPoints = latestWeek?.totalPoints ?? undefined;
+  const projectedWeeklyPoints =
+    impactScore?.currentWeekProjection?.projectedPoints?.totalProjectedScore ??
+    undefined;
 
   const totalPointsNumber = React.useMemo(() => {
     const num = Number(totalsPoints ?? "0");
@@ -298,11 +301,17 @@ export function RankWidget({
   }, [totalsPoints]);
 
   const subtitle = React.useMemo(() => {
+    const projectedPoints = Number(projectedWeeklyPoints ?? "0");
+    if (Number.isFinite(projectedPoints) && projectedPoints > 0)
+      return `Projected ${formatPoints(
+        projectedWeeklyPoints
+      )} points this week`;
+
     const points = Number(weeklyPoints ?? "0");
     if (Number.isFinite(points) && points > 0)
-      return `${formatPoints(weeklyPoints)} points this week`;
+      return `${formatPoints(weeklyPoints)} points last week`;
     return "Ramp impact with GCTL + vaults";
-  }, [weeklyPoints]);
+  }, [projectedWeeklyPoints, weeklyPoints]);
 
   const selfGlobalRank = React.useMemo(() => {
     if (!normalizedWalletAddress) return null;
@@ -414,12 +423,6 @@ export function RankWidget({
                         className="font-mono text-[10px] font-bold rounded-full bg-[#C084FC]/10 border-[#C084FC]/30 text-[#C084FC]"
                       >
                         {tier}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className="font-mono text-[10px] font-bold rounded-full bg-muted/20 border-border text-foreground"
-                      >
-                        {rankDisplay}
                       </Badge>
                     </>
                   ) : null}

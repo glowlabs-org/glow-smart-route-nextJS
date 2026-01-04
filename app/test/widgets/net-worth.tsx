@@ -798,7 +798,7 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
                   onClick={() => setIsSwapOpen(true)}
                 >
                   <ArrowLeftRight className="h-3 w-3 hidden sm:block" />
-                  <span className="text-xs sm:inline">Swap</span>
+                  <span className="text-xs sm:inline md:text-base">Swap</span>
                 </Button>
                 <Button
                   variant="outline"

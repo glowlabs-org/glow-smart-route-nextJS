@@ -16,7 +16,12 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
-import { useWallets, type MintedEvent, type StakedEvent, type SplitActivity } from "@/hooks";
+import {
+  useWallets,
+  type MintedEvent,
+  type StakedEvent,
+  type SplitActivity,
+} from "@/hooks";
 import { formatUnits } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import type { SwapActivity } from "@/hooks/useRecentActivityFeed";
@@ -86,7 +91,9 @@ function buildMintActivity(event: MintedEvent): ActivityItem | null {
   const original = safeFormatUnits(event.amountRaw, originalDecimals);
 
   const title = `Minted ${formatCompactNumber(gctl, 2)} GCTL`;
-  const subtitle = `From ${formatCompactNumber(original, 2)} ${event.currency}`;
+  const subtitle = `From ${formatCompactNumber(original, 2)} ${
+    event.currency === "USDG" ? "USDC" : event.currency
+  }`;
 
   return {
     id: event.txId
@@ -271,7 +278,17 @@ export function RecentActivity({
       if (item) all.push(item);
     });
 
-    return all.sort((a, b) => b.timestampMs - a.timestampMs);
+    return all.sort((a, b) => {
+      const timeDiff = b.timestampMs - a.timestampMs;
+      if (timeDiff !== 0) return timeDiff;
+
+      // Tie-breaker: if timestamps are identical, mint is "older" than stake
+      // (appears lower in a latest-to-oldest list)
+      if (a.kind === "mint" && b.kind === "stake") return 1;
+      if (a.kind === "stake" && b.kind === "mint") return -1;
+
+      return 0;
+    });
   }, [mintedEvents, stakeEvents, splitsActivity, swapsActivity]);
 
   const isLoading =

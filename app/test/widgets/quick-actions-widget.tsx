@@ -122,6 +122,7 @@ export default function QuickActionsWidget({
   const activeLaunchpadFarmsCount =
     activeDelegationsListingsCount + activeMinersListingsCount;
   const isMinersSoldOut = activeMinersListingsCount === 0;
+
   const handleMinersCountdownComplete = React.useCallback(() => {
     setMinersNextBatchAtMs(getNextTuesdayAt1pmET().getTime());
     void (async () => {

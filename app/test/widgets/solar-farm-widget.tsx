@@ -11,7 +11,15 @@ import {
 } from "recharts";
 import { Cpu, Zap, LayoutGrid, Sun, Rocket, Layers, Gift } from "lucide-react";
 import Link from "next/link";
-import { useSponsorListings, useRewardsBreakdown } from "@/hooks";
+import {
+  useGlowLaunchpad,
+  useMiningCenter,
+  useMiningScore,
+  useRewardsBreakdown,
+  useRewardScore,
+  useSponsorListings,
+  useSplitsActivity,
+} from "@/hooks";
 import { useAccount } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -30,6 +38,13 @@ import {
   AnimatedCountdown,
   useCountdownTo,
 } from "@/app/components/animated-countdown";
+import {
+  attachEstimatedWeeklyLaunchpadRewards,
+  attachEstimatedWeeklyMiningCenterRewards,
+  deriveLaunchpadSponsorshipsInProgress,
+  deriveMiningCenterSponsorshipsInProgress,
+  getAggregatedEstimatedWeeklyGlw,
+} from "@/utils/sponsorships-in-progress";
 
 interface HistoryDataPoint {
   weekNumber: number;
@@ -239,12 +254,94 @@ export default function SolarFarmWidget({
     enabled: hasWallet,
   });
 
-  const { applications: launchpadApplications } = useSponsorListings({
+  const { applications: launchpadApplications } = useGlowLaunchpad({
     filters: { paymentCurrency: "GLW" },
   });
   const { applications: minersApplications } = useSponsorListings({
     filters: { paymentCurrency: "USDC", type: "mining-center" },
   });
+
+  const {
+    activity: splitsActivity,
+    isLoading: isSplitsActivityLoading,
+    isError: isSplitsActivityError,
+  } = useSplitsActivity({
+    walletAddress: walletAddress ?? undefined,
+    enabled: hasWallet,
+    limit: 200,
+  });
+
+  const sponsorshipsInProgress = React.useMemo(() => {
+    return deriveLaunchpadSponsorshipsInProgress({
+      splitsActivity,
+      sponsorListings: launchpadApplications,
+    });
+  }, [launchpadApplications, splitsActivity]);
+
+  const applicationsForRewards = React.useMemo(() => {
+    return sponsorshipsInProgress
+      .map((item) => item.application)
+      .filter((app): app is NonNullable<typeof app> => app !== null);
+  }, [sponsorshipsInProgress]);
+
+  const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
+    applications: applicationsForRewards,
+    paymentCurrency: "GLW",
+    enabled: hasWallet && applicationsForRewards.length > 0,
+    walletAddress: walletAddress ?? null,
+  });
+
+  const sponsorshipsInProgressWithEstimates = React.useMemo(() => {
+    return attachEstimatedWeeklyLaunchpadRewards({
+      sponsorshipsInProgress,
+      rewardScoreMap,
+    });
+  }, [rewardScoreMap, sponsorshipsInProgress]);
+
+  const aggregatedEstimatedWeeklyGlwLaunchpad = React.useMemo(() => {
+    return getAggregatedEstimatedWeeklyGlw(sponsorshipsInProgressWithEstimates);
+  }, [sponsorshipsInProgressWithEstimates]);
+
+  const hasMiningCenterSplits = React.useMemo(() => {
+    return splitsActivity.some((s) => s.fractionType === "mining-center");
+  }, [splitsActivity]);
+
+  const { applications: miningCenterApplications } = useMiningCenter({
+    filters: { paymentCurrency: "USDC" },
+    enabled: hasWallet && hasMiningCenterSplits,
+  });
+
+  const miningCenterInProgress = React.useMemo(() => {
+    return deriveMiningCenterSponsorshipsInProgress({
+      splitsActivity,
+      sponsorListings: miningCenterApplications,
+    });
+  }, [miningCenterApplications, splitsActivity]);
+
+  const miningCenterAppsForMiningScore = React.useMemo(() => {
+    return miningCenterInProgress
+      .map((item) => item.application)
+      .filter((app): app is NonNullable<typeof app> => app !== null);
+  }, [miningCenterInProgress]);
+
+  const { miningScoreMap, isLoading: isMiningScoreLoading } = useMiningScore({
+    applications: miningCenterAppsForMiningScore,
+    enabled: hasWallet && miningCenterAppsForMiningScore.length > 0,
+  });
+
+  const miningCenterInProgressWithEstimates = React.useMemo(() => {
+    return attachEstimatedWeeklyMiningCenterRewards({
+      sponsorshipsInProgress: miningCenterInProgress,
+      miningScoreMap,
+    });
+  }, [miningCenterInProgress, miningScoreMap]);
+
+  const aggregatedEstimatedWeeklyGlwMiningCenter = React.useMemo(() => {
+    return getAggregatedEstimatedWeeklyGlw(miningCenterInProgressWithEstimates);
+  }, [miningCenterInProgressWithEstimates]);
+
+  const isWidgetLoading = isLoading || isSplitsActivityLoading;
+  const isWidgetError = isError || isSplitsActivityError;
 
   const activeListingsCount = React.useMemo(() => {
     return (
@@ -253,7 +350,7 @@ export default function SolarFarmWidget({
     );
   }, [launchpadApplications, minersApplications]);
 
-  const historyData = React.useMemo<HistoryDataPoint[]>(() => {
+  const rewardsHistoryData = React.useMemo<HistoryDataPoint[]>(() => {
     if (!data) return [];
 
     const buckets = new Map<
@@ -332,10 +429,34 @@ export default function SolarFarmWidget({
     return points.slice(-10);
   }, [data]);
 
+  const chartData = React.useMemo<HistoryDataPoint[]>(() => {
+    const base = [...rewardsHistoryData];
+    const totalInProgress =
+      aggregatedEstimatedWeeklyGlwLaunchpad +
+      aggregatedEstimatedWeeklyGlwMiningCenter;
+    if (totalInProgress <= 0) return base;
+
+    const nextWeekNumber = (base.at(-1)?.weekNumber ?? 0) + 1;
+    base.push({
+      weekNumber: nextWeekNumber,
+      week: "In progress",
+      minerReward: aggregatedEstimatedWeeklyGlwMiningCenter,
+      delegationReward: aggregatedEstimatedWeeklyGlwLaunchpad,
+      otherReward: 0,
+      protocolDepositUsd: 0,
+      total: totalInProgress,
+    });
+    return base;
+  }, [
+    aggregatedEstimatedWeeklyGlwLaunchpad,
+    aggregatedEstimatedWeeklyGlwMiningCenter,
+    rewardsHistoryData,
+  ]);
+
   const stats = React.useMemo(() => {
-    const last = historyData.at(-1)?.total ?? 0;
-    const prev = historyData.at(-2)?.total ?? 0;
-    const lastPdUsd = historyData.at(-1)?.protocolDepositUsd ?? 0;
+    const last = rewardsHistoryData.at(-1)?.total ?? 0;
+    const prev = rewardsHistoryData.at(-2)?.total ?? 0;
+    const lastPdUsd = rewardsHistoryData.at(-1)?.protocolDepositUsd ?? 0;
     const trendPercent =
       Number.isFinite(last) && Number.isFinite(prev) && prev > 0
         ? ((last - prev) / prev) * 100
@@ -361,7 +482,7 @@ export default function SolarFarmWidget({
         data?.otherFarmsWithRewards?.farms.length ??
         0,
     };
-  }, [data, historyData]);
+  }, [data, rewardsHistoryData]);
 
   const hasAnyRewardsOrActivity = React.useMemo(() => {
     if (!data) return false;
@@ -396,12 +517,19 @@ export default function SolarFarmWidget({
     );
   }, [data]);
 
+  const hasInProgressSponsorships =
+    sponsorshipsInProgressWithEstimates.length > 0 ||
+    miningCenterInProgressWithEstimates.length > 0 ||
+    (isRewardScoresLoading && sponsorshipsInProgress.length > 0) ||
+    (isMiningScoreLoading && miningCenterInProgress.length > 0);
+
   const isEmptyButConnected =
     hasWallet &&
-    !isLoading &&
-    !isError &&
-    historyData.length === 0 &&
-    !hasAnyRewardsOrActivity;
+    !isWidgetLoading &&
+    !isWidgetError &&
+    rewardsHistoryData.length === 0 &&
+    !hasAnyRewardsOrActivity &&
+    !hasInProgressSponsorships;
 
   const handleBatchCountdownComplete = React.useCallback(() => {
     setNextBatchAtMs(getNextTuesdayAt1pmET().getTime());
@@ -515,7 +643,7 @@ export default function SolarFarmWidget({
   return (
     <Dialog>
       {/* --- DASHBOARD CARD --- */}
-      <Card className="h-full lg:max-h-[380px] flex flex-col overflow-hidden pt-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+      <Card className="h-full lg:max-h-[380px] flex flex-col overflow-hidden pt-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border gap-2">
         {!isEmptyButConnected && (
           <CardHeader className="pb-2 border-b border-border/60 bg-muted/20 pt-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -678,9 +806,9 @@ export default function SolarFarmWidget({
                 </div>
               </div>
             )
-          ) : isLoading ? (
+          ) : isWidgetLoading ? (
             <SolarFarmSkeleton />
-          ) : isError ? (
+          ) : isWidgetError ? (
             <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 text-center">
               <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
                 Unable to load rewards breakdown
@@ -788,7 +916,7 @@ export default function SolarFarmWidget({
                 />
               </div>
             </div>
-          ) : !data || historyData.length === 0 ? (
+          ) : chartData.length === 0 ? (
             <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-2 text-center">
               <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
                 No weekly rewards data yet
@@ -893,7 +1021,7 @@ export default function SolarFarmWidget({
               {/* Chart */}
               <div className="flex-1 w-full min-h-[160px] relative">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={historyData} barSize={24}>
+                  <BarChart data={chartData} barSize={24}>
                     <CartesianGrid
                       strokeDasharray="3 3"
                       vertical={false}

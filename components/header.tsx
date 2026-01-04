@@ -12,9 +12,6 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
-import { useAccount } from "wagmi";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import {
   Drawer,
   DrawerClose,
@@ -30,7 +27,6 @@ import { cn } from "@/lib/utils";
 import { GlowLockup } from "./glow-lockup";
 import { TosDialog } from "./tos-dialog";
 import { ThemeToggle } from "./ui/theme-toggle";
-import { useRefundableFractions } from "@/hooks";
 import { WalletStatus } from "./wallet-status";
 import { GlowSymbol } from "./glow-symbol";
 
@@ -398,102 +394,6 @@ export function Header({
 }: {
   withIsScrolled?: boolean;
 }) {
-  const { address, isConnected } = useAccount();
-  const router = useRouter();
-
-  // Check for refundable fractions
-  const { refundableFractions, summary } = useRefundableFractions({
-    walletAddress: address || null,
-    enabled: Boolean(address && isConnected),
-  });
-
-  // Clean up localStorage for claimed refunds and show toast for new refunds
-  React.useEffect(() => {
-    // Clean up localStorage - remove dismissed refunds that no longer exist
-    const dismissedRefunds = JSON.parse(
-      localStorage.getItem("dismissedRefunds") || "[]"
-    ) as string[];
-
-    if (dismissedRefunds.length > 0) {
-      const currentFractionIds = refundableFractions.map(
-        (refund) => refund.fraction.id
-      );
-      const stillValidDismissed = dismissedRefunds.filter((id) =>
-        currentFractionIds.includes(id)
-      );
-
-      // Update localStorage if there are dismissed refunds that no longer exist
-      if (stillValidDismissed.length !== dismissedRefunds.length) {
-        localStorage.setItem(
-          "dismissedRefunds",
-          JSON.stringify(stillValidDismissed)
-        );
-      }
-    }
-
-    // Show toast for new refunds
-    if (
-      refundableFractions.length > 0 &&
-      summary.totalRefundableFractions > 0
-    ) {
-      // Filter out refunds that have been dismissed
-      const newRefunds = refundableFractions.filter(
-        (refund) => !dismissedRefunds.includes(refund.fraction.id)
-      );
-
-      // Only show toast if there are new (non-dismissed) refunds
-      if (newRefunds.length > 0) {
-        const fractionIds = newRefunds.map((refund) => refund.fraction.id);
-
-        const toastId = toast.error(
-          `You have ${newRefunds.length} refund${
-            newRefunds.length > 1 ? "s" : ""
-          } available`,
-          {
-            description:
-              "Click to claim your refunds from expired farm sponsorships",
-            duration: Infinity, // Keep toast until dismissed
-            position: "top-right",
-            action: {
-              label: "Claim Refunds",
-              onClick: () => {
-                // Mark these refunds as dismissed in localStorage
-                const currentDismissed = JSON.parse(
-                  localStorage.getItem("dismissedRefunds") || "[]"
-                ) as string[];
-                const updatedDismissed = [...currentDismissed, ...fractionIds];
-                localStorage.setItem(
-                  "dismissedRefunds",
-                  JSON.stringify(updatedDismissed)
-                );
-
-                router.push("/wallet");
-                toast.dismiss(toastId);
-              },
-            },
-            onDismiss: () => {
-              // Mark these refunds as dismissed when user manually dismisses
-              const currentDismissed = JSON.parse(
-                localStorage.getItem("dismissedRefunds") || "[]"
-              ) as string[];
-              const updatedDismissed = [...currentDismissed, ...fractionIds];
-              localStorage.setItem(
-                "dismissedRefunds",
-                JSON.stringify(updatedDismissed)
-              );
-              toast.dismiss(toastId);
-            },
-          }
-        );
-
-        // Return cleanup function to dismiss toast if component unmounts
-        return () => {
-          toast.dismiss(toastId);
-        };
-      }
-    }
-  }, [refundableFractions, summary.totalRefundableFractions]);
-
   const headerClassName = cn(
     "relative isolate z-50 h-[72px] w-full border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60",
     !withIsScrolled && "bg-transparent border-transparent backdrop-blur-0"

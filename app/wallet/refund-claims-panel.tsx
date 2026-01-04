@@ -24,18 +24,20 @@ import { formatUnits } from "viem";
 import { useOffchainFractions } from "@glowlabs-org/utils/browser";
 import { useWalletClient } from "wagmi";
 import { publicClient } from "@/web3/web3/clients/publicClient";
-import {
-  useRefundableFractions,
-  type RefundableFraction,
-} from "@/hooks";
+import { useRefundableFractions, type RefundableFraction } from "@/hooks";
 import { usePolling } from "@/utils/use-polling";
 
 interface RefundClaimsPanelProps {
   walletAddress: string | undefined;
   onClaimSuccess?: () => void;
+  variant?: "page" | "dialog";
 }
 
-export function RefundClaimsPanel({ walletAddress, onClaimSuccess }: RefundClaimsPanelProps) {
+export function RefundClaimsPanel({
+  walletAddress,
+  onClaimSuccess,
+  variant = "page",
+}: RefundClaimsPanelProps) {
   const { data: walletClient } = useWalletClient();
   const [processingRefunds, setProcessingRefunds] = React.useState<Set<string>>(
     new Set()
@@ -70,7 +72,7 @@ export function RefundClaimsPanel({ walletAddress, onClaimSuccess }: RefundClaim
   }
 
   // Use polling hook for checking refund status
-  const { startPolling, stopPolling, isPolling } = usePolling({
+  const { startPolling, isPolling } = usePolling({
     pollFn: async () => {
       const { data } = await refetch();
       return data;
@@ -89,6 +91,7 @@ export function RefundClaimsPanel({ walletAddress, onClaimSuccess }: RefundClaim
       return !stillExists;
     },
     onSuccess: (data) => {
+      setProcessingRefunds(new Set());
       // Show success toast when refund is confirmed removed
       toast.success("Refund claimed successfully!", {
         description: "Your GLW tokens have been refunded to your wallet",
@@ -99,6 +102,7 @@ export function RefundClaimsPanel({ walletAddress, onClaimSuccess }: RefundClaim
     },
     onError: (error) => {
       console.error("Polling timeout:", error);
+      setProcessingRefunds(new Set());
       toast.warning("Refund processing is taking longer than expected", {
         description:
           "Your refund may still be processing. Please check your wallet.",
@@ -115,12 +119,6 @@ export function RefundClaimsPanel({ walletAddress, onClaimSuccess }: RefundClaim
 
     const fractionId = refundableFraction.fraction.id;
     setProcessingRefunds((prev) => new Set(prev).add(fractionId));
-    console.log(
-      refundableFraction,
-      refundableFraction.refundDetails.user,
-      refundableFraction.refundDetails.creator,
-      refundableFraction.refundDetails.fractionId
-    );
 
     try {
       const txHash = await claimRefund(
@@ -155,14 +153,6 @@ export function RefundClaimsPanel({ walletAddress, onClaimSuccess }: RefundClaim
       });
     }
   }
-
-  // Clean up processing refunds when polling stops
-  React.useEffect(() => {
-    if (!isPolling && processingRefunds.size > 0) {
-      // Clear all processing refunds when polling stops
-      setProcessingRefunds(new Set());
-    }
-  }, [isPolling, processingRefunds.size]);
 
   // Handle claim all refunds
   async function handleClaimAllRefunds() {
@@ -199,7 +189,12 @@ export function RefundClaimsPanel({ walletAddress, onClaimSuccess }: RefundClaim
   }
 
   return (
-    <Card className="mb-8 bg-transparent">
+    <Card
+      className={cn(
+        "bg-transparent",
+        variant === "page" ? "mb-8" : "mb-0 border-0 shadow-none"
+      )}
+    >
       <CardHeader className="pb-4">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="flex-1">
