@@ -39,6 +39,8 @@ import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useActiveRegionsSummary, useGctlApi, useRegions } from "@/hooks";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { useDebouncedAsync } from "@/hooks/useDebouncedAsync";
+import { trackEvent } from "@/lib/telemetry";
+import { bucketEth, bucketToken, bucketUsd } from "@/lib/telemetry-buckets";
 
 interface MintAndStakeGctlDialogProps {
   open: boolean;
@@ -174,6 +176,19 @@ export function MintAndStakeGctlDialog({
   const wagmiChainId = useChainId();
   const isEthPayEnabled = wagmiChainId === 1 || wagmiChainId === 11155111;
   const addressKey = address?.toLowerCase() ?? null;
+  const source = "mint_and_stake_gctl_dialog";
+  const trackGctlEvent = React.useCallback(
+    (eventName: string, data?: Record<string, unknown>) => {
+      trackEvent(eventName, {
+        source,
+        wallet_connected: isConnected,
+        wallet_address: addressKey,
+        chain_id: wagmiChainId,
+        ...(data || {}),
+      });
+    },
+    [addressKey, isConnected, wagmiChainId]
+  );
   const [optimisticHasGctlByAddress, setOptimisticHasGctlByAddress] =
     React.useState<Record<string, boolean>>({});
 
@@ -258,6 +273,19 @@ export function MintAndStakeGctlDialog({
   }, [hasAnyGctl, isConnected, isGctlBalanceLoading]);
 
   const step = (stepOverride ?? defaultStep) as 1 | 2 | 3;
+
+  const prevOpenRef = React.useRef(open);
+  React.useEffect(() => {
+    if (prevOpenRef.current === open) return;
+    prevOpenRef.current = open;
+
+    trackGctlEvent(
+      open ? "gctl_mint_stake_dialog_open" : "gctl_mint_stake_dialog_close",
+      {
+        step,
+      }
+    );
+  }, [open, step, trackGctlEvent]);
 
   const ethBalanceQuery = useBalance({
     address,
@@ -514,7 +542,23 @@ export function MintAndStakeGctlDialog({
       return;
     }
 
+    const payAmountBucket =
+      selectedCurrency === "ETH"
+        ? bucketEth(amountNumber)
+        : bucketUsd(amountNumber);
+    const mintedGctlBucket = bucketToken(estimatedGctl ?? Number.NaN);
+
+    trackGctlEvent("gctl_mint_stake_submit", {
+      step,
+      region_id: selectedRegionId,
+      pay_currency: selectedCurrency,
+      pay_amount_bucket: payAmountBucket,
+      minted_gctl_bucket: mintedGctlBucket,
+      eth_pay_enabled: isEthPayEnabled,
+    });
+
     try {
+      let stage: "swap_eth" | "allowance" | "approve" | "mint" = "allowance";
       let amountAtomic = toAtomic6(amountNumber);
       let mintCurrency: Currency = selectedCurrency as unknown as Currency;
 
@@ -524,6 +568,7 @@ export function MintAndStakeGctlDialog({
           return;
         }
 
+        stage = "swap_eth";
         setIsSwappingEth(true);
         const amountInWei = parseUnits(
           trimToDecimals(amountInput, ETH_DECIMALS),
@@ -544,17 +589,20 @@ export function MintAndStakeGctlDialog({
       }
 
       setIsApproving(true);
+      stage = "allowance";
       const allowance = await checkTokenAllowance(
         address as string,
         mintCurrency
       );
       if (allowance < amountAtomic) {
+        stage = "approve";
         await approveToken(MAX_UINT256, mintCurrency);
         toast.success(`${String(mintCurrency)} approved`);
       }
       setIsApproving(false);
 
       setIsSubmitting(true);
+      stage = "mint";
       const txHash = await mintGCTLAndStake(
         amountAtomic,
         address as string,
@@ -562,6 +610,16 @@ export function MintAndStakeGctlDialog({
         mintCurrency
       );
       setIsSubmitting(false);
+
+      trackGctlEvent("gctl_mint_stake_tx_sent", {
+        step,
+        region_id: selectedRegionId,
+        pay_currency: selectedCurrency,
+        mint_currency: String(mintCurrency),
+        pay_amount_bucket: payAmountBucket,
+        minted_gctl_bucket: mintedGctlBucket,
+        tx_hash: txHash,
+      });
 
       setProcessingTxHash(txHash);
       setIsProcessingModalOpen(true);
@@ -576,6 +634,14 @@ export function MintAndStakeGctlDialog({
       setIsApproving(false);
       setIsSubmitting(false);
       setIsSwappingEth(false);
+      trackGctlEvent("gctl_mint_stake_error", {
+        step,
+        region_id: selectedRegionId,
+        pay_currency: selectedCurrency,
+        pay_amount_bucket: payAmountBucket,
+        minted_gctl_bucket: mintedGctlBucket,
+        error_message: getErrorMessage(error),
+      });
       toast.error("Failed to mint & stake GCTL", {
         description: getErrorMessage(error),
       });
@@ -587,6 +653,7 @@ export function MintAndStakeGctlDialog({
     approveToken,
     chainId,
     checkTokenAllowance,
+    estimatedGctl,
     isConnected,
     isEthPayEnabled,
     isUnstakeAcknowledged,
@@ -595,6 +662,8 @@ export function MintAndStakeGctlDialog({
     selectedRegionId,
     signer,
     swapEthToUsdc,
+    trackGctlEvent,
+    step,
   ]);
 
   const regionsForSelection = React.useMemo(() => {
@@ -660,11 +729,11 @@ export function MintAndStakeGctlDialog({
     if (step === 3) return setStepOverride(2);
     if (step === 2) {
       if (!hasAnyGctl) return setStepOverride(1);
-      onOpenChange(false);
+      handleDialogOpenChange(false);
       return;
     }
-    onOpenChange(false);
-  }, [hasAnyGctl, onOpenChange, step]);
+    handleDialogOpenChange(false);
+  }, [handleDialogOpenChange, hasAnyGctl, step]);
 
   const handleNext = React.useCallback(() => {
     if (step === 1) return setStepOverride(2);

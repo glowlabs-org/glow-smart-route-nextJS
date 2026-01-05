@@ -127,7 +127,7 @@ function AnimatedTimePart({
     >
       <AnimatePresence initial={false} mode="popLayout">
         <motion.span
-          key={value}
+          key={`${value}-${unit ?? ""}`}
           initial={{ y: 14, opacity: 0, filter: "blur(6px)", scale: 0.98 }}
           animate={{ y: 0, opacity: 1, filter: "blur(0px)", scale: 1 }}
           exit={{ y: -14, opacity: 0, filter: "blur(6px)", scale: 0.98 }}
@@ -138,23 +138,23 @@ function AnimatedTimePart({
             mass: 0.7,
           }}
           className={cn(
-            "absolute inset-0 flex items-center justify-center font-mono font-bold tabular-nums text-foreground",
+            "absolute inset-0 flex items-baseline justify-center gap-1 font-mono font-bold tabular-nums text-foreground",
             textClass
           )}
         >
-          {value}
+          <span>{value}</span>
+          {unit ? (
+            <span
+              className={cn(
+                "font-mono font-semibold uppercase tracking-wide text-muted-foreground/70",
+                unitClass
+              )}
+            >
+              {unit}
+            </span>
+          ) : null}
         </motion.span>
       </AnimatePresence>
-      {unit ? (
-        <span
-          className={cn(
-            "pointer-events-none absolute right-1 top-0.5 font-mono font-semibold uppercase tracking-wide text-muted-foreground/70",
-            unitClass
-          )}
-        >
-          {unit}
-        </span>
-      ) : null}
     </span>
   );
 }
