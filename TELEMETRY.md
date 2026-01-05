@@ -188,9 +188,9 @@ All events below follow `snake_case` and use `dashboard_*` (dashboard surface ar
 
 - **GCTL mint & stake (key KPI)**
   - `gctl_mint_stake_dialog_open` / `gctl_mint_stake_dialog_close`
-  - `gctl_mint_stake_submit_click` (props: `currency`, `region_id`, bucketed amount)
-  - `gctl_mint_stake_tx_submitted` (props: `tx_hash`)
-  - `gctl_mint_stake_error` (props: `stage`)
+  - `gctl_mint_stake_submit` (props: `region_id`, `pay_currency`, `pay_amount_bucket`, `minted_gctl_bucket`)
+  - `gctl_mint_stake_tx_sent` (props: `tx_hash`, plus the same bucketing props)
+  - `gctl_mint_stake_error` (props: `error_message`, plus the same bucketing props)
     - emitted by: `components/dialogs/mint-and-stake-gctl-dialog.tsx`
 
 #### Landing site (glow.org)

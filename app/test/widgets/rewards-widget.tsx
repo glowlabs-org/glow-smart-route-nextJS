@@ -24,7 +24,6 @@ import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import { cn } from "@/lib/utils";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
-import { trackEvent } from "@/lib/telemetry";
 
 const DEFAULT_INITIAL_DURATION_MS = (4 * 60 * 60 + 12 * 60 + 33) * 1000;
 
@@ -141,8 +140,6 @@ function RewardsCountdown(props: { initialDurationMs: number }) {
     }, [initialDurationMs]),
   });
 
-  const showSeconds = remainingMs <= 10 * 60 * 1000;
-
   return (
     <div className="relative overflow-hidden rounded-xl border border-border/60 bg-muted/20 py-2 px-3">
       <motion.div
@@ -161,11 +158,7 @@ function RewardsCountdown(props: { initialDurationMs: number }) {
           <span>Next Claim</span>
         </div>
         <div className="flex justify-end">
-          <AnimatedCountdown
-            remainingMs={remainingMs}
-            size="sm"
-            showSeconds={showSeconds}
-          />
+          <AnimatedCountdown remainingMs={remainingMs} size="sm" />
         </div>
       </div>
     </div>
@@ -185,8 +178,6 @@ export default function RewardsWidget({
 }: RewardsWidgetProps) {
   const { isConnecting, isReconnecting } = useAccount();
   const hasWallet = Boolean(walletAddress);
-  const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
-  const source = "rewards_widget";
   const isWalletConnecting = isConnecting || isReconnecting;
   const address = walletAddress ?? undefined;
   const queryClient = useQueryClient();
@@ -383,7 +374,6 @@ export default function RewardsWidget({
         {/* Countdown Area */}
         {hasWallet &&
           !isWalletConnecting &&
-          hasClaimable &&
           !isWidgetLoading &&
           !isWidgetError && (
             <div className="pt-0">
@@ -465,16 +455,7 @@ export default function RewardsWidget({
           {hasWallet && !shouldHide ? (
             <Dialog>
               <DialogTrigger asChild>
-                <Button
-                  className="w-full h-10 font-semibold shadow-sm transition-all hover:scale-[1.01]"
-                  onClick={() => {
-                    trackEvent("dashboard_rewards_claim_open_click", {
-                      source,
-                      wallet_connected: hasWallet,
-                      wallet_address: normalizedWalletAddress,
-                    });
-                  }}
-                >
+                <Button className="w-full h-10 font-semibold shadow-sm transition-all hover:scale-[1.01]">
                   Claim Rewards
                 </Button>
               </DialogTrigger>
