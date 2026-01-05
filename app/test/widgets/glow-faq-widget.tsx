@@ -19,16 +19,17 @@ const faqItems: FaqItem[] = [
     a: (
       <div className="space-y-4">
         <p>
-          Glow is a{" "}
-          <span className="text-primary font-medium">
-            crypto-powered protocol
-          </span>{" "}
-          that helps fund the construction of real-world solar farms.
+          Glow is a solar mining crypto protocol that helps fund the
+          construction of real-world solar farms.
+        </p>
+        <p>
+          Solar farms compete to displace the most carbon per dollar of
+          electricity revenue.
         </p>
         <p>
           Unlike traditional carbon credits, Glow specifically identifies solar
-          opportunities that create the greatest impact (CO2 offset) per dollar
-          of funding provided.
+          opportunities that deliver the greatest impact (CO2 offset) per dollar
+          of funding.
         </p>
       </div>
     ),
@@ -92,11 +93,11 @@ const faqItems: FaqItem[] = [
   },
   {
     id: "item-5",
-    q: "What is the Global Impact Leaderboard?",
+    q: "What is the Impact Leaderboard?",
     a: (
       <div className="space-y-4">
         <p>
-          The Global Impact Leaderboard ranks wallets by{" "}
+          The Impact Leaderboard ranks wallets by{" "}
           <span className="text-primary font-medium">Glow Impact Score</span>—a
           points system designed to reward the actions that most directly grow
           onchain climate impact (especially{" "}

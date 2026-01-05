@@ -67,7 +67,7 @@ export default function GlobalLeaderboardWidget({
       >
         <CardHeader className="pb-3">
           <CardTitle className="tracking-tight text-base">
-            Global Impact Leaderboard
+            Impact Leaderboard
           </CardTitle>
         </CardHeader>
 

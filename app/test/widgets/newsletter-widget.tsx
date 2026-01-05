@@ -91,8 +91,8 @@ export default function NewsletterWidget({ className }: NewsletterWidgetProps) {
               Stay in the loop.
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed max-w-[90%]">
-              Get the latest updates on solar energy innovations, protocol
-              developments, and impact stories delivered to your inbox.
+              Join our monthly newsletter for Glow&apos;s latest updates on solar
+              innovation, protocol developments, and impact stories.
             </p>
           </div>
         </div>

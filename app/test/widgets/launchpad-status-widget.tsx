@@ -211,7 +211,7 @@ export default function LaunchpadStatusWidget({
                 isFullRow ? "text-xl" : "text-base"
               )}
             >
-              {isLive ? "Glow Launchpad" : "Next Solar Batch"}
+              {isLive ? "Glow Launchpad" : "New Solar Farm Listing In..."}
             </CardTitle>
           </div>
 
@@ -419,14 +419,13 @@ export default function LaunchpadStatusWidget({
                 </div>
                 <div className="space-y-0.5">
                   <p className="text-xl font-semibold text-foreground">
-                    Every Tuesday at 1pm ET
+                    Have your GLW ready to delegate.
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    The next batch of{" "}
-                    <span className="text-foreground">Delegations</span> and{" "}
-                    <span className="text-foreground">Miners</span> goes live at
-                    the same time. Buy GLW now so you’re ready to delegate the
-                    moment it opens.
+                    Every Tuesday at 1 PM EST, Glow lists at least one new solar
+                    farm for crowdfunding. Users can delegate GLW tokens to help
+                    fund the farm, support real-world impact, and earn GLW
+                    tokens weekly for 100 weeks for contributing to the network.
                   </p>
                 </div>
               </div>

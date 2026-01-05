@@ -38,16 +38,18 @@ export default function OnboardingHeroWidget({
       {/* Main Content Container - Reduced vertical padding to fit buttons */}
       <CardContent className="relative z-10 flex flex-col h-full p-6 sm:p-7 md:p-8">
         {/* Header Labels - Reduced margin-bottom */}
-        <div className="flex items-center justify-between mb-4 sm:mb-6 text-muted-foreground dark:text-white/60">
-          <div className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-[color:var(--color-glow-green)] animate-pulse shadow-[0_0_8px_var(--color-glow-green)]" />
+        <div className="mb-4 sm:mb-6 text-muted-foreground dark:text-white/60">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-[color:var(--color-glow-green)] animate-pulse shadow-[0_0_8px_var(--color-glow-green)]" />
+              <span className="text-[10px] md:text-xs font-mono font-bold tracking-[0.2em] uppercase text-foreground dark:text-white/90">
+                Start Here
+              </span>
+            </div>
             <span className="text-[10px] md:text-xs font-mono tracking-[0.2em] uppercase">
-              Start Here
+              Mission
             </span>
           </div>
-          <span className="text-[10px] md:text-xs font-mono tracking-[0.2em] uppercase hidden sm:block">
-            Mission
-          </span>
         </div>
 
         {/* The Quote - Adjusted size to fit within 340px container */}

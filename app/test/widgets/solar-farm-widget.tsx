@@ -646,13 +646,13 @@ export default function SolarFarmWidget({
   return (
     <Dialog>
       {/* --- DASHBOARD CARD --- */}
-      <Card className="h-full lg:max-h-[380px] overflow-hidden flex flex-col gap-2 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+      <Card className="h-full lg:max-h-[380px] flex flex-col overflow-hidden pt-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border gap-2">
         {!isEmptyButConnected && (
-          <CardHeader className="pb-0">
+          <CardHeader className="pb-0 pt-4">
             <div className="flex items-center justify-between gap-3">
-              <div className="text-lg font-semibold tracking-tight text-foreground">
+              <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
                 Glow Mining
-              </div>
+              </CardTitle>
               <DialogTrigger asChild>
                 <Button
                   variant="outline"
@@ -668,298 +668,294 @@ export default function SolarFarmWidget({
           </CardHeader>
         )}
 
-        <CardContent className="flex-1 min-h-0 p-0">
-          <div
-            className={cn(
-              "flex-1 min-h-0 flex flex-col gap-6",
-              !isEmptyButConnected ? "p-4 pt-2 sm:p-6" : "p-0"
-            )}
-          >
-            {!hasWallet ? (
-              isWalletConnecting ? (
-                <SolarFarmSkeleton />
-              ) : (
-                <div className="relative flex-1 min-h-0">
-                  <div
-                    aria-hidden
-                    className="pointer-events-none select-none blur-[10px] opacity-60"
-                  >
-                    {/* Dashboard Stats (placeholder) */}
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="flex flex-col gap-1 min-w-0">
-                        <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
-                          Current Weekly Payout
+        <CardContent
+          className={cn(
+            "flex-1 min-h-0 flex flex-col gap-6",
+            !isEmptyButConnected ? "p-4 pt-2 sm:p-6" : "p-0"
+          )}
+        >
+          {!hasWallet ? (
+            isWalletConnecting ? (
+              <SolarFarmSkeleton />
+            ) : (
+              <div className="relative flex-1 min-h-0">
+                <div
+                  aria-hidden
+                  className="pointer-events-none select-none blur-[10px] opacity-60"
+                >
+                  {/* Dashboard Stats (placeholder) */}
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
+                        Current Weekly Payout
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <Sun className="w-5 h-5 text-emerald-500 fill-emerald-500/20" />
+                          <span className="text-3xl font-bold text-foreground tracking-tight font-mono">
+                            2,300
+                          </span>
+                          <span className="text-sm font-bold text-muted-foreground font-mono">
+                            GLW
+                          </span>
+                        </div>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 font-mono border border-emerald-500/20">
+                          +8.2%
                         </span>
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <Sun className="w-5 h-5 text-emerald-500 fill-emerald-500/20" />
-                            <span className="text-3xl font-bold text-foreground tracking-tight font-mono">
-                              2,300
+                      </div>
+                    </div>
+
+                    <div className="w-full sm:w-auto bg-muted/30 px-3 py-2 sm:px-4 rounded-xl border border-border">
+                      <div className="grid grid-cols-3 divide-x divide-border">
+                        <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-lg font-bold text-foreground font-mono">
+                              3
                             </span>
-                            <span className="text-sm font-bold text-muted-foreground font-mono">
-                              GLW
-                            </span>
+                            <Cpu className="w-4 h-4 text-miner-yellow" />
                           </div>
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 font-mono border border-emerald-500/20">
-                            +8.2%
+                          <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                            Miners
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-lg font-bold text-foreground font-mono">
+                              2
+                            </span>
+                            <Zap className="w-4 h-4 text-glow-purple" />
+                          </div>
+                          <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                            Delegations
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-lg font-bold text-foreground font-mono">
+                              1
+                            </span>
+                            <Gift className="w-4 h-4 text-[color:var(--color-glow-green)]" />
+                          </div>
+                          <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                            Other
                           </span>
                         </div>
                       </div>
-
-                      <div className="w-full sm:w-auto bg-muted/30 px-3 py-2 sm:px-4 rounded-xl border border-border">
-                        <div className="grid grid-cols-3 divide-x divide-border">
-                          <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-lg font-bold text-foreground font-mono">
-                                3
-                              </span>
-                              <Cpu className="w-4 h-4 text-miner-yellow" />
-                            </div>
-                            <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                              Miners
-                            </span>
-                          </div>
-                          <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-lg font-bold text-foreground font-mono">
-                                2
-                              </span>
-                              <Zap className="w-4 h-4 text-glow-purple" />
-                            </div>
-                            <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                              Delegations
-                            </span>
-                          </div>
-                          <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-lg font-bold text-foreground font-mono">
-                                1
-                              </span>
-                              <Gift className="w-4 h-4 text-[color:var(--color-glow-green)]" />
-                            </div>
-                            <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                              Other
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Chart (placeholder) */}
-                    <div className="mt-6 h-[190px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={placeholderHistoryData} barSize={24}>
-                          <CartesianGrid
-                            strokeDasharray="3 3"
-                            vertical={false}
-                            stroke="var(--border)"
-                            opacity={0.5}
-                          />
-                          <XAxis
-                            dataKey="week"
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{
-                              fill: "var(--muted-foreground)",
-                              fontSize: 10,
-                              fontFamily: "monospace",
-                            }}
-                            dy={10}
-                          />
-                          <Bar
-                            dataKey="minerReward"
-                            stackId="a"
-                            fill="var(--color-glow-yellow)"
-                            radius={[0, 0, 4, 4]}
-                            animationDuration={1500}
-                          />
-                          <Bar
-                            dataKey="delegationReward"
-                            stackId="a"
-                            fill="var(--color-glow-purple)"
-                            radius={[0, 0, 0, 0]}
-                            animationDuration={1500}
-                          />
-                          <Bar
-                            dataKey="otherReward"
-                            stackId="a"
-                            fill="var(--color-glow-green)"
-                            radius={[4, 4, 0, 0]}
-                            animationDuration={1500}
-                          />
-                          <Bar
-                            dataKey="protocolDepositUsd"
-                            fill="var(--color-glow-orange)"
-                            radius={[4, 4, 0, 0]}
-                            animationDuration={1500}
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
                     </div>
                   </div>
 
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center gap-2">
-                    <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                      Connect your wallet
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Connect your wallet to view mining performance.
-                    </div>
+                  {/* Chart (placeholder) */}
+                  <div className="mt-6 h-[190px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={placeholderHistoryData} barSize={24}>
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          vertical={false}
+                          stroke="var(--border)"
+                          opacity={0.5}
+                        />
+                        <XAxis
+                          dataKey="week"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{
+                            fill: "var(--muted-foreground)",
+                            fontSize: 10,
+                            fontFamily: "monospace",
+                          }}
+                          dy={10}
+                        />
+                        <Bar
+                          dataKey="minerReward"
+                          stackId="a"
+                          fill="var(--color-glow-yellow)"
+                          radius={[0, 0, 4, 4]}
+                          animationDuration={1500}
+                        />
+                        <Bar
+                          dataKey="delegationReward"
+                          stackId="a"
+                          fill="var(--color-glow-purple)"
+                          radius={[0, 0, 0, 0]}
+                          animationDuration={1500}
+                        />
+                        <Bar
+                          dataKey="otherReward"
+                          stackId="a"
+                          fill="var(--color-glow-green)"
+                          radius={[4, 4, 0, 0]}
+                          animationDuration={1500}
+                        />
+                        <Bar
+                          dataKey="protocolDepositUsd"
+                          fill="var(--color-glow-orange)"
+                          radius={[4, 4, 0, 0]}
+                          animationDuration={1500}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
-              )
-            ) : isWidgetLoading ? (
-              <SolarFarmSkeleton />
-            ) : isWidgetError ? (
-              <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 text-center">
-                <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                  Unable to load rewards breakdown
+
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center gap-2">
+                  <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                    Connect your wallet
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Connect your wallet to view mining performance.
+                  </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="font-mono"
-                  onClick={() => refetch()}
-                >
-                  Retry
-                </Button>
               </div>
-            ) : isEmptyButConnected ? (
-              <div className="flex-1 min-h-0 flex flex-col">
-                <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden p-6 flex flex-col pb-0">
-                  <div className="relative flex flex-col items-center justify-center text-center flex-1 gap-6">
-                    <div className="space-y-2">
-                      <div className="text-lg font-bold text-foreground">
-                        No Active Solar Streams
-                      </div>
-                      <div className="mx-auto max-w-[400px] text-sm text-zinc-400">
-                        Your portfolio is currently dormant. Delegate GLW to
-                        generate weekly GLW rewards.
-                      </div>
+            )
+          ) : isWidgetLoading ? (
+            <SolarFarmSkeleton />
+          ) : isWidgetError ? (
+            <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 text-center">
+              <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                Unable to load rewards breakdown
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="font-mono"
+                onClick={() => refetch()}
+              >
+                Retry
+              </Button>
+            </div>
+          ) : isEmptyButConnected ? (
+            <div className="flex-1 min-h-0 flex flex-col">
+              <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden p-6 flex flex-col pb-0">
+                <div className="relative flex flex-col items-center justify-center text-center flex-1 gap-6">
+                  <div className="space-y-2">
+                    <div className="text-lg font-bold text-foreground">
+                      No Active Solar Streams
                     </div>
-
-                    <div className="w-full max-w-md space-y-3">
-                      {activeListingsCount > 0 ? (
-                        <Button
-                          className="h-12 w-full bg-foreground text-background hover:bg-foreground/90 font-mono dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-                          onClick={() => setIsLaunchpadOpen(true)}
-                        >
-                          <Rocket className="mr-2 h-4 w-4" />
-                          Browse Launchpad
-                        </Button>
-                      ) : (
-                        <div className="flex flex-col items-center gap-2">
-                          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                            Next batch in
-                          </div>
-                          <div className="solar-farm-next-batch-countdown">
-                            <AnimatedCountdown
-                              remainingMs={remainingMs}
-                              size="xl"
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="w-full max-w-lg">
-                      <div className="h-px w-full bg-border/60 mb-4" />
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <Link
-                          href="https://glow.org/blog/guide-to-glow-mining"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-[color:var(--color-miner-yellow)]/50"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/50">
-                              <Cpu className="h-4 w-4 text-[color:var(--color-miner-yellow-contrast)]" />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold text-foreground transition-colors group-hover:text-[color:var(--color-miner-yellow-contrast)]">
-                                How Mining Works
-                              </div>
-                              <div className="mt-1 text-xs text-zinc-500">
-                                Learn about cash incentives & yield.
-                              </div>
-                            </div>
-                          </div>
-                        </Link>
-
-                        <Link
-                          href="https://glow.org/blog/guide-to-delegating-glow"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-[#C084FC]/50"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/50">
-                              <Layers className="h-4 w-4 text-[#C084FC]" />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold text-foreground transition-colors group-hover:text-[#C084FC]">
-                                Guide to Delegation
-                              </div>
-                              <div className="mt-1 text-xs text-zinc-500">
-                                Learn about deposit recovery & surplus.
-                              </div>
-                            </div>
-                          </div>
-                        </Link>
-                      </div>
+                    <div className="mx-auto max-w-[400px] text-sm text-zinc-400">
+                      Your portfolio is currently dormant. Delegate GLW to
+                      generate weekly GLW rewards.
                     </div>
                   </div>
 
-                  <LaunchpadDialog
-                    key={
-                      isLaunchpadOpen ? "launchpad-open" : "launchpad-closed"
-                    }
-                    open={isLaunchpadOpen}
-                    onOpenChange={setIsLaunchpadOpen}
-                  />
-                </div>
-              </div>
-            ) : chartData.length === 0 ? (
-              <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-2 text-center">
-                <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                  No weekly rewards data yet
-                </div>
-                <div className="text-[10px] font-mono text-muted-foreground">
-                  Once you have miner/delegation rewards, your last 10 weeks
-                  will appear here.
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Dashboard Stats */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
-                      Current Weekly Payout
-                    </span>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <Sun className="w-5 h-5 text-emerald-500 fill-emerald-500/20" />
-                        <div className="flex flex-col leading-none">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-3xl font-bold text-foreground tracking-tight font-mono">
-                              {formatGlwCompact(stats.weeklyPayout)}
-                            </span>
-                            <span className="text-sm font-bold text-muted-foreground font-mono">
-                              GLW
-                            </span>
-                          </div>
-                          {stats.weeklyProtocolDepositUsd > 0 ? (
-                            <div className="text-[11px] font-bold text-muted-foreground font-mono">
-                              +{" "}
-                              {formatUsdPrecise(stats.weeklyProtocolDepositUsd)}{" "}
-                              USDG
-                            </div>
-                          ) : null}
+                  <div className="w-full max-w-md space-y-3">
+                    {activeListingsCount > 0 ? (
+                      <Button
+                        className="h-12 w-full bg-foreground text-background hover:bg-foreground/90 font-mono dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+                        onClick={() => setIsLaunchpadOpen(true)}
+                      >
+                        <Rocket className="mr-2 h-4 w-4" />
+                        Browse Launchpad
+                      </Button>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                          Next batch in
+                        </div>
+                        <div className="solar-farm-next-batch-countdown">
+                          <AnimatedCountdown
+                            remainingMs={remainingMs}
+                            size="xl"
+                          />
                         </div>
                       </div>
-                      {/* <span
+                    )}
+                  </div>
+
+                  <div className="w-full max-w-lg">
+                    <div className="h-px w-full bg-border/60 mb-4" />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Link
+                        href="https://glow.org/blog/guide-to-glow-mining"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-[color:var(--color-miner-yellow)]/50"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/50">
+                            <Cpu className="h-4 w-4 text-[color:var(--color-miner-yellow-contrast)]" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-foreground transition-colors group-hover:text-[color:var(--color-miner-yellow-contrast)]">
+                              How Mining Works
+                            </div>
+                            <div className="mt-1 text-xs text-zinc-500">
+                              Learn about cash incentives & yield.
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+
+                      <Link
+                        href="https://glow.org/blog/guide-to-delegating-glow"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-[#C084FC]/50"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/50">
+                            <Layers className="h-4 w-4 text-[#C084FC]" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-foreground transition-colors group-hover:text-[#C084FC]">
+                              Guide to Delegation
+                            </div>
+                            <div className="mt-1 text-xs text-zinc-500">
+                              Learn about deposit recovery & surplus.
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+
+                <LaunchpadDialog
+                  key={isLaunchpadOpen ? "launchpad-open" : "launchpad-closed"}
+                  open={isLaunchpadOpen}
+                  onOpenChange={setIsLaunchpadOpen}
+                />
+              </div>
+            </div>
+          ) : chartData.length === 0 ? (
+            <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-2 text-center">
+              <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                No weekly rewards data yet
+              </div>
+              <div className="text-[10px] font-mono text-muted-foreground">
+                Once you have miner/delegation rewards, your last 10 weeks will
+                appear here.
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Dashboard Stats */}
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex flex-col gap-1 min-w-0">
+                  <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
+                    Current Weekly Payout
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <Sun className="w-5 h-5 text-emerald-500 fill-emerald-500/20" />
+                      <div className="flex flex-col leading-none">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-bold text-foreground tracking-tight font-mono">
+                            {formatGlwCompact(stats.weeklyPayout)}
+                          </span>
+                          <span className="text-sm font-bold text-muted-foreground font-mono">
+                            GLW
+                          </span>
+                        </div>
+                        {stats.weeklyProtocolDepositUsd > 0 ? (
+                          <div className="text-[11px] font-bold text-muted-foreground font-mono">
+                            + {formatUsdPrecise(stats.weeklyProtocolDepositUsd)}{" "}
+                            USDG
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                    {/* <span
                       className={cn(
                         "px-1.5 py-0.5 rounded text-[10px] font-bold font-mono border",
                         stats.trendPercent === null
@@ -971,116 +967,115 @@ export default function SolarFarmWidget({
                     >
                       {stats.trend}
                     </span> */}
-                    </div>
                   </div>
+                </div>
 
-                  <DialogTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label="Open farm performance details"
-                      className={cn(
-                        "w-full sm:w-auto bg-muted/30 px-3 py-2 sm:px-4 rounded-xl border border-border transition-colors cursor-pointer",
-                        "hover:bg-muted/40 hover:border-border/80",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                      )}
-                    >
-                      <div className="grid grid-cols-3 divide-x divide-border">
-                        <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-lg font-bold text-foreground font-mono">
-                              {stats.activeMiners}
-                            </span>
-                            <Cpu className="w-4 h-4 text-miner-yellow" />
-                          </div>
-                          <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                            Miners
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Open farm performance details"
+                    className={cn(
+                      "w-full sm:w-auto bg-muted/30 px-3 py-2 sm:px-4 rounded-xl border border-border transition-colors cursor-pointer",
+                      "hover:bg-muted/40 hover:border-border/80",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    )}
+                  >
+                    <div className="grid grid-cols-3 divide-x divide-border">
+                      <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-lg font-bold text-foreground font-mono">
+                            {stats.activeMiners}
                           </span>
+                          <Cpu className="w-4 h-4 text-miner-yellow" />
                         </div>
-                        <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-lg font-bold text-foreground font-mono">
-                              {stats.activeDelegations}
-                            </span>
-                            <Zap className="w-4 h-4 text-glow-purple" />
-                          </div>
-                          <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                            Delegations
-                          </span>
-                        </div>
-                        <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-lg font-bold text-foreground font-mono">
-                              {stats.activeOtherRewards}
-                            </span>
-                            <Gift className="w-4 h-4 text-[color:var(--color-glow-green)]" />
-                          </div>
-                          <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                            Other
-                          </span>
-                        </div>
+                        <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                          Miners
+                        </span>
                       </div>
-                    </button>
-                  </DialogTrigger>
-                </div>
+                      <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-lg font-bold text-foreground font-mono">
+                            {stats.activeDelegations}
+                          </span>
+                          <Zap className="w-4 h-4 text-glow-purple" />
+                        </div>
+                        <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                          Delegations
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-lg font-bold text-foreground font-mono">
+                            {stats.activeOtherRewards}
+                          </span>
+                          <Gift className="w-4 h-4 text-[color:var(--color-glow-green)]" />
+                        </div>
+                        <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                          Other
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                </DialogTrigger>
+              </div>
 
-                {/* Chart */}
-                <div className="flex-1 w-full min-h-[160px] relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} barSize={24}>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        vertical={false}
-                        stroke="var(--border)"
-                        opacity={0.5}
-                      />
-                      <XAxis
-                        dataKey="week"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{
-                          fill: "var(--muted-foreground)",
-                          fontSize: 10,
-                          fontFamily: "monospace",
-                        }}
-                        dy={10}
-                      />
-                      <Tooltip
-                        content={<CustomTooltip />}
-                        cursor={{ fill: "var(--muted)", opacity: 0.5 }}
-                      />
-                      <Bar
-                        dataKey="minerReward"
-                        stackId="a"
-                        fill="var(--color-glow-yellow)"
-                        radius={[0, 0, 4, 4]}
-                        animationDuration={1500}
-                      />
-                      <Bar
-                        dataKey="delegationReward"
-                        stackId="a"
-                        fill="var(--color-glow-purple)"
-                        radius={[0, 0, 0, 0]}
-                        animationDuration={1500}
-                      />
-                      <Bar
-                        dataKey="otherReward"
-                        stackId="a"
-                        fill="var(--color-glow-green)"
-                        radius={[4, 4, 0, 0]}
-                        animationDuration={1500}
-                      />
-                      <Bar
-                        dataKey="protocolDepositUsd"
-                        fill="var(--color-glow-orange)"
-                        radius={[4, 4, 0, 0]}
-                        animationDuration={1500}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </>
-            )}
-          </div>
+              {/* Chart */}
+              <div className="flex-1 w-full min-h-[160px] relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} barSize={24}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="var(--border)"
+                      opacity={0.5}
+                    />
+                    <XAxis
+                      dataKey="week"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{
+                        fill: "var(--muted-foreground)",
+                        fontSize: 10,
+                        fontFamily: "monospace",
+                      }}
+                      dy={10}
+                    />
+                    <Tooltip
+                      content={<CustomTooltip />}
+                      cursor={{ fill: "var(--muted)", opacity: 0.5 }}
+                    />
+                    <Bar
+                      dataKey="minerReward"
+                      stackId="a"
+                      fill="var(--color-glow-yellow)"
+                      radius={[0, 0, 4, 4]}
+                      animationDuration={1500}
+                    />
+                    <Bar
+                      dataKey="delegationReward"
+                      stackId="a"
+                      fill="var(--color-glow-purple)"
+                      radius={[0, 0, 0, 0]}
+                      animationDuration={1500}
+                    />
+                    <Bar
+                      dataKey="otherReward"
+                      stackId="a"
+                      fill="var(--color-glow-green)"
+                      radius={[4, 4, 0, 0]}
+                      animationDuration={1500}
+                    />
+                    <Bar
+                      dataKey="protocolDepositUsd"
+                      fill="var(--color-glow-orange)"
+                      radius={[4, 4, 0, 0]}
+                      animationDuration={1500}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

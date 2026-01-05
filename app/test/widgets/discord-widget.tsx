@@ -71,8 +71,12 @@ export default function DiscordWidget({ className }: DiscordWidgetProps) {
 
           <div className="space-y-4">
             <h3 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">
-              Join us on Discord
+              Join the conversation in Discord.
             </h3>
+            <p className="text-sm text-white/70 leading-relaxed max-w-[32rem]">
+              Engage in founder-led discussions, meet like-minded users, and
+              have your questions answered by the team.
+            </p>
 
             {/* Stats / Features Grid to fill empty space */}
             <div className="grid grid-cols-2 gap-4 pt-2">
