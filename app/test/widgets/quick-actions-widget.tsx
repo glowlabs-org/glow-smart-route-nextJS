@@ -223,7 +223,6 @@ export default function QuickActionsWidget({
                     <AnimatedCountdown
                       remainingMs={minersRemainingMs}
                       size="sm"
-                      showSeconds={showMinersSeconds}
                     />
                   </div>
                 </div>
