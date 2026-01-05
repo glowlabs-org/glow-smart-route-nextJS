@@ -1580,6 +1580,7 @@ function LaunchpadMarketplaceWidget({
 }: LaunchpadMarketplaceWidgetProps) {
   const { address } = useAccount();
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
+  const isMobile = useIsMobile();
   const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
   const [selectedApplicationForStats, setSelectedApplicationForStats] =
     React.useState<TaggedAuctionApplication | null>(null);
@@ -1798,7 +1799,7 @@ function LaunchpadMarketplaceWidget({
   const isLoading = isLoadingLaunchpad || isLoadingMiners;
   const isError = isErrorLaunchpad || isErrorMiners;
   const error = (errorLaunchpad || errorMiners) as Error | null;
-  const resolvedLayout = layout ?? "stack";
+  const resolvedLayout = isMobile ? "carousel" : layout ?? "stack";
   const resolvedCarouselVariant = carouselVariant ?? "compact";
   const isHeroCarousel =
     resolvedLayout === "carousel" && resolvedCarouselVariant === "hero";
@@ -1878,6 +1879,7 @@ function LaunchpadMarketplaceWidget({
 
   const carouselControls = React.useMemo(() => {
     if (resolvedLayout !== "carousel") return null;
+    if (!isLoading && rows.length <= 1) return null;
 
     const dotsCount = isLoading ? 3 : Math.max(1, rows.length);
     const isDisabled = isLoading || rows.length <= 1;
@@ -2049,6 +2051,10 @@ function LaunchpadMarketplaceWidget({
             </div>
           ) : null}
 
+          {/*
+            When there is only one item, render it full-width (no "peeking"/clipping)
+            and remove end padding so the right edge is fully visible.
+          */}
           <div
             ref={carouselScrollRef}
             onScroll={updateCarouselMeta}
@@ -2063,7 +2069,8 @@ function LaunchpadMarketplaceWidget({
             <div
               className={cn(
                 "flex",
-                isHeroCarousel ? "w-full gap-4 pr-0" : "gap-3 pr-6"
+                isHeroCarousel ? "w-full gap-4 pr-0" : "gap-3",
+                rows.length <= 1 ? "w-full pr-0" : "pr-6"
               )}
             >
               {rows.map((row) => (
@@ -2072,7 +2079,7 @@ function LaunchpadMarketplaceWidget({
                   data-carousel-item
                   className={cn(
                     "snap-start shrink-0",
-                    isHeroCarousel
+                    isHeroCarousel || rows.length <= 1
                       ? "w-full max-w-full"
                       : "w-[520px] max-w-[86vw]"
                   )}
@@ -2281,14 +2288,14 @@ function LaunchpadWidgetAssetCard({
 
   return (
     <div className="w-full overflow-hidden rounded-2xl border border-border bg-muted/10 p-4">
-      <div className="flex min-w-0 items-start gap-3">
-        <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-xl border border-border/60 bg-muted/20">
+      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:gap-3">
+        <div className="relative w-full overflow-hidden rounded-xl border border-border/60 bg-muted/20 aspect-[16/9] sm:aspect-auto sm:h-28 sm:w-28 sm:shrink-0">
           <FallbackImage
             src={imageSrc}
             widthForProxy={280}
             quality={70}
             alt={title}
-            className="h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover"
             loading="lazy"
             decoding="async"
           />
@@ -2296,27 +2303,29 @@ function LaunchpadWidgetAssetCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <div className="truncate text-lg font-semibold text-foreground">
+            <div className="min-w-0 truncate text-lg font-semibold text-foreground">
               {title}
+            </div>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <div className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/60 bg-background/40 px-2 py-1 text-xs text-muted-foreground">
+              <MapPin className="h-3.5 w-3.5" />
+              <span className="truncate">{application.zone.name}</span>
             </div>
             <Badge
               variant="secondary"
               className={cn(
-                "shrink-0 border px-2 py-0.5 text-xs leading-none",
+                "border px-2 py-0.5 text-xs leading-none",
                 accent.badge
               )}
             >
               {isDelegation ? "Delegation" : "Miner"}
             </Badge>
           </div>
-          <div className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-border/60 bg-background/40 px-2 py-1 text-xs text-muted-foreground">
-            <MapPin className="h-3.5 w-3.5" />
-            <span className="truncate">{application.zone.name}</span>
-          </div>
 
-          <div className="mt-3 flex min-w-0 items-center gap-2">
+          <div className="mt-3 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
             <div className="min-w-0 flex-1">
-              <div className="relative h-10 w-full overflow-hidden rounded-full bg-muted/40 border border-border/60">
+              <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted/40 border border-border/60">
                 <div
                   className={cn(
                     "absolute inset-y-0 left-0 rounded-full",
@@ -2324,43 +2333,43 @@ function LaunchpadWidgetAssetCard({
                   )}
                   style={{ width: `${remainingPct}%` }}
                 />
-                <div className="absolute inset-0 flex items-center justify-start px-3">
-                  <span className="text-xs font-mono font-medium tabular-nums text-foreground/80">
-                    {isSoldOut
-                      ? "SOLD OUT"
-                      : `${availability.remaining} / ${availability.total} Left`}
-                  </span>
-                </div>
+              </div>
+              <div className="mt-2 text-xs font-mono font-medium tabular-nums text-foreground/80">
+                {isSoldOut
+                  ? "SOLD OUT"
+                  : `${availability.remaining} / ${availability.total} Left`}
               </div>
             </div>
 
-            <Button
-              className="h-10 shrink-0 rounded-full px-4 text-sm whitespace-nowrap"
-              disabled={isSoldOut}
-              onClick={() => {
-                if (isSoldOut) return;
-                onPayDeposit(application, scoreData);
-              }}
-            >
-              {isSoldOut
-                ? "Waitlist"
-                : isDelegation
-                ? "Delegate GLW"
-                : "Buy Miners"}
-            </Button>
-            <Button
-              variant="outline"
-              className="h-10 shrink-0 rounded-full px-3 text-sm whitespace-nowrap"
-              onClick={() => onOpenStats(application, scoreData)}
-            >
-              Advanced Stats
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+              <Button
+                className="h-10 w-full rounded-full px-4 text-sm sm:w-auto whitespace-nowrap"
+                disabled={isSoldOut}
+                onClick={() => {
+                  if (isSoldOut) return;
+                  onPayDeposit(application, scoreData);
+                }}
+              >
+                {isSoldOut
+                  ? "Waitlist"
+                  : isDelegation
+                  ? "Delegate GLW"
+                  : "Buy Miners"}
+              </Button>
+              <Button
+                variant="outline"
+                className="h-10 w-full rounded-full px-3 text-sm sm:w-auto whitespace-nowrap"
+                onClick={() => onOpenStats(application, scoreData)}
+              >
+                Advanced Stats
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="mt-4 min-w-0">
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div className="rounded-xl border border-border bg-background/30 p-3">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
               {costLabel}

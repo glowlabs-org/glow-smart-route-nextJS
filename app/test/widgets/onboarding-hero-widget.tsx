@@ -31,7 +31,7 @@ export default function OnboardingHeroWidget({
       )}
     >
       {/* Background Decor: Glow Logo Watermark - Repositioned to not block text */}
-      <div className="absolute -right-20 -top-40 opacity-[0.05] dark:opacity-[0.03] pointer-events-none select-none mix-blend-screen">
+      <div className="absolute -right-20 -top-40 opacity-[0.05] dark:opacity-[0.03] pointer-events-none select-none">
         <GlowSymbol className="h-[500px] w-[500px] text-foreground dark:text-white rotate-12" />
       </div>
 
@@ -46,9 +46,6 @@ export default function OnboardingHeroWidget({
                 Start Here
               </span>
             </div>
-            <span className="text-[10px] md:text-xs font-mono tracking-[0.2em] uppercase">
-              Mission
-            </span>
           </div>
         </div>
 

@@ -117,9 +117,6 @@ export default function GlobalLeaderboardWidget({
                         <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground tabular-nums shrink-0">
                           {rank <= 3 ? (
                             <>
-                              {rank === 1 ? (
-                                <Crown className="h-4 w-4 text-[color:var(--color-glow-orange)]" />
-                              ) : null}
                               <span>#{rank}</span>
                             </>
                           ) : (

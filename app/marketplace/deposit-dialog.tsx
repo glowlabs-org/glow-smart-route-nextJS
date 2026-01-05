@@ -1039,52 +1039,22 @@ export function DepositDialog({
       }
     }, [application?.activeFraction, rewardScore, stepsToBuy, glwSpotPrice]);
 
-  const delegatedAmountForShare = React.useMemo(() => {
-    try {
-      if (!application?.activeFraction) return null;
-      if (currency !== "GLW") return null;
-      const amount = parseFloat(
-        formatUnits(
-          BigInt(application.activeFraction.stepPrice) * BigInt(stepsToBuy),
-          DECIMALS_BY_TOKEN.GLW
-        )
-      );
-      return formatNumber(amount, 0);
-    } catch {
-      return null;
-    }
-  }, [application?.activeFraction, currency, stepsToBuy]);
-
   const farmLabelForShare = React.useMemo(() => {
     if (!application) return null;
-    if (application.farmName) return `${application.farmName} farm`;
+    if (application.farmName) return application.farmName;
     return application.zone?.name ?? null;
   }, [application]);
 
   const shareUrl = React.useMemo(() => {
     try {
       if (currency !== "GLW") return null;
-      if (!delegatedAmountForShare) return null;
       if (!farmLabelForShare) return null;
       if (!successMetrics) return null;
-
-      const total = Math.max(0, Math.floor(successMetrics.totalSteps));
-      const filledAfter = Math.min(
-        total,
-        Math.max(
-          0,
-          Math.floor(successMetrics.filledBeforeSteps) +
-            Math.floor(successMetrics.userSteps)
-        )
-      );
-      const leftAfter = Math.max(0, total - filledAfter);
-
-      // Twitter auto-links domains; use dot-leader to keep it as plain text.
-      const appGlowOrgText = "app․glow․org";
+      const launchpadLinkText = "app.glow.org/launchpad";
       const text = [
-        `I successfully delegated to ${farmLabelForShare} ${delegatedAmountForShare} GLW and there is ${leftAfter} units left.`,
+        `I just helped fund ${farmLabelForShare} by delegating GLW tokens.`,
         "",
-        `Delegate at ${appGlowOrgText}`,
+        `You can do the same and start earning GLW weekly for 100 weeks here: ${launchpadLinkText}`,
       ].join("\n");
 
       return `https://twitter.com/intent/tweet?text=${encodeURIComponent(
@@ -1093,7 +1063,7 @@ export function DepositDialog({
     } catch {
       return null;
     }
-  }, [currency, delegatedAmountForShare, farmLabelForShare, successMetrics]);
+  }, [currency, farmLabelForShare, successMetrics]);
 
   // Early return conditions - check these in render
   if (!application) return null;

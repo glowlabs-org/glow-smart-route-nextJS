@@ -936,7 +936,6 @@ export function ClaimsPanel({
   // Rewards claiming functionality
   const {
     claimWeekRewards,
-    claimAllRewards,
     isClaimingWeek,
     isClaimingAll,
     checkIfClaimed,
@@ -1711,110 +1710,6 @@ export function ClaimsPanel({
     return null;
   }
 
-  // Handle claim all
-  const handleClaimAll = async () => {
-    if (!address || weeklyBreakdown.length === 0) return;
-
-    trackEvent("wallet_claim_all_click", {
-      total_weeks: weeklyBreakdown.length,
-    });
-
-    // Check for smart account before proceeding
-    const isSmartAccount = await checkSmartAccount();
-    if (isSmartAccount) {
-      trackEvent("wallet_claim_all_blocked", { reason: "smart_account" });
-      setShowSmartAccountWarning(true);
-      setTriggerSmartAccountCheck(true);
-      return;
-    }
-
-    const hotWalletAddress = getHotWalletAddress();
-
-    // Fetch all merkle proofs for unclaimed weeks
-    const weeklyDataPromises = weeklyBreakdown
-      .filter((week) => {
-        const { isClaimed } = getWeekClaimState(week);
-        return week.isFinalized && !isClaimed;
-      })
-      .map(async (weekData) => {
-        try {
-          const response = await fetch(
-            `https://pub-311748c72106476cbeabe0a22a59217d.r2.dev/weekly-report-week-${weekData.week}.json`
-          );
-
-          if (!response.ok) return null;
-
-          const data = await response.json();
-          const userProof = data.readableLeaves?.find(
-            (leaf: any) => leaf.user.toLowerCase() === address.toLowerCase()
-          );
-
-          if (!userProof) return null;
-
-          return {
-            week: weekData.week,
-            rewards: weekData.rewards,
-            nonce: weekToNonce(weekData.week),
-            v1Proof: userProof.v1MerkleProof.map(
-              (p: string) => p as `0x${string}`
-            ),
-            v2Proof: userProof.v2MerkleProof.map(
-              (p: string) => p as `0x${string}`
-            ),
-            fromAddress: hotWalletAddress,
-            glwWeight: userProof.glowInflationEarnedLeafWeight,
-            onchainAssetsEarned: userProof.onchainAssetsEarned,
-          };
-        } catch (error) {
-          console.error(
-            `Failed to fetch proof for week ${weekData.week}:`,
-            error
-          );
-          return null;
-        }
-      });
-
-    const weeklyClaimData = (await Promise.all(weeklyDataPromises)).filter(
-      (data): data is NonNullable<typeof data> => data !== null
-    );
-
-    if (weeklyClaimData.length === 0) {
-      toast.error("No claimable rewards found");
-      trackEvent("wallet_claim_all_result", {
-        ok: false,
-        reason: "no_claimable_weeks",
-      });
-      return;
-    }
-
-    try {
-      const successfulTxHashes = await claimAllRewards(weeklyClaimData);
-
-      if (successfulTxHashes.length > 0) {
-        toast.success(
-          `Successfully claimed rewards from ${successfulTxHashes.length} weeks`
-        );
-        // Trigger refetch to update UI
-        refetch();
-        if (onClaimSuccess) {
-          onClaimSuccess();
-        }
-      }
-
-      trackEvent("wallet_claim_all_result", {
-        ok: successfulTxHashes.length > 0,
-        weeks_claimed: successfulTxHashes.length,
-      });
-    } catch (error) {
-      console.error("Claim all error:", error);
-      toast.error("Failed to claim rewards");
-      trackEvent("wallet_claim_all_result", {
-        ok: false,
-        error_name: error instanceof Error ? error.name : "unknown",
-      });
-    }
-  };
-
   const content = (
     <div className={cn("space-y-6", isDialog && "pr-4")}>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1959,7 +1854,7 @@ export function ClaimsPanel({
           id="claims-panel"
           className={cn("flex max-h-[85vh] flex-col p-6", className)}
         >
-          <div className="flex flex-col gap-4 border-b border-border/60 pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-4 border-b border-border/60 pb-4">
             <div className="flex-1">
               <div className="flex items-center gap-2 text-xl font-semibold md:text-2xl">
                 <Gift className="h-5 w-5 md:h-6 md:w-6" />
@@ -1973,31 +1868,6 @@ export function ClaimsPanel({
                   : "Claim your earned rewards from solar farm delegations"}
               </div>
             </div>
-            <Button
-              onClick={handleClaimAll}
-              disabled={
-                isClaimingAll ||
-                totalClaimableWeeks === 0 ||
-                claimDialogStatus === "processing"
-              }
-              size="default"
-              className="gap-2 rounded-full px-5"
-            >
-              {isClaimingAll ? (
-                <>
-                  <Clock className="h-4 w-4 animate-spin" />
-                  Claiming...
-                </>
-              ) : (
-                <>
-                  Claim All
-                  <Badge variant="secondary" className="ml-1">
-                    {totalClaimableWeeks}{" "}
-                    {totalClaimableWeeks === 1 ? "week" : "weeks"}
-                  </Badge>
-                </>
-              )}
-            </Button>
           </div>
 
           <div className="flex-1 overflow-hidden pt-4">
@@ -2007,7 +1877,7 @@ export function ClaimsPanel({
       ) : (
         <Card id="claims-panel" className={cn("mb-8", className)}>
           <CardHeader className="pb-4 md:pb-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex flex-col gap-4">
               <div className="flex-1">
                 <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
                   <Gift className="w-5 h-5 md:w-6 md:h-6" />
@@ -2020,32 +1890,6 @@ export function ClaimsPanel({
                     ? "Your farm rewards history"
                     : "Claim your earned rewards from solar farm delegations"}
                 </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={handleClaimAll}
-                  disabled={
-                    isClaimingAll ||
-                    totalClaimableWeeks === 0 ||
-                    claimDialogStatus === "processing"
-                  }
-                  size="lg"
-                  className="gap-2 w-full md:w-auto"
-                >
-                  {isClaimingAll ? (
-                    <>
-                      <Clock className="w-4 h-4 animate-spin" />
-                      Claiming...
-                    </>
-                  ) : (
-                    <>
-                      Claim All
-                      <Badge variant="secondary" className="ml-1">
-                        {totalClaimableWeeks} weeks
-                      </Badge>
-                    </>
-                  )}
-                </Button>
               </div>
             </div>
           </CardHeader>

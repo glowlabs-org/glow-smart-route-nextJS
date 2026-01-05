@@ -16,6 +16,7 @@ import {
 import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import { useGlowLaunchpad, useMiningCenter } from "@/hooks";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { DepositDialog } from "@/app/marketplace/deposit-dialog";
 import { SponsoredFarmsActivity } from "@/app/marketplace/sponsored-farms-activity";
 import type {
@@ -66,6 +67,7 @@ export default function LaunchpadStatusWidget({
   const { isLive, nextBatchAtMs, refreshNextBatchAtMs, isLoading, isError } =
     useLaunchpadStatus();
   const { spotPriceUsd } = useGlowSpotPriceSummary();
+  const isMobile = useIsMobile();
   const isFullRow = variant === "full-row";
 
   type ListTypeFilter = "all" | "delegations" | "miners" | "activity";
@@ -185,7 +187,10 @@ export default function LaunchpadStatusWidget({
       className={cn(
         isFullRow
           ? "flex flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm gap-2 pt-2"
-          : "flex h-full flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm gap-2 pt-2",
+          : cn(
+              "flex flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm gap-2 pt-2",
+              isMobile ? "min-h-[620px]" : "h-full"
+            ),
         // full-row stays stacked (header above carousel/content)
         className
       )}
@@ -200,7 +205,7 @@ export default function LaunchpadStatusWidget({
       >
         <div
           className={cn(
-            "flex items-center justify-between gap-3",
+            "flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between",
             isFullRow ? "min-h-0" : null
           )}
         >
@@ -219,12 +224,14 @@ export default function LaunchpadStatusWidget({
             <Tabs
               value={resolvedTab}
               onValueChange={(v) => setLiveTypeFilter(v as ListTypeFilter)}
-              className="shrink-0"
+              className="w-full shrink-0 sm:w-auto"
             >
               <TabsList
                 className={cn(
                   "rounded-full border border-border bg-muted/10 p-1",
-                  "h-12"
+                  "h-10 sm:h-12",
+                  "w-full sm:w-auto",
+                  "justify-start overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                 )}
               >
                 {shouldForceType ? (
@@ -377,16 +384,30 @@ export default function LaunchpadStatusWidget({
               />
             </div>
           ) : (
-            <ScrollArea className="min-h-0 flex-1">
-              <div className="px-5 pb-5">
+            <div
+              className={cn("min-h-0 flex-1", isMobile ? "px-4 pb-6" : null)}
+            >
+              {isMobile ? (
                 <LaunchpadView
                   variant="widget"
                   typeFilter={launchpadTypeFilter}
-                  widgetLayout="stack"
+                  widgetLayout="carousel"
+                  widgetCarouselVariant="compact"
                   onPayDeposit={handlePayDeposit}
                 />
-              </div>
-            </ScrollArea>
+              ) : (
+                <ScrollArea className="min-h-0 flex-1">
+                  <div className="px-5 pb-5">
+                    <LaunchpadView
+                      variant="widget"
+                      typeFilter={launchpadTypeFilter}
+                      widgetLayout="stack"
+                      onPayDeposit={handlePayDeposit}
+                    />
+                  </div>
+                </ScrollArea>
+              )}
+            </div>
           )
         ) : (
           // --- COUNTDOWN STATE ---

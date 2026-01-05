@@ -143,6 +143,8 @@ export default function PortfolioAllocationWidget({
   const { legendItems, chartData } = normalizeAllocations(allocationItems);
   const hasChartData = chartData.length > 0;
   const isEmptyPortfolio = legendItems.length === 0;
+  const hasNonGlwTokens = legendItems.some((item) => item.symbol !== "GLW");
+  const shouldShowGlwEmptyState = showEmptyState && !hasNonGlwTokens;
 
   return (
     <Card
@@ -295,7 +297,7 @@ export default function PortfolioAllocationWidget({
                   </div>
                 </div>
 
-                {showEmptyState ? (
+                {shouldShowGlwEmptyState ? (
                   <div className="mt-4 rounded-xl border border-border bg-muted/20 p-3 text-center">
                     <div className="text-xs text-muted-foreground">
                       No GLW yet.

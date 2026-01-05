@@ -953,9 +953,6 @@ export function ImpactView() {
                       <TableCell className="font-mono text-xs py-4 px-3">
                         {globalRank && globalRank <= 3 ? (
                           <div className="inline-flex items-center gap-2 text-muted-foreground">
-                            {globalRank === 1 ? (
-                              <Crown className="h-4 w-4 text-[color:var(--color-glow-yellow)]" />
-                            ) : null}
                             #{globalRank.toLocaleString("en-US")}
                           </div>
                         ) : (

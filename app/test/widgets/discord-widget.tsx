@@ -2,16 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import {
-  ArrowUpRight,
-  MessageCircle,
-  Users,
-  Zap,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowUpRight, Users, Zap } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // Custom Discord Icon
@@ -35,84 +28,86 @@ interface DiscordWidgetProps {
 
 export default function DiscordWidget({ className }: DiscordWidgetProps) {
   return (
-    <Card
-      className={cn(
-        "relative group flex h-full flex-col overflow-hidden bg-[#5865F2] border-0 text-white shadow-xl transition-all hover:bg-[#4752C4]",
-        className
-      )}
+    <Link
+      href="https://discord.gg/glowfnd"
+      target="_blank"
+      rel="noreferrer"
+      aria-label="Join the Glow Discord (opens in a new tab)"
+      className="group block h-full focus:outline-none"
     >
-      {/* Background Decor: Giant Logo positioned to fill negative space without blocking text */}
-      <div className="absolute -right-8 -bottom-12 opacity-[0.12] pointer-events-none group-hover:opacity-20 transition-all duration-500 ease-out group-hover:scale-105 group-hover:-rotate-12">
-        <DiscordLogo className="h-56 w-56" />
-      </div>
+      <Card
+        className={cn(
+          "relative flex h-full flex-col overflow-hidden border-0 bg-[#5865F2] text-white shadow-xl transition-all group-hover:bg-[#4752C4] group-focus-visible:ring-2 group-focus-visible:ring-white/30",
+          className
+        )}
+      >
+        {/* Background Decor: Giant Logo positioned to fill negative space without blocking text */}
+        <div className="pointer-events-none absolute -bottom-12 -right-8 opacity-[0.12] transition-all duration-500 ease-out group-hover:-rotate-12 group-hover:scale-105 group-hover:opacity-20">
+          <DiscordLogo className="h-56 w-56" />
+        </div>
 
-      <CardContent className="relative z-10 flex h-full flex-col justify-between p-6 md:p-8">
-        {/* Header Section */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 opacity-80">
-              <DiscordLogo className="h-5 w-5" />
-              <span className="text-xs font-mono font-medium tracking-wider uppercase">
-                Community
-              </span>
-            </div>
-
-            {/* Live Indicator */}
-            <div className="flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 backdrop-blur-md border border-white/10">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
-              </span>
-              <span className="text-[10px] font-bold tracking-wide text-white/90">
-                ONLINE
-              </span>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <h3 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">
-              Join the conversation in Discord.
-            </h3>
-            <p className="text-sm text-white/70 leading-relaxed max-w-[32rem]">
-              Engage in founder-led discussions, meet like-minded users, and
-              have your questions answered by the team.
-            </p>
-
-            {/* Stats / Features Grid to fill empty space */}
-            <div className="grid grid-cols-2 gap-4 pt-2">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-white/90 font-semibold">
-                  <Users className="h-4 w-4" />
-                  <span>7k+ Members</span>
-                </div>
-                <p className="text-xs text-white/60">Global community</p>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-white/90 font-semibold">
-                  <Zap className="h-4 w-4" />
-                  <span>24/7 Community</span>
-                </div>
-                <p className="text-xs text-white/60">
-                  Ask questions and get help
-                </p>
-              </div>
-            </div>
+        {/* Bottom-right CTA affordance */}
+        <div className="pointer-events-none absolute bottom-6 right-6 z-20">
+          <div className="rounded-full border border-white/10 bg-black/20 p-2 backdrop-blur-md transition-transform duration-300 ease-out group-hover:-translate-y-0.5 group-hover:translate-x-0.5">
+            <ArrowUpRight className="h-5 w-5 text-white/90" />
           </div>
         </div>
 
-        {/* Footer Action */}
-        <div className="pt-8">
-          <Button variant="default">
-            <Link
-              href="https://discord.gg/glowfnd"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <span className="flex items-center gap-2">Join Server</span>
-            </Link>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+        <CardContent className="relative z-10 flex h-full flex-col justify-between p-6 md:p-8">
+          {/* Header Section */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 opacity-80">
+                <DiscordLogo className="h-5 w-5" />
+                <span className="text-xs font-mono font-medium tracking-wider uppercase">
+                  Community
+                </span>
+              </div>
+
+              {/* Live Indicator */}
+              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 backdrop-blur-md">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
+                </span>
+                <span className="text-[10px] font-bold tracking-wide text-white/90">
+                  ONLINE
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-xl font-bold leading-tight tracking-tight md:text-2xl">
+                Join the conversation in Discord.
+              </h3>
+              <p className="max-w-[32rem] text-sm leading-relaxed text-white/70">
+                Engage in founder-led discussions, meet like-minded users, and
+                have your questions answered by the team.
+              </p>
+
+              {/* Stats / Features Grid to fill empty space */}
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 font-semibold text-white/90">
+                    <Users className="h-4 w-4" />
+                    <span>7k+ Members</span>
+                  </div>
+                  <p className="text-xs text-white/60">Global community</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 font-semibold text-white/90">
+                    <Zap className="h-4 w-4" />
+                    <span>24/7 Community</span>
+                  </div>
+                  <p className="text-xs text-white/60">
+                    Ask questions and get help
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
