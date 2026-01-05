@@ -22,6 +22,7 @@ import {
 } from "@/app/components/animated-countdown";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { countActiveListings } from "@/utils/launchpad";
+import { trackEvent } from "@/lib/telemetry";
 
 interface ActionTileProps {
   href?: string;
@@ -86,6 +87,8 @@ export default function QuickActionsWidget({
   const queryClient = useQueryClient();
   const { address: connectedAddress } = useAccount();
   const effectiveWalletAddress = walletAddress ?? connectedAddress ?? null;
+  const normalizedWalletAddress = effectiveWalletAddress?.toLowerCase() ?? null;
+  const source = "quick_actions_widget";
   const { glwBalance, usdcBalance, usdgBalance } = useWalletTokenBalances(
     effectiveWalletAddress
   );
@@ -135,6 +138,7 @@ export default function QuickActionsWidget({
     targetAtMs: minersNextBatchAtMs,
     onComplete: handleMinersCountdownComplete,
   });
+  const showMinersSeconds = minersRemainingMs <= 10 * 60 * 1000;
 
   const glwPriceLabel = React.useMemo(() => {
     if (!glwSpotPrice || glwSpotPrice <= 0) return "$— / GLW";
@@ -153,7 +157,14 @@ export default function QuickActionsWidget({
             title="Top Up Wallet"
             subtitle="Buy GLW"
             icon={CreditCard}
-            onClick={() => setIsBuyGlwOpen(true)}
+            onClick={() => {
+              trackEvent("dashboard_buy_glw_click", {
+                source,
+                wallet_connected: Boolean(normalizedWalletAddress),
+                wallet_address: normalizedWalletAddress,
+              });
+              setIsBuyGlwOpen(true);
+            }}
             className={cn(
               highlightedAction === "buy-glw" &&
                 "border-[#C084FC]/50 bg-[#C084FC]/5 shadow-[0_0_0_1px_rgba(192,132,252,0.22)] hover:border-[#C084FC]/70 hover:bg-[#C084FC]/10 hover:shadow-[0_0_0_1px_rgba(192,132,252,0.32)]"
@@ -169,7 +180,15 @@ export default function QuickActionsWidget({
             title="Launchpad"
             subtitle={isDelegationsLive ? "Delegate GLW" : "Buy Miners"}
             icon={Zap}
-            onClick={() => setIsLaunchpadOpen(true)}
+            onClick={() => {
+              trackEvent("dashboard_launchpad_open_click", {
+                source,
+                wallet_connected: Boolean(normalizedWalletAddress),
+                wallet_address: normalizedWalletAddress,
+                launchpad_mode: isDelegationsLive ? "delegations" : "miners",
+              });
+              setIsLaunchpadOpen(true);
+            }}
             className={cn(
               highlightedAction === "launchpad" &&
                 "border-[#C084FC]/50 bg-[#C084FC]/5 shadow-[0_0_0_1px_rgba(192,132,252,0.22)] hover:border-[#C084FC]/70 hover:bg-[#C084FC]/10 hover:shadow-[0_0_0_1px_rgba(192,132,252,0.32)]"
@@ -204,6 +223,7 @@ export default function QuickActionsWidget({
                     <AnimatedCountdown
                       remainingMs={minersRemainingMs}
                       size="sm"
+                      showSeconds={showMinersSeconds}
                     />
                   </div>
                 </div>
@@ -219,7 +239,15 @@ export default function QuickActionsWidget({
             title="Liquidity"
             subtitle="Add Liquidity"
             icon={Droplets}
-            onClick={() => setIsAddLiquidityOpen(true)}
+            onClick={() => {
+              trackEvent("dashboard_add_liquidity_open_click", {
+                source,
+                wallet_connected: Boolean(normalizedWalletAddress),
+                wallet_address: normalizedWalletAddress,
+                pair: "glw_usdg",
+              });
+              setIsAddLiquidityOpen(true);
+            }}
             meta={
               <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                 GLW / USDG Pool
@@ -231,7 +259,14 @@ export default function QuickActionsWidget({
             title="Amplify"
             subtitle="Stake GCTL"
             icon={Wind}
-            onClick={onMintAndStakeClick}
+            onClick={() => {
+              trackEvent("dashboard_gctl_mint_stake_open_click", {
+                source,
+                wallet_connected: Boolean(normalizedWalletAddress),
+                wallet_address: normalizedWalletAddress,
+              });
+              onMintAndStakeClick?.();
+            }}
             className="hover:border-[#22D3EE]/60 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.35)]"
             meta={
               <div className="font-mono text-[10px] uppercase tracking-wider text-[#22D3EE]/80">

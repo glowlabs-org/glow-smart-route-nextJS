@@ -284,6 +284,28 @@ export default function WeeklyActivityWidget({
     [weekCells]
   );
 
+  const streakWeeks = React.useMemo(() => {
+    if (!weekRange) return 0;
+    if (!weekCells.length) return 0;
+
+    const statusByWeek = new Map<number, WeekStatus>();
+    weekCells.forEach((cell) => statusByWeek.set(cell.week, cell.status));
+
+    const currentStatus = statusByWeek.get(currentWeek) ?? "missed";
+    const endWeekForStreak =
+      currentStatus === "missed" ? currentWeek - 1 : currentWeek;
+
+    let streak = 0;
+    for (let week = endWeekForStreak; week >= weekRange.startWeek; week--) {
+      const status = statusByWeek.get(week);
+      if (!status) break;
+      if (status === "missed") break;
+      streak++;
+    }
+
+    return streak;
+  }, [currentWeek, weekCells, weekRange]);
+
   const statusCounts = React.useMemo(() => {
     let miner = 0;
     let delegated = 0;
@@ -387,13 +409,13 @@ export default function WeeklyActivityWidget({
             <>
               <div className="flex flex-col items-center justify-center text-center select-none">
                 <div className="font-mono text-5xl font-bold tracking-tight text-foreground leading-none">
-                  {activeWeeks}
+                  {streakWeeks}
                   <span className="ml-2 text-sm font-mono font-semibold text-muted-foreground uppercase tracking-wider align-middle">
                     Wks
                   </span>
                 </div>
                 <div className="mt-2 font-mono text-xs text-muted-foreground">
-                  Last {weekCells.length} Weeks
+                  Current Streak
                 </div>
               </div>
 
@@ -477,7 +499,7 @@ export default function WeeklyActivityWidget({
                       </div>
                     </div>
                     <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                      Active {activeWeeks}/{weekCells.length}
+                      Streak {streakWeeks}/{weekCells.length}
                     </div>
                   </div>
 

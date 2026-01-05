@@ -1233,7 +1233,20 @@ export function DepositDialog({
 
       {currency === "GLW" && shareUrl ? (
         <Button className="w-full mb-2" asChild>
-          <a target="_blank" rel="noopener noreferrer" href={shareUrl}>
+          <a
+            target="_blank"
+            rel="noopener noreferrer"
+            href={shareUrl}
+            onClick={() => {
+              trackEvent("marketplace_deposit_share_x_click", {
+                currency,
+                application_id: application?.id ?? null,
+                fraction_id: application?.activeFraction?.id ?? null,
+                steps_to_buy: stepsToBuy,
+                tx_hash: txHash ?? null,
+              });
+            }}
+          >
             Share on X
           </a>
         </Button>

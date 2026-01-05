@@ -1,14 +1,12 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import {
   Wallet,
   ChevronDown,
   Copy,
   ExternalLink,
   LogOut,
-  User,
   AlertTriangle,
 } from "lucide-react";
 import {
@@ -236,12 +234,6 @@ export function WalletStatus({
           >
             <Copy className="w-4 h-4 mr-2" /> Copy address
             <DropdownMenuShortcut>⌘C</DropdownMenuShortcut>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem asChild className="cursor-pointer px-4">
-            <Link href="/wallet">
-              <User className="w-4 h-4 mr-2" /> My Wallet
-            </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild className="cursor-pointer px-4">
             <a href={addressUrl} target="_blank" rel="noreferrer">

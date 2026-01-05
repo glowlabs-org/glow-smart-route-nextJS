@@ -21,6 +21,7 @@ import {
 } from "./use-wallet-portfolio";
 import { Button } from "@/components/ui/button";
 import { SwapDialog } from "@/components/dialogs/swap-dialog";
+import { trackEvent } from "@/lib/telemetry";
 
 const TOKEN_COLORS: Record<PortfolioTokenSymbol, string> = {
   GLW: "#4ADE80",
@@ -127,6 +128,8 @@ export default function PortfolioAllocationWidget({
   walletAddress,
   className,
 }: PortfolioAllocationWidgetProps) {
+  const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
+  const source = "portfolio_allocation_widget";
   const {
     hasWallet,
     shouldShowSkeleton,
@@ -179,7 +182,15 @@ export default function PortfolioAllocationWidget({
                 </div>
                 <div className="mt-4 flex items-center justify-center">
                   <Button
-                    onClick={() => setIsSwapDialogOpen(true)}
+                    onClick={() => {
+                      trackEvent("dashboard_swap_open_click", {
+                        source,
+                        wallet_connected: Boolean(normalizedWalletAddress),
+                        wallet_address: normalizedWalletAddress,
+                        cta: "swap_tokens",
+                      });
+                      setIsSwapDialogOpen(true);
+                    }}
                     variant="outline"
                   >
                     Swap tokens
@@ -305,7 +316,15 @@ export default function PortfolioAllocationWidget({
                     <div className="mt-2 flex items-center justify-center">
                       <Button
                         size="sm"
-                        onClick={() => setIsSwapDialogOpen(true)}
+                        onClick={() => {
+                          trackEvent("dashboard_swap_open_click", {
+                            source,
+                            wallet_connected: Boolean(normalizedWalletAddress),
+                            wallet_address: normalizedWalletAddress,
+                            cta: "swap_for_glw",
+                          });
+                          setIsSwapDialogOpen(true);
+                        }}
                       >
                         Swap for GLW
                       </Button>

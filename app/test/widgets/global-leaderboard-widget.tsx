@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/telemetry";
 import { useEnsNames } from "@/hooks/useEnsNames";
 import {
   useImpactLeaderboardQuery,
@@ -36,6 +37,7 @@ export default function GlobalLeaderboardWidget({
   className,
   limit = 5,
 }: GlobalLeaderboardWidgetProps) {
+  const source = "global_leaderboard_widget";
   const leaderboardQuery = useImpactLeaderboardQuery();
   const rows = leaderboardQuery.data?.wallets ?? [];
   const totalWalletCount =
@@ -155,7 +157,18 @@ export default function GlobalLeaderboardWidget({
               variant="outline"
               className="w-full h-12 font-mono font-bold text-base"
             >
-              <Link href="/stats/rewards">See leaderboard</Link>
+              <Link
+                href="/stats/rewards"
+                onClick={() => {
+                  trackEvent("dashboard_leaderboard_open_click", {
+                    source,
+                    wallet_connected: false,
+                    wallet_address: null,
+                  });
+                }}
+              >
+                See leaderboard
+              </Link>
             </Button>
           </div>
         </CardContent>

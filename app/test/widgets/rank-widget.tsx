@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ImpactScoreBreakdownDialogContent } from "@/components/dialogs/impact-score-breakdown-dialog";
 import { hubGet } from "@/lib/api/hub-client";
+import { trackEvent } from "@/lib/telemetry";
 import {
   useImpactLeaderboardQuery,
   type ImpactGlowScoreResponse,
@@ -48,8 +49,13 @@ function formatPoints(
   }).format(num);
 }
 
-function ImpactScoreHelp() {
+function ImpactScoreHelp(props: {
+  source: string;
+  walletAddress: string | null;
+  walletConnected: boolean;
+}) {
   const label = "How Glow Impact Score works";
+  const { source, walletAddress, walletConnected } = props;
 
   return (
     <>
@@ -62,6 +68,14 @@ function ImpactScoreHelp() {
               size="icon"
               className="h-8 w-8 rounded-full"
               type="button"
+              onClick={() => {
+                trackEvent("dashboard_impact_help_open_click", {
+                  source,
+                  wallet_connected: walletConnected,
+                  wallet_address: walletAddress,
+                  ui: "tooltip",
+                });
+              }}
             >
               <Info className="h-4 w-4 text-muted-foreground" />
             </Button>
@@ -132,6 +146,14 @@ function ImpactScoreHelp() {
               size="icon"
               className="h-8 w-8 rounded-full"
               type="button"
+              onClick={() => {
+                trackEvent("dashboard_impact_help_open_click", {
+                  source,
+                  wallet_connected: walletConnected,
+                  wallet_address: walletAddress,
+                  ui: "drawer",
+                });
+              }}
             >
               <Info className="h-4 w-4 text-muted-foreground" />
             </Button>
@@ -226,6 +248,8 @@ export function RankWidget({
   onMintAndStakeClick,
 }: RankWidgetProps) {
   const hasWallet = Boolean(walletAddress);
+
+  const source = "rank_widget";
   const [isBreakdownOpen, setIsBreakdownOpen] = React.useState(false);
 
   const isValidWalletAddress =
@@ -364,7 +388,11 @@ export function RankWidget({
         <CardHeader className="pb-0">
           <CardTitle className="flex items-center justify-center gap-2 text-center">
             <span>Impact Score</span>
-            <ImpactScoreHelp />
+            <ImpactScoreHelp
+              source={source}
+              walletAddress={normalizedWalletAddress}
+              walletConnected={hasWallet}
+            />
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col flex-1 min-h-0 gap-4 pt-0">
@@ -434,7 +462,14 @@ export function RankWidget({
                     <Button
                       className="h-12 font-mono font-bold text-base"
                       type="button"
-                      onClick={onMintAndStakeClick}
+                      onClick={() => {
+                        trackEvent("dashboard_gctl_mint_stake_open_click", {
+                          source,
+                          wallet_connected: hasWallet,
+                          wallet_address: normalizedWalletAddress,
+                        });
+                        onMintAndStakeClick();
+                      }}
                     >
                       Rank Up
                     </Button>
@@ -443,7 +478,19 @@ export function RankWidget({
                       className="h-12 font-mono font-bold text-base"
                       asChild
                     >
-                      <Link href="/buy">Mint &amp; stake GCTL</Link>
+                      <Link
+                        href="/buy"
+                        onClick={() => {
+                          trackEvent("dashboard_gctl_mint_stake_open_click", {
+                            source,
+                            wallet_connected: hasWallet,
+                            wallet_address: normalizedWalletAddress,
+                            cta: "link",
+                          });
+                        }}
+                      >
+                        Mint &amp; stake GCTL
+                      </Link>
                     </Button>
                   )
                 ) : null}
@@ -452,13 +499,31 @@ export function RankWidget({
                   className="h-12 font-mono font-bold text-base"
                   asChild
                 >
-                  <Link href="/stats/rewards">Leaderboard</Link>
+                  <Link
+                    href="/stats/rewards"
+                    onClick={() => {
+                      trackEvent("dashboard_leaderboard_open_click", {
+                        source,
+                        wallet_connected: hasWallet,
+                        wallet_address: normalizedWalletAddress,
+                      });
+                    }}
+                  >
+                    Leaderboard
+                  </Link>
                 </Button>
                 {shouldShowBreakdownButton ? (
                   <Button
                     className="h-12 font-mono font-bold text-base"
                     type="button"
-                    onClick={() => setIsBreakdownOpen(true)}
+                    onClick={() => {
+                      trackEvent("dashboard_impact_breakdown_open_click", {
+                        source,
+                        wallet_connected: hasWallet,
+                        wallet_address: normalizedWalletAddress,
+                      });
+                      setIsBreakdownOpen(true);
+                    }}
                     disabled={impactScoreQuery.isError || !impactScore}
                   >
                     Breakdown

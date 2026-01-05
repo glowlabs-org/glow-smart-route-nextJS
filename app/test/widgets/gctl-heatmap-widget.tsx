@@ -19,6 +19,7 @@ import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { cn } from "@/lib/utils";
 import { useGctlApi, useWallets, useRegions } from "@/hooks";
 import { ConnectButton } from "@/components/connect-button";
+import { trackEvent } from "@/lib/telemetry";
 
 interface RegionStakeTile {
   regionId: number;
@@ -92,6 +93,8 @@ export default function GctlHeatmapWidget({
 }) {
   const { isConnecting, isReconnecting } = useAccount();
   const isEnabled = Boolean(walletAddress);
+  const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
+  const source = "gctl_heatmap_widget";
   const isWalletConnecting = isConnecting || isReconnecting;
 
   const { gctlBalance, isGctlBalanceLoading } = useGctlApi(
@@ -273,7 +276,14 @@ export default function GctlHeatmapWidget({
               <div className="w-full max-w-md space-y-2">
                 <Button
                   className="h-12 w-full bg-foreground text-background hover:bg-foreground/90 font-mono dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-                  onClick={onMintAndStakeClick}
+                  onClick={() => {
+                    trackEvent("dashboard_gctl_mint_stake_open_click", {
+                      source,
+                      wallet_connected: Boolean(normalizedWalletAddress),
+                      wallet_address: normalizedWalletAddress,
+                    });
+                    onMintAndStakeClick?.();
+                  }}
                 >
                   <Rocket className="mr-2 h-4 w-4" />
                   Mint &amp; stake GCTL
@@ -286,6 +296,15 @@ export default function GctlHeatmapWidget({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="group block rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-cyan-500/50"
+                  onClick={() => {
+                    trackEvent("dashboard_education_click", {
+                      source,
+                      wallet_connected: Boolean(normalizedWalletAddress),
+                      wallet_address: normalizedWalletAddress,
+                      topic: "gctl",
+                      url: "https://glow.org/blog/beginner-guide-to-gctl",
+                    });
+                  }}
                 >
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/50">

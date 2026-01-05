@@ -26,6 +26,7 @@ import { SendDialog } from "@/components/send-dialog";
 import { cn } from "@/lib/utils";
 import { weekToTimestamp } from "@/lib/rewards/weekly-delegations";
 import { QUERY_KEYS } from "@/hooks/query-keys";
+import { trackEvent } from "@/lib/telemetry";
 
 import OnboardingHeroWidget from "./onboarding-hero-widget";
 import {
@@ -164,6 +165,8 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
   const queryClient = useQueryClient();
   const [isSwapOpen, setIsSwapOpen] = React.useState(false);
   const [isSendOpen, setIsSendOpen] = React.useState(false);
+  const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
+  const source = "net_worth_widget";
 
   const {
     hasWallet,
@@ -240,7 +243,16 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
                 variant="outline"
                 size="sm"
                 className="h-8 rounded-full px-3 text-[11px] font-mono  tracking-wider gap-2"
-                onClick={() => setIsSwapOpen(true)}
+                onClick={() => {
+                  trackEvent("dashboard_swap_open_click", {
+                    source,
+                    wallet_connected: Boolean(normalizedWalletAddress),
+                    wallet_address: normalizedWalletAddress,
+                    chain_id: chainId,
+                    cta: "swap",
+                  });
+                  setIsSwapOpen(true);
+                }}
               >
                 <ArrowLeftRight className="h-3.5 w-3.5" />
                 <span>Swap</span>
@@ -249,7 +261,15 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
                 variant="outline"
                 size="sm"
                 className="h-8 rounded-full px-3 text-[11px] font-mono  tracking-wider gap-2"
-                onClick={() => setIsSendOpen(true)}
+                onClick={() => {
+                  trackEvent("dashboard_send_open_click", {
+                    source,
+                    wallet_connected: Boolean(normalizedWalletAddress),
+                    wallet_address: normalizedWalletAddress,
+                    chain_id: chainId,
+                  });
+                  setIsSendOpen(true);
+                }}
               >
                 <Send className="h-3.5 w-3.5" />
                 <span>Send</span>

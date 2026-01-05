@@ -6,6 +6,7 @@ import { Droplets, ArrowRight } from "lucide-react";
 import { formatUnits } from "viem";
 import Decimal from "decimal.js";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
+import { useAccount } from "wagmi";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,8 @@ import {
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { ConnectButton } from "@/components/connect-button";
+import { trackEvent } from "@/lib/telemetry";
+import { bucketToken, bucketUsd } from "@/lib/telemetry-buckets";
 
 export interface AddLiquidityQuickDialogProps {
   open: boolean;
@@ -79,6 +82,9 @@ export function AddLiquidityQuickDialog({
   open,
   onOpenChange,
 }: AddLiquidityQuickDialogProps) {
+  const { address, isConnected } = useAccount();
+  const walletAddress = address?.toLowerCase() ?? null;
+  const source = "add_liquidity_quick_dialog";
   const {
     positions,
     now,
@@ -185,6 +191,13 @@ export function AddLiquidityQuickDialog({
 
   function handleUpdateToPoolRatio() {
     if (!priceRatio || priceRatio <= 0) return;
+    trackEvent("dashboard_add_liquidity_update_ratio_click", {
+      source,
+      wallet_connected: isConnected,
+      wallet_address: walletAddress,
+      amount_token_bucket: bucketToken(glwNum),
+      amount_usd_bucket: bucketUsd(usdgNum),
+    });
     if (lastEdited === "GLW") {
       if (!isValidDecimalInput(glw)) return;
       handleGlwChange(glw);
@@ -196,6 +209,13 @@ export function AddLiquidityQuickDialog({
 
   const handleReview = () => {
     if (isActionDisabled) return;
+    trackEvent("dashboard_add_liquidity_review_click", {
+      source,
+      wallet_connected: isConnected,
+      wallet_address: walletAddress,
+      amount_token_bucket: bucketToken(glwNum),
+      amount_usd_bucket: bucketUsd(usdgNum),
+    });
     setReviewOpen(true);
   };
 
@@ -375,6 +395,14 @@ export function AddLiquidityQuickDialog({
                     <Link
                       href="/glow-swap"
                       className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                      onClick={() => {
+                        trackEvent("dashboard_add_liquidity_go_to_swap_click", {
+                          source,
+                          wallet_connected: isConnected,
+                          wallet_address: walletAddress,
+                          reason: "need_usdg",
+                        });
+                      }}
                     >
                       Go to Swap
                       <ArrowRight className="w-3 h-3" />
@@ -456,7 +484,15 @@ export function AddLiquidityQuickDialog({
                       variant="outline"
                       className="h-8 rounded-xl px-3 text-xs"
                       disabled={positions.length === 0}
-                      onClick={() => setRemoveOpen(true)}
+                      onClick={() => {
+                        trackEvent("dashboard_remove_liquidity_open_click", {
+                          source,
+                          wallet_connected: isConnected,
+                          wallet_address: walletAddress,
+                          positions_count: positions.length,
+                        });
+                        setRemoveOpen(true);
+                      }}
                     >
                       Remove
                     </Button>

@@ -31,6 +31,8 @@ import { RefundClaimsPanel } from "@/app/wallet/refund-claims-panel";
 import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
 import { useGlowLaunchpad, useMiningCenter } from "@/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
+import { trackEvent } from "@/lib/telemetry";
+import { useCountdownTo } from "@/app/components/animated-countdown";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
@@ -111,9 +113,38 @@ export default function GlowSoftDashboard({
   const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
   const [isRefundDialogOpen, setIsRefundDialogOpen] = React.useState(false);
   const refundToastIdRef = React.useRef<string | number | null>(null);
+  const didTrackViewRef = React.useRef(false);
   const queryClient = useQueryClient();
 
-  const { isLive: isLaunchpadLive } = useLaunchpadStatus();
+  React.useEffect(() => {
+    if (didTrackViewRef.current) return;
+    didTrackViewRef.current = true;
+    trackEvent("dashboard_view", {
+      source: "bento",
+      wallet_connected: Boolean(walletAddress),
+      wallet_address: walletAddress?.toLowerCase() ?? null,
+    });
+  }, [walletAddress]);
+
+  const {
+    isLive: isLaunchpadLive,
+    nextBatchAtMs: launchpadNextBatchAtMs,
+    refreshNextBatchAtMs: refreshLaunchpadNextBatchAtMs,
+  } = useLaunchpadStatus();
+
+  const handleLaunchpadCountdownComplete = React.useCallback(() => {
+    refreshLaunchpadNextBatchAtMs();
+    void (async () => {
+      try {
+        await queryClient.refetchQueries({ queryKey: ["sponsor-listings"] });
+      } catch {}
+    })();
+  }, [queryClient, refreshLaunchpadNextBatchAtMs]);
+
+  useCountdownTo({
+    targetAtMs: launchpadNextBatchAtMs,
+    onComplete: handleLaunchpadCountdownComplete,
+  });
   const launchpadListingsEnabled = isConnected && isLaunchpadLive;
   const {
     applications: delegationApplications,

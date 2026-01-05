@@ -81,8 +81,7 @@ export function StatsSidebar({
           </div>
 
           {usdcInRedemption > 0 &&
-            !isUsdcInRedemptionLoading &&
-            !isWalletLoading && (
+            (!isUsdcInRedemptionLoading || !isWalletLoading) && (
               <div className="bg-muted/30 rounded-xl border border-border p-3 lg:p-4">
                 <div className="text-xs text-muted-foreground mb-1 lg:mb-2">
                   USDC Available

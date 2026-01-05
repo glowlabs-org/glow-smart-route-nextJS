@@ -3,9 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 import { ArrowUpRight, Users, Zap } from "lucide-react";
+import { useAccount } from "wagmi";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/telemetry";
 
 // Custom Discord Icon
 function DiscordLogo({ className }: { className?: string }) {
@@ -27,6 +29,10 @@ interface DiscordWidgetProps {
 }
 
 export default function DiscordWidget({ className }: DiscordWidgetProps) {
+  const { address, isConnected } = useAccount();
+  const walletAddress = address?.toLowerCase() ?? null;
+  const source = "discord_widget";
+
   return (
     <Link
       href="https://discord.gg/glowfnd"
@@ -34,6 +40,13 @@ export default function DiscordWidget({ className }: DiscordWidgetProps) {
       rel="noreferrer"
       aria-label="Join the Glow Discord (opens in a new tab)"
       className="group block h-full focus:outline-none"
+      onClick={() => {
+        trackEvent("dashboard_discord_click", {
+          source,
+          wallet_connected: isConnected,
+          wallet_address: walletAddress,
+        });
+      }}
     >
       <Card
         className={cn(

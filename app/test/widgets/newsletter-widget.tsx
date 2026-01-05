@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/telemetry";
 
 interface NewsletterWidgetProps {
   className?: string;
@@ -24,19 +25,30 @@ export default function NewsletterWidget({ className }: NewsletterWidgetProps) {
   const [status, setStatus] = React.useState<"idle" | "loading" | "success">(
     "idle"
   );
+  const source = "newsletter_widget";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
 
     setStatus("loading");
+    trackEvent("dashboard_newsletter_subscribe_submit", {
+      source,
+      wallet_connected: false,
+      wallet_address: null,
+    });
+
+    let stage: "api" | "exception" = "exception";
+    let httpStatus: number | null = null;
 
     try {
+      stage = "api";
       const res = await fetch("/api/newsletter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
+      httpStatus = res.status;
 
       const data = await res.json();
 
@@ -47,11 +59,25 @@ export default function NewsletterWidget({ className }: NewsletterWidgetProps) {
       setStatus("success");
       toast.success("Welcome to the inner circle!");
       setEmail("");
+      trackEvent("dashboard_newsletter_subscribe_success", {
+        source,
+        wallet_connected: false,
+        wallet_address: null,
+        http_status: res.status,
+      });
 
       // Reset status after a delay to allow adding another email if needed
       setTimeout(() => setStatus("idle"), 5000);
     } catch (error) {
       console.error(error);
+      trackEvent("dashboard_newsletter_subscribe_error", {
+        source,
+        wallet_connected: false,
+        wallet_address: null,
+        stage,
+        http_status: httpStatus,
+        error_name: error instanceof Error ? error.name : "unknown",
+      });
       toast.error(
         error instanceof Error ? error.message : "Something went wrong"
       );

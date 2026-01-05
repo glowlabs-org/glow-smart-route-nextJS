@@ -19,6 +19,8 @@ import { useGlowLaunchpad, useMiningCenter } from "@/hooks";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DepositDialog } from "@/app/marketplace/deposit-dialog";
 import { SponsoredFarmsActivity } from "@/app/marketplace/sponsored-farms-activity";
+import { trackEvent } from "@/lib/telemetry";
+import { useAccount } from "wagmi";
 import type {
   LaunchpadRewardScore,
   MiningCenterScore,
@@ -63,6 +65,9 @@ export default function LaunchpadStatusWidget({
   forcedType,
   variant = "card",
 }: LaunchpadStatusWidgetProps) {
+  const { address, isConnected } = useAccount();
+  const walletAddress = address?.toLowerCase() ?? null;
+  const source = "launchpad_status_widget";
   const queryClient = useQueryClient();
   const { isLive, nextBatchAtMs, refreshNextBatchAtMs, isLoading, isError } =
     useLaunchpadStatus();
@@ -168,11 +173,19 @@ export default function LaunchpadStatusWidget({
       application: TaggedAuctionApplication,
       scoreData?: LaunchpadRewardScore | MiningCenterScore | null
     ) => {
+      trackEvent("dashboard_launchpad_deposit_open_click", {
+        source,
+        wallet_connected: isConnected,
+        wallet_address: walletAddress,
+        application_id: application.id,
+        listing_type: application._type,
+        payment_currency: application._type === "miners" ? "USDC" : "GLW",
+      });
       setSelectedApplicationForDeposit(application);
       setSelectedRewardScore(scoreData ?? null);
       setDepositOpen(true);
     },
-    []
+    [isConnected, source, walletAddress]
   );
 
   const handleDepositOpenChange = React.useCallback((nextOpen: boolean) => {
@@ -223,7 +236,15 @@ export default function LaunchpadStatusWidget({
           {isLive ? (
             <Tabs
               value={resolvedTab}
-              onValueChange={(v) => setLiveTypeFilter(v as ListTypeFilter)}
+              onValueChange={(v) => {
+                trackEvent("dashboard_launchpad_tab_change", {
+                  source,
+                  wallet_connected: isConnected,
+                  wallet_address: walletAddress,
+                  tab: v,
+                });
+                setLiveTypeFilter(v as ListTypeFilter);
+              }}
               className="w-full shrink-0 sm:w-auto"
             >
               <TabsList

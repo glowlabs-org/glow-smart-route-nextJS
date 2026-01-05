@@ -5,6 +5,8 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChevronRight, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/telemetry";
+import { useAccount } from "wagmi";
 
 interface FaqItem {
   id: string;
@@ -112,6 +114,9 @@ const faqItems: FaqItem[] = [
 ];
 
 export default function GlowFaqWidget({ className }: { className?: string }) {
+  const { address, isConnected } = useAccount();
+  const walletAddress = address?.toLowerCase() ?? null;
+  const source = "glow_faq_widget";
   const [activeId, setActiveId] = useState<string>(faqItems[0].id);
 
   const activeItem = faqItems.find((item) => item.id === activeId);
@@ -126,7 +131,6 @@ export default function GlowFaqWidget({ className }: { className?: string }) {
       <CardHeader className="pb-4 shrink-0 border-b border-border/50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
             <CardTitle className="tracking-tight text-lg">Glow FAQ</CardTitle>
           </div>
           <span className="text-[10px] font-mono uppercase text-muted-foreground bg-muted px-2 py-1 rounded">
@@ -143,7 +147,15 @@ export default function GlowFaqWidget({ className }: { className?: string }) {
               {faqItems.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setActiveId(item.id)}
+                  onClick={() => {
+                    trackEvent("dashboard_faq_item_select", {
+                      source,
+                      wallet_connected: isConnected,
+                      wallet_address: walletAddress,
+                      faq_id: item.id,
+                    });
+                    setActiveId(item.id);
+                  }}
                   className={cn(
                     "relative text-left px-4 py-3 rounded-md text-sm transition-all duration-200 group flex items-center justify-between",
                     activeId === item.id
@@ -164,7 +176,7 @@ export default function GlowFaqWidget({ className }: { className?: string }) {
         {/* Right Side: Answer Display */}
         <div className="flex-1 bg-card/50 relative">
           <ScrollArea className="h-full">
-            <div className="p-6 md:p-8">
+            <div className="p-6 md:p-8 pt-2 md:pt-2">
               {activeItem ? (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <h3 className="text-xl font-semibold mb-6 text-foreground tracking-tight">
@@ -181,11 +193,6 @@ export default function GlowFaqWidget({ className }: { className?: string }) {
               )}
             </div>
           </ScrollArea>
-
-          {/* Decorative background element for the bento feel */}
-          <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none select-none">
-            <Sparkles className="w-32 h-32" />
-          </div>
         </div>
       </div>
     </Card>

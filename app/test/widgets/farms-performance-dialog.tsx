@@ -11,6 +11,7 @@ import {
   Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/telemetry";
 
 // --- Shadcn UI Components ---
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -741,6 +742,8 @@ export function FarmsPerformanceDialogContent({
   const [filter, setFilter] = React.useState<FilterValue>("all");
 
   const hasWallet = Boolean(walletAddress);
+  const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
+  const source = "farms_performance_dialog";
   const isInProgressTab = filter === "in-progress";
   const shouldLoadInProgress =
     hasWallet && (filter === "all" || isInProgressTab);
@@ -1080,9 +1083,16 @@ export function FarmsPerformanceDialogContent({
 
         <Tabs
           value={filter}
-          onValueChange={(value) =>
-            setFilter(isFilterValue(value) ? value : "all")
-          }
+          onValueChange={(value) => {
+            const next = isFilterValue(value) ? value : "all";
+            trackEvent("dashboard_mining_filter_change", {
+              source,
+              wallet_connected: hasWallet,
+              wallet_address: normalizedWalletAddress,
+              filter: next,
+            });
+            setFilter(next);
+          }}
           className="w-full sm:w-auto"
         >
           <TabsList className="w-full sm:w-auto bg-muted/30 border border-border h-10 sm:h-12 p-1 overflow-x-auto">
@@ -1169,7 +1179,15 @@ export function FarmsPerformanceDialogContent({
                     variant="outline"
                     size="sm"
                     className="font-mono"
-                    onClick={() => refetchRewards()}
+                    onClick={() => {
+                      trackEvent("dashboard_mining_retry_click", {
+                        source,
+                        wallet_connected: hasWallet,
+                        wallet_address: normalizedWalletAddress,
+                        filter,
+                      });
+                      refetchRewards();
+                    }}
                   >
                     Retry
                   </Button>

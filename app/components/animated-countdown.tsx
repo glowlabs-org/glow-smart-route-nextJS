@@ -83,10 +83,12 @@ function AnimatedTimePart({
   value,
   size = "md",
   minWidthCh = 4,
+  unit,
 }: {
   value: string;
   size?: CountdownSize;
   minWidthCh?: number;
+  unit?: string;
 }) {
   const heightClass =
     size === "sm"
@@ -106,6 +108,14 @@ function AnimatedTimePart({
       : size === "lg"
       ? "text-3xl"
       : "text-4xl";
+  const unitClass =
+    size === "sm"
+      ? "text-[8px]"
+      : size === "md"
+      ? "text-[9px]"
+      : size === "lg"
+      ? "text-[10px]"
+      : "text-[10px]";
 
   return (
     <span
@@ -135,6 +145,16 @@ function AnimatedTimePart({
           {value}
         </motion.span>
       </AnimatePresence>
+      {unit ? (
+        <span
+          className={cn(
+            "pointer-events-none absolute right-1 top-0.5 font-mono font-semibold uppercase tracking-wide text-muted-foreground/70",
+            unitClass
+          )}
+        >
+          {unit}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -143,10 +163,12 @@ export function AnimatedCountdown({
   remainingMs,
   size = "md",
   className,
+  showSeconds = true,
 }: {
   remainingMs: number;
   size?: CountdownSize;
   className?: string;
+  showSeconds?: boolean;
 }) {
   const { hours, minutes, seconds } = React.useMemo(
     () => formatHms(remainingMs),
@@ -163,7 +185,7 @@ export function AnimatedCountdown({
 
   return (
     <div className={cn("inline-flex items-center gap-1.5", className)}>
-      <AnimatedTimePart value={hours} size={size} />
+      <AnimatedTimePart value={hours} size={size} unit="h" />
       <motion.span
         className={cn(
           "px-0.5 font-mono font-bold text-muted-foreground",
@@ -174,18 +196,22 @@ export function AnimatedCountdown({
       >
         :
       </motion.span>
-      <AnimatedTimePart value={minutes} size={size} />
-      <motion.span
-        className={cn(
-          "px-0.5 font-mono font-bold text-muted-foreground",
-          colonClass
-        )}
-        animate={{ opacity: [0.4, 1, 0.4] }}
-        transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
-      >
-        :
-      </motion.span>
-      <AnimatedTimePart value={seconds} size={size} />
+      <AnimatedTimePart value={minutes} size={size} unit="m" />
+      {showSeconds && (
+        <>
+          <motion.span
+            className={cn(
+              "px-0.5 font-mono font-bold text-muted-foreground",
+              colonClass
+            )}
+            animate={{ opacity: [0.4, 1, 0.4] }}
+            transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+          >
+            :
+          </motion.span>
+          <AnimatedTimePart value={seconds} size={size} unit="s" />
+        </>
+      )}
     </div>
   );
 }
@@ -272,7 +298,12 @@ export function AnimatedCountdownDhms({
 
   return (
     <div className={cn("inline-flex items-center gap-1.5", className)}>
-      <AnimatedTimePart value={daysLabel} size={size} minWidthCh={minWidthCh} />
+      <AnimatedTimePart
+        value={daysLabel}
+        size={size}
+        minWidthCh={minWidthCh}
+        unit="d"
+      />
       <motion.span
         className={cn(
           "px-0.5 font-mono font-bold text-muted-foreground",
@@ -283,7 +314,12 @@ export function AnimatedCountdownDhms({
       >
         :
       </motion.span>
-      <AnimatedTimePart value={hours} size={size} minWidthCh={minWidthCh} />
+      <AnimatedTimePart
+        value={hours}
+        size={size}
+        minWidthCh={minWidthCh}
+        unit="h"
+      />
       <motion.span
         className={cn(
           "px-0.5 font-mono font-bold text-muted-foreground",
@@ -294,7 +330,12 @@ export function AnimatedCountdownDhms({
       >
         :
       </motion.span>
-      <AnimatedTimePart value={minutes} size={size} minWidthCh={minWidthCh} />
+      <AnimatedTimePart
+        value={minutes}
+        size={size}
+        minWidthCh={minWidthCh}
+        unit="m"
+      />
       <motion.span
         className={cn(
           "px-0.5 font-mono font-bold text-muted-foreground",
@@ -305,7 +346,12 @@ export function AnimatedCountdownDhms({
       >
         :
       </motion.span>
-      <AnimatedTimePart value={seconds} size={size} minWidthCh={minWidthCh} />
+      <AnimatedTimePart
+        value={seconds}
+        size={size}
+        minWidthCh={minWidthCh}
+        unit="s"
+      />
     </div>
   );
 }

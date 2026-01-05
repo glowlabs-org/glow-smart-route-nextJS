@@ -46,6 +46,7 @@ import {
   getAggregatedEstimatedWeeklyGlw,
 } from "@/utils/sponsorships-in-progress";
 import { QUERY_KEYS } from "@/hooks/query-keys";
+import { trackEvent } from "@/lib/telemetry";
 
 interface HistoryDataPoint {
   weekNumber: number;
@@ -244,6 +245,8 @@ export default function SolarFarmWidget({
   const queryClient = useQueryClient();
   const { isConnecting, isReconnecting } = useAccount();
   const hasWallet = Boolean(walletAddress);
+  const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
+  const source = "solar_farm_widget";
   const isWalletConnecting = isConnecting || isReconnecting;
   const [isLaunchpadOpen, setIsLaunchpadOpen] = React.useState(false);
   const [nextBatchAtMs, setNextBatchAtMs] = React.useState(() =>
@@ -659,6 +662,14 @@ export default function SolarFarmWidget({
                   size="sm"
                   disabled={!hasWallet || isEmptyButConnected}
                   className="h-8 rounded-full px-3 text-[11px] font-mono tracking-wider gap-2"
+                  onClick={() => {
+                    trackEvent("dashboard_mining_details_open_click", {
+                      source,
+                      wallet_connected: hasWallet,
+                      wallet_address: normalizedWalletAddress,
+                      cta: "view_details",
+                    });
+                  }}
                 >
                   <LayoutGrid className="h-3.5 w-3.5" />
                   <span>View Details</span>
@@ -818,7 +829,14 @@ export default function SolarFarmWidget({
                 variant="outline"
                 size="sm"
                 className="font-mono"
-                onClick={() => refetch()}
+                onClick={() => {
+                  trackEvent("dashboard_mining_retry_click", {
+                    source,
+                    wallet_connected: hasWallet,
+                    wallet_address: normalizedWalletAddress,
+                  });
+                  refetch();
+                }}
               >
                 Retry
               </Button>
@@ -841,7 +859,14 @@ export default function SolarFarmWidget({
                     {activeListingsCount > 0 ? (
                       <Button
                         className="h-12 w-full bg-foreground text-background hover:bg-foreground/90 font-mono dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-                        onClick={() => setIsLaunchpadOpen(true)}
+                        onClick={() => {
+                          trackEvent("dashboard_mining_launchpad_open_click", {
+                            source,
+                            wallet_connected: hasWallet,
+                            wallet_address: normalizedWalletAddress,
+                          });
+                          setIsLaunchpadOpen(true);
+                        }}
                       >
                         <Rocket className="mr-2 h-4 w-4" />
                         Browse Launchpad
@@ -870,6 +895,15 @@ export default function SolarFarmWidget({
                         target="_blank"
                         rel="noopener noreferrer"
                         className="group rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-[color:var(--color-miner-yellow)]/50"
+                        onClick={() => {
+                          trackEvent("dashboard_education_click", {
+                            source,
+                            wallet_connected: hasWallet,
+                            wallet_address: normalizedWalletAddress,
+                            topic: "mining",
+                            url: "https://glow.org/blog/guide-to-glow-mining",
+                          });
+                        }}
                       >
                         <div className="flex items-start gap-3">
                           <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/50">
@@ -891,6 +925,15 @@ export default function SolarFarmWidget({
                         target="_blank"
                         rel="noopener noreferrer"
                         className="group rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-[#C084FC]/50"
+                        onClick={() => {
+                          trackEvent("dashboard_education_click", {
+                            source,
+                            wallet_connected: hasWallet,
+                            wallet_address: normalizedWalletAddress,
+                            topic: "delegation",
+                            url: "https://glow.org/blog/guide-to-delegating-glow",
+                          });
+                        }}
                       >
                         <div className="flex items-start gap-3">
                           <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/50">
@@ -974,6 +1017,14 @@ export default function SolarFarmWidget({
                   <button
                     type="button"
                     aria-label="Open farm performance details"
+                    onClick={() => {
+                      trackEvent("dashboard_mining_details_open_click", {
+                        source,
+                        wallet_connected: hasWallet,
+                        wallet_address: normalizedWalletAddress,
+                        cta: "stats_block",
+                      });
+                    }}
                     className={cn(
                       "w-full sm:w-auto bg-muted/30 px-3 py-2 sm:px-4 rounded-xl border border-border transition-colors cursor-pointer",
                       "hover:bg-muted/40 hover:border-border/80",
