@@ -9,13 +9,11 @@ import { formatUnits } from "viem";
 
 import SolarFarmWidget from "./widgets/solar-farm-widget";
 import NetWorthWidget from "./widgets/net-worth";
-import PortfolioAllocationWidget from "./widgets/portfolio-allocation";
 import RankWidget from "./widgets/rank-widget";
 import RewardsWidget from "./widgets/rewards-widget";
 import WeeklyActivityWidget from "./widgets/weekly-activity-widget";
-import GctlHeatmapWidget from "./widgets/gctl-heatmap-widget";
 import GlowFaqWidget from "./widgets/glow-faq-widget";
-import QuickActionsWidget from "./widgets/quick-actions-widget";
+import GctlHeatmapWidget from "./widgets/gctl-heatmap-widget";
 import RecentActivityWidget from "./widgets/recent-activity-widget";
 import OnboardingHeroWidget from "./widgets/onboarding-hero-widget";
 import LaunchpadStatusWidget from "./widgets/launchpad-status-widget";
@@ -29,7 +27,6 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useRefundableFractions } from "@/hooks";
 import { RefundClaimsPanel } from "@/app/wallet/refund-claims-panel";
 import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
-import { useGlowLaunchpad, useMiningCenter } from "@/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trackEvent } from "@/lib/telemetry";
 import { useCountdownTo } from "@/app/components/animated-countdown";
@@ -50,20 +47,6 @@ function formatGlw(amount: string): string {
   } catch {
     return "0";
   }
-}
-
-function countAvailableApplications(
-  applications: Array<{
-    activeFraction: { isFilled: boolean; remainingSteps: number | null } | null;
-  }>
-) {
-  return applications.reduce((count, app) => {
-    const fraction = app.activeFraction;
-    if (!fraction) return count;
-    const remainingSteps = fraction.remainingSteps ?? 0;
-    const hasAvailability = !fraction.isFilled && remainingSteps > 0;
-    return hasAvailability ? count + 1 : count;
-  }, 0);
 }
 
 function DashboardConnectingSkeleton() {
@@ -145,33 +128,6 @@ export default function GlowSoftDashboard({
     targetAtMs: launchpadNextBatchAtMs,
     onComplete: handleLaunchpadCountdownComplete,
   });
-  const launchpadListingsEnabled = isConnected && isLaunchpadLive;
-  const {
-    applications: delegationApplications,
-    isLoading: isDelegationsLoading,
-  } = useGlowLaunchpad({
-    filters: { paymentCurrency: "GLW" },
-    enabled: launchpadListingsEnabled,
-  });
-  const { applications: minerApplications, isLoading: isMinersLoading } =
-    useMiningCenter({
-      filters: { paymentCurrency: "USDC" },
-      enabled: launchpadListingsEnabled,
-    });
-
-  const hasLaunchpadListings = React.useMemo(() => {
-    if (!launchpadListingsEnabled) return false;
-    const delegationsAvailable = countAvailableApplications(
-      delegationApplications
-    );
-    const minersAvailable = countAvailableApplications(minerApplications);
-    return delegationsAvailable + minersAvailable > 0;
-  }, [delegationApplications, launchpadListingsEnabled, minerApplications]);
-
-  const shouldShowLaunchpadStatusRow =
-    isConnected &&
-    isLaunchpadLive &&
-    (isDelegationsLoading || isMinersLoading || hasLaunchpadListings);
 
   const { refundableFractions, summary, isLoading, isError } =
     useRefundableFractions({
@@ -240,21 +196,16 @@ export default function GlowSoftDashboard({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="grid grid-cols-12 gap-4 grid-flow-row-dense [&:has(.solar-farm-next-batch-countdown)_.quick-actions-launchpad-next-batch-countdown]:hidden"
+              className="grid grid-cols-12 gap-4 grid-flow-row-dense"
             >
-              {shouldShowLaunchpadStatusRow ? (
-                <div className="col-span-12 min-h-0">
-                  <LaunchpadStatusWidget
-                    variant="full-row"
-                    className="w-full"
-                  />
-                </div>
-              ) : null}
-              <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[330px]">
+              <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[330px]">
                 <NetWorthWidget walletAddress={walletAddress} />
               </div>
-              <div className="col-span-12 lg:col-span-4 min-h-0 lg:h-[330px]">
-                <PortfolioAllocationWidget walletAddress={walletAddress} />
+              <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[330px]">
+                <WeeklyActivityWidget
+                  walletAddress={walletAddress}
+                  hideIfEmpty={false}
+                />
               </div>
               <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[330px]">
                 <RankWidget
@@ -264,25 +215,18 @@ export default function GlowSoftDashboard({
               </div>
 
               <div
-                id="bento-solar-farm"
+                id="bento-launchpad-status"
                 className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]"
               >
                 <motion.div
-                  key="solar-farm"
+                  key="launchpad-status"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.2 }}
                   className="h-full min-h-0"
                 >
-                  <SolarFarmWidget walletAddress={walletAddress ?? undefined} />
+                  <LaunchpadStatusWidget className="h-full" />
                 </motion.div>
-              </div>
-
-              <div className="col-span-12 lg:col-span-4 min-h-0 lg:h-[380px]">
-                <QuickActionsWidget
-                  walletAddress={walletAddress}
-                  onMintAndStakeClick={() => setIsMintAndStakeOpen(true)}
-                />
               </div>
 
               <AnimatePresence mode="popLayout" initial={false}>
@@ -301,13 +245,29 @@ export default function GlowSoftDashboard({
                 </motion.div>
               </AnimatePresence>
 
-              <AnimatePresence>
+              <AnimatePresence mode="popLayout">
+                <motion.div
+                  key="recent-activity"
+                  className="col-span-12 lg:col-span-4 min-h-0 lg:h-[380px]"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <RecentActivityWidget
+                    walletAddress={walletAddress}
+                    hideIfEmpty={false}
+                  />
+                </motion.div>
+              </AnimatePresence>
+
+              <AnimatePresence mode="popLayout">
                 <motion.div
                   key="gctl-heatmap"
                   className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
                 >
                   <GctlHeatmapWidget
@@ -317,49 +277,22 @@ export default function GlowSoftDashboard({
                 </motion.div>
               </AnimatePresence>
 
-              <div
-                className={[
-                  "col-span-12 lg:col-span-7 min-h-0 lg:h-[380px]",
-                  "grid grid-cols-7 gap-4",
-                  "[&:has(.activity-slot:not(:empty))_.faq-fallback]:hidden",
-                ].join(" ")}
-              >
-                <AnimatePresence mode="popLayout">
-                  <motion.div
-                    key="weekly-activity-bottom"
-                    className="activity-slot col-span-7 lg:col-span-3 min-h-0 lg:h-[380px] empty:hidden"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <WeeklyActivityWidget walletAddress={walletAddress} />
-                  </motion.div>
-                </AnimatePresence>
-                <AnimatePresence mode="popLayout">
-                  <motion.div
-                    key="recent-activity"
-                    className="activity-slot col-span-7 lg:col-span-4 min-h-0 lg:h-[380px] empty:hidden"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <RecentActivityWidget walletAddress={walletAddress} />
-                  </motion.div>
-                </AnimatePresence>
-
+              <AnimatePresence mode="popLayout">
                 <motion.div
-                  key="faq-fallback"
-                  className="faq-fallback col-span-7 min-h-0 lg:h-[380px]"
-                  initial={{ opacity: 0, scale: 0.98 }}
+                  key="solar-farm"
+                  className="col-span-12 lg:col-span-7 min-h-0 lg:h-[380px]"
+                  initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.98 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <GlowFaqWidget className="w-full h-full lg:max-h-[380px]" />
+                  <div id="bento-solar-farm" className="h-full min-h-0">
+                    <SolarFarmWidget
+                      walletAddress={walletAddress ?? undefined}
+                    />
+                  </div>
                 </motion.div>
-              </div>
+              </AnimatePresence>
             </motion.div>
           ) : isWalletSettling ? (
             <motion.div

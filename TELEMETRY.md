@@ -182,7 +182,7 @@ All events below follow `snake_case` and use `dashboard_*` (dashboard surface ar
 - **Liquidity (GLW/USDG)**
   - `dashboard_add_liquidity_review_click`: clicked “Review/Add/…” in the quick add-liquidity dialog
   - `dashboard_add_liquidity_update_ratio_click`: clicked “Update ratio” warning action
-  - `dashboard_add_liquidity_go_to_swap_click`: clicked “Go to Swap” (internal navigation to `/glow-swap`)
+  - `dashboard_add_liquidity_go_to_swap_click`: clicked “Go to Swap” (internal navigation to `/` — `/glow-swap` now redirects to `/`)
   - `dashboard_remove_liquidity_open_click`: clicked “Remove” (opens remove flow)
     - emitted by: `app/test/widgets/add-liquidity-quick-dialog.tsx`
 

@@ -297,6 +297,7 @@ export interface SplitActivity {
   purchaseDate: string;
   fractionId: string;
   applicationId: string;
+  farmId?: string | null;
   farmName: string;
   fractionType?: "mining-center" | "launchpad";
   fractionStatus: string;

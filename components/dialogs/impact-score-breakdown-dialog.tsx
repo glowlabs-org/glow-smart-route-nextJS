@@ -69,6 +69,11 @@ function formatPoints(
   }).format(num);
 }
 
+function safePointsNumber(value?: string): number {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
 function formatGlwCompact(value?: string) {
   if (!value) return "—";
   const num = Number(value);
@@ -175,6 +180,7 @@ function BreakdownRow({
   onCtaClick,
   tone,
   isPassive = false,
+  isDisabled = false,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
@@ -185,8 +191,17 @@ function BreakdownRow({
   onCtaClick?: () => void;
   tone: BreakdownTone;
   isPassive?: boolean;
+  isDisabled?: boolean;
 }) {
   const toneClasses = getToneClasses(tone);
+  const disabledClasses = isDisabled
+    ? ({
+        row: "border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10 opacity-60",
+        iconWrap: "bg-muted/10 border-border text-muted-foreground",
+        label: "text-muted-foreground",
+        value: "text-muted-foreground",
+      } as const)
+    : null;
   return (
     <div
       className={cn(
@@ -194,14 +209,14 @@ function BreakdownRow({
         isPassive
           ? "bg-muted/20 dark:bg-zinc-900/20"
           : "bg-muted/30 dark:bg-zinc-900/40",
-        toneClasses.row
+        disabledClasses?.row ?? toneClasses.row
       )}
     >
       <div className="flex items-center gap-3">
         <div
           className={cn(
             "flex items-center justify-center w-8 h-8 rounded-lg border",
-            toneClasses.iconWrap
+            disabledClasses?.iconWrap ?? toneClasses.iconWrap
           )}
         >
           <Icon className="w-4 h-4" />
@@ -210,7 +225,7 @@ function BreakdownRow({
           <span
             className={cn(
               "text-xs font-bold uppercase tracking-wide text-foreground dark:text-zinc-200",
-              toneClasses.label
+              disabledClasses?.label ?? toneClasses.label
             )}
           >
             {label}
@@ -225,7 +240,7 @@ function BreakdownRow({
         <span
           className={cn(
             "font-mono font-bold text-sm text-foreground dark:text-white",
-            toneClasses.value
+            disabledClasses?.value ?? toneClasses.value
           )}
         >
           {value}
@@ -263,6 +278,8 @@ export function ImpactScoreBreakdownDialogContent(
     return weekly[weekly.length - 1] ?? null;
   }, [impactScore?.weekly]);
 
+  const lastRolloverWeekNumber = latestWeek?.weekNumber ?? null;
+
   const totalsPoints = impactScore?.totals?.totalPoints ?? undefined;
   const projection = impactScore?.currentWeekProjection ?? null;
   const projectedPoints = projection?.projectedPoints ?? null;
@@ -295,27 +312,77 @@ export function ImpactScoreBreakdownDialogContent(
     ? projectedPoints?.glowWorthWei
     : impactScore?.glowWorth?.glowWorthWei;
 
-  const weeklySteeredGlw = safeGlwFromWei(displayedSteeringGlwWei);
-  const weeklyInflationGlw = safeGlwFromWei(displayedInflationGlwWei);
-  const delegatedActiveGlw = safeGlwFromWei(displayedDelegatedGlwWei);
+  const totalSteeringGlw = safeGlwFromWei(
+    impactScore?.totals?.totalSteeringGlwWei
+  );
+  const totalInflationGlw = safeGlwFromWei(
+    impactScore?.totals?.totalInflationGlwWei
+  );
+  const delegatedActiveGlw = safeGlwFromWei(
+    impactScore?.glowWorth?.delegatedActiveGlwWei
+  );
   const glowWorthGlw = safeGlwFromWei(impactScore?.glowWorth?.glowWorthWei);
+
+  const hasSteeringMultiplier =
+    safePointsNumber(impactScore?.totals?.steeringPoints) > 0;
+  const hasEmissionsEarned =
+    safePointsNumber(impactScore?.totals?.inflationPoints) > 0;
+  const hasVaultBonus =
+    safePointsNumber(impactScore?.totals?.vaultBonusPoints) > 0;
+  const hasGlowWorth = safeBigInt(displayedGlowWorthWei) > 0n;
 
   const hasCashMinerBonus = hasProjection
     ? Boolean(projection?.hasMinerMultiplier)
     : Boolean(latestWeek?.hasCashMinerBonus);
-  const impactStreakWeeks = hasProjection
-    ? projection?.impactStreakWeeks ?? 0
-    : latestWeek?.impactStreakWeeks ?? 0;
-  const streakBonusMultiplier = hasProjection
-    ? projection?.streakBonusMultiplier ?? 0
-    : latestWeek?.streakBonusMultiplier ?? 0;
-  const baseMultiplier = hasProjection
-    ? projection?.baseMultiplier ?? (hasCashMinerBonus ? 3 : 1)
-    : latestWeek?.baseMultiplier ?? (hasCashMinerBonus ? 3 : 1);
+  const hasCashMinerBonusThisWeek = Boolean(projection?.hasMinerMultiplier);
+  const hasCashMinerBonusLastRollover = Boolean(latestWeek?.hasCashMinerBonus);
+  const cashMinerStatusLabel = hasCashMinerBonusThisWeek
+    ? "ACTIVE (this week)"
+    : hasCashMinerBonusLastRollover
+    ? "ACTIVE (last rollover)"
+    : "MISSING";
+  const isCashMinerActive =
+    hasCashMinerBonusThisWeek || hasCashMinerBonusLastRollover;
+  const impactStreakWeeksThisWeek = projection?.impactStreakWeeks ?? 0;
+  const streakBonusMultiplierThisWeek = projection?.streakBonusMultiplier ?? 0;
+  const baseMultiplierThisWeek =
+    projection?.baseMultiplier ?? (hasCashMinerBonusThisWeek ? 3 : 1);
+  const rolloverMultiplierThisWeek =
+    projection?.totalMultiplier ??
+    baseMultiplierThisWeek + streakBonusMultiplierThisWeek;
+
+  const impactStreakWeeksLastRollover = latestWeek?.impactStreakWeeks ?? 0;
+  const streakBonusMultiplierLastRollover =
+    latestWeek?.streakBonusMultiplier ?? 0;
+  const baseMultiplierLastRollover =
+    latestWeek?.baseMultiplier ?? (hasCashMinerBonusLastRollover ? 3 : 1);
+  const rolloverMultiplierLastRollover =
+    latestWeek?.rolloverMultiplier ??
+    baseMultiplierLastRollover + streakBonusMultiplierLastRollover;
+
+  const hasStreakBonusThisWeek =
+    impactStreakWeeksThisWeek > 0 && streakBonusMultiplierThisWeek > 0;
+  const hasStreakBonusLastRollover =
+    impactStreakWeeksLastRollover > 0 && streakBonusMultiplierLastRollover > 0;
+  const streakStatusLabel = hasStreakBonusThisWeek
+    ? "ACTIVE (this week)"
+    : hasStreakBonusLastRollover
+    ? "ACTIVE (last rollover)"
+    : "MISSING";
+  const isStreakActive = hasStreakBonusThisWeek || hasStreakBonusLastRollover;
+
+  const displayedImpactStreakWeeks = hasStreakBonusThisWeek
+    ? impactStreakWeeksThisWeek
+    : impactStreakWeeksLastRollover;
+  const displayedStreakBonusMultiplier = hasStreakBonusThisWeek
+    ? streakBonusMultiplierThisWeek
+    : streakBonusMultiplierLastRollover;
+  const displayedRolloverMultiplier = hasStreakBonusThisWeek
+    ? rolloverMultiplierThisWeek
+    : rolloverMultiplierLastRollover;
   const rolloverMultiplier = hasProjection
-    ? projection?.totalMultiplier ?? baseMultiplier + streakBonusMultiplier
-    : latestWeek?.rolloverMultiplier ?? baseMultiplier + streakBonusMultiplier;
-  const hasStreakBonus = impactStreakWeeks > 0 && streakBonusMultiplier > 0;
+    ? rolloverMultiplierThisWeek
+    : rolloverMultiplierLastRollover;
 
   const projectedBreakdown = React.useMemo(() => {
     if (!hasProjection) return null;
@@ -389,19 +456,6 @@ export function ImpactScoreBreakdownDialogContent(
                 <div className="text-xl font-bold font-mono text-foreground tracking-tight dark:text-white">
                   {formatPoints(totalsPoints)}
                 </div>
-                {projectedThisWeek ? (
-                  <div className="mt-1 text-[10px] text-muted-foreground/80 font-mono dark:text-zinc-600">
-                    Projected week{" "}
-                    {projectedThisWeek.weekNumber != null
-                      ? projectedThisWeek.weekNumber
-                      : "—"}
-                    : +
-                    {formatPoints(projectedThisWeek.projectedPoints, {
-                      maximumFractionDigits: 2,
-                    })}{" "}
-                    pts
-                  </div>
-                ) : null}
               </div>
             </div>
           </DialogHeader>
@@ -412,11 +466,98 @@ export function ImpactScoreBreakdownDialogContent(
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider dark:text-zinc-500">
-                  Weekly Rollover
+                  Bonuses
                 </h4>
                 <span className="text-[10px] text-muted-foreground/80 font-mono dark:text-zinc-600">
-                  {hasProjection ? "Projected " : ""}
                   Week {displayedWeekNumber ?? "—"}
+                </span>
+              </div>
+
+              <div className="space-y-2 rounded-2xl border border-border bg-muted/10 p-3 dark:border-zinc-800 dark:bg-zinc-900/30">
+                {isCashMinerActive ? (
+                  <div className="flex items-center justify-between p-3 bg-[color:var(--color-miner-yellow)]/10 border border-[color:var(--color-miner-yellow)]/20 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[color:var(--color-miner-yellow)] text-black font-bold font-mono text-sm">
+                        3x
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[color:var(--color-miner-yellow-contrast)] uppercase">
+                          Cash Miner Bonus
+                        </div>
+                        <div className="text-[10px] text-[color:var(--color-miner-yellow-contrast)]/60">
+                          Weekly points tripled • {cashMinerStatusLabel}
+                        </div>
+                      </div>
+                    </div>
+                    <CheckCircle2 className="w-5 h-5 text-[color:var(--color-miner-yellow-contrast)]" />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between p-3 bg-muted/20 border border-border rounded-xl opacity-60 dark:bg-zinc-900 dark:border-zinc-800">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-bold font-mono text-sm dark:bg-zinc-800 dark:text-zinc-500">
+                        1x
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-foreground/80 uppercase dark:text-zinc-400">
+                          Cash Miner Bonus
+                        </div>
+                        <div className="text-[10px] text-muted-foreground dark:text-zinc-600">
+                          Buy a miner to triple points • {cashMinerStatusLabel}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {isStreakActive ? (
+                  <div className="flex items-center justify-between p-3 bg-[#C084FC]/10 border border-[#C084FC]/20 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#C084FC] text-black font-bold font-mono text-xs">
+                        {Math.min(displayedImpactStreakWeeks, 4)}/4
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#C084FC] uppercase">
+                          Impact streak
+                        </div>
+                        <div className="text-[10px] text-[#C084FC]/70 font-mono">
+                          +{formatMultiplier(displayedStreakBonusMultiplier)}×
+                          bonus •{" "}
+                          {formatMultiplier(displayedRolloverMultiplier)}× total
+                          • {streakStatusLabel}
+                        </div>
+                      </div>
+                    </div>
+                    <CheckCircle2 className="w-5 h-5 text-[#C084FC]" />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between p-3 bg-muted/20 border border-border rounded-xl opacity-60 dark:bg-zinc-900 dark:border-zinc-800">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-bold font-mono text-xs dark:bg-zinc-800 dark:text-zinc-500">
+                        0/4
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-foreground/80 uppercase dark:text-zinc-400">
+                          Impact streak
+                        </div>
+                        <div className="text-[10px] text-muted-foreground dark:text-zinc-600">
+                          Increase delegation weekly for +0.25× (max +1.0×) •{" "}
+                          {streakStatusLabel}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider dark:text-zinc-500">
+                  Active Multiplier
+                </h4>
+                <span className="text-[10px] text-muted-foreground/80 font-mono dark:text-zinc-600">
+                  Range {impactScore?.weekRange?.startWeek ?? "—"}–
+                  {impactScore?.weekRange?.endWeek ?? "—"}
                 </span>
               </div>
 
@@ -424,170 +565,104 @@ export function ImpactScoreBreakdownDialogContent(
                 <BreakdownRow
                   icon={Zap}
                   label="Steering GLW (sGCTL)"
-                  sublabel={`3.0x Multiplier • ${formatGlwCompact(
-                    weeklySteeredGlw
+                  sublabel={`3.0x • Total • ${formatGlwCompact(
+                    totalSteeringGlw
                   )} GLW`}
-                  value={`+${
-                    hasProjection
-                      ? formatPoints(projectedBreakdown?.steeringPoints, {
-                          maximumFractionDigits: 2,
-                        })
-                      : formatPoints(latestWeek?.steeringPoints, {
-                          maximumFractionDigits: 2,
-                        })
-                  }`}
+                  value={`+${formatPoints(impactScore?.totals?.steeringPoints, {
+                    maximumFractionDigits: 2,
+                  })}`}
                   ctaText="Stake GCTL"
                   onCtaClick={() => setIsMintAndStakeOpen(true)}
                   tone="cyan"
+                  isDisabled={!hasSteeringMultiplier}
                 />
 
                 <BreakdownRow
                   icon={Coins}
                   label="Emissions Earned"
-                  sublabel={`1.0x Multiplier • ${formatGlwCompact(
-                    weeklyInflationGlw
+                  sublabel={`1.0x • Total • ${formatGlwCompact(
+                    totalInflationGlw
                   )} GLW`}
-                  value={`+${
-                    hasProjection
-                      ? formatPoints(projectedBreakdown?.inflationPoints, {
-                          maximumFractionDigits: 2,
-                        })
-                      : formatPoints(latestWeek?.inflationPoints, {
-                          maximumFractionDigits: 2,
-                        })
-                  }`}
+                  value={`+${formatPoints(
+                    impactScore?.totals?.inflationPoints,
+                    {
+                      maximumFractionDigits: 2,
+                    }
+                  )}`}
                   ctaText="Buy Miner"
                   onCtaClick={() => setIsLaunchpadOpen(true)}
                   tone="yellow"
+                  isDisabled={!hasEmissionsEarned}
                 />
 
                 <BreakdownRow
                   icon={Lock}
                   label="Vault Bonus"
-                  sublabel={`0.005x Multiplier • ${formatGlwCompact(
+                  sublabel={`0.005x • Total • ${formatGlwCompact(
                     delegatedActiveGlw
-                  )} GLW`}
-                  value={`+${
-                    hasProjection
-                      ? formatPointsRate(projectedBreakdown?.vaultBonusPoints)
-                      : formatPointsRate(latestWeek?.vaultBonusPoints)
-                  }`}
+                  )} GLW delegated`}
+                  value={`+${formatPoints(
+                    impactScore?.totals?.vaultBonusPoints,
+                    {
+                      maximumFractionDigits: 2,
+                    }
+                  )}`}
                   ctaText="Delegate"
                   onCtaClick={() => setIsLaunchpadOpen(true)}
                   tone="purple"
+                  isDisabled={!hasVaultBonus}
                 />
-              </div>
-
-              <div className="relative py-2">
-                <div className="absolute left-6 top-0 bottom-0 w-px bg-border/60 border-l border-dashed border-border/60 dark:bg-zinc-800 dark:border-zinc-700" />
-                <div className="relative z-10 ml-12 space-y-2">
-                  {hasCashMinerBonus ? (
-                    <div className="flex items-center justify-between p-3 bg-[color:var(--color-miner-yellow)]/10 border border-[color:var(--color-miner-yellow)]/20 rounded-xl">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[color:var(--color-miner-yellow)] text-black font-bold font-mono text-sm">
-                          3x
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-[color:var(--color-miner-yellow-contrast)] uppercase">
-                            Cash Miner Bonus
-                          </div>
-                          <div className="text-[10px] text-[color:var(--color-miner-yellow-contrast)]/60">
-                            Weekly points tripled
-                          </div>
-                        </div>
-                      </div>
-                      <CheckCircle2 className="w-5 h-5 text-[color:var(--color-miner-yellow-contrast)]" />
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between p-3 bg-muted/20 border border-border rounded-xl opacity-60 dark:bg-zinc-900 dark:border-zinc-800">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-bold font-mono text-sm dark:bg-zinc-800 dark:text-zinc-500">
-                          1x
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-foreground/80 uppercase dark:text-zinc-400">
-                            Cash Miner Bonus
-                          </div>
-                          <div className="text-[10px] text-muted-foreground dark:text-zinc-600">
-                            Buy a miner to triple points
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {hasStreakBonus ? (
-                    <div className="flex items-center justify-between p-3 bg-[#C084FC]/10 border border-[#C084FC]/20 rounded-xl">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#C084FC] text-black font-bold font-mono text-xs">
-                          {Math.min(impactStreakWeeks, 4)}/4
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-[#C084FC] uppercase">
-                            Impact streak
-                          </div>
-                          <div className="text-[10px] text-[#C084FC]/70 font-mono">
-                            +{formatMultiplier(streakBonusMultiplier)}× bonus •{" "}
-                            {formatMultiplier(rolloverMultiplier)}× total
-                          </div>
-                        </div>
-                      </div>
-                      <CheckCircle2 className="w-5 h-5 text-[#C084FC]" />
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between p-3 bg-muted/20 border border-border rounded-xl opacity-60 dark:bg-zinc-900 dark:border-zinc-800">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-bold font-mono text-xs dark:bg-zinc-800 dark:text-zinc-500">
-                          0/4
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-foreground/80 uppercase dark:text-zinc-400">
-                            Impact streak
-                          </div>
-                          <div className="text-[10px] text-muted-foreground dark:text-zinc-600">
-                            Increase delegation weekly for +0.25× (max +1.0×)
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
 
               <div className="flex justify-end pt-2 border-t border-dashed border-border dark:border-zinc-800">
                 <div className="text-right">
                   <span className="text-[10px] uppercase text-muted-foreground mr-3 dark:text-zinc-500">
-                    Weekly Total
+                    Rollover Total
                   </span>
                   <span className="font-mono text-xl font-bold text-foreground dark:text-white">
-                    {hasProjection
-                      ? formatPoints(projectedBreakdown?.rolloverPoints, {
-                          maximumFractionDigits: 2,
-                        })
-                      : formatPoints(latestWeek?.rolloverPoints, {
-                          maximumFractionDigits: 2,
-                        })}
+                    {formatPoints(impactScore?.totals?.rolloverPoints, {
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
+                  {/* {latestWeek ? (
+                    <div className="mt-1 text-[10px] text-muted-foreground/80 font-mono dark:text-zinc-600">
+                      Last rollover week {lastRolloverWeekNumber ?? "—"}:{" "}
+                      <span className="tabular-nums">
+                        +
+                        {formatPoints(latestWeek.inflationPoints, {
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        emissions • +
+                        {formatPoints(latestWeek.steeringPoints, {
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        steering • +
+                        {formatPoints(latestWeek.vaultBonusPoints, {
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        vault •{" "}
+                        {formatMultiplier(latestWeek.rolloverMultiplier)}×
+                      </span>
+                    </div>
+                  ) : null} */}
                 </div>
               </div>
             </div>
 
             <div className="space-y-4">
               <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider dark:text-zinc-500">
-                Passive Growth
+                Passive
               </h4>
 
               <BreakdownRow
                 icon={Wallet}
                 label="GLW Worth"
                 sublabel={`${formatGlwCompact(
-                  safeGlwFromWei(displayedGlowWorthWei)
-                )} GLW × 0.001 / week`}
-                value={`+${formatPointsRate(
-                  hasProjection
-                    ? projectedBreakdown?.continuousPoints
-                    : latestWeek?.continuousPoints
-                )} / week`}
+                  glowWorthGlw
+                )} GLW • Total continuous points over range`}
+                value={`+${formatPoints(impactScore?.totals?.continuousPoints, {
+                  maximumFractionDigits: 2,
+                })}`}
                 ctaText="Buy GLW"
                 onCtaClick={() => setIsBuyGlowOpen(true)}
                 tone="emerald"
@@ -644,6 +719,12 @@ export function ImpactScoreBreakdownDialog(
       {query.isLoading ? (
         <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-3xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
           <div className="px-6 pr-14 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
+            <DialogHeader className="sr-only">
+              <DialogTitle>{title ?? "Score Breakdown"}</DialogTitle>
+              <DialogDescription>
+                {description ?? "Loading breakdown."}
+              </DialogDescription>
+            </DialogHeader>
             <div className="flex items-center justify-between">
               <div className="space-y-2">
                 <Skeleton className="h-5 w-48 rounded-md" />

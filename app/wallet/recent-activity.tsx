@@ -8,6 +8,7 @@ import {
   TrendingUp,
   TrendingDown,
   Sparkles,
+  Gift,
   Clock,
   ExternalLink,
   ShoppingCart,
@@ -25,8 +26,18 @@ import {
 import { formatUnits } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import type { SwapActivity } from "@/hooks/useRecentActivityFeed";
+import { useWalletRewardClaims } from "@/hooks/useWalletRewardClaims";
+import type { WalletRewardClaimRow } from "@/lib/api/wallet-reward-claims-index";
+import { SDKAddresses } from "@/web3/constants/addresses";
+import { nonceToWeek } from "@/hooks/useMerkleProofs";
 
-type ActivityKind = "mint" | "stake" | "unstake" | "fraction-purchase" | "swap";
+type ActivityKind =
+  | "mint"
+  | "stake"
+  | "unstake"
+  | "fraction-purchase"
+  | "swap"
+  | "claim";
 
 interface ActivityItem {
   id: string;
@@ -47,6 +58,9 @@ interface RecentActivityProps {
   isSplitsActivityLoading?: boolean;
   isSwapsActivityLoading?: boolean;
   hideIfEmpty?: boolean;
+  headerRight?: React.ReactNode;
+  headerVariant?: "default" | "small";
+  showHeader?: boolean;
   className?: string;
 }
 
@@ -80,6 +94,104 @@ function safeFormatUnits(value: string, decimals: number) {
   } catch {
     return 0;
   }
+}
+
+function normalizeTimestampMs(timestamp: number) {
+  if (!Number.isFinite(timestamp)) return null;
+  // API may return seconds or milliseconds; normalize.
+  return timestamp > 100_000_000_000 ? timestamp : timestamp * 1000;
+}
+
+function shortHex(value: string) {
+  if (!value) return value;
+  if (value.length <= 12) return value;
+  return `${value.slice(0, 6)}…${value.slice(-4)}`;
+}
+
+function getTokenSymbol(tokenAddress: `0x${string}`) {
+  const tokenLower = tokenAddress.toLowerCase();
+  const sdk = SDKAddresses as unknown as Record<string, string | undefined>;
+
+  const candidates: Array<[string, string | undefined]> = [
+    ["GLW", sdk.GLW_UNISWAP ?? sdk.GLW],
+    ["USDG", sdk.USDG_UNISWAP ?? sdk.USDG],
+    ["USDC", sdk.USDC],
+  ];
+
+  for (const [symbol, address] of candidates) {
+    if (!address) continue;
+    if (address.toLowerCase() === tokenLower) return symbol;
+  }
+
+  return shortHex(tokenAddress);
+}
+
+function buildClaimActivity(rows: WalletRewardClaimRow[]): ActivityItem | null {
+  const first = rows[0];
+  if (!first) return null;
+
+  const timestampMs = normalizeTimestampMs(first.timestamp);
+  if (!timestampMs) return null;
+
+  const tokenTotals = new Map<string, number>();
+  for (const row of rows) {
+    const symbol = getTokenSymbol(row.token);
+    const decimals =
+      DECIMALS_BY_TOKEN[symbol as keyof typeof DECIMALS_BY_TOKEN] ?? 18;
+    const amount = safeFormatUnits(row.amount, decimals);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    tokenTotals.set(symbol, (tokenTotals.get(symbol) ?? 0) + amount);
+  }
+
+  const tokenEntries = Array.from(tokenTotals.entries()).sort(
+    (a, b) => b[1] - a[1]
+  );
+  const primary = tokenEntries[0] ?? null;
+
+  const isProtocol = first.source === "rewardsKernel";
+  const weekLabel = (() => {
+    if (!isProtocol) return null;
+    const nonceStr = first.nonce;
+    if (!nonceStr) return null;
+    try {
+      return `Week ${nonceToWeek(BigInt(nonceStr))}`;
+    } catch {
+      return null;
+    }
+  })();
+
+  const title =
+    primary && tokenEntries.length === 1
+      ? `Claimed ${formatCompactNumber(primary[1], 2)} ${primary[0]}`
+      : "Claimed rewards";
+
+  const subtitleParts: string[] = [];
+  if (weekLabel) subtitleParts.push(weekLabel);
+  if (tokenEntries.length > 1) {
+    subtitleParts.push(
+      tokenEntries
+        .slice(0, 3)
+        .map(
+          ([symbol, amount]) => `${formatCompactNumber(amount, 2)} ${symbol}`
+        )
+        .join(" · ")
+    );
+  }
+  const subtitle = subtitleParts.length ? subtitleParts.join(" — ") : undefined;
+
+  return {
+    id: `claim-${first.txHash}-${first.logIndex}`,
+    kind: "claim",
+    timestampMs,
+    txHash: first.txHash,
+    title,
+    subtitle,
+    pill: isProtocol ? "PD" : "Emissions",
+    icon: <Gift className="h-4 w-4" />,
+    iconClassName: isProtocol
+      ? "text-[#C084FC] bg-[#C084FC]/10"
+      : "text-emerald-400 bg-emerald-500/10",
+  };
 }
 
 function buildMintActivity(event: MintedEvent): ActivityItem | null {
@@ -236,6 +348,9 @@ export function RecentActivity({
   isSplitsActivityLoading = false,
   isSwapsActivityLoading = false,
   hideIfEmpty = false,
+  headerRight,
+  headerVariant = "default",
+  showHeader = true,
   className,
 }: RecentActivityProps) {
   const { isConnecting, isReconnecting } = useAccount();
@@ -253,6 +368,19 @@ export function RecentActivity({
     enabled: Boolean(walletAddress),
     limit: 20, // Limit to recent 20 events
   });
+
+  const { claims, isLoading: isClaimsLoading } = useWalletRewardClaims(
+    walletAddress,
+    {
+      enabled: Boolean(walletAddress),
+      // This endpoint returns per-token rows; keep a modest cap.
+      limit: 400,
+      query: {
+        staleTime: 60_000,
+        refetchOnWindowFocus: false,
+      },
+    }
+  );
 
   // Combine and format all activities
   const activities = React.useMemo(() => {
@@ -278,6 +406,20 @@ export function RecentActivity({
       if (item) all.push(item);
     });
 
+    const claimsByTx = new Map<string, WalletRewardClaimRow[]>();
+    claims.forEach((row) => {
+      const txHash = row.txHash;
+      const existing = claimsByTx.get(txHash) ?? [];
+      existing.push(row);
+      claimsByTx.set(txHash, existing);
+    });
+
+    for (const rows of claimsByTx.values()) {
+      rows.sort((a, b) => a.subIndex - b.subIndex);
+      const item = buildClaimActivity(rows);
+      if (item) all.push(item);
+    }
+
     return all.sort((a, b) => {
       const timeDiff = b.timestampMs - a.timestampMs;
       if (timeDiff !== 0) return timeDiff;
@@ -289,13 +431,14 @@ export function RecentActivity({
 
       return 0;
     });
-  }, [mintedEvents, stakeEvents, splitsActivity, swapsActivity]);
+  }, [claims, mintedEvents, stakeEvents, splitsActivity, swapsActivity]);
 
   const isLoading =
     isMintedEventsLoading ||
     isStakeEventsLoading ||
     isSplitsActivityLoading ||
     isSwapsActivityLoading ||
+    isClaimsLoading ||
     isWalletConnecting;
 
   const handleViewTransaction = React.useCallback((activity: ActivityItem) => {
@@ -315,20 +458,34 @@ export function RecentActivity({
   return (
     <Card
       className={cn(
-        "h-full lg:max-h-[380px] overflow-hidden flex flex-col",
+        "h-full lg:max-h-[380px] overflow-hidden flex flex-col gap-4",
         className
       )}
     >
-      <CardHeader className="pb-0">
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle className="tracking-tight">Recent Activity</CardTitle>
-          <span className="text-[10px] font-mono uppercase text-muted-foreground">
-            Live
-          </span>
-        </div>
-      </CardHeader>
+      {showHeader ? (
+        <CardHeader
+          className={cn(headerVariant === "small" ? "pb-0 pt-4" : "py-0")}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle
+              className={cn(
+                headerVariant === "small" &&
+                  "text-lg font-semibold tracking-tight text-foreground",
+                headerVariant !== "small" && "tracking-tight"
+              )}
+            >
+              Recent Activity
+            </CardTitle>
+            {headerRight ?? (
+              <span className="text-[10px] font-mono uppercase text-muted-foreground">
+                Live
+              </span>
+            )}
+          </div>
+        </CardHeader>
+      ) : null}
 
-      <CardContent className="min-h-0 flex-1 p-4 pt-3">
+      <CardContent className="min-h-0 flex-1 p-4 py-0">
         {isLoading ? (
           <div className="space-y-2">
             {Array.from({ length: 5 }).map((_, i) => (

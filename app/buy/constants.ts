@@ -1,6 +1,14 @@
 import { SDKAddresses } from "@/web3/constants/addresses";
 
 export const tokens = {
+  ETH: {
+    label: "ETH",
+    // Native ETH (not an ERC20). Address is a placeholder; swaps use `useSwapETHToUSDC`.
+    address: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+    decimals: 18,
+    allowedPairs: ["GLOW"],
+    toFixed: 6,
+  },
   USDG: {
     label: "USDG",
     address: SDKAddresses.USDG,

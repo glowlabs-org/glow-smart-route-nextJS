@@ -29,10 +29,13 @@ import {
   useConnect,
   useWalletClient,
   usePublicClient,
+  useBalance,
+  useChainId,
 } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
 import { ArrowDownUp, Info, Settings } from "lucide-react";
 import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
+import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { ConnectButton } from "@/components/connect-button";
@@ -65,12 +68,14 @@ const defaultTokensEstimate = {
   GLOW: "",
   USDG: "",
   USDC: "",
+  ETH: "",
 };
 
 const swapTokens = {
   USDC: tokens.USDC,
   USDG: tokens.USDG,
   GLOW: tokens.GLOW,
+  ETH: tokens.ETH,
 } as const;
 
 type SwapTokenLabel = keyof typeof swapTokens;
@@ -87,6 +92,23 @@ function normalizeSlippageTolerance(value: string, fallback: string) {
   const n = Number(trimmed);
   if (!Number.isFinite(n) || n <= 0) return fallback;
   return trimmed;
+}
+
+function slippagePctToBps(value: string, fallbackBps = 100n) {
+  try {
+    const d = new Decimal(value || "0");
+    if (!d.isFinite() || d.lte(0)) return fallbackBps;
+    return BigInt(d.mul(100).toFixed(0, Decimal.ROUND_DOWN));
+  } catch {
+    return fallbackBps;
+  }
+}
+
+function formatEthMaxFromWei(valueWei: bigint) {
+  const raw = formatUnits(valueWei, 18);
+  const [i, f = ""] = raw.split(".");
+  const trimmed = f.slice(0, 6);
+  return trimmed ? `${i}.${trimmed}` : i;
 }
 
 export function SwapInterface({
@@ -127,11 +149,36 @@ export function SwapInterface({
   const [slippageTolerance, setSlippageTolerance] = useState("1");
   const [pendingTx, setPendingTx] = useState<boolean>(false);
   const [tokenSellBalance, setTokenSellBalance] = useState<string>("0");
+  const [actionErrorMessage, setActionErrorMessage] = useState<string | null>(
+    null
+  );
+  const [estimateErrorMessage, setEstimateErrorMessage] = useState<
+    string | null
+  >(null);
   const { address, isConnected, isConnecting } = useAccount();
   const { disconnect } = useDisconnect();
   const { connectors } = useConnect();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
+  const chainId = useChainId();
+  const isEthPayEnabled = chainId === 1 || chainId === 11155111;
+  const ethBalanceQuery = useBalance({
+    address,
+    query: {
+      enabled: Boolean(
+        isConnected &&
+          address &&
+          selectedTokenSell.label === "ETH" &&
+          isEthPayEnabled
+      ),
+    },
+  });
+
+  const ethBalanceFormatted = React.useMemo(() => {
+    if (!ethBalanceQuery.data?.value) return "0";
+    // wagmi formats as 18 decimals for native ETH
+    return ethBalanceQuery.data.formatted;
+  }, [ethBalanceQuery.data?.formatted, ethBalanceQuery.data?.value]);
 
   // Add a general loading state check
   const isWalletLoading = isConnecting;
@@ -151,6 +198,8 @@ export function SwapInterface({
     setSmartBalancingAmounts(undefined);
     setAmountToSell("");
     setEstimatedOutputAmount(defaultTokensEstimate);
+    setActionErrorMessage(null);
+    setEstimateErrorMessage(null);
   }, [selectedTokenBuy, selectedTokenSell]);
 
   const [smartBalancingAmounts, setSmartBalancingAmounts] = useState<
@@ -209,6 +258,8 @@ export function SwapInterface({
     estimateGasForPurchaseGlowEarlyLiquidity,
   } = usePurchaseGlow();
   const { swapUSDCToUSDG, estimateGasForswapUSDCToUSDG } = useSwapUSDCToUSDG();
+  const { estimateEthToUsdc, estimateGasForSwapEthToUsdc, swapEthToUsdc } =
+    useSwapETHToUSDC();
 
   const { estimateGasForRedeemUSDG, getUSDCBalanceOfRedemptionContract } =
     useUSDGRedemption();
@@ -252,8 +303,14 @@ export function SwapInterface({
     estimateGlowToUSDG,
     estimateGasForUniswap,
   } = useSwap({
-    tokenA_address: selectedTokenSell.address,
-    tokenB_address: selectedTokenBuy.address,
+    tokenA_address:
+      selectedTokenSell.label === "ETH"
+        ? swapTokens.USDG.address
+        : selectedTokenSell.address,
+    tokenB_address:
+      selectedTokenSell.label === "ETH"
+        ? swapTokens.GLOW.address
+        : selectedTokenBuy.address,
   });
 
   const currentTokenEstimatedOutputAmount =
@@ -267,13 +324,14 @@ export function SwapInterface({
           6
         )} ${selectedTokenBuy.label}`
       );
+      setActionErrorMessage(null);
       trackEvent("buy_swap_result", {
         ok: true,
         sell_token: selectedTokenSell.label,
         buy_token: selectedTokenBuy.label,
       });
     } else {
-      toast.error(data.val);
+      setActionErrorMessage(data.val);
       trackEvent("buy_swap_result", {
         ok: false,
         sell_token: selectedTokenSell.label,
@@ -312,6 +370,12 @@ export function SwapInterface({
         disabled: true,
       };
     } else if (Number(tokenSellBalance) < Number(amountToSell)) {
+      if (selectedTokenSell.label === "ETH") {
+        return {
+          label: `Insufficient ETH balance`,
+          disabled: true,
+        };
+      }
       if (selectedTokenSell.label === "USDC") {
         if (
           usdgBalance &&
@@ -474,6 +538,30 @@ export function SwapInterface({
           },
         };
       } else if (
+        selectedTokenSell.label === "ETH" &&
+        selectedTokenBuy.label === "GLOW"
+      ) {
+        return {
+          label: `SWAP`,
+          disabled: false,
+          callback: async () => {
+            // Check for smart account before proceeding
+            const isSmartAccount = await checkSmartAccountBeforeSwap();
+            if (isSmartAccount) {
+              trackEvent("buy_swap_blocked_smart_account", {
+                sell_token: selectedTokenSell.label,
+                buy_token: selectedTokenBuy.label,
+              });
+              return;
+            }
+            trackEvent("buy_usdc_to_token_dialog_open", {
+              sell_token: selectedTokenSell.label,
+              buy_token: selectedTokenBuy.label,
+            });
+            setIsDialogOpen(true);
+          },
+        };
+      } else if (
         selectedTokenSell.label === "GLOW" &&
         selectedTokenBuy.label === "USDC"
       ) {
@@ -534,6 +622,7 @@ export function SwapInterface({
     const amountIn = toUnitsDecimal(amountToSell, selectedTokenSell.decimals);
 
     try {
+      setActionErrorMessage(null);
       setPendingTx(true);
       if (
         selectedTokenBuy.label === "GLOW" &&
@@ -679,7 +768,8 @@ export function SwapInterface({
         errorMessage = "Transaction was rejected";
       }
 
-      toast.error(errorMessage);
+      // Prefer inline UI error for swap submit errors (avoid duplicating toast + UI).
+      setActionErrorMessage(errorMessage);
       trackEvent("buy_swap_result", {
         ok: false,
         sell_token: selectedTokenSell.label,
@@ -728,9 +818,198 @@ export function SwapInterface({
 
   const estimateAmount = async (amountStr: string, signal: AbortSignal) => {
     try {
+      if (selectedTokenSell.label === "ETH") {
+        if (selectedTokenBuy.label !== "GLOW") {
+          if (signal.aborted) return;
+          setSmartBalancingAmounts(undefined);
+          setEstimatedOutputAmount(defaultTokensEstimate);
+          return;
+        }
+        if (!amountStr || amountStr === "0") {
+          if (signal.aborted) return;
+          setSmartBalancingAmounts(undefined);
+          setEstimatedOutputAmount(defaultTokensEstimate);
+          return;
+        }
+        if (!isEthPayEnabled) {
+          if (signal.aborted) return;
+          setSmartBalancingAmounts(undefined);
+          setEstimatedOutputAmount(defaultTokensEstimate);
+          return;
+        }
+
+        const slippageBps = slippagePctToBps(slippageTolerance, 100n);
+        let ethWei: bigint;
+        try {
+          ethWei = parseUnits(amountStr, 18);
+        } catch {
+          if (signal.aborted) return;
+          setSmartBalancingAmounts(undefined);
+          setEstimatedOutputAmount(defaultTokensEstimate);
+          return;
+        }
+
+        const ethQuoteRes = await estimateEthToUsdc({
+          amountInWei: ethWei,
+          slippageBps,
+        });
+        if (!ethQuoteRes.ok) {
+          console.error(ethQuoteRes.val);
+          if (!signal.aborted) setEstimateErrorMessage(String(ethQuoteRes.val));
+          return;
+        }
+
+        const usdgEquivalent = formatUnits(ethQuoteRes.val.amountOutUsdc, 6);
+        const smartBalancingAmountsRes = await getSmartBalancingAmounts({
+          amountUsdgIn: usdgEquivalent,
+          earlyLiquidityCurrentPrice: Number(earlyLiquidityCurrentPrice),
+        });
+        if (!smartBalancingAmountsRes.ok) {
+          console.error(smartBalancingAmountsRes.val);
+          if (!signal.aborted)
+            setEstimateErrorMessage(String(smartBalancingAmountsRes.val));
+          return;
+        }
+
+        // early liquidity fees
+        let estimatedCostInUSDForEarlyLiquidityAmount = "0";
+        estimatedCostInUSDForEarlyLiquidityAmount =
+          await getGlowEarlyLiquidityFees(
+            Number(smartBalancingAmountsRes.val.amount_out_glow)
+          );
+
+        // uniswap fees
+        let estimatedCostInUSDForUniswap = "0";
+        estimatedCostInUSDForUniswap = await getUniswapFees(
+          Number(formatUnits(smartBalancingAmountsRes.val.amount_in_uni, 6))
+        );
+
+        // usdc -> usdg fees
+        let estimatedGasForswapUSDCToUSDG = "0";
+        const usdcAmountWei = parseUnits(usdgEquivalent, 6);
+        const estimatedGasForswapUSDCToUSDGRes =
+          await estimateGasForswapUSDCToUSDG(usdcAmountWei, ethPriceInUSD);
+        if (estimatedGasForswapUSDCToUSDGRes.ok)
+          estimatedGasForswapUSDCToUSDG = estimatedGasForswapUSDCToUSDGRes.val;
+
+        // eth -> usdc fees
+        let estimatedGasForSwapEthToUsdcUSD = "0";
+        const ethGasRes = await estimateGasForSwapEthToUsdc({
+          amountInWei: ethWei,
+          slippageBps,
+        });
+        if (ethGasRes.ok && ethPriceInUSD) {
+          const feeEth = Number(formatUnits(ethGasRes.val.estimatedFeeWei, 18));
+          estimatedGasForSwapEthToUsdcUSD = toFixedTruncate(
+            feeEth * ethPriceInUSD,
+            6
+          );
+        }
+
+        const amountsWithFees = getOptimalUSDGAmountsWithFees({
+          amount_glow_out_uniswap: Number(
+            smartBalancingAmountsRes.val.amount_out_uni
+          ),
+          amount_glow_out_bonding_curve: Number(
+            smartBalancingAmountsRes.val.amount_out_glow
+          ),
+          fees: {
+            uniswapFees: Number(estimatedCostInUSDForUniswap),
+            bondingCurveFees: Number(estimatedCostInUSDForEarlyLiquidityAmount),
+          },
+          // If we use both they'll be the same so we can use either
+          endingPriceIfBoth: Number(
+            smartBalancingAmountsRes.val.earlyLiquidityCurrentPrice
+          ),
+          amount_usdg_in_uniswap: Number(
+            formatUnits(smartBalancingAmountsRes.val.amount_in_uni, 6)
+          ),
+          amount_usdg_in_bonding_curve: Number(
+            formatUnits(
+              smartBalancingAmountsRes.val.amount_in_glow_bonding_curve,
+              6
+            )
+          ),
+          uniswapUSDGReserves: Number(
+            smartBalancingAmountsRes.val.uniswapUSDGReserves
+          ),
+          uniswapGlowReserves: Number(
+            smartBalancingAmountsRes.val.uniswapGlowReserves
+          ),
+          earlyLiquidityCurrentPrice: Number(glowPrice),
+          usdgToSpend: Number(usdgEquivalent),
+        });
+
+        // uniswap fees (recompute after fee optimization)
+        estimatedCostInUSDForUniswap = await getUniswapFees(
+          amountsWithFees.amount_usdg_in_uniswap
+        );
+
+        // early liquidity fees (recompute after fee optimization)
+        estimatedCostInUSDForEarlyLiquidityAmount =
+          await getGlowEarlyLiquidityFees(
+            amountsWithFees.amount_out_glow_bonding_curve
+          );
+
+        const estimatedTotalGasInUSD = toFixedTruncate(
+          Number(estimatedCostInUSDForUniswap) +
+            Number(estimatedCostInUSDForEarlyLiquidityAmount) +
+            Number(estimatedGasForswapUSDCToUSDG) +
+            Number(estimatedGasForSwapEthToUsdcUSD),
+          6
+        );
+
+        if (signal.aborted) return; // stale
+        setEstimateErrorMessage(null);
+        setSmartBalancingAmounts({
+          amount_in_glow_bonding_curve: parseUnits(
+            toFixedTruncate(amountsWithFees.amount_usdg_in_bonding_curve, 6),
+            6
+          ),
+          amount_out_glow: toFixedTruncate(
+            amountsWithFees.amount_out_glow_bonding_curve,
+            18
+          ),
+          amount_in_uni: parseUnits(
+            toFixedTruncate(amountsWithFees.amount_usdg_in_uniswap, 6),
+            6
+          ),
+          amount_out_uni: toFixedTruncate(
+            amountsWithFees.amount_out_glow_uniswap,
+            18
+          ),
+          uniswapGlowReserves: smartBalancingAmountsRes.val.uniswapGlowReserves,
+          uniswapUSDGReserves: smartBalancingAmountsRes.val.uniswapUSDGReserves,
+          earlyLiquidityCurrentPrice:
+            smartBalancingAmountsRes.val.earlyLiquidityCurrentPrice,
+          usdgToSpend: smartBalancingAmountsRes.val.usdgToSpend,
+          estimatedCostInUSDForEarlyLiquidity:
+            estimatedCostInUSDForEarlyLiquidityAmount,
+          estimatedCostInUSDForUniswap: estimatedCostInUSDForUniswap,
+          estimatedTotalGasInUSD: estimatedTotalGasInUSD,
+        });
+
+        const uniswapOutFresh = Number(amountsWithFees.amount_out_glow_uniswap);
+        const bondingOutFresh = Number(
+          amountsWithFees.amount_out_glow_bonding_curve
+        );
+        const finalOutput =
+          (Number.isFinite(uniswapOutFresh) ? uniswapOutFresh : 0) +
+          (Number.isFinite(bondingOutFresh) ? bondingOutFresh : 0);
+
+        if (signal.aborted) return; // stale
+        setEstimateErrorMessage(null);
+        setEstimatedOutputAmount({
+          ...defaultTokensEstimate,
+          [selectedTokenBuy.label]: finalOutput.toString(),
+        });
+
+        return;
+      }
       if (selectedTokenBuy.label === "GLOW") {
         if (!amountStr || amountStr === "0") {
           setSmartBalancingAmounts(undefined);
+          setEstimateErrorMessage(null);
           return;
         }
         const uniswapEstimate = await estimateOutputAmount({
@@ -742,7 +1021,8 @@ export function SwapInterface({
         });
         if (!smartBalancingAmountsRes.ok) {
           console.error(smartBalancingAmountsRes.val);
-          toast.error(smartBalancingAmountsRes.val);
+          if (!signal.aborted)
+            setEstimateErrorMessage(String(smartBalancingAmountsRes.val));
           return;
         }
 
@@ -859,7 +1139,8 @@ export function SwapInterface({
 
         if (!uniswapEstimate.ok) {
           console.error("!uniswapEstimate.ok", uniswapEstimate.val);
-          toast.error(uniswapEstimate.val);
+          if (!signal.aborted)
+            setEstimateErrorMessage(String(uniswapEstimate.val));
           return;
         }
 
@@ -868,7 +1149,10 @@ export function SwapInterface({
             "!findAmountGlowFromUSDGAmountRes.ok)",
             findAmountGlowFromUSDGAmountRes.val
           );
-          toast.error(findAmountGlowFromUSDGAmountRes.val);
+          if (!signal.aborted)
+            setEstimateErrorMessage(
+              String(findAmountGlowFromUSDGAmountRes.val)
+            );
           return;
         }
 
@@ -900,6 +1184,7 @@ export function SwapInterface({
         }
 
         if (signal.aborted) return; // stale
+        setEstimateErrorMessage(null);
         setEstimatedOutputAmount({
           ...defaultTokensEstimate,
           [selectedTokenBuy.label]: finalOutput.toString(),
@@ -912,6 +1197,7 @@ export function SwapInterface({
         selectedTokenSell.label === "USDC"
       ) {
         if (signal.aborted) return; // stale
+        setEstimateErrorMessage(null);
         setEstimatedOutputAmount({
           ...defaultTokensEstimate,
           [selectedTokenBuy.label]: amountStr,
@@ -923,6 +1209,7 @@ export function SwapInterface({
         selectedTokenSell.label === "USDG"
       ) {
         if (signal.aborted) return; // stale
+        setEstimateErrorMessage(null);
         setEstimatedOutputAmount({
           ...defaultTokensEstimate,
           [selectedTokenBuy.label]: amountStr,
@@ -941,6 +1228,7 @@ export function SwapInterface({
         if (estimateRes.ok) {
           // USDG to USDC is 1:1, so the USDG amount equals USDC amount
           if (signal.aborted) return; // stale
+          setEstimateErrorMessage(null);
           setEstimatedOutputAmount({
             ...defaultTokensEstimate,
             [selectedTokenBuy.label]: formatUnits(estimateRes.val, 6),
@@ -954,6 +1242,7 @@ export function SwapInterface({
 
       if (estimateRes.ok) {
         if (signal.aborted) return; // stale
+        setEstimateErrorMessage(null);
         setEstimatedOutputAmount({
           ...defaultTokensEstimate,
           [selectedTokenBuy.label]: formatUnits(
@@ -983,7 +1272,10 @@ export function SwapInterface({
         });
       }
 
-      toast.error(error?.message || "Failed to estimate swap amount");
+      if (!signal.aborted)
+        setEstimateErrorMessage(
+          error?.message || "Failed to estimate swap amount"
+        );
       setSmartBalancingAmounts(undefined);
       setEstimatedOutputAmount(defaultTokensEstimate);
     }
@@ -991,6 +1283,11 @@ export function SwapInterface({
 
   const getTokenSellBalance = async () => {
     try {
+      if (selectedTokenSell.label === "ETH") {
+        setBalancesLoading(false);
+        setTokenSellBalance(ethBalanceFormatted);
+        return;
+      }
       setBalancesLoading(true);
       const balances = await getBalances();
       await refreshBalances();
@@ -1020,6 +1317,8 @@ export function SwapInterface({
     setSmartBalancingAmounts(undefined);
     setAmountToSell("");
     setEstimatedOutputAmount(defaultTokensEstimate);
+    setActionErrorMessage(null);
+    setEstimateErrorMessage(null);
   };
 
   const handleSelectTokenToBuy = (value: string) => {
@@ -1030,16 +1329,22 @@ export function SwapInterface({
 
     setAmountToSell("");
     setEstimatedOutputAmount(defaultTokensEstimate);
+    setActionErrorMessage(null);
+    setEstimateErrorMessage(null);
   };
 
   const buttonProps = computeButtonProps();
 
   // Fetch only the sell token balance when sell token or wallet readiness changes
   useEffect(() => {
-    if (selectedTokenSell && signer && isReady) {
-      getTokenSellBalance();
+    if (!selectedTokenSell) return;
+    if (selectedTokenSell.label === "ETH") {
+      setTokenSellBalance(ethBalanceFormatted);
+      setBalancesLoading(false);
+      return;
     }
-  }, [selectedTokenSell, signer, isReady]);
+    if (signer && isReady) getTokenSellBalance();
+  }, [selectedTokenSell, signer, isReady, ethBalanceFormatted]);
 
   // Estimate output when inputs change; no balance fetch here
   useEffect(() => {
@@ -1139,7 +1444,40 @@ export function SwapInterface({
                       disabled={
                         !isConnected || isWalletLoading || balancesLoading
                       }
-                      onClick={() => {
+                      onClick={async () => {
+                        if (selectedTokenSell.label === "ETH") {
+                          const ethBalanceWei = ethBalanceQuery.data?.value;
+                          if (!ethBalanceWei) return;
+
+                          try {
+                            const probeWei =
+                              ethBalanceWei > parseUnits("0.05", 18)
+                                ? parseUnits("0.05", 18)
+                                : ethBalanceWei;
+                            const gasRes = await estimateGasForSwapEthToUsdc({
+                              amountInWei: probeWei,
+                              slippageBps: slippagePctToBps(
+                                slippageTolerance,
+                                100n
+                              ),
+                            });
+                            const feeWei = gasRes.ok
+                              ? gasRes.val.estimatedFeeWei
+                              : 0n;
+                            const bufferedFeeWei = (feeWei * 12n) / 10n; // +20%
+                            const maxSpendWei =
+                              ethBalanceWei > bufferedFeeWei
+                                ? ethBalanceWei - bufferedFeeWei
+                                : 0n;
+                            setAmountToSell(formatEthMaxFromWei(maxSpendWei));
+                          } catch (e: any) {
+                            toast.error(
+                              e?.message || "Failed to compute max ETH amount"
+                            );
+                          }
+                          return;
+                        }
+
                         const maxVal = toFixedTruncate(
                           Number(tokenSellBalance || 0),
                           selectedTokenSell.toFixed
@@ -1245,6 +1583,7 @@ export function SwapInterface({
                   <SelectItem value="USDC">USDC</SelectItem>
                   <SelectItem value="GLOW">GLOW</SelectItem>
                   <SelectItem value="USDG">USDG</SelectItem>
+                  {isEthPayEnabled && <SelectItem value="ETH">ETH</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
@@ -1320,12 +1659,6 @@ export function SwapInterface({
           {/* Enhanced Transaction Details */}
           {smartBalancingAmounts && selectedTokenBuy.label === "GLOW" && (
             <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-xl p-4 lg:p-5 space-y-4 border border-border/20">
-              <div className="flex items-center gap-2 mb-3">
-                <Info className="w-4 h-4 text-muted-foreground" />
-                <span className="text-xs lg:text-sm font-medium text-muted-foreground">
-                  Transaction Details
-                </span>
-              </div>
               {/* Only show route details if using both Uniswap and Bonding Curve */}
               {Number(smartBalancingAmounts?.amount_out_glow) > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1357,6 +1690,12 @@ export function SwapInterface({
                       )}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {estimateErrorMessage && (
+                <div className="text-xs text-destructive pt-2">
+                  {estimateErrorMessage}
                 </div>
               )}
               <div className="pt-3 border-t border-border/20">
@@ -1417,6 +1756,12 @@ export function SwapInterface({
                 )}
                 {pendingTx ? "Processing..." : buttonProps.label}
               </Button>
+            )}
+
+            {actionErrorMessage && (
+              <div className="text-sm text-destructive mt-3">
+                {actionErrorMessage}
+              </div>
             )}
           </div>
         </div>

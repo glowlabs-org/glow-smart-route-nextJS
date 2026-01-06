@@ -9,7 +9,16 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { Cpu, Zap, LayoutGrid, Sun, Rocket, Layers, Gift } from "lucide-react";
+import {
+  Cpu,
+  Zap,
+  LayoutGrid,
+  Sun,
+  Rocket,
+  Layers,
+  Gift,
+  Info,
+} from "lucide-react";
 import Link from "next/link";
 import {
   useGlowLaunchpad,
@@ -28,6 +37,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip as ShadTooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import { FarmsPerformanceDialogContent } from "./farms-performance-dialog";
 import { cn } from "@/lib/utils";
@@ -47,6 +62,7 @@ import {
 } from "@/utils/sponsorships-in-progress";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { trackEvent } from "@/lib/telemetry";
+import { useWalletPortfolio } from "./use-wallet-portfolio";
 
 interface HistoryDataPoint {
   weekNumber: number;
@@ -258,6 +274,17 @@ export default function SolarFarmWidget({
     enabled: hasWallet,
   });
 
+  const { chartData: glowWorthChartData } = useWalletPortfolio({
+    walletAddress: walletAddress ?? null,
+  });
+
+  const delegatedActiveGlw = React.useMemo(() => {
+    if (!hasWallet) return 0;
+    const last = glowWorthChartData.at(-1);
+    const value = last?.delegatedActiveGlw ?? 0;
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  }, [glowWorthChartData, hasWallet]);
+
   const { applications: launchpadApplications } = useGlowLaunchpad({
     filters: { paymentCurrency: "GLW" },
   });
@@ -347,12 +374,14 @@ export default function SolarFarmWidget({
   const isWidgetLoading = isLoading || isSplitsActivityLoading;
   const isWidgetError = isError || isSplitsActivityError;
 
-  const activeListingsCount = React.useMemo(() => {
-    return (
-      countActiveListings(launchpadApplications) +
-      countActiveListings(minersApplications)
-    );
-  }, [launchpadApplications, minersApplications]);
+  const activeDelegationsListingsCount = React.useMemo(() => {
+    return countActiveListings(launchpadApplications);
+  }, [launchpadApplications]);
+  const activeMinersListingsCount = React.useMemo(() => {
+    return countActiveListings(minersApplications);
+  }, [minersApplications]);
+  const activeListingsCount =
+    activeDelegationsListingsCount + activeMinersListingsCount;
 
   const rewardsHistoryData = React.useMemo<HistoryDataPoint[]>(() => {
     if (!data) return [];
@@ -487,6 +516,41 @@ export default function SolarFarmWidget({
         0,
     };
   }, [data, rewardsHistoryData]);
+
+  const visibleStatsItems = React.useMemo(() => {
+    const items = [
+      {
+        key: "miners" as const,
+        count: stats.activeMiners,
+        label: "Miners",
+        Icon: Cpu,
+        iconClassName: "text-miner-yellow",
+      },
+      {
+        key: "delegations" as const,
+        count: stats.activeDelegations,
+        label: "Delegations",
+        Icon: Zap,
+        iconClassName: "text-glow-purple",
+      },
+      {
+        key: "other" as const,
+        count: stats.activeOtherRewards,
+        label: "Other",
+        Icon: Gift,
+        iconClassName: "text-[color:var(--color-glow-green)]",
+      },
+    ].filter((i) => i.count > 0);
+
+    return items.length ? items : [];
+  }, [stats.activeDelegations, stats.activeMiners, stats.activeOtherRewards]);
+
+  const statsGridColsClass = React.useMemo(() => {
+    const n = visibleStatsItems.length;
+    if (n <= 1) return "grid-cols-1";
+    if (n === 2) return "grid-cols-2";
+    return "grid-cols-3";
+  }, [visibleStatsItems.length]);
 
   const hasAnyRewardsOrActivity = React.useMemo(() => {
     if (!data) return false;
@@ -682,7 +746,7 @@ export default function SolarFarmWidget({
         <CardContent
           className={cn(
             "flex-1 min-h-0 flex flex-col gap-6",
-            !isEmptyButConnected ? "p-4 pt-2 sm:p-6" : "p-0"
+            !isEmptyButConnected ? "px-4 py-0 pt-2 sm:px-6" : "p-0"
           )}
         >
           {!hasWallet ? (
@@ -868,8 +932,24 @@ export default function SolarFarmWidget({
                           setIsLaunchpadOpen(true);
                         }}
                       >
-                        <Rocket className="mr-2 h-4 w-4" />
-                        Browse Launchpad
+                        {activeMinersListingsCount > 0 &&
+                        activeDelegationsListingsCount === 0 ? (
+                          <>
+                            <Cpu className="mr-2 h-4 w-4" />
+                            Buy Miners
+                          </>
+                        ) : activeDelegationsListingsCount > 0 &&
+                          activeMinersListingsCount === 0 ? (
+                          <>
+                            <Zap className="mr-2 h-4 w-4" />
+                            Delegate GLW
+                          </>
+                        ) : (
+                          <>
+                            <Rocket className="mr-2 h-4 w-4" />
+                            Browse Launchpad
+                          </>
+                        )}
                       </Button>
                     ) : (
                       <div className="flex flex-col items-center gap-2">
@@ -974,12 +1054,13 @@ export default function SolarFarmWidget({
             <>
               {/* Dashboard Stats */}
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex flex-col gap-1 min-w-0">
-                  <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
-                    Current Weekly Payout
-                  </span>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-10 min-w-0">
+                  {/* KPI: Current weekly payout */}
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
+                      Current Weekly Payout
+                    </span>
+                    <div className="flex items-center gap-2 min-w-0">
                       <Sun className="w-5 h-5 text-emerald-500 fill-emerald-500/20" />
                       <div className="flex flex-col leading-none">
                         <div className="flex items-baseline gap-2">
@@ -998,19 +1079,46 @@ export default function SolarFarmWidget({
                         ) : null}
                       </div>
                     </div>
-                    {/* <span
-                      className={cn(
-                        "px-1.5 py-0.5 rounded text-[10px] font-bold font-mono border",
-                        stats.trendPercent === null
-                          ? "bg-muted text-muted-foreground border-border"
-                          : stats.trendPercent >= 0
-                          ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                          : "bg-red-500/10 text-red-500 border-red-500/20"
-                      )}
-                    >
-                      {stats.trend}
-                    </span> */}
                   </div>
+
+                  {/* KPI: Actively delegated (Glow Worth) */}
+                  {delegatedActiveGlw > 0 ? (
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
+                          Actively delegated
+                        </span>
+                        <TooltipProvider delayDuration={0}>
+                          <ShadTooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                aria-label="Actively delegated info"
+                                className="inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                              >
+                                <Info className="h-3.5 w-3.5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[260px] text-[11px] font-mono">
+                              Actively delegated = delegated GLW minus protocol
+                              deposit (PD) recovery already received.
+                            </TooltipContent>
+                          </ShadTooltip>
+                        </TooltipProvider>
+                      </div>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Zap className="w-5 h-5 text-glow-purple" />
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-bold text-foreground tracking-tight font-mono tabular-nums">
+                            {formatGlwCompact(delegatedActiveGlw)}
+                          </span>
+                          <span className="text-sm font-bold text-muted-foreground font-mono">
+                            GLW
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <DialogTrigger asChild>
@@ -1026,45 +1134,38 @@ export default function SolarFarmWidget({
                       });
                     }}
                     className={cn(
-                      "w-full sm:w-auto bg-muted/30 px-3 py-2 sm:px-4 rounded-xl border border-border transition-colors cursor-pointer",
+                      "w-full sm:w-auto bg-muted/30 px-2 py-2 sm:px-3 rounded-xl border border-border transition-colors cursor-pointer",
                       "hover:bg-muted/40 hover:border-border/80",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     )}
                   >
-                    <div className="grid grid-cols-3 divide-x divide-border">
-                      <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-lg font-bold text-foreground font-mono">
-                            {stats.activeMiners}
-                          </span>
-                          <Cpu className="w-4 h-4 text-miner-yellow" />
-                        </div>
-                        <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                          Miners
-                        </span>
-                      </div>
-                      <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-lg font-bold text-foreground font-mono">
-                            {stats.activeDelegations}
-                          </span>
-                          <Zap className="w-4 h-4 text-glow-purple" />
-                        </div>
-                        <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                          Delegations
-                        </span>
-                      </div>
-                      <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-lg font-bold text-foreground font-mono">
-                            {stats.activeOtherRewards}
-                          </span>
-                          <Gift className="w-4 h-4 text-[color:var(--color-glow-green)]" />
-                        </div>
-                        <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                          Other
-                        </span>
-                      </div>
+                    <div
+                      className={cn(
+                        "grid",
+                        statsGridColsClass,
+                        visibleStatsItems.length > 1
+                          ? "divide-x divide-border"
+                          : ""
+                      )}
+                    >
+                      {visibleStatsItems.map(
+                        ({ key, count, label, Icon, iconClassName }) => (
+                          <div
+                            key={key}
+                            className="flex flex-col items-center sm:items-end px-2 sm:px-3"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-lg font-bold text-foreground font-mono">
+                                {count}
+                              </span>
+                              <Icon className={cn("w-4 h-4", iconClassName)} />
+                            </div>
+                            <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                              {label}
+                            </span>
+                          </div>
+                        )
+                      )}
                     </div>
                   </button>
                 </DialogTrigger>

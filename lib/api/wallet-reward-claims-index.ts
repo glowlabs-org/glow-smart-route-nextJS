@@ -44,6 +44,44 @@ function asLowerHexAddress(value: `0x${string}`): `0x${string}` {
   return value.toLowerCase() as `0x${string}`;
 }
 
+export async function fetchWalletRewardClaims(
+  params: FetchWalletRewardClaimsIndexParams
+) {
+  const { walletAddress, limit, baseUrl } = params;
+  const addressLower = asLowerHexAddress(walletAddress);
+  const resolvedBase = baseUrl || DEFAULT_POSITIONS_API_BASE;
+  const url = `${resolvedBase}/rewards/claims/${addressLower}?limit=${limit}`;
+
+  const res = await fetch(url, { cache: "no-store" });
+  const body = (await res.json().catch(() => null)) as
+    | WalletRewardClaimsResponse
+    | { error?: string; indexingComplete?: boolean }
+    | null;
+
+  if (!res.ok) {
+    const indexingComplete = (body as any)?.indexingComplete ?? true;
+    if (res.status === 503 && indexingComplete === false) {
+      return {
+        address: addressLower,
+        limit,
+        indexingComplete: false,
+        claims: [],
+      } satisfies WalletRewardClaimsResponse;
+    }
+
+    const message =
+      (body as any)?.error || `Failed to fetch wallet reward claims`;
+    throw new Error(message);
+  }
+
+  const response = body as WalletRewardClaimsResponse;
+  return {
+    ...response,
+    address: asLowerHexAddress(response.address ?? addressLower),
+    claims: response.claims ?? [],
+  } satisfies WalletRewardClaimsResponse;
+}
+
 export async function fetchWalletRewardClaimsIndex(
   params: FetchWalletRewardClaimsIndexParams
 ): Promise<WalletRewardClaimsIndex> {
@@ -99,5 +137,3 @@ export async function fetchWalletRewardClaimsIndex(
     hasMinerPoolBucketIds,
   };
 }
-
-

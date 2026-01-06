@@ -1,0 +1,23 @@
+{
+  "folders": [
+	{
+		"path": "."
+	},
+	{
+		"path": "../simon-repo/gca-crm-backend"
+	},
+	{
+		"path": "../glow-utils"
+	},
+	{
+		"path": "../glow-control-backend"
+	},
+	{
+		"path": "../glow-landing/glow.org"
+	}
+],
+  "settings": {
+    "typescript.tsdk": "node_modules\\typescript\\lib",
+    "typescript.enablePromptUseWorkspaceTsdk": true
+  }
+}

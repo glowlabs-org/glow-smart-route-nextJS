@@ -43,15 +43,58 @@ function formatCompact(value: number) {
   return value.toFixed(value >= 10 ? 2 : 4).replace(/\.?0+$/, "");
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function stableUnitFromNumber(value: number) {
+  const x = Math.sin(value * 999 + 0.12345) * 10000;
+  return x - Math.floor(x);
+}
+
+function getTreemapTileColors({
+  regionId,
+  intensity,
+}: {
+  regionId: number;
+  intensity: number;
+}) {
+  const unit = stableUnitFromNumber(regionId);
+  const hue = 188 + (unit - 0.5) * 12; // subtle variation around cyan
+  const saturation = 86;
+  const baseLightness = 52 + intensity * 10 + (unit - 0.5) * 6;
+  const fillLightness = clamp(baseLightness, 40, 70);
+  const dotLightness = clamp(baseLightness + 6, 40, 76);
+
+  const fillAlpha = 0.18 + intensity * 0.45;
+  const dotAlpha = 0.35 + intensity * 0.55;
+
+  return {
+    fill: `hsla(${hue.toFixed(1)}, ${saturation}%, ${fillLightness.toFixed(
+      1
+    )}%, ${fillAlpha.toFixed(3)})`,
+    dot: `hsla(${hue.toFixed(1)}, ${saturation}%, ${dotLightness.toFixed(
+      1
+    )}%, ${dotAlpha.toFixed(3)})`,
+  };
+}
+
 function GctlHeatmapSkeleton() {
   return (
-    <Card className="h-full lg:max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
-      <CardHeader className="pb-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="tracking-tight">GCTL</CardTitle>
-          <span className="text-[10px] font-mono uppercase text-muted-foreground">
-            Treemap
-          </span>
+    <Card className="h-full lg:max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border pt-0">
+      <CardHeader className="pb-0 pt-4">
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
+            GCTL
+          </CardTitle>
+          <Button
+            size="sm"
+            className="h-8 rounded-full px-3 text-[11px] font-mono tracking-wider gap-2"
+            disabled
+          >
+            <Rocket className="h-3.5 w-3.5" />
+            <span>Mint &amp; Stake</span>
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="min-h-0 flex-1 flex flex-col p-4 pt-3">
@@ -169,13 +212,20 @@ export default function GctlHeatmapWidget({
 
   if (!isEnabled) {
     return (
-      <Card className="h-full lg:max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
-        <CardHeader className="pb-0">
-          <div className="flex items-center justify-between">
-            <CardTitle className="tracking-tight">GCTL</CardTitle>
-            <span className="text-[10px] font-mono uppercase text-muted-foreground">
-              Treemap
-            </span>
+      <Card className="h-full lg:max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border pt-0">
+        <CardHeader className="pb-0 pt-4">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
+              GCTL
+            </CardTitle>
+            <Button
+              size="sm"
+              className="h-8 rounded-full px-3 text-[11px] font-mono tracking-wider gap-2"
+              disabled
+            >
+              <Rocket className="h-3.5 w-3.5" />
+              <span>Mint &amp; Stake</span>
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="min-h-0 flex-1 flex flex-col p-4 pt-3 relative">
@@ -204,7 +254,7 @@ export default function GctlHeatmapWidget({
               </div>
             </div>
 
-            <div className="flex-1 min-h-[200px]rounded-2xl overflow-hidden border border-border bg-muted/10 flex flex-col">
+            <div className="flex-1 min-h-[200px] rounded-2xl overflow-hidden border border-border bg-muted/10 flex flex-col">
               <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border/60 shrink-0">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
                   Staked across projects
@@ -212,10 +262,17 @@ export default function GctlHeatmapWidget({
                 <Droplets className="w-3.5 h-3.5 text-muted-foreground" />
               </div>
               <div className="flex-1 min-h-0 flex flex-col">
-                <div className="flex-1 min-h-0 w-full flex">
+                <div className="flex-1 min-h-0 w-full flex divide-x divide-black/10 dark:divide-white/15">
                   {mockStakes.map((tile, i) => {
-                    const share = tile.amountGctl / mockStakedTotal;
-                    const fill = `rgba(34, 211, 238, ${0.2 + (i / 4) * 0.5})`;
+                    const intensity = clamp(
+                      tile.amountGctl / Math.max(1, mockStakedTotal),
+                      0,
+                      1
+                    );
+                    const { fill } = getTreemapTileColors({
+                      regionId: tile.regionId + i * 1000,
+                      intensity,
+                    });
                     return (
                       <div
                         key={tile.regionId}
@@ -331,13 +388,27 @@ export default function GctlHeatmapWidget({
   const maxStake = Math.max(1, ...stakes.map((t) => t.amountGctl));
 
   return (
-    <Card className="h-full lg:max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
-      <CardHeader className="pb-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="tracking-tight">GCTL</CardTitle>
-          <span className="text-[10px] font-mono uppercase text-muted-foreground">
-            Treemap
-          </span>
+    <Card className="h-full lg:max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border pt-0">
+      <CardHeader className="pb-0 pt-4">
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
+            GCTL
+          </CardTitle>
+          <Button
+            size="sm"
+            className="h-8 rounded-full px-3 text-[11px] font-mono tracking-wider gap-2"
+            onClick={() => {
+              trackEvent("dashboard_gctl_mint_stake_open_click", {
+                source,
+                wallet_connected: Boolean(normalizedWalletAddress),
+                wallet_address: normalizedWalletAddress,
+              });
+              onMintAndStakeClick?.();
+            }}
+          >
+            <Rocket className="h-3.5 w-3.5" />
+            <span>Mint &amp; Stake</span>
+          </Button>
         </div>
       </CardHeader>
 
@@ -406,7 +477,7 @@ export default function GctlHeatmapWidget({
               <TooltipProvider delayDuration={150}>
                 <div className="flex-1 min-h-0 flex flex-col">
                   {/* Row 1: proportional bar */}
-                  <div className="flex-1 min-h-0 w-full flex">
+                  <div className="flex-1 min-h-0 w-full flex divide-x divide-black/10 dark:divide-white/15">
                     {stakes.map((tile) => {
                       const share =
                         stakedTotalGctl > 0
@@ -415,10 +486,10 @@ export default function GctlHeatmapWidget({
                       const showInlineLabel = share >= 0.2;
 
                       const intensity = tile.amountGctl / maxStake;
-                      const alpha = 0.15 + intensity * 0.55;
-                      const fill = `rgba(34, 211, 238, ${alpha})`;
-                      const dotAlpha = 0.35 + intensity * 0.55;
-                      const dot = `rgba(34, 211, 238, ${dotAlpha})`;
+                      const { fill, dot } = getTreemapTileColors({
+                        regionId: tile.regionId,
+                        intensity,
+                      });
 
                       const tooltipText = `${tile.regionName} • ${formatCompact(
                         tile.amountGctl
@@ -488,8 +559,10 @@ export default function GctlHeatmapWidget({
                           ? tile.amountGctl / stakedTotalGctl
                           : 0;
                       const intensity = tile.amountGctl / maxStake;
-                      const dotAlpha = 0.35 + intensity * 0.55;
-                      const dot = `rgba(34, 211, 238, ${dotAlpha})`;
+                      const { dot } = getTreemapTileColors({
+                        regionId: tile.regionId,
+                        intensity,
+                      });
 
                       return (
                         <div

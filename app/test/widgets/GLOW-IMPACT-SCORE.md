@@ -22,9 +22,9 @@ Your Total Multiplier is the sum of your **Base Multiplier** plus your **Streak 
     - **Cash Miner Bonus**: **3×** (If you **bought a miner with cash** this week).
 
 2.  **Streak Bonus (Impact Streak)**:
-    - Earn **+0.25×** (or +25%) for every consecutive week you **increase your delegated GLW** or **buy a miner**.
+    - Earn **+0.25×** (or +25%) for every consecutive week you **increase your delegated GLW** **or** **buy a miner with cash**.
     - **Cap**: The bonus caps at **+1.0×** (after 4 consecutive weeks).
-    - **Reset**: If you fail to increase delegation or buy a miner in a week, the streak bonus resets to **0×**.
+    - **Reset**: If you do neither in a week, the streak bonus resets to **0×**.
 
 _(Formula: Total Multiplier = Base + Streak Bonus)_
 
@@ -46,7 +46,7 @@ Assume for a given week:
 - GLW steered via sGCTL: **200 GLW**
 - Delegated GLW: **10,000 GLW**
 - GLW Worth: **50,000 GLW**
-- Bought a miner with cash this week: **Yes**
+- Bought a miner with cash this week: **Yes** (affects base multiplier only)
 - Impact Streak: **4 weeks active** (Max streak)
 
 Weekly rollover points (pre-multiplier):

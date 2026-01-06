@@ -499,34 +499,7 @@ export default function WeeklyActivityWidget({
                       </div>
                     </div>
                     <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                      Streak {streakWeeks}/{weekCells.length}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded-lg border border-border/60 bg-background/40 px-2 py-1">
-                      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                        Miner
-                      </div>
-                      <div className="mt-0.5 font-mono text-sm font-bold tabular-nums text-foreground">
-                        {statusCounts.miner}
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-border/60 bg-background/40 px-2 py-1">
-                      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                        Delegator
-                      </div>
-                      <div className="mt-0.5 font-mono text-sm font-bold tabular-nums text-foreground">
-                        {statusCounts.delegated}
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-border/60 bg-background/40 px-2 py-1">
-                      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                        Both
-                      </div>
-                      <div className="mt-0.5 font-mono text-sm font-bold tabular-nums text-foreground">
-                        {statusCounts.both}
-                      </div>
+                      Streak {streakWeeks}/4
                     </div>
                   </div>
                 </div>

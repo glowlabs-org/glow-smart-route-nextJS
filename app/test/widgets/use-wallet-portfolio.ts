@@ -296,7 +296,9 @@ export function useWalletPortfolio(params: { walletAddress?: string | null }) {
     const min = Math.min(...values);
     const max = Math.max(...values);
     const range = max - min;
-    const pad = range > 0 ? Math.max(range * 0.15, 10) : 10;
+    // Slightly widen the y-domain so fluctuations feel less zoomed-in.
+    // (≈50% more padding than before.)
+    const pad = range > 0 ? Math.max(range * 0.225, 10) : 10;
 
     return [Math.max(0, min - pad), max + pad];
   }, [chartData]);

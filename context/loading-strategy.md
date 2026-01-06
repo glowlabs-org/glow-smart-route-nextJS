@@ -109,7 +109,7 @@ Derived values (circulating supply, market cap, price) should come from this sha
 Server pages should prefer calling `getCachedHeadlineStats()` directly (instead of using the client fetcher with a relative URL):
 
 - `app/page.tsx`
-- `app/glow-swap/page.tsx`
+- `/glow-swap/*` now redirects to `/` (see `next.config.js` and `app/glow-swap/page.tsx`), so there is no longer a dedicated swap page doing server fetches.
 
 ## Toasts
 

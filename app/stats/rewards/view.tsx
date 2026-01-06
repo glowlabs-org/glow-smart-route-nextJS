@@ -28,12 +28,6 @@ const REWARDS_TABS: RewardsTabConfig[] = [
     Icon: Sparkles,
   },
   {
-    value: "farms",
-    label: "Farms",
-    description: "Solar farms & sponsorship performance",
-    Icon: Sprout,
-  },
-  {
     value: "delegator",
     label: "Delegators",
     description: "Delegation activity & rankings",
@@ -44,6 +38,12 @@ const REWARDS_TABS: RewardsTabConfig[] = [
     label: "Miners",
     description: "Miner multiplier status & rankings",
     Icon: Cpu,
+  },
+  {
+    value: "farms",
+    label: "Farms",
+    description: "Solar farms & sponsorship performance",
+    Icon: Sprout,
   },
 ] as const;
 

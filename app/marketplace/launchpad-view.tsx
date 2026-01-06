@@ -1799,7 +1799,8 @@ function LaunchpadMarketplaceWidget({
   const isLoading = isLoadingLaunchpad || isLoadingMiners;
   const isError = isErrorLaunchpad || isErrorMiners;
   const error = (errorLaunchpad || errorMiners) as Error | null;
-  const resolvedLayout = isMobile ? "carousel" : layout ?? "stack";
+  // Default to carousel on mobile, but honor an explicit `layout` override.
+  const resolvedLayout = layout ?? (isMobile ? "carousel" : "stack");
   const resolvedCarouselVariant = carouselVariant ?? "compact";
   const isHeroCarousel =
     resolvedLayout === "carousel" && resolvedCarouselVariant === "hero";

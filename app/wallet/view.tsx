@@ -704,7 +704,7 @@ export default function View() {
                   Launchpad
                 </Button>
               </Link>
-              <Link href="/glow-swap">
+              <Link href="/">
                 <Button
                   variant="outline"
                   size="default"
@@ -973,7 +973,7 @@ export default function View() {
                 Launchpad
               </Button>
             </Link>
-            <Link href="/glow-swap">
+            <Link href="/">
               <Button
                 variant="outline"
                 size="default"

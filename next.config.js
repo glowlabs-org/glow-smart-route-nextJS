@@ -5,6 +5,15 @@ const nextConfig = {
     // Keep `pnpm lint` for local usage; don't fail production builds on linter runtime errors.
     ignoreDuringBuilds: true,
   },
+  async redirects() {
+    return [
+      {
+        source: "/glow-swap/:path*",
+        destination: "/",
+        permanent: true,
+      },
+    ];
+  },
   images: {
     // Broaden support and tune optimization behavior
     formats: ["image/avif", "image/webp"],

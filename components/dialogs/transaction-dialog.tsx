@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Copy, ExternalLink, X } from "lucide-react";
 import { toast } from "sonner";
 import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
+import { cn } from "@/lib/utils";
 
 export interface TransactionDetail {
   label: string;
@@ -26,6 +27,10 @@ export interface TransactionDialogProps {
   isSubmitting?: boolean;
   isSuccess?: boolean;
   isError?: boolean;
+
+  // Layout overrides
+  contentClassName?: string;
+  bodyClassName?: string;
 
   // Content customization
   title?: string;
@@ -87,6 +92,8 @@ export function TransactionDialog({
   isSubmitting,
   isSuccess,
   isError,
+  contentClassName,
+  bodyClassName,
   title = "Review & Confirm",
   successTitle = "Transaction Successful",
   errorTitle = "Transaction Failed",
@@ -168,7 +175,10 @@ export function TransactionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden"
+        className={cn(
+          "bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden",
+          contentClassName
+        )}
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader className="sr-only">
@@ -177,7 +187,12 @@ export function TransactionDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-8 py-12 max-h-[80vh] overflow-y-auto">
+        <div
+          className={cn(
+            "px-8 py-12 max-h-[80vh] overflow-y-auto",
+            bodyClassName
+          )}
+        >
           {isSuccess ? (
             <div className="text-center">
               {/* Success Header */}

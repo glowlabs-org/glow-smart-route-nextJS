@@ -1,6 +1,6 @@
 # Glow Impact Leaderboard (Impact tab) — Implementation Notes
 
-This doc captures the **current behavior, constraints, and design decisions** for the **Glow Impact Leaderboard** implemented in `app/stats/rewards/impact-view.tsx`, with Impact Router data fetching centralized in `hooks/useImpactGlowScore.ts`, and the shared breakdown dialog in `components/dialogs/impact-score-breakdown-dialog.tsx`.
+This doc captures the **current behavior, constraints, and design decisions** for the **Glow Impact Leaderboard** implemented in `app/stats/rewards/impact-view.tsx`, with Impact Router data fetching centralized in `hooks/hub-impact.ts`, and the shared breakdown dialog in `components/dialogs/impact-score-breakdown-dialog.tsx`.
 
 ## What this feature is
 
@@ -60,10 +60,11 @@ Fields used by the UI:
 - `walletAddress`
 - `totalPoints`
 - `glowWorthWei`
-- `composition` (for “strategy” pill)
-  - `steeringPoints`, `inflationPoints`, `worthPoints`, `vaultPoints`
 - `lastWeekPoints` (table column “Last week”)
-- `activeMultiplier` (used for strategy/bonus logic; the explicit “3×” table column was removed)
+- `hasMinerMultiplier` (Cash Miner indicator)
+- `hasSteeringStake` (Steering indicator)
+- `hasVaultBonus` (Vault bonus indicator)
+- `globalRank` (**stable** rank by `totalPoints` descending; does not change across sorts)
 - `weekRange`
 - `totalWalletCount` (shown in header + used for percentile math)
 
@@ -82,7 +83,10 @@ Fields used by the UI:
 **Important notes**
 
 - Most numeric fields are **stringified decimals** (points) or **wei strings**. Avoid `Number()` on wei; use `BigInt` + `formatUnits`.
-- This UI assumes list results are **already sorted by `totalPoints` descending** (global rank = index + 1).
+- List mode supports **backend sorting**:
+  - `sort`: `totalPoints | lastWeekPoints | glowWorth` (default: `totalPoints`)
+  - `dir`: `asc | desc` (default: `desc`)
+- UI uses `globalRank` for “rank/percentile” rendering; `globalRank` remains stable even when sorting by other fields.
 
 ## Current UI structure (Impact tab)
 
@@ -98,8 +102,8 @@ Component: `ImpactHero`
   - “status-only” badge
   - **Next rollover** countdown pill (moved here from KPI cards)
 - Left card: **Current ranking**
-  - Shows the user’s current score + wallet short address
-  - Shows a prominent **Top X%** badge (or “Below Top Y%” if the wallet is outside the returned leaderboard slice)
+  - **Primary KPI is points** (largest typography)
+  - Shows rank/percentile as secondary meta (or “Below Top Y%” if the wallet is outside the returned leaderboard slice)
   - Shows a single progress module:
     - Big progress bar with emerald fill + striped remainder + percent badge
     - Text: “X pts to reach Rank #Y”
@@ -116,24 +120,45 @@ Component: `ImpactHero`
 
 #### 2) Leaderboard table
 
-- Table columns (responsive):
-  - Rank (Top 3 show `#`, rest show percentile)
-  - Wallet (ENS name if present, address below)
-  - Strategy (hidden on small screens)
-  - Last week (hidden on smaller screens)
-  - Total Points
-  - Glow Worth
-- Strategy pill is computed from `composition`:
-  - Pick the largest points bucket among steering/worth/inflation/vault.
-  - Uses semantically-colored pill backgrounds/borders.
+- Desktop table columns (left → right):
+  - Rank / Percentile (Top 3 show `#`, rest show percentile)
+  - Wallet (ENS name if present; address shown when ENS exists)
+  - Multipliers (compact icon stack)
+  - Total Points (**primary**)
+  - Last week (secondary)
+  - Glow Worth (tertiary)
+- Responsive behavior:
+  - **Mobile**: table collapses into stacked **cards**
+  - **Tablet**: Glow Worth column is hidden; Total Points always visible
+  - **Desktop**: all columns visible
+- Multipliers / bonuses are **icons with tooltips** (ACTIVE vs MISSING), shown as a wider column (no overflow):
+  - Cash Miner
+  - Impact streak
+  - Steering Power (sGCTL)
+  - Vault Bonus
+  - Emissions Earned
+  - GLW Worth
+  - Missing indicators use a ghost icon plus a small indicator dot.
+  - Tooltips explain: what it is, active/missing, how to get it, impact effect.
 - Rank 1 row is highlighted:
   - subtle yellow-tinted background + crown icon in the rank cell.
+
+#### Sorting
+
+- Sorting is backend-driven and controlled via URL state (`nuqs`):
+  - `sort`: `totalPoints | lastWeekPoints | glowWorth`
+  - `dir`: `asc | desc`
+- Clickable headers:
+  - Total Points, Last week, Glow Worth
+- **Rank stays global** (from `globalRank`) even when sorting by other fields.
 
 #### Pagination + Search
 
 - URL query params via `nuqs`:
   - `page` (1-based)
   - `search`
+  - `sort`
+  - `dir`
 - Page size: `50`
 - Filtering:
   - Filters **by wallet address OR ENS name**
@@ -183,15 +208,16 @@ Current approach:
   - For a connected wallet outside the list window, we show “Below Top X%” where \(X = \\frac{listLength}{totalWalletCount} \\times 100\).
   - If we need exact rank for arbitrary wallets, the router would need to expose it (or accept a wallet and return its global rank).
 - **Leaderboard list limit**:
-  - The UI currently calls `/impact/glow-score` list without explicitly setting `limit`.
-  - Behavior depends on backend defaults; ensure `totalWalletCount` is present (backend behavior documented) and list is sorted.
+  - The UI calls `/impact/glow-score` list with `limit=200`.
+  - The UI passes `sort/dir` and relies on backend ordering (sorting is applied before slicing).
+  - Ensure `totalWalletCount` is present (backend behavior documented) and rows include `globalRank` for rank/percentile rendering.
 
 ## Files touched / where to look
 
 - `app/stats/rewards/impact-view.tsx` — main UI
 - `components/dialogs/impact-score-breakdown-dialog.tsx` — shared breakdown modal UI + fetch wrapper
-- `hooks/useImpactGlowScore.ts` — Impact Router queries + shared react-query keys
+- `hooks/hub-impact.ts` — Impact Router queries + shared react-query keys
 - `hooks/useEnsNames.ts` — ENS resolution for leaderboard and search
-- `utils/impact.ts` — formatting + “strategy pill” helpers used by the Impact tab
+- `utils/impact.ts` — formatting helpers used by the Impact tab
 - `utils/clipboard.ts` — clipboard helper (toasts on success/failure)
 - `app/components/animated-countdown.tsx` and `utils/getCurrentEpoch.ts` — rollover countdown

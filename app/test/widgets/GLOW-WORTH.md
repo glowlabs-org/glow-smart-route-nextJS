@@ -8,37 +8,44 @@ Glow Worth is the wallet’s GLW-denominated “position” in the Glow system:
 
 Where:
 
-- **LiquidGLW**: ERC20 GLW balance of the wallet.
-- **DelegatedActiveGLW**: the portion of GLW currently “net locked” into delegations.
+- **LiquidGLW**: ERC20 GLW `balanceOf(wallet)` (onchain).
+- **DelegatedActiveGLW**: the wallet’s **vault ownership** share of remaining **GLW protocol-deposit principal** for completed farms (see below).
 - **UnclaimedGLWRewards**: finalized GLW rewards that exist for the wallet but have not been claimed on-chain yet.
 
 ---
 
-## DelegatedActiveGLW (netted)
+## DelegatedActiveGLW (vault ownership model)
 
-We treat “no longer delegated” as **returned protocol deposit** on launchpad farms.
+This widget sources Glow Worth from the backend `GET /impact/glow-worth` endpoint, which models delegated value as the wallet’s share of remaining GLW protocol-deposit principal:
 
-Definitions (all in GLW):
+- For each farm \(f\):
+  - `principalPaidGlwWei(f)`: sum of GLW-paid completed applications for that farm (DB `applications.paymentAmount` where `paymentCurrency=GLW` and `status=completed`)
+  - `distributedGlwWeiToWeek(f, week)`: cumulative farm distributions from Control API weekly rewards where `paymentCurrency=GLW`
+  - `remainingGlwWei(f, week) = max(0, principalPaidGlwWei(f) - distributedGlwWeiToWeek(f, week))`
+  - `walletSplit6(f, week)`: wallet ownership (`depositSplitPercent6Decimals`) from Control API deposit split history
+  - `walletShareRemainingGlwWei(f, week) = remainingGlwWei(f, week) * walletSplit6(f, week) / 1_000_000`
+- Then: `DelegatedActiveGLW(week) = sum_farms walletShareRemainingGlwWei(f, week)`
 
-- **DelegatedGrossGLW** = \(\sum \text{launchpad amountInvested}\) + `delegatedAfterWeekRange.totalGlwDelegatedAfter`
-- **ReturnedDepositGLW** = \(\sum \text{launchpad totalProtocolDepositRewards}\)
-- **DelegatedActiveGLW** = \(\max(0, \text{DelegatedGrossGLW} - \text{ReturnedDepositGLW})\)
+Important nuances:
 
-Source: `useRewardsBreakdown()` payload (launchpad farms only).
+- Buying a **miner** does **not** increase `DelegatedActiveGLW` (miners do not participate in protocol-deposit vaults).
+- Buying a **delegation** can take time to reflect in `DelegatedActiveGLW`:
+  - If the farm isn’t completed yet (auction not filled / not finalized), `principalPaidGlwWei(f)` is still 0 → your vault share is 0.
+  - Once the application is completed and the Control API reflects your split history, `DelegatedActiveGLW` will reflect your ownership for the relevant week.
 
 ---
 
 ## UnclaimedGLWRewards
 
-We compute unclaimed GLW rewards by:
+Unclaimed rewards are **week-based** and only become claimable after finalization windows (inflation ~3 weeks, protocol deposit ~4 weeks). This means new rewards from a miner purchase or delegation will not show up in `UnclaimedGLWRewards` immediately.
 
-1. Fetching per-week claimable rewards via `useClaimableRewards(walletAddress)`.
-2. For each **finalized** week that contains GLW rewards, checking on-chain claim status:
-   - **Inflation claim**: `checkIfGlwClaimed(week + 1, walletAddress)`
-   - **Protocol deposit claim (v2)**: `checkIfClaimed(walletAddress, weekToNonce(week))`
-3. Summing only the GLW amounts that are not yet claimed for each category.
+## “If I just bought X, does Glow Worth update now?”
 
-This mirrors the claim status logic used in `app/wallet/claims-panel.tsx`.
+- **Bought / received GLW**: yes, `LiquidGLW` updates immediately (onchain).
+- **Bought a miner (USDC)**: typically **no immediate Glow Worth change** (doesn’t move GLW); miner rewards show up later as week-based rewards and then only after finalization.
+- **Bought a delegation (paid in GLW)**:
+  - `LiquidGLW` will change immediately (you spent GLW).
+  - `DelegatedActiveGLW` increases only once the farm is completed and your split history is reflected for the queried week range (can be delayed relative to the purchase).
 
 ---
 

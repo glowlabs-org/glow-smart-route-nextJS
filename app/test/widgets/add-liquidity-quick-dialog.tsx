@@ -393,7 +393,7 @@ export function AddLiquidityQuickDialog({
                       </p>
                     </div>
                     <Link
-                      href="/glow-swap"
+                      href="/"
                       className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                       onClick={() => {
                         trackEvent("dashboard_add_liquidity_go_to_swap_click", {

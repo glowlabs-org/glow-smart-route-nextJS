@@ -299,12 +299,32 @@ export interface WalletActivity {
   delegatorRewardsEarned: string;
   minerRewardsEarned: string;
   totalRewardsEarned: string;
+
+  // Optional fields when sourced from `/impact/delegators-leaderboard`
+  glwPerWeekWei?: string; // last completed week only
+  sharePercent?: string; // percent string (e.g. "13.0")
 }
 
 export interface WalletsActivityResponse {
   weekRange: { startWeek: number; endWeek: number };
   summary: { totalWallets: number; returnedWallets: number };
   wallets: WalletActivity[];
+}
+
+interface DelegatorsLeaderboardRow {
+  rank: number;
+  walletAddress: string;
+  activelyDelegatedGlwWei: string;
+  glwPerWeekWei: string;
+  netRewardsWei: string;
+  sharePercent: string;
+}
+
+interface DelegatorsLeaderboardResponse {
+  weekRange: { startWeek: number; endWeek: number };
+  limit: number;
+  totalWalletCount: number;
+  wallets: DelegatorsLeaderboardRow[];
 }
 
 export function useWalletsActivity(
@@ -332,10 +352,45 @@ export function useWalletsActivity(
     enabled,
     staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
-    queryFn: async () =>
-      await hubGet<WalletsActivityResponse>("/fractions/wallets/activity", {
-        params: { type, sortBy, limit },
-      }),
+    queryFn: async () => {
+      if (type === "delegator") {
+        const leaderboard = await hubGet<DelegatorsLeaderboardResponse>(
+          "/impact/delegators-leaderboard",
+          {
+            params: {
+              limit,
+            },
+          }
+        );
+
+        return {
+          weekRange: leaderboard.weekRange,
+          summary: {
+            totalWallets: leaderboard.totalWalletCount,
+            returnedWallets: leaderboard.wallets.length,
+          },
+          wallets: leaderboard.wallets.map((w) => ({
+            walletAddress: w.walletAddress,
+            glwDelegated: w.activelyDelegatedGlwWei,
+            usdcSpentOnMiners: "0",
+            glwDelegatedAfterRange: "0",
+            usdcSpentAfterRange: "0",
+            delegatorRewardsEarned: w.netRewardsWei,
+            minerRewardsEarned: "0",
+            totalRewardsEarned: w.netRewardsWei,
+            glwPerWeekWei: w.glwPerWeekWei,
+            sharePercent: w.sharePercent,
+          })),
+        };
+      }
+
+      return await hubGet<WalletsActivityResponse>(
+        "/fractions/wallets/activity",
+        {
+          params: { type, sortBy, limit },
+        }
+      );
+    },
   });
 
   return {
@@ -568,5 +623,3 @@ export function useRefundableFractions(params: {
     refetch: query.refetch,
   } as const;
 }
-
-

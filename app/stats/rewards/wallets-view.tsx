@@ -78,7 +78,6 @@ import { RewardsSkeleton } from "./view";
 const WALLET_LIMIT = 100;
 const FARM_LIMIT = 100;
 const WALLETS_PER_PAGE = 10;
-const EXCLUDED_WALLETS = ["0x77f41144e787cb8cd29a37413a71f53f92ee050c"];
 
 function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -595,12 +594,7 @@ export function WalletsView({
   const farms = farmsData?.farms ?? [];
   const farmsSummary = farmsData?.summary;
 
-  const wallets = React.useMemo(() => {
-    const allWallets = data?.wallets ?? [];
-    return allWallets.filter(
-      (wallet) => !EXCLUDED_WALLETS.includes(wallet.walletAddress.toLowerCase())
-    );
-  }, [data?.wallets]);
+  const wallets = data?.wallets ?? [];
 
   const allWalletAddresses = React.useMemo(() => {
     return wallets.map((w) => w.walletAddress);
@@ -614,7 +608,13 @@ export function WalletsView({
   const walletsWithMetrics = React.useMemo(() => {
     return wallets.map((wallet) => {
       let glwPerWeek = 0;
-      if (weekRange) {
+      if (type === "delegator" && wallet.glwPerWeekWei) {
+        try {
+          glwPerWeek = Number(formatUnits(BigInt(wallet.glwPerWeekWei), 18));
+        } catch {
+          glwPerWeek = 0;
+        }
+      } else if (weekRange) {
         const weeksPassed = weekRange.endWeek - weekRange.startWeek + 1;
         if (weeksPassed > 0) {
           const rewards = Number(
@@ -821,7 +821,16 @@ export function WalletsView({
     let netTotalRewards = totalRewardsNumber;
     let netAverageReward = totalRewardsNumber / (wallets.length || 1);
 
-    if (type === "delegator" && weekRange) {
+    // Legacy delegator mode: older endpoint returned gross rewards and we estimated PD allocation.
+    // With `/impact/delegators-leaderboard`, rewards are already net and should not be adjusted here.
+    const hasNetDelegatorRewardsFromImpact =
+      type === "delegator" && wallets.some((w) => Boolean(w.glwPerWeekWei));
+
+    if (
+      type === "delegator" &&
+      weekRange &&
+      !hasNetDelegatorRewardsFromImpact
+    ) {
       const weeksPassed = weekRange.endWeek - weekRange.startWeek + 1;
       const totalPdSpent = wallets.reduce((sum, wallet) => {
         const glwDelegated = Number(
@@ -1131,8 +1140,9 @@ export function WalletsView({
                             </TooltipTrigger>
                             <TooltipContent className="max-w-xs">
                               <p className="text-xs">
-                                Based on cumulative GLW earned. Top 3 show exact
-                                rank, others show percentile (e.g., "Top 5%").
+                                {type === "delegator"
+                                  ? 'Based on total net rewards in the current period. Top 3 show exact rank, others show percentile (e.g., "Top 5%").'
+                                  : 'Based on cumulative GLW earned. Top 3 show exact rank, others show percentile (e.g., "Top 5%").'}
                               </p>
                             </TooltipContent>
                           </Tooltip>
@@ -1229,25 +1239,15 @@ export function WalletsView({
                     let rewardsValue: string;
                     let rewardsNumeric: number;
 
-                    if (type === "delegator" && weekRange) {
-                      const weeksPassed =
-                        weekRange.endWeek - weekRange.startWeek + 1;
-                      const glwDelegatedNumeric = Number(
-                        formatUnits(BigInt(wallet.glwDelegated || "0"), 18)
-                      );
-                      const pdPerWeek = glwDelegatedNumeric / 100;
-                      const pdSpent = pdPerWeek * weeksPassed;
-
-                      const grossRewards = Number(
+                    if (type === "delegator" && wallet.glwPerWeekWei) {
+                      // `/impact/delegators-leaderboard` already returns net rewards.
+                      rewardsNumeric = Number(
                         formatUnits(
                           BigInt(wallet.delegatorRewardsEarned || "0"),
                           18
                         )
                       );
-                      const netRewards = grossRewards - pdSpent;
-
-                      rewardsNumeric = grossRewards;
-                      rewardsValue = formatNumber(netRewards);
+                      rewardsValue = formatNumber(rewardsNumeric);
                     } else {
                       rewardsValue = formatGLW(
                         type === "delegator"
@@ -1266,9 +1266,12 @@ export function WalletsView({
                       );
                     }
 
-                    const share = analytics.totalRewardsNumber
-                      ? (rewardsNumeric / analytics.totalRewardsNumber) * 100
-                      : 0;
+                    const share =
+                      type === "delegator" && wallet.sharePercent
+                        ? Number(wallet.sharePercent)
+                        : analytics.totalRewardsNumber
+                        ? (rewardsNumeric / analytics.totalRewardsNumber) * 100
+                        : 0;
                     const newBadge = isNewParticipant(wallet, type);
                     const ensName = allEnsNames[wallet.walletAddress];
 
@@ -1319,7 +1322,7 @@ export function WalletsView({
                           {rewardsValue} GLW
                         </TableCell>
                         <TableCell className="hidden md:table-cell text-right text-sm">
-                          {share.toFixed(1)}%
+                          {Number.isFinite(share) ? share.toFixed(1) : "0.0"}%
                         </TableCell>
                         <TableCell className="hidden sm:table-cell">
                           <div className="flex items-center justify-end gap-2">

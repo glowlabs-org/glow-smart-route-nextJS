@@ -77,7 +77,7 @@ export default function LaunchpadStatusWidget({
 
   type ListTypeFilter = "all" | "delegations" | "miners" | "activity";
   const [liveTypeFilter, setLiveTypeFilter] = React.useState<ListTypeFilter>(
-    () => (variant === "full-row" ? "all" : "delegations")
+    () => "all"
   );
 
   const shouldForceType = forcedType != null;
@@ -110,7 +110,7 @@ export default function LaunchpadStatusWidget({
   const hasMinersAvailable = minersAvailableCount > 0;
   const availableTypesCount =
     Number(hasDelegationsAvailable) + Number(hasMinersAvailable);
-  const shouldShowAllTab = variant === "full-row" && availableTypesCount > 1;
+  const shouldShowAllTab = availableTypesCount > 1;
 
   const resolvedTab = React.useMemo((): ListTypeFilter => {
     if (!isLive) return liveTypeFilter;
@@ -199,9 +199,9 @@ export default function LaunchpadStatusWidget({
     <Card
       className={cn(
         isFullRow
-          ? "flex flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm gap-2 pt-2"
+          ? "flex flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm gap-2 pt-0"
           : cn(
-              "flex flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm gap-2 pt-2",
+              "flex flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm gap-2 pt-0",
               isMobile ? "min-h-[620px]" : "h-full"
             ),
         // full-row stays stacked (header above carousel/content)
@@ -212,8 +212,8 @@ export default function LaunchpadStatusWidget({
         className={cn(
           "pb-0",
           isFullRow
-            ? "px-3 py-0 border-b border-border/40 [.border-b]:pb-2"
-            : null
+            ? "px-3 pt-3 pb-0 border-b border-border/40 [.border-b]:pb-2"
+            : "pt-4"
         )}
       >
         <div
@@ -225,8 +225,10 @@ export default function LaunchpadStatusWidget({
           <div className="flex items-center gap-2 min-w-0">
             <CardTitle
               className={cn(
-                "tracking-tight",
-                isFullRow ? "text-xl" : "text-base"
+                "tracking-tight text-foreground",
+                isFullRow
+                  ? "text-xl font-semibold"
+                  : "text-lg font-semibold tracking-tight text-foreground"
               )}
             >
               {isLive ? "Glow Launchpad" : "New Solar Farm Listing In..."}
@@ -406,28 +408,19 @@ export default function LaunchpadStatusWidget({
             </div>
           ) : (
             <div
-              className={cn("min-h-0 flex-1", isMobile ? "px-4 pb-6" : null)}
+              className={cn(
+                "min-h-0 flex-1 flex flex-col",
+                isMobile ? "px-4 pb-6" : "px-5 pb-0"
+              )}
             >
-              {isMobile ? (
+              <ScrollArea className="min-h-0 flex-1 h-full">
                 <LaunchpadView
                   variant="widget"
                   typeFilter={launchpadTypeFilter}
-                  widgetLayout="carousel"
-                  widgetCarouselVariant="compact"
+                  widgetLayout="stack"
                   onPayDeposit={handlePayDeposit}
                 />
-              ) : (
-                <ScrollArea className="min-h-0 flex-1">
-                  <div className="px-5 pb-5">
-                    <LaunchpadView
-                      variant="widget"
-                      typeFilter={launchpadTypeFilter}
-                      widgetLayout="stack"
-                      onPayDeposit={handlePayDeposit}
-                    />
-                  </div>
-                </ScrollArea>
-              )}
+              </ScrollArea>
             </div>
           )
         ) : (

@@ -28,7 +28,6 @@ export function DelegatorsView() {
       networkTotalGlwDelegated={summary?.totalGlwDelegated}
       glwDelegationByEpoch={summary?.glwDelegationByEpoch}
       walletCountByEpoch={summary?.walletCountByEpoch}
-      totalContributors={summary?.launchpadContributors}
       glwHolderCount={glwHolderCount}
       weeklyRewardsMetric={avgGlwPerWeekPer100Delegated}
       weeklyRewardsMetricLoading={isLoading}

@@ -289,6 +289,7 @@ The dashboard uses `framer-motion` for a polished feel:
 - **What it does**:
   - Lets the user enter GLW and USDG amounts, keeps them roughly in sync with the pool ratio, and routes into a review/confirm flow.
   - Validates missing input, balance constraints, and likely-failure scenarios before enabling “Review”.
+- **Navigation note**: When the dialog suggests swapping (e.g. “Need more USDG? Go to Swap”), the CTA returns to `/` (the dashboard entrypoint), which is the current swap entry surface.
 - **Implementation pointer**: `app/test/widgets/add-liquidity-quick-dialog.tsx` (quick inputs + review handoff to the main liquidity dialog).
 
 ## Concepts & glossary (how Bento ties together)

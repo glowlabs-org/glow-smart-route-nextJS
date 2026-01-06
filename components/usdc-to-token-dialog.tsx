@@ -19,11 +19,13 @@ import { Button } from "./ui/button";
 import { SwapError, useSwap } from "@/hooks/useSwap";
 import { Result } from "ts-results";
 import { SwapUSDCToUSDGError } from "@/hooks/useSwapUSDCToUSDG";
+import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
 import { Token } from "@/app/buy/constants";
 
 import { formatUnits, parseUnits } from "viem";
 import { addresses } from "@/web3/constants/addresses";
+import { useChainId } from "wagmi";
 
 type PendingState = {
   code: string;
@@ -47,9 +49,29 @@ const usdcDefaultPendingStates = [
   },
 ];
 
+const ethToUsdcPendingState: PendingState = {
+  code: "SWAP_ETH_TO_USDC",
+  message: "Swapping ETH for USDC on Uniswap",
+  validated: false,
+  pending: false,
+};
+
+function getInitialPendingStates(
+  selectedTokenSell: Token,
+  selectedTokenBuy: Token
+) {
+  if (selectedTokenSell.label === "ETH" && selectedTokenBuy.label === "GLOW")
+    return [ethToUsdcPendingState, ...usdcDefaultPendingStates];
+  if (selectedTokenSell.label === "USDC" && selectedTokenBuy.label === "USDG")
+    return usdcDefaultPendingStates;
+  if (selectedTokenSell.label === "USDC" && selectedTokenBuy.label === "GLOW")
+    return usdcDefaultPendingStates;
+  return [];
+}
+
 const defaultPendingStates = (
   buyingFrom: "early_liquidity" | "uniswap",
-  tokenToSellLabel: "USDC" | "USDG" | "GLOW" | "GCTL"
+  tokenToSellLabel: "USDC" | "USDG" | "GLOW" | "GCTL" | "ETH"
 ) => {
   // Map PurchaseGlowState to user-friendly messages
   const purchaseGlowStateMap: any = {
@@ -161,6 +183,7 @@ export const UsdcToTokenDialog: FC<{
   selectedTokenSell,
   slippagePointsTenThousandths,
 }) => {
+  const chainId = useChainId();
   const [isPending, setIsPending] = React.useState(false);
   const [isSuccess, setIsSuccess] = React.useState(false);
   const [isError, setIsError] = React.useState(false);
@@ -179,10 +202,22 @@ export const UsdcToTokenDialog: FC<{
     purchaseGlowEarlyLiquidity,
     glowPurchaseState,
     resetGlowPurchaseState,
+    getSmartBalancingAmounts,
+    lastTxHashRef: glowLastTxHashRef,
   } = usePurchaseGlow();
 
-  const { swap, uniswapPurchaseState, resetUniswapPurchaseState } = useSwap({
-    tokenA_address: selectedTokenSell.address,
+  const { swapEthToUsdc } = useSwapETHToUSDC();
+
+  const {
+    swap,
+    uniswapPurchaseState,
+    resetUniswapPurchaseState,
+    lastTxHashRef: uniswapLastTxHashRef,
+  } = useSwap({
+    tokenA_address:
+      selectedTokenSell.label === "ETH"
+        ? addresses.usdg
+        : selectedTokenSell.address,
     tokenB_address: addresses.glow,
   });
 
@@ -193,6 +228,12 @@ export const UsdcToTokenDialog: FC<{
     setErrorMessage(null);
 
     try {
+      const isEthFlow =
+        selectedTokenSell.label === "ETH" && selectedTokenBuy.label === "GLOW";
+      const usdgStepOffset = isEthFlow ? 1 : 0;
+      let effectiveSmartBalancingAmounts: SmartBalancingAmounts | undefined =
+        smartBalancingAmounts;
+
       // If we're swapping USDC to USDG only (not continuing to GLOW)
       if (
         selectedTokenSell.label === "USDC" &&
@@ -253,25 +294,95 @@ export const UsdcToTokenDialog: FC<{
 
         setSwapUSDCToUSDGState("SUCCESSFULLY_OBTAINED_USDG");
         updatePendingStates(1);
+      } else if (isEthFlow) {
+        // ETH -> USDC -> USDG -> GLOW
+        updatePendingStates(0);
+
+        let ethWei: bigint;
+        try {
+          ethWei = parseUnits(amountToSell, 18);
+        } catch {
+          setErrorStates();
+          setIsPending(false);
+          setIsError(true);
+          setErrorMessage("Invalid ETH amount");
+          toast.error("Invalid ETH amount");
+          return;
+        }
+
+        const swapEthRes = await swapEthToUsdc({
+          amountInWei: ethWei,
+          slippageBps: BigInt(100),
+        });
+        if (!swapEthRes.ok) {
+          setErrorStates();
+          setIsPending(false);
+          setIsError(true);
+          setErrorMessage(String(swapEthRes.val));
+          toast.error(String(swapEthRes.val));
+          return;
+        }
+        setTxHash(swapEthRes.val.txHash);
+
+        setSwapUSDCToUSDGState("PURCHASING_USDG");
+        updatePendingStates(usdgStepOffset);
+
+        const swapUSDCtoUSDGRes = await swapUSDCToUSDG(
+          swapEthRes.val.usdcReceived
+        );
+        if (!swapUSDCtoUSDGRes.ok) {
+          setErrorStates();
+          setSwapUSDCToUSDGState(undefined);
+          setIsPending(false);
+          setIsError(true);
+          setErrorMessage(String(swapUSDCtoUSDGRes.val));
+          toast.error(String(swapUSDCtoUSDGRes.val));
+          return;
+        }
+
+        setSwapUSDCToUSDGState("SUCCESSFULLY_OBTAINED_USDG");
+        updatePendingStates(usdgStepOffset + 1);
+
+        // Recompute smart balancing amounts based on actual USDC received (USDG is 1:1),
+        // so we avoid stale quotes drift.
+        const priceCandidate = Number(
+          effectiveSmartBalancingAmounts?.earlyLiquidityCurrentPrice ?? 0
+        );
+        if (priceCandidate > 0) {
+          const usdgEquivalent = formatUnits(swapEthRes.val.usdcReceived, 6);
+          const recomputeRes = await getSmartBalancingAmounts({
+            amountUsdgIn: usdgEquivalent,
+            earlyLiquidityCurrentPrice: priceCandidate,
+          });
+          if (recomputeRes.ok)
+            effectiveSmartBalancingAmounts = recomputeRes.val;
+        }
       } else {
         updatePendingStates(0);
       }
 
+      const approvalTokenLabel =
+        selectedTokenSell.label === "ETH"
+          ? ("USDG" as const)
+          : selectedTokenSell.label;
+
       const isUniswapElligible =
-        smartBalancingAmounts &&
-        Number(formatUnits(smartBalancingAmounts?.amount_in_uni as bigint, 6)) >
-          0;
+        effectiveSmartBalancingAmounts &&
+        Number(
+          formatUnits(
+            effectiveSmartBalancingAmounts?.amount_in_uni as bigint,
+            6
+          )
+        ) > 0;
       const isBondingCurveElligible =
-        smartBalancingAmounts &&
-        Number(smartBalancingAmounts?.amount_out_glow) > 0;
+        effectiveSmartBalancingAmounts &&
+        Number(effectiveSmartBalancingAmounts?.amount_out_glow) > 0;
 
       // buy glow with uniswap
       if (isUniswapElligible) {
-        setPendingStates(
-          defaultPendingStates("uniswap", selectedTokenSell.label)
-        );
+        setPendingStates(defaultPendingStates("uniswap", approvalTokenLabel));
         const purchaseGlowFromUniswap = await swap({
-          amount: smartBalancingAmounts.amount_in_uni as any,
+          amount: effectiveSmartBalancingAmounts!.amount_in_uni as any,
           slippagePercentTenThousandDenominator: slippagePointsTenThousandths,
         });
         if (!purchaseGlowFromUniswap.ok) {
@@ -282,15 +393,17 @@ export const UsdcToTokenDialog: FC<{
           toast.error(purchaseGlowFromUniswap.val);
           return;
         }
+        if (uniswapLastTxHashRef.current)
+          setTxHash(uniswapLastTxHashRef.current);
       }
 
       // buy glow with bonding curve
       if (isBondingCurveElligible) {
         setPendingStates(
-          defaultPendingStates("early_liquidity", selectedTokenSell.label)
+          defaultPendingStates("early_liquidity", approvalTokenLabel)
         );
         const incrementsToPurchase = Math.floor(
-          Number(smartBalancingAmounts?.amount_out_glow) * 100
+          Number(effectiveSmartBalancingAmounts?.amount_out_glow) * 100
         );
 
         const purchaseGlowEarlyLiquidityRes = await purchaseGlowEarlyLiquidity({
@@ -306,7 +419,13 @@ export const UsdcToTokenDialog: FC<{
           toast.error(purchaseGlowEarlyLiquidityRes.val);
           return;
         }
+        if (glowLastTxHashRef.current) setTxHash(glowLastTxHashRef.current);
       }
+
+      // Prefer the final GLW-producing tx hash (bonding curve last, otherwise uniswap).
+      const finalGlwTxHash =
+        glowLastTxHashRef.current ?? uniswapLastTxHashRef.current ?? txHash;
+      if (finalGlwTxHash) setTxHash(finalGlwTxHash);
 
       setPendingStates((prev) =>
         prev.map((state) => {
@@ -363,24 +482,9 @@ export const UsdcToTokenDialog: FC<{
       setIsImpactPowerPointsBuySuccess(false);
       setPendingStates([]);
     } else {
-      // Initialize pending states when dialog opens
-      let initialPendingStates: PendingState[] = [];
-
-      if (
-        selectedTokenSell.label === "USDC" &&
-        selectedTokenBuy.label === "USDG"
-      ) {
-        // For USDC to USDG direct swap
-        initialPendingStates = usdcDefaultPendingStates;
-      } else if (
-        selectedTokenSell.label === "USDC" &&
-        selectedTokenBuy.label === "GLOW"
-      ) {
-        // For USDC to GLOW (via USDG)
-        initialPendingStates = usdcDefaultPendingStates;
-      }
-
-      setPendingStates(initialPendingStates);
+      setPendingStates(
+        getInitialPendingStates(selectedTokenSell, selectedTokenBuy)
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -568,7 +672,8 @@ export const UsdcToTokenDialog: FC<{
       {/* Pending states display */}
       {(glowPurchaseState !== "NONE" ||
         uniswapPurchaseState !== "NONE" ||
-        swapUSDCToUSDGState) && (
+        swapUSDCToUSDGState ||
+        isPending) && (
         <div className="bg-secondary/30 backdrop-blur-sm border border-border rounded-xl p-4 space-y-3">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -689,6 +794,12 @@ export const UsdcToTokenDialog: FC<{
     </div>
   ) : undefined;
 
+  const etherscanBase =
+    chainId === 11155111
+      ? "https://sepolia.etherscan.io"
+      : "https://etherscan.io";
+  const etherscanTxUrl = txHash ? `${etherscanBase}/tx/${txHash}` : null;
+
   return (
     <TransactionDialog
       open={isOpen}
@@ -696,6 +807,8 @@ export const UsdcToTokenDialog: FC<{
       isSubmitting={isPending}
       isSuccess={isTransactionSuccessful}
       isError={isError}
+      contentClassName="sm:max-w-[520px]"
+      bodyClassName="px-6 py-8 sm:px-7 sm:py-9"
       title="Review Swap"
       successTitle={`+${Number(amount).toLocaleString("en-US", {
         maximumFractionDigits: 4,
@@ -715,6 +828,15 @@ export const UsdcToTokenDialog: FC<{
       isNetworkFeeLoading={isNetworkCostLoading}
       reviewContent={reviewContent}
       footer={customFooter}
+      successFooter={
+        etherscanTxUrl ? (
+          <Button variant="ghost" className="flex-1" asChild>
+            <a href={etherscanTxUrl} target="_blank" rel="noopener noreferrer">
+              View on Etherscan
+            </a>
+          </Button>
+        ) : null
+      }
       confirmLabel="Approve and Buy"
     />
   );

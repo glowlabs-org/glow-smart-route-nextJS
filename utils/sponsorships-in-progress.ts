@@ -11,7 +11,8 @@ export interface SponsorshipInProgress {
   progressPercent: number;
 }
 
-export interface SponsorshipInProgressWithEstimate extends SponsorshipInProgress {
+export interface SponsorshipInProgressWithEstimate
+  extends SponsorshipInProgress {
   estimatedUserWeeklyGlw: number;
 }
 
@@ -33,19 +34,31 @@ function deriveInProgress(params: {
 
   const byApp = new Map<
     string,
-    { application: AuctionApplication | null; userSteps: number; progressPercent: number }
+    {
+      application: AuctionApplication | null;
+      userSteps: number;
+      progressPercent: number;
+    }
   >();
 
   for (const evt of splitsActivity) {
     if (evt.fractionType !== fractionType) continue;
 
+    const status = (evt.fractionStatus ?? "").toLowerCase();
+    if (status !== "committed") continue;
+
     const app = sponsorListings.find((a) => a.id === evt.applicationId) ?? null;
-    const isFilled = app?.activeFraction?.isFilled ?? evt.isFilled;
+    const progress =
+      app?.activeFraction?.progressPercent ?? evt.progressPercent ?? 0;
+    const isFilled =
+      Boolean(app?.activeFraction?.isFilled) ||
+      Boolean(evt.isFilled) ||
+      Boolean(evt.fractionStatus === "filled") ||
+      progress >= 100;
     if (isFilled) continue;
 
     const key = evt.applicationId;
     const existing = byApp.get(key);
-    const progress = app?.activeFraction?.progressPercent ?? evt.progressPercent ?? 0;
     byApp.set(key, {
       application: app,
       userSteps: (existing?.userSteps ?? 0) + (evt.stepsPurchased ?? 0),
@@ -82,8 +95,12 @@ export function attachEstimatedWeeklyLaunchpadRewards(params: {
       if (typeof totalSteps !== "number" || totalSteps <= 0) return 0;
       if (!item.userSteps || item.userSteps <= 0) return 0;
 
-      const glwRewards = safeParseGlwFromWeiString(rewardScore.userWeeklyGlwRewards);
-      const pdRewards = safeParseGlwFromWeiString(rewardScore.userWeeklyPdRewards);
+      const glwRewards = safeParseGlwFromWeiString(
+        rewardScore.userWeeklyGlwRewards
+      );
+      const pdRewards = safeParseGlwFromWeiString(
+        rewardScore.userWeeklyPdRewards
+      );
       const totalRewards = glwRewards + pdRewards;
       if (!Number.isFinite(totalRewards) || totalRewards <= 0) return 0;
 
@@ -117,7 +134,9 @@ export function attachEstimatedWeeklyMiningCenterRewards(params: {
       if (!miningScore?.weeklyGlwRewards) return 0;
       if (!item.userSteps || item.userSteps <= 0) return 0;
 
-      const rewardsPerMiner = safeParseGlwFromWeiString(miningScore.weeklyGlwRewards);
+      const rewardsPerMiner = safeParseGlwFromWeiString(
+        miningScore.weeklyGlwRewards
+      );
       if (!Number.isFinite(rewardsPerMiner) || rewardsPerMiner <= 0) return 0;
 
       const est = rewardsPerMiner * item.userSteps;
@@ -132,7 +151,10 @@ export function attachEstimatedWeeklyMiningCenterRewards(params: {
 export function getAggregatedEstimatedWeeklyGlw(
   items: SponsorshipInProgressWithEstimate[]
 ): number {
-  return items.reduce((acc, item) => acc + (item.estimatedUserWeeklyGlw || 0), 0);
+  return items.reduce(
+    (acc, item) => acc + (item.estimatedUserWeeklyGlw || 0),
+    0
+  );
 }
 
 export function deriveLaunchpadSponsorshipsInProgress(params: {
@@ -148,6 +170,3 @@ export function deriveMiningCenterSponsorshipsInProgress(params: {
 }): SponsorshipInProgress[] {
   return deriveInProgress({ ...params, fractionType: "mining-center" });
 }
-
-
-

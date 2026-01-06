@@ -359,7 +359,7 @@ export default function RewardsWidget({
   return (
     <Card className="h-full flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0">
-        <CardTitle className="text-sm font-medium">Rewards</CardTitle>
+        <CardTitle>Rewards</CardTitle>
         {hasWallet && !isWalletConnecting && hasClaimable && (
           <Badge
             variant="secondary"
@@ -370,7 +370,7 @@ export default function RewardsWidget({
         )}
       </CardHeader>
 
-      <CardContent className="flex flex-col flex-1 min-h-0 pt-0 pb-6 px-6 gap-4">
+      <CardContent className="flex flex-col flex-1 min-h-0 py-0 px-6 gap-4">
         {/* Countdown Area */}
         {hasWallet &&
           !isWalletConnecting &&

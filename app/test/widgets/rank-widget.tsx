@@ -8,7 +8,6 @@ import Link from "next/link";
 import { isAddress } from "viem";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
@@ -27,12 +26,21 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ImpactScoreBreakdownDialogContent } from "@/components/dialogs/impact-score-breakdown-dialog";
+import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
+import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
+import { MintAndStakeGctlDialog } from "@/components/dialogs/mint-and-stake-gctl-dialog";
+import {
+  ImpactIndicatorsRow,
+  type ImpactIndicatorsState,
+} from "@/components/impact-score/impact-indicators";
 import { hubGet } from "@/lib/api/hub-client";
 import { trackEvent } from "@/lib/telemetry";
 import {
   useImpactLeaderboardQuery,
   type ImpactGlowScoreResponse,
 } from "@/hooks";
+import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
+import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { formatTopPercentile } from "@/utils/impact";
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
@@ -47,6 +55,42 @@ function formatPoints(
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: opts.maximumFractionDigits,
   }).format(num);
+}
+
+function safeBigInt(value?: string) {
+  if (!value) return 0n;
+  try {
+    return BigInt(value);
+  } catch {
+    return 0n;
+  }
+}
+
+function safeNumber(value?: string) {
+  if (!value) return 0;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function getIndicatorsStateFromImpactScore(
+  impactScore: ImpactGlowScoreResponse
+): ImpactIndicatorsState {
+  const latestWeek =
+    impactScore.weekly?.[impactScore.weekly.length - 1] ?? null;
+  const streakBonusMultiplier = latestWeek?.streakBonusMultiplier ?? 0;
+
+  return {
+    hasMinerMultiplier: Boolean(latestWeek?.hasCashMinerBonus),
+    hasImpactStreak: streakBonusMultiplier > 0,
+    streakBonusMultiplier,
+    hasSteeringStake: Boolean(
+      impactScore.currentWeekProjection?.hasSteeringStake
+    ),
+    hasEmissionsEarned: safeNumber(impactScore.totals?.inflationPoints) > 0,
+    hasVaultBonus:
+      safeBigInt(impactScore.glowWorth?.delegatedActiveGlwWei) > 0n,
+    hasGlwWorth: safeBigInt(impactScore.glowWorth?.glowWorthWei) > 0n,
+  };
 }
 
 function ImpactScoreHelp(props: {
@@ -119,7 +163,7 @@ function ImpactScoreHelp(props: {
                   </li>
                   <li>
                     Streak: +0.25× per consecutive week you increase delegation
-                    or buy a miner (caps +1.0×, resets on miss)
+                    (caps +1.0×, resets on miss)
                   </li>
                 </ul>
               </div>
@@ -209,8 +253,7 @@ function ImpactScoreHelp(props: {
                     </li>
                     <li>
                       Streak: +0.25× per consecutive week you increase delegated
-                      GLW or buy a miner (caps at +1.0× after 4 weeks; resets on
-                      miss)
+                      GLW (caps at +1.0× after 4 weeks; resets on miss)
                     </li>
                   </ul>
                 </div>
@@ -251,6 +294,9 @@ export function RankWidget({
 
   const source = "rank_widget";
   const [isBreakdownOpen, setIsBreakdownOpen] = React.useState(false);
+  const [isLaunchpadOpen, setIsLaunchpadOpen] = React.useState(false);
+  const [isBuyGlowOpen, setIsBuyGlowOpen] = React.useState(false);
+  const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
 
   const isValidWalletAddress =
     Boolean(walletAddress) && isAddress(walletAddress as string);
@@ -286,16 +332,8 @@ export function RankWidget({
   });
 
   const impactScore = impactScoreQuery.data ?? null;
-  const latestWeek = React.useMemo(() => {
-    if (!impactScore?.weekly?.length) return null;
-    return impactScore.weekly[impactScore.weekly.length - 1] ?? null;
-  }, [impactScore?.weekly]);
 
   const totalsPoints = impactScore?.totals?.totalPoints ?? undefined;
-  const weeklyPoints = latestWeek?.totalPoints ?? undefined;
-  const projectedWeeklyPoints =
-    impactScore?.currentWeekProjection?.projectedPoints?.totalProjectedScore ??
-    undefined;
 
   const totalPointsNumber = React.useMemo(() => {
     const num = Number(totalsPoints ?? "0");
@@ -310,32 +348,12 @@ export function RankWidget({
   const shouldShowBreakdownButton =
     Boolean(impactScore) && !impactScoreQuery.isLoading && hasPositiveScore;
 
-  // Tier Logic
-  const tier = React.useMemo(() => {
-    const num = Number(totalsPoints ?? 0);
-
-    if (!Number.isFinite(num)) return "PHOTON";
-
-    if (num >= 1_000_000) return "QUASAR"; // The brightest object in the universe
-    if (num >= 500_000) return "SUPERNOVA"; // The Top 3 (1.5M - 600k pts)
-    if (num >= 100_000) return "SOLAR FLARE"; // The Top ~7 (300k - 100k pts)
-    if (num >= 25_000) return "SUN RAY"; // The Top ~20 (99k - 25k pts)
-
-    return "PHOTON"; // Everyone else
-  }, [totalsPoints]);
-
-  const subtitle = React.useMemo(() => {
-    const projectedPoints = Number(projectedWeeklyPoints ?? "0");
-    if (Number.isFinite(projectedPoints) && projectedPoints > 0)
-      return `Projected ${formatPoints(
-        projectedWeeklyPoints
-      )} points this week`;
-
-    const points = Number(weeklyPoints ?? "0");
-    if (Number.isFinite(points) && points > 0)
-      return `${formatPoints(weeklyPoints)} points last week`;
-    return "Ramp impact with GCTL + vaults";
-  }, [projectedWeeklyPoints, weeklyPoints]);
+  const pointsHeroText = React.useMemo(() => {
+    if (impactScoreQuery.isLoading) return "— pts";
+    const formatted = formatPoints(totalsPoints, { maximumFractionDigits: 0 });
+    if (formatted === "—") return "— pts";
+    return `${formatted} pts`;
+  }, [impactScoreQuery.isLoading, totalsPoints]);
 
   const selfGlobalRank = React.useMemo(() => {
     if (!normalizedWalletAddress) return null;
@@ -353,12 +371,16 @@ export function RankWidget({
     );
   }, [leaderboardRows.length, totalWalletCount]);
 
-  const rankDisplay = React.useMemo(() => {
+  const rankText = React.useMemo(() => {
+    if (impactScoreQuery.isLoading || leaderboardQuery.isLoading) return "—";
+    if (!selfGlobalRank) return "—";
+    return `#${selfGlobalRank.toLocaleString("en-US")}`;
+  }, [impactScoreQuery.isLoading, leaderboardQuery.isLoading, selfGlobalRank]);
+
+  const percentileText = React.useMemo(() => {
     if (impactScoreQuery.isLoading || leaderboardQuery.isLoading) return "—";
 
     if (selfGlobalRank && totalWalletCount > 0) {
-      if (selfGlobalRank <= 3)
-        return `#${selfGlobalRank.toLocaleString("en-US")}`;
       const percentile = (selfGlobalRank / totalWalletCount) * 100;
       return `Top ${formatTopPercentile(percentile)}`;
     }
@@ -381,11 +403,46 @@ export function RankWidget({
     listThresholdPercentile,
   ]);
 
+  const shouldFetchBalances = isBuyGlowOpen || isMintAndStakeOpen;
+  const { usdcBalance, usdgBalance } = useWalletTokenBalances(walletAddress, {
+    enabled: shouldFetchBalances,
+  });
+  const { spotPrice: glowSpotPrice } = useGlowSpotPrice({
+    query: { enabled: isBuyGlowOpen },
+  });
+
+  const handleIndicatorClick = React.useCallback(
+    (
+      key: "miner" | "streak" | "steering" | "vault" | "emissions" | "worth"
+    ) => {
+      trackEvent("dashboard_impact_indicator_click", {
+        source,
+        wallet_connected: hasWallet,
+        wallet_address: normalizedWalletAddress,
+        indicator: key,
+      });
+
+      if (key === "steering") {
+        if (onMintAndStakeClick) return onMintAndStakeClick();
+        setIsMintAndStakeOpen(true);
+        return;
+      }
+
+      if (key === "worth") {
+        setIsBuyGlowOpen(true);
+        return;
+      }
+
+      setIsLaunchpadOpen(true);
+    },
+    [hasWallet, normalizedWalletAddress, onMintAndStakeClick, source]
+  );
+
   return (
     <>
       {/* --- DASHBOARD CARD --- */}
-      <Card className="h-full overflow-hidden flex flex-col gap-4 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
-        <CardHeader className="pb-0">
+      <Card className="h-full overflow-hidden flex flex-col gap-3 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border pt-4">
+        <CardHeader className="py-0">
           <CardTitle className="flex items-center justify-center gap-2 text-center">
             <span>Impact Score</span>
             <ImpactScoreHelp
@@ -395,26 +452,31 @@ export function RankWidget({
             />
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col flex-1 min-h-0 gap-4 pt-0">
+        <CardContent className="flex flex-col flex-1 min-h-0 gap-3 py-0">
           {!hasWallet ? (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
               <div className="flex flex-1 min-h-0 flex-col items-center justify-center text-center px-1 select-none">
                 <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground blur-[1px] opacity-60">
-                  Total
+                  Total points
                 </div>
                 <div className="mt-2 font-mono text-5xl md:text-6xl font-bold tracking-tighter text-foreground tabular-nums blur-[2px] opacity-60">
-                  {formatPoints(totalsPoints)}
+                  — pts
                 </div>
-                <div className="mt-3 font-mono text-xs text-muted-foreground blur-[1px] opacity-60">
-                  {subtitle}
-                </div>
-                <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className="font-mono text-[10px] font-bold rounded-full bg-[#C084FC]/10 border-[#C084FC]/30 text-[#C084FC] blur-[1px] opacity-60"
-                  >
-                    {tier}
-                  </Badge>
+
+                <div className="mt-2 flex items-center justify-center gap-3 text-xs text-muted-foreground blur-[1px] opacity-60">
+                  <div className="flex items-baseline gap-2 font-mono">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80">
+                      Rank
+                    </span>
+                    <span className="tabular-nums">—</span>
+                  </div>
+                  <div className="h-3 w-px bg-border/60" />
+                  <div className="flex items-baseline gap-2 font-mono">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80">
+                      Percentile
+                    </span>
+                    <span className="tabular-nums">—</span>
+                  </div>
                 </div>
               </div>
 
@@ -423,7 +485,7 @@ export function RankWidget({
                   Connect your wallet
                 </div>
                 <div className="mt-1 text-sm text-muted-foreground">
-                  Connect your wallet to see your Impact Score.
+                  Connect your wallet to see your points and rank.
                 </div>
               </div>
             </div>
@@ -431,31 +493,37 @@ export function RankWidget({
             <>
               <div className="flex flex-1 min-h-0 flex-col items-center justify-center text-center px-1">
                 <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                  Total
+                  Total points
                 </div>
-                <div className="mt-2 font-mono text-5xl md:text-6xl font-bold tracking-tighter text-foreground tabular-nums">
-                  {impactScoreQuery.isLoading
-                    ? "—"
-                    : formatPoints(totalsPoints)}
+                <div className="mt-2 font-mono text-4xl md:text-5xl font-bold tracking-tighter text-foreground tabular-nums">
+                  {pointsHeroText}
                 </div>
-                {!shouldShowMintAndStakeCta ? (
-                  <div className="mt-3 font-mono text-xs text-muted-foreground">
-                    {subtitle}
+
+                <div className="mt-2 flex items-center justify-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-baseline gap-2 font-mono">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80">
+                      Rank
+                    </span>
+                    <span className="tabular-nums">{rankText}</span>
                   </div>
-                ) : null}
-                <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-                  {!shouldShowMintAndStakeCta ? (
-                    <>
-                      <Badge
-                        variant="outline"
-                        className="font-mono text-[10px] font-bold rounded-full bg-[#C084FC]/10 border-[#C084FC]/30 text-[#C084FC]"
-                      >
-                        {tier}
-                      </Badge>
-                    </>
-                  ) : null}
+                  <div className="h-3 w-px bg-border/60" />
+                  <div className="flex items-baseline gap-2 font-mono">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80">
+                      Percentile
+                    </span>
+                    <span className="tabular-nums">{percentileText}</span>
+                  </div>
                 </div>
               </div>
+              {impactScore ? (
+                <div className="rounded-xl border border-border bg-muted/20 p-3">
+                  <ImpactIndicatorsRow
+                    state={getIndicatorsStateFromImpactScore(impactScore)}
+                    onIndicatorClick={handleIndicatorClick}
+                  />
+                </div>
+              ) : null}
+
               <div className={"grid grid-cols-2 gap-3"}>
                 {shouldShowMintAndStakeCta ? (
                   onMintAndStakeClick ? (
@@ -494,11 +562,7 @@ export function RankWidget({
                     </Button>
                   )
                 ) : null}
-                <Button
-                  variant="outline"
-                  className="h-12 font-mono font-bold text-base"
-                  asChild
-                >
+                <Button className="h-12 font-mono font-bold text-base" asChild>
                   <Link
                     href="/stats/rewards"
                     onClick={() => {
@@ -514,6 +578,7 @@ export function RankWidget({
                 </Button>
                 {shouldShowBreakdownButton ? (
                   <Button
+                    variant="outline"
                     className="h-12 font-mono font-bold text-base"
                     type="button"
                     onClick={() => {
@@ -545,6 +610,33 @@ export function RankWidget({
           <ImpactScoreBreakdownDialogContent impactScore={impactScore} />
         ) : null}
       </Dialog>
+
+      <LaunchpadDialog
+        key={isLaunchpadOpen ? "launchpad-open" : "launchpad-closed"}
+        open={isLaunchpadOpen}
+        onOpenChange={setIsLaunchpadOpen}
+      />
+
+      {!onMintAndStakeClick ? (
+        <MintAndStakeGctlDialog
+          key={
+            isMintAndStakeOpen ? "mint-and-stake-open" : "mint-and-stake-closed"
+          }
+          open={isMintAndStakeOpen}
+          onOpenChange={setIsMintAndStakeOpen}
+          usdcBalance={usdcBalance}
+          usdgBalance={usdgBalance}
+        />
+      ) : null}
+
+      <BuyGlowDialog
+        key={isBuyGlowOpen ? "buy-glow-open" : "buy-glow-closed"}
+        open={isBuyGlowOpen}
+        onOpenChange={setIsBuyGlowOpen}
+        usdcBalance={usdcBalance}
+        glowSpotPrice={glowSpotPrice || 0}
+        defaultUsdcAmount="20"
+      />
     </>
   );
 }

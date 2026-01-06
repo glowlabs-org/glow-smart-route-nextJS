@@ -9,6 +9,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Gift,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/telemetry";
@@ -89,6 +90,7 @@ interface PerformanceRowData {
   id: string;
   region: string;
   type: "miner" | "delegation" | "other" | "in-progress";
+  isPendingStart?: boolean;
   initialCost: number;
   recovered: number;
   inflation: number;
@@ -102,6 +104,31 @@ interface PerformanceRowData {
   inProgressUserSteps?: number;
   estimatedUserWeeklyGlw?: number;
   inProgressKind?: "launchpad" | "mining-center";
+}
+
+function getTotalRewardsLabel(data: PerformanceRowData) {
+  if (data.type === "in-progress") return null;
+
+  if (data.type === "miner") return `${fmtGlw(data.inflationGlw)} GLW`;
+  if (data.type === "delegation")
+    return `${fmtGlw(data.recovered + data.inflation)} GLW`;
+
+  if (data.isProtocolDepositUsd) {
+    const asset = data.protocolDepositAsset ?? "USD";
+    return `${fmtGlw(data.inflationGlw)} GLW + ${fmtUsdAmount(
+      data.recovered
+    )} ${asset}`;
+  }
+
+  return `${fmtGlw(data.inflationGlw + data.recovered)} GLW`;
+}
+
+function getTotalRewardsClassName(data: PerformanceRowData) {
+  if (data.type === "miner")
+    return "text-[color:var(--color-miner-yellow-contrast)]";
+  if (data.type === "delegation") return "text-[color:var(--color-glow-green)]";
+  if (data.type === "other") return "text-[color:var(--color-glow-green)]";
+  return "text-foreground";
 }
 
 function formatGlwPrecise(value: number) {
@@ -138,6 +165,7 @@ function parseGlwFromWei(value: string) {
 const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
   // 1. Calculations
   const isInProgress = data.type === "in-progress";
+  const isPendingStart = Boolean(data.isPendingStart);
   const totalValue = data.recovered + data.inflation;
   const isMiner = data.type === "miner";
   const isOther = data.type === "other";
@@ -145,6 +173,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
   const isUsdRow = isMiner || (isOther && isProtocolDepositUsd);
   const inProgressIsMiningCenter =
     data.type === "in-progress" && data.inProgressKind === "mining-center";
+  const totalRewardsLabel = getTotalRewardsLabel(data);
 
   // Percentages (0-100 for bar width)
   const timePct = isInProgress
@@ -173,7 +202,12 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
   return (
     <>
       {/* Mobile card */}
-      <div className="sm:hidden p-4 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 hover:border-border/80 transition-colors">
+      <div
+        className={cn(
+          "sm:hidden p-4 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 hover:border-border/80 transition-colors",
+          isPendingStart && "opacity-60"
+        )}
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
             <div
@@ -207,11 +241,28 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
               <div className="text-sm font-mono text-muted-foreground truncate">
                 {data.region}
               </div>
+              {totalRewardsLabel ? (
+                <div className="text-xs font-mono text-muted-foreground truncate">
+                  Rewards:{" "}
+                  <span
+                    className={cn("font-bold", getTotalRewardsClassName(data))}
+                  >
+                    {totalRewardsLabel}
+                  </span>
+                </div>
+              ) : null}
             </div>
           </div>
 
           <div className="shrink-0">
-            {isInProgress ? (
+            {isPendingStart ? (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded border border-border/60 bg-muted/30 text-muted-foreground">
+                <Clock className="w-3 h-3" />
+                <span className="text-xs font-bold font-mono">
+                  STARTS NEXT WEEK
+                </span>
+              </div>
+            ) : isInProgress ? (
               <div
                 className={cn(
                   "flex items-center gap-1.5 px-2 py-1 rounded border",
@@ -296,7 +347,9 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   Time
                 </div>
                 <div className="text-[10px] font-mono text-muted-foreground tabular-nums">
-                  {data.totalWeeks - data.weeksActive} Left
+                  {isPendingStart
+                    ? "Starts next week"
+                    : `${data.totalWeeks - data.weeksActive} Left`}
                 </div>
               </div>
               <div className="relative w-full h-1.5 bg-muted rounded-full overflow-hidden">
@@ -432,9 +485,14 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
       </div>
 
       {/* Desktop row */}
-      <div className="hidden sm:grid grid-cols-12 items-center p-4 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 hover:border-border/80 transition-colors group">
+      <div
+        className={cn(
+          "hidden sm:grid grid-cols-12 items-center p-4 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 hover:border-border/80 transition-colors group",
+          isPendingStart && "opacity-60"
+        )}
+      >
         {/* COLUMN 1: IDENTITY (3 Cols) */}
-        <div className="col-span-3 flex items-center gap-3">
+        <div className="col-span-4 flex items-center gap-3">
           <div
             className={cn(
               "h-10 w-10 rounded-lg flex items-center justify-center border",
@@ -466,11 +524,21 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             <span className="text-sm font-mono text-muted-foreground truncate">
               {data.region}
             </span>
+            {totalRewardsLabel ? (
+              <span className="text-xs font-mono text-muted-foreground truncate">
+                Rewards:{" "}
+                <span
+                  className={cn("font-bold", getTotalRewardsClassName(data))}
+                >
+                  {totalRewardsLabel}
+                </span>
+              </span>
+            ) : null}
           </div>
         </div>
 
         {/* COLUMN 2: DUAL TRACKS (7 Cols) */}
-        <div className="col-span-7 px-4 flex flex-col justify-center gap-3 min-w-0">
+        <div className="col-span-6 px-4 flex flex-col justify-center gap-3 min-w-0">
           {isInProgress ? (
             <>
               <div className="flex items-center gap-3">
@@ -534,7 +602,9 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   </div>
                 </div>
                 <span className="text-xs font-mono text-muted-foreground w-16 text-right">
-                  {data.totalWeeks - data.weeksActive} Left
+                  {isPendingStart
+                    ? "Starts next week"
+                    : `${data.totalWeeks - data.weeksActive} Left`}
                 </span>
               </div>
 
@@ -672,7 +742,17 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
 
         {/* COLUMN 3: STATUS (2 Cols) */}
         <div className="col-span-2 flex justify-end">
-          {isInProgress ? (
+          {isPendingStart ? (
+            <div
+              className="flex items-center gap-1.5 text-muted-foreground"
+              title="This position is filled and will start earning next week"
+            >
+              <span className="text-xs font-mono uppercase tracking-wide">
+                Starts next week
+              </span>
+              <Clock className="w-3.5 h-3.5" />
+            </div>
+          ) : isInProgress ? (
             <div
               className={cn(
                 "flex items-center gap-1.5 opacity-90",
@@ -745,6 +825,7 @@ export function FarmsPerformanceDialogContent({
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
   const source = "farms_performance_dialog";
   const isInProgressTab = filter === "in-progress";
+  const shouldLoadSplitsActivity = hasWallet;
   const shouldLoadInProgress =
     hasWallet && (filter === "all" || isInProgressTab);
 
@@ -778,9 +859,21 @@ export function FarmsPerformanceDialogContent({
     isError: isSplitsActivityError,
   } = useSplitsActivity({
     walletAddress: walletAddress ?? undefined,
-    enabled: shouldLoadInProgress,
+    enabled: shouldLoadSplitsActivity,
     limit: 200,
   });
+
+  const farmNameByFarmId = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const evt of splitsActivity) {
+      const farmId = evt.farmId;
+      const farmName = evt.farmName;
+      if (!farmId) continue;
+      if (!farmName) continue;
+      if (!map.has(farmId)) map.set(farmId, farmName);
+    }
+    return map;
+  }, [splitsActivity]);
 
   const {
     applications: sponsorListings,
@@ -894,7 +987,9 @@ export function FarmsPerformanceDialogContent({
         })();
 
         const displayName =
-          farmMetadata?.name || `Farm ${farm.farmId.substring(0, 8)}`;
+          farmMetadata?.name ||
+          farmNameByFarmId.get(farm.farmId) ||
+          `Farm ${farm.farmId.substring(0, 8)}`;
 
         if (farm.type === "launchpad") {
           const initialCost = parseGlwFromWei(farm.amountInvested);
@@ -985,7 +1080,114 @@ export function FarmsPerformanceDialogContent({
     });
 
     return [...farmRows, ...otherRows];
-  }, [purchasedFarms, regions, rewardsBreakdown, glwSpotPriceUsd]);
+  }, [
+    farmNameByFarmId,
+    purchasedFarms,
+    regions,
+    rewardsBreakdown,
+    glwSpotPriceUsd,
+  ]);
+
+  const rewardFarmIds = React.useMemo(() => {
+    return new Set(rows.map((r) => r.farmId));
+  }, [rows]);
+
+  const rewardedFarmTypeKeys = React.useMemo(() => {
+    if (!rewardsBreakdown) return new Set<string>();
+    return new Set(
+      rewardsBreakdown.farmDetails.map(
+        (f) =>
+          `${f.farmId}:${
+            f.type === "launchpad" ? "launchpad" : "mining-center"
+          }`
+      )
+    );
+  }, [rewardsBreakdown]);
+
+  const pendingStartRows = React.useMemo<PerformanceRowData[]>(() => {
+    if (!splitsActivity.length) return [];
+
+    const byFarm = new Map<
+      string,
+      {
+        farmId: string;
+        farmName: string;
+        fractionType: "launchpad" | "mining-center";
+        totalAmount: bigint;
+      }
+    >();
+
+    for (const evt of splitsActivity) {
+      const fractionType = evt.fractionType;
+      if (!fractionType) continue;
+      const status = (evt.fractionStatus ?? "").toLowerCase();
+
+      const isPendingStart =
+        (fractionType === "launchpad" && status === "filled") ||
+        (fractionType === "mining-center" &&
+          (status === "filled" || status === "expired"));
+      if (!isPendingStart) continue;
+
+      const farmId = evt.farmId ?? evt.applicationId;
+      if (!farmId) continue;
+      const farmTypeKey = `${farmId}:${fractionType}`;
+      if (rewardedFarmTypeKeys.has(farmTypeKey)) continue;
+
+      let amount = BigInt(0);
+      try {
+        amount = BigInt(evt.amount);
+      } catch {
+        amount = BigInt(0);
+      }
+
+      const existing = byFarm.get(farmTypeKey) ?? {
+        farmId,
+        farmName: evt.farmName || `Farm ${farmId.substring(0, 8)}`,
+        fractionType,
+        totalAmount: BigInt(0),
+      };
+      existing.totalAmount += amount;
+      byFarm.set(farmTypeKey, existing);
+    }
+
+    return Array.from(byFarm.values()).map((item): PerformanceRowData => {
+      if (item.fractionType === "launchpad") {
+        const investedGlw = parseGlwFromWei(item.totalAmount.toString());
+        return {
+          farmId: item.farmId,
+          id: item.farmName,
+          region: "Launchpad",
+          type: "delegation",
+          isPendingStart: true,
+          initialCost: investedGlw,
+          recovered: 0,
+          inflation: 0,
+          inflationGlw: 0,
+          protocolDepositAsset: "GLW",
+          isProtocolDepositUsd: false,
+          weeksActive: 0,
+          totalWeeks: 100,
+        };
+      }
+
+      const investedUsd = parseUsdcFromBaseUnits(item.totalAmount.toString());
+      return {
+        farmId: item.farmId,
+        id: item.farmName,
+        region: "Mining Center",
+        type: "miner",
+        isPendingStart: true,
+        initialCost: investedUsd,
+        recovered: 0,
+        inflation: 0,
+        inflationGlw: 0,
+        protocolDepositAsset: "USDC",
+        isProtocolDepositUsd: true,
+        weeksActive: 0,
+        totalWeeks: 99,
+      };
+    });
+  }, [rewardFarmIds, splitsActivity]);
 
   const visibleRows = React.useMemo(() => {
     if (filter === "in-progress") return [] as PerformanceRowData[];
@@ -1059,9 +1261,22 @@ export function FarmsPerformanceDialogContent({
 
   const visibleRowsWithInProgress = React.useMemo(() => {
     if (filter === "in-progress") return inProgressRows;
-    if (filter === "all") return [...inProgressRows, ...visibleRows];
+    if (filter === "all")
+      return [...pendingStartRows, ...inProgressRows, ...visibleRows];
+    if (filter === "miners")
+      return [
+        ...pendingStartRows.filter((r) => r.type === "miner"),
+        ...inProgressRows.filter((r) => r.inProgressKind === "mining-center"),
+        ...visibleRows,
+      ];
+    if (filter === "delegations")
+      return [
+        ...pendingStartRows.filter((r) => r.type === "delegation"),
+        ...inProgressRows.filter((r) => r.inProgressKind !== "mining-center"),
+        ...visibleRows,
+      ];
     return visibleRows;
-  }, [filter, inProgressRows, visibleRows]);
+  }, [filter, inProgressRows, pendingStartRows, visibleRows]);
 
   const isListLoading =
     filter === "in-progress"
@@ -1072,6 +1287,37 @@ export function FarmsPerformanceDialogContent({
     filter === "in-progress"
       ? isInProgressError
       : isRewardsError || isFarmsError;
+
+  const tabCounts = React.useMemo(() => {
+    const rewardMinerCount = rows.filter((r) => r.type === "miner").length;
+    const rewardDelegationCount = rows.filter(
+      (r) => r.type === "delegation"
+    ).length;
+    const rewardOtherCount = rows.filter((r) => r.type === "other").length;
+    const pendingMinerCount = pendingStartRows.filter(
+      (r) => r.type === "miner"
+    ).length;
+    const pendingDelegationCount = pendingStartRows.filter(
+      (r) => r.type === "delegation"
+    ).length;
+    const inProgressMinerCount = inProgressRows.filter(
+      (r) => r.inProgressKind === "mining-center"
+    ).length;
+    const inProgressDelegationCount = inProgressRows.filter(
+      (r) => r.inProgressKind !== "mining-center"
+    ).length;
+
+    return {
+      all: rows.length + pendingStartRows.length + inProgressRows.length,
+      miners: rewardMinerCount + pendingMinerCount + inProgressMinerCount,
+      delegations:
+        rewardDelegationCount +
+        pendingDelegationCount +
+        inProgressDelegationCount,
+      other: rewardOtherCount,
+      inProgress: inProgressRows.length,
+    };
+  }, [inProgressRows, pendingStartRows, rows]);
 
   return (
     <DialogContent className="max-w-4xl h-[92dvh] sm:h-[80vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden shadow-2xl">
@@ -1102,38 +1348,46 @@ export function FarmsPerformanceDialogContent({
             >
               ALL
             </TabsTrigger>
-            <TabsTrigger
-              value="miners"
-              className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-miner-yellow"
-            >
-              MINERS
-            </TabsTrigger>
-            <TabsTrigger
-              value="delegations"
-              className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[#C084FC]"
-            >
-              DELEGATIONS
-            </TabsTrigger>
-            <TabsTrigger
-              value="other"
-              className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[color:var(--color-glow-green)]"
-            >
-              OTHER
-            </TabsTrigger>
-            <TabsTrigger
-              value="in-progress"
-              className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[#C084FC]"
-            >
-              IN PROGRESS
-            </TabsTrigger>
+            {tabCounts.miners > 0 || filter === "miners" ? (
+              <TabsTrigger
+                value="miners"
+                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-miner-yellow"
+              >
+                MINERS
+              </TabsTrigger>
+            ) : null}
+            {tabCounts.delegations > 0 || filter === "delegations" ? (
+              <TabsTrigger
+                value="delegations"
+                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[#C084FC]"
+              >
+                DELEGATIONS
+              </TabsTrigger>
+            ) : null}
+            {tabCounts.other > 0 || filter === "other" ? (
+              <TabsTrigger
+                value="other"
+                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[color:var(--color-glow-green)]"
+              >
+                OTHER
+              </TabsTrigger>
+            ) : null}
+            {tabCounts.inProgress > 0 || filter === "in-progress" ? (
+              <TabsTrigger
+                value="in-progress"
+                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[#C084FC]"
+              >
+                IN PROGRESS
+              </TabsTrigger>
+            ) : null}
           </TabsList>
         </Tabs>
       </DialogHeader>
 
       {/* Legend / Columns */}
       <div className="hidden sm:grid grid-cols-12 px-6 py-3 border-b border-border/60 bg-muted/10 text-xs font-mono uppercase text-muted-foreground tracking-wider flex-shrink-0">
-        <div className="col-span-3">Identity</div>
-        <div className="col-span-7 pl-4 flex gap-4">
+        <div className="col-span-4">Identity</div>
+        <div className="col-span-6 pl-4 flex gap-4">
           <span>Lifecycle (Time vs Money)</span>
           <span className="ml-auto text-muted-foreground normal-case tracking-normal">
             <span className="text-[#C084FC]">■</span> Principal

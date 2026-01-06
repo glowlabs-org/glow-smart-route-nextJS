@@ -10,8 +10,9 @@ import {
   Cpu,
   Info,
   Layers,
+  ArrowDown,
+  ArrowUp,
   Search,
-  Sparkles,
   Zap,
   X,
 } from "lucide-react";
@@ -63,11 +64,60 @@ import {
   formatGlwFromWei,
   formatImpactPoints,
   formatTopPercentile,
-  getPrimaryStrategy,
-  getStrategyPillClasses,
   safeNumber,
   shortAddress,
 } from "@/utils/impact";
+import {
+  ImpactMultipliersIcons,
+  ImpactPointSourcesIcons,
+  type ImpactIndicatorsState,
+} from "@/components/impact-score/impact-indicators";
+
+function safeBigIntFromString(value?: string) {
+  if (!value) return BigInt(0);
+  try {
+    return BigInt(value);
+  } catch {
+    return BigInt(0);
+  }
+}
+
+function getIndicatorsStateFromRow(
+  row: Pick<
+    ImpactGlowScoreLeaderboardRow,
+    | "hasMinerMultiplier"
+    | "hasSteeringStake"
+    | "hasVaultBonus"
+    | "endWeekMultiplier"
+    | "glowWorthWei"
+    | "composition"
+  >
+): ImpactIndicatorsState {
+  const hasMinerMultiplier = Boolean(row.hasMinerMultiplier);
+  const baseMultiplier = hasMinerMultiplier ? 3 : 1;
+  const endWeekMultiplier = Number(row.endWeekMultiplier ?? 1);
+  const streakBonusMultiplier = Math.max(0, endWeekMultiplier - baseMultiplier);
+  const hasImpactStreak = streakBonusMultiplier > 0;
+
+  return {
+    hasMinerMultiplier,
+    hasImpactStreak,
+    streakBonusMultiplier,
+    hasSteeringStake: Boolean(row.hasSteeringStake),
+    hasEmissionsEarned: safeNumber(row.composition?.inflationPoints) > 0,
+    hasVaultBonus: Boolean(row.hasVaultBonus),
+    hasGlwWorth: safeBigIntFromString(row.glowWorthWei) > 0n,
+  };
+}
+
+function SortIcon(props: { dir: "asc" | "desc" }) {
+  const { dir } = props;
+  return dir === "asc" ? (
+    <ArrowUp className="h-3.5 w-3.5" />
+  ) : (
+    <ArrowDown className="h-3.5 w-3.5" />
+  );
+}
 
 function ConnectWalletRankingEmptyState() {
   return (
@@ -394,11 +444,27 @@ function ImpactHero(props: {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="min-w-0 space-y-1">
                     <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                      Percentile
+                      Points
                     </div>
                     <div className="font-mono text-3xl md:text-5xl font-bold tracking-tight tabular-nums">
+                      {formatImpactPoints(
+                        selfScoreQuery.data?.totals?.totalPoints,
+                        2
+                      )}{" "}
+                      <span className="text-xs text-muted-foreground">pts</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground font-mono">
+                      {shortAddress(address)}
+                    </div>
+                  </div>
+
+                  <div className="min-w-0 space-y-1 sm:text-right">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                      Ranking
+                    </div>
+                    <div className="font-mono text-2xl md:text-3xl font-bold tracking-tight tabular-nums">
                       {selfGlobalRank ? (
-                        <>Top {formatTopPercentile(selfPercentile)}</>
+                        <>#{selfGlobalRank.toLocaleString("en-US")}</>
                       ) : (
                         <>
                           Below Top{" "}
@@ -408,26 +474,10 @@ function ImpactHero(props: {
                     </div>
                     <div className="text-xs text-muted-foreground font-mono">
                       {selfGlobalRank ? (
-                        <>Rank #{selfGlobalRank.toLocaleString("en-US")}</>
+                        <>Top {formatTopPercentile(selfPercentile)}</>
                       ) : (
                         <>Rank not available outside current list</>
                       )}
-                    </div>
-                  </div>
-
-                  <div className="min-w-0 space-y-1 sm:text-right">
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                      Points
-                    </div>
-                    <div className="font-mono text-2xl md:text-4xl font-bold tracking-tight tabular-nums">
-                      {formatImpactPoints(
-                        selfScoreQuery.data?.totals?.totalPoints,
-                        2
-                      )}{" "}
-                      <span className="text-xs text-muted-foreground">pts</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground font-mono">
-                      {shortAddress(address)}
                     </div>
                   </div>
                 </div>
@@ -701,8 +751,24 @@ export function ImpactView() {
     "search",
     parseAsString.withDefault("")
   );
+  const [sort, setSort] = useQueryState(
+    "sort",
+    parseAsString.withDefault("totalPoints")
+  );
+  const [dir, setDir] = useQueryState("dir", parseAsString.withDefault("desc"));
 
-  const leaderboardQuery = useImpactLeaderboardQuery();
+  const sortKey = (() => {
+    if (sort === "lastWeekPoints") return "lastWeekPoints" as const;
+    if (sort === "glowWorth") return "glowWorth" as const;
+    return "totalPoints" as const;
+  })();
+  const sortDir = dir === "asc" ? ("asc" as const) : ("desc" as const);
+
+  const leaderboardQuery = useImpactLeaderboardQuery({
+    limit: 200,
+    sort: sortKey,
+    dir: sortDir,
+  });
 
   const isLeaderboardRefreshing =
     leaderboardQuery.isFetching && !leaderboardQuery.isLoading;
@@ -726,7 +792,7 @@ export function ImpactView() {
   const globalRankByWallet = React.useMemo(() => {
     const map = new Map<string, number>();
     allRows.forEach((row, idx) => {
-      map.set(row.walletAddress.toLowerCase(), idx + 1);
+      map.set(row.walletAddress.toLowerCase(), row.globalRank ?? idx + 1);
     });
     return map;
   }, [allRows]);
@@ -740,15 +806,35 @@ export function ImpactView() {
     });
   }, [allRows, allEnsNames, searchLower]);
 
+  const handleSortClick = React.useCallback(
+    (nextSort: "lastWeekPoints" | "totalPoints" | "glowWorth") => {
+      try {
+        if (sort === nextSort) {
+          setDir(sortDir === "asc" ? "desc" : "asc");
+        } else {
+          setSort(nextSort);
+          setDir("desc");
+        }
+        setPage(1);
+      } catch {
+        // ignore
+      }
+    },
+    [setDir, setPage, setSort, sort, sortDir]
+  );
+
+  // Sorting is backend-driven; filtering preserves backend order.
+  const orderedRows = filteredRows;
+
   const PAGE_SIZE = 50;
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(orderedRows.length / PAGE_SIZE));
   const safePage = Math.min(Math.max(1, page), totalPages);
   const startIdx = (safePage - 1) * PAGE_SIZE;
-  const endIdx = Math.min(startIdx + PAGE_SIZE, filteredRows.length);
+  const endIdx = Math.min(startIdx + PAGE_SIZE, orderedRows.length);
 
   const pageRows = React.useMemo(
-    () => filteredRows.slice(startIdx, endIdx),
-    [endIdx, filteredRows, startIdx]
+    () => orderedRows.slice(startIdx, endIdx),
+    [endIdx, orderedRows, startIdx]
   );
 
   const topWallet = React.useMemo(() => {
@@ -810,8 +896,8 @@ export function ImpactView() {
             ) : weekRange ? (
               <div className="text-xs text-muted-foreground font-mono">
                 Weeks {weekRange.startWeek}–{weekRange.endWeek} · Showing{" "}
-                {filteredRows.length === 0 ? 0 : `${startIdx + 1}–${endIdx}`} of{" "}
-                {filteredRows.length.toLocaleString("en-US")}
+                {orderedRows.length === 0 ? 0 : `${startIdx + 1}–${endIdx}`} of{" "}
+                {orderedRows.length.toLocaleString("en-US")}
                 {searchLower
                   ? ` (filtered from ${allRows.length.toLocaleString("en-US")})`
                   : ""}
@@ -823,9 +909,16 @@ export function ImpactView() {
           <div className="relative w-full sm:w-[320px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search wallet (0x…)…"
+              placeholder="Search ENS or 0x…"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                try {
+                  setSearch(e.target.value);
+                  setPage(1);
+                } catch {
+                  // ignore
+                }
+              }}
               className="pl-9 pr-9"
               disabled={leaderboardQuery.isLoading}
             />
@@ -835,7 +928,14 @@ export function ImpactView() {
                 variant="ghost"
                 size="icon"
                 className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                onClick={() => setSearch("")}
+                onClick={() => {
+                  try {
+                    setSearch("");
+                    setPage(1);
+                  } catch {
+                    // ignore
+                  }
+                }}
                 aria-label="Clear search"
               >
                 <X className="h-4 w-4" />
@@ -845,91 +945,118 @@ export function ImpactView() {
         </div>
 
         {leaderboardQuery.isLoading ? (
-          <div className="p-6 space-y-4">
-            <Table>
-              <TableHeader className="bg-muted/10">
-                <TableRow>
-                  <TableHead className="w-28 h-11 px-3">
-                    <Skeleton className="h-3 w-16 rounded-md" />
-                  </TableHead>
-                  <TableHead className="h-11 px-3">
-                    <Skeleton className="h-3 w-20 rounded-md" />
-                  </TableHead>
-                  <TableHead className="h-11 px-3 hidden md:table-cell">
-                    <Skeleton className="h-3 w-20 rounded-md" />
-                  </TableHead>
-                  <TableHead className="h-11 px-3 text-right hidden lg:table-cell">
-                    <Skeleton className="h-3 w-16 rounded-md ml-auto" />
-                  </TableHead>
-                  <TableHead className="h-11 px-3 text-right">
-                    <Skeleton className="h-3 w-20 rounded-md ml-auto" />
-                  </TableHead>
-                  <TableHead className="h-11 px-3 text-right">
-                    <Skeleton className="h-3 w-20 rounded-md ml-auto" />
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="py-4 px-3">
-                      <Skeleton className="h-4 w-20 rounded-md" />
-                    </TableCell>
-                    <TableCell className="py-4 px-3">
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-28 rounded-md" />
-                        <Skeleton className="h-3 w-24 rounded-md" />
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-4 px-3 hidden md:table-cell">
-                      <Skeleton className="h-6 w-28 rounded-full" />
-                    </TableCell>
-                    <TableCell className="py-4 px-3 hidden lg:table-cell text-right">
-                      <Skeleton className="h-4 w-20 rounded-md ml-auto" />
-                    </TableCell>
-                    <TableCell className="py-4 px-3 text-right">
-                      <Skeleton className="h-4 w-24 rounded-md ml-auto" />
-                    </TableCell>
-                    <TableCell className="py-4 px-3 text-right">
-                      <Skeleton className="h-4 w-20 rounded-md ml-auto" />
-                    </TableCell>
+          <>
+            <div className="md:hidden p-4 space-y-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl border border-border bg-muted/10 p-4 space-y-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-2">
+                      <Skeleton className="h-3 w-16 rounded-md" />
+                      <Skeleton className="h-4 w-40 rounded-md" />
+                    </div>
+                    <Skeleton className="h-8 w-8 rounded-md" />
+                  </div>
+                  <Skeleton className="h-10 w-32 rounded-xl" />
+                  <div className="flex items-center justify-between gap-3">
+                    <Skeleton className="h-3 w-28 rounded-md" />
+                    <Skeleton className="h-3 w-28 rounded-md" />
+                  </div>
+                  <div className="flex gap-2">
+                    <Skeleton className="h-7 w-7 rounded-lg" />
+                    <Skeleton className="h-7 w-7 rounded-lg" />
+                    <Skeleton className="h-7 w-7 rounded-lg" />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block p-6 space-y-4">
+              <Table>
+                <TableHeader className="bg-muted/10">
+                  <TableRow>
+                    <TableHead className="w-20 h-11 px-3">
+                      <Skeleton className="h-3 w-16 rounded-md" />
+                    </TableHead>
+                    <TableHead className="h-11 px-3">
+                      <Skeleton className="h-3 w-20 rounded-md" />
+                    </TableHead>
+                    <TableHead className="h-11 px-3 text-right">
+                      <Skeleton className="h-3 w-20 rounded-md ml-auto" />
+                    </TableHead>
+                    <TableHead className="h-11 px-3 text-right hidden md:table-cell">
+                      <Skeleton className="h-3 w-20 rounded-md ml-auto" />
+                    </TableHead>
+                    <TableHead className="h-11 px-3 text-right hidden lg:table-cell">
+                      <Skeleton className="h-3 w-20 rounded-md ml-auto" />
+                    </TableHead>
+                    <TableHead className="h-11 px-3 hidden lg:table-cell w-[220px] max-w-[260px]">
+                      <Skeleton className="h-3 w-24 rounded-md" />
+                    </TableHead>
+                    <TableHead className="h-11 px-3 hidden md:table-cell w-[140px] max-w-[160px]">
+                      <Skeleton className="h-3 w-24 rounded-md" />
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="py-4 px-3">
+                        <Skeleton className="h-4 w-20 rounded-md" />
+                      </TableCell>
+                      <TableCell className="py-4 px-3">
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-28 rounded-md" />
+                          <Skeleton className="h-3 w-24 rounded-md" />
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4 px-3 text-right">
+                        <Skeleton className="h-4 w-24 rounded-md ml-auto" />
+                      </TableCell>
+                      <TableCell className="py-4 px-3 text-right hidden md:table-cell">
+                        <Skeleton className="h-4 w-20 rounded-md ml-auto" />
+                      </TableCell>
+                      <TableCell className="py-4 px-3 text-right hidden lg:table-cell">
+                        <Skeleton className="h-4 w-20 rounded-md ml-auto" />
+                      </TableCell>
+                      <TableCell className="py-4 px-3 hidden lg:table-cell">
+                        <div className="flex gap-2">
+                          <Skeleton className="h-7 w-7 rounded-lg" />
+                          <Skeleton className="h-7 w-7 rounded-lg" />
+                          <Skeleton className="h-7 w-7 rounded-lg" />
+                          <Skeleton className="h-7 w-7 rounded-lg" />
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4 px-3 hidden md:table-cell">
+                        <div className="flex gap-2">
+                          <Skeleton className="h-7 w-7 rounded-lg" />
+                          <Skeleton className="h-7 w-7 rounded-lg" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         ) : leaderboardQuery.isError ? (
           <div className="p-6 text-sm text-muted-foreground">
             Unable to load leaderboard.
           </div>
         ) : (
-          <div className={cn(isLeaderboardRefreshing && "opacity-60")}>
-            <Table>
-              <TableHeader className="bg-muted/10">
-                <TableRow>
-                  <TableHead className="w-28 h-11 px-3 text-xs font-mono uppercase tracking-wider">
-                    Rank
-                  </TableHead>
-                  <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider">
-                    Wallet
-                  </TableHead>
-                  <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider hidden md:table-cell">
-                    Strategy
-                  </TableHead>
-                  <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider text-right hidden lg:table-cell">
-                    Last week
-                  </TableHead>
-                  <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider text-right">
-                    Total Points
-                  </TableHead>
-                  <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider text-right">
-                    Glow Worth
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+          <>
+            <div
+              className={cn(
+                "md:hidden",
+                isLeaderboardRefreshing && "opacity-60"
+              )}
+            >
+              <div className="divide-y divide-border">
                 {pageRows.map((row) => {
                   const globalRank =
+                    row.globalRank ??
                     globalRankByWallet.get(row.walletAddress.toLowerCase()) ??
                     null;
                   const percentile =
@@ -937,102 +1064,291 @@ export function ImpactView() {
                       ? (globalRank / totalWalletCount) * 100
                       : NaN;
                   const isLeader = globalRank === 1;
-                  const strategy = getPrimaryStrategy(row.composition);
+                  const ensName = allEnsNames[row.walletAddress] ?? null;
 
                   return (
-                    <TableRow
+                    <div
                       key={row.walletAddress}
                       className={cn(
-                        "cursor-pointer",
+                        "px-4 py-4 cursor-pointer",
                         isLeader &&
                           "bg-[color:var(--color-glow-yellow)]/12 dark:bg-[color:var(--color-glow-yellow)]/6",
                         "hover:bg-muted/20"
                       )}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleRowClick(row.walletAddress)}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter" && e.key !== " ") return;
+                        e.preventDefault();
+                        handleRowClick(row.walletAddress);
+                      }}
                     >
-                      <TableCell className="font-mono text-xs py-4 px-3">
-                        {globalRank && globalRank <= 3 ? (
-                          <div className="inline-flex items-center gap-2 text-muted-foreground">
-                            #{globalRank.toLocaleString("en-US")}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono text-muted-foreground tabular-nums">
+                              {globalRank && globalRank <= 3 ? (
+                                <>#{globalRank.toLocaleString("en-US")}</>
+                              ) : (
+                                <>Top {formatTopPercentile(percentile)}</>
+                              )}
+                            </span>
+                            <span className="min-w-0 truncate font-mono text-sm">
+                              {ensName ?? shortAddress(row.walletAddress)}
+                            </span>
                           </div>
-                        ) : (
-                          <div className="text-muted-foreground">
-                            Top {formatTopPercentile(percentile)}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-mono py-4 px-3">
-                        <div className="inline-flex items-center gap-2">
-                          <div className="flex flex-col gap-1">
-                            {allEnsNames[row.walletAddress] ? (
-                              <>
-                                {allEnsNames[row.walletAddress] && (
-                                  <span className="text-sm font-medium">
-                                    {allEnsNames[row.walletAddress]}
-                                  </span>
-                                )}
-                                <span className="font-mono text-xs text-muted-foreground">
-                                  {shortAddress(row.walletAddress)}
-                                </span>
-                              </>
-                            ) : (
-                              <>
-                                <span className="font-mono text-sm">
-                                  {shortAddress(row.walletAddress)}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              copyTextToClipboard(row.walletAddress, {
-                                successMessage: "Copied",
-                              });
-                            }}
-                            aria-label="Copy wallet address"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
+                          {ensName ? (
+                            <div className="text-xs font-mono text-muted-foreground">
+                              {shortAddress(row.walletAddress)}
+                            </div>
+                          ) : null}
                         </div>
-                      </TableCell>
-                      <TableCell className="py-4 px-3 hidden md:table-cell">
-                        <span
-                          className={cn(
-                            "inline-flex items-center rounded-full border px-3 py-1 text-xs font-mono",
-                            getStrategyPillClasses(strategy.key)
-                          )}
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyTextToClipboard(row.walletAddress, {
+                              successMessage: "Copied",
+                            });
+                          }}
+                          aria-label="Copy wallet address"
                         >
-                          {strategy.label}
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-4 px-3 hidden lg:table-cell text-right font-mono tabular-nums text-sm text-muted-foreground">
-                        {row.lastWeekPoints
-                          ? formatImpactPoints(row.lastWeekPoints, 2)
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums py-4 px-3">
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      <div className="mt-3 font-mono text-3xl font-bold tracking-tight tabular-nums text-foreground">
                         {formatImpactPoints(row.totalPoints, 2)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums py-4 px-3">
-                        {formatGlwFromWei(row.glowWorthWei)}{" "}
-                        <span className="text-xs text-muted-foreground">
-                          GLW
+                        <span className="ml-2 text-xs font-mono text-muted-foreground">
+                          pts
                         </span>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+
+                      <div className="mt-2 flex items-center justify-between gap-3 text-xs font-mono text-muted-foreground">
+                        <div className="truncate">
+                          Last week:{" "}
+                          <span className="tabular-nums">
+                            {row.lastWeekPoints
+                              ? formatImpactPoints(row.lastWeekPoints, 2)
+                              : "—"}
+                          </span>
+                        </div>
+                        <div className="truncate">
+                          Glow:{" "}
+                          <span className="tabular-nums">
+                            {formatGlwFromWei(row.glowWorthWei)}
+                          </span>{" "}
+                          GLW
+                        </div>
+                      </div>
+
+                      <div className="mt-3">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                              Multipliers
+                            </div>
+                            <ImpactMultipliersIcons
+                              state={getIndicatorsStateFromRow(row)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                              Point sources
+                            </div>
+                            <ImpactPointSourcesIcons
+                              state={getIndicatorsStateFromRow(row)}
+                              className="justify-end"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   );
                 })}
-              </TableBody>
-            </Table>
-          </div>
+              </div>
+            </div>
+
+            <div
+              className={cn(
+                "hidden md:block",
+                isLeaderboardRefreshing && "opacity-60"
+              )}
+            >
+              <Table>
+                <TableHeader className="bg-muted/10">
+                  <TableRow>
+                    <TableHead className="w-20 h-11 px-3 text-xs font-mono uppercase tracking-wider">
+                      Rank
+                    </TableHead>
+                    <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider min-w-[220px]">
+                      Wallet
+                    </TableHead>
+                    <TableHead className="h-11 px-3 text-right w-[180px]">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 px-2 font-mono text-xs uppercase tracking-wider"
+                        onClick={() => handleSortClick("totalPoints")}
+                      >
+                        Total Points
+                        {sortKey === "totalPoints" ? (
+                          <span className="ml-1 inline-flex">
+                            <SortIcon dir={sortDir} />
+                          </span>
+                        ) : null}
+                      </Button>
+                    </TableHead>
+                    <TableHead className="h-11 px-3 text-right hidden md:table-cell w-[160px]">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 px-2 font-mono text-xs uppercase tracking-wider"
+                        onClick={() => handleSortClick("lastWeekPoints")}
+                      >
+                        Last week
+                        {sortKey === "lastWeekPoints" ? (
+                          <span className="ml-1 inline-flex">
+                            <SortIcon dir={sortDir} />
+                          </span>
+                        ) : null}
+                      </Button>
+                    </TableHead>
+                    <TableHead className="h-11 px-3 text-right hidden lg:table-cell w-[160px]">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 px-2 font-mono text-xs uppercase tracking-wider"
+                        onClick={() => handleSortClick("glowWorth")}
+                      >
+                        Glow Worth
+                        {sortKey === "glowWorth" ? (
+                          <span className="ml-1 inline-flex">
+                            <SortIcon dir={sortDir} />
+                          </span>
+                        ) : null}
+                      </Button>
+                    </TableHead>
+                    <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider hidden lg:table-cell w-[220px] max-w-[260px]">
+                      Point Sources
+                    </TableHead>
+                    <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider hidden md:table-cell w-[140px] max-w-[160px]">
+                      Multipliers
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pageRows.map((row) => {
+                    const globalRank =
+                      row.globalRank ??
+                      globalRankByWallet.get(row.walletAddress.toLowerCase()) ??
+                      null;
+                    const percentile =
+                      globalRank && totalWalletCount > 0
+                        ? (globalRank / totalWalletCount) * 100
+                        : NaN;
+                    const isLeader = globalRank === 1;
+
+                    return (
+                      <TableRow
+                        key={row.walletAddress}
+                        className={cn(
+                          "cursor-pointer",
+                          isLeader &&
+                            "bg-[color:var(--color-glow-yellow)]/12 dark:bg-[color:var(--color-glow-yellow)]/6",
+                          "hover:bg-muted/20"
+                        )}
+                        onClick={() => handleRowClick(row.walletAddress)}
+                      >
+                        <TableCell className="font-mono text-xs py-3 px-3">
+                          {globalRank && globalRank <= 3 ? (
+                            <div className="inline-flex items-center gap-2 text-muted-foreground">
+                              #{globalRank.toLocaleString("en-US")}
+                            </div>
+                          ) : (
+                            <div className="text-muted-foreground">
+                              Top {formatTopPercentile(percentile)}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono py-3 px-3">
+                          <div className="inline-flex items-center gap-2">
+                            <div className="flex flex-col gap-1">
+                              {allEnsNames[row.walletAddress] ? (
+                                <>
+                                  {allEnsNames[row.walletAddress] && (
+                                    <span className="text-sm font-medium">
+                                      {allEnsNames[row.walletAddress]}
+                                    </span>
+                                  )}
+                                  <span className="font-mono text-xs text-muted-foreground">
+                                    {shortAddress(row.walletAddress)}
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="font-mono text-sm">
+                                    {shortAddress(row.walletAddress)}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copyTextToClipboard(row.walletAddress, {
+                                  successMessage: "Copied",
+                                });
+                              }}
+                              aria-label="Copy wallet address"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono tabular-nums py-3 px-3 text-base font-semibold text-foreground">
+                          {formatImpactPoints(row.totalPoints, 2)}
+                        </TableCell>
+                        <TableCell className="py-3 px-3 hidden md:table-cell text-right font-mono tabular-nums text-sm text-muted-foreground">
+                          {row.lastWeekPoints
+                            ? formatImpactPoints(row.lastWeekPoints, 2)
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell text-right font-mono tabular-nums py-3 px-3 text-sm text-muted-foreground">
+                          {formatGlwFromWei(row.glowWorthWei)}{" "}
+                          <span className="text-xs text-muted-foreground">
+                            GLW
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-3 px-3 hidden lg:table-cell">
+                          <ImpactPointSourcesIcons
+                            state={getIndicatorsStateFromRow(row)}
+                          />
+                        </TableCell>
+                        <TableCell className="py-3 px-3 hidden md:table-cell">
+                          <ImpactMultipliersIcons
+                            state={getIndicatorsStateFromRow(row)}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
 
-        {!leaderboardQuery.isLoading && filteredRows.length > 0 ? (
+        {!leaderboardQuery.isLoading && orderedRows.length > 0 ? (
           <div className="flex flex-col gap-3 px-6 py-4 border-t border-border bg-background">
             <Pagination>
               <PaginationContent>

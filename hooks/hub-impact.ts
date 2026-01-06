@@ -23,7 +23,11 @@ export interface ImpactGlowScoreLeaderboardRow {
   composition?: ImpactGlowScoreComposition;
   lastWeekPoints?: string;
   activeMultiplier?: boolean;
+  hasMinerMultiplier?: boolean;
+  hasSteeringStake?: boolean;
+  hasVaultBonus?: boolean;
   endWeekMultiplier?: number;
+  globalRank?: number;
 }
 
 export interface ImpactGlowScoreLeaderboardResponse {
@@ -40,6 +44,8 @@ export interface ImpactGlowScoreTotals {
   inflationPoints?: string;
   steeringPoints?: string;
   vaultBonusPoints?: string;
+  totalInflationGlwWei?: string;
+  totalSteeringGlwWei?: string;
 }
 
 export interface ImpactGlowScoreProjection {
@@ -107,22 +113,37 @@ export interface ImpactGlowScoreResponse {
 
 export interface UseImpactLeaderboardQueryArgs {
   enabled?: boolean;
+  limit?: number;
+  sort?: "totalPoints" | "lastWeekPoints" | "glowWorth";
+  dir?: "asc" | "desc";
 }
 
 export function useImpactLeaderboardQuery(
   args: UseImpactLeaderboardQueryArgs = {}
 ) {
-  const { enabled = true } = args;
+  const { enabled = true, limit, sort, dir } = args;
 
   return useQuery({
-    queryKey: ["impact-leaderboard"] as const,
+    queryKey: [
+      "impact-leaderboard",
+      limit ?? null,
+      sort ?? null,
+      dir ?? null,
+    ] as const,
     enabled,
     staleTime: 60_000,
     retry: 0,
     queryFn: async (): Promise<ImpactGlowScoreLeaderboardResponse> => {
       try {
         return await hubGet<ImpactGlowScoreLeaderboardResponse>(
-          "/impact/glow-score"
+          "/impact/glow-score",
+          {
+            params: {
+              limit: limit ?? undefined,
+              sort: sort ?? undefined,
+              dir: dir ?? undefined,
+            },
+          }
         );
       } catch (error) {
         toast.error("Failed to load Impact leaderboard", {
