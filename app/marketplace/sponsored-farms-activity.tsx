@@ -30,6 +30,7 @@ function formatAddress(address: string): string {
 interface SponsoredFarmsActivityProps {
   className?: string;
   fractionType?: "mining-center" | "launchpad";
+  variant?: "widget" | "full";
   activityOverride?: SplitActivity[];
   summaryOverride?: SplitsActivityResponse["summary"];
   isLoadingOverride?: boolean;
@@ -37,15 +38,85 @@ interface SponsoredFarmsActivityProps {
   constrainHeight?: boolean;
 }
 
+function formatCompactNumber(value: number, maximumFractionDigits: number) {
+  try {
+    if (!Number.isFinite(value)) return "0";
+    return new Intl.NumberFormat(undefined, {
+      notation: "compact",
+      compactDisplay: "short",
+      minimumFractionDigits: 0,
+      maximumFractionDigits,
+    }).format(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatTimeAgoShort(timestampMs: number, nowMs: number) {
+  const diffMs = nowMs - timestampMs;
+  if (!Number.isFinite(diffMs)) return "—";
+  if (diffMs < 45_000) return "now";
+
+  const diffSeconds = Math.floor(diffMs / 1000);
+  if (diffSeconds < 60) return `${diffSeconds}s ago`;
+
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  const diffWeeks = Math.floor(diffDays / 7);
+  if (diffWeeks < 4) return `${diffWeeks}w ago`;
+
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths < 12) return `${diffMonths}mo ago`;
+
+  const diffYears = Math.floor(diffDays / 365);
+  return `${diffYears}y ago`;
+}
+
+function getKpiGridClassName(params: {
+  isWidget: boolean;
+  showRewardScore: boolean;
+  shouldShowContributorsKpi: boolean;
+  hasThirdKpi: boolean;
+}) {
+  const { isWidget, showRewardScore, shouldShowContributorsKpi, hasThirdKpi } =
+    params;
+
+  const kpiCount =
+    Number(showRewardScore) +
+    Number(shouldShowContributorsKpi) +
+    1 +
+    Number(hasThirdKpi);
+
+  if (isWidget) {
+    return "grid-cols-3";
+  }
+
+  if (kpiCount === 4)
+    return "grid-cols-2 md:grid-cols-[13rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]";
+  if (kpiCount === 3) return "grid-cols-1 sm:grid-cols-2 md:grid-cols-3";
+
+  return "grid-cols-1";
+}
+
 export function SponsoredFarmsActivity({
   className,
   fractionType,
+  variant = "full",
   activityOverride,
   summaryOverride,
   isLoadingOverride,
   walletAddress,
   constrainHeight,
 }: SponsoredFarmsActivityProps) {
+  const isWidget = variant === "widget";
+
   const {
     activity: fetchedActivity,
     summary: fetchedSummary,
@@ -82,6 +153,26 @@ export function SponsoredFarmsActivity({
 
   // Determine if we should show reward scores (only for launchpad)
   const showRewardScore = !fractionType || fractionType === "launchpad";
+  const shouldShowContributorsKpi = !isWidget;
+  const hasThirdKpi = true;
+
+  const kpiGridClassName = getKpiGridClassName({
+    isWidget,
+    showRewardScore,
+    shouldShowContributorsKpi,
+    hasThirdKpi,
+  });
+
+  const kpiValueClassName = cn(
+    "font-semibold text-black dark:text-white tabular-nums min-w-0",
+    isWidget ? "text-xl leading-none" : "text-2xl"
+  );
+
+  const kpiLabelClassName = cn(
+    "text-sm text-gray-600 dark:text-gray-400 mb-1 min-w-0 truncate whitespace-nowrap"
+  );
+
+  const nowMs = Date.now();
 
   const buyerAddresses = React.useMemo(() => {
     return activity.map((purchase) => purchase.buyer);
@@ -94,26 +185,21 @@ export function SponsoredFarmsActivity({
 
   if (isLoading) {
     return (
-      <div className={cn(className, "p-4")}>
+      <div className={cn(className, "p-4 w-full min-w-0")}>
         {/* Summary Stats Skeleton */}
-        <div
-          className={cn(
-            "mb-6 grid gap-4",
-            showRewardScore
-              ? "grid-cols-2 md:grid-cols-4"
-              : "grid-cols-1 md:grid-cols-3"
-          )}
-        >
+        <div className={cn("mb-6 grid gap-4 w-full min-w-0", kpiGridClassName)}>
           {showRewardScore && (
             <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
               <Skeleton className="h-4 w-32 mb-2" />
               <Skeleton className="h-8 w-20" />
             </div>
           )}
-          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-            <Skeleton className="h-4 w-20 mb-2" />
-            <Skeleton className="h-8 w-24" />
-          </div>
+          {shouldShowContributorsKpi ? (
+            <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
+              <Skeleton className="h-4 w-20 mb-2" />
+              <Skeleton className="h-8 w-24" />
+            </div>
+          ) : null}
           <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
             <Skeleton className="h-4 w-40 mb-2" />
             <Skeleton className="h-8 w-32" />
@@ -223,22 +309,13 @@ export function SponsoredFarmsActivity({
   }
 
   return (
-    <div className={cn(className, "p-4")}>
+    <div className={cn(className, "p-4 w-full min-w-0 overflow-hidden")}>
       {/* Summary Stats */}
-      <div
-        className={cn(
-          "mb-6 grid gap-4",
-          showRewardScore
-            ? "grid-cols-2 md:grid-cols-4"
-            : "grid-cols-1 md:grid-cols-3"
-        )}
-      >
+      <div className={cn("mb-6 grid gap-4 w-full min-w-0", kpiGridClassName)}>
         {showRewardScore && (
-          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-            <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-              Avg Reward Score
-            </div>
-            <div className="text-2xl font-semibold text-black dark:text-white">
+          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
+            <div className={kpiLabelClassName}>Avg Reward Score</div>
+            <div className={kpiValueClassName}>
               {(() => {
                 const validRewardScores = activity.filter(
                   (purchase) =>
@@ -258,71 +335,100 @@ export function SponsoredFarmsActivity({
             </div>
           </div>
         )}
-        <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-            {fractionType === "mining-center"
-              ? "Buyers"
-              : fractionType === "launchpad"
-              ? "Delegators"
-              : "Contributors"}
+        {shouldShowContributorsKpi ? (
+          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
+            <div className={kpiLabelClassName}>
+              {fractionType === "mining-center"
+                ? "Buyers"
+                : fractionType === "launchpad"
+                ? "Delegators"
+                : "Contributors"}
+            </div>
+            <div className={kpiValueClassName}>
+              {fractionType === "mining-center"
+                ? formatNumber(miningCenterContributors, 0)
+                : fractionType === "launchpad"
+                ? formatNumber(launchpadContributors, 0)
+                : formatNumber(
+                    launchpadContributors + miningCenterContributors,
+                    0
+                  )}
+            </div>
           </div>
-          <div className="text-2xl font-semibold text-black dark:text-white">
-            {fractionType === "mining-center"
-              ? formatNumber(miningCenterContributors, 0)
-              : fractionType === "launchpad"
-              ? formatNumber(launchpadContributors, 0)
-              : formatNumber(
-                  launchpadContributors + miningCenterContributors,
-                  0
-                )}
-          </div>
-        </div>
-        <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+        ) : null}
+        <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
+          <div className={kpiLabelClassName}>
             {fractionType === "mining-center"
               ? "Total USDC Spent"
               : "Total GLW Delegated"}
           </div>
-          <div className="text-2xl font-semibold text-black dark:text-white">
+          <div className={cn(kpiValueClassName, "flex items-baseline gap-2")}>
             {fractionType === "mining-center" ? (
               <>
-                {formatNumber(totalMiningCenterValue, 0)}{" "}
-                <span className="text-lg font-normal">USDC</span>
+                <span className="min-w-0 truncate">
+                  {isWidget
+                    ? formatCompactNumber(totalMiningCenterValue, 1)
+                    : formatNumber(totalMiningCenterValue, 0)}
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 font-normal",
+                    isWidget ? "text-sm" : "text-lg"
+                  )}
+                >
+                  USDC
+                </span>
               </>
             ) : (
               <>
-                {formatNumber(totalDelegatedGlw, 0)}{" "}
-                <span className="text-lg font-normal">GLW</span>
+                <span className="min-w-0 truncate">
+                  {isWidget
+                    ? formatCompactNumber(totalDelegatedGlw, 1)
+                    : formatNumber(totalDelegatedGlw, 0)}
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 font-normal",
+                    isWidget ? "text-sm" : "text-lg"
+                  )}
+                >
+                  GLW
+                </span>
               </>
             )}
           </div>
         </div>
         {fractionType === "mining-center" ? (
-          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-            <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-              Miners
-            </div>
-            <div className="text-2xl font-semibold text-black dark:text-white">
+          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
+            <div className={kpiLabelClassName}>Miners</div>
+            <div className={kpiValueClassName}>
               {formatNumber(summary.uniqueFractions, 0)}
             </div>
           </div>
         ) : fractionType === "launchpad" ? (
-          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-            <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-              Farms
-            </div>
-            <div className="text-2xl font-semibold text-black dark:text-white">
+          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
+            <div className={kpiLabelClassName}>Farms</div>
+            <div className={kpiValueClassName}>
               {formatNumber(summary.uniqueFractions, 0)}
             </div>
           </div>
         ) : (
-          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-            <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-              USDC Spent by Miners
-            </div>
-            <div className="text-2xl font-semibold text-black dark:text-white">
-              {formatNumber(totalMiningCenterValue, 0)}{" "}
-              <span className="text-lg font-normal">USDC</span>
+          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
+            <div className={kpiLabelClassName}>USDC Spent by Miners</div>
+            <div className={cn(kpiValueClassName, "flex items-baseline gap-2")}>
+              <span className="min-w-0 truncate">
+                {isWidget
+                  ? formatCompactNumber(totalMiningCenterValue, 1)
+                  : formatNumber(totalMiningCenterValue, 0)}
+              </span>
+              <span
+                className={cn(
+                  "shrink-0 font-normal",
+                  isWidget ? "text-sm" : "text-lg"
+                )}
+              >
+                USDC
+              </span>
             </div>
           </div>
         )}
@@ -339,8 +445,8 @@ export function SponsoredFarmsActivity({
           <TableHeader>
             <TableRow>
               <TableHead className="text-left min-w-[120px]">Total</TableHead>
-              <TableHead className="text-left min-w-[100px]">Amount</TableHead>
-              <TableHead className="min-w-[120px]">Date</TableHead>
+              <TableHead className="text-right w-[6ch]">Amount</TableHead>
+              <TableHead className="text-left w-[8ch]">Date</TableHead>
               {showRewardScore && (
                 <TableHead className="text-center min-w-[120px]">
                   Reward Score
@@ -370,15 +476,8 @@ export function SponsoredFarmsActivity({
                 decimals
               );
 
-              const purchaseDate = new Date(
-                purchase.purchaseDate
-              ).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              });
+              const purchaseAtMs = new Date(purchase.purchaseDate).getTime();
+              const purchaseDate = formatTimeAgoShort(purchaseAtMs, nowMs);
 
               const ensName = ensNames[purchase.buyer];
               const buyerDisplay = ensName || formatAddress(purchase.buyer);
@@ -393,13 +492,13 @@ export function SponsoredFarmsActivity({
                       {formatNumber(parseFloat(purchaseAmount), 2)} {currency}
                     </div>
                   </TableCell>
-                  <TableCell className="text-left">
-                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                      {formatNumber(purchase.stepsPurchased, 0)}
+                  <TableCell className="text-right w-[6ch]">
+                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 tabular-nums whitespace-nowrap">
+                      {String(purchase.stepsPurchased)}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                  <TableCell className="text-left w-[8ch]">
+                    <div className="text-sm text-gray-900 dark:text-gray-100 tabular-nums whitespace-nowrap">
                       {purchaseDate}
                     </div>
                   </TableCell>

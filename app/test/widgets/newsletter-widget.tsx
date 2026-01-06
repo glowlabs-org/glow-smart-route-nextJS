@@ -88,7 +88,7 @@ export default function NewsletterWidget({ className }: NewsletterWidgetProps) {
   return (
     <Card
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm",
+        "group relative flex h-full flex-col overflow-hidden bg-card dark:bg-muted/20 border-foreground/10 dark:border-border",
         className
       )}
     >
@@ -117,8 +117,8 @@ export default function NewsletterWidget({ className }: NewsletterWidgetProps) {
               Stay in the loop.
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed max-w-[90%]">
-              Join our monthly newsletter for Glow&apos;s latest updates on solar
-              innovation, protocol developments, and impact stories.
+              Join our monthly newsletter for Glow&apos;s latest updates on
+              solar innovation, protocol developments, and impact stories.
             </p>
           </div>
         </div>

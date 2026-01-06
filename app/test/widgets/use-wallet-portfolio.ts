@@ -215,6 +215,22 @@ export function useWalletPortfolio(params: { walletAddress?: string | null }) {
     return parseGlwFromWei(impactGlowWorth?.glowWorthWei);
   }, [hasWallet, impactGlowWorth?.glowWorthWei]);
 
+  const glowWorthBreakdown = React.useMemo(() => {
+    if (!hasWallet) return null;
+    return {
+      glowWorthGlw,
+      liquidGlw: impactLiquidGlw,
+      delegatedActiveGlw: impactDelegatedActiveGlw,
+      unclaimedGlwRewards: impactUnclaimedGlwRewards,
+    };
+  }, [
+    glowWorthGlw,
+    hasWallet,
+    impactDelegatedActiveGlw,
+    impactLiquidGlw,
+    impactUnclaimedGlwRewards,
+  ]);
+
   const hasWorthDataError =
     isTokenBalancesError ||
     isEthBalanceError ||
@@ -348,6 +364,7 @@ export function useWalletPortfolio(params: { walletAddress?: string | null }) {
     marketCapUsd: Number.isFinite(marketCap) ? marketCap : 0,
 
     glowWorthGlw,
+    glowWorthBreakdown,
     weeklyAccumulatedGlw,
     chartData,
     yDomain,

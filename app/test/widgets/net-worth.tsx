@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ArrowLeftRight, ArrowUpRight, Send } from "lucide-react";
+import { ArrowLeftRight, ArrowUpRight, ListTree, Send } from "lucide-react";
 import { useAccount, useChainId } from "wagmi";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -23,6 +23,10 @@ import { ConnectButton } from "@/components/connect-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SwapDialog } from "@/components/dialogs/swap-dialog";
 import { SendDialog } from "@/components/send-dialog";
+import {
+  GlowWorthBreakdownDialog,
+  type GlowWorthBreakdown,
+} from "@/components/dialogs/glow-worth-breakdown-dialog";
 import { cn } from "@/lib/utils";
 import { weekToTimestamp } from "@/lib/rewards/weekly-delegations";
 import { QUERY_KEYS } from "@/hooks/query-keys";
@@ -261,6 +265,7 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
   const { address: connectedAddress } = useAccount();
   const [isSwapOpen, setIsSwapOpen] = React.useState(false);
   const [isSendOpen, setIsSendOpen] = React.useState(false);
+  const [isBreakdownOpen, setIsBreakdownOpen] = React.useState(false);
   // Removed isBuyOpen state since button is gone
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
   const source = "net_worth_widget";
@@ -272,6 +277,7 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
     headlineStats,
     ethPriceInUSD,
     glowWorthGlw,
+    glowWorthBreakdown,
     weeklyAccumulatedGlw,
     chartData,
     yDomain,
@@ -343,23 +349,51 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
   if (shouldShowSkeleton) return <NetWorthSkeleton />;
   if (showEmptyState) return <OnboardingHeroWidget className="h-full" />;
 
+  const breakdownForDialog = glowWorthBreakdown
+    ? ({
+        glowWorthGlw: glowWorthBreakdown.glowWorthGlw,
+        liquidGlw: glowWorthBreakdown.liquidGlw,
+        delegatedActiveGlw: glowWorthBreakdown.delegatedActiveGlw,
+        unclaimedGlwRewards: glowWorthBreakdown.unclaimedGlwRewards,
+      } satisfies GlowWorthBreakdown)
+    : null;
+
   return (
-    <Card className="h-full min-h-[420px] lg:min-h-0 overflow-hidden flex flex-col gap-2 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border shadow-sm pt-4">
-      <CardHeader className="py-0">
+    <Card className="h-full min-h-[420px] lg:min-h-0 overflow-hidden flex flex-col gap-2 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border pt-4">
+      <CardHeader className="py-0 px-4">
         <div className="flex items-center justify-between gap-3">
-          <div className="text-lg font-semibold tracking-tight text-foreground">
+          <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
             Glow Worth
           </div>
 
-          <a
-            href={DEFINED_POOL_ACTIVITY_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="group h-8 inline-flex items-center gap-2 rounded-full px-3 text-[11px] font-mono tracking-wider backdrop-blur-sm border-2 border-border hover:bg-foreground hover:text-background transition-all duration-300 ease-out active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-background transition-colors" />
-            <span>Pool Activity</span>
-          </a>
+          <div className="flex items-center gap-2">
+            {hasWallet ? (
+              <button
+                type="button"
+                className="group h-8 inline-flex items-center gap-2 rounded-full px-3 text-[11px] font-mono tracking-wider backdrop-blur-sm border-2 border-border hover:bg-foreground hover:text-background transition-all duration-300 ease-out active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                onClick={() => {
+                  trackEvent("dashboard_glow_worth_breakdown_open_click", {
+                    source,
+                    wallet_connected: Boolean(normalizedWalletAddress),
+                    wallet_address: normalizedWalletAddress,
+                    chain_id: chainId,
+                  });
+                  setIsBreakdownOpen(true);
+                }}
+              >
+                <span>Breakdown</span>
+              </button>
+            ) : null}
+
+            <a
+              href={DEFINED_POOL_ACTIVITY_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="group h-8 inline-flex items-center gap-2 rounded-full px-3 text-xs md:text-[11px] font-mono tracking-wider backdrop-blur-sm border-2 border-border hover:bg-foreground hover:text-background transition-all duration-300 ease-out active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <span>Pool Activity</span>
+            </a>
+          </div>
         </div>
       </CardHeader>
 
@@ -378,7 +412,7 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
               <div
                 className={cn(
                   "px-4 lg:pr-1 flex-1 min-h-0",
-                  hasWallet ? "lg:pb-1" : ""
+                  hasWallet ? "pb-1" : ""
                 )}
               >
                 <div className="relative h-full w-full">
@@ -604,6 +638,11 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
         ethPriceInUSD={ethPriceInUSD}
       />
       <SendDialog open={isSendOpen} onOpenChange={setIsSendOpen} />
+      <GlowWorthBreakdownDialog
+        open={isBreakdownOpen}
+        onOpenChange={setIsBreakdownOpen}
+        breakdown={breakdownForDialog}
+      />
     </Card>
   );
 }

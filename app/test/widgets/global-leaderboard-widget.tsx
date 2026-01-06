@@ -63,7 +63,7 @@ export default function GlobalLeaderboardWidget({
     <>
       <Card
         className={cn(
-          "relative flex h-full flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm",
+          "relative flex h-full flex-col overflow-hidden bg-card dark:bg-muted/20 border-foreground/10 dark:border-border",
           className
         )}
       >

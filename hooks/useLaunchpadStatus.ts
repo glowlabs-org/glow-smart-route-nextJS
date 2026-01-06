@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { useSponsorListings } from "@/hooks";
+import { useGlowLaunchpad, useMiningCenter } from "@/hooks";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
 import { countActiveListings } from "@/utils/launchpad";
 
@@ -16,13 +16,24 @@ export interface LaunchpadStatus {
 }
 
 export function useLaunchpadStatus(): LaunchpadStatus {
-  const { applications, isLoading, isError } = useSponsorListings({
-    filters: { paymentCurrency: "GLW" },
-  });
+  const {
+    applications: launchpadApplications,
+    isLoading: isLaunchpadLoading,
+    isError: isLaunchpadError,
+  } = useGlowLaunchpad({ filters: { paymentCurrency: "GLW" } });
+
+  const {
+    applications: minersApplications,
+    isLoading: isMinersLoading,
+    isError: isMinersError,
+  } = useMiningCenter({ filters: { paymentCurrency: "USDC" } });
+
+  const isLoading = isLaunchpadLoading || isMinersLoading;
+  const isError = isLaunchpadError || isMinersError;
 
   const activeFarmsCount = React.useMemo(
-    () => countActiveListings(applications),
-    [applications]
+    () => countActiveListings([...launchpadApplications, ...minersApplications]),
+    [launchpadApplications, minersApplications]
   );
 
   const isLive = activeFarmsCount > 0;

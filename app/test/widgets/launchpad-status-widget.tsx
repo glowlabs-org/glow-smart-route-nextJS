@@ -199,9 +199,9 @@ export default function LaunchpadStatusWidget({
     <Card
       className={cn(
         isFullRow
-          ? "flex flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm gap-2 pt-0"
+          ? "flex flex-col overflow-hidden min-w-0 bg-card dark:bg-muted/20 border-foreground/10 dark:border-border gap-2 pt-0"
           : cn(
-              "flex flex-col overflow-hidden bg-card dark:bg-muted/20 border-border shadow-sm gap-2 pt-0",
+              "flex flex-col overflow-hidden min-w-0 bg-card dark:bg-muted/20 border-foreground/10 dark:border-border gap-2 pt-0",
               isMobile ? "min-h-[620px]" : "h-full"
             ),
         // full-row stays stacked (header above carousel/content)
@@ -361,7 +361,7 @@ export default function LaunchpadStatusWidget({
 
       <CardContent
         className={cn(
-          "min-h-0 flex-1 flex flex-col",
+          "min-h-0 min-w-0 w-full flex-1 flex flex-col overflow-hidden",
           variant === "full-row"
             ? resolvedTab === "activity"
               ? "p-0"
@@ -393,9 +393,14 @@ export default function LaunchpadStatusWidget({
         ) : isLive ? (
           // --- LIVE STATE ---
           resolvedTab === "activity" ? (
-            <ScrollArea className="min-h-0 flex-1">
-              <SponsoredFarmsActivity />
-            </ScrollArea>
+            <div
+              className={cn(
+                "min-w-0 w-full overflow-y-auto overflow-x-hidden",
+                isMobile ? "h-[min(55vh,520px)]" : "min-h-0 flex-1"
+              )}
+            >
+              <SponsoredFarmsActivity variant="widget" />
+            </div>
           ) : variant === "full-row" ? (
             <div className="min-h-0 flex-1">
               <LaunchpadView
