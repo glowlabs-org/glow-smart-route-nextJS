@@ -47,6 +47,7 @@ interface MintAndStakeGctlDialogProps {
   onOpenChange: (open: boolean) => void;
   usdcBalance: bigint | null;
   usdgBalance: bigint | null;
+  forceStep1?: boolean;
 }
 
 type MintCurrency = "USDC" | "USDG" | "ETH";
@@ -170,6 +171,7 @@ export function MintAndStakeGctlDialog({
   onOpenChange,
   usdcBalance,
   usdgBalance,
+  forceStep1 = false,
 }: MintAndStakeGctlDialogProps) {
   const { address, isConnected } = useAccount();
   const { signer } = useEthersSigner();
@@ -268,9 +270,10 @@ export function MintAndStakeGctlDialog({
 
   const defaultStep = React.useMemo((): 1 | 2 | 3 => {
     if (!isConnected) return 1;
-    if (isGctlBalanceLoading) return 2;
+    if (forceStep1) return 1;
+    if (isGctlBalanceLoading) return 1;
     return hasAnyGctl ? 2 : 1;
-  }, [hasAnyGctl, isConnected, isGctlBalanceLoading]);
+  }, [hasAnyGctl, isConnected, isGctlBalanceLoading, forceStep1]);
 
   const step = React.useMemo((): 1 | 2 | 3 => {
     if (!isConnected) return 1;

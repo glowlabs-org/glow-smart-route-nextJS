@@ -34,6 +34,7 @@ import { trackEvent } from "@/lib/telemetry";
 import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
+import { GlowSymbol } from "@/components/glow-symbol";
 
 import OnboardingHeroWidget from "./onboarding-hero-widget";
 import {
@@ -75,6 +76,15 @@ function formatCompact(value: number) {
 
 function HoldingIcon(props: { symbol: "ETH" | "GLW" | "USDC" | "USDG" }) {
   const { symbol } = props;
+
+  if (symbol === "GLW") {
+    return (
+      <div className="h-6 w-6 rounded-full bg-muted border border-foreground/10 flex items-center justify-center">
+        <GlowSymbol className="h-4 w-4" />
+      </div>
+    );
+  }
+
   const iconSrc =
     symbol === "ETH" || symbol === "USDC"
       ? TOKEN_ICON_SRC_BY_SYMBOL[symbol]
@@ -92,9 +102,7 @@ function HoldingIcon(props: { symbol: "ETH" | "GLW" | "USDC" | "USDG" }) {
   }
 
   const fallback =
-    symbol === "GLW" || symbol === "USDG"
-      ? HOLDING_FALLBACK_BY_SYMBOL[symbol]
-      : null;
+    symbol === "USDG" ? HOLDING_FALLBACK_BY_SYMBOL[symbol] : null;
   const letter = fallback?.letter ?? symbol.slice(0, 1);
 
   return (
@@ -315,7 +323,7 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
     const bySymbol = new Map(
       holdings.map((h) => [h.symbol, h.amount] as const)
     );
-    return (["ETH", "GLW", "USDC", "USDG"] as const).map((symbol) => ({
+    return (["GLW", "ETH", "USDC", "USDG"] as const).map((symbol) => ({
       symbol,
       amount: bySymbol.get(symbol) ?? 0,
     }));
@@ -538,7 +546,7 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
               {/* Right Side: Holdings Rail (Expanded) */}
               <div className="shrink-0 border-t border-foreground/10 sm:border-t-0 sm:border-l sm:border-foreground/10 px-6 sm:px-5 pb-4 sm:pb-3 pt-4 md:pt-0 sm:w-[240px] flex flex-col">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-2">
-                  Your Holdings
+                  Your Wallet
                 </div>
 
                 <div className="flex-1 flex flex-col justify-center gap-3">

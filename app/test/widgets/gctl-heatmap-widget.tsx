@@ -341,6 +341,7 @@ export default function GctlHeatmapWidget({
                     });
                     onMintAndStakeClick?.();
                   }}
+                  disabled={isLoading}
                 >
                   <Rocket className="mr-2 h-4 w-4" />
                   Mint &amp; stake GCTL
@@ -405,6 +406,7 @@ export default function GctlHeatmapWidget({
               });
               onMintAndStakeClick?.();
             }}
+            disabled={isLoading}
           >
             <Rocket className="h-3.5 w-3.5" />
             <span>Mint &amp; Stake</span>

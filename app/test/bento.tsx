@@ -94,6 +94,7 @@ export default function GlowSoftDashboard({
   const { signer } = useEthersSigner();
   const { usdcBalance, usdgBalance } = useER20Balances({ signer });
   const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
+  const [mintAndStakeForceStep1, setMintAndStakeForceStep1] = React.useState(false);
   const [isRefundDialogOpen, setIsRefundDialogOpen] = React.useState(false);
   const refundToastIdRef = React.useRef<string | number | null>(null);
   const didTrackViewRef = React.useRef(false);
@@ -210,7 +211,10 @@ export default function GlowSoftDashboard({
               <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[330px]">
                 <RankWidget
                   walletAddress={walletAddress}
-                  onMintAndStakeClick={() => setIsMintAndStakeOpen(true)}
+                  onMintAndStakeClick={(forceStep1) => {
+                    setMintAndStakeForceStep1(Boolean(forceStep1));
+                    setIsMintAndStakeOpen(true);
+                  }}
                 />
               </div>
 
@@ -272,7 +276,10 @@ export default function GlowSoftDashboard({
                 >
                   <GctlHeatmapWidget
                     walletAddress={walletAddress}
-                    onMintAndStakeClick={() => setIsMintAndStakeOpen(true)}
+                    onMintAndStakeClick={() => {
+                      setMintAndStakeForceStep1(false);
+                      setIsMintAndStakeOpen(true);
+                    }}
                   />
                 </motion.div>
               </AnimatePresence>
@@ -355,9 +362,13 @@ export default function GlowSoftDashboard({
           isMintAndStakeOpen ? "mint-and-stake-open" : "mint-and-stake-closed"
         }
         open={isMintAndStakeOpen}
-        onOpenChange={setIsMintAndStakeOpen}
+        onOpenChange={(open) => {
+          setIsMintAndStakeOpen(open);
+          if (!open) setMintAndStakeForceStep1(false);
+        }}
         usdcBalance={usdcBalance}
         usdgBalance={usdgBalance}
+        forceStep1={mintAndStakeForceStep1}
       />
     </div>
   );

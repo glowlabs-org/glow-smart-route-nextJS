@@ -182,18 +182,55 @@ function ConnectWalletRankingEmptyState() {
   );
 }
 
-function getNextRolloverAtMs() {
+function getNextCacheUpdateAtMs() {
   try {
-    const nextEpoch = getCurrentEpoch() + 1;
-    const weekSeconds = 7 * 86_400;
-    return (GENESIS_TIMESTAMP + nextEpoch * weekSeconds) * 1000;
+    const now = new Date();
+    const nowUtc = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      now.getUTCHours(),
+      now.getUTCMinutes(),
+      now.getUTCSeconds()
+    );
+
+    // Find next Sunday at 01:00 UTC
+    const currentDayOfWeek = now.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
+    const currentHour = now.getUTCHours();
+
+    // If it's Sunday before 01:00, next update is today at 01:00
+    if (currentDayOfWeek === 0 && currentHour < 1) {
+      return Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        1,
+        0,
+        0
+      );
+    }
+
+    // Otherwise, find next Sunday
+    const daysUntilNextSunday =
+      currentDayOfWeek === 0 ? 7 : 7 - currentDayOfWeek;
+    const nextSundayDate = new Date(now);
+    nextSundayDate.setUTCDate(now.getUTCDate() + daysUntilNextSunday);
+
+    return Date.UTC(
+      nextSundayDate.getUTCFullYear(),
+      nextSundayDate.getUTCMonth(),
+      nextSundayDate.getUTCDate(),
+      1,
+      0,
+      0
+    );
   } catch {
-    return Date.now();
+    return Date.now() + 7 * 24 * 60 * 60 * 1000;
   }
 }
 
-function ImpactHeroSkeleton(props: { remainingMsToRollover: number }) {
-  const { remainingMsToRollover } = props;
+function ImpactHeroSkeleton(props: { remainingMsToCacheUpdate: number }) {
+  const { remainingMsToCacheUpdate } = props;
 
   return (
     <div className="space-y-4">
@@ -207,9 +244,12 @@ function ImpactHeroSkeleton(props: { remainingMsToRollover: number }) {
           <Skeleton className="h-9 w-28 rounded-full" />
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 dark:bg-muted/20 px-3 py-2">
             <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-              Next rollover
+              Next update
             </div>
-            <AnimatedCountdown remainingMs={remainingMsToRollover} size="sm" />
+            <AnimatedCountdown
+              remainingMs={remainingMsToCacheUpdate}
+              size="sm"
+            />
           </div>
         </div>
       </div>
@@ -291,7 +331,7 @@ function ImpactHero(props: {
   globalRankByWallet: Map<string, number>;
   rows: ImpactGlowScoreLeaderboardRow[];
   onOpenBreakdown: (walletAddress: string) => void;
-  remainingMsToRollover: number;
+  remainingMsToCacheUpdate: number;
   isLeaderboardLoading: boolean;
   isRefreshing: boolean;
 }) {
@@ -301,7 +341,7 @@ function ImpactHero(props: {
     globalRankByWallet,
     rows,
     onOpenBreakdown,
-    remainingMsToRollover,
+    remainingMsToCacheUpdate,
     isLeaderboardLoading,
     isRefreshing,
   } = props;
@@ -381,7 +421,9 @@ function ImpactHero(props: {
   })();
 
   if (isLeaderboardLoading)
-    return <ImpactHeroSkeleton remainingMsToRollover={remainingMsToRollover} />;
+    return (
+      <ImpactHeroSkeleton remainingMsToCacheUpdate={remainingMsToCacheUpdate} />
+    );
 
   return (
     <div className="space-y-4">
@@ -393,17 +435,20 @@ function ImpactHero(props: {
           <div className="text-xl font-semibold">Glow Impact Leaderboard</div>
           {weekRange ? (
             <div className="text-xs text-muted-foreground font-mono">
-              Weeks {weekRange.startWeek}–{weekRange.endWeek} · Live potential
-              updates on refresh
+              Weeks {weekRange.startWeek}–{weekRange.endWeek} · Updates weekly
+              on Sunday at 01:00 UTC
             </div>
           ) : null}
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 dark:bg-muted/20 px-3 py-2">
             <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-              Next rollover
+              Next update
             </div>
-            <AnimatedCountdown remainingMs={remainingMsToRollover} size="sm" />
+            <AnimatedCountdown
+              remainingMs={remainingMsToCacheUpdate}
+              size="sm"
+            />
           </div>
           {isRefreshing ? (
             <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
@@ -765,7 +810,7 @@ export function ImpactView() {
   const sortDir = dir === "asc" ? ("asc" as const) : ("desc" as const);
 
   const leaderboardQuery = useImpactLeaderboardQuery({
-    limit: 200,
+    limit: 1000,
     sort: sortKey,
     dir: sortDir,
   });
@@ -853,13 +898,13 @@ export function ImpactView() {
     return best;
   }, [allRows]);
 
-  const [rolloverAtMs, setRolloverAtMs] = React.useState(() =>
-    getNextRolloverAtMs()
+  const [cacheUpdateAtMs, setCacheUpdateAtMs] = React.useState(() =>
+    getNextCacheUpdateAtMs()
   );
 
-  const remainingMsToRollover = useCountdownTo({
-    targetAtMs: rolloverAtMs,
-    onComplete: () => setRolloverAtMs(getNextRolloverAtMs()),
+  const remainingMsToCacheUpdate = useCountdownTo({
+    targetAtMs: cacheUpdateAtMs,
+    onComplete: () => setCacheUpdateAtMs(getNextCacheUpdateAtMs()),
   });
 
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -881,7 +926,7 @@ export function ImpactView() {
           globalRankByWallet={globalRankByWallet}
           rows={allRows}
           onOpenBreakdown={handleRowClick}
-          remainingMsToRollover={remainingMsToRollover}
+          remainingMsToCacheUpdate={remainingMsToCacheUpdate}
           isLeaderboardLoading={leaderboardQuery.isLoading}
           isRefreshing={isLeaderboardRefreshing}
         />
@@ -1355,48 +1400,22 @@ export function ImpactView() {
 
         {!leaderboardQuery.isLoading && orderedRows.length > 0 ? (
           <div className="flex flex-col gap-3 px-6 py-4 border-t border-border bg-background">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => setPage(Math.max(1, safePage - 1))}
-                    disabled={safePage <= 1}
-                  />
-                </PaginationItem>
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-muted-foreground font-mono">
+                Page {safePage} of {totalPages}
+              </div>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setPage(Math.max(1, safePage - 1))}
+                      disabled={safePage <= 1}
+                    />
+                  </PaginationItem>
 
-                {totalPages <= 7 ? (
-                  Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (pageNum) => (
-                      <PaginationItem key={pageNum}>
-                        <PaginationLink
-                          isActive={safePage === pageNum}
-                          onClick={() => setPage(pageNum)}
-                        >
-                          {pageNum}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  )
-                ) : (
-                  <>
-                    <PaginationItem>
-                      <PaginationLink
-                        isActive={safePage === 1}
-                        onClick={() => setPage(1)}
-                      >
-                        1
-                      </PaginationLink>
-                    </PaginationItem>
-
-                    {safePage > 3 ? (
-                      <PaginationItem>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    ) : null}
-
-                    {Array.from({ length: 3 }, (_, i) => safePage - 1 + i)
-                      .filter((p) => p > 1 && p < totalPages)
-                      .map((pageNum) => (
+                  {totalPages <= 7 ? (
+                    Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                      (pageNum) => (
                         <PaginationItem key={pageNum}>
                           <PaginationLink
                             isActive={safePage === pageNum}
@@ -1405,33 +1424,66 @@ export function ImpactView() {
                             {pageNum}
                           </PaginationLink>
                         </PaginationItem>
-                      ))}
-
-                    {safePage < totalPages - 2 ? (
+                      )
+                    )
+                  ) : (
+                    <>
                       <PaginationItem>
-                        <PaginationEllipsis />
+                        <PaginationLink
+                          isActive={safePage === 1}
+                          onClick={() => setPage(1)}
+                        >
+                          1
+                        </PaginationLink>
                       </PaginationItem>
-                    ) : null}
 
-                    <PaginationItem>
-                      <PaginationLink
-                        isActive={safePage === totalPages}
-                        onClick={() => setPage(totalPages)}
-                      >
-                        {totalPages}
-                      </PaginationLink>
-                    </PaginationItem>
-                  </>
-                )}
+                      {safePage > 3 ? (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      ) : null}
 
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() => setPage(Math.min(totalPages, safePage + 1))}
-                    disabled={safePage >= totalPages}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+                      {Array.from({ length: 3 }, (_, i) => safePage - 1 + i)
+                        .filter((p) => p > 1 && p < totalPages)
+                        .map((pageNum) => (
+                          <PaginationItem key={pageNum}>
+                            <PaginationLink
+                              isActive={safePage === pageNum}
+                              onClick={() => setPage(pageNum)}
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
+
+                      {safePage < totalPages - 2 ? (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      ) : null}
+
+                      <PaginationItem>
+                        <PaginationLink
+                          isActive={safePage === totalPages}
+                          onClick={() => setPage(totalPages)}
+                        >
+                          {totalPages}
+                        </PaginationLink>
+                      </PaginationItem>
+                    </>
+                  )}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        setPage(Math.min(totalPages, safePage + 1))
+                      }
+                      disabled={safePage >= totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
           </div>
         ) : null}
       </div>

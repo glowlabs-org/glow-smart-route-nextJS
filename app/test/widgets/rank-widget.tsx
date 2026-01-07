@@ -280,7 +280,7 @@ function ImpactScoreHelp(props: {
 
 interface RankWidgetProps {
   walletAddress?: string | null;
-  onMintAndStakeClick?: () => void;
+  onMintAndStakeClick?: (forceStep1?: boolean) => void;
 }
 
 export function RankWidget({
@@ -338,7 +338,10 @@ export function RankWidget({
     return num;
   }, [totalsPoints]);
 
-  const hasPositiveScore = totalPointsNumber > 0;
+  const hasPositiveScore = React.useMemo(() => {
+    return Math.round(totalPointsNumber) > 0;
+  }, [totalPointsNumber]);
+
   const shouldShowMintAndStakeCta =
     Boolean(impactScore) && !impactScoreQuery.isLoading && !hasPositiveScore;
 
@@ -420,7 +423,7 @@ export function RankWidget({
       });
 
       if (key === "steering") {
-        if (onMintAndStakeClick) return onMintAndStakeClick();
+        if (onMintAndStakeClick) return onMintAndStakeClick(!hasPositiveScore);
         setIsMintAndStakeOpen(true);
         return;
       }
@@ -432,7 +435,7 @@ export function RankWidget({
 
       setIsLaunchpadOpen(true);
     },
-    [hasWallet, normalizedWalletAddress, onMintAndStakeClick, source]
+    [hasWallet, hasPositiveScore, normalizedWalletAddress, onMintAndStakeClick, source]
   );
 
   return (
@@ -533,7 +536,7 @@ export function RankWidget({
                           wallet_connected: hasWallet,
                           wallet_address: normalizedWalletAddress,
                         });
-                        onMintAndStakeClick();
+                        onMintAndStakeClick(true);
                       }}
                     >
                       Rank Up
@@ -623,6 +626,7 @@ export function RankWidget({
           onOpenChange={setIsMintAndStakeOpen}
           usdcBalance={usdcBalance}
           usdgBalance={usdgBalance}
+          forceStep1={!hasPositiveScore}
         />
       ) : null}
 

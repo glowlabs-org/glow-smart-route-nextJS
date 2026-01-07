@@ -31,8 +31,8 @@ This document explains the optimization and historical accuracy fixes implemente
 
 - **Location**: `[gca-crm-backend/src/db/schema.ts](../gca-crm-backend/src/db/schema.ts)`
 - **Fix**: Added `impact_leaderboard_cache` table with `startWeek` and `endWeek` columns to prevent stale cache mismatches.
-- **Cron Job**: `[gca-crm-backend/src/crons/update-impact-leaderboard/update-impact-leaderboard.ts](../gca-crm-backend/src/crons/update-impact-leaderboard/update-impact-leaderboard.ts)` runs **Daily at 01:00 UTC**.
-- **Rationale**: Since the leaderboard uses the last completed protocol week (rolled over Thursdays 00:00 UTC), a daily run is sufficient to capture the weekly rollover and pick up any new wallets joining the universe.
+- **Cron Job**: `[gca-crm-backend/src/crons/update-impact-leaderboard/update-impact-leaderboard.ts](../gca-crm-backend/src/crons/update-impact-leaderboard/update-impact-leaderboard.ts)` runs **Weekly on Sunday at 01:00 UTC** (1 hour after protocol week rollover).
+- **Rationale**: Protocol weeks end Sunday 00:00 UTC. The cache updates 1 hour later to give the week boundary time to stabilize, and to capture any new wallets that joined the universe during the just-completed week.
 - **Cache Safety**: The router validates that the requested week range matches the cached week range. If they don't match (e.g., during the 1-hour window after Thursday rollover but before the cron runs), it falls back to on-the-fly computation.
 - **Result**: API response time for default requests dropped from ~15s to <100ms.
 
@@ -70,6 +70,23 @@ This document explains the optimization and historical accuracy fixes implemente
     - Ensure Ponder's `lastUpdatedTimestamp` logic perfectly aligns with the `GENESIS_TIMESTAMP` week boundaries to avoid 1-block drift at the start/end of weeks.
 
 ## Important Behavioral Notes
+
+### Leaderboard Eligibility (0-Point Wallets Excluded)
+
+To avoid confusion, wallets with **0 total points** are excluded from the leaderboard. This typically includes:
+
+- Wallets that acquired GLW **very recently** (during the current ongoing week)
+- Wallets that only hold GLW without any historical emissions, steering, or delegation
+
+**Example**: A wallet with 29,000 GLW acquired on Jan 7 (Week 111) will show:
+
+- **Glow Worth**: 29,000 GLW ✅
+- **Total Points**: 0 (no TWAB for weeks 97-110)
+- **Leaderboard**: Not visible yet
+
+**When they'll appear**: After Week 111 ends (Jan 11) and the cache updates (Jan 12 01:00 UTC), they'll start earning continuous points and appear on the leaderboard.
+
+**Count**: Approximately 20 wallets out of 922 are excluded for this reason.
 
 ### Historical Unclaimed Balance
 
