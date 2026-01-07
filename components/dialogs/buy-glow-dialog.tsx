@@ -1255,41 +1255,6 @@ export function BuyGlowDialog({
                         ${pricePerGlw.toFixed(6)} per GLW
                       </div>
                     )}
-
-                    <div className="hidden sm:block rounded-xl border border-border bg-muted/20 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                            Impact points estimate
-                          </div>
-                          {impactQuote ? (
-                            <>
-                              <div className="text-sm font-semibold tracking-tight">
-                                +{impactQuote.deltaPerWeekPoints} pts / week
-                              </div>
-                              {impactQuote.weekRange ? (
-                                <div className="text-xs text-muted-foreground font-mono">
-                                  ≈ +{impactQuote.deltaTotalPoints} pts over
-                                  weeks {impactQuote.weekRange.startWeek}–
-                                  {impactQuote.weekRange.endWeek}
-                                </div>
-                              ) : (
-                                <div className="text-xs text-muted-foreground font-mono">
-                                  Continuous worth points (0.001 / GLW / week)
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <div className="text-xs text-muted-foreground font-mono">
-                              Enter an amount to see estimated Impact Points.
-                            </div>
-                          )}
-                        </div>
-                        <div className="shrink-0 rounded-full border border-border bg-background/60 dark:bg-muted/20 px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                          Worth
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>

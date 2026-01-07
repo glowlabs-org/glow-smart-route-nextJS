@@ -90,14 +90,14 @@ function AnimatedTimePart({
 }) {
   const heightClass =
     size === "sm"
-      ? "h-7"
+      ? "h-7 w-10"
       : size === "md"
-      ? "h-8"
+      ? "h-8 w-10"
       : size === "lg"
-      ? "h-10"
+      ? "h-10 w-10"
       : size === "xl"
       ? "h-14 w-16"
-      : "h-12";
+      : "h-12 w-12";
   const textClass =
     size === "sm"
       ? "text-xl"
@@ -249,10 +249,12 @@ export function AnimatedCountdownDhms({
   remainingMs,
   size = "md",
   className,
+  showLabels = false,
 }: {
   remainingMs: number;
   size?: CountdownSize;
   className?: string;
+  showLabels?: boolean;
 }) {
   const { days, hours, minutes, seconds } = React.useMemo(
     () => formatDhms(remainingMs),
@@ -269,6 +271,108 @@ export function AnimatedCountdownDhms({
       : "text-3xl";
   const minWidthCh =
     size === "sm" ? 2 : size === "md" ? 3 : size === "lg" ? 3 : 3;
+
+  const labelClass =
+    size === "sm"
+      ? "text-[9px]"
+      : size === "md"
+      ? "text-[10px]"
+      : size === "lg"
+      ? "text-xs"
+      : "text-xs";
+
+  if (showLabels) {
+    return (
+      <div className={cn("inline-flex items-start gap-1.5", className)}>
+        <div className="flex flex-col items-center gap-1">
+          <AnimatedTimePart
+            value={daysLabel}
+            size={size}
+            minWidthCh={minWidthCh}
+          />
+          <span
+            className={cn(
+              "font-mono uppercase tracking-wider text-muted-foreground",
+              labelClass
+            )}
+          >
+            Days
+          </span>
+        </div>
+        <motion.span
+          className={cn(
+            "px-0.5 font-mono font-bold text-muted-foreground mt-1",
+            colonClass
+          )}
+          animate={{ opacity: [0.4, 1, 0.4] }}
+          transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+        >
+          :
+        </motion.span>
+        <div className="flex flex-col items-center gap-1">
+          <AnimatedTimePart value={hours} size={size} minWidthCh={minWidthCh} />
+          <span
+            className={cn(
+              "font-mono uppercase tracking-wider text-muted-foreground",
+              labelClass
+            )}
+          >
+            Hours
+          </span>
+        </div>
+        <motion.span
+          className={cn(
+            "px-0.5 font-mono font-bold text-muted-foreground mt-1",
+            colonClass
+          )}
+          animate={{ opacity: [0.4, 1, 0.4] }}
+          transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+        >
+          :
+        </motion.span>
+        <div className="flex flex-col items-center gap-1">
+          <AnimatedTimePart
+            value={minutes}
+            size={size}
+            minWidthCh={minWidthCh}
+          />
+          <span
+            className={cn(
+              "font-mono uppercase tracking-wider text-muted-foreground",
+              labelClass
+            )}
+          >
+            Min
+          </span>
+        </div>
+        <motion.span
+          className={cn(
+            "px-0.5 font-mono font-bold text-muted-foreground mt-1",
+            colonClass
+          )}
+          animate={{ opacity: [0.4, 1, 0.4] }}
+          transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+        >
+          :
+        </motion.span>
+        <div className="flex flex-col items-center gap-1">
+          <AnimatedTimePart
+            value={seconds}
+            size={size}
+            minWidthCh={minWidthCh}
+          />
+          <span
+            className={cn(
+              "font-mono uppercase tracking-wider text-muted-foreground",
+              labelClass
+            )}
+          >
+            Sec
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("inline-flex items-center gap-1.5", className)}>

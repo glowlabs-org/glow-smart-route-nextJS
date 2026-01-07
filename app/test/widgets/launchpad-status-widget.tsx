@@ -440,15 +440,20 @@ export default function LaunchpadStatusWidget({
             <div className="flex-1 flex flex-col items-center justify-center py-2">
               <div className="font-mono font-bold tracking-tighter tabular-nums text-foreground">
                 <div className="sm:hidden text-3xl">
-                  <AnimatedCountdownDhms remainingMs={remainingMs} size="sm" />
+                  <AnimatedCountdownDhms
+                    remainingMs={remainingMs}
+                    size="sm"
+                    showLabels
+                  />
                 </div>
                 <div className="hidden sm:block text-5xl">
-                  <AnimatedCountdownDhms remainingMs={remainingMs} size="xl" />
+                  <AnimatedCountdownDhms
+                    remainingMs={remainingMs}
+                    size="xl"
+                    showLabels
+                  />
                 </div>
               </div>
-              <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest mt-2 opacity-60">
-                Time Remaining
-              </p>
             </div>
 
             {/* Prep Section */}
@@ -465,7 +470,7 @@ export default function LaunchpadStatusWidget({
                     Every Tuesday at 1 PM EST, Glow lists at least one new solar
                     farm for crowdfunding. Users can delegate GLW tokens to help
                     fund the farm, support real-world impact, and earn GLW
-                    tokens weekly for 100 weeks for contributing to the network.
+                    tokens weekly for 100 weeks.
                   </p>
                 </div>
               </div>

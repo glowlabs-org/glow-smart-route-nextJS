@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import {
-  AnimatedCountdown,
+  AnimatedCountdownDhms,
   useCountdownTo,
 } from "@/app/components/animated-countdown";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
@@ -246,9 +246,10 @@ function ImpactHeroSkeleton(props: { remainingMsToCacheUpdate: number }) {
             <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
               Next update
             </div>
-            <AnimatedCountdown
+            <AnimatedCountdownDhms
               remainingMs={remainingMsToCacheUpdate}
               size="sm"
+              showLabels
             />
           </div>
         </div>
@@ -445,9 +446,10 @@ function ImpactHero(props: {
             <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
               Next update
             </div>
-            <AnimatedCountdown
+            <AnimatedCountdownDhms
               remainingMs={remainingMsToCacheUpdate}
               size="sm"
+              showLabels
             />
           </div>
           {isRefreshing ? (

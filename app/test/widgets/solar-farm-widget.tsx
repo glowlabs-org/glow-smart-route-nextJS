@@ -50,7 +50,7 @@ import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
 import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
 import { countActiveListings } from "@/utils/launchpad";
 import {
-  AnimatedCountdown,
+  AnimatedCountdownDhms,
   useCountdownTo,
 } from "@/app/components/animated-countdown";
 import {
@@ -957,9 +957,10 @@ export default function SolarFarmWidget({
                           Next batch in
                         </div>
                         <div className="solar-farm-next-batch-countdown">
-                          <AnimatedCountdown
+                          <AnimatedCountdownDhms
                             remainingMs={remainingMs}
                             size="xl"
+                            showLabels
                           />
                         </div>
                       </div>

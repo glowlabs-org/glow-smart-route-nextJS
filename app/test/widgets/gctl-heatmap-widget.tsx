@@ -17,7 +17,7 @@ import {
 import { formatUnits } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { cn } from "@/lib/utils";
-import { useGctlApi, useWallets, useRegions } from "@/hooks";
+import { useGctlApi, useWallets, useRegions, useActiveRegionsSummary } from "@/hooks";
 import { ConnectButton } from "@/components/connect-button";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -25,6 +25,7 @@ interface RegionStakeTile {
   regionId: number;
   regionName: string;
   amountGctl: number;
+  glwSteered: number;
 }
 
 function gctlAmountFromRaw(raw: string) {
@@ -151,6 +152,8 @@ export default function GctlHeatmapWidget({
     enabled: isEnabled,
   });
   const { regions, isRegionsLoading } = useRegions();
+  const { data: activeSummary, isLoading: isActiveSummaryLoading } =
+    useActiveRegionsSummary({ enabled: isEnabled });
 
   const walletBalanceGctl = useMemo(() => {
     if (!isEnabled) return 0;
@@ -174,18 +177,31 @@ export default function GctlHeatmapWidget({
             regions.find((r) => r.id === regionStake.regionId)?.name ??
             `Region ${regionStake.regionId}`;
 
+          const userGctl = gctlAmountFromRaw(regionStake.totalStaked);
+          const regionSummary = activeSummary?.regions.find(
+            (r) => r.id === regionStake.regionId
+          );
+          const totalRegionGctl = regionSummary?.stakedGctl ?? 0;
+          const regionGlwPerWeek = regionSummary?.glwPerWeek ?? 0;
+          const userShare = totalRegionGctl > 0 ? userGctl / totalRegionGctl : 0;
+          const glwSteered = userShare * regionGlwPerWeek;
+
           return {
             regionId: regionStake.regionId,
             regionName: regionStake.region?.name || fallbackName,
-            amountGctl: gctlAmountFromRaw(regionStake.totalStaked),
+            amountGctl: userGctl,
+            glwSteered,
           };
         }) ?? [];
 
     return tiles.sort((a, b) => b.amountGctl - a.amountGctl).slice(0, 8);
-  }, [isEnabled, regions, walletDetails?.regions]);
+  }, [isEnabled, regions, walletDetails?.regions, activeSummary?.regions]);
 
   const stakedTotalGctl = useMemo(() => {
     return stakes.reduce((sum, tile) => sum + tile.amountGctl, 0);
+  }, [stakes]);
+  const totalGlwSteered = useMemo(() => {
+    return stakes.reduce((sum, tile) => sum + tile.glwSteered, 0);
   }, [stakes]);
   const totalBalanceGctl = walletBalanceGctl + stakedTotalGctl;
   const liquidPercent =
@@ -195,10 +211,10 @@ export default function GctlHeatmapWidget({
 
   const mockStakes: RegionStakeTile[] = useMemo(
     () => [
-      { regionId: 1, regionName: "Utah", amountGctl: 45000 },
-      { regionId: 2, regionName: "Nevada", amountGctl: 28000 },
-      { regionId: 3, regionName: "Arizona", amountGctl: 15000 },
-      { regionId: 4, regionName: "Texas", amountGctl: 12000 },
+      { regionId: 1, regionName: "Utah", amountGctl: 45000, glwSteered: 1200 },
+      { regionId: 2, regionName: "Nevada", amountGctl: 28000, glwSteered: 750 },
+      { regionId: 3, regionName: "Arizona", amountGctl: 15000, glwSteered: 400 },
+      { regionId: 4, regionName: "Texas", amountGctl: 12000, glwSteered: 320 },
     ],
     []
   );
@@ -312,7 +328,7 @@ export default function GctlHeatmapWidget({
   }
 
   const isLoading =
-    isGctlBalanceLoading || isWalletDetailsLoading || isRegionsLoading;
+    isGctlBalanceLoading || isWalletDetailsLoading || isRegionsLoading || isActiveSummaryLoading;
 
   if (!isLoading && totalBalanceGctl <= 0) {
     return (
@@ -418,15 +434,28 @@ export default function GctlHeatmapWidget({
         <div className="flex flex-col flex-1 min-h-0 gap-3">
           {/* Summary row */}
           <div className="flex items-start justify-between gap-4 shrink-0">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                Total balance
-              </span>
-              <div className="mt-1 font-mono text-2xl font-bold tracking-tight text-foreground">
-                {isLoading ? "—" : formatCompact(totalBalanceGctl)}{" "}
-                <span className="text-xs font-mono text-muted-foreground">
-                  GCTL
+            <div className="flex gap-6">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Total balance
                 </span>
+                <div className="mt-1 font-mono text-2xl font-bold tracking-tight text-foreground">
+                  {isLoading ? "—" : formatCompact(totalBalanceGctl)}{" "}
+                  <span className="text-xs font-mono text-muted-foreground">
+                    GCTL
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Steering
+                </span>
+                <div className="mt-1 font-mono text-2xl font-bold tracking-tight text-foreground">
+                  {isLoading ? "—" : `+${formatCompact(totalGlwSteered)}`}{" "}
+                  <span className="text-xs font-mono text-muted-foreground">
+                    GLW/wk
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -495,7 +524,7 @@ export default function GctlHeatmapWidget({
 
                       const tooltipText = `${tile.regionName} • ${formatCompact(
                         tile.amountGctl
-                      )} GCTL • ${Math.round(share * 100)}%`;
+                      )} GCTL • +${formatCompact(tile.glwSteered)} GLW/wk`;
 
                       return (
                         <Tooltip key={tile.regionId}>
@@ -518,11 +547,16 @@ export default function GctlHeatmapWidget({
                                   <div className="font-mono text-xs font-bold text-white/95 drop-shadow-sm truncate">
                                     {tile.regionName}
                                   </div>
-                                  <div className="font-mono text-sm font-bold text-white drop-shadow-sm">
-                                    {formatCompact(tile.amountGctl)}{" "}
-                                    <span className="text-[10px] font-mono font-semibold text-white/80">
-                                      GCTL
-                                    </span>
+                                  <div className="space-y-0.5">
+                                    <div className="font-mono text-sm font-bold text-white drop-shadow-sm">
+                                      +{formatCompact(tile.glwSteered)}{" "}
+                                      <span className="text-[10px] font-mono font-semibold text-white/80">
+                                        GLW/wk
+                                      </span>
+                                    </div>
+                                    <div className="font-mono text-[10px] text-white/70">
+                                      {formatCompact(tile.amountGctl)} GCTL
+                                    </div>
                                   </div>
                                 </div>
                               ) : (
@@ -556,10 +590,6 @@ export default function GctlHeatmapWidget({
                   {/* Row 2: clean legend */}
                   <div className="shrink-0 flex flex-nowrap overflow-x-auto gap-3 px-2.5 py-1.5 border-t border-border/60">
                     {stakes.map((tile) => {
-                      const share =
-                        stakedTotalGctl > 0
-                          ? tile.amountGctl / stakedTotalGctl
-                          : 0;
                       const intensity = tile.amountGctl / maxStake;
                       const { dot } = getTreemapTileColors({
                         regionId: tile.regionId,
@@ -581,7 +611,7 @@ export default function GctlHeatmapWidget({
                             {tile.regionName}
                           </span>
                           <span className="text-muted-foreground">
-                            ({Math.round(share * 100)}%)
+                            (+{formatCompact(tile.glwSteered)} GLW)
                           </span>
                         </div>
                       );

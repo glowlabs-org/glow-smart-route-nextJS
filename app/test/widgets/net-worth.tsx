@@ -525,7 +525,7 @@ export default function NetWorthWidget({ walletAddress }: NetWorthWidgetProps) {
                         </pattern>
                       </defs>
                       <Area
-                        type="natural"
+                        type="monotone"
                         dataKey="glw"
                         stroke={GLOW_GREEN}
                         strokeWidth={1.5}

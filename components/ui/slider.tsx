@@ -11,6 +11,7 @@ function Slider({
   value,
   min = 0,
   max = 100,
+  onValueChange,
   ...props
 }: React.ComponentProps<typeof SliderPrimitive.Root>) {
   const _values = React.useMemo(
@@ -23,6 +24,26 @@ function Slider({
     [value, defaultValue, min, max]
   )
 
+  const trackRef = React.useRef<HTMLDivElement>(null)
+
+  const handleTrackPointerDown = React.useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement
+      if (!trackRef.current || !onValueChange) return
+      
+      if (target.hasAttribute("data-radix-slider-thumb")) return
+
+      const trackRect = trackRef.current.getBoundingClientRect()
+      const clickX = e.clientX - trackRect.left
+      const trackWidth = trackRect.width
+      const percentage = Math.max(0, Math.min(1, clickX / trackWidth))
+      const newValue = min + percentage * (max - min)
+      
+      onValueChange([Math.round(newValue)])
+    },
+    [min, max, onValueChange]
+  )
+
   return (
     <SliderPrimitive.Root
       data-slot="slider"
@@ -30,6 +51,7 @@ function Slider({
       value={value}
       min={min}
       max={max}
+      onValueChange={onValueChange}
       className={cn(
         "relative flex w-full touch-none items-center select-none data-[disabled]:opacity-50 data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-44 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col",
         className
@@ -37,7 +59,9 @@ function Slider({
       {...props}
     >
       <SliderPrimitive.Track
+        ref={trackRef}
         data-slot="slider-track"
+        onPointerDown={handleTrackPointerDown}
         className={cn(
           "bg-muted relative grow overflow-hidden rounded-full data-[orientation=horizontal]:h-1.5 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1.5"
         )}

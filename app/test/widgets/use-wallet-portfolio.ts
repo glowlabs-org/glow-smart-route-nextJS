@@ -46,7 +46,10 @@ function parseGlwFromWei(value?: string | null) {
   }
 }
 
-function safeNumberFromUnits(value: bigint | undefined | null, decimals: number) {
+function safeNumberFromUnits(
+  value: bigint | undefined | null,
+  decimals: number
+) {
   if (!value) return 0;
   try {
     return Number(formatUnits(value, decimals));
@@ -282,17 +285,22 @@ export function useWalletPortfolio(params: { walletAddress?: string | null }) {
       const currentGlw = parseGlwFromWei(impactGlowWorth?.glowWorthWei);
       const glw = isCurrent ? currentGlw : fallbackGlw;
 
+      // Breakdown is only available for current week
+      const liquidGlw = isCurrent ? impactLiquidGlw : undefined;
+      const delegatedActiveGlw = isCurrent
+        ? impactDelegatedActiveGlw
+        : undefined;
+      const unclaimedGlwRewards = isCurrent
+        ? impactUnclaimedGlwRewards
+        : undefined;
+
       return {
         glw,
         week: row.weekNumber,
         isCurrent,
-        ...(isCurrent
-          ? {
-              liquidGlw: impactLiquidGlw,
-              delegatedActiveGlw: impactDelegatedActiveGlw,
-              unclaimedGlwRewards: impactUnclaimedGlwRewards,
-            }
-          : {}),
+        liquidGlw,
+        delegatedActiveGlw,
+        unclaimedGlwRewards,
       };
     });
   }, [
@@ -306,7 +314,9 @@ export function useWalletPortfolio(params: { walletAddress?: string | null }) {
   ]);
 
   const yDomain = React.useMemo<[number, number]>(() => {
-    const values = chartData.map((p) => p.glw).filter((v) => Number.isFinite(v));
+    const values = chartData
+      .map((p) => p.glw)
+      .filter((v) => Number.isFinite(v));
     if (values.length === 0) return [0, 1];
 
     const min = Math.min(...values);
@@ -374,5 +384,3 @@ export function useWalletPortfolio(params: { walletAddress?: string | null }) {
     allocationTotalUsd: allocations.totalUsd,
   };
 }
-
-

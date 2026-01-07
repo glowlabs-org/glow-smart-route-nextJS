@@ -13,13 +13,12 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ClaimsPanel } from "@/app/wallet/claims-panel";
 import {
-  AnimatedCountdown,
+  AnimatedCountdownDhms,
   useCountdownTo,
 } from "@/app/components/animated-countdown";
-import { useClaimableRewards, useWalletV2Claims } from "@/hooks";
+import { useClaimableRewards } from "@/hooks";
 import { useRewardsKernelWrapper } from "@/hooks/useRewardsKernelWrapper";
 import { weekToNonce } from "@/hooks/useMerkleProofs";
-import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
 import { cn } from "@/lib/utils";
 import { QUERY_KEYS } from "@/hooks/query-keys";
@@ -27,41 +26,12 @@ import { QUERY_CONFIG } from "@/hooks/query-config";
 
 const DEFAULT_INITIAL_DURATION_MS = (4 * 60 * 60 + 12 * 60 + 33) * 1000;
 
-function formatUsd(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
 function formatUsdWhole(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-function estimateUsdTotal(params: {
-  totalsByCurrency: Record<string, number>;
-  glwSpotPriceUsd: number;
-}) {
-  const { totalsByCurrency, glwSpotPriceUsd } = params;
-  let total = 0;
-  for (const [currency, amount] of Object.entries(totalsByCurrency)) {
-    if (!Number.isFinite(amount) || amount <= 0) continue;
-    if (currency === "USDC" || currency === "USDG") {
-      total += amount;
-      continue;
-    }
-    if (currency === "GLW") {
-      if (Number.isFinite(glwSpotPriceUsd) && glwSpotPriceUsd > 0) {
-        total += amount * glwSpotPriceUsd;
-      }
-    }
-  }
-  return total;
 }
 
 function safeGetCurrentEpoch() {
@@ -152,13 +122,17 @@ function RewardsCountdown(props: { initialDurationMs: number }) {
             "conic-gradient(from 0deg, transparent, hsl(var(--primary) / 0.15), transparent)",
         }}
       />
-      <div className="relative flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80">
-          <Timer className="h-3.5 w-3.5" />
-          <span>Next Claim</span>
-        </div>
-        <div className="flex justify-end">
-          <AnimatedCountdown remainingMs={remainingMs} size="sm" />
+      <div className="relative flex flex-col gap-1.5 min-w-0">
+        <div className="flex flex-col items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80 shrink-0">
+            <Timer className="h-3.5 w-3.5" />
+            <span>Next Claim</span>
+          </div>
+          <AnimatedCountdownDhms
+            remainingMs={remainingMs}
+            size="sm"
+            showLabels
+          />
         </div>
       </div>
     </div>
@@ -193,24 +167,6 @@ export default function RewardsWidget({
   });
 
   const { checkIfClaimed, checkIfGlwClaimed } = useRewardsKernelWrapper();
-  const { spotPrice: glwSpotPriceUsd } = useGlowSpotPrice({
-    refreshKey,
-    query: {
-      ...QUERY_CONFIG.STICKY,
-      refetchInterval: false,
-      retry: 0,
-    },
-  });
-
-  const {
-    protocolTotals: lifetimeProtocolTotals,
-    inflationTotalGlw: lifetimeInflationGlw,
-    isLoading: isLifetimeLoading,
-    isError: isLifetimeError,
-  } = useWalletV2Claims(address, {
-    refreshKey,
-    query: QUERY_CONFIG.STICKY,
-  });
 
   const finalizedWeeks = React.useMemo(
     () => weeklyBreakdown.filter((week) => week.isFinalized),
@@ -283,29 +239,10 @@ export default function RewardsWidget({
     },
   });
 
-  const lifetimeUsd = React.useMemo(() => {
-    if (!hasWallet) return null;
-    const totals: Record<string, number> = {
-      ...lifetimeProtocolTotals,
-      GLW: lifetimeInflationGlw,
-    };
-    return estimateUsdTotal({
-      totalsByCurrency: totals,
-      glwSpotPriceUsd,
-    });
-  }, [
-    glwSpotPriceUsd,
-    hasWallet,
-    lifetimeInflationGlw,
-    lifetimeProtocolTotals,
-  ]);
-
   const isWidgetLoading =
-    hasWallet &&
-    (isRewardsLoading || isClaimableTotalsLoading || isLifetimeLoading);
+    hasWallet && (isRewardsLoading || isClaimableTotalsLoading);
 
-  const isWidgetError =
-    hasWallet && (isRewardsError || isClaimableTotalsError || isLifetimeError);
+  const isWidgetError = hasWallet && (isRewardsError || isClaimableTotalsError);
 
   const claimableBreakdown = React.useMemo(
     () => getClaimableBreakdown({ claimableTotalsByCurrency }),
@@ -318,25 +255,12 @@ export default function RewardsWidget({
       queryKey: QUERY_KEYS.wallets.rewards(address),
     });
     queryClient.invalidateQueries({
-      queryKey: QUERY_KEYS.wallets.v2Claims(address),
-    });
-    queryClient.invalidateQueries({
       queryKey: QUERY_KEYS.wallets.claimableTotals(address),
     });
     queryClient.invalidateQueries({
       queryKey: QUERY_KEYS.unclaimed.glw(address),
     });
   }, [address, queryClient]);
-
-  const hasLifetimeEarned = React.useMemo(() => {
-    const hasProtocol =
-      Object.values(lifetimeProtocolTotals).some(
-        (value) => Number.isFinite(value) && value > 0
-      ) ?? false;
-    const hasGlw =
-      Number.isFinite(lifetimeInflationGlw) && lifetimeInflationGlw > 0;
-    return hasProtocol || hasGlw;
-  }, [lifetimeInflationGlw, lifetimeProtocolTotals]);
 
   const hasClaimable = React.useMemo(() => {
     if (!claimableTotalsByCurrency) return false;
@@ -345,14 +269,48 @@ export default function RewardsWidget({
     );
   }, [claimableTotalsByCurrency]);
 
+  const nextWeekToUnlock = React.useMemo(() => {
+    const nonFinalizedWeeks = weeklyBreakdown
+      .filter((w) => !w.isFinalized)
+      .sort((a, b) => a.week - b.week);
+    return nonFinalizedWeeks[0] ?? null;
+  }, [weeklyBreakdown]);
+
+  const nextClaimTotals = React.useMemo(() => {
+    if (!nextWeekToUnlock) return {};
+    const totals: Record<string, number> = {};
+    for (const reward of nextWeekToUnlock.rewards) {
+      const amount = Number.parseFloat(reward.amount);
+      if (!Number.isFinite(amount) || amount <= 0) continue;
+      const currency =
+        reward.type === "glowInflation" ? "GLW" : reward.currency;
+      totals[currency] = (totals[currency] ?? 0) + amount;
+    }
+    return totals;
+  }, [nextWeekToUnlock]);
+
+  const nextClaimLabel = React.useMemo(() => {
+    const entries: string[] = [];
+    const glw = nextClaimTotals.GLW ?? 0;
+    const usdg = nextClaimTotals.USDG ?? 0;
+    if (glw > 0) {
+      entries.push(`${formatTokenAmount(glw)} GLW`);
+    }
+    if (usdg > 0) {
+      entries.push(`${formatUsdWhole(usdg)} USDG`);
+    }
+    return entries.length > 0 ? entries.join(" + ") : null;
+  }, [nextClaimTotals]);
+
+  const hasNextClaim = Boolean(nextClaimLabel);
+
   const shouldHide =
     hasWallet &&
     !isWalletConnecting &&
     !isWidgetLoading &&
     !isWidgetError &&
-    weeklyBreakdown.length === 0 &&
-    !hasLifetimeEarned &&
-    !hasClaimable;
+    !hasClaimable &&
+    !hasNextClaim;
 
   if (shouldHide && hideIfEmpty) return null;
 
@@ -375,7 +333,8 @@ export default function RewardsWidget({
         {hasWallet &&
           !isWalletConnecting &&
           !isWidgetLoading &&
-          !isWidgetError && (
+          !isWidgetError &&
+          hasNextClaim && (
             <div className="pt-0">
               <RewardsCountdown initialDurationMs={initialDurationMs} />
             </div>
@@ -413,8 +372,11 @@ export default function RewardsWidget({
                 </div>
               ) : (
                 <>
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 mb-1">
+                    Available Now
+                  </div>
                   <div className="flex flex-col items-center gap-0.5 animate-in fade-in zoom-in-95 duration-300">
-                    {claimableBreakdown.map((entry, idx) => (
+                    {claimableBreakdown.map((entry) => (
                       <div
                         key={entry.currency}
                         className={cn(
@@ -434,16 +396,18 @@ export default function RewardsWidget({
                     ))}
                   </div>
 
-                  <div className="pt-3">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background/50 border border-border">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
-                        Lifetime
-                      </span>
-                      <span className="text-[11px] font-mono font-medium text-foreground tabular-nums">
-                        {formatUsd(lifetimeUsd ?? 0)}
-                      </span>
+                  {hasNextClaim && nextClaimLabel && (
+                    <div className="pt-3">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/30 border border-border/50">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
+                          Next
+                        </span>
+                        <span className="text-[11px] font-mono font-medium text-muted-foreground tabular-nums">
+                          {nextClaimLabel}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </>
               )}
             </div>

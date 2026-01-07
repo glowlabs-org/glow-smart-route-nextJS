@@ -12,6 +12,9 @@ import {
   DECIMALS_BY_TOKEN,
   type Currency,
   useForwarder,
+  buildStakeMessage,
+  stakeEIP712Types,
+  stakeControlEIP712Domain,
 } from "@glowlabs-org/utils/browser";
 
 import {
@@ -35,6 +38,7 @@ import {
 } from "../ui/select";
 import { ProcessingModal } from "../buy-gctl/processing-modal";
 import { ConnectButton } from "../connect-button";
+import { UnstakingExplanationModal } from "./unstaking-explanation-modal";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useActiveRegionsSummary, useGctlApi, useRegions } from "@/hooks";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
@@ -50,7 +54,7 @@ interface MintAndStakeGctlDialogProps {
   forceStep1?: boolean;
 }
 
-type MintCurrency = "USDC" | "USDG" | "ETH";
+type SourceCurrency = "GCTL" | "USDC" | "USDG" | "ETH";
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 const STEERING_POINTS_PER_GLW = 3;
@@ -199,6 +203,8 @@ export function MintAndStakeGctlDialog({
     gctlPriceNumber,
     gctlBalance,
     isGctlBalanceLoading,
+    latestNonce,
+    stakeGctlMutation,
     invalidateAllQueries,
   } = useGctlApi(address, { enabled: open });
   const { data: activeSummary } = useActiveRegionsSummary({ enabled: open });
@@ -244,10 +250,11 @@ export function MintAndStakeGctlDialog({
   }, [regions, selectedRegionId]);
 
   const [selectedCurrency, setSelectedCurrency] =
-    React.useState<MintCurrency>("USDC");
+    React.useState<SourceCurrency>("USDC");
   const [amountInput, setAmountInput] = React.useState<string>("");
   const [isUnstakeAcknowledged, setIsUnstakeAcknowledged] =
     React.useState(false);
+  const [isUnstakingModalOpen, setIsUnstakingModalOpen] = React.useState(false);
   const [ethUsdcQuoteWei, setEthUsdcQuoteWei] = React.useState<bigint | null>(
     null
   );
@@ -256,6 +263,16 @@ export function MintAndStakeGctlDialog({
   const [stepOverride, setStepOverride] = React.useState<1 | 2 | 3 | null>(
     null
   );
+
+  const unstkedGctlBalanceNumber = React.useMemo(() => {
+    try {
+      return Number(
+        formatUnits(BigInt(gctlBalance ?? "0"), DECIMALS_BY_TOKEN.GCTL)
+      );
+    } catch {
+      return 0;
+    }
+  }, [gctlBalance]);
 
   const hasAnyGctl = React.useMemo(() => {
     const hasOptimistic = addressKey
@@ -280,6 +297,33 @@ export function MintAndStakeGctlDialog({
     return (stepOverride ?? defaultStep) as 1 | 2 | 3;
   }, [defaultStep, isConnected, stepOverride]);
 
+  const stakeMode = selectedCurrency === "GCTL" ? "stake" : "mint";
+
+  const hasInitializedCurrencyRef = React.useRef(false);
+
+  // Reset initialization flag when dialog closes
+  if (!open && hasInitializedCurrencyRef.current) {
+    hasInitializedCurrencyRef.current = false;
+  }
+
+  // Set default currency when dialog is open and GCTL balance has loaded
+  if (open && !isGctlBalanceLoading && !hasInitializedCurrencyRef.current) {
+    hasInitializedCurrencyRef.current = true;
+    const defaultCurrency: SourceCurrency =
+      unstkedGctlBalanceNumber > 0
+        ? "GCTL"
+        : usdcBalance && usdcBalance > 0n
+        ? "USDC"
+        : usdgBalance && usdgBalance > 0n
+        ? "USDG"
+        : "ETH";
+    if (selectedCurrency !== defaultCurrency) {
+      setSelectedCurrency(defaultCurrency);
+      setAmountInput("");
+      setEthUsdcQuoteWei(null);
+    }
+  }
+
   const prevOpenRef = React.useRef(open);
   React.useEffect(() => {
     if (prevOpenRef.current === open) return;
@@ -303,6 +347,10 @@ export function MintAndStakeGctlDialog({
   });
 
   const maxAmountNumber = React.useMemo(() => {
+    if (stakeMode === "stake") {
+      return unstkedGctlBalanceNumber;
+    }
+
     if (selectedCurrency === "ETH") {
       try {
         const wei = ethBalanceQuery.data?.value ?? 0n;
@@ -327,7 +375,14 @@ export function MintAndStakeGctlDialog({
     } catch {
       return 0;
     }
-  }, [ethBalanceQuery.data?.value, selectedCurrency, usdcBalance, usdgBalance]);
+  }, [
+    ethBalanceQuery.data?.value,
+    selectedCurrency,
+    stakeMode,
+    usdcBalance,
+    usdgBalance,
+    unstkedGctlBalanceNumber,
+  ]);
 
   const amountNumber = React.useMemo(() => {
     if (amountInput.trim() === "") return 0;
@@ -335,17 +390,21 @@ export function MintAndStakeGctlDialog({
   }, [amountInput]);
 
   const isOverBalance = React.useMemo(() => {
-    if (selectedCurrency !== "ETH") return amountNumber > maxAmountNumber;
-    try {
-      const balWei = ethBalanceQuery.data?.value ?? 0n;
-      const inputWei = parseUnits(
-        trimToDecimals(amountInput, ETH_DECIMALS),
-        ETH_DECIMALS
-      );
-      return inputWei > balWei;
-    } catch {
-      return false;
+    if (selectedCurrency === "ETH") {
+      try {
+        const balWei = ethBalanceQuery.data?.value ?? 0n;
+        const inputWei = parseUnits(
+          trimToDecimals(amountInput, ETH_DECIMALS),
+          ETH_DECIMALS
+        );
+        return inputWei > balWei;
+      } catch {
+        return false;
+      }
     }
+    // For GCTL, USDC, USDG - compare display values to avoid rounding mismatches
+    const epsilon = 0.0001;
+    return amountNumber > maxAmountNumber + epsilon;
   }, [
     amountInput,
     amountNumber,
@@ -357,6 +416,11 @@ export function MintAndStakeGctlDialog({
   const isMissingAmount = amountInput.trim() === "" || amountNumber <= 0;
 
   const estimatedGctl = React.useMemo(() => {
+    if (stakeMode === "stake") {
+      if (!amountNumber || amountNumber <= 0) return null;
+      return amountNumber;
+    }
+
     if (!gctlPriceNumber || gctlPriceNumber <= 0) return null;
 
     if (selectedCurrency === "ETH") {
@@ -372,7 +436,13 @@ export function MintAndStakeGctlDialog({
 
     if (!amountNumber || amountNumber <= 0) return null;
     return amountNumber / gctlPriceNumber;
-  }, [amountNumber, ethUsdcQuoteWei, gctlPriceNumber, selectedCurrency]);
+  }, [
+    amountNumber,
+    ethUsdcQuoteWei,
+    gctlPriceNumber,
+    selectedCurrency,
+    stakeMode,
+  ]);
 
   const inflationPreview = React.useMemo(() => {
     if (!activeSummary) return null;
@@ -463,7 +533,7 @@ export function MintAndStakeGctlDialog({
     isMissingAmount ||
     isOverBalance ||
     !isUnstakeAcknowledged ||
-    (selectedCurrency === "ETH" && !isEthPayEnabled) ||
+    (stakeMode === "mint" && selectedCurrency === "ETH" && !isEthPayEnabled) ||
     isProcessing;
 
   const [isApproving, setIsApproving] = React.useState(false);
@@ -524,7 +594,147 @@ export function MintAndStakeGctlDialog({
       onError: () => setEthUsdcQuoteWei(null),
     });
 
+  const handleDialogOpenChange = React.useCallback(
+    (nextOpen: boolean) => {
+      onOpenChange(nextOpen);
+
+      if (!nextOpen) {
+        setStepOverride(null);
+        setIsUnstakeAcknowledged(false);
+
+        void (async () => {
+          try {
+            await invalidateAllQueries();
+          } catch {
+            // no-op
+          }
+        })();
+      }
+    },
+    [invalidateAllQueries, onOpenChange]
+  );
+
+  const handleStakeExisting = React.useCallback(async () => {
+    if (!isConnected || !address || !signer) {
+      toast.error("Please connect your wallet");
+      return;
+    }
+    if (!selectedRegionId) {
+      toast.error("Please select a region");
+      return;
+    }
+    if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    if (!isUnstakeAcknowledged) {
+      toast.error("Please acknowledge the unstaking rule");
+      return;
+    }
+
+    const stakeAmountBucket = bucketToken(amountNumber);
+
+    trackGctlEvent("gctl_stake_existing_submit", {
+      step,
+      region_id: selectedRegionId,
+      stake_amount_bucket: stakeAmountBucket,
+    });
+
+    try {
+      setIsApproving(true);
+      const atomicAmount = Math.round(amountNumber * 1_000_000).toString();
+      const nonce = (Number(latestNonce) + 1).toString();
+      const deadline = Math.floor(Date.now() / 1000 + 3600).toString();
+
+      const signatureMessage = buildStakeMessage({
+        nonce,
+        amount: atomicAmount,
+        toZoneId: String(selectedRegionId),
+        deadline,
+      });
+
+      const eip712Types = stakeEIP712Types as unknown as Record<string, any[]>;
+      const signature = await signer.signTypedData(
+        stakeControlEIP712Domain(Number(process.env.NEXT_PUBLIC_CHAIN_ID)),
+        eip712Types,
+        signatureMessage
+      );
+
+      if (!signature) {
+        setIsApproving(false);
+        toast.error("Failed to sign message");
+        return;
+      }
+
+      setIsApproving(false);
+      setIsSubmitting(true);
+
+      const result = await stakeGctlMutation.mutateAsync({
+        wallet: address,
+        amount: atomicAmount,
+        nonce,
+        deadline,
+        signature,
+        regionId: selectedRegionId,
+      });
+
+      setIsSubmitting(false);
+
+      if (result) {
+        trackGctlEvent("gctl_stake_existing_success", {
+          step,
+          region_id: selectedRegionId,
+          stake_amount_bucket: stakeAmountBucket,
+        });
+
+        toast.success("GCTL staked successfully!");
+
+        setOptimisticHasGctlByAddress((prev) => {
+          const key = (address as string | undefined)?.toLowerCase();
+          if (!key) return prev;
+          if (prev[key]) return prev;
+          return { ...prev, [key]: true };
+        });
+
+        await invalidateAllQueries();
+        setStepOverride(null);
+        setIsUnstakeAcknowledged(false);
+        onOpenChange(false);
+      } else {
+        throw new Error("Stake failed");
+      }
+    } catch (error) {
+      setIsApproving(false);
+      setIsSubmitting(false);
+      trackGctlEvent("gctl_stake_existing_error", {
+        step,
+        region_id: selectedRegionId,
+        error_message: getErrorMessage(error),
+      });
+      toast.error("Failed to stake GCTL", {
+        description: getErrorMessage(error),
+      });
+    }
+  }, [
+    address,
+    amountNumber,
+    invalidateAllQueries,
+    isConnected,
+    isUnstakeAcknowledged,
+    latestNonce,
+    onOpenChange,
+    selectedRegionId,
+    signer,
+    stakeGctlMutation,
+    step,
+    trackGctlEvent,
+  ]);
+
   const handleSubmit = React.useCallback(async () => {
+    if (stakeMode === "stake") {
+      return handleStakeExisting();
+    }
+
     if (!isConnected || !address || !signer) {
       toast.error("Please connect your wallet");
       return;
@@ -660,6 +870,7 @@ export function MintAndStakeGctlDialog({
     chainId,
     checkTokenAllowance,
     estimatedGctl,
+    handleStakeExisting,
     isConnected,
     isEthPayEnabled,
     isUnstakeAcknowledged,
@@ -667,6 +878,7 @@ export function MintAndStakeGctlDialog({
     selectedCurrency,
     selectedRegionId,
     signer,
+    stakeMode,
     swapEthToUsdc,
     trackGctlEvent,
     step,
@@ -704,32 +916,15 @@ export function MintAndStakeGctlDialog({
     return { regions: fallback, mostActiveId: null };
   }, [activeSummary?.regions, activeSummary?.totalGlwRewards, regions]);
 
-  const handleDialogOpenChange = React.useCallback(
-    (nextOpen: boolean) => {
-      onOpenChange(nextOpen);
-
-      if (!nextOpen) {
-        setStepOverride(null);
-        setIsUnstakeAcknowledged(false);
-
-        void (async () => {
-          try {
-            await invalidateAllQueries();
-          } catch {
-            // no-op
-          }
-        })();
-      }
-    },
-    [invalidateAllQueries, onOpenChange]
-  );
-
   const dialogTitle = React.useMemo(() => {
     if (step === 1) return "Introduction";
     if (step === 2) return "Choose a Region";
-    if (selectedRegionLabel) return `Mint & Stake to ${selectedRegionLabel}`;
-    return "Mint & Stake";
-  }, [selectedRegionLabel, step]);
+    if (selectedRegionLabel) {
+      if (stakeMode === "stake") return `Stake to ${selectedRegionLabel}`;
+      return `Mint & Stake to ${selectedRegionLabel}`;
+    }
+    return stakeMode === "stake" ? "Stake" : "Mint & Stake";
+  }, [selectedRegionLabel, stakeMode, step]);
 
   const handleBack = React.useCallback(() => {
     if (step === 3) return setStepOverride(2);
@@ -877,11 +1072,7 @@ export function MintAndStakeGctlDialog({
                 ) : null}
 
                 {isConnected ? (
-                  <Button
-                    type="button"
-                    className="w-full"
-                    onClick={handleNext}
-                  >
+                  <Button type="button" className="w-full" onClick={handleNext}>
                     Get Started
                   </Button>
                 ) : null}
@@ -952,8 +1143,14 @@ export function MintAndStakeGctlDialog({
                   <div className="text-xs text-muted-foreground font-mono sm:text-right">
                     Avail:{" "}
                     {formatTokenAmount(maxAmountNumber, {
-                      maximumFractionDigits: selectedCurrency === "ETH" ? 6 : 2,
-                    })}
+                      maximumFractionDigits:
+                        stakeMode === "stake"
+                          ? 2
+                          : selectedCurrency === "ETH"
+                          ? 6
+                          : 2,
+                    })}{" "}
+                    {stakeMode === "stake" ? "GCTL" : selectedCurrency}
                   </div>
                 </div>
 
@@ -968,7 +1165,8 @@ export function MintAndStakeGctlDialog({
                         const v = e.target.value;
                         if (!isValidDecimalInput(v)) return;
                         setAmountInput(v);
-                        if (selectedCurrency !== "ETH") return;
+                        if (stakeMode === "stake" || selectedCurrency !== "ETH")
+                          return;
                         if (!v || Number(v) <= 0) {
                           setEthUsdcQuoteWei(null);
                           return;
@@ -981,15 +1179,29 @@ export function MintAndStakeGctlDialog({
                     <Select
                       value={selectedCurrency}
                       onValueChange={(v) => {
-                        setSelectedCurrency(v as MintCurrency);
+                        setSelectedCurrency(v as SourceCurrency);
                         setAmountInput("");
                         setEthUsdcQuoteWei(null);
                       }}
                     >
-                      <SelectTrigger className="h-9 w-[96px] rounded-full bg-background/60">
+                      <SelectTrigger className="h-9 w-[110px] rounded-full bg-background/60">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent align="end">
+                        {unstkedGctlBalanceNumber > 0 ? (
+                          <SelectItem value="GCTL">
+                            <span className="flex items-center gap-2">
+                              <span>GCTL</span>
+                              <span className="text-xs text-muted-foreground">
+                                (
+                                {formatTokenAmount(unstkedGctlBalanceNumber, {
+                                  maximumFractionDigits: 0,
+                                })}
+                                )
+                              </span>
+                            </span>
+                          </SelectItem>
+                        ) : null}
                         <SelectItem value="USDC">USDC</SelectItem>
                         <SelectItem value="USDG">USDG</SelectItem>
                         {isEthPayEnabled ? (
@@ -1000,27 +1212,30 @@ export function MintAndStakeGctlDialog({
                   </div>
                 </div>
 
-                <div className="text-xs font-mono text-muted-foreground">
-                  ≈{" "}
-                  {isEthQuoteRunning && selectedCurrency === "ETH"
-                    ? "Estimating…"
-                    : estimatedGctl
-                    ? formatTokenAmount(estimatedGctl, {
-                        maximumFractionDigits: 2,
-                      })
-                    : "0"}{" "}
-                  GCTL (Auto-staked)
-                </div>
-
-                {isOverBalance ? (
-                  <div className="text-xs text-destructive">
-                    Amount exceeds your available {selectedCurrency} balance
+                {stakeMode === "mint" ? (
+                  <div className="text-xs font-mono text-muted-foreground">
+                    ≈{" "}
+                    {isEthQuoteRunning && selectedCurrency === "ETH"
+                      ? "Estimating…"
+                      : estimatedGctl
+                      ? formatTokenAmount(estimatedGctl, {
+                          maximumFractionDigits: 2,
+                        })
+                      : "0"}{" "}
+                    GCTL (Auto-staked)
                   </div>
                 ) : null}
 
-                {selectedCurrency === "ETH" ? (
+                {isOverBalance ? (
+                  <div className="text-xs text-destructive">
+                    Amount exceeds your available{" "}
+                    {stakeMode === "stake" ? "GCTL" : selectedCurrency} balance
+                  </div>
+                ) : null}
+
+                {stakeMode === "mint" && selectedCurrency === "ETH" ? (
                   <div className="text-[10px] text-muted-foreground">
-                    You’ll swap ETH → USDC on Uniswap, then mint &amp; stake.
+                    You'll swap ETH → USDC on Uniswap, then mint &amp; stake.
                   </div>
                 ) : null}
 
@@ -1050,60 +1265,59 @@ export function MintAndStakeGctlDialog({
 
                 <div className="h-px bg-border/60" />
 
-                <div className="space-y-2">
-                  <div className="text-sm font-semibold">
-                    Your Impact Preview
+                <div className="rounded-xl border border-border bg-muted/10 p-4">
+                  <div className="text-center space-y-1">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                      You're adding to{" "}
+                      {inflationPreview?.regionName ??
+                        selectedRegionLabel ??
+                        "this region"}
+                    </div>
+                    <div className="font-mono text-3xl font-bold tracking-tight text-foreground">
+                      {inflationPreview ? (
+                        <>
+                          +
+                          {formatCompact(inflationPreview.deltaGlwPerWeek, {
+                            maximumFractionDigits: 0,
+                          })}
+                          <span className="text-lg text-muted-foreground ml-1">
+                            GLW/week
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="rounded-xl border border-border bg-muted/10 px-4 py-3 text-sm">
-                    <div className="space-y-1">
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                        <span className="text-muted-foreground">Region:</span>
-                        <span className="font-mono sm:text-right break-words">
-                          {inflationPreview?.regionName ??
-                            selectedRegionLabel ??
-                            "—"}
+                  <div className="mt-3 pt-3 border-t border-border/60 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <span>Share:</span>
+                      {inflationPreview ? (
+                        <span className="font-mono text-foreground">
+                          {formatPercent1(
+                            inflationPreview.currentEmissionSharePercent
+                          )}
+                          %<span className="text-muted-foreground mx-1">→</span>
+                          {formatPercent1(
+                            inflationPreview.nextEmissionSharePercent
+                          )}
+                          %
                         </span>
-                      </div>
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                        <span className="text-muted-foreground">
-                          Emissions:
+                      ) : (
+                        <span className="font-mono">—</span>
+                      )}
+                    </div>
+                    <div className="h-3 w-px bg-border/60" />
+                    <div className="flex items-center gap-1.5">
+                      <span>Your Impact Pts:</span>
+                      {steeringImpactQuote ? (
+                        <span className="font-mono text-foreground">
+                          +{steeringImpactQuote.deltaPerWeekPoints}/wk
                         </span>
-                        {inflationPreview ? (
-                          <span className="font-mono sm:text-right break-words">
-                            {formatPercent1(
-                              inflationPreview.currentEmissionSharePercent
-                            )}
-                            % →{" "}
-                            {formatPercent1(
-                              inflationPreview.nextEmissionSharePercent
-                            )}
-                            % (+
-                            {formatCompact(inflationPreview.deltaGlwPerWeek, {
-                              maximumFractionDigits: 0,
-                            })}{" "}
-                            GLW/wk)
-                          </span>
-                        ) : (
-                          <span className="font-mono text-muted-foreground sm:text-right">
-                            —
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                        <span className="text-muted-foreground">
-                          Steering Pts:
-                        </span>
-                        {steeringImpactQuote ? (
-                          <span className="font-mono sm:text-right break-words">
-                            +{steeringImpactQuote.deltaPerWeekPoints} pts/week
-                          </span>
-                        ) : (
-                          <span className="font-mono text-muted-foreground sm:text-right">
-                            —
-                          </span>
-                        )}
-                      </div>
+                      ) : (
+                        <span className="font-mono">—</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1123,7 +1337,17 @@ export function MintAndStakeGctlDialog({
                   >
                     I understand the{" "}
                     <span className="font-medium text-accent">1%</span> weekly
-                    unstaking rule.
+                    unstaking rule.{" "}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setIsUnstakingModalOpen(true);
+                      }}
+                      className="text-accent hover:text-accent/80 underline underline-offset-4 font-medium"
+                    >
+                      Learn more
+                    </button>
                   </Label>
                 </div>
               </div>
@@ -1141,11 +1365,17 @@ export function MintAndStakeGctlDialog({
                 {isSwappingEth
                   ? "Swapping ETH..."
                   : isApproving
-                  ? "Approving..."
+                  ? stakeMode === "stake"
+                    ? "Signing..."
+                    : "Approving..."
                   : isSubmitting
-                  ? "Minting..."
+                  ? stakeMode === "stake"
+                    ? "Staking..."
+                    : "Minting..."
                   : isProcessing
                   ? "Indexing..."
+                  : stakeMode === "stake"
+                  ? `Stake ${toWholeNumberString(estimatedGctl ?? 0)} GCTL`
                   : `Mint & Stake ${toWholeNumberString(
                       estimatedGctl ?? 0
                     )} GCTL`}
@@ -1166,6 +1396,11 @@ export function MintAndStakeGctlDialog({
           setProcessingTxHash(null);
           invalidateAllQueries();
         }}
+      />
+
+      <UnstakingExplanationModal
+        open={isUnstakingModalOpen}
+        onOpenChange={setIsUnstakingModalOpen}
       />
     </>
   );
