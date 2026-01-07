@@ -75,17 +75,14 @@ function safeNumber(value?: string) {
 function getIndicatorsStateFromImpactScore(
   impactScore: ImpactGlowScoreResponse
 ): ImpactIndicatorsState {
-  const latestWeek =
-    impactScore.weekly?.[impactScore.weekly.length - 1] ?? null;
-  const streakBonusMultiplier = latestWeek?.streakBonusMultiplier ?? 0;
+  const projection = impactScore.currentWeekProjection;
+  const streakBonusMultiplier = projection?.streakBonusMultiplier ?? 0;
 
   return {
-    hasMinerMultiplier: Boolean(latestWeek?.hasCashMinerBonus),
+    hasMinerMultiplier: Boolean(projection?.hasMinerMultiplier),
     hasImpactStreak: streakBonusMultiplier > 0,
     streakBonusMultiplier,
-    hasSteeringStake: Boolean(
-      impactScore.currentWeekProjection?.hasSteeringStake
-    ),
+    hasSteeringStake: Boolean(projection?.hasSteeringStake),
     hasEmissionsEarned: safeNumber(impactScore.totals?.inflationPoints) > 0,
     hasVaultBonus:
       safeBigInt(impactScore.glowWorth?.delegatedActiveGlwWei) > 0n,

@@ -688,7 +688,7 @@ function ImpactHero(props: {
                     </span>
                   ) : (
                     <span className="ml-2 inline-flex items-center rounded-full border border-border bg-muted/20 px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
-                      CONNECT
+                      {hasDelegations ? "ACTIVE" : "INACTIVE"}
                     </span>
                   )}
                 </div>
@@ -777,6 +777,8 @@ export function ImpactView() {
   const allRows = leaderboardQuery.data?.wallets ?? [];
   const totalWalletCount =
     leaderboardQuery.data?.totalWalletCount ?? allRows.length;
+  const totalWalletCountDisplay =
+    leaderboardQuery.data?.totalWalletCount ?? null;
   const searchLower = search.trim().toLowerCase();
 
   const allWalletAddresses = React.useMemo(
@@ -901,7 +903,10 @@ export function ImpactView() {
                 {searchLower
                   ? ` (filtered from ${allRows.length.toLocaleString("en-US")})`
                   : ""}
-                {" · "}Total wallets {totalWalletCount.toLocaleString("en-US")}
+                {" · "}Total wallets{" "}
+                {totalWalletCountDisplay == null
+                  ? "—"
+                  : totalWalletCountDisplay.toLocaleString("en-US")}
               </div>
             ) : null}
           </div>
@@ -1440,6 +1445,7 @@ export function ImpactView() {
         walletAddress={selectedWallet}
         weekRange={weekRange}
         title="Impact Score Breakdown"
+        showCurrentWeekProjection={false}
       />
     </div>
   );

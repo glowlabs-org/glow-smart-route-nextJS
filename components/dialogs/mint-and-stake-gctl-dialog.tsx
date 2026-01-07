@@ -267,12 +267,15 @@ export function MintAndStakeGctlDialog({
   }, [addressKey, gctlBalance, optimisticHasGctlByAddress]);
 
   const defaultStep = React.useMemo((): 1 | 2 | 3 => {
-    if (!isConnected) return 2;
+    if (!isConnected) return 1;
     if (isGctlBalanceLoading) return 2;
     return hasAnyGctl ? 2 : 1;
   }, [hasAnyGctl, isConnected, isGctlBalanceLoading]);
 
-  const step = (stepOverride ?? defaultStep) as 1 | 2 | 3;
+  const step = React.useMemo((): 1 | 2 | 3 => {
+    if (!isConnected) return 1;
+    return (stepOverride ?? defaultStep) as 1 | 2 | 3;
+  }, [defaultStep, isConnected, stepOverride]);
 
   const prevOpenRef = React.useRef(open);
   React.useEffect(() => {
@@ -736,9 +739,15 @@ export function MintAndStakeGctlDialog({
   }, [handleDialogOpenChange, hasAnyGctl, step]);
 
   const handleNext = React.useCallback(() => {
-    if (step === 1) return setStepOverride(2);
+    if (step === 1) {
+      if (!isConnected) {
+        toast.error("Please connect your wallet to continue");
+        return;
+      }
+      return setStepOverride(2);
+    }
     if (step === 2) return setStepOverride(3);
-  }, [step]);
+  }, [isConnected, step]);
 
   return (
     <>
@@ -790,14 +799,7 @@ export function MintAndStakeGctlDialog({
           </DialogHeader>
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 space-y-4">
-            {!isConnected ? (
-              <div className="space-y-3">
-                <div className="text-sm text-muted-foreground">
-                  Connect your wallet to mint and stake GCTL.
-                </div>
-                <ConnectButton variant="default" size="medium" />
-              </div>
-            ) : step === 1 ? (
+            {step === 1 ? (
               <div className="space-y-4">
                 <div className="rounded-xl border border-border bg-muted/10 p-4 space-y-3">
                   <div className="flex items-center gap-3">
@@ -862,9 +864,24 @@ export function MintAndStakeGctlDialog({
                   </div>
                 </div>
 
-                <Button type="button" className="w-full" onClick={handleNext}>
-                  Get Started
-                </Button>
+                {!isConnected ? (
+                  <div className="space-y-3">
+                    <div className="text-sm text-muted-foreground">
+                      Connect your wallet to continue.
+                    </div>
+                    <ConnectButton variant="default" size="medium" />
+                  </div>
+                ) : null}
+
+                {isConnected ? (
+                  <Button
+                    type="button"
+                    className="w-full"
+                    onClick={handleNext}
+                  >
+                    Get Started
+                  </Button>
+                ) : null}
               </div>
             ) : step === 2 ? (
               <div className="space-y-4">

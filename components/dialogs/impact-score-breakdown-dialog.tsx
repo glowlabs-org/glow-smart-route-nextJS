@@ -37,6 +37,7 @@ interface ImpactScoreBreakdownDialogContentProps {
   impactScore: ImpactGlowScoreResponse;
   title?: string;
   description?: string;
+  showCurrentWeekProjection?: boolean;
 }
 
 interface ImpactScoreBreakdownDialogProps {
@@ -46,6 +47,7 @@ interface ImpactScoreBreakdownDialogProps {
   weekRange?: ImpactWeekRange | null;
   title?: string;
   description?: string;
+  showCurrentWeekProjection?: boolean;
 }
 
 function safeGlwFromWei(wei?: string) {
@@ -262,7 +264,12 @@ function BreakdownRow({
 export function ImpactScoreBreakdownDialogContent(
   props: ImpactScoreBreakdownDialogContentProps
 ) {
-  const { impactScore, title = "Score Breakdown", description } = props;
+  const {
+    impactScore,
+    title = "Score Breakdown",
+    description,
+    showCurrentWeekProjection = true,
+  } = props;
 
   const { address } = useAccount();
   const { usdcBalance, usdgBalance } = useWalletTokenBalances(address);
@@ -283,7 +290,8 @@ export function ImpactScoreBreakdownDialogContent(
   const totalsPoints = impactScore?.totals?.totalPoints ?? undefined;
   const projection = impactScore?.currentWeekProjection ?? null;
   const projectedPoints = projection?.projectedPoints ?? null;
-  const hasProjection = Boolean(projection && projectedPoints);
+  const hasProjection =
+    showCurrentWeekProjection && Boolean(projection && projectedPoints);
   const projectedThisWeek = React.useMemo(() => {
     const totalProjectedScore = projectedPoints?.totalProjectedScore;
     const projectedPointsNumber = Number(totalProjectedScore ?? "0");
@@ -331,53 +339,71 @@ export function ImpactScoreBreakdownDialogContent(
     safePointsNumber(impactScore?.totals?.vaultBonusPoints) > 0;
   const hasGlowWorth = safeBigInt(displayedGlowWorthWei) > 0n;
 
-  const hasCashMinerBonus = hasProjection
-    ? Boolean(projection?.hasMinerMultiplier)
-    : Boolean(latestWeek?.hasCashMinerBonus);
-  const hasCashMinerBonusThisWeek = Boolean(projection?.hasMinerMultiplier);
-  const hasCashMinerBonusLastRollover = Boolean(latestWeek?.hasCashMinerBonus);
-  const cashMinerStatusLabel = hasCashMinerBonusThisWeek
-    ? "ACTIVE (this week)"
-    : hasCashMinerBonusLastRollover
-    ? "ACTIVE (last rollover)"
-    : "MISSING";
-  const isCashMinerActive =
-    hasCashMinerBonusThisWeek || hasCashMinerBonusLastRollover;
-  const impactStreakWeeksThisWeek = projection?.impactStreakWeeks ?? 0;
-  const streakBonusMultiplierThisWeek = projection?.streakBonusMultiplier ?? 0;
-  const baseMultiplierThisWeek =
-    projection?.baseMultiplier ?? (hasCashMinerBonusThisWeek ? 3 : 1);
-  const rolloverMultiplierThisWeek =
-    projection?.totalMultiplier ??
-    baseMultiplierThisWeek + streakBonusMultiplierThisWeek;
-
   const impactStreakWeeksLastRollover = latestWeek?.impactStreakWeeks ?? 0;
   const streakBonusMultiplierLastRollover =
     latestWeek?.streakBonusMultiplier ?? 0;
+  const hasCashMinerBonusLastRollover = Boolean(latestWeek?.hasCashMinerBonus);
   const baseMultiplierLastRollover =
     latestWeek?.baseMultiplier ?? (hasCashMinerBonusLastRollover ? 3 : 1);
   const rolloverMultiplierLastRollover =
     latestWeek?.rolloverMultiplier ??
     baseMultiplierLastRollover + streakBonusMultiplierLastRollover;
-
-  const hasStreakBonusThisWeek =
-    impactStreakWeeksThisWeek > 0 && streakBonusMultiplierThisWeek > 0;
   const hasStreakBonusLastRollover =
     impactStreakWeeksLastRollover > 0 && streakBonusMultiplierLastRollover > 0;
-  const streakStatusLabel = hasStreakBonusThisWeek
-    ? "ACTIVE (this week)"
+
+  const impactStreakWeeksThisWeek = hasProjection
+    ? projection?.impactStreakWeeks ?? 0
+    : 0;
+  const streakBonusMultiplierThisWeek = hasProjection
+    ? projection?.streakBonusMultiplier ?? 0
+    : 0;
+  const hasCashMinerBonusThisWeek = hasProjection
+    ? Boolean(projection?.hasMinerMultiplier)
+    : false;
+  const baseMultiplierThisWeek = hasProjection
+    ? projection?.baseMultiplier ?? (hasCashMinerBonusThisWeek ? 3 : 1)
+    : baseMultiplierLastRollover;
+  const rolloverMultiplierThisWeek = hasProjection
+    ? projection?.totalMultiplier ??
+      baseMultiplierThisWeek + streakBonusMultiplierThisWeek
+    : rolloverMultiplierLastRollover;
+  const hasStreakBonusThisWeek =
+    hasProjection &&
+    impactStreakWeeksThisWeek > 0 &&
+    streakBonusMultiplierThisWeek > 0;
+
+  const hasCashMinerBonus = hasProjection
+    ? hasCashMinerBonusThisWeek
+    : hasCashMinerBonusLastRollover;
+  const cashMinerStatusLabel = hasProjection
+    ? hasCashMinerBonusThisWeek
+      ? "ACTIVE (this week)"
+      : "MISSING"
+    : hasCashMinerBonusLastRollover
+    ? "ACTIVE (last rollover)"
+    : "MISSING";
+  const isCashMinerActive = hasProjection
+    ? hasCashMinerBonusThisWeek
+    : hasCashMinerBonusLastRollover;
+
+  const streakStatusLabel = hasProjection
+    ? hasStreakBonusThisWeek
+      ? "ACTIVE (this week)"
+      : "MISSING"
     : hasStreakBonusLastRollover
     ? "ACTIVE (last rollover)"
     : "MISSING";
-  const isStreakActive = hasStreakBonusThisWeek || hasStreakBonusLastRollover;
+  const isStreakActive = hasProjection
+    ? hasStreakBonusThisWeek
+    : hasStreakBonusLastRollover;
 
-  const displayedImpactStreakWeeks = hasStreakBonusThisWeek
+  const displayedImpactStreakWeeks = hasProjection
     ? impactStreakWeeksThisWeek
     : impactStreakWeeksLastRollover;
-  const displayedStreakBonusMultiplier = hasStreakBonusThisWeek
+  const displayedStreakBonusMultiplier = hasProjection
     ? streakBonusMultiplierThisWeek
     : streakBonusMultiplierLastRollover;
-  const displayedRolloverMultiplier = hasStreakBonusThisWeek
+  const displayedRolloverMultiplier = hasProjection
     ? rolloverMultiplierThisWeek
     : rolloverMultiplierLastRollover;
   const rolloverMultiplier = hasProjection
@@ -704,8 +730,15 @@ export function ImpactScoreBreakdownDialogContent(
 export function ImpactScoreBreakdownDialog(
   props: ImpactScoreBreakdownDialogProps
 ) {
-  const { open, onOpenChange, walletAddress, weekRange, title, description } =
-    props;
+  const {
+    open,
+    onOpenChange,
+    walletAddress,
+    weekRange,
+    title,
+    description,
+    showCurrentWeekProjection = true,
+  } = props;
 
   const query = useImpactScoreQuery({
     walletAddress,
@@ -764,6 +797,7 @@ export function ImpactScoreBreakdownDialog(
           impactScore={query.data}
           title={title}
           description={description}
+          showCurrentWeekProjection={showCurrentWeekProjection}
         />
       ) : null}
     </Dialog>
