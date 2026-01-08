@@ -156,7 +156,7 @@ export function SegmentedCircleProgress({
   userSteps,
   label,
   sublabel,
-  otherColor = "#C084FC", // Delegation Purple
+  otherColor = "var(--color-delegation-purple)", // Delegation Purple
   userColor = "#4ADE80", // GLW Green
   size = 200,
   strokeWidth = 12,

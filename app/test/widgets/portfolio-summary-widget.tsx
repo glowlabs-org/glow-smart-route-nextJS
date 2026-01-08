@@ -2,7 +2,8 @@
 
 import React from "react";
 import { useAccount } from "wagmi";
-import { Cpu, Zap, Layers, Info } from "lucide-react";
+import { Info } from "lucide-react";
+import { CashMinerIcon, VaultIcon } from "@/components/impact-icons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -79,6 +80,10 @@ export default function PortfolioSummaryWidget({
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [dialogFilter, setDialogFilter] = React.useState<FilterValue>("all");
 
+  const isDelegatedClickable = hasWallet && delegatedActiveGlw > 0;
+  const isMinersClickable = hasWallet && stats.activeMiners > 0;
+  const isDelegationsClickable = hasWallet && stats.activeDelegations > 0;
+
   const handleRowClick = (filter: FilterValue) => {
     if (!hasWallet) return;
     setDialogFilter(filter);
@@ -116,14 +121,16 @@ export default function PortfolioSummaryWidget({
         {/* Row 1: Actively Delegated */}
         <div
           className={cn(
-            "flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50 hover:bg-muted/60 transition-colors",
-            hasWallet && "cursor-pointer active:scale-[0.98]"
+            "flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50 transition-colors",
+            isDelegatedClickable
+              ? "hover:bg-muted/60 cursor-pointer active:scale-[0.98]"
+              : "opacity-50"
           )}
-          onClick={() => handleRowClick("delegations")}
+          onClick={() => isDelegatedClickable && handleRowClick("delegations")}
         >
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[#C084FC]/10 text-[#C084FC] border border-[#C084FC]/20">
-              <Layers className="w-5 h-5" />
+            <div className="p-2 rounded-xl bg-delegation-purple/10 text-delegation-purple border border-delegation-purple/20">
+              <VaultIcon className="w-6 h-6" />
             </div>
             <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
@@ -159,14 +166,16 @@ export default function PortfolioSummaryWidget({
         {/* Row 2: Active Miners */}
         <div
           className={cn(
-            "flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50 hover:bg-muted/60 transition-colors",
-            hasWallet && "cursor-pointer active:scale-[0.98]"
+            "flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50 transition-colors",
+            isMinersClickable
+              ? "hover:bg-muted/60 cursor-pointer active:scale-[0.98]"
+              : "opacity-50"
           )}
-          onClick={() => handleRowClick("miners")}
+          onClick={() => isMinersClickable && handleRowClick("miners")}
         >
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[color:var(--color-miner-yellow)]/10 text-[color:var(--color-miner-yellow)] border border-[color:var(--color-miner-yellow)]/20">
-              <Cpu className="w-5 h-5" />
+            <div className="p-2 rounded-xl bg-[color:var(--color-miner-yellow)]/10 text-[color:var(--color-miner-yellow)] border border-[color:var(--color-miner-yellow)]/20">
+              <CashMinerIcon className="w-6 h-6" />
             </div>
             <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
@@ -182,13 +191,17 @@ export default function PortfolioSummaryWidget({
         {/* Row 3: Active Delegations */}
         <div
           className={cn(
-            "flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50 hover:bg-muted/60 transition-colors",
-            hasWallet && "cursor-pointer active:scale-[0.98]"
+            "flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50 transition-colors",
+            isDelegationsClickable
+              ? "hover:bg-muted/60 cursor-pointer active:scale-[0.98]"
+              : "opacity-50"
           )}
-          onClick={() => handleRowClick("delegations")}
+          onClick={() =>
+            isDelegationsClickable && handleRowClick("delegations")
+          }
         >
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[#C084FC]/10 text-[#C084FC] border border-[#C084FC]/20">
+            <div className="p-2 rounded-xl bg-delegation-purple/10 text-delegation-purple border border-delegation-purple/20">
               <GlowSymbol className="w-5 h-5" />
             </div>
             <div className="flex flex-col">

@@ -29,7 +29,7 @@ import { useAccount } from "wagmi";
 type WeekStatus = "missed" | "delegated" | "miner" | "both";
 
 function getWeekStyle(status: WeekStatus) {
-  if (status === "delegated") return "bg-[#C084FC]/25";
+  if (status === "delegated") return "bg-delegation-purple/25";
   if (status === "miner") return "bg-[color:var(--color-miner-yellow)]/25";
   if (status === "both") return "bg-[#4ADE80]/25";
   return "bg-muted";
@@ -48,12 +48,27 @@ interface WeekCell {
   status: WeekStatus;
   weekStart: Date;
   rangeLabel: string;
+  delegationAmount: number;
+  minerAmount: number;
 }
 
 function groupDelegationsByWeek(splits: SplitActivity[]) {
   const map = new Map<number, number>();
   splits
     .filter((split) => split.fractionType === "launchpad")
+    .forEach((split) => {
+      const amount = getGlwFromWei(split.amount);
+      if (amount <= 0) return;
+      const weekNumber = getWeekNumberFromTimestamp(split.timestamp);
+      map.set(weekNumber, (map.get(weekNumber) ?? 0) + amount);
+    });
+  return map;
+}
+
+function groupMinerPurchasesByWeek(splits: SplitActivity[]) {
+  const map = new Map<number, number>();
+  splits
+    .filter((split) => split.fractionType === "mining-center")
     .forEach((split) => {
       const amount = getGlwFromWei(split.amount);
       if (amount <= 0) return;
@@ -146,7 +161,7 @@ function WeeklyActivitySkeleton() {
         <div className="flex flex-col flex-1 min-h-0 gap-4">
           <div className="flex flex-col items-center justify-center text-center select-none">
             <Skeleton className="h-12 w-20 rounded-xl" />
-            <Skeleton className="mt-2 h-3 w-32 rounded-md" />
+            <Skeleton className="mt-2 h-3 w-32 rounded-xl" />
           </div>
           <div className="flex flex-1 min-h-0 items-center justify-center">
             <Skeleton className="h-[128px] w-full rounded-xl" />
@@ -203,14 +218,14 @@ export default function WeeklyActivityWidget({
     return groupDelegationsByWeek(splitsActivity);
   }, [splitsActivity]);
 
-  const minerWeeks = React.useMemo(() => {
-    const set = new Set<number>();
-    splitsActivity.forEach((split) => {
-      if (split.fractionType !== "mining-center") return;
-      set.add(getWeekNumberFromTimestamp(split.timestamp));
-    });
-    return set;
+  const minerPurchases = React.useMemo(() => {
+    if (!splitsActivity.length) return new Map<number, number>();
+    return groupMinerPurchasesByWeek(splitsActivity);
   }, [splitsActivity]);
+
+  const minerWeeks = React.useMemo(() => {
+    return new Set(minerPurchases.keys());
+  }, [minerPurchases]);
 
   const weeklyDelegations = React.useMemo(() => {
     return splitDelegations.size > 0 ? splitDelegations : rewardsDelegations;
@@ -267,8 +282,10 @@ export default function WeeklyActivityWidget({
     const cells: WeekCell[] = [];
     for (let week = startWeek; week <= endWeek; week++) {
       const weekStart = new Date(weekToTimestamp(week));
-      const hasDelegation = (weeklyDelegations.get(week) ?? 0) > 0;
-      const hasMinerPurchase = minerWeeks.has(week);
+      const delegationAmount = weeklyDelegations.get(week) ?? 0;
+      const minerAmount = minerPurchases.get(week) ?? 0;
+      const hasDelegation = delegationAmount > 0;
+      const hasMinerPurchase = minerAmount > 0;
       const status = getWeekStatus({ hasDelegation, hasMinerPurchase });
 
       cells.push({
@@ -277,15 +294,52 @@ export default function WeeklyActivityWidget({
         status,
         weekStart,
         rangeLabel: formatWeekRange(weekStart),
+        delegationAmount,
+        minerAmount,
       });
     }
 
     return cells;
-  }, [hasWallet, minerWeeks, weekRange, weeklyDelegations]);
+  }, [hasWallet, minerPurchases, minerWeeks, weekRange, weeklyDelegations]);
 
   const activeWeeks = React.useMemo(
     () => weekCells.filter((w) => w.status !== "missed").length,
     [weekCells]
+  );
+
+  const maxAmounts = React.useMemo(() => {
+    const maxDelegation = Math.max(
+      ...weekCells.map((w) => w.delegationAmount),
+      0
+    );
+    const maxMiner = Math.max(...weekCells.map((w) => w.minerAmount), 0);
+    return { maxDelegation, maxMiner };
+  }, [weekCells]);
+
+  const getWeekOpacity = React.useCallback(
+    (cell: WeekCell) => {
+      const { status, delegationAmount, minerAmount } = cell;
+      if (status === "missed") return 0.15;
+
+      const delegationRatio =
+        maxAmounts.maxDelegation > 0
+          ? delegationAmount / maxAmounts.maxDelegation
+          : 0;
+      const minerRatio =
+        maxAmounts.maxMiner > 0 ? minerAmount / maxAmounts.maxMiner : 0;
+
+      if (status === "both") {
+        return Math.max(delegationRatio, minerRatio) * 0.8 + 0.2;
+      }
+      if (status === "delegated") {
+        return delegationRatio * 0.8 + 0.2;
+      }
+      if (status === "miner") {
+        return minerRatio * 0.8 + 0.2;
+      }
+      return 0.25;
+    },
+    [maxAmounts]
   );
 
   const streakWeeks = React.useMemo(() => {
@@ -309,21 +363,6 @@ export default function WeeklyActivityWidget({
 
     return streak;
   }, [currentWeek, weekCells, weekRange]);
-
-  const statusCounts = React.useMemo(() => {
-    let miner = 0;
-    let delegated = 0;
-    let both = 0;
-    let missed = 0;
-    weekCells.forEach((cell) => {
-      if (cell.status === "miner") miner++;
-      else if (cell.status === "delegated") delegated++;
-      else if (cell.status === "both") both++;
-      else missed++;
-    });
-    return { miner, delegated, both, missed };
-  }, [weekCells]);
-
   const isLoading = hasWallet && (isRewardsLoading || isSplitsLoading);
   const isError = hasWallet && (isRewardsError || isSplitsError);
 
@@ -338,14 +377,16 @@ export default function WeeklyActivityWidget({
   if (!hasWallet && isWalletConnecting) return <WeeklyActivitySkeleton />;
 
   return (
-    <Card className={cn(
-      "overflow-hidden w-full",
-      isMinimal
-        ? "bg-transparent border-transparent h-full"
-        : isFlow
-        ? "bg-card/30 border-foreground/5 min-h-[380px]"
-        : "h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
-    )}>
+    <Card
+      className={cn(
+        "overflow-hidden w-full",
+        isMinimal
+          ? "bg-transparent border-transparent h-full"
+          : isFlow
+          ? "bg-card/30 border-foreground/5 min-h-[380px]"
+          : "h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+      )}
+    >
       <CardHeader className="pb-0">
         <CardTitle className="text-center">Weekly Streak</CardTitle>
       </CardHeader>
@@ -374,7 +415,7 @@ export default function WeeklyActivityWidget({
                     <div
                       key={`placeholder-${idx}`}
                       className={cn(
-                        "h-7 w-7 sm:h-8 sm:w-8 rounded-[6px] border border-border/60",
+                        "h-7 w-7 sm:h-8 sm:w-8 rounded-xl border border-border/60",
                         getWeekStyle(status)
                       )}
                     />
@@ -395,7 +436,7 @@ export default function WeeklyActivityWidget({
             <div className="flex flex-col flex-1 min-h-0 gap-4">
               <div className="flex flex-col items-center justify-center text-center select-none">
                 <Skeleton className="h-12 w-20 rounded-xl" />
-                <Skeleton className="mt-2 h-3 w-32 rounded-md" />
+                <Skeleton className="mt-2 h-3 w-32 rounded-xl" />
               </div>
               <div className="flex flex-1 min-h-0 items-center justify-center">
                 <Skeleton className="h-[128px] w-full rounded-xl" />
@@ -442,17 +483,31 @@ export default function WeeklyActivityWidget({
                   >
                     {weekCells.map((cell) => {
                       const isCurrentWeek = cell.week === currentWeek;
+                      const opacity = getWeekOpacity(cell);
+                      const baseColor =
+                        cell.status === "delegated"
+                          ? "var(--color-delegation-purple)"
+                          : cell.status === "miner"
+                          ? "var(--color-miner-yellow)"
+                          : cell.status === "both"
+                          ? "#4ADE80"
+                          : "hsl(var(--muted))";
+
                       return (
                         <Tooltip key={cell.id}>
                           <TooltipTrigger asChild>
                             <div
                               className={cn(
-                                "h-7 w-7 sm:h-8 sm:w-8 rounded-[6px] border border-border/60",
+                                "h-7 w-7 sm:h-8 sm:w-8 rounded-xl border border-border/60",
                                 "outline-none focus-visible:ring-2 focus-visible:ring-foreground/10 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                                 "hover:ring-2 hover:ring-foreground/10 hover:ring-offset-2 hover:ring-offset-background",
-                                isCurrentWeek && "ring-1 ring-foreground/10",
-                                getWeekStyle(cell.status)
+                                isCurrentWeek && "ring-1 ring-foreground/10"
                               )}
+                              style={{
+                                backgroundColor: `color-mix(in srgb, ${baseColor} ${
+                                  opacity * 100
+                                }%, transparent)`,
+                              }}
                             />
                           </TooltipTrigger>
                           <TooltipContent
@@ -471,6 +526,44 @@ export default function WeeklyActivityWidget({
                                 currentWeek,
                               })}
                             </div>
+                            {cell.status !== "missed" && (
+                              <div className="mt-2 space-y-1 pt-2 border-t border-border/50">
+                                {cell.delegationAmount > 0 && (
+                                  <div className="flex items-center justify-between gap-3 text-xs">
+                                    <span className="text-muted-foreground">
+                                      Delegated
+                                    </span>
+                                    <span className="font-mono font-semibold tabular-nums text-delegation-purple">
+                                      {cell.delegationAmount.toLocaleString(
+                                        undefined,
+                                        {
+                                          minimumFractionDigits: 0,
+                                          maximumFractionDigits: 2,
+                                        }
+                                      )}{" "}
+                                      GLW
+                                    </span>
+                                  </div>
+                                )}
+                                {cell.minerAmount > 0 && (
+                                  <div className="flex items-center justify-between gap-3 text-xs">
+                                    <span className="text-muted-foreground">
+                                      Miner
+                                    </span>
+                                    <span className="font-mono font-semibold tabular-nums text-miner-yellow">
+                                      {cell.minerAmount.toLocaleString(
+                                        undefined,
+                                        {
+                                          minimumFractionDigits: 0,
+                                          maximumFractionDigits: 2,
+                                        }
+                                      )}{" "}
+                                      GLW
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </TooltipContent>
                         </Tooltip>
                       );
@@ -485,7 +578,7 @@ export default function WeeklyActivityWidget({
                       <div
                         key={`filler-${idx}`}
                         aria-hidden
-                        className="h-7 w-7 sm:h-8 sm:w-8 rounded-[6px] border border-border/60 bg-muted/40"
+                        className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl border border-border/60 bg-muted/40"
                       />
                     ))}
                   </div>
@@ -501,7 +594,7 @@ export default function WeeklyActivityWidget({
                         <span>Miner</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full bg-[#C084FC] opacity-80 border border-border/40" />
+                        <span className="h-2 w-2 rounded-full bg-delegation-purple opacity-80 border border-border/40" />
                         <span>Delegator</span>
                       </div>
                       <div className="flex items-center gap-1.5">

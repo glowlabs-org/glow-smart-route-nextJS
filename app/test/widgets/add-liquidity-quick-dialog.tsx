@@ -255,7 +255,7 @@ export function AddLiquidityQuickDialog({
         open={open && !reviewOpen && !removeOpen}
         onOpenChange={handleOuterOpenChange}
       >
-        <DialogContent className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden">
+        <DialogContent className="bg-background backdrop-blur-sm rounded-2xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden">
           <DialogHeader className="p-6 pb-3">
             <DialogTitle className="flex items-center gap-2">
               <Droplets className="h-5 w-5 text-muted-foreground" />
@@ -287,7 +287,7 @@ export function AddLiquidityQuickDialog({
 
             <TabsContent value="add" className="mt-3 space-y-4">
               {/* GLW input card */}
-              <div className="group relative bg-muted/30 rounded-3xl p-4 border border-border hover:border-border/60 transition-all duration-300">
+              <div className="group relative bg-muted/30 rounded-2xl p-4 border border-border hover:border-border/60 transition-all duration-300">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-medium text-muted-foreground">
                     Input
@@ -333,7 +333,7 @@ export function AddLiquidityQuickDialog({
               </div>
 
               {/* USDG input card */}
-              <div className="group relative bg-muted/30 rounded-3xl p-4 border border-border hover:border-border/60 transition-all duration-300">
+              <div className="group relative bg-muted/30 rounded-2xl p-4 border border-border hover:border-border/60 transition-all duration-300">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-medium text-muted-foreground">
                     Input
@@ -394,7 +394,7 @@ export function AddLiquidityQuickDialog({
                     </div>
                     <Link
                       href="/"
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
                       onClick={() => {
                         trackEvent("dashboard_add_liquidity_go_to_swap_click", {
                           source,

@@ -66,7 +66,7 @@ export function SwapDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm p-0 overflow-hidden bg-background rounded-3xl border-border shadow-2xl">
+      <DialogContent className="sm:max-w-sm p-0 overflow-hidden bg-background rounded-2xl border-border shadow-2xl">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle>Swap Tokens</DialogTitle>
         </DialogHeader>

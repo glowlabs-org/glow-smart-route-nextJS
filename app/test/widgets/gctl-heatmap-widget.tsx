@@ -101,12 +101,12 @@ function GctlHeatmapSkeleton() {
         <div className="flex flex-col flex-1 min-h-0 gap-3">
           <div className="flex items-start justify-between gap-4 shrink-0">
             <div className="flex flex-col gap-2">
-              <Skeleton className="h-3 w-24 rounded-md" />
+              <Skeleton className="h-3 w-24 rounded-xl" />
               <Skeleton className="h-8 w-40 rounded-xl" />
             </div>
             <div className="flex flex-col items-end gap-2">
-              <Skeleton className="h-3 w-28 rounded-md" />
-              <Skeleton className="h-3 w-28 rounded-md" />
+              <Skeleton className="h-3 w-28 rounded-xl" />
+              <Skeleton className="h-3 w-28 rounded-xl" />
             </div>
           </div>
 
@@ -392,7 +392,7 @@ export default function GctlHeatmapWidget({
               className="group block bg-muted/20 rounded-xl p-3.5 border border-border/50 hover:bg-muted/30 hover:border-cyan-500/50 transition-all text-left"
             >
               <div className="flex gap-3 flex-col items-center text-center sm:flex-row sm:items-start sm:text-left">
-                <div className="shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-background/50 border border-border/60">
+                <div className="shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-background/50 border border-border/60">
                   <Droplets className="h-4 w-4 text-cyan-400" />
                 </div>
                 <div className="space-y-0.5">
@@ -632,7 +632,7 @@ export default function GctlHeatmapWidget({
                           className="inline-flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground"
                         >
                           <span
-                            className="h-2 w-2 rounded-sm"
+                            className="h-2 w-2 rounded-xl"
                             style={
                               { backgroundColor: dot } as React.CSSProperties
                             }

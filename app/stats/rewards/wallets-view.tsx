@@ -507,8 +507,6 @@ interface WalletsViewProps {
   walletCountByEpoch?: Record<number, number>;
   totalContributors?: number;
   glwHolderCount?: number;
-  weeklyRewardsMetric?: number;
-  weeklyRewardsMetricLoading?: boolean;
   circulatingSupply?: number;
 }
 
@@ -520,8 +518,6 @@ export function WalletsView({
   walletCountByEpoch,
   totalContributors,
   glwHolderCount,
-  weeklyRewardsMetric,
-  weeklyRewardsMetricLoading,
   circulatingSupply = 0,
 }: WalletsViewProps) {
   const defaultSortBy: SortField =
@@ -768,7 +764,8 @@ export function WalletsView({
 
   const rewardsLabel =
     type === "delegator" ? "Delegator Rewards" : "Miner Rewards";
-  const capitalLabel = type === "delegator" ? "GLW Delegated" : "USDC Spent";
+  const capitalLabel =
+    type === "delegator" ? "GLW Actively Delegated" : "USDC Spent";
 
   const analytics = React.useMemo(() => {
     if (!wallets.length) {
@@ -929,6 +926,59 @@ export function WalletsView({
       ? Math.min(wallets.length / summary.totalWallets, 1)
       : null;
 
+    // Calculate weekly rewards metric from wallet data
+    const weeklyRewardsMetric = (() => {
+      if (type === "delegator") {
+        // GLW per Week per 100 GLW Delegated (using activelyDelegatedGlwWei)
+        const hasLeaderboardData = wallets.some((w) =>
+          Boolean(w.glwPerWeekWei)
+        );
+        if (!hasLeaderboardData) return undefined;
+
+        let totalGlwPerWeekWei = BigInt(0);
+        let totalActiveDelegatedWei = BigInt(0);
+
+        for (const wallet of wallets) {
+          totalGlwPerWeekWei += BigInt(wallet.glwPerWeekWei || "0");
+          totalActiveDelegatedWei += BigInt(wallet.glwDelegated || "0");
+        }
+
+        if (totalActiveDelegatedWei === BigInt(0)) return 0;
+
+        return (
+          (Number(totalGlwPerWeekWei) / Number(totalActiveDelegatedWei)) * 100
+        );
+      } else {
+        // GLW per Week per $100 USDC spent on miners
+        if (wallets.length === 0 || !weekRange) return undefined;
+
+        const totalRewardsLastWeekRaw = wallets.reduce((sum, wallet) => {
+          // For miners, we need last week's rewards
+          // This is approximated from the average if we don't have week-specific data
+          const totalRewards = BigInt(wallet.minerRewardsEarned || "0");
+          const weeksPassed = weekRange.endWeek - weekRange.startWeek + 1;
+          const lastWeekApprox =
+            totalRewards / BigInt(Math.max(weeksPassed, 1));
+          return sum + lastWeekApprox;
+        }, BigInt(0));
+
+        const totalUsdcSpent = wallets.reduce((sum, wallet) => {
+          return sum + BigInt(wallet.usdcSpentOnMiners || "0");
+        }, BigInt(0));
+
+        if (totalUsdcSpent === BigInt(0)) return 0;
+
+        // Convert: (GLW wei / USDC with 6 decimals) * 100
+        // Result should be GLW per $100
+        return (
+          (Number(totalRewardsLastWeekRaw) /
+            1e18 /
+            (Number(totalUsdcSpent) / 1e6)) *
+          100
+        );
+      }
+    })();
+
     return {
       walletCount: wallets.length,
       newWalletCount: newWallets.length,
@@ -948,6 +998,7 @@ export function WalletsView({
       top3WalletsByRewards,
       topWalletByScore,
       newWallets: newWalletHighlights,
+      weeklyRewardsMetric,
     };
   }, [wallets, type, summary?.totalWallets, glwSpotPrice, weekRange]);
 
@@ -981,26 +1032,11 @@ export function WalletsView({
 
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          title={`${type === "delegator" ? "Delegators" : "Miners"}`}
-          value={
-            glwHolderCount && glwHolderCount > 0 && totalContributors
-              ? `${((totalContributors / glwHolderCount) * 100).toFixed(1)}%`
-              : (totalContributors ?? analytics.walletCount).toLocaleString()
-          }
-          icon={<Users className="h-5 w-5" />}
-        >
-          <p>
-            {glwHolderCount && glwHolderCount > 0 && totalContributors
-              ? `of total GLW holders`
-              : newWalletsLastWeek !== null
-              ? `+${newWalletsLastWeek.toLocaleString()} new wallets last week`
-              : !totalContributors && analytics.newWalletCount > 0
-              ? `${analytics.newWalletCount.toLocaleString()} new this range`
-              : `Showing top ${analytics.walletCount.toLocaleString()}`}
-          </p>
-        </MetricCard>
+      <div
+        className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${
+          type === "delegator" ? "lg:grid-cols-3" : "lg:grid-cols-4"
+        }`}
+      >
         <MetricCard
           title={
             type === "delegator"
@@ -1018,22 +1054,22 @@ export function WalletsView({
             <p>Avg per wallet: {analytics.averageRewardDisplay} GLW</p>
           )}
         </MetricCard>
-        {type === "delegator" && (
-          <MetricCard
-            title={capitalLabel}
-            value={`${formatGLW(networkTotalGlwDelegated || "0")} GLW`}
-            icon={<Zap className="h-5 w-5" />}
-          >
-            <p>
-              {" "}
-              Last week: {formatGLW(
-                lastWeekNetworkTotalGlwDelegated || "0"
-              )}{" "}
-              GLW
-            </p>
-          </MetricCard>
-        )}
-        {weeklyRewardsMetric !== undefined && (
+        <MetricCard
+          title={capitalLabel}
+          value={
+            type === "delegator"
+              ? `${analytics.totalCapitalDisplay} GLW`
+              : `$${analytics.totalCapitalDisplay}`
+          }
+          icon={<Zap className="h-5 w-5" />}
+        >
+          {type === "delegator" ? (
+            <p>Current vault ownership across all wallets</p>
+          ) : (
+            <p>New capital: ${analytics.newCapitalDisplay || "0.00"}</p>
+          )}
+        </MetricCard>
+        {analytics.weeklyRewardsMetric !== undefined && (
           <MetricCard
             title={
               type === "delegator"
@@ -1041,11 +1077,9 @@ export function WalletsView({
                 : "GLW per Week per $100 Miner"
             }
             value={
-              weeklyRewardsMetricLoading
-                ? "..."
-                : weeklyRewardsMetric.toLocaleString("en-US", {
-                    maximumFractionDigits: 2,
-                  }) + " GLW"
+              analytics.weeklyRewardsMetric.toLocaleString("en-US", {
+                maximumFractionDigits: 2,
+              }) + " GLW"
             }
             icon={
               type === "delegator" ? (
@@ -1057,7 +1091,28 @@ export function WalletsView({
           >
             <p>
               Average weekly rewards on{" "}
-              {type === "delegator" ? "delegation" : "miners"}
+              {type === "delegator" ? "active delegations" : "miners"}
+            </p>
+          </MetricCard>
+        )}
+        {type === "miner" && (
+          <MetricCard
+            title="Miners"
+            value={
+              glwHolderCount && glwHolderCount > 0 && totalContributors
+                ? `${((totalContributors / glwHolderCount) * 100).toFixed(1)}%`
+                : (totalContributors ?? analytics.walletCount).toLocaleString()
+            }
+            icon={<Users className="h-5 w-5" />}
+          >
+            <p>
+              {glwHolderCount && glwHolderCount > 0 && totalContributors
+                ? `of total GLW holders`
+                : newWalletsLastWeek !== null
+                ? `+${newWalletsLastWeek.toLocaleString()} new wallets last week`
+                : !totalContributors && analytics.newWalletCount > 0
+                ? `${analytics.newWalletCount.toLocaleString()} new this range`
+                : `Showing top ${analytics.walletCount.toLocaleString()}`}
             </p>
           </MetricCard>
         )}

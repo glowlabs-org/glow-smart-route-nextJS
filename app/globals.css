@@ -58,6 +58,7 @@
   --color-glow-yellow: #f7fcc4;
   --color-glow-green: #ccffd4;
   --color-glow-purple: #dcc4ff;
+  --color-delegation-purple: var(--delegation-purple);
 
   /* Animation keyframes and utilities */
   --animate-spin: spin 1s linear infinite;
@@ -269,7 +270,8 @@
   --color-glow-orange: #ffb472;
   --color-glow-yellow: #f7fcc4;
   --color-glow-green: #ccffd4;
-  --color-glow-purple: #dcc4ff;
+  --color-glow-purple: #d792ff;
+  --delegation-purple: #a855f7;
 
   /* Semantic: Protocol role colors */
   --color-miner-yellow: #d9f368;
@@ -353,7 +355,8 @@
   --color-glow-orange: #ffb472;
   --color-glow-yellow: #f7fcc4;
   --color-glow-green: #ccffd4;
-  --color-glow-purple: #dcc4ff;
+  --color-glow-purple: #d792ff;
+  --delegation-purple: #d792ff;
 
   /* Semantic: Protocol role colors */
   --color-miner-yellow: #d9f368;

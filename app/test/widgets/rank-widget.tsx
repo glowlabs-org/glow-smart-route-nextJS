@@ -314,7 +314,7 @@ function RankWidgetSkeleton({
       <CardContent className={cn("flex flex-col flex-1 min-h-0 gap-3", "py-0")}>
         <div className="flex flex-col gap-3">
           <div className="flex flex-1 min-h-0 flex-col items-center justify-center text-center px-1">
-            <Skeleton className="h-4 w-24 rounded-md" />
+            <Skeleton className="h-4 w-24 rounded-xl" />
             <Skeleton
               className={cn(
                 "mt-2 rounded-xl",
@@ -324,15 +324,15 @@ function RankWidgetSkeleton({
 
             <div className="mt-2 flex items-center justify-center gap-3">
               <div className="flex items-center gap-2">
-                <Skeleton className="h-3 w-12 rounded-md" />
-                <Skeleton className="h-3 w-16 rounded-md" />
+                <Skeleton className="h-3 w-12 rounded-xl" />
+                <Skeleton className="h-3 w-16 rounded-xl" />
               </div>
               <div
                 className={cn("w-px bg-border/60", isHero ? "h-4" : "h-3")}
               />
               <div className="flex items-center gap-2">
-                <Skeleton className="h-3 w-20 rounded-md" />
-                <Skeleton className="h-3 w-16 rounded-md" />
+                <Skeleton className="h-3 w-20 rounded-xl" />
+                <Skeleton className="h-3 w-16 rounded-xl" />
               </div>
             </div>
           </div>
@@ -353,8 +353,8 @@ function RankWidgetSkeleton({
 
           {/* Buttons skeleton */}
           <div className="grid gap-2 grid-cols-2">
-            <Skeleton className={cn("rounded-lg", isHero ? "h-10" : "h-12")} />
-            <Skeleton className={cn("rounded-lg", isHero ? "h-10" : "h-12")} />
+            <Skeleton className={cn("rounded-xl", isHero ? "h-10" : "h-12")} />
+            <Skeleton className={cn("rounded-xl", isHero ? "h-10" : "h-12")} />
           </div>
         </div>
       </CardContent>
@@ -650,7 +650,7 @@ export function RankWidget({
               {impactScore ? (
                 <div
                   className={cn(
-                    "rounded-xl border border-border bg-card",
+                    "rounded-xl border border-border bg-card w-fit mx-auto",
                     isHero ? "p-2 mb-2" : "p-3"
                   )}
                 >

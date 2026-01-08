@@ -1009,7 +1009,7 @@ export function BuyGlowDialog({
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden"
+        className="bg-background backdrop-blur-sm rounded-2xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden"
         onInteractOutside={(e) => phase === "processing" && e.preventDefault()}
       >
         <DialogHeader className="sr-only">
@@ -1339,7 +1339,7 @@ export function BuyGlowDialog({
                         }
                         variants={waitingToSuccessVariants}
                       >
-                        <div className="bg-background/80 backdrop-blur-sm rounded-lg p-2 flex items-center justify-center h-8 w-8 shrink-0 border border-border/50">
+                        <div className="bg-background/80 backdrop-blur-sm rounded-xl p-2 flex items-center justify-center h-8 w-8 shrink-0 border border-border/50">
                           {state.validated && !state.pending ? (
                             <Check className="w-4 h-4 text-green-600" />
                           ) : state.pending ? (

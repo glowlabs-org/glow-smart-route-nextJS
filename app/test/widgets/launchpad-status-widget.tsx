@@ -312,7 +312,7 @@ export default function LaunchpadStatusWidget({
                       <TabsTrigger
                         value="delegations"
                         className={cn(
-                          "rounded-full data-[state=active]:bg-[#C084FC]/15 data-[state=active]:text-foreground",
+                          "rounded-full data-[state=active]:bg-delegation-purple/15 data-[state=active]:text-foreground",
                           isFullRow
                             ? "px-2 h-5 text-[10px]"
                             : "px-3 h-7 text-xs"

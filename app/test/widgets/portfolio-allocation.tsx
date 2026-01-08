@@ -25,7 +25,7 @@ import { trackEvent } from "@/lib/telemetry";
 
 const TOKEN_COLORS: Record<PortfolioTokenSymbol, string> = {
   GLW: "#4ADE80",
-  ETH: "#C084FC",
+  ETH: "var(--color-delegation-purple)",
   USDC: "#60A5FA",
   USDG: "#F59E0B",
 };
@@ -43,7 +43,7 @@ function AllocationSkeleton() {
     <Card className="h-full overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
       <CardHeader className="pb-0">
         <div className="flex items-center justify-center">
-          <Skeleton className="h-6 w-36 rounded-md" />
+          <Skeleton className="h-6 w-36 rounded-xl" />
         </div>
       </CardHeader>
       <CardContent className="flex flex-col flex-1 min-h-0 p-4">
@@ -60,9 +60,9 @@ function AllocationSkeleton() {
                 >
                   <div className="flex items-center gap-2">
                     <Skeleton className="h-4 w-2 rounded-full" />
-                    <Skeleton className="h-4 w-14 rounded-md" />
+                    <Skeleton className="h-4 w-14 rounded-xl" />
                   </div>
-                  <Skeleton className="h-4 w-14 rounded-md" />
+                  <Skeleton className="h-4 w-14 rounded-xl" />
                 </div>
               ))}
             </div>

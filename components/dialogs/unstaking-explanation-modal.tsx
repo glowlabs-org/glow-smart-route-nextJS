@@ -18,7 +18,7 @@ export function UnstakingExplanationModal({
 }: UnstakingExplanationModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-md w-full border-border overflow-hidden flex flex-col gap-0 max-h-[calc(100dvh-2rem)]">
+      <DialogContent className="bg-background backdrop-blur-sm rounded-2xl p-0 sm:max-w-md w-full border-border overflow-hidden flex flex-col gap-0 max-h-[calc(100dvh-2rem)]">
         <DialogHeader className="px-5 py-4 border-b border-border/60">
           <DialogTitle className="text-lg font-semibold">
             Understanding GCTL Unstaking

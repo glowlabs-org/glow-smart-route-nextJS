@@ -182,7 +182,7 @@ export default function WalletWidget({
             return (
               <div
                 key={row.symbol}
-                className="flex items-center justify-between gap-3 group cursor-default py-1.5 px-2 rounded-lg hover:bg-muted/20 transition-colors"
+                className="flex items-center justify-between gap-3 group cursor-default py-1.5 px-2 rounded-xl hover:bg-muted/20 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <HoldingIcon symbol={row.symbol} />

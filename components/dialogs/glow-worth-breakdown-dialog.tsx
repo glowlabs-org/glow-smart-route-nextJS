@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Coins, Lock, Wallet } from "lucide-react";
+import { GlwWorthIcon, VaultIcon, EmissionsIcon } from "@/components/impact-icons";
 
 import {
   Dialog,
@@ -45,9 +45,9 @@ function getToneClasses(tone: BreakdownTone) {
   if (tone === "purple")
     return {
       row: "border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10",
-      iconWrap: "bg-[#C084FC]/10 border-[#C084FC]/20 text-[#C084FC]",
-      label: "text-[#C084FC]",
-      value: "text-[#C084FC]",
+      iconWrap: "bg-delegation-purple/10 border-delegation-purple/20 text-delegation-purple",
+      label: "text-delegation-purple",
+      value: "text-delegation-purple",
     } as const;
   return {
     row: "border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10",
@@ -127,7 +127,7 @@ export function GlowWorthBreakdownDialog(props: GlowWorthBreakdownDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-3xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
+      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
         <div className="px-6 pr-14 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
           <DialogHeader>
             <div className="flex items-start justify-between gap-6">
@@ -157,23 +157,23 @@ export function GlowWorthBreakdownDialog(props: GlowWorthBreakdownDialogProps) {
           <div className="p-6 space-y-8">
             <div className="space-y-2">
               <BreakdownRow
-                icon={Wallet}
+                icon={GlwWorthIcon}
                 label="GLW in your wallet"
                 sublabel="Updates right away when you receive or swap GLW"
                 value={formatGlw(safeBreakdown.liquidGlw)}
                 tone="emerald"
               />
               <BreakdownRow
-                icon={Lock}
+                icon={VaultIcon}
                 label="GLW from delegations"
                 sublabel="Shows up once delegations are active in the weekly accounting"
                 value={formatGlw(safeBreakdown.delegatedActiveGlw)}
                 tone="purple"
               />
               <BreakdownRow
-                icon={Coins}
+                icon={EmissionsIcon}
                 label="Unclaimed rewards"
-                sublabel="Rewards you’ve earned but haven’t claimed yet"
+                sublabel="Rewards you've earned but haven't claimed yet"
                 value={formatGlw(safeBreakdown.unclaimedGlwRewards)}
                 tone="cyan"
               />

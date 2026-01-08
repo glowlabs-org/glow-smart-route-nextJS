@@ -67,30 +67,30 @@ function DashboardConnectingSkeleton() {
   return (
     <div className="grid grid-cols-12 gap-4 grid-flow-row-dense">
       <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[330px]">
-        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
       </div>
       <div className="col-span-12 lg:col-span-4 min-h-0 lg:h-[330px]">
-        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
       </div>
       <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[330px]">
-        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
       </div>
 
       <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]">
-        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
       </div>
       <div className="col-span-12 lg:col-span-4 min-h-0 lg:h-[380px]">
-        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
       </div>
       <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[380px]">
-        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
       </div>
 
       <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]">
-        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
       </div>
       <div className="col-span-12 lg:col-span-7 min-h-0 lg:h-[380px]">
-        <Skeleton className="h-full w-full rounded-3xl bg-card dark:bg-muted/30" />
+        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
       </div>
     </div>
   );
@@ -245,23 +245,26 @@ export default function GlowSoftDashboard({
               </section>
 
               {/* Mining & Rewards Section */}
-              <section className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch">
-                  <div
-                    id="bento-solar-farm"
-                    className="pb-6 lg:pb-0 lg:pr-8 lg:col-span-2 flex min-h-[320px]"
-                  >
-                    <SolarFarmWidget
-                      walletAddress={walletAddress ?? undefined}
-                      variant="minimal"
-                    />
-                  </div>
-                  <div className="pt-6 lg:pt-0 lg:pl-8 flex">
-                    <RewardsWidget
-                      walletAddress={walletAddress}
-                      hideIfEmpty={false}
-                      variant="minimal"
-                    />
+              <section className="flex flex-col gap-4">
+                <SectionHeader title="Mining & Rewards" />
+                <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch">
+                    <div
+                      id="bento-solar-farm"
+                      className="pb-6 lg:pb-0 lg:pr-8 lg:col-span-2 flex min-h-[320px]"
+                    >
+                      <SolarFarmWidget
+                        walletAddress={walletAddress ?? undefined}
+                        variant="minimal"
+                      />
+                    </div>
+                    <div className="pt-6 lg:pt-0 lg:pl-8 flex">
+                      <RewardsWidget
+                        walletAddress={walletAddress}
+                        hideIfEmpty={false}
+                        variant="minimal"
+                      />
+                    </div>
                   </div>
                 </div>
               </section>
@@ -438,7 +441,7 @@ export default function GlowSoftDashboard({
 
       <Dialog open={isRefundDialogOpen} onOpenChange={setIsRefundDialogOpen}>
         <DialogContent
-          className="bg-background rounded-3xl p-0 sm:max-w-[980px] w-full border-border shadow-2xl overflow-hidden"
+          className="bg-background rounded-2xl p-0 sm:max-w-[980px] w-full border-border shadow-2xl overflow-hidden"
           onInteractOutside={(e) => e.preventDefault()}
         >
           <RefundClaimsPanel

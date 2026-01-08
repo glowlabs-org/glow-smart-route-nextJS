@@ -176,7 +176,7 @@ export function TransactionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden",
+          "bg-background backdrop-blur-sm rounded-2xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden",
           contentClassName
         )}
         onInteractOutside={(e) => e.preventDefault()}

@@ -3,7 +3,7 @@
 import React from "react";
 import { useQueryState } from "nuqs";
 import { parseAsString } from "nuqs";
-import { Cpu, Sparkles, Sprout, Users } from "lucide-react";
+import { Cpu, Sparkles, Sprout, SunIcon, Users } from "lucide-react";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,6 +12,7 @@ import { FarmsView } from "./farms-view";
 import { DelegatorsView } from "./delegators-view";
 import { MinersView } from "./miners-view";
 import { ImpactView } from "./impact-view";
+import { CashMinerIcon, ImpactStreakIcon } from "@/components/impact-icons";
 
 interface RewardsTabConfig {
   value: "impact" | "farms" | "delegator" | "miner";
@@ -25,7 +26,7 @@ const REWARDS_TABS: RewardsTabConfig[] = [
     value: "impact",
     label: "Impact",
     description: "Weekly impact score + leaderboard",
-    Icon: Sparkles,
+    Icon: ImpactStreakIcon,
   },
   {
     value: "delegator",
@@ -37,13 +38,13 @@ const REWARDS_TABS: RewardsTabConfig[] = [
     value: "miner",
     label: "Miners",
     description: "Miner multiplier status & rankings",
-    Icon: Cpu,
+    Icon: CashMinerIcon,
   },
   {
     value: "farms",
     label: "Farms",
     description: "Solar farms & sponsorship performance",
-    Icon: Sprout,
+    Icon: SunIcon,
   },
 ] as const;
 

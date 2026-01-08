@@ -10,7 +10,7 @@ import type {
 import { LaunchpadView } from "@/app/marketplace/launchpad-view";
 import type { TaggedAuctionApplication } from "@/app/marketplace/launchpad-view";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 export interface LaunchpadDialogProps {
   open: boolean;
@@ -51,7 +51,8 @@ export function LaunchpadDialog({ open, onOpenChange }: LaunchpadDialogProps) {
   return (
     <>
       <Dialog open={open} onOpenChange={handleLaunchpadOpenChange}>
-        <DialogContent className="p-0 sm:max-w-6xl w-full h-[85vh] overflow-hidden rounded-3xl border-foreground/10 dark:border-border">
+        <DialogContent className="p-0 sm:max-w-6xl w-full h-[85vh] overflow-hidden rounded-2xl border-foreground/10 dark:border-border">
+          <DialogTitle className="sr-only">Launchpad</DialogTitle>
           <ScrollArea className="h-[85vh]">
             <LaunchpadView variant="dialog" onPayDeposit={handlePayDeposit} />
           </ScrollArea>

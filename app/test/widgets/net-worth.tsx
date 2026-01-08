@@ -156,21 +156,24 @@ function NetWorthSkeleton() {
                   opacity: 0.1,
                 }}
               />
-              
+
               {/* Value display skeleton */}
               <div className="absolute left-0 top-0 z-10 bg-background p-2">
                 <div className="flex items-baseline gap-2">
-                  <Skeleton className="h-10 w-32 rounded-lg" />
-                  <Skeleton className="h-6 w-12 rounded-md" />
+                  <Skeleton className="h-10 w-32 rounded-xl" />
+                  <Skeleton className="h-6 w-12 rounded-xl" />
                 </div>
                 <div className="mt-2 flex items-center gap-2">
-                  <Skeleton className="h-7 w-24 rounded-lg" />
-                  <Skeleton className="h-4 w-40 rounded-md" />
+                  <Skeleton className="h-7 w-24 rounded-xl" />
+                  <Skeleton className="h-4 w-40 rounded-xl" />
                 </div>
               </div>
 
               {/* Chart skeleton */}
-              <div className="absolute inset-0" style={{ marginTop: 74, marginRight: 10, marginLeft: 10 }}>
+              <div
+                className="absolute inset-0"
+                style={{ marginTop: 74, marginRight: 10, marginLeft: 10 }}
+              >
                 {/* Y-axis skeleton */}
                 <div className="absolute right-0 top-0 bottom-0 w-14 flex flex-col justify-between py-2">
                   {[...Array(5)].map((_, i) => (
@@ -189,9 +192,23 @@ function NetWorthSkeleton() {
                 <div className="absolute inset-0 bottom-8 right-14">
                   <svg className="w-full h-full" preserveAspectRatio="none">
                     <defs>
-                      <linearGradient id="skeletonGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="currentColor" stopOpacity="0.1" />
-                        <stop offset="100%" stopColor="currentColor" stopOpacity="0.02" />
+                      <linearGradient
+                        id="skeletonGradient"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0%"
+                          stopColor="currentColor"
+                          stopOpacity="0.1"
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="currentColor"
+                          stopOpacity="0.02"
+                        />
                       </linearGradient>
                     </defs>
                     <path
@@ -365,7 +382,7 @@ export default function NetWorthWidget({
                       </span>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
-                      <Badge className="h-7 px-2.5 rounded-lg font-mono text-xs font-bold bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/15 transition-colors">
+                      <Badge className="h-7 px-2.5 rounded-xl font-mono text-xs font-bold bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/15 transition-colors">
                         +
                         {weeklyAccumulatedGlw.toLocaleString("en-US", {
                           maximumFractionDigits: 0,

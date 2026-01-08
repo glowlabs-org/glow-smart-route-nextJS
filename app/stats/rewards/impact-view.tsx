@@ -4,18 +4,12 @@ import React from "react";
 import Link from "next/link";
 import { parseAsInteger, parseAsString } from "nuqs";
 import { useQueryState } from "nuqs";
+import { Copy, Crown, Info, ArrowDown, ArrowUp, Search, X } from "lucide-react";
 import {
-  Copy,
-  Crown,
-  Cpu,
-  Info,
-  Layers,
-  ArrowDown,
-  ArrowUp,
-  Search,
-  Zap,
-  X,
-} from "lucide-react";
+  CashMinerIcon,
+  SteeringIcon,
+  VaultIcon,
+} from "@/components/impact-icons";
 import { useAccount } from "wagmi";
 
 import { Badge } from "@/components/ui/badge";
@@ -640,10 +634,24 @@ function ImpactHero(props: {
             </div>
 
             <div className="space-y-2">
-              <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/10 p-3 sm:flex-row sm:items-start sm:justify-between">
+              <div
+                className={cn(
+                  "flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-start sm:justify-between transition-colors",
+                  hasMinerMultiplier
+                    ? "border-[color:var(--color-miner-yellow)]/30 bg-[color:var(--color-miner-yellow)]/10"
+                    : "border-border bg-muted/10 opacity-60"
+                )}
+              >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <Cpu className="h-4 w-4 text-muted-foreground" />
+                    <CashMinerIcon
+                      className={cn(
+                        "h-6 w-6",
+                        hasMinerMultiplier
+                          ? "text-[color:var(--color-miner-yellow)]"
+                          : "text-muted-foreground"
+                      )}
+                    />
                     <div className="text-sm font-semibold">
                       3× Cash Miner Multiplier
                     </div>
@@ -676,10 +684,24 @@ function ImpactHero(props: {
                 </Button>
               </div>
 
-              <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/10 p-3 sm:flex-row sm:items-start sm:justify-between">
+              <div
+                className={cn(
+                  "flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-start sm:justify-between transition-colors",
+                  hasSteeringStake
+                    ? "border-[#22D3EE]/30 bg-[#22D3EE]/10"
+                    : "border-border bg-muted/10 opacity-60"
+                )}
+              >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-muted-foreground" />
+                    <SteeringIcon
+                      className={cn(
+                        "h-6 w-6",
+                        hasSteeringStake
+                          ? "text-[#22D3EE]"
+                          : "text-muted-foreground"
+                      )}
+                    />
                     <div className="text-sm font-semibold">
                       Steering Power (sGCTL)
                     </div>
@@ -713,10 +735,24 @@ function ImpactHero(props: {
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/10 p-3 sm:flex-row sm:items-start sm:justify-between">
+            <div
+              className={cn(
+                "flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-start sm:justify-between transition-colors",
+                hasDelegations
+                  ? "border-delegation-purple/30 bg-delegation-purple/10"
+                  : "border-border bg-muted/10 opacity-60"
+              )}
+            >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-muted-foreground" />
+                  <VaultIcon
+                    className={cn(
+                      "h-6 w-6",
+                      hasDelegations
+                        ? "text-delegation-purple"
+                        : "text-muted-foreground"
+                    )}
+                  />
                   <div className="text-sm font-semibold">
                     Delegate GLW (Emissions + vault bonus)
                   </div>
@@ -727,7 +763,7 @@ function ImpactHero(props: {
                       className={cn(
                         "ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono",
                         hasDelegations
-                          ? "border-[#4ADE80]/30 bg-[#4ADE80]/10 text-foreground"
+                          ? "border-delegation-purple/30 bg-delegation-purple/10 text-foreground"
                           : "border-border bg-muted/20 text-muted-foreground"
                       )}
                     >

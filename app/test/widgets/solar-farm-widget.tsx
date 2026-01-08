@@ -9,16 +9,8 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import {
-  Cpu,
-  Zap,
-  LayoutGrid,
-  Sun,
-  Rocket,
-  Layers,
-  Gift,
-  Info,
-} from "lucide-react";
+import { Zap, LayoutGrid, Sun, Rocket, Gift, Info } from "lucide-react";
+import { CashMinerIcon, VaultIcon } from "@/components/impact-icons";
 import Link from "next/link";
 import {
   useGlowLaunchpad,
@@ -514,14 +506,14 @@ export default function SolarFarmWidget({
         key: "miners" as const,
         count: stats.activeMiners,
         label: "Miners",
-        Icon: Cpu,
+        iconSrc: "/images/icons/cash-miner.svg",
         iconClassName: "text-miner-yellow",
       },
       {
         key: "delegations" as const,
         count: stats.activeDelegations,
         label: "Delegations",
-        Icon: Zap,
+        iconSrc: "/images/icons/vault.svg",
         iconClassName: "text-glow-purple",
       },
       {
@@ -785,7 +777,7 @@ export default function SolarFarmWidget({
                             <span className="text-lg font-bold text-foreground font-mono">
                               3
                             </span>
-                            <Cpu className="w-4 h-4 text-miner-yellow" />
+                            <CashMinerIcon className="w-6 h-6" />
                           </div>
                           <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
                             Miners
@@ -933,7 +925,7 @@ export default function SolarFarmWidget({
                         {activeMinersListingsCount > 0 &&
                         activeDelegationsListingsCount === 0 ? (
                           <>
-                            <Cpu className="mr-2 h-4 w-4" />
+                            <CashMinerIcon className="mr-2 h-6 w-6" />
                             Buy Miners
                           </>
                         ) : activeDelegationsListingsCount > 0 &&
@@ -986,7 +978,7 @@ export default function SolarFarmWidget({
                       >
                         <div className="flex items-start gap-3">
                           <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/50">
-                            <Cpu className="h-4 w-4 text-[color:var(--color-miner-yellow-contrast)]" />
+                            <CashMinerIcon className="h-6 w-6" />
                           </div>
                           <div className="min-w-0">
                             <div className="text-sm font-semibold text-foreground transition-colors group-hover:text-[color:var(--color-miner-yellow-contrast)]">
@@ -1003,7 +995,7 @@ export default function SolarFarmWidget({
                         href="https://glow.org/blog/guide-to-delegating-glow"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-[#C084FC]/50"
+                        className="group rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-delegation-purple/50"
                         onClick={() => {
                           trackEvent("dashboard_education_click", {
                             source,
@@ -1016,10 +1008,10 @@ export default function SolarFarmWidget({
                       >
                         <div className="flex items-start gap-3">
                           <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/50">
-                            <Layers className="h-4 w-4 text-[#C084FC]" />
+                            <VaultIcon className="h-6 w-6" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm font-semibold text-foreground transition-colors group-hover:text-[#C084FC]">
+                            <div className="text-sm font-semibold text-foreground transition-colors group-hover:text-delegation-purple">
                               Guide to Delegation
                             </div>
                             <div className="mt-1 text-xs text-zinc-500">
@@ -1109,22 +1101,34 @@ export default function SolarFarmWidget({
                       )}
                     >
                       {visibleStatsItems.map(
-                        ({ key, count, label, Icon, iconClassName }) => (
-                          <div
-                            key={key}
-                            className="flex flex-col items-center sm:items-end px-2 sm:px-3"
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-lg font-bold text-foreground font-mono">
-                                {count}
+                        ({ key, count, label, iconSrc, iconClassName }) => {
+                          const Icon =
+                            iconSrc === "/images/icons/cash-miner.svg"
+                              ? CashMinerIcon
+                              : iconSrc === "/images/icons/vault.svg"
+                              ? VaultIcon
+                              : null;
+                          return (
+                            <div
+                              key={key}
+                              className="flex flex-col items-center sm:items-end px-2 sm:px-3"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-lg font-bold text-foreground font-mono">
+                                  {count}
+                                </span>
+                                {Icon && (
+                                  <Icon
+                                    className={cn("w-4 h-4", iconClassName)}
+                                  />
+                                )}
+                              </div>
+                              <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
+                                {label}
                               </span>
-                              <Icon className={cn("w-4 h-4", iconClassName)} />
                             </div>
-                            <span className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">
-                              {label}
-                            </span>
-                          </div>
-                        )
+                          );
+                        }
                       )}
                     </div>
                   </button>

@@ -9,7 +9,12 @@ import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ClaimsPanel } from "@/app/wallet/claims-panel";
 import {
@@ -353,8 +358,8 @@ export default function RewardsWidget({
           {!hasWallet ? (
             isWalletConnecting ? (
               <div className="space-y-4 w-full flex flex-col items-center">
-                <Skeleton className="h-8 w-32 rounded-lg" />
-                <Skeleton className="h-4 w-24 rounded-md opacity-50" />
+                <Skeleton className="h-8 w-32 rounded-xl" />
+                <Skeleton className="h-4 w-24 rounded-xl opacity-50" />
               </div>
             ) : (
               <div className="text-center space-y-1">
@@ -370,8 +375,8 @@ export default function RewardsWidget({
             <div className="flex flex-col gap-1 w-full items-center text-center">
               {isWidgetLoading ? (
                 <div className="space-y-2 w-full flex flex-col items-center">
-                  <Skeleton className="h-10 w-48 rounded-lg" />
-                  <Skeleton className="h-5 w-24 rounded-md opacity-50" />
+                  <Skeleton className="h-10 w-48 rounded-xl" />
+                  <Skeleton className="h-5 w-24 rounded-xl opacity-50" />
                   <Skeleton className="h-6 w-32 rounded-full mt-2" />
                 </div>
               ) : isWidgetError ? (
@@ -430,9 +435,10 @@ export default function RewardsWidget({
                 <Button className="w-full ">Claim Rewards</Button>
               </DialogTrigger>
               <DialogContent
-                className="bg-background rounded-3xl p-0 sm:max-w-[980px] w-full border-border shadow-2xl overflow-hidden"
+                className="bg-background rounded-2xl p-0 sm:max-w-[980px] w-full border-border shadow-2xl overflow-hidden"
                 onInteractOutside={(e) => e.preventDefault()}
               >
+                <DialogTitle className="sr-only">Claim Rewards</DialogTitle>
                 <ClaimsPanel
                   variant="dialog"
                   onClaimSuccess={handleClaimSuccess}

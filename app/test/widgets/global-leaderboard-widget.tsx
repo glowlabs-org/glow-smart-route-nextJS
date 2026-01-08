@@ -98,8 +98,8 @@ export default function GlobalLeaderboardWidget({
                     key={i}
                     className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/10 px-4 py-4"
                   >
-                    <Skeleton className="h-5 w-24 rounded-md" />
-                    <Skeleton className="h-5 w-16 rounded-md" />
+                    <Skeleton className="h-5 w-24 rounded-xl" />
+                    <Skeleton className="h-5 w-16 rounded-xl" />
                   </div>
                 ))}
               </div>

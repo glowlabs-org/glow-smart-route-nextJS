@@ -952,7 +952,7 @@ export function MintAndStakeGctlDialog({
       <Dialog open={open} onOpenChange={handleDialogOpenChange}>
         <DialogContent
           showCloseButton={false}
-          className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-md w-full border-border overflow-hidden flex flex-col gap-0 max-h-[calc(100dvh-2rem)]"
+          className="bg-background backdrop-blur-sm rounded-2xl p-0 sm:max-w-md w-full border-border overflow-hidden flex flex-col gap-0 max-h-[calc(100dvh-2rem)]"
         >
           <DialogHeader className="px-5 py-4 border-b border-border/60">
             <div className="flex items-center justify-between gap-3">

@@ -1179,7 +1179,7 @@ export function DepositDialog({
             filledBeforeSteps={successMetrics.filledBeforeSteps}
             userSteps={successMetrics.userSteps}
             otherColor={
-              currency === "USDC" ? "rgba(255,255,255,0.18)" : "#C084FC"
+              currency === "USDC" ? "rgba(255,255,255,0.18)" : "var(--color-delegation-purple)"
             }
             userColor={
               currency === "USDC" ? "var(--color-miner-yellow)" : "#4ADE80"
@@ -1192,7 +1192,7 @@ export function DepositDialog({
                 className="h-2.5 w-2.5 rounded-full"
                 style={{
                   backgroundColor:
-                    currency === "USDC" ? "rgba(255,255,255,0.25)" : "#C084FC",
+                    currency === "USDC" ? "rgba(255,255,255,0.25)" : "var(--color-delegation-purple)",
                 }}
               />
               <span>Already filled</span>

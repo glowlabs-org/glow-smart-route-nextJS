@@ -51,7 +51,7 @@ export default function BlogFeaturedWidget({
 
         {/* Featured/Category Badge */}
         <div className="absolute top-3 left-3 md:top-4 md:left-4 z-10">
-          <span className="bg-white/90 text-black px-2 md:px-3 py-1 text-xs font-medium uppercase tracking-wider backdrop-blur-sm rounded-sm">
+          <span className="bg-white/90 text-black px-2 md:px-3 py-1 text-xs font-medium uppercase tracking-wider backdrop-blur-sm rounded-xl">
             {post.category}
           </span>
         </div>

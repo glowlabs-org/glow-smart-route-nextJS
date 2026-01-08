@@ -161,7 +161,7 @@ export default function NewsletterWidget({
                     size="icon"
                     disabled={status === "loading" || !email}
                     className={cn(
-                      "h-11 w-11 rounded-lg transition-all duration-300 shadow-sm",
+                      "h-11 w-11 rounded-xl transition-all duration-300 shadow-sm",
                       email
                         ? "bg-foreground text-background hover:bg-foreground/90 hover:scale-105"
                         : "bg-muted text-muted-foreground hover:bg-muted/80"

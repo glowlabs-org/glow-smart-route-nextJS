@@ -53,7 +53,7 @@ To maintain cognitive ease across the "Super App," colors are strictly assigned 
 
 ### **Delegations (The Activation)**
 
-- **Color:** **Electric Purple** (`#C084FC`)
+- **Color:** **Electric Purple** (`#D792FF`)
 - **Meaning:** Activation, Staking, Protocol Deposits, "Vaults".
 - **Usage:**
   - Delegation Cards & Icons (`Layers` / `Zap`).
@@ -96,5 +96,5 @@ To maintain cognitive ease across the "Super App," colors are strictly assigned 
 | **GLW**        | Green  | `#4ADE80` | "Number Go Up"          |
 | **GCTL**       | Cyan   | `#22D3EE` | "Clean Air / Energy"    |
 | **Miner**      | Yellow | `#D9F368` | "Electricity / Voltage" |
-| **Delegation** | Purple | `#C084FC` | "Magic / Activation"    |
+| **Delegation** | Purple | `#D792FF` | "Magic / Activation"    |
 | **USDC**       | Slate  | `#60A5FA` | "Cold Hard Cash"        |

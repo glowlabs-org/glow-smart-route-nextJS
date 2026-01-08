@@ -1,9 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Coins, Cpu, Lock, Wallet, Zap } from "lucide-react";
-
-import { GlowSymbol } from "@/components/glow-symbol";
+import {
+  CashMinerIcon,
+  ImpactStreakIcon,
+  SteeringIcon,
+  EmissionsIcon,
+  VaultIcon,
+  GlwWorthIcon,
+} from "@/components/impact-icons";
 import {
   Tooltip,
   TooltipContent,
@@ -36,11 +41,10 @@ function IndicatorIcon(props: {
   onClick?: () => void;
 }) {
   const { meta, isActive, variant, onClick } = props;
-  const Icon = meta.icon;
 
-  const sizeClassName = variant === "multiplier" ? "h-9 w-9" : "h-7 w-7";
+  const sizeClassName = variant === "multiplier" ? "h-10 w-10" : "h-8 w-8";
   const base = cn(
-    "relative inline-flex items-center justify-center rounded-lg border transition-colors",
+    "relative inline-flex items-center justify-center rounded-xl border transition-colors",
     sizeClassName,
     variant === "multiplier" ? "ring-1 ring-white/10" : undefined
   );
@@ -50,24 +54,17 @@ function IndicatorIcon(props: {
   const active =
     variant === "multiplier"
       ? meta.key === "miner"
-        ? "border-[color:var(--color-miner-yellow)]/90 bg-[color:var(--color-miner-yellow)]/60 text-black ring-2 ring-[color:var(--color-miner-yellow)]/25"
-        : "border-[#C084FC]/90 bg-[#C084FC]/55 text-black ring-2 ring-[#C084FC]/25"
+        ? "border-[color:var(--color-miner-yellow)]/90 bg-[color:var(--color-miner-yellow)]/25 text-[color:var(--color-miner-yellow)] "
+        : "border-delegation-purple/90 bg-delegation-purple/25 text-delegation-purple"
       : meta.key === "steering"
-      ? "border-[#22D3EE]/40 bg-[#22D3EE]/12 text-[#22D3EE]"
+      ? "border-[#22D3EE] bg-[#22D3EE]/12 text-[#22D3EE]"
       : meta.key === "emissions"
-      ? "border-[color:var(--color-miner-yellow)]/40 bg-[color:var(--color-miner-yellow)]/12 text-[color:var(--color-miner-yellow)]"
+      ? "border-[color:var(--color-miner-yellow)] bg-[color:var(--color-miner-yellow)]/12 text-[color:var(--color-miner-yellow)]"
       : meta.key === "vault"
-      ? "border-[#4ADE80]/40 bg-[#4ADE80]/10 text-[#4ADE80]"
-      : "border-[#4ADE80]/25 bg-[#4ADE80]/5 text-[#4ADE80]";
+      ? "border-delegation-purple bg-delegation-purple/12 text-delegation-purple"
+      : "border-[#4ADE80] bg-[#4ADE80]/5 text-[#4ADE80]";
 
-  const iconClassName = cn(
-    variant === "multiplier" ? "h-4.5 w-4.5" : "h-4 w-4",
-    meta.key === "streak"
-      ? isActive
-        ? "!text-dark dark:!text-white"
-        : "!text-muted-foreground dark:!text-muted-foreground"
-      : undefined
-  );
+  const Icon = meta.icon;
 
   return (
     <Tooltip>
@@ -80,7 +77,16 @@ function IndicatorIcon(props: {
           }`}
           onClick={onClick}
         >
-          <Icon className={iconClassName} />
+          <Icon
+            className={cn(
+              variant === "multiplier" ? "h-5 w-5" : "h-5 w-5",
+              meta.key === "streak"
+                ? isActive
+                  ? "dark:brightness-100"
+                  : "opacity-70"
+                : undefined
+            )}
+          />
         </button>
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={6}>
@@ -105,28 +111,28 @@ const POINT_SOURCES: IndicatorMeta[] = [
     label: "Steering Power (sGCTL)",
     howToGet: "Stake GCTL",
     effect: "3× points per GLW steered this week",
-    icon: Zap,
+    icon: SteeringIcon,
   },
   {
     key: "emissions",
     label: "Emissions Earned",
     howToGet: "Earn GLW emissions (miner, delegation, farms)",
     effect: "+1.0 pts per GLW earned in emission rewards",
-    icon: Coins,
+    icon: EmissionsIcon,
   },
   {
     key: "vault",
     label: "Vault Bonus",
     howToGet: "Delegate GLW",
     effect: "+0.005 pts per GLW delegated per week",
-    icon: Lock,
+    icon: VaultIcon,
   },
   {
     key: "worth",
     label: "GLW Worth",
     howToGet: "Hold GLW / build Glow Worth",
     effect: "+0.001 pts per GLW per week",
-    icon: Wallet,
+    icon: GlwWorthIcon,
   },
 ];
 
@@ -146,14 +152,14 @@ function getMultipliersMeta(args: {
       label: "Cash Miner",
       howToGet: "Buy a miner",
       effect: "3× rollover multiplier (weekly points tripled)",
-      icon: Cpu,
+      icon: CashMinerIcon,
     },
     {
       key: "streak",
       label: "Impact streak",
       howToGet: "Increase delegation weekly",
       effect: `Streak bonus +0.25× per week (max +1.0×)${streakSuffix}`,
-      icon: GlowSymbol,
+      icon: ImpactStreakIcon,
     },
   ];
 }

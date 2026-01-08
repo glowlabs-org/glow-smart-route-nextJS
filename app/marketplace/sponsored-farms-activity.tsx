@@ -26,8 +26,7 @@ import { useEnsNames } from "@/hooks/useEnsNames";
 import { shortAddress } from "@/utils/impact";
 
 import { Button } from "@/components/ui/button";
-import { Cpu } from "lucide-react";
-import { GlowSymbol } from "@/components/glow-symbol";
+import { CashMinerIcon, VaultIcon } from "@/components/impact-icons";
 
 function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -239,15 +238,15 @@ export function SponsoredFarmsActivity({
                 key={i}
                 className="flex items-center gap-3 rounded-xl border border-border bg-muted/10 p-3"
               >
-                <Skeleton className="h-10 w-10 rounded-lg shrink-0" />
+                <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
                 <div className="space-y-2 flex-1">
                   <div className="flex justify-between">
-                    <Skeleton className="h-3 w-24 rounded-md" />
-                    <Skeleton className="h-3 w-12 rounded-md" />
+                    <Skeleton className="h-3 w-24 rounded-xl" />
+                    <Skeleton className="h-3 w-12 rounded-xl" />
                   </div>
                   <div className="flex justify-between">
-                    <Skeleton className="h-3 w-32 rounded-md" />
-                    <Skeleton className="h-3 w-20 rounded-md" />
+                    <Skeleton className="h-3 w-32 rounded-xl" />
+                    <Skeleton className="h-3 w-20 rounded-xl" />
                   </div>
                 </div>
               </div>
@@ -518,11 +517,18 @@ export function SponsoredFarmsActivity({
                 className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 transition-colors group"
               >
                 {/* Thumbnail / Icon */}
-                <div className="relative h-10 w-10 rounded-lg overflow-hidden shrink-0 border border-border/50 flex items-center justify-center bg-muted/50">
+                <div
+                  className={cn(
+                    "relative h-10 w-10 rounded-xl overflow-hidden shrink-0 border flex items-center justify-center",
+                    isMiningCenter
+                      ? "border-[color:var(--color-miner-yellow)]/90 bg-[color:var(--color-miner-yellow)]/15 text-[color:var(--color-miner-yellow)]"
+                      : "border-delegation-purple/90 bg-delegation-purple/25 text-delegation-purple"
+                  )}
+                >
                   {isMiningCenter ? (
-                    <Cpu className="w-5 h-5 text-[color:var(--color-miner-yellow-contrast)]" />
+                    <CashMinerIcon className="w-6 h-6" />
                   ) : (
-                    <GlowSymbol className="w-5 h-5 text-[#C084FC]" />
+                    <VaultIcon className="w-6 h-6" />
                   )}
                 </div>
 
@@ -535,13 +541,13 @@ export function SponsoredFarmsActivity({
                       </span>
                       <span
                         className={cn(
-                          "px-1.5 py-0.5 rounded-[4px] text-[10px] font-medium uppercase tracking-wider shrink-0",
+                          "px-1.5 py-0.5 rounded-xl text-[10px] font-medium uppercase tracking-wider shrink-0 border",
                           isMiningCenter
-                            ? " border-[color:var(--color-miner-yellow)]/30 bg-[color:var(--color-miner-yellow)]/10 text-miner-yellow"
-                            : "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"
+                            ? "border-[color:var(--color-miner-yellow)]/90 bg-[color:var(--color-miner-yellow)]/15 text-[color:var(--color-miner-yellow)]"
+                            : "border-delegation-purple/90 bg-delegation-purple/25 text-delegation-purple"
                         )}
                       >
-                        {isMiningCenter ? "Miner" : "Delegator"}
+                        {isMiningCenter ? "Miner" : "Delegation"}
                       </span>
                     </div>
                     <span className="font-mono font-medium tabular-nums text-foreground text-sm whitespace-nowrap shrink-0">
@@ -659,10 +665,10 @@ export function SponsoredFarmsActivity({
                     <TableCell className="hidden md:table-cell">
                       <div
                         className={cn(
-                          "px-2 py-1 rounded-[4px] text-[10px] font-medium uppercase tracking-wider inline-block whitespace-nowrap border",
+                          "px-2 py-1 rounded-xl text-[10px] font-medium uppercase tracking-wider inline-block whitespace-nowrap border",
                           purchase.fractionType === "mining-center"
-                            ? "border-[color:var(--color-miner-yellow)]/30 bg-[color:var(--color-miner-yellow)]/10 text-[color:var(--color-miner-yellow-contrast)]"
-                            : "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
+                            ? "border-[color:var(--color-miner-yellow)]/90 bg-[color:var(--color-miner-yellow)]/25 text-[color:var(--color-miner-yellow)]"
+                            : "border-delegation-purple/90 bg-delegation-purple/25 text-delegation-purple"
                         )}
                       >
                         {purchase.fractionType === "mining-center"

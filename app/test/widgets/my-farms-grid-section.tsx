@@ -1,13 +1,31 @@
 "use client";
 
 import React from "react";
-import { Cpu, Gift, Layers, ChevronRight, Clock, X } from "lucide-react";
+import {
+  Gift,
+  ChevronRight,
+  Clock,
+  X,
+  LayoutGrid,
+  Grid3x3,
+  List,
+  Image as ImageIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CashMinerIcon, VaultIcon } from "@/components/impact-icons";
 import { formatUnits } from "viem";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +48,9 @@ import {
   useRewardScore,
   useMiningScore,
 } from "@/hooks";
+import { useQuery } from "@tanstack/react-query";
+import { getFarmsRouter } from "@/lib/api/control-routers";
+import type { SponsoredFarm } from "@glowlabs-org/utils/browser";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import {
   attachEstimatedWeeklyLaunchpadRewards,
@@ -102,12 +123,218 @@ interface FarmCardData {
   isPendingStart?: boolean;
 }
 
-interface FarmCardProps {
+interface FarmListRowProps {
   farm: FarmCardData;
   onClick: () => void;
 }
 
-function FarmCard({ farm, onClick }: FarmCardProps) {
+function FarmListRow({ farm, onClick }: FarmListRowProps) {
+  const isInProgress = farm.type === "in-progress";
+  const isMiner = farm.type === "miner";
+  const isDelegation = farm.type === "delegation";
+  const isOther = farm.type === "other";
+  const isPendingStart = Boolean(farm.isPendingStart);
+  const inProgressIsMiningCenter =
+    isInProgress && farm.inProgressKind === "mining-center";
+
+  const totalValue = farm.recovered + farm.inflation;
+  const roiPercent =
+    farm.initialCost > 0 ? (totalValue / farm.initialCost) * 100 : 0;
+  const isProfitable = roiPercent >= 100;
+
+  return (
+    <Card
+      className="group flex items-center p-3 gap-4 cursor-pointer bg-muted/30 hover:bg-muted/10 transition-all duration-300 border-border"
+      onClick={onClick}
+    >
+      {/* Image & Region */}
+      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted/20">
+        <FallbackImage
+          src={farm.imageUrls[0]}
+          widthForProxy={200}
+          quality={75}
+          alt={farm.farmName}
+          className="w-full h-full object-cover"
+        />
+        {isPendingStart && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+            <Clock className="w-5 h-5 text-white" />
+          </div>
+        )}
+      </div>
+
+      {/* Info Grid */}
+      <div className="flex-1 grid grid-cols-12 gap-4 items-center">
+        {/* Name */}
+        <div className="col-span-4 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <Badge
+              variant="secondary"
+              className="bg-muted text-muted-foreground hover:bg-muted font-normal text-[9px] px-1 h-4"
+            >
+              {farm.regionName}
+            </Badge>
+            {isInProgress && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  "border-0 bg-transparent px-0 text-[9px] font-bold uppercase tracking-wider",
+                  inProgressIsMiningCenter
+                    ? "text-[color:var(--color-miner-yellow)]"
+                    : "text-delegation-purple"
+                )}
+              >
+                In Progress
+              </Badge>
+            )}
+          </div>
+          <h3 className="font-bold text-sm truncate">{farm.farmName}</h3>
+        </div>
+
+        {/* Stats */}
+        <div className="col-span-8 grid grid-cols-3 gap-4">
+          {isInProgress ? (
+            <>
+              <div className="col-span-2 space-y-1.5">
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-muted-foreground font-medium">
+                    Funding Progress
+                  </span>
+                  <span className="font-mono font-bold">
+                    {Math.round(farm.inProgressPercent ?? 0)}%
+                  </span>
+                </div>
+                <Progress
+                  value={Math.max(
+                    0,
+                    Math.min(100, farm.inProgressPercent ?? 0)
+                  )}
+                  className="h-1 bg-muted"
+                />
+              </div>
+              <div className="text-right">
+                <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
+                  Est. Weekly
+                </div>
+                <div className="font-mono font-bold text-xs text-muted-foreground">
+                  ~{fmtGlw(farm.estimatedUserWeeklyGlw ?? 0)} GLW
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Active Time */}
+              <div>
+                <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
+                  Active
+                </div>
+                <div className="font-mono font-medium text-xs">
+                  {isPendingStart
+                    ? "—"
+                    : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
+                </div>
+              </div>
+
+              {/* Cost/Delegated */}
+              <div>
+                <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
+                  {isMiner ? "Cost" : "Delegated"}
+                </div>
+                <div className="font-mono font-medium text-xs text-muted-foreground">
+                  {isMiner
+                    ? fmtUsd(farm.initialCost)
+                    : `${fmtGlw(farm.initialCost)} GLW`}
+                </div>
+              </div>
+
+              {/* Earned */}
+              <div className="text-right">
+                <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
+                  Earned
+                </div>
+                <div
+                  className={cn(
+                    "font-mono font-bold text-xs",
+                    isPendingStart
+                      ? "text-muted-foreground"
+                      : isMiner
+                      ? "text-[color:var(--color-miner-yellow-contrast)]"
+                      : isDelegation
+                      ? "text-delegation-purple"
+                      : "text-[color:var(--color-glow-green)]"
+                  )}
+                >
+                  {isPendingStart
+                    ? "—"
+                    : isMiner
+                    ? fmtUsd(farm.inflation)
+                    : `${fmtGlw(farm.recovered + farm.inflationGlw)} GLW`}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform shrink-0" />
+    </Card>
+  );
+}
+
+interface FarmMosaicCardProps {
+  farm: FarmCardData;
+  onClick: () => void;
+}
+
+function FarmMosaicCard({ farm, onClick }: FarmMosaicCardProps) {
+  const isPendingStart = Boolean(farm.isPendingStart);
+
+  return (
+    <Card
+      className="group relative overflow-hidden cursor-pointer bg-muted/30 hover:bg-muted/10 transition-all duration-300 hover:-translate-y-1 border-border p-0 gap-0 h-full"
+      onClick={onClick}
+    >
+      <div className="relative h-full aspect-square w-full overflow-hidden bg-muted/20">
+        <FallbackImage
+          src={farm.imageUrls[0]}
+          widthForProxy={600}
+          quality={80}
+          alt={farm.farmName}
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
+
+        {isPendingStart && (
+          <div className="absolute top-2 right-2 z-10">
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold font-mono uppercase tracking-wider border bg-background/80 text-foreground border-border backdrop-blur-xl">
+              <Clock className="w-2.5 h-2.5" />
+              Soon
+            </div>
+          </div>
+        )}
+
+        <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
+          <Badge
+            variant="secondary"
+            className="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md border-0 text-[9px] px-1.5 h-4 mb-1.5 font-medium w-fit"
+          >
+            {farm.regionName}
+          </Badge>
+          <h3 className="font-bold text-white text-sm leading-tight truncate">
+            {farm.farmName}
+          </h3>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+interface FarmCardProps {
+  farm: FarmCardData;
+  onClick: () => void;
+  isCompact?: boolean;
+}
+
+function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
   const isInProgress = farm.type === "in-progress";
   const isMiner = farm.type === "miner";
   const isDelegation = farm.type === "delegation";
@@ -128,16 +355,17 @@ function FarmCard({ farm, onClick }: FarmCardProps) {
       return (
         <div
           className={cn(
-            "flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold font-mono uppercase tracking-wider border backdrop-blur-xl",
+            "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border backdrop-blur-xl",
+            isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]",
             inProgressIsMiningCenter
-              ? "text-[color:var(--color-miner-yellow-contrast)] bg-background/60 border-[color:var(--color-miner-yellow)]/40"
-              : "text-[#C084FC] bg-background/60 border-[#C084FC]/40"
+              ? "border-[color:var(--color-miner-yellow)]/90 bg-[color:var(--color-miner-yellow)]/15 text-[color:var(--color-miner-yellow)]"
+              : "border-delegation-purple/90 bg-delegation-purple/25 text-delegation-purple"
           )}
         >
           {inProgressIsMiningCenter ? (
-            <Cpu className="w-3 h-3" />
+            <CashMinerIcon className={isCompact ? "w-4 h-4" : "w-6 h-6"} />
           ) : (
-            <Layers className="w-3 h-3" />
+            <VaultIcon className={isCompact ? "w-4 h-4" : "w-6 h-6"} />
           )}
           In Progress
         </div>
@@ -145,23 +373,38 @@ function FarmCard({ farm, onClick }: FarmCardProps) {
     }
     if (isMiner) {
       return (
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold font-mono uppercase tracking-wider border text-[color:var(--color-miner-yellow)] bg-black/60 backdrop-blur-xl border-[color:var(--color-miner-yellow)]/40 shadow-sm">
-          <Cpu className="w-3 h-3" />
+        <div
+          className={cn(
+            "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border border-[color:var(--color-miner-yellow)]/90 bg-[color:var(--color-miner-yellow)]/15 text-[color:var(--color-miner-yellow)] backdrop-blur-xl",
+            isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]"
+          )}
+        >
+          <CashMinerIcon className={isCompact ? "w-4 h-4" : "w-6 h-6"} />
           Miner
         </div>
       );
     }
     if (isDelegation) {
       return (
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold font-mono uppercase tracking-wider border text-[#C084FC] bg-black/60 backdrop-blur-xl border-[#C084FC]/40 shadow-sm">
-          <GlowSymbol className="w-3 h-3 !text-[#C084FC]" />
+        <div
+          className={cn(
+            "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border border-delegation-purple/90 bg-delegation-purple/25 text-delegation-purple backdrop-blur-xl",
+            isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]"
+          )}
+        >
+          <VaultIcon className={isCompact ? "w-4 h-4" : "w-6 h-6"} />
           Delegation
         </div>
       );
     }
     return (
-      <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold font-mono uppercase tracking-wider border text-[color:var(--color-glow-green)] bg-black/60 backdrop-blur-xl border-[color:var(--color-glow-green)]/40 shadow-sm">
-        <Gift className="w-3 h-3" />
+      <div
+        className={cn(
+          "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border border-[color:var(--color-glow-green)]/90 bg-[color:var(--color-glow-green)]/15 text-[color:var(--color-glow-green)] backdrop-blur-xl",
+          isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]"
+        )}
+      >
+        <Gift className={isCompact ? "w-2.5 h-2.5" : "w-3 h-3"} />
         Rewards
       </div>
     );
@@ -172,42 +415,74 @@ function FarmCard({ farm, onClick }: FarmCardProps) {
       className="group relative overflow-hidden cursor-pointer  bg-muted/30 hover:bg-muted/10 transition-all duration-300 hover:-translate-y-1 border-border p-0 gap-0"
       onClick={onClick}
     >
-      <div className="relative h-48 overflow-hidden bg-muted/20">
+      <div
+        className={cn(
+          "relative overflow-hidden bg-muted/20 transition-all",
+          isCompact ? "h-32" : "h-48"
+        )}
+      >
         <FallbackImage
           src={farm.imageUrls[0]}
-          widthForProxy={600}
+          widthForProxy={isCompact ? 400 : 600}
           quality={75}
           alt={farm.farmName}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-t dark:from-background/90 dark:via-background/40 to-transparent dark:opacity-90" />
-        <div className="absolute top-3 right-3 z-10 flex gap-2">
-          {getTypeBadge()}
-          {isPendingStart && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold font-mono uppercase tracking-wider border bg-muted/50 text-muted-foreground border-border backdrop-blur-xl">
-              <Clock className="w-3 h-3" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+        {isPendingStart && (
+          <div
+            className={cn(
+              "absolute z-10",
+              isCompact ? "top-2 right-2" : "top-3 right-3"
+            )}
+          >
+            <div
+              className={cn(
+                "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border bg-background/80 text-foreground border-border backdrop-blur-xl",
+                isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]"
+              )}
+            >
+              <Clock className={isCompact ? "w-2.5 h-2.5" : "w-3 h-3"} />
               Starts Next Week
             </div>
+          </div>
+        )}
+        <div
+          className={cn(
+            "absolute z-10 left-4 right-4",
+            isCompact ? "bottom-2.5 left-3 right-3" : "bottom-4 left-4 right-4"
           )}
-        </div>
-        <div className="absolute bottom-4 left-4 right-4 z-10">
+        >
           <div className="flex items-center gap-2 mb-1.5">
             <Badge
               variant="secondary"
-              className="bg-foreground/20 hover:bg-foreground/30 text-background backdrop-blur-md border-0 text-[10px] px-1.5 h-5 font-medium"
+              className={cn(
+                "bg-white/20 hover:bg-white/30 text-white backdrop-blur-md border-0 font-medium",
+                isCompact ? "text-[9px] px-1 h-4" : "text-[10px] px-1.5 h-5"
+              )}
             >
               {farm.regionName}
             </Badge>
           </div>
-          <h3 className="font-bold text-background dark:text-white text-xl leading-tight truncate">
+          <h3
+            className={cn(
+              "font-bold text-white leading-tight truncate",
+              isCompact ? "text-sm" : "text-xl"
+            )}
+          >
             {farm.farmName}
           </h3>
         </div>
       </div>
-      <div className="p-5">
+      <div className={cn(isCompact ? "p-3" : "p-5")}>
         {isInProgress ? (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-xs">
+          <div className={cn("space-y-3", isCompact && "space-y-2")}>
+            <div
+              className={cn(
+                "flex items-center justify-between",
+                isCompact ? "text-[10px]" : "text-xs"
+              )}
+            >
               <span className="text-muted-foreground font-medium">
                 Funding Progress
               </span>
@@ -217,35 +492,53 @@ function FarmCard({ farm, onClick }: FarmCardProps) {
             </div>
             <Progress
               value={Math.max(0, Math.min(100, farm.inProgressPercent ?? 0))}
-              className="h-1.5 bg-muted"
+              className={cn(isCompact ? "h-1" : "h-1.5", "bg-muted")}
             />
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div className={cn("space-y-4", isCompact && "space-y-2.5")}>
+            <div
+              className={cn("grid grid-cols-2", isCompact ? "gap-2" : "gap-4")}
+            >
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+                <div
+                  className={cn(
+                    "uppercase tracking-wider text-muted-foreground font-semibold mb-1",
+                    isCompact ? "text-[9px]" : "text-[10px]"
+                  )}
+                >
                   Active
                 </div>
-                <div className="text-sm font-mono font-medium">
+                <div
+                  className={cn(
+                    "font-mono font-medium",
+                    isCompact ? "text-xs" : "text-sm"
+                  )}
+                >
                   {isPendingStart
                     ? "—"
                     : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+                <div
+                  className={cn(
+                    "uppercase tracking-wider text-muted-foreground font-semibold mb-1",
+                    isCompact ? "text-[9px]" : "text-[10px]"
+                  )}
+                >
                   Earned
                 </div>
                 <div
                   className={cn(
-                    "text-sm font-mono font-bold",
+                    "font-mono font-bold",
+                    isCompact ? "text-xs" : "text-sm",
                     isPendingStart
                       ? "text-muted-foreground"
                       : isMiner
                       ? "text-[color:var(--color-miner-yellow-contrast)]"
                       : isDelegation
-                      ? "text-[#C084FC]"
+                      ? "text-delegation-purple"
                       : "text-[color:var(--color-glow-green)]"
                   )}
                 >
@@ -258,8 +551,13 @@ function FarmCard({ farm, onClick }: FarmCardProps) {
               </div>
             </div>
             {!isOther && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] font-medium text-muted-foreground">
+              <div className={cn("space-y-1.5", isCompact && "space-y-1")}>
+                <div
+                  className={cn(
+                    "flex items-center justify-between font-medium text-muted-foreground",
+                    isCompact ? "text-[9px]" : "text-[10px]"
+                  )}
+                >
                   <span>
                     {isMiner ? "Cost" : "Delegated"}:{" "}
                     {isMiner
@@ -284,15 +582,30 @@ function FarmCard({ farm, onClick }: FarmCardProps) {
                 <Progress
                   value={isPendingStart ? 0 : Math.min(roiPercent, 100)}
                   className={cn(
-                    "h-1.5 bg-muted",
+                    "bg-muted",
+                    isCompact ? "h-1" : "h-1.5",
                     isProfitable && !isPendingStart && "[&>div]:bg-emerald-500"
                   )}
                 />
               </div>
             )}
-            <div className="pt-2 border-t border-border/50 flex justify-end">
-              <div className="text-xs font-medium text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                View Details <ChevronRight className="w-3 h-3" />
+            <div
+              className={cn(
+                "border-t border-border/50 flex justify-between items-center",
+                isCompact ? "pt-1.5" : "pt-2"
+              )}
+            >
+              {getTypeBadge()}
+              <div
+                className={cn(
+                  "font-medium text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform",
+                  isCompact ? "text-[10px]" : "text-xs"
+                )}
+              >
+                {!isCompact && "View Details"}{" "}
+                <ChevronRight
+                  className={cn(isCompact ? "w-2.5 h-2.5" : "w-3 h-3")}
+                />
               </div>
             </div>
           </div>
@@ -351,7 +664,7 @@ function FarmDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] p-0 gap-0 flex flex-col overflow-hidden border-0 sm:border sm:rounded-3xl bg-background/95 backdrop-blur-xl">
+      <DialogContent className="max-w-4xl h-[90vh] p-0 gap-0 flex flex-col overflow-hidden border-0 sm:border sm:rounded-2xl bg-background/95 backdrop-blur-xl">
         <DialogHeader className="px-6 py-5 shrink-0 border-b border-border/50 bg-muted/10 backdrop-blur-sm z-20 relative">
           <Button
             variant="ghost"
@@ -379,12 +692,12 @@ function FarmDetailDialog({
             <div className="flex items-center gap-2">
               {farm.type === "miner" && (
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-[color:var(--color-miner-yellow-contrast)] bg-[color:var(--color-miner-yellow)]/10 border-[color:var(--color-miner-yellow)]/20">
-                  <Cpu className="w-3.5 h-3.5" />
+                  <CashMinerIcon className="w-6 h-6" />
                   Miner
                 </div>
               )}
               {farm.type === "delegation" && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-[#C084FC] bg-[#C084FC]/10 border-[#C084FC]/20">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-delegation-purple bg-delegation-purple/10 border-delegation-purple/20">
                   <GlowSymbol className="w-3.5 h-3.5" />
                   Delegation
                 </div>
@@ -401,10 +714,10 @@ function FarmDetailDialog({
                     "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border",
                     farm.inProgressKind === "mining-center"
                       ? "text-[color:var(--color-miner-yellow-contrast)] bg-[color:var(--color-miner-yellow)]/10 border-[color:var(--color-miner-yellow)]/20"
-                      : "text-[#C084FC] bg-[#C084FC]/10 border-[#C084FC]/20"
+                      : "text-delegation-purple bg-delegation-purple/10 border-delegation-purple/20"
                   )}
                 >
-                  <Layers className="w-3.5 h-3.5" />
+                  <VaultIcon className="w-6 h-6" />
                   In Progress
                 </div>
               )}
@@ -487,11 +800,11 @@ function FarmDetailDialog({
                 <Card className="bg-card/50 border-border/60 backdrop-blur-sm">
                   <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <div className="p-1.5 rounded-md bg-muted/50">
+                      <div className="p-1.5 rounded-xl bg-muted/50">
                         {isMiner ? (
-                          <Cpu className="w-4 h-4" />
+                          <CashMinerIcon className="w-6 h-6" />
                         ) : (
-                          <GlowSymbol className="w-4 h-4" />
+                          <VaultIcon className="w-6 h-6" />
                         )}
                       </div>
                       <div className="text-[11px] font-bold font-mono uppercase tracking-wider">
@@ -518,7 +831,7 @@ function FarmDetailDialog({
                     "absolute top-0 right-0 w-48 h-48 bg-gradient-to-br opacity-10 blur-3xl rounded-full translate-x-12 -translate-y-12",
                     isMiner
                       ? "from-[var(--color-miner-yellow)] to-transparent"
-                      : "from-[#C084FC] to-transparent"
+                      : "from-delegation-purple to-transparent"
                   )}
                 />
                 <CardContent className="p-6 flex flex-col h-full justify-between gap-4 relative z-10">
@@ -526,10 +839,10 @@ function FarmDetailDialog({
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <div
                         className={cn(
-                          "p-1.5 rounded-md bg-muted/50",
+                          "p-1.5 rounded-xl bg-muted/50",
                           isMiner
                             ? "text-[color:var(--color-miner-yellow-contrast)]"
-                            : "text-[#C084FC]"
+                            : "text-delegation-purple"
                         )}
                       >
                         <Gift className="w-4 h-4" />
@@ -541,7 +854,7 @@ function FarmDetailDialog({
                       </div>
                     </div>
                     {!isInProgress && !isOther && (
-                      <div className="text-xs font-mono font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-sm">
+                      <div className="text-xs font-mono font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-xl">
                         {farm.initialCost > 0
                           ? `${Math.round(
                               ((farm.recovered +
@@ -560,7 +873,7 @@ function FarmDetailDialog({
                       "text-3xl font-bold font-mono tracking-tight",
                       isMiner &&
                         "text-[color:var(--color-miner-yellow-contrast)]",
-                      farm.type === "delegation" && "text-[#C084FC]",
+                      farm.type === "delegation" && "text-delegation-purple",
                       isOther && "text-[color:var(--color-glow-green)]"
                     )}
                   >
@@ -575,14 +888,14 @@ function FarmDetailDialog({
                   <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-muted-foreground">
-                        <div className="p-1.5 rounded-md bg-muted/50">
+                        <div className="p-1.5 rounded-xl bg-muted/50">
                           <Clock className="w-4 h-4" />
                         </div>
                         <div className="text-[11px] font-bold font-mono uppercase tracking-wider">
                           Timeline
                         </div>
                       </div>
-                      <div className="text-xs font-mono font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-sm">
+                      <div className="text-xs font-mono font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-xl">
                         {Math.round(progressPercent)}%
                       </div>
                     </div>
@@ -612,8 +925,8 @@ function FarmDetailDialog({
                 <Card className="bg-card/50 border-border/60 backdrop-blur-sm">
                   <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <div className="p-1.5 rounded-md bg-muted/50">
-                        <Layers className="w-4 h-4" />
+                      <div className="p-1.5 rounded-xl bg-muted/50">
+                        <VaultIcon className="w-6 h-6" />
                       </div>
                       <div className="text-[11px] font-bold font-mono uppercase tracking-wider">
                         Funding Progress
@@ -647,8 +960,8 @@ function FarmDetailDialog({
                     {!isMiner && (
                       <div className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#C084FC]/10 flex items-center justify-center text-[#C084FC]">
-                            <Layers className="w-4 h-4" />
+                          <div className="w-8 h-8 rounded-full bg-delegation-purple/10 flex items-center justify-center text-delegation-purple">
+                            <VaultIcon className="w-6 h-6" />
                           </div>
                           <div>
                             <div className="font-medium text-sm">
@@ -663,7 +976,7 @@ function FarmDetailDialog({
                             </div>
                           </div>
                         </div>
-                        <div className="text-right font-mono font-bold text-[#C084FC]">
+                        <div className="text-right font-mono font-bold text-delegation-purple">
                           {isOther && farm.isProtocolDepositUsd
                             ? `${fmtUsdAmount(farm.recovered)} ${
                                 farm.protocolDepositAsset
@@ -750,12 +1063,18 @@ function FarmDetailDialog({
                                   #{week.weekNumber}
                                 </td>
                                 {!isMiner && (
-                                  <td className="py-3.5 px-6 text-right font-mono text-[#C084FC] text-sm tabular-nums">
+                                  <td className="py-3.5 px-6 text-right font-mono text-delegation-purple text-sm tabular-nums">
                                     {fmtGlw(pdGlw)}
+                                    <span className="text-[10px] font-normal text-muted-foreground ml-1">
+                                      GLW
+                                    </span>
                                   </td>
                                 )}
                                 <td className="py-3.5 px-6 text-right font-mono text-[color:var(--color-miner-yellow-contrast)] text-sm tabular-nums">
                                   {fmtGlw(inflationGlw)}
+                                  <span className="text-[10px] font-normal text-muted-foreground ml-1">
+                                    GLW
+                                  </span>
                                 </td>
                                 <td className="py-3.5 px-6 text-right font-mono font-bold text-sm tabular-nums text-foreground">
                                   {fmtGlw(totalGlw)}
@@ -789,6 +1108,9 @@ export default function MyFarmsGridSection({
   const [selectedFarm, setSelectedFarm] = React.useState<FarmCardData | null>(
     null
   );
+  const [viewMode, setViewMode] = React.useState<
+    "default" | "compact" | "list" | "mosaic"
+  >("default");
   const hasWallet = Boolean(walletAddress);
 
   const {
@@ -804,6 +1126,38 @@ export default function MyFarmsGridSection({
     walletAddress: walletAddress ?? undefined,
     enabled: hasWallet,
   });
+
+  const otherFarmIds = React.useMemo(() => {
+    return (
+      rewardsBreakdown?.otherFarmsWithRewards?.farms?.map((f) => f.farmId) ?? []
+    );
+  }, [rewardsBreakdown]);
+
+  const { data: allSponsoredFarms, isLoading: isSponsoredFarmsLoading } =
+    useQuery<SponsoredFarm[]>({
+      queryKey: ["sponsored-farms-for-other"],
+      enabled: hasWallet && otherFarmIds.length > 0,
+      staleTime: 5 * 60_000,
+      queryFn: async () => {
+        try {
+          return await (getFarmsRouter() as any).fetchSponsoredFarms();
+        } catch (error) {
+          console.error("Error fetching sponsored farms:", error);
+          return [];
+        }
+      },
+    });
+
+  const otherFarmsMap = React.useMemo(() => {
+    const map = new Map<string, SponsoredFarm>();
+    if (!allSponsoredFarms) return map;
+    for (const farm of allSponsoredFarms) {
+      if (otherFarmIds.includes(farm.farmId)) {
+        map.set(farm.farmId, farm);
+      }
+    }
+    return map;
+  }, [allSponsoredFarms, otherFarmIds]);
 
   const { regions, isRegionsLoading } = useRegions();
   const { spotPrice: glwSpotPriceUsd, isLoading: isSpotPriceLoading } =
@@ -984,6 +1338,15 @@ export default function MyFarmsGridSection({
         farm.farmName || `Farm ${farm.farmId.substring(0, 8)}`;
       const identityDetail = farm.asset ?? "—";
 
+      const farmMetadata =
+        purchasedFarms.find((f) => f.farmId === farm.farmId) ||
+        otherFarmsMap.get(farm.farmId);
+      const imageUrls =
+        farmMetadata?.afterInstallPictures?.map((p) => p.url) || [];
+      if (imageUrls.length === 0) {
+        imageUrls.push("/images/sections/residential.jpg");
+      }
+
       const isProtocolDepositUsd =
         farm.asset === "USDG" || farm.asset === "USDC" || farm.asset === "GCTL";
       const recovered = isProtocolDepositUsd
@@ -1009,7 +1372,7 @@ export default function MyFarmsGridSection({
         farmId: farm.farmId,
         farmName: displayName,
         regionName: identityDetail,
-        imageUrls: ["/images/sections/residential.jpg"],
+        imageUrls,
         type: "other",
         initialCost: 0,
         recovered,
@@ -1068,24 +1431,29 @@ export default function MyFarmsGridSection({
     }
 
     pendingByFarm.forEach((item) => {
-      const imageUrls = ["/images/sections/residential.jpg"]; // Placeholder
-      // Try to find image in sponsorListings or miningCenterListings if available
-      if (item.fractionType === "launchpad") {
-        const app = sponsorListings?.find((a) => a.id === item.farmId);
-        if (app?.afterInstallPictures?.length) {
-          // Reset array
-          while (imageUrls.length) imageUrls.pop();
-          app.afterInstallPictures.forEach((p) => imageUrls.push(p.url));
-        }
-      } else {
-        const app = miningCenterListings?.find((a) => a.id === item.farmId);
-        if (app?.afterInstallPictures?.length) {
-          while (imageUrls.length) imageUrls.pop();
-          app.afterInstallPictures.forEach((p) => imageUrls.push(p.url));
+      // Try to find images from purchasedFarms first, then sponsorListings/miningCenterListings
+      const farmMetadata = purchasedFarms.find((f) => f.farmId === item.farmId);
+      const imageUrls =
+        farmMetadata?.afterInstallPictures?.map((p) => p.url) || [];
+
+      // If no images from purchasedFarms, try listings
+      if (imageUrls.length === 0) {
+        if (item.fractionType === "launchpad") {
+          const app = sponsorListings?.find((a) => a.id === item.farmId);
+          if (app?.afterInstallPictures?.length) {
+            app.afterInstallPictures.forEach((p) => imageUrls.push(p.url));
+          }
+        } else {
+          const app = miningCenterListings?.find((a) => a.id === item.farmId);
+          if (app?.afterInstallPictures?.length) {
+            app.afterInstallPictures.forEach((p) => imageUrls.push(p.url));
+          }
         }
       }
-      if (imageUrls.length === 0)
+
+      if (imageUrls.length === 0) {
         imageUrls.push("/images/sections/residential.jpg");
+      }
 
       if (item.fractionType === "launchpad") {
         const initialCost = parseGlwFromWei(item.totalAmount.toString());
@@ -1195,7 +1563,8 @@ export default function MyFarmsGridSection({
     isSponsorListingsLoading ||
     isMiningCenterListingsLoading ||
     isRewardScoresLoading ||
-    isMiningScoresLoading;
+    isMiningScoresLoading ||
+    isSponsoredFarmsLoading;
 
   if (!hasWallet) {
     return null;
@@ -1221,7 +1590,7 @@ export default function MyFarmsGridSection({
     return (
       <Card className="p-12 border-dashed bg-muted/20">
         <div className="flex flex-col items-center justify-center text-center text-muted-foreground gap-3">
-          {!isRewardsError && <Layers className="w-10 h-10 opacity-20" />}
+          {!isRewardsError && <VaultIcon className="w-10 h-10 opacity-20" />}
           <p className="text-sm font-mono uppercase tracking-wider">
             {isRewardsError
               ? "Unable to load farms"
@@ -1234,15 +1603,253 @@ export default function MyFarmsGridSection({
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {farmCards.map((farm) => (
-          <FarmCard
-            key={farm.farmId}
-            farm={farm}
-            onClick={() => setSelectedFarm(farm)}
-          />
-        ))}
+      <div className="flex justify-end mb-6">
+        <div className="flex items-center bg-muted/50 p-1 rounded-lg border border-border/50">
+          <Button
+            variant={viewMode === "default" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-7 px-2.5 text-xs font-medium"
+            onClick={() => setViewMode("default")}
+          >
+            <LayoutGrid className="w-3.5 h-3.5 mr-1.5" />
+            Default
+          </Button>
+          <Button
+            variant={viewMode === "compact" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-7 px-2.5 text-xs font-medium"
+            onClick={() => setViewMode("compact")}
+          >
+            <Grid3x3 className="w-3.5 h-3.5 mr-1.5" />
+            Compact
+          </Button>
+          <Button
+            variant={viewMode === "mosaic" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-7 px-2.5 text-xs font-medium"
+            onClick={() => setViewMode("mosaic")}
+          >
+            <ImageIcon className="w-3.5 h-3.5 mr-1.5" />
+            Mosaic
+          </Button>
+          <Button
+            variant={viewMode === "list" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-7 px-2.5 text-xs font-medium"
+            onClick={() => setViewMode("list")}
+          >
+            <List className="w-3.5 h-3.5 mr-1.5" />
+            List
+          </Button>
+        </div>
       </div>
+
+      {viewMode === "list" ? (
+        <div className="rounded-xl border border-border/50 bg-card/50 overflow-hidden backdrop-blur-sm">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent border-border/50">
+                <TableHead className="w-[300px] text-[10px] uppercase tracking-wider font-mono font-bold">
+                  Item
+                </TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider font-mono font-bold">
+                  Status
+                </TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider font-mono font-bold text-right">
+                  Active
+                </TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider font-mono font-bold text-right">
+                  Cost
+                </TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider font-mono font-bold text-right">
+                  Earned
+                </TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider font-mono font-bold text-right">
+                  Progress
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {farmCards.map((farm) => {
+                const isInProgress = farm.type === "in-progress";
+                const isMiner = farm.type === "miner";
+                const isDelegation = farm.type === "delegation";
+                const isPendingStart = Boolean(farm.isPendingStart);
+                const inProgressIsMiningCenter =
+                  isInProgress && farm.inProgressKind === "mining-center";
+                const roiPercent =
+                  farm.initialCost > 0
+                    ? ((farm.recovered + farm.inflation) / farm.initialCost) *
+                      100
+                    : 0;
+
+                return (
+                  <TableRow
+                    key={farm.farmId}
+                    className="cursor-pointer border-border/50 hover:bg-muted/40 transition-colors group"
+                    onClick={() => setSelectedFarm(farm)}
+                  >
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-3">
+                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-muted/20">
+                          <FallbackImage
+                            src={farm.imageUrls[0]}
+                            widthForProxy={100}
+                            quality={70}
+                            alt={farm.farmName}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className="truncate font-bold text-sm">
+                            {farm.farmName}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono">
+                            {farm.regionName}
+                          </span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {isInProgress ? (
+                        <div
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-bold font-mono uppercase tracking-wider border",
+                            inProgressIsMiningCenter
+                              ? "border-[color:var(--color-miner-yellow)]/30 bg-[color:var(--color-miner-yellow)]/10 text-[color:var(--color-miner-yellow)]"
+                              : "border-delegation-purple/30 bg-delegation-purple/10 text-delegation-purple"
+                          )}
+                        >
+                          In Progress
+                        </div>
+                      ) : isPendingStart ? (
+                        <div className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-bold font-mono uppercase tracking-wider border bg-muted/50 text-muted-foreground border-border/50">
+                          Starts Soon
+                        </div>
+                      ) : (
+                        <div
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-bold font-mono uppercase tracking-wider border",
+                            isMiner
+                              ? "border-[color:var(--color-miner-yellow)]/30 bg-[color:var(--color-miner-yellow)]/10 text-[color:var(--color-miner-yellow)]"
+                              : isDelegation
+                              ? "border-delegation-purple/30 bg-delegation-purple/10 text-delegation-purple"
+                              : "border-[color:var(--color-glow-green)]/30 bg-[color:var(--color-glow-green)]/10 text-[color:var(--color-glow-green)]"
+                          )}
+                        >
+                          {isMiner
+                            ? "Miner"
+                            : isDelegation
+                            ? "Delegation"
+                            : "Rewards"}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                      {isPendingStart
+                        ? "—"
+                        : isInProgress
+                        ? "—"
+                        : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                      {isInProgress
+                        ? "—"
+                        : isMiner
+                        ? fmtUsd(farm.initialCost)
+                        : `${fmtGlw(farm.initialCost)} GLW`}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {isInProgress ? (
+                        <span className="font-mono text-xs tabular-nums font-bold text-muted-foreground">
+                          ~{fmtGlw(farm.estimatedUserWeeklyGlw ?? 0)} GLW/wk
+                        </span>
+                      ) : (
+                        <span
+                          className={cn(
+                            "font-mono text-xs tabular-nums font-bold",
+                            isPendingStart
+                              ? "text-muted-foreground"
+                              : isMiner
+                              ? "text-[color:var(--color-miner-yellow-contrast)]"
+                              : isDelegation
+                              ? "text-delegation-purple"
+                              : "text-[color:var(--color-glow-green)]"
+                          )}
+                        >
+                          {isPendingStart
+                            ? "—"
+                            : isMiner
+                            ? fmtUsd(farm.inflation)
+                            : `${fmtGlw(
+                                farm.recovered + farm.inflationGlw
+                              )} GLW`}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {isInProgress ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <Progress
+                            value={farm.inProgressPercent ?? 0}
+                            className="h-1.5 w-16 bg-muted"
+                          />
+                          <span className="font-mono text-xs font-bold w-8 text-right">
+                            {Math.round(farm.inProgressPercent ?? 0)}%
+                          </span>
+                        </div>
+                      ) : isPendingStart ? (
+                        <span className="text-muted-foreground text-xs font-mono">
+                          —
+                        </span>
+                      ) : (
+                        <span
+                          className={cn(
+                            "font-mono text-xs font-bold",
+                            roiPercent >= 100
+                              ? "text-emerald-500"
+                              : "text-muted-foreground"
+                          )}
+                        >
+                          {roiPercent.toFixed(0)}%
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "grid gap-4 transition-all duration-300",
+            viewMode === "mosaic"
+              ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+              : viewMode === "compact"
+              ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+              : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          )}
+        >
+          {farmCards.map((farm) =>
+            viewMode === "mosaic" ? (
+              <FarmMosaicCard
+                key={farm.farmId}
+                farm={farm}
+                onClick={() => setSelectedFarm(farm)}
+              />
+            ) : (
+              <FarmCard
+                key={farm.farmId}
+                farm={farm}
+                onClick={() => setSelectedFarm(farm)}
+                isCompact={viewMode === "compact"}
+              />
+            )
+          )}
+        </div>
+      )}
 
       <FarmDetailDialog
         farm={selectedFarm}

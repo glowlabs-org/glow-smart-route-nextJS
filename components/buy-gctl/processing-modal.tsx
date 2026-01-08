@@ -139,7 +139,7 @@ export function ProcessingModal({
   if (status === "success") {
     return (
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="bg-card/90 backdrop-blur-sm rounded-3xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden">
+        <DialogContent className="bg-card/90 backdrop-blur-sm rounded-2xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden">
           {/* Visually hidden title for accessibility */}
           <DialogHeader>
             <DialogTitle className="sr-only">Transaction Success</DialogTitle>
@@ -159,7 +159,7 @@ export function ProcessingModal({
     const failureInfo = failureInfoRef.current;
     return (
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="bg-card/90 backdrop-blur-sm rounded-3xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden">
+        <DialogContent className="bg-card/90 backdrop-blur-sm rounded-2xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden">
           {/* Visually hidden title for accessibility */}
           <DialogHeader>
             <DialogTitle className="sr-only">Transaction Failed</DialogTitle>
@@ -221,7 +221,7 @@ export function ProcessingModal({
         }
       }}
     >
-      <DialogContent className="bg-card rounded-3xl p-0 md:max-w-md w-full border-border shadow-2xl overflow-hidden">
+      <DialogContent className="bg-card rounded-2xl p-0 md:max-w-md w-full border-border shadow-2xl overflow-hidden">
         {/* Visually hidden title for accessibility */}
         <DialogHeader>
           <DialogTitle className="sr-only">Processing Purchase</DialogTitle>

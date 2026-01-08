@@ -188,9 +188,9 @@ function buildClaimActivity(rows: WalletRewardClaimRow[]): ActivityItem | null {
     title,
     subtitle,
     pill: isProtocol ? "PD" : "Emissions",
-    icon: <Gift className="h-4 w-4" />,
+    icon: <Gift className="h-5 w-5" />,
     iconClassName: isProtocol
-      ? "text-[#C084FC] bg-[#C084FC]/10"
+      ? "text-delegation-purple bg-delegation-purple/10"
       : "text-emerald-400 bg-emerald-500/10",
   };
 }
@@ -295,7 +295,7 @@ function buildSplitActivity(split: SplitActivity): ActivityItem | null {
     icon: <ShoppingCart className="h-4 w-4" />,
     iconClassName: isMiningCenter
       ? "text-[color:var(--color-miner-yellow-contrast)] bg-[color:var(--color-miner-yellow)]/10"
-      : "text-[#C084FC] bg-[#C084FC]/10",
+      : "text-delegation-purple bg-delegation-purple/10",
   };
 }
 
@@ -597,73 +597,73 @@ export function RecentActivity({
               <ScrollArea className="h-full pr-2 -mr-2">
                 <div className="space-y-2 pb-2">
                   {displayedActivities.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="group flex items-start gap-3 rounded-xl border border-border/60 bg-muted/10 p-3 hover:bg-muted/20 transition-colors"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleViewTransaction(activity)}
-                    onKeyDown={(e) => {
-                      if (e.key !== "Enter" && e.key !== " ") return;
-                      e.preventDefault();
-                      handleViewTransaction(activity);
-                    }}
-                  >
                     <div
-                      className={cn(
-                        "h-9 w-9 rounded-xl border border-border bg-background/60 flex items-center justify-center flex-shrink-0",
-                        activity.iconClassName
-                      )}
+                      key={activity.id}
+                      className="group flex items-start gap-3 rounded-xl border border-border/60 bg-muted/10 p-3 hover:bg-muted/20 transition-colors"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleViewTransaction(activity)}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter" && e.key !== " ") return;
+                        e.preventDefault();
+                        handleViewTransaction(activity);
+                      }}
                     >
-                      {activity.icon}
-                    </div>
+                      <div
+                        className={cn(
+                          "h-9 w-9 rounded-xl border border-border bg-background/60 flex items-center justify-center flex-shrink-0",
+                          activity.iconClassName
+                        )}
+                      >
+                        {activity.icon}
+                      </div>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold tracking-tight text-foreground truncate">
-                            {activity.title}
-                          </div>
-                          <div className="mt-1 text-[11px] font-mono text-muted-foreground flex items-center gap-2">
-                            <span className="tabular-nums">
-                              {formatDateTime(activity.timestampMs)}
-                            </span>
-                            {activity.subtitle ? (
-                              <span className="truncate">
-                                {activity.subtitle}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold tracking-tight text-foreground truncate">
+                              {activity.title}
+                            </div>
+                            <div className="mt-1 text-[11px] font-mono text-muted-foreground flex items-center gap-2">
+                              <span className="tabular-nums">
+                                {formatDateTime(activity.timestampMs)}
                               </span>
-                            ) : null}
+                              {activity.subtitle ? (
+                                <span className="truncate">
+                                  {activity.subtitle}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {activity.pill ? (
-                            <Badge
-                              variant="secondary"
-                              className="text-[10px] font-mono uppercase"
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {activity.pill ? (
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] font-mono uppercase"
+                              >
+                                {activity.pill}
+                              </Badge>
+                            ) : null}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={cn(
+                                "h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity",
+                                !activity.txHash && "pointer-events-none"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewTransaction(activity);
+                              }}
+                              aria-label="View transaction"
                             >
-                              {activity.pill}
-                            </Badge>
-                          ) : null}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className={cn(
-                              "h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity",
-                              !activity.txHash && "pointer-events-none"
-                            )}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleViewTransaction(activity);
-                            }}
-                            aria-label="View transaction"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
                   ))}
                 </div>
               </ScrollArea>

@@ -392,7 +392,7 @@
 //         isProcessing={isProcessingTransaction}
 //       />
 
-//       <div className="bg-card/60 backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full">
+//       <div className="bg-card/60 backdrop-blur-xl rounded-2xl border border-border overflow-hidden w-full">
 //         <div className="p-6 sm:p-8">
 //           {/* Header Section */}
 //           <div className="flex items-center justify-between mb-6">
@@ -466,7 +466,7 @@
 //             {/* Input Sections Container */}
 //             <div className="relative gap-2 flex flex-col">
 //               {/* From Section - USDC */}
-//               <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
+//               <div className="group relative bg-muted/30 rounded-2xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
 //                 <div className="flex items-center justify-between mb-3">
 //                   <span className="text-xs lg:text-sm font-medium text-muted-foreground">
 //                     You pay
@@ -575,7 +575,7 @@
 //               </div>
 
 //               {/* To Section - GCTL */}
-//               <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
+//               <div className="group relative bg-muted/30 rounded-2xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
 //                 <div className="flex items-center justify-between mb-3">
 //                   <span className="text-xs lg:text-sm font-medium text-muted-foreground">
 //                     You receive

@@ -67,7 +67,7 @@ const faqItems: FaqItem[] = [
           Delegating is a vetting mechanism. Solar farms need to prove
           efficiency to get funding.
         </p>
-        <div className="p-4 rounded-lg bg-background/50 border text-sm">
+        <div className="p-4 rounded-xl bg-background/50 border text-sm">
           GLW holders "vouch" for specific farms by delegating tokens. If the
           farm is efficient, you earn yield. If it is inefficient, you may
           forfeit tokens.
@@ -172,7 +172,7 @@ export default function GlowFaqWidget({
                     setActiveId(item.id);
                   }}
                   className={cn(
-                    "relative text-left px-4 py-3 rounded-md text-sm transition-all duration-200 group flex items-center justify-between",
+                    "relative text-left px-4 py-3 rounded-xl text-sm transition-all duration-200 group flex items-center justify-between",
                     activeId === item.id
                       ? "bg-primary/10 text-primary font-medium"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"

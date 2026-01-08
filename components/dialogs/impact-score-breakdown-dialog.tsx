@@ -2,16 +2,16 @@
 
 import * as React from "react";
 import { formatUnits } from "viem";
-import {
-  CheckCircle2,
-  Coins,
-  Lock,
-  Wallet,
-  Zap,
-  ArrowRight,
-  Sparkles,
-} from "lucide-react";
+import { CheckCircle2, ArrowRight } from "lucide-react";
 import { useAccount } from "wagmi";
+import {
+  CashMinerIcon,
+  ImpactStreakIcon,
+  SteeringIcon,
+  EmissionsIcon,
+  VaultIcon,
+  GlwWorthIcon,
+} from "@/components/impact-icons";
 
 import {
   Dialog,
@@ -167,9 +167,10 @@ function getToneClasses(tone: BreakdownTone) {
     } as const;
   return {
     row: "border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10",
-    iconWrap: "bg-[#C084FC]/10 border-[#C084FC]/20 text-[#C084FC]",
-    label: "text-[#C084FC]",
-    value: "text-[#C084FC]",
+    iconWrap:
+      "bg-delegation-purple/10 border-delegation-purple/20 text-delegation-purple",
+    label: "text-delegation-purple",
+    value: "text-delegation-purple",
   } as const;
 }
 
@@ -218,11 +219,11 @@ function BreakdownRow({
       <div className="flex items-center gap-3">
         <div
           className={cn(
-            "flex items-center justify-center w-8 h-8 rounded-lg border",
+            "flex items-center justify-center w-8 h-8 rounded-xl border",
             disabledClasses?.iconWrap ?? toneClasses.iconWrap
           )}
         >
-          <Icon className="w-4 h-4" />
+          <Icon className="w-5 h-5" />
         </div>
         <div className="flex flex-col">
           <span
@@ -474,7 +475,7 @@ export function ImpactScoreBreakdownDialogContent(
 
   return (
     <>
-      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-3xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
+      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
         <div className="px-6 pr-14 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
           <DialogHeader>
             <div className="flex items-center justify-between">
@@ -517,14 +518,14 @@ export function ImpactScoreBreakdownDialogContent(
                   <div className="flex items-center justify-between p-3 bg-[color:var(--color-miner-yellow)]/10 border border-[color:var(--color-miner-yellow)]/20 rounded-xl">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[color:var(--color-miner-yellow)] text-black font-bold font-mono text-sm">
-                        3x
+                        <CashMinerIcon className="w-5 h-5" />
                       </div>
                       <div>
                         <div className="text-xs font-bold text-[color:var(--color-miner-yellow-contrast)] uppercase">
                           Cash Miner Bonus
                         </div>
                         <div className="text-[10px] text-[color:var(--color-miner-yellow-contrast)]/60">
-                          Weekly points tripled • {cashMinerStatusLabel}
+                          3× multiplier • {cashMinerStatusLabel}
                         </div>
                       </div>
                     </div>
@@ -534,7 +535,7 @@ export function ImpactScoreBreakdownDialogContent(
                   <div className="flex items-center justify-between p-3 bg-muted/20 border border-border rounded-xl opacity-60 dark:bg-zinc-900 dark:border-zinc-800">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-bold font-mono text-sm dark:bg-zinc-800 dark:text-zinc-500">
-                        1x
+                        <CashMinerIcon className="w-5 h-5 opacity-50" />
                       </div>
                       <div>
                         <div className="text-xs font-bold text-foreground/80 uppercase dark:text-zinc-400">
@@ -549,30 +550,29 @@ export function ImpactScoreBreakdownDialogContent(
                 )}
 
                 {isStreakActive ? (
-                  <div className="flex items-center justify-between p-3 bg-[#C084FC]/10 border border-[#C084FC]/20 rounded-xl">
+                  <div className="flex items-center justify-between p-3 bg-delegation-purple/10 border border-delegation-purple/20 rounded-xl">
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#C084FC] text-black font-bold font-mono text-xs">
-                        {Math.min(displayedImpactStreakWeeks, 4)}/4
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-delegation-purple text-black font-bold font-mono text-xs">
+                        <ImpactStreakIcon className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-[#C084FC] uppercase">
+                        <div className="text-xs font-bold text-delegation-purple uppercase">
                           Impact streak
                         </div>
-                        <div className="text-[10px] text-[#C084FC]/70 font-mono">
-                          +{formatMultiplier(displayedStreakBonusMultiplier)}×
-                          bonus •{" "}
-                          {formatMultiplier(displayedRolloverMultiplier)}× total
-                          • {streakStatusLabel}
+                        <div className="text-[10px] text-delegation-purple/70 font-mono">
+                          Week {Math.min(displayedImpactStreakWeeks, 4)}/4 • +
+                          {formatMultiplier(displayedStreakBonusMultiplier)}×
+                          bonus • {streakStatusLabel}
                         </div>
                       </div>
                     </div>
-                    <CheckCircle2 className="w-5 h-5 text-[#C084FC]" />
+                    <CheckCircle2 className="w-5 h-5 text-delegation-purple" />
                   </div>
                 ) : (
                   <div className="flex items-center justify-between p-3 bg-muted/20 border border-border rounded-xl opacity-60 dark:bg-zinc-900 dark:border-zinc-800">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-bold font-mono text-xs dark:bg-zinc-800 dark:text-zinc-500">
-                        0/4
+                        <ImpactStreakIcon className="w-5 h-5 opacity-50" />
                       </div>
                       <div>
                         <div className="text-xs font-bold text-foreground/80 uppercase dark:text-zinc-400">
@@ -602,7 +602,7 @@ export function ImpactScoreBreakdownDialogContent(
 
               <div className="space-y-2">
                 <BreakdownRow
-                  icon={Zap}
+                  icon={SteeringIcon}
                   label="Steering GLW (sGCTL)"
                   sublabel={`3.0x • Total • ${formatGlwCompact(
                     totalSteeringGlw
@@ -617,7 +617,7 @@ export function ImpactScoreBreakdownDialogContent(
                 />
 
                 <BreakdownRow
-                  icon={Coins}
+                  icon={EmissionsIcon}
                   label="Emissions Earned"
                   sublabel={`1.0x • Total • ${formatGlwCompact(
                     totalInflationGlw
@@ -635,7 +635,7 @@ export function ImpactScoreBreakdownDialogContent(
                 />
 
                 <BreakdownRow
-                  icon={Lock}
+                  icon={VaultIcon}
                   label="Vault Bonus"
                   sublabel={`0.005x • Total • ${formatGlwCompact(
                     delegatedActiveGlw
@@ -653,7 +653,7 @@ export function ImpactScoreBreakdownDialogContent(
                 />
 
                 <BreakdownRow
-                  icon={Sparkles}
+                  icon={CashMinerIcon}
                   label="Multiplier Bonus"
                   sublabel="Points from Miner & Streak multipliers"
                   value={`+${formatPoints(String(multiplierBonusPts), {
@@ -705,7 +705,7 @@ export function ImpactScoreBreakdownDialogContent(
               </h4>
 
               <BreakdownRow
-                icon={Wallet}
+                icon={GlwWorthIcon}
                 label="GLW Worth"
                 sublabel={`${formatGlwCompact(
                   glowWorthGlw
@@ -774,7 +774,7 @@ export function ImpactScoreBreakdownDialog(
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {query.isLoading ? (
-        <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-3xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
+        <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
           <div className="px-6 pr-14 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
             <DialogHeader className="sr-only">
               <DialogTitle>{title ?? "Score Breakdown"}</DialogTitle>
@@ -784,24 +784,24 @@ export function ImpactScoreBreakdownDialog(
             </DialogHeader>
             <div className="flex items-center justify-between">
               <div className="space-y-2">
-                <Skeleton className="h-5 w-48 rounded-md" />
-                <Skeleton className="h-4 w-64 rounded-md" />
+                <Skeleton className="h-5 w-48 rounded-xl" />
+                <Skeleton className="h-4 w-64 rounded-xl" />
               </div>
               <div className="space-y-2 text-right">
-                <Skeleton className="h-3 w-24 rounded-md ml-auto" />
-                <Skeleton className="h-7 w-20 rounded-md ml-auto" />
+                <Skeleton className="h-3 w-24 rounded-xl ml-auto" />
+                <Skeleton className="h-7 w-20 rounded-xl ml-auto" />
               </div>
             </div>
           </div>
           <div className="p-6 space-y-3">
-            <Skeleton className="h-6 w-40 rounded-md" />
+            <Skeleton className="h-6 w-40 rounded-xl" />
             <Skeleton className="h-12 w-full rounded-xl" />
             <Skeleton className="h-12 w-full rounded-xl" />
             <Skeleton className="h-12 w-full rounded-xl" />
           </div>
         </DialogContent>
       ) : query.isError ? (
-        <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-3xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
+        <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
           <div className="px-6 pr-14 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
             <DialogHeader>
               <DialogTitle className="font-mono uppercase tracking-wide text-lg text-foreground dark:text-white">
