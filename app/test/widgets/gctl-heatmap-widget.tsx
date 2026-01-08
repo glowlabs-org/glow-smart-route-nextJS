@@ -17,7 +17,7 @@ import {
 import { formatUnits } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { cn } from "@/lib/utils";
-import { useGctlApi, useWallets, useRegions, useActiveRegionsSummary } from "@/hooks";
+import { useGctlApi, useWallets, useRegions } from "@/hooks";
 import { ConnectButton } from "@/components/connect-button";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -25,7 +25,6 @@ interface RegionStakeTile {
   regionId: number;
   regionName: string;
   amountGctl: number;
-  glwSteered: number;
 }
 
 function gctlAmountFromRaw(raw: string) {
@@ -94,7 +93,7 @@ function GctlHeatmapSkeleton() {
             disabled
           >
             <Rocket className="h-3.5 w-3.5" />
-            <span>Mint &amp; Stake</span>
+            <span>Stake</span>
           </Button>
         </div>
       </CardHeader>
@@ -131,15 +130,19 @@ function GctlHeatmapSkeleton() {
 export default function GctlHeatmapWidget({
   walletAddress,
   onMintAndStakeClick,
+  variant = "default",
 }: {
   walletAddress?: string | null;
   onMintAndStakeClick?: () => void;
+  variant?: "default" | "flow" | "minimal";
 }) {
   const { isConnecting, isReconnecting } = useAccount();
   const isEnabled = Boolean(walletAddress);
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
   const source = "gctl_heatmap_widget";
   const isWalletConnecting = isConnecting || isReconnecting;
+  const isFlow = variant === "flow";
+  const isMinimal = variant === "minimal";
 
   const { gctlBalance, isGctlBalanceLoading } = useGctlApi(
     walletAddress ?? undefined,
@@ -152,8 +155,6 @@ export default function GctlHeatmapWidget({
     enabled: isEnabled,
   });
   const { regions, isRegionsLoading } = useRegions();
-  const { data: activeSummary, isLoading: isActiveSummaryLoading } =
-    useActiveRegionsSummary({ enabled: isEnabled });
 
   const walletBalanceGctl = useMemo(() => {
     if (!isEnabled) return 0;
@@ -177,31 +178,18 @@ export default function GctlHeatmapWidget({
             regions.find((r) => r.id === regionStake.regionId)?.name ??
             `Region ${regionStake.regionId}`;
 
-          const userGctl = gctlAmountFromRaw(regionStake.totalStaked);
-          const regionSummary = activeSummary?.regions.find(
-            (r) => r.id === regionStake.regionId
-          );
-          const totalRegionGctl = regionSummary?.stakedGctl ?? 0;
-          const regionGlwPerWeek = regionSummary?.glwPerWeek ?? 0;
-          const userShare = totalRegionGctl > 0 ? userGctl / totalRegionGctl : 0;
-          const glwSteered = userShare * regionGlwPerWeek;
-
           return {
             regionId: regionStake.regionId,
             regionName: regionStake.region?.name || fallbackName,
-            amountGctl: userGctl,
-            glwSteered,
+            amountGctl: gctlAmountFromRaw(regionStake.totalStaked),
           };
         }) ?? [];
 
     return tiles.sort((a, b) => b.amountGctl - a.amountGctl).slice(0, 8);
-  }, [isEnabled, regions, walletDetails?.regions, activeSummary?.regions]);
+  }, [isEnabled, regions, walletDetails?.regions]);
 
   const stakedTotalGctl = useMemo(() => {
     return stakes.reduce((sum, tile) => sum + tile.amountGctl, 0);
-  }, [stakes]);
-  const totalGlwSteered = useMemo(() => {
-    return stakes.reduce((sum, tile) => sum + tile.glwSteered, 0);
   }, [stakes]);
   const totalBalanceGctl = walletBalanceGctl + stakedTotalGctl;
   const liquidPercent =
@@ -211,10 +199,10 @@ export default function GctlHeatmapWidget({
 
   const mockStakes: RegionStakeTile[] = useMemo(
     () => [
-      { regionId: 1, regionName: "Utah", amountGctl: 45000, glwSteered: 1200 },
-      { regionId: 2, regionName: "Nevada", amountGctl: 28000, glwSteered: 750 },
-      { regionId: 3, regionName: "Arizona", amountGctl: 15000, glwSteered: 400 },
-      { regionId: 4, regionName: "Texas", amountGctl: 12000, glwSteered: 320 },
+      { regionId: 1, regionName: "Utah", amountGctl: 45000 },
+      { regionId: 2, regionName: "Nevada", amountGctl: 28000 },
+      { regionId: 3, regionName: "Arizona", amountGctl: 15000 },
+      { regionId: 4, regionName: "Texas", amountGctl: 12000 },
     ],
     []
   );
@@ -228,7 +216,16 @@ export default function GctlHeatmapWidget({
 
   if (!isEnabled) {
     return (
-      <Card className="h-full lg:max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border pt-0">
+      <Card
+        className={cn(
+          "overflow-hidden flex flex-col pt-0 w-full",
+          isMinimal
+            ? "bg-transparent border-transparent h-full"
+            : isFlow
+            ? "bg-card/30 border-foreground/5 min-h-[380px]"
+            : "h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+        )}
+      >
         <CardHeader className="pb-0 pt-4">
           <div className="flex items-center justify-between gap-3">
             <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
@@ -240,7 +237,7 @@ export default function GctlHeatmapWidget({
               disabled
             >
               <Rocket className="h-3.5 w-3.5" />
-              <span>Mint &amp; Stake</span>
+              <span>Stake</span>
             </Button>
           </div>
         </CardHeader>
@@ -328,74 +325,87 @@ export default function GctlHeatmapWidget({
   }
 
   const isLoading =
-    isGctlBalanceLoading || isWalletDetailsLoading || isRegionsLoading || isActiveSummaryLoading;
+    isGctlBalanceLoading || isWalletDetailsLoading || isRegionsLoading;
 
   if (!isLoading && totalBalanceGctl <= 0) {
     return (
-      <Card className="h-full lg:max-h-[380px] overflow-hidden flex flex-col pb-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
-        <CardContent className="min-h-0 flex-1 flex flex-col p-0">
-          <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden p-6 flex flex-col">
-            <div className="relative flex flex-col items-center justify-center text-center flex-1 gap-6">
-              <div className="space-y-2">
-                <div className="text-lg font-bold text-foreground">
-                  Glow Control
-                </div>
-                <div className="mx-auto max-w-[400px] text-sm text-zinc-400">
-                  GCTL (Glow Control) directs Glow’s 175,000 GLW/week subsidy
-                  across Infrastructure Projects.
-                </div>
-              </div>
-
-              <div className="w-full max-w-md space-y-2">
-                <Button
-                  className="h-12 w-full bg-foreground text-background hover:bg-foreground/90 font-mono dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-                  onClick={() => {
-                    trackEvent("dashboard_gctl_mint_stake_open_click", {
-                      source,
-                      wallet_connected: Boolean(normalizedWalletAddress),
-                      wallet_address: normalizedWalletAddress,
-                    });
-                    onMintAndStakeClick?.();
-                  }}
-                  disabled={isLoading}
-                >
-                  <Rocket className="mr-2 h-4 w-4" />
-                  Mint &amp; stake GCTL
-                </Button>
-              </div>
-
-              <div className="w-full max-w-lg">
-                <Link
-                  href="https://glow.org/blog/beginner-guide-to-gctl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group block rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-cyan-500/50"
-                  onClick={() => {
-                    trackEvent("dashboard_education_click", {
-                      source,
-                      wallet_connected: Boolean(normalizedWalletAddress),
-                      wallet_address: normalizedWalletAddress,
-                      topic: "gctl",
-                      url: "https://glow.org/blog/beginner-guide-to-gctl",
-                    });
-                  }}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/50">
-                      <Droplets className="h-4 w-4 text-cyan-400" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-foreground transition-colors group-hover:text-cyan-400">
-                        Beginner&apos;s Guide to GCTL
-                      </div>
-                      <div className="mt-1 text-xs text-zinc-500">
-                        Learn how to steer Glow&apos;s economy.
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              </div>
+      <Card
+        className={cn(
+          "overflow-hidden flex flex-col pt-0 w-full",
+          isMinimal
+            ? "bg-transparent border-transparent h-full"
+            : isFlow
+            ? "bg-card/30 border-foreground/5 min-h-[380px]"
+            : "h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+        )}
+      >
+        <CardHeader className="pb-0 pt-4">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
+              Glow Control
+            </CardTitle>
+            <Button
+              size="sm"
+              className="h-8 rounded-full px-3 text-[11px] font-mono tracking-wider gap-2"
+              onClick={() => {
+                trackEvent("dashboard_gctl_mint_stake_open_click", {
+                  source,
+                  wallet_connected: Boolean(normalizedWalletAddress),
+                  wallet_address: normalizedWalletAddress,
+                });
+                onMintAndStakeClick?.();
+              }}
+              disabled={isLoading}
+            >
+              <Rocket className="h-3.5 w-3.5" />
+              <span>Mint GCTL</span>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="min-h-0 flex-1 flex flex-col px-5 pb-5 pt-0">
+          <div className="flex-1 flex flex-col items-center justify-center py-2 gap-6">
+            <div className="flex flex-col items-center gap-1.5 text-center px-4">
+              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground max-w-[20ch]">
+                Steer Glow’s Economy
+              </span>
+              <span className="text-sm text-muted-foreground max-w-[32ch] leading-relaxed">
+                GCTL directs Glow’s 175,000 GLW/week subsidy across
+                Infrastructure Projects.
+              </span>
             </div>
+          </div>
+
+          <div className="mt-auto space-y-4">
+            <Link
+              href="https://glow.org/blog/beginner-guide-to-gctl"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => {
+                trackEvent("dashboard_education_click", {
+                  source,
+                  wallet_connected: Boolean(normalizedWalletAddress),
+                  wallet_address: normalizedWalletAddress,
+                  topic: "gctl",
+                  url: "https://glow.org/blog/beginner-guide-to-gctl",
+                });
+              }}
+              className="group block bg-muted/20 rounded-xl p-3.5 border border-border/50 hover:bg-muted/30 hover:border-cyan-500/50 transition-all text-left"
+            >
+              <div className="flex gap-3 flex-col items-center text-center sm:flex-row sm:items-start sm:text-left">
+                <div className="shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-background/50 border border-border/60">
+                  <Droplets className="h-4 w-4 text-cyan-400" />
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-base font-semibold text-foreground group-hover:text-cyan-400 transition-colors">
+                    Beginner&apos;s Guide to GCTL
+                  </p>
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    Learn how to mint GCTL and vote on solar farms to maximize
+                    your impact and rewards.
+                  </p>
+                </div>
+              </div>
+            </Link>
           </div>
         </CardContent>
       </Card>
@@ -405,7 +415,16 @@ export default function GctlHeatmapWidget({
   const maxStake = Math.max(1, ...stakes.map((t) => t.amountGctl));
 
   return (
-    <Card className="h-full lg:max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border pt-0">
+    <Card
+      className={cn(
+        "overflow-hidden flex flex-col pt-0 w-full",
+        isMinimal
+          ? "bg-transparent border-transparent h-full"
+          : isFlow
+          ? "bg-card/30 border-foreground/5 min-h-[380px]"
+          : "h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+      )}
+    >
       <CardHeader className="pb-0 pt-4">
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
@@ -425,7 +444,7 @@ export default function GctlHeatmapWidget({
             disabled={isLoading}
           >
             <Rocket className="h-3.5 w-3.5" />
-            <span>Mint &amp; Stake</span>
+            <span>Stake</span>
           </Button>
         </div>
       </CardHeader>
@@ -433,8 +452,8 @@ export default function GctlHeatmapWidget({
       <CardContent className="min-h-0 flex-1 flex flex-col p-4 pt-3">
         <div className="flex flex-col flex-1 min-h-0 gap-3">
           {/* Summary row */}
-          <div className="flex items-start justify-between gap-4 shrink-0">
-            <div className="flex gap-6">
+          <div className="flex flex-col gap-3 shrink-0">
+            <div className="flex items-start justify-between gap-4">
               <div className="flex flex-col">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
                   Total balance
@@ -446,40 +465,52 @@ export default function GctlHeatmapWidget({
                   </span>
                 </div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                  Steering
-                </span>
-                <div className="mt-1 font-mono text-2xl font-bold tracking-tight text-foreground">
-                  {isLoading ? "—" : `+${formatCompact(totalGlwSteered)}`}{" "}
-                  <span className="text-xs font-mono text-muted-foreground">
-                    GLW/wk
+            </div>
+
+            {/* Liquid vs Staked breakdown */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 font-mono">
+                  <Wallet className="w-3.5 h-3.5 text-glow-orange" />
+                  <span className="text-muted-foreground">Liquid</span>
+                </div>
+                <div className="font-mono font-semibold text-foreground">
+                  {isLoading ? "—" : formatCompact(walletBalanceGctl)}{" "}
+                  <span className="text-[10px] text-muted-foreground">
+                    ({Math.round(liquidPercent * 100)}%)
                   </span>
                 </div>
               </div>
-            </div>
 
-            <div className="flex flex-col items-end text-[10px] font-mono uppercase text-muted-foreground leading-tight">
-              <div className="inline-flex items-center gap-1">
-                <Wallet className="w-3.5 h-3.5" />
-                <span>
-                  {isLoading
-                    ? "—"
-                    : `${formatCompact(walletBalanceGctl)} • ${Math.round(
-                        liquidPercent * 100
-                      )}% Liquid`}
-                </span>
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 font-mono">
+                  <Lock className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
+                  <span className="text-muted-foreground">Staked</span>
+                </div>
+                <div className="font-mono font-semibold text-foreground">
+                  {isLoading ? "—" : formatCompact(stakedTotalGctl)}{" "}
+                  <span className="text-[10px] text-muted-foreground">
+                    ({Math.round(stakedPercent * 100)}%)
+                  </span>
+                </div>
               </div>
-              <div className="inline-flex items-center gap-1 mt-1">
-                <Lock className="w-3.5 h-3.5" />
-                <span>
-                  {isLoading
-                    ? "—"
-                    : `${formatCompact(stakedTotalGctl)} • ${Math.round(
-                        stakedPercent * 100
-                      )}% Staked`}
-                </span>
-              </div>
+
+              {/* Visual bar */}
+              {!isLoading && totalBalanceGctl > 0 && (
+                <div className="flex h-2 w-full rounded-full overflow-hidden bg-muted/30 border border-border/40">
+                  <div
+                    className="transition-all"
+                    style={{
+                      width: `${liquidPercent * 100}%`,
+                      backgroundColor: "rgba(255, 180, 114, 0.7)",
+                    }}
+                  />
+                  <div
+                    className="bg-cyan-500/60 dark:bg-cyan-400/70 transition-all"
+                    style={{ width: `${stakedPercent * 100}%` }}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -524,7 +555,7 @@ export default function GctlHeatmapWidget({
 
                       const tooltipText = `${tile.regionName} • ${formatCompact(
                         tile.amountGctl
-                      )} GCTL • +${formatCompact(tile.glwSteered)} GLW/wk`;
+                      )} GCTL • ${Math.round(share * 100)}%`;
 
                       return (
                         <Tooltip key={tile.regionId}>
@@ -547,16 +578,11 @@ export default function GctlHeatmapWidget({
                                   <div className="font-mono text-xs font-bold text-white/95 drop-shadow-sm truncate">
                                     {tile.regionName}
                                   </div>
-                                  <div className="space-y-0.5">
-                                    <div className="font-mono text-sm font-bold text-white drop-shadow-sm">
-                                      +{formatCompact(tile.glwSteered)}{" "}
-                                      <span className="text-[10px] font-mono font-semibold text-white/80">
-                                        GLW/wk
-                                      </span>
-                                    </div>
-                                    <div className="font-mono text-[10px] text-white/70">
-                                      {formatCompact(tile.amountGctl)} GCTL
-                                    </div>
+                                  <div className="font-mono text-sm font-bold text-white drop-shadow-sm">
+                                    {formatCompact(tile.amountGctl)}{" "}
+                                    <span className="text-[10px] font-mono font-semibold text-white/80">
+                                      GCTL
+                                    </span>
                                   </div>
                                 </div>
                               ) : (
@@ -590,6 +616,10 @@ export default function GctlHeatmapWidget({
                   {/* Row 2: clean legend */}
                   <div className="shrink-0 flex flex-nowrap overflow-x-auto gap-3 px-2.5 py-1.5 border-t border-border/60">
                     {stakes.map((tile) => {
+                      const share =
+                        stakedTotalGctl > 0
+                          ? tile.amountGctl / stakedTotalGctl
+                          : 0;
                       const intensity = tile.amountGctl / maxStake;
                       const { dot } = getTreemapTileColors({
                         regionId: tile.regionId,
@@ -611,7 +641,7 @@ export default function GctlHeatmapWidget({
                             {tile.regionName}
                           </span>
                           <span className="text-muted-foreground">
-                            (+{formatCompact(tile.glwSteered)} GLW)
+                            ({Math.round(share * 100)}%)
                           </span>
                         </div>
                       );

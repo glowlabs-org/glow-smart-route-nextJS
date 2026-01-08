@@ -26,12 +26,17 @@ function DiscordLogo({ className }: { className?: string }) {
 
 interface DiscordWidgetProps {
   className?: string;
+  variant?: "default" | "minimal";
 }
 
-export default function DiscordWidget({ className }: DiscordWidgetProps) {
+export default function DiscordWidget({
+  className,
+  variant = "default",
+}: DiscordWidgetProps) {
   const { address, isConnected } = useAccount();
   const walletAddress = address?.toLowerCase() ?? null;
   const source = "discord_widget";
+  const isMinimal = variant === "minimal";
 
   return (
     <Link
@@ -39,7 +44,7 @@ export default function DiscordWidget({ className }: DiscordWidgetProps) {
       target="_blank"
       rel="noreferrer"
       aria-label="Join the Glow Discord (opens in a new tab)"
-      className="group block h-full focus:outline-none"
+      className="group block h-full w-full focus:outline-none"
       onClick={() => {
         trackEvent("dashboard_discord_click", {
           source,
@@ -50,19 +55,27 @@ export default function DiscordWidget({ className }: DiscordWidgetProps) {
     >
       <Card
         className={cn(
-          "relative flex h-full flex-col overflow-hidden border-0 bg-[#5865F2] text-white shadow-xl transition-all group-hover:bg-[#4752C4] group-focus-visible:ring-2 group-focus-visible:ring-white/30",
+          "relative flex h-full flex-col overflow-hidden transition-all border-0 bg-[#5865F2] text-white shadow-xl group-hover:bg-[#4752C4] group-focus-visible:ring-2 group-focus-visible:ring-white/30",
           className
         )}
       >
-        {/* Background Decor: Giant Logo positioned to fill negative space without blocking text */}
-        <div className="pointer-events-none absolute -bottom-12 -right-8 opacity-[0.12] transition-all duration-500 ease-out group-hover:-rotate-12 group-hover:scale-105 group-hover:opacity-20">
+        {/* Background Decor: Giant Logo */}
+        <div
+          className={cn(
+            "pointer-events-none absolute -bottom-12 -right-8 transition-all duration-500 ease-out group-hover:-rotate-12 group-hover:scale-105 opacity-[0.12] group-hover:opacity-20 text-white"
+          )}
+        >
           <DiscordLogo className="h-56 w-56" />
         </div>
 
         {/* Bottom-right CTA affordance */}
         <div className="pointer-events-none absolute bottom-6 right-6 z-20">
-          <div className="rounded-full border border-white/10 bg-black/20 p-2 backdrop-blur-md transition-transform duration-300 ease-out group-hover:-translate-y-0.5 group-hover:translate-x-0.5">
-            <ArrowUpRight className="h-5 w-5 text-white/90" />
+          <div
+            className={cn(
+              "rounded-full p-2 backdrop-blur-md transition-transform duration-300 ease-out group-hover:-translate-y-0.5 group-hover:translate-x-0.5 border border-white/10 bg-black/20 text-white/90"
+            )}
+          >
+            <ArrowUpRight className="h-5 w-5" />
           </div>
         </div>
 
@@ -78,12 +91,20 @@ export default function DiscordWidget({ className }: DiscordWidgetProps) {
               </div>
 
               {/* Live Indicator */}
-              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 backdrop-blur-md">
+              <div
+                className={cn(
+                  "flex items-center gap-2 rounded-full border px-3 py-1 backdrop-blur-md border-white/10 bg-black/20"
+                )}
+              >
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
                 </span>
-                <span className="text-[10px] font-bold tracking-wide text-white/90">
+                <span
+                  className={cn(
+                    "text-[10px] font-bold tracking-wide text-white/90"
+                  )}
+                >
                   ONLINE
                 </span>
               </div>
@@ -93,7 +114,11 @@ export default function DiscordWidget({ className }: DiscordWidgetProps) {
               <h3 className="text-xl font-bold leading-tight tracking-tight md:text-2xl">
                 Join the conversation in Discord.
               </h3>
-              <p className="max-w-[32rem] text-sm leading-relaxed text-white/70">
+              <p
+                className={cn(
+                  "max-w-[32rem] text-sm leading-relaxed text-white/70"
+                )}
+              >
                 Engage in founder-led discussions, meet like-minded users, and
                 have your questions answered by the team.
               </p>
@@ -101,18 +126,36 @@ export default function DiscordWidget({ className }: DiscordWidgetProps) {
               {/* Stats / Features Grid to fill empty space */}
               <div className="grid grid-cols-2 gap-4 pt-2">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 font-semibold text-white/90">
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 font-semibold text-white/90"
+                    )}
+                  >
                     <Users className="h-4 w-4" />
                     <span>7k+ Members</span>
                   </div>
-                  <p className="text-xs text-white/60">Global community</p>
+                  <p
+                    className={cn(
+                      "text-xs text-white/60"
+                    )}
+                  >
+                    Global community
+                  </p>
                 </div>
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 font-semibold text-white/90">
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 font-semibold text-white/90"
+                    )}
+                  >
                     <Zap className="h-4 w-4" />
                     <span>24/7 Community</span>
                   </div>
-                  <p className="text-xs text-white/60">
+                  <p
+                    className={cn(
+                      "text-xs text-white/60"
+                    )}
+                  >
                     Ask questions and get help
                   </p>
                 </div>

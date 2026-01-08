@@ -143,14 +143,17 @@ interface RewardsWidgetProps {
   walletAddress?: string | null;
   hideIfEmpty?: boolean;
   initialDurationMs?: number;
+  variant?: "default" | "minimal";
 }
 
 export default function RewardsWidget({
   walletAddress,
   hideIfEmpty = true,
   initialDurationMs = DEFAULT_INITIAL_DURATION_MS,
+  variant = "default",
 }: RewardsWidgetProps) {
   const { isConnecting, isReconnecting } = useAccount();
+  const isMinimal = variant === "minimal";
   const hasWallet = Boolean(walletAddress);
   const isWalletConnecting = isConnecting || isReconnecting;
   const address = walletAddress ?? undefined;
@@ -269,30 +272,25 @@ export default function RewardsWidget({
     );
   }, [claimableTotalsByCurrency]);
 
-  const nextWeekToUnlock = React.useMemo(() => {
-    const nonFinalizedWeeks = weeklyBreakdown
-      .filter((w) => !w.isFinalized)
-      .sort((a, b) => a.week - b.week);
-    return nonFinalizedWeeks[0] ?? null;
-  }, [weeklyBreakdown]);
-
-  const nextClaimTotals = React.useMemo(() => {
-    if (!nextWeekToUnlock) return {};
+  const nonFinalizedTotals = React.useMemo(() => {
+    const nonFinalizedWeeks = weeklyBreakdown.filter((w) => !w.isFinalized);
     const totals: Record<string, number> = {};
-    for (const reward of nextWeekToUnlock.rewards) {
-      const amount = Number.parseFloat(reward.amount);
-      if (!Number.isFinite(amount) || amount <= 0) continue;
-      const currency =
-        reward.type === "glowInflation" ? "GLW" : reward.currency;
-      totals[currency] = (totals[currency] ?? 0) + amount;
+    for (const week of nonFinalizedWeeks) {
+      for (const reward of week.rewards) {
+        const amount = Number.parseFloat(reward.amount);
+        if (!Number.isFinite(amount) || amount <= 0) continue;
+        const currency =
+          reward.type === "glowInflation" ? "GLW" : reward.currency;
+        totals[currency] = (totals[currency] ?? 0) + amount;
+      }
     }
     return totals;
-  }, [nextWeekToUnlock]);
+  }, [weeklyBreakdown]);
 
   const nextClaimLabel = React.useMemo(() => {
     const entries: string[] = [];
-    const glw = nextClaimTotals.GLW ?? 0;
-    const usdg = nextClaimTotals.USDG ?? 0;
+    const glw = nonFinalizedTotals.GLW ?? 0;
+    const usdg = nonFinalizedTotals.USDG ?? 0;
     if (glw > 0) {
       entries.push(`${formatTokenAmount(glw)} GLW`);
     }
@@ -300,9 +298,11 @@ export default function RewardsWidget({
       entries.push(`${formatUsdWhole(usdg)} USDG`);
     }
     return entries.length > 0 ? entries.join(" + ") : null;
-  }, [nextClaimTotals]);
+  }, [nonFinalizedTotals]);
 
-  const hasNextClaim = Boolean(nextClaimLabel);
+  const hasPending = React.useMemo(() => {
+    return hasClaimable || nextClaimLabel !== null;
+  }, [hasClaimable, nextClaimLabel]);
 
   const shouldHide =
     hasWallet &&
@@ -310,22 +310,25 @@ export default function RewardsWidget({
     !isWidgetLoading &&
     !isWidgetError &&
     !hasClaimable &&
-    !hasNextClaim;
+    !hasPending;
 
   if (shouldHide && hideIfEmpty) return null;
 
   return (
-    <Card className="h-full flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0">
-        <CardTitle>Rewards</CardTitle>
-        {hasWallet && !isWalletConnecting && hasClaimable && (
-          <Badge
-            variant="secondary"
-            className="text-[10px] uppercase tracking-wider font-mono px-2 py-0.5 h-5 rounded-md bg-muted/50 text-muted-foreground hover:bg-muted"
-          >
-            Ready to claim
-          </Badge>
-        )}
+    <Card
+      className={cn(
+        "flex flex-col overflow-hidden w-full",
+        isMinimal
+          ? "bg-transparent border-transparent h-full"
+          : "h-full bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+      )}
+    >
+      <CardHeader className="py-0 px-4">
+        <div className="flex items-center justify-center gap-2">
+          <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
+            Rewards
+          </div>
+        </div>
       </CardHeader>
 
       <CardContent className="flex flex-col flex-1 min-h-0 py-0 px-6 gap-4">
@@ -334,7 +337,7 @@ export default function RewardsWidget({
           !isWalletConnecting &&
           !isWidgetLoading &&
           !isWidgetError &&
-          hasNextClaim && (
+          nextClaimLabel && (
             <div className="pt-0">
               <RewardsCountdown initialDurationMs={initialDurationMs} />
             </div>
@@ -382,7 +385,7 @@ export default function RewardsWidget({
                         className={cn(
                           "leading-tight",
                           entry.isPrimary
-                            ? "text-4xl font-bold tracking-tighter text-foreground"
+                            ? "text-4xl lg:text-5xl font-bold tracking-tighter text-foreground"
                             : "text-lg font-medium text-muted-foreground/80 flex items-center gap-1.5"
                         )}
                       >
@@ -396,11 +399,11 @@ export default function RewardsWidget({
                     ))}
                   </div>
 
-                  {hasNextClaim && nextClaimLabel && (
+                  {nextClaimLabel && (
                     <div className="pt-3">
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/30 border border-border/50">
                         <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
-                          Next
+                          next claim:
                         </span>
                         <span className="text-[11px] font-mono font-medium text-muted-foreground tabular-nums">
                           {nextClaimLabel}
@@ -419,9 +422,7 @@ export default function RewardsWidget({
           {hasWallet && !shouldHide ? (
             <Dialog>
               <DialogTrigger asChild>
-                <Button className="w-full h-10 font-semibold shadow-sm transition-all hover:scale-[1.01]">
-                  Claim Rewards
-                </Button>
+                <Button className="w-full ">Claim Rewards</Button>
               </DialogTrigger>
               <DialogContent
                 className="bg-background rounded-3xl p-0 sm:max-w-[980px] w-full border-border shadow-2xl overflow-hidden"
@@ -436,7 +437,7 @@ export default function RewardsWidget({
           ) : (
             <Button
               variant="outline"
-              className="w-full h-10 opacity-50 cursor-not-allowed"
+              className="w-full  opacity-50 cursor-not-allowed"
               disabled
             >
               No Rewards

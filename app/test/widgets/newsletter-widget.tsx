@@ -18,14 +18,19 @@ import { trackEvent } from "@/lib/telemetry";
 
 interface NewsletterWidgetProps {
   className?: string;
+  variant?: "default" | "minimal";
 }
 
-export default function NewsletterWidget({ className }: NewsletterWidgetProps) {
+export default function NewsletterWidget({
+  className,
+  variant = "default",
+}: NewsletterWidgetProps) {
   const [email, setEmail] = React.useState("");
   const [status, setStatus] = React.useState<"idle" | "loading" | "success">(
     "idle"
   );
   const source = "newsletter_widget";
+  const isMinimal = variant === "minimal";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,7 +93,10 @@ export default function NewsletterWidget({ className }: NewsletterWidgetProps) {
   return (
     <Card
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden bg-card dark:bg-muted/20 border-foreground/10 dark:border-border",
+        "group relative flex h-full flex-col overflow-hidden",
+        isMinimal
+          ? "bg-transparent border-transparent"
+          : "bg-card dark:bg-muted/20 border-foreground/10 dark:border-border",
         className
       )}
     >
@@ -100,7 +108,12 @@ export default function NewsletterWidget({ className }: NewsletterWidgetProps) {
         <Mail className="h-48 w-48 text-card-foreground rotate-[-15deg]" />
       </div>
 
-      <CardContent className="relative z-10 flex flex-col justify-between h-full p-6 md:p-8">
+      <CardContent
+        className={cn(
+          "relative z-10 flex flex-col justify-between h-full p-6 md:p-8",
+          isMinimal && "p-0 md:p-0"
+        )}
+      >
         {/* Header Section */}
         <div className="space-y-4">
           <div className="flex items-center gap-2">

@@ -113,22 +113,37 @@ const faqItems: FaqItem[] = [
   },
 ];
 
-export default function GlowFaqWidget({ className }: { className?: string }) {
+export default function GlowFaqWidget({
+  className,
+  variant = "default",
+}: {
+  className?: string;
+  variant?: "default" | "minimal";
+}) {
   const { address, isConnected } = useAccount();
   const walletAddress = address?.toLowerCase() ?? null;
   const source = "glow_faq_widget";
   const [activeId, setActiveId] = useState<string>(faqItems[0].id);
+  const isMinimal = variant === "minimal";
 
   const activeItem = faqItems.find((item) => item.id === activeId);
 
   return (
     <Card
       className={cn(
-        "flex flex-col overflow-hidden bg-card dark:bg-muted/30 border-foreground/10 dark:border-border h-full min-h-[350px]",
+        "flex flex-col overflow-hidden h-full min-h-[350px]",
+        isMinimal
+          ? "bg-transparent border-transparent"
+          : "bg-card dark:bg-muted/30 border-foreground/10 dark:border-border",
         className
       )}
     >
-      <CardHeader className="pb-4 shrink-0 border-b border-border/50">
+      <CardHeader
+        className={cn(
+          "pb-4 shrink-0",
+          isMinimal ? "border-b-0 px-0" : "border-b border-border/50"
+        )}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="tracking-tight text-lg">Glow FAQ</CardTitle>

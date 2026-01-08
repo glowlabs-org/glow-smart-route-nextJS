@@ -2,12 +2,13 @@
 
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ShoppingCart } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   AnimatedCountdownDhms,
@@ -17,8 +18,10 @@ import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import { useGlowLaunchpad, useMiningCenter } from "@/hooks";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { DepositDialog } from "@/app/marketplace/deposit-dialog";
 import { SponsoredFarmsActivity } from "@/app/marketplace/sponsored-farms-activity";
+import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { trackEvent } from "@/lib/telemetry";
 import { useAccount } from "wagmi";
 import type {
@@ -57,7 +60,7 @@ function countAvailableApplications(
 interface LaunchpadStatusWidgetProps {
   className?: string;
   forcedType?: "delegations" | "miners";
-  variant?: "card" | "full-row";
+  variant?: "card" | "full-row" | "flow" | "minimal";
 }
 
 export default function LaunchpadStatusWidget({
@@ -72,8 +75,11 @@ export default function LaunchpadStatusWidget({
   const { isLive, nextBatchAtMs, refreshNextBatchAtMs, isLoading, isError } =
     useLaunchpadStatus();
   const { spotPriceUsd } = useGlowSpotPriceSummary();
+  const { usdcBalance } = useWalletTokenBalances(address);
   const isMobile = useIsMobile();
   const isFullRow = variant === "full-row";
+  const isFlow = variant === "flow";
+  const isMinimal = variant === "minimal";
 
   type ListTypeFilter = "all" | "delegations" | "miners" | "activity";
   const [liveTypeFilter, setLiveTypeFilter] = React.useState<ListTypeFilter>(
@@ -148,6 +154,7 @@ export default function LaunchpadStatusWidget({
   const [selectedRewardScore, setSelectedRewardScore] = React.useState<
     LaunchpadRewardScore | MiningCenterScore | null
   >(null);
+  const [buyGlowOpen, setBuyGlowOpen] = React.useState(false);
 
   const handleCountdownComplete = React.useCallback(() => {
     refreshNextBatchAtMs();
@@ -198,13 +205,17 @@ export default function LaunchpadStatusWidget({
   return (
     <Card
       className={cn(
-        isFullRow
-          ? "flex flex-col overflow-hidden min-w-0 bg-card dark:bg-muted/20 border-foreground/10 dark:border-border gap-2 pt-0"
+        "flex flex-col overflow-hidden min-w-0 gap-2 pt-0 w-full",
+        isMinimal
+          ? "bg-transparent border-transparent h-full"
+          : isFlow
+          ? "bg-card/30 border-foreground/5 min-h-[380px]"
+          : isFullRow
+          ? "bg-card dark:bg-muted/20 border-foreground/10 dark:border-border"
           : cn(
-              "flex flex-col overflow-hidden min-w-0 bg-card dark:bg-muted/20 border-foreground/10 dark:border-border gap-2 pt-0",
+              "bg-card dark:bg-muted/20 border-foreground/10 dark:border-border",
               isMobile ? "min-h-[620px]" : "h-full"
             ),
-        // full-row stays stacked (header above carousel/content)
         className
       )}
     >
@@ -218,7 +229,8 @@ export default function LaunchpadStatusWidget({
       >
         <div
           className={cn(
-            "flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between",
+            "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
+            !isLive ? "items-center" : "items-start",
             isFullRow ? "min-h-0" : null
           )}
         >
@@ -345,16 +357,27 @@ export default function LaunchpadStatusWidget({
               </TabsList>
             </Tabs>
           ) : (
-            <div
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                trackEvent("launchpad_widget_buy_glw_click", {
+                  source,
+                  wallet_connected: isConnected,
+                  wallet_address: walletAddress,
+                });
+                setBuyGlowOpen(true);
+              }}
               className={cn(
-                "shrink-0 inline-flex items-center gap-2 rounded-full border border-border bg-muted/10",
-                isFullRow ? "px-2 py-0.5" : "px-3 py-1"
+                "shrink-0 rounded-full border-border ",
+                "h-9 px-4 text-sm"
               )}
             >
-              <span className="text-xs font-mono font-medium text-foreground tabular-nums">
-                GLW {priceLabel}
-              </span>
-            </div>
+              <ShoppingCart
+                className={cn("mr-1.5", isFullRow ? "h-3 w-3" : "h-4 w-4")}
+              />
+              Buy GLW
+            </Button>
           )}
         </div>
       </CardHeader>
@@ -432,12 +455,12 @@ export default function LaunchpadStatusWidget({
           // --- COUNTDOWN STATE ---
           <div
             className={cn(
-              "flex-1 flex flex-col",
+              "flex-1 flex flex-col gap-6",
               variant === "full-row" ? "p-0" : "px-5 pb-5"
             )}
           >
             {/* Big Countdown Hero */}
-            <div className="flex-1 flex flex-col items-center justify-center py-2">
+            <div className="flex-1 flex flex-col items-center justify-center py-2 gap-6">
               <div className="font-mono font-bold tracking-tighter tabular-nums text-foreground">
                 <div className="sm:hidden text-3xl">
                   <AnimatedCountdownDhms
@@ -458,12 +481,19 @@ export default function LaunchpadStatusWidget({
 
             {/* Prep Section */}
             <div className="mt-auto space-y-4">
-              <div className="bg-muted/20 rounded-xl p-3.5 flex gap-3 items-start border border-border/50">
-                <div className="shrink-0 mt-0.5 p-1.5 bg-glow-orange/10 rounded-full">
-                  <Sparkles className="size-3.5 text-glow-orange" />
+              <div className="bg-muted/20 rounded-xl p-4 flex gap-4 border border-border/50 flex-col sm:flex-row sm:items-start text-center sm:text-left">
+                {/* GLW Price - styled like the icon box in gctl widget */}
+                <div className="shrink-0 flex flex-col items-center justify-center p-3 rounded-xl bg-background/50 border border-border/60 min-w-[100px] gap-0.5">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    GLW
+                  </span>
+                  <span className="text-xl font-mono font-bold text-foreground tabular-nums tracking-tight">
+                    {priceLabel}
+                  </span>
                 </div>
-                <div className="space-y-0.5">
-                  <p className="text-xl font-semibold text-foreground">
+
+                <div className="flex-1 space-y-1 py-0.5">
+                  <p className="text-base font-semibold text-foreground">
                     Have your GLW ready to delegate.
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
@@ -495,6 +525,22 @@ export default function LaunchpadStatusWidget({
             rewardScore={selectedRewardScore as LaunchpadRewardScore | null}
           />
         )}
+
+        <BuyGlowDialog
+          open={buyGlowOpen}
+          onOpenChange={setBuyGlowOpen}
+          usdcBalance={usdcBalance ?? null}
+          glowSpotPrice={spotPriceUsd}
+          onSuccess={() => {
+            void (async () => {
+              try {
+                await queryClient.refetchQueries({
+                  queryKey: ["sponsor-listings"],
+                });
+              } catch {}
+            })();
+          }}
+        />
       </CardContent>
     </Card>
   );

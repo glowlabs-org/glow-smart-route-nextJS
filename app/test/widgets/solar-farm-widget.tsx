@@ -62,7 +62,6 @@ import {
 } from "@/utils/sponsorships-in-progress";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { trackEvent } from "@/lib/telemetry";
-import { useWalletPortfolio } from "./use-wallet-portfolio";
 
 interface HistoryDataPoint {
   weekNumber: number;
@@ -253,10 +252,12 @@ const CustomTooltip = ({
 
 interface SolarFarmWidgetProps {
   walletAddress?: string | null;
+  variant?: "default" | "minimal";
 }
 
 export default function SolarFarmWidget({
   walletAddress,
+  variant = "default",
 }: SolarFarmWidgetProps) {
   const queryClient = useQueryClient();
   const { isConnecting, isReconnecting } = useAccount();
@@ -264,6 +265,7 @@ export default function SolarFarmWidget({
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
   const source = "solar_farm_widget";
   const isWalletConnecting = isConnecting || isReconnecting;
+  const isMinimal = variant === "minimal";
   const [isLaunchpadOpen, setIsLaunchpadOpen] = React.useState(false);
   const [nextBatchAtMs, setNextBatchAtMs] = React.useState(() =>
     getNextTuesdayAt1pmET().getTime()
@@ -273,17 +275,6 @@ export default function SolarFarmWidget({
     walletAddress: walletAddress ?? null,
     enabled: hasWallet,
   });
-
-  const { chartData: glowWorthChartData } = useWalletPortfolio({
-    walletAddress: walletAddress ?? null,
-  });
-
-  const delegatedActiveGlw = React.useMemo(() => {
-    if (!hasWallet) return 0;
-    const last = glowWorthChartData.at(-1);
-    const value = last?.delegatedActiveGlw ?? 0;
-    return Number.isFinite(value) && value > 0 ? value : 0;
-  }, [glowWorthChartData, hasWallet]);
 
   const { applications: launchpadApplications } = useGlowLaunchpad({
     filters: { paymentCurrency: "GLW" },
@@ -713,7 +704,14 @@ export default function SolarFarmWidget({
   return (
     <Dialog>
       {/* --- DASHBOARD CARD --- */}
-      <Card className="h-full lg:max-h-[380px] flex flex-col overflow-hidden pt-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border gap-2">
+      <Card
+        className={cn(
+          "flex flex-col overflow-hidden pt-0 gap-2 w-full",
+          isMinimal
+            ? "bg-transparent border-transparent h-full"
+            : "h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+        )}
+      >
         {!isEmptyButConnected && (
           <CardHeader className="pb-0 pt-4">
             <div className="flex items-center justify-between gap-3">
@@ -1081,45 +1079,6 @@ export default function SolarFarmWidget({
                       </div>
                     </div>
                   </div>
-
-                  {/* KPI: Actively delegated (Glow Worth) */}
-                  {delegatedActiveGlw > 0 ? (
-                    <div className="flex flex-col gap-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
-                          Actively delegated
-                        </span>
-                        <TooltipProvider delayDuration={0}>
-                          <ShadTooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                type="button"
-                                aria-label="Actively delegated info"
-                                className="inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                              >
-                                <Info className="h-3.5 w-3.5" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-[260px] text-[11px] font-mono">
-                              Actively delegated = delegated GLW minus protocol
-                              deposit (PD) recovery already received.
-                            </TooltipContent>
-                          </ShadTooltip>
-                        </TooltipProvider>
-                      </div>
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Zap className="w-5 h-5 text-glow-purple" />
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-3xl font-bold text-foreground tracking-tight font-mono tabular-nums">
-                            {formatGlwCompact(delegatedActiveGlw)}
-                          </span>
-                          <span className="text-sm font-bold text-muted-foreground font-mono">
-                            GLW
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
 
                 <DialogTrigger asChild>

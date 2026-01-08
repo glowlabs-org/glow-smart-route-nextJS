@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Drawer,
   DrawerClose,
@@ -35,6 +36,7 @@ import {
 } from "@/components/impact-score/impact-indicators";
 import { hubGet } from "@/lib/api/hub-client";
 import { trackEvent } from "@/lib/telemetry";
+import { cn } from "@/lib/utils";
 import {
   useImpactLeaderboardQuery,
   type ImpactGlowScoreResponse,
@@ -281,13 +283,92 @@ function ImpactScoreHelp(props: {
 interface RankWidgetProps {
   walletAddress?: string | null;
   onMintAndStakeClick?: (forceStep1?: boolean) => void;
+  variant?: "default" | "hero";
+}
+
+function RankWidgetSkeleton({
+  variant = "default",
+}: {
+  variant?: "default" | "hero";
+}) {
+  const isHero = variant === "hero";
+
+  return (
+    <Card
+      className={cn(
+        "overflow-hidden flex flex-col w-full",
+        isHero
+          ? "bg-muted dark:bg-muted/30 dark:border-transparent h-full gap-2 py-4 border-border"
+          : "h-full bg-card dark:bg-muted/30 border-foreground/10 dark:border-border gap-3 pt-4"
+      )}
+    >
+      <CardHeader className="py-0 px-4">
+        <div className="flex items-center justify-center gap-2">
+          <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
+            Impact Score
+          </div>
+          <Skeleton className="h-8 w-8 rounded-full" />
+        </div>
+      </CardHeader>
+
+      <CardContent className={cn("flex flex-col flex-1 min-h-0 gap-3", "py-0")}>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-1 min-h-0 flex-col items-center justify-center text-center px-1">
+            <Skeleton className="h-4 w-24 rounded-md" />
+            <Skeleton
+              className={cn(
+                "mt-2 rounded-xl",
+                isHero ? "h-16 w-48" : "h-14 w-40"
+              )}
+            />
+
+            <div className="mt-2 flex items-center justify-center gap-3">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-3 w-12 rounded-md" />
+                <Skeleton className="h-3 w-16 rounded-md" />
+              </div>
+              <div
+                className={cn("w-px bg-border/60", isHero ? "h-4" : "h-3")}
+              />
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-3 w-20 rounded-md" />
+                <Skeleton className="h-3 w-16 rounded-md" />
+              </div>
+            </div>
+          </div>
+
+          {/* Impact indicators skeleton */}
+          <div
+            className={cn(
+              "rounded-xl border border-border bg-card",
+              isHero ? "p-2 mb-2" : "p-3"
+            )}
+          >
+            <div className="flex items-center justify-center gap-2">
+              {[...Array(6)].map((_, i) => (
+                <Skeleton key={i} className="h-8 w-8 rounded-full" />
+              ))}
+            </div>
+          </div>
+
+          {/* Buttons skeleton */}
+          <div className="grid gap-2 grid-cols-2">
+            <Skeleton className={cn("rounded-lg", isHero ? "h-10" : "h-12")} />
+            <Skeleton className={cn("rounded-lg", isHero ? "h-10" : "h-12")} />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export function RankWidget({
   walletAddress,
   onMintAndStakeClick,
+  variant = "default",
 }: RankWidgetProps) {
   const hasWallet = Boolean(walletAddress);
+  const isHero = variant === "hero";
 
   const source = "rank_widget";
   const [isBreakdownOpen, setIsBreakdownOpen] = React.useState(false);
@@ -435,24 +516,48 @@ export function RankWidget({
 
       setIsLaunchpadOpen(true);
     },
-    [hasWallet, hasPositiveScore, normalizedWalletAddress, onMintAndStakeClick, source]
+    [
+      hasWallet,
+      hasPositiveScore,
+      normalizedWalletAddress,
+      onMintAndStakeClick,
+      source,
+    ]
   );
+
+  const isLoading =
+    hasWallet && (impactScoreQuery.isLoading || leaderboardQuery.isLoading);
+
+  if (isLoading) {
+    return <RankWidgetSkeleton variant={variant} />;
+  }
 
   return (
     <>
       {/* --- DASHBOARD CARD --- */}
-      <Card className="h-full overflow-hidden flex flex-col gap-3 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border pt-4">
-        <CardHeader className="py-0">
-          <CardTitle className="flex items-center justify-center gap-2 text-center">
-            <span>Impact Score</span>
+      <Card
+        className={cn(
+          "overflow-hidden flex flex-col w-full",
+          isHero
+            ? "bg-muted dark:bg-muted/30 dark:border-transparent h-full gap-2 py-4 border-border"
+            : "h-full bg-card dark:bg-muted/30 border-foreground/10 dark:border-border gap-3 pt-4"
+        )}
+      >
+        <CardHeader className="py-0 px-4">
+          <div className="flex items-center  justify-center gap-2 translate-x-[12px]">
+            <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
+              Impact Score
+            </div>
             <ImpactScoreHelp
               source={source}
               walletAddress={normalizedWalletAddress}
               walletConnected={hasWallet}
             />
-          </CardTitle>
+          </div>
         </CardHeader>
-        <CardContent className="flex flex-col flex-1 min-h-0 gap-3 py-0">
+        <CardContent
+          className={cn("flex flex-col flex-1 min-h-0 gap-3", "py-0")}
+        >
           {!hasWallet ? (
             <div className="flex flex-col gap-3">
               <div className="flex flex-1 min-h-0 flex-col items-center justify-center text-center px-1 select-none">
@@ -492,23 +597,50 @@ export function RankWidget({
           ) : (
             <>
               <div className="flex flex-1 min-h-0 flex-col items-center justify-center text-center px-1">
-                <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                <div
+                  className={cn(
+                    "font-mono uppercase tracking-wider text-muted-foreground",
+                    isHero ? "text-sm" : "text-xs"
+                  )}
+                >
                   Total points
                 </div>
-                <div className="mt-2 font-mono text-4xl md:text-5xl font-bold tracking-tighter text-foreground tabular-nums">
+                <div
+                  className={cn(
+                    "mt-1 font-mono font-bold tracking-tighter text-foreground tabular-nums",
+                    isHero ? "text-5xl md:text-6xl" : "text-4xl md:text-5xl"
+                  )}
+                >
                   {pointsHeroText}
                 </div>
 
-                <div className="mt-2 flex items-center justify-center gap-3 text-xs text-muted-foreground">
+                <div
+                  className={cn(
+                    "mt-2 flex items-center justify-center gap-3 text-muted-foreground",
+                    isHero ? "text-sm" : "text-xs"
+                  )}
+                >
                   <div className="flex items-baseline gap-2 font-mono">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80">
+                    <span
+                      className={cn(
+                        "uppercase tracking-wider text-muted-foreground/80",
+                        isHero ? "text-xs" : "text-[10px]"
+                      )}
+                    >
                       Rank
                     </span>
                     <span className="tabular-nums">{rankText}</span>
                   </div>
-                  <div className="h-3 w-px bg-border/60" />
+                  <div
+                    className={cn("w-px bg-border/60", isHero ? "h-4" : "h-3")}
+                  />
                   <div className="flex items-baseline gap-2 font-mono">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80">
+                    <span
+                      className={cn(
+                        "uppercase tracking-wider text-muted-foreground/80",
+                        isHero ? "text-xs" : "text-[10px]"
+                      )}
+                    >
                       Percentile
                     </span>
                     <span className="tabular-nums">{percentileText}</span>
@@ -516,7 +648,12 @@ export function RankWidget({
                 </div>
               </div>
               {impactScore ? (
-                <div className="rounded-xl border border-border bg-muted/20 p-3">
+                <div
+                  className={cn(
+                    "rounded-xl border border-border bg-card",
+                    isHero ? "p-2 mb-2" : "p-3"
+                  )}
+                >
                   <ImpactIndicatorsRow
                     state={getIndicatorsStateFromImpactScore(impactScore)}
                     onIndicatorClick={handleIndicatorClick}
@@ -524,11 +661,11 @@ export function RankWidget({
                 </div>
               ) : null}
 
-              <div className={"grid grid-cols-2 gap-3"}>
+              <div className={cn("grid gap-2", "grid-cols-2")}>
                 {shouldShowMintAndStakeCta ? (
                   onMintAndStakeClick ? (
                     <Button
-                      className="h-12 font-mono font-bold text-base"
+                      className={cn("font-mono font-bold", "h-12 text-base")}
                       type="button"
                       onClick={() => {
                         trackEvent("dashboard_gctl_mint_stake_open_click", {
@@ -543,7 +680,10 @@ export function RankWidget({
                     </Button>
                   ) : (
                     <Button
-                      className="h-12 font-mono font-bold text-base"
+                      className={cn(
+                        "font-mono font-bold",
+                        isHero ? "h-10 text-sm" : "h-12 text-base"
+                      )}
                       asChild
                     >
                       <Link
@@ -562,7 +702,15 @@ export function RankWidget({
                     </Button>
                   )
                 ) : null}
-                <Button className="h-12 font-mono font-bold text-base" asChild>
+                <Button
+                  variant={
+                    shouldShowMintAndStakeCta && onMintAndStakeClick
+                      ? "outline"
+                      : "default"
+                  }
+                  className={cn("font-mono font-bold")}
+                  asChild
+                >
                   <Link
                     href="/stats/rewards"
                     onClick={() => {
@@ -579,7 +727,7 @@ export function RankWidget({
                 {shouldShowBreakdownButton ? (
                   <Button
                     variant="outline"
-                    className="h-12 font-mono font-bold text-base"
+                    className={cn("font-mono font-bold")}
                     type="button"
                     onClick={() => {
                       trackEvent("dashboard_impact_breakdown_open_click", {

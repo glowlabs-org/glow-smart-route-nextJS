@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -22,6 +23,11 @@ import { useFractionsSummary } from "@/hooks";
 import { parseFractionsSummary } from "@/lib/fractions";
 import { cn } from "@/lib/utils";
 import { useEnsNames } from "@/hooks/useEnsNames";
+import { shortAddress } from "@/utils/impact";
+
+import { Button } from "@/components/ui/button";
+import { Cpu } from "lucide-react";
+import { GlowSymbol } from "@/components/glow-symbol";
 
 function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -36,6 +42,9 @@ interface SponsoredFarmsActivityProps {
   isLoadingOverride?: boolean;
   walletAddress?: string;
   constrainHeight?: boolean;
+  maxRows?: number;
+  showViewAll?: boolean;
+  onViewAllClick?: () => void;
 }
 
 function formatCompactNumber(value: number, maximumFractionDigits: number) {
@@ -114,6 +123,9 @@ export function SponsoredFarmsActivity({
   isLoadingOverride,
   walletAddress,
   constrainHeight,
+  maxRows,
+  showViewAll,
+  onViewAllClick,
 }: SponsoredFarmsActivityProps) {
   const isWidget = variant === "widget";
 
@@ -174,9 +186,14 @@ export function SponsoredFarmsActivity({
 
   const nowMs = Date.now();
 
+  const displayedActivity = React.useMemo(() => {
+    if (!maxRows) return activity;
+    return activity.slice(0, maxRows);
+  }, [activity, maxRows]);
+
   const buyerAddresses = React.useMemo(() => {
-    return activity.map((purchase) => purchase.buyer);
-  }, [activity]);
+    return displayedActivity.map((purchase) => purchase.buyer);
+  }, [displayedActivity]);
 
   const { ensNames } = useEnsNames({
     addresses: buyerAddresses,
@@ -185,95 +202,122 @@ export function SponsoredFarmsActivity({
 
   if (isLoading) {
     return (
-      <div className={cn(className, "p-4 w-full min-w-0")}>
+      <div className={cn("p-4 w-full min-w-0", className)}>
         {/* Summary Stats Skeleton */}
-        <div className={cn("mb-6 grid gap-4 w-full min-w-0", kpiGridClassName)}>
-          {showRewardScore && (
+        {!isWidget && (
+          <div
+            className={cn("mb-6 grid gap-4 w-full min-w-0", kpiGridClassName)}
+          >
+            {showRewardScore && (
+              <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
+                <Skeleton className="h-4 w-32 mb-2" />
+                <Skeleton className="h-8 w-20" />
+              </div>
+            )}
+            {shouldShowContributorsKpi ? (
+              <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
+                <Skeleton className="h-4 w-20 mb-2" />
+                <Skeleton className="h-8 w-24" />
+              </div>
+            ) : null}
             <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-              <Skeleton className="h-4 w-32 mb-2" />
+              <Skeleton className="h-4 w-40 mb-2" />
+              <Skeleton className="h-8 w-32" />
+            </div>
+            <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
+              <Skeleton className="h-4 w-24 mb-2" />
               <Skeleton className="h-8 w-20" />
             </div>
-          )}
-          {shouldShowContributorsKpi ? (
-            <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-              <Skeleton className="h-4 w-20 mb-2" />
-              <Skeleton className="h-8 w-24" />
-            </div>
-          ) : null}
-          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-            <Skeleton className="h-4 w-40 mb-2" />
-            <Skeleton className="h-8 w-32" />
           </div>
-          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-            <Skeleton className="h-4 w-24 mb-2" />
-            <Skeleton className="h-8 w-20" />
-          </div>
-        </div>
+        )}
 
         {/* Activity Table Skeleton */}
-        <div
-          className={cn(
-            "bg-white dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 overflow-x-auto",
-            constrainHeight ? "overflow-y-auto max-h-[min(55vh,520px)]" : null
-          )}
-        >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-right min-w-[120px]">
-                  Total
-                </TableHead>
-                <TableHead className="text-right min-w-[100px]">
-                  Amount
-                </TableHead>
-                <TableHead className="min-w-[120px]">Date</TableHead>
-                {showRewardScore && (
+        {isWidget ? (
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-xl border border-border bg-muted/10 p-3"
+              >
+                <Skeleton className="h-10 w-10 rounded-lg shrink-0" />
+                <div className="space-y-2 flex-1">
+                  <div className="flex justify-between">
+                    <Skeleton className="h-3 w-24 rounded-md" />
+                    <Skeleton className="h-3 w-12 rounded-md" />
+                  </div>
+                  <div className="flex justify-between">
+                    <Skeleton className="h-3 w-32 rounded-md" />
+                    <Skeleton className="h-3 w-20 rounded-md" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "bg-white dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 overflow-x-auto",
+              constrainHeight ? "overflow-y-auto max-h-[min(55vh,520px)]" : null
+            )}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
                   <TableHead className="text-right min-w-[120px]">
-                    Reward Score
+                    Total
                   </TableHead>
-                )}
-                <TableHead className="min-w-[100px] hidden md:table-cell">
-                  Farm
-                </TableHead>
-                <TableHead className="min-w-[100px] hidden md:table-cell">
-                  Type
-                </TableHead>
-                <TableHead className="min-w-[100px] hidden lg:table-cell">
-                  Wallet
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {Array.from({ length: 8 }).map((_, i) => (
-                <TableRow key={i} className="h-14">
-                  <TableCell className="text-right">
-                    <Skeleton className="h-4 w-20 ml-auto" />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Skeleton className="h-4 w-16 ml-auto" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-28" />
-                  </TableCell>
+                  <TableHead className="text-right min-w-[100px]">
+                    Amount
+                  </TableHead>
+                  <TableHead className="min-w-[120px]">Date</TableHead>
                   {showRewardScore && (
+                    <TableHead className="text-right min-w-[120px]">
+                      Reward Score
+                    </TableHead>
+                  )}
+                  <TableHead className="min-w-[100px] hidden md:table-cell">
+                    Farm
+                  </TableHead>
+                  <TableHead className="min-w-[100px] hidden md:table-cell">
+                    Type
+                  </TableHead>
+                  <TableHead className="min-w-[100px] hidden lg:table-cell">
+                    Wallet
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <TableRow key={i} className="h-14">
+                    <TableCell className="text-right">
+                      <Skeleton className="h-4 w-20 ml-auto" />
+                    </TableCell>
                     <TableCell className="text-right">
                       <Skeleton className="h-4 w-16 ml-auto" />
                     </TableCell>
-                  )}
-                  <TableCell className="hidden md:table-cell">
-                    <Skeleton className="h-4 w-20" />
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <Skeleton className="h-6 w-24 rounded-full" />
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    <Skeleton className="h-4 w-20" />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                    <TableCell>
+                      <Skeleton className="h-4 w-28" />
+                    </TableCell>
+                    {showRewardScore && (
+                      <TableCell className="text-right">
+                        <Skeleton className="h-4 w-16 ml-auto" />
+                      </TableCell>
+                    )}
+                    <TableCell className="hidden md:table-cell">
+                      <Skeleton className="h-4 w-20" />
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <Skeleton className="h-6 w-24 rounded-full" />
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      <Skeleton className="h-4 w-20" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
     );
   }
@@ -310,61 +354,115 @@ export function SponsoredFarmsActivity({
 
   return (
     <div className={cn(className, "p-4 w-full min-w-0 overflow-hidden")}>
-      {/* Summary Stats */}
-      <div className={cn("mb-6 grid gap-4 w-full min-w-0", kpiGridClassName)}>
-        {showRewardScore && (
-          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
-            <div className={kpiLabelClassName}>Avg Reward Score</div>
-            <div className={kpiValueClassName}>
-              {(() => {
-                const validRewardScores = activity.filter(
-                  (purchase) =>
-                    purchase.rewardScore !== null &&
-                    purchase.rewardScore !== undefined
-                );
-                if (validRewardScores.length === 0) return "—";
+      {/* Summary Stats - Only show in full mode or if explicitly enabled */}
+      {!isWidget && (
+        <div className={cn("mb-6 grid gap-4 w-full min-w-0", kpiGridClassName)}>
+          {showRewardScore && (
+            <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
+              <div className={kpiLabelClassName}>Avg Reward Score</div>
+              <div className={kpiValueClassName}>
+                {(() => {
+                  const validRewardScores = activity.filter(
+                    (purchase) =>
+                      purchase.rewardScore !== null &&
+                      purchase.rewardScore !== undefined
+                  );
+                  if (validRewardScores.length === 0) return "—";
 
-                const totalRewardScore = validRewardScores.reduce(
-                  (sum, purchase) => sum + (purchase.rewardScore || 0),
-                  0
-                );
-                const avgRewardScore =
-                  totalRewardScore / validRewardScores.length;
-                return formatNumber(avgRewardScore, 0);
-              })()}
+                  const totalRewardScore = validRewardScores.reduce(
+                    (sum, purchase) => sum + (purchase.rewardScore || 0),
+                    0
+                  );
+                  const avgRewardScore =
+                    totalRewardScore / validRewardScores.length;
+                  return formatNumber(avgRewardScore, 0);
+                })()}
+              </div>
             </div>
-          </div>
-        )}
-        {shouldShowContributorsKpi ? (
+          )}
+          {shouldShowContributorsKpi ? (
+            <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
+              <div className={kpiLabelClassName}>
+                {fractionType === "mining-center"
+                  ? "Buyers"
+                  : fractionType === "launchpad"
+                  ? "Delegators"
+                  : "Contributors"}
+              </div>
+              <div className={kpiValueClassName}>
+                {fractionType === "mining-center"
+                  ? formatNumber(miningCenterContributors, 0)
+                  : fractionType === "launchpad"
+                  ? formatNumber(launchpadContributors, 0)
+                  : formatNumber(
+                      launchpadContributors + miningCenterContributors,
+                      0
+                    )}
+              </div>
+            </div>
+          ) : null}
           <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
             <div className={kpiLabelClassName}>
               {fractionType === "mining-center"
-                ? "Buyers"
-                : fractionType === "launchpad"
-                ? "Delegators"
-                : "Contributors"}
+                ? "Total USDC Spent"
+                : "Total GLW Delegated"}
             </div>
-            <div className={kpiValueClassName}>
-              {fractionType === "mining-center"
-                ? formatNumber(miningCenterContributors, 0)
-                : fractionType === "launchpad"
-                ? formatNumber(launchpadContributors, 0)
-                : formatNumber(
-                    launchpadContributors + miningCenterContributors,
-                    0
-                  )}
+            <div className={cn(kpiValueClassName, "flex items-baseline gap-2")}>
+              {fractionType === "mining-center" ? (
+                <>
+                  <span className="min-w-0 truncate">
+                    {isWidget
+                      ? formatCompactNumber(totalMiningCenterValue, 1)
+                      : formatNumber(totalMiningCenterValue, 0)}
+                  </span>
+                  <span
+                    className={cn(
+                      "shrink-0 font-normal",
+                      isWidget ? "text-sm" : "text-lg"
+                    )}
+                  >
+                    USDC
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="min-w-0 truncate">
+                    {isWidget
+                      ? formatCompactNumber(totalDelegatedGlw, 1)
+                      : formatNumber(totalDelegatedGlw, 0)}
+                  </span>
+                  <span
+                    className={cn(
+                      "shrink-0 font-normal",
+                      isWidget ? "text-sm" : "text-lg"
+                    )}
+                  >
+                    GLW
+                  </span>
+                </>
+              )}
             </div>
           </div>
-        ) : null}
-        <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
-          <div className={kpiLabelClassName}>
-            {fractionType === "mining-center"
-              ? "Total USDC Spent"
-              : "Total GLW Delegated"}
-          </div>
-          <div className={cn(kpiValueClassName, "flex items-baseline gap-2")}>
-            {fractionType === "mining-center" ? (
-              <>
+          {fractionType === "mining-center" ? (
+            <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
+              <div className={kpiLabelClassName}>Miners</div>
+              <div className={kpiValueClassName}>
+                {formatNumber(summary.uniqueFractions, 0)}
+              </div>
+            </div>
+          ) : fractionType === "launchpad" ? (
+            <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
+              <div className={kpiLabelClassName}>Farms</div>
+              <div className={kpiValueClassName}>
+                {formatNumber(summary.uniqueFractions, 0)}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
+              <div className={kpiLabelClassName}>USDC Spent by Miners</div>
+              <div
+                className={cn(kpiValueClassName, "flex items-baseline gap-2")}
+              >
                 <span className="min-w-0 truncate">
                   {isWidget
                     ? formatCompactNumber(totalMiningCenterValue, 1)
@@ -378,170 +476,224 @@ export function SponsoredFarmsActivity({
                 >
                   USDC
                 </span>
-              </>
-            ) : (
-              <>
-                <span className="min-w-0 truncate">
-                  {isWidget
-                    ? formatCompactNumber(totalDelegatedGlw, 1)
-                    : formatNumber(totalDelegatedGlw, 0)}
-                </span>
-                <span
-                  className={cn(
-                    "shrink-0 font-normal",
-                    isWidget ? "text-sm" : "text-lg"
-                  )}
-                >
-                  GLW
-                </span>
-              </>
-            )}
-          </div>
+              </div>
+            </div>
+          )}
         </div>
-        {fractionType === "mining-center" ? (
-          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
-            <div className={kpiLabelClassName}>Miners</div>
-            <div className={kpiValueClassName}>
-              {formatNumber(summary.uniqueFractions, 0)}
-            </div>
-          </div>
-        ) : fractionType === "launchpad" ? (
-          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
-            <div className={kpiLabelClassName}>Farms</div>
-            <div className={kpiValueClassName}>
-              {formatNumber(summary.uniqueFractions, 0)}
-            </div>
-          </div>
-        ) : (
-          <div className="bg-muted dark:bg-muted/30 rounded-xl p-4 min-w-0">
-            <div className={kpiLabelClassName}>USDC Spent by Miners</div>
-            <div className={cn(kpiValueClassName, "flex items-baseline gap-2")}>
-              <span className="min-w-0 truncate">
-                {isWidget
-                  ? formatCompactNumber(totalMiningCenterValue, 1)
-                  : formatNumber(totalMiningCenterValue, 0)}
-              </span>
-              <span
-                className={cn(
-                  "shrink-0 font-normal",
-                  isWidget ? "text-sm" : "text-lg"
-                )}
+      )}
+
+      {/* Activity Content */}
+      {isWidget ? (
+        <div className="space-y-3">
+          {displayedActivity.map((purchase) => {
+            // Mining centers use USDC (6 decimals), launchpad uses GLW (18 decimals)
+            const decimals = purchase.fractionType === "mining-center" ? 6 : 18;
+            const currency =
+              purchase.fractionType === "mining-center" ? "USDC" : "GLW";
+
+            const purchaseAmount = formatUnits(
+              BigInt(purchase.totalValue),
+              decimals
+            );
+
+            const purchaseAtMs = new Date(purchase.purchaseDate).getTime();
+            const purchaseDate = formatTimeAgoShort(purchaseAtMs, nowMs);
+
+            const ensName = ensNames[purchase.buyer];
+            const buyerDisplay = ensName || shortAddress(purchase.buyer);
+
+            const isMiningCenter = purchase.fractionType === "mining-center";
+
+            // Construct audit URL if farmId is present
+            const auditUrl = purchase.farmId
+              ? `https://glow.org/audits/${purchase.farmId}`
+              : "#";
+
+            return (
+              <Link
+                key={`${purchase.transactionHash}-${purchase.fractionId}`}
+                href={auditUrl}
+                target={purchase.farmId ? "_blank" : undefined}
+                rel={purchase.farmId ? "noopener noreferrer" : undefined}
+                className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 transition-colors group"
               >
-                USDC
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Activity Table */}
-      <div
-        className={cn(
-          "bg-white dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 overflow-x-auto",
-          constrainHeight ? "overflow-y-auto max-h-[min(55vh,520px)]" : null
-        )}
-      >
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="text-left min-w-[120px]">Total</TableHead>
-              <TableHead className="text-right w-[6ch]">Amount</TableHead>
-              <TableHead className="text-left w-[8ch]">Date</TableHead>
-              {showRewardScore && (
-                <TableHead className="text-center min-w-[120px]">
-                  Reward Score
-                </TableHead>
-              )}
-              <TableHead className="min-w-[100px] hidden md:table-cell">
-                Farm
-              </TableHead>
-              <TableHead className="min-w-[100px] hidden md:table-cell">
-                Type
-              </TableHead>
-              <TableHead className="min-w-[100px] hidden lg:table-cell">
-                Wallet
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {activity.map((purchase) => {
-              // Mining centers use USDC (6 decimals), launchpad uses GLW (18 decimals)
-              const decimals =
-                purchase.fractionType === "mining-center" ? 6 : 18;
-              const currency =
-                purchase.fractionType === "mining-center" ? "USDC" : "GLW";
-
-              const purchaseAmount = formatUnits(
-                BigInt(purchase.totalValue),
-                decimals
-              );
-
-              const purchaseAtMs = new Date(purchase.purchaseDate).getTime();
-              const purchaseDate = formatTimeAgoShort(purchaseAtMs, nowMs);
-
-              const ensName = ensNames[purchase.buyer];
-              const buyerDisplay = ensName || formatAddress(purchase.buyer);
-
-              return (
-                <TableRow
-                  key={`${purchase.transactionHash}-${purchase.fractionId}`}
-                  className="h-14"
-                >
-                  <TableCell className="text-left">
-                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                      {formatNumber(parseFloat(purchaseAmount), 2)} {currency}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right w-[6ch]">
-                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 tabular-nums whitespace-nowrap">
-                      {String(purchase.stepsPurchased)}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-left w-[8ch]">
-                    <div className="text-sm text-gray-900 dark:text-gray-100 tabular-nums whitespace-nowrap">
-                      {purchaseDate}
-                    </div>
-                  </TableCell>
-                  {showRewardScore && (
-                    <TableCell className="text-center">
-                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                        {purchase.rewardScore !== null &&
-                        purchase.rewardScore !== undefined
-                          ? formatNumber(purchase.rewardScore, 0)
-                          : "—"}
-                      </div>
-                    </TableCell>
+                {/* Thumbnail / Icon */}
+                <div className="relative h-10 w-10 rounded-lg overflow-hidden shrink-0 border border-border/50 flex items-center justify-center bg-muted/50">
+                  {isMiningCenter ? (
+                    <Cpu className="w-5 h-5 text-[color:var(--color-miner-yellow-contrast)]" />
+                  ) : (
+                    <GlowSymbol className="w-5 h-5 text-[#C084FC]" />
                   )}
-                  <TableCell className="hidden md:table-cell">
-                    <div className="text-sm font-mono text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                      {purchase.farmName}
+                </div>
+
+                <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                  {/* Top Line: Farm Name + Amount + Badge */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                      <span className="font-bold text-base truncate text-foreground group-hover:text-glow-orange transition-colors">
+                        {purchase.farmName}
+                      </span>
+                      <span
+                        className={cn(
+                          "px-1.5 py-0.5 rounded-[4px] text-[10px] font-medium uppercase tracking-wider shrink-0",
+                          isMiningCenter
+                            ? " border-[color:var(--color-miner-yellow)]/30 bg-[color:var(--color-miner-yellow)]/10 text-miner-yellow"
+                            : "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"
+                        )}
+                      >
+                        {isMiningCenter ? "Miner" : "Delegator"}
+                      </span>
                     </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <div
-                      className={cn(
-                        "px-2 py-1 rounded-full text-xs font-medium inline-block whitespace-nowrap",
-                        purchase.fractionType === "mining-center"
-                          ? "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
-                          : "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
-                      )}
-                    >
-                      {purchase.fractionType === "mining-center"
-                        ? "Mining Center"
-                        : "Launchpad"}
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    <div className="text-sm font-mono text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                    <span className="font-mono font-medium tabular-nums text-foreground text-sm whitespace-nowrap shrink-0">
+                      {formatNumber(parseFloat(purchaseAmount), 2)} {currency}
+                    </span>
+                  </div>
+
+                  {/* Bottom Line: User + Date */}
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <div className="font-mono truncate max-w-[150px]">
                       {buyerDisplay}
                     </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
+                    <span className="text-[10px] whitespace-nowrap font-mono opacity-80">
+                      {purchaseDate}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "bg-white dark:bg-black rounded-xl border border-gray-200 dark:border-gray-800 overflow-x-auto",
+            constrainHeight ? "overflow-y-auto max-h-[min(55vh,520px)]" : null
+          )}
+        >
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-left min-w-[120px]">Total</TableHead>
+                <TableHead className="text-right w-[6ch]">Amount</TableHead>
+                <TableHead className="text-left w-[8ch]">Date</TableHead>
+                {showRewardScore && (
+                  <TableHead className="text-center min-w-[120px]">
+                    Reward Score
+                  </TableHead>
+                )}
+                <TableHead className="min-w-[100px] hidden md:table-cell">
+                  Farm
+                </TableHead>
+                <TableHead className="min-w-[100px] hidden md:table-cell">
+                  Type
+                </TableHead>
+                <TableHead className="min-w-[100px] hidden lg:table-cell">
+                  Wallet
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {displayedActivity.map((purchase) => {
+                // Mining centers use USDC (6 decimals), launchpad uses GLW (18 decimals)
+                const decimals =
+                  purchase.fractionType === "mining-center" ? 6 : 18;
+                const currency =
+                  purchase.fractionType === "mining-center" ? "USDC" : "GLW";
+
+                const purchaseAmount = formatUnits(
+                  BigInt(purchase.totalValue),
+                  decimals
+                );
+
+                const purchaseAtMs = new Date(purchase.purchaseDate).getTime();
+                const purchaseDate = formatTimeAgoShort(purchaseAtMs, nowMs);
+
+                const ensName = ensNames[purchase.buyer];
+                const buyerDisplay = ensName || formatAddress(purchase.buyer);
+
+                // Construct audit URL if farmId is present
+                const auditUrl = purchase.farmId
+                  ? `https://glow.org/audits/${purchase.farmId}`
+                  : "#";
+
+                return (
+                  <TableRow
+                    key={`${purchase.transactionHash}-${purchase.fractionId}`}
+                    className="h-14 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => {
+                      if (purchase.farmId) {
+                        window.open(auditUrl, "_blank", "noopener,noreferrer");
+                      }
+                    }}
+                  >
+                    <TableCell className="text-left">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                        {formatNumber(parseFloat(purchaseAmount), 2)} {currency}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right w-[6ch]">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 tabular-nums whitespace-nowrap">
+                        {String(purchase.stepsPurchased)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-left w-[8ch]">
+                      <div className="text-sm text-gray-900 dark:text-gray-100 tabular-nums whitespace-nowrap">
+                        {purchaseDate}
+                      </div>
+                    </TableCell>
+                    {showRewardScore && (
+                      <TableCell className="text-center">
+                        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                          {purchase.rewardScore !== null &&
+                          purchase.rewardScore !== undefined
+                            ? formatNumber(purchase.rewardScore, 0)
+                            : "—"}
+                        </div>
+                      </TableCell>
+                    )}
+                    <TableCell className="hidden md:table-cell">
+                      <div className="text-sm font-mono text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                        {purchase.farmName}
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <div
+                        className={cn(
+                          "px-2 py-1 rounded-[4px] text-[10px] font-medium uppercase tracking-wider inline-block whitespace-nowrap border",
+                          purchase.fractionType === "mining-center"
+                            ? "border-[color:var(--color-miner-yellow)]/30 bg-[color:var(--color-miner-yellow)]/10 text-[color:var(--color-miner-yellow-contrast)]"
+                            : "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
+                        )}
+                      >
+                        {purchase.fractionType === "mining-center"
+                          ? "Miner"
+                          : "Delegator"}
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      <div className="text-sm font-mono text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                        {buyerDisplay}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {showViewAll && (
+        <div className="mt-4 flex justify-center">
+          <Button
+            variant="outline"
+            onClick={onViewAllClick}
+            className="w-full sm:w-auto"
+          >
+            See All Activity
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

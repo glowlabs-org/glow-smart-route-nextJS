@@ -62,6 +62,7 @@ interface RecentActivityProps {
   headerVariant?: "default" | "small";
   showHeader?: boolean;
   className?: string;
+  maxItems?: number;
 }
 
 function formatCompactNumber(value: number, maximumFractionDigits: number) {
@@ -352,6 +353,7 @@ export function RecentActivity({
   headerVariant = "default",
   showHeader = true,
   className,
+  maxItems,
 }: RecentActivityProps) {
   const { isConnecting, isReconnecting } = useAccount();
   const isWalletConnecting =
@@ -455,6 +457,10 @@ export function RecentActivity({
 
   if (hideIfEmpty && !isLoading && activities.length === 0) return null;
 
+  const displayedActivities = maxItems
+    ? activities.slice(0, maxItems)
+    : activities;
+
   return (
     <Card
       className={cn(
@@ -515,9 +521,9 @@ export function RecentActivity({
           </div>
         ) : (
           <div className="h-full min-h-0">
-            <ScrollArea className="h-full pr-2 -mr-2">
+            {maxItems ? (
               <div className="space-y-2 pb-2">
-                {activities.map((activity) => (
+                {displayedActivities.map((activity) => (
                   <div
                     key={activity.id}
                     className="group flex items-start gap-3 rounded-xl border border-border/60 bg-muted/10 p-3 hover:bg-muted/20 transition-colors"
@@ -587,7 +593,81 @@ export function RecentActivity({
                   </div>
                 ))}
               </div>
-            </ScrollArea>
+            ) : (
+              <ScrollArea className="h-full pr-2 -mr-2">
+                <div className="space-y-2 pb-2">
+                  {displayedActivities.map((activity) => (
+                  <div
+                    key={activity.id}
+                    className="group flex items-start gap-3 rounded-xl border border-border/60 bg-muted/10 p-3 hover:bg-muted/20 transition-colors"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleViewTransaction(activity)}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter" && e.key !== " ") return;
+                      e.preventDefault();
+                      handleViewTransaction(activity);
+                    }}
+                  >
+                    <div
+                      className={cn(
+                        "h-9 w-9 rounded-xl border border-border bg-background/60 flex items-center justify-center flex-shrink-0",
+                        activity.iconClassName
+                      )}
+                    >
+                      {activity.icon}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold tracking-tight text-foreground truncate">
+                            {activity.title}
+                          </div>
+                          <div className="mt-1 text-[11px] font-mono text-muted-foreground flex items-center gap-2">
+                            <span className="tabular-nums">
+                              {formatDateTime(activity.timestampMs)}
+                            </span>
+                            {activity.subtitle ? (
+                              <span className="truncate">
+                                {activity.subtitle}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {activity.pill ? (
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] font-mono uppercase"
+                            >
+                              {activity.pill}
+                            </Badge>
+                          ) : null}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity",
+                              !activity.txHash && "pointer-events-none"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewTransaction(activity);
+                            }}
+                            aria-label="View transaction"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
           </div>
         )}
       </CardContent>

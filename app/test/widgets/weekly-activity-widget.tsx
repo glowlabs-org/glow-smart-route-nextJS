@@ -102,6 +102,7 @@ function getWeekStatusLabel(params: {
 interface WeeklyActivityWidgetProps {
   walletAddress?: string | null;
   hideIfEmpty?: boolean;
+  variant?: "default" | "flow" | "minimal";
 }
 
 const PLACEHOLDER_ACTIVE_WEEKS = 17;
@@ -160,9 +161,12 @@ function WeeklyActivitySkeleton() {
 export default function WeeklyActivityWidget({
   walletAddress,
   hideIfEmpty = true,
+  variant = "default",
 }: WeeklyActivityWidgetProps) {
   const weeksCount = DISPLAY_WEEKS_CAP;
   const hasWallet = Boolean(walletAddress);
+  const isFlow = variant === "flow";
+  const isMinimal = variant === "minimal";
   const { isConnecting, isReconnecting } = useAccount();
   const isWalletConnecting = isConnecting || isReconnecting;
 
@@ -334,7 +338,14 @@ export default function WeeklyActivityWidget({
   if (!hasWallet && isWalletConnecting) return <WeeklyActivitySkeleton />;
 
   return (
-    <Card className="overflow-hidden h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+    <Card className={cn(
+      "overflow-hidden w-full",
+      isMinimal
+        ? "bg-transparent border-transparent h-full"
+        : isFlow
+        ? "bg-card/30 border-foreground/5 min-h-[380px]"
+        : "h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+    )}>
       <CardHeader className="pb-0">
         <CardTitle className="text-center">Weekly Streak</CardTitle>
       </CardHeader>

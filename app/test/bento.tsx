@@ -9,15 +9,21 @@ import { formatUnits } from "viem";
 
 import SolarFarmWidget from "./widgets/solar-farm-widget";
 import NetWorthWidget from "./widgets/net-worth";
+import WalletWidget from "./widgets/wallet-widget";
 import RankWidget from "./widgets/rank-widget";
 import RewardsWidget from "./widgets/rewards-widget";
 import WeeklyActivityWidget from "./widgets/weekly-activity-widget";
 import GlowFaqWidget from "./widgets/glow-faq-widget";
 import GctlHeatmapWidget from "./widgets/gctl-heatmap-widget";
 import RecentActivityWidget from "./widgets/recent-activity-widget";
+import CommunityActivityWidget from "./widgets/community-activity-widget";
+import BlogFeaturedWidget from "./widgets/blog-featured-widget";
 import OnboardingHeroWidget from "./widgets/onboarding-hero-widget";
 import LaunchpadStatusWidget from "./widgets/launchpad-status-widget";
 import GlobalLeaderboardWidget from "./widgets/global-leaderboard-widget";
+import MyFarmsGridSection from "./widgets/my-farms-grid-section";
+import PortfolioSummaryWidget from "./widgets/portfolio-summary-widget";
+import ProtocolMetricsWidget from "./widgets/protocol-metrics-widget";
 import { MintAndStakeGctlDialog } from "@/components/dialogs/mint-and-stake-gctl-dialog";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
@@ -33,6 +39,14 @@ import { useCountdownTo } from "@/app/components/animated-countdown";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
+}
+
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <h2 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-4">
+      {title}
+    </h2>
+  );
 }
 
 function formatGlw(amount: string): string {
@@ -94,7 +108,8 @@ export default function GlowSoftDashboard({
   const { signer } = useEthersSigner();
   const { usdcBalance, usdgBalance } = useER20Balances({ signer });
   const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
-  const [mintAndStakeForceStep1, setMintAndStakeForceStep1] = React.useState(false);
+  const [mintAndStakeForceStep1, setMintAndStakeForceStep1] =
+    React.useState(false);
   const [isRefundDialogOpen, setIsRefundDialogOpen] = React.useState(false);
   const refundToastIdRef = React.useRef<string | number | null>(null);
   const didTrackViewRef = React.useRef(false);
@@ -187,7 +202,7 @@ export default function GlowSoftDashboard({
   }, [queryClient, walletAddress]);
 
   return (
-    <div className="min-h-screen bg-muted dark:bg-background text-foreground p-6 pt-4 selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
+    <div className="min-h-screen bg-muted dark:bg-background text-foreground p-6  selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
       <div className="max-w-screen-2xl mx-auto">
         <AnimatePresence mode="wait" initial={false}>
           {hasWallet ? (
@@ -197,109 +212,120 @@ export default function GlowSoftDashboard({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="grid grid-cols-12 gap-4 grid-flow-row-dense"
+              className="flex flex-col gap-6"
             >
-              <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[330px]">
-                <NetWorthWidget walletAddress={walletAddress} />
-              </div>
-              <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[330px]">
-                <WeeklyActivityWidget
-                  walletAddress={walletAddress}
-                  hideIfEmpty={false}
-                />
-              </div>
-              <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[330px]">
-                <RankWidget
-                  walletAddress={walletAddress}
-                  onMintAndStakeClick={(forceStep1) => {
-                    setMintAndStakeForceStep1(Boolean(forceStep1));
-                    setIsMintAndStakeOpen(true);
-                  }}
-                />
-              </div>
-
-              <div
-                id="bento-launchpad-status"
-                className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]"
-              >
-                <motion.div
-                  key="launchpad-status"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.2 }}
-                  className="h-full min-h-0"
-                >
-                  <LaunchpadStatusWidget className="h-full" />
-                </motion.div>
-              </div>
-
-              <AnimatePresence mode="popLayout" initial={false}>
-                <motion.div
-                  key="rewards"
-                  className="col-span-12 lg:col-span-3 min-h-0 lg:h-[380px]"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <RewardsWidget
-                    walletAddress={walletAddress}
-                    hideIfEmpty={false}
-                  />
-                </motion.div>
-              </AnimatePresence>
-
-              <AnimatePresence mode="popLayout">
-                <motion.div
-                  key="recent-activity"
-                  className="col-span-12 lg:col-span-4 min-h-0 lg:h-[380px]"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <RecentActivityWidget
-                    walletAddress={walletAddress}
-                    hideIfEmpty={false}
-                  />
-                </motion.div>
-              </AnimatePresence>
-
-              <AnimatePresence mode="popLayout">
-                <motion.div
-                  key="gctl-heatmap"
-                  className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <GctlHeatmapWidget
-                    walletAddress={walletAddress}
-                    onMintAndStakeClick={() => {
-                      setMintAndStakeForceStep1(false);
-                      setIsMintAndStakeOpen(true);
-                    }}
-                  />
-                </motion.div>
-              </AnimatePresence>
-
-              <AnimatePresence mode="popLayout">
-                <motion.div
-                  key="solar-farm"
-                  className="col-span-12 lg:col-span-7 min-h-0 lg:h-[380px]"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <div id="bento-solar-farm" className="h-full min-h-0">
-                    <SolarFarmWidget
-                      walletAddress={walletAddress ?? undefined}
+              {/* Dashboard Header Band */}
+              <section className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-4 lg:p-8">
+                <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
+                  <div className="lg:col-span-3 flex">
+                    <RankWidget
+                      walletAddress={walletAddress}
+                      variant="hero"
+                      onMintAndStakeClick={(forceStep1) => {
+                        setMintAndStakeForceStep1(Boolean(forceStep1));
+                        setIsMintAndStakeOpen(true);
+                      }}
                     />
                   </div>
-                </motion.div>
-              </AnimatePresence>
+
+                  <div className="lg:col-span-5 flex">
+                    <NetWorthWidget
+                      walletAddress={walletAddress}
+                      variant="minimal"
+                    />
+                  </div>
+
+                  <div className="lg:col-span-2 flex">
+                    <WalletWidget
+                      walletAddress={walletAddress}
+                      variant="minimal"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {/* Mining & Rewards Section */}
+              <section className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch">
+                  <div
+                    id="bento-solar-farm"
+                    className="pb-6 lg:pb-0 lg:pr-8 lg:col-span-2 flex min-h-[320px]"
+                  >
+                    <SolarFarmWidget
+                      walletAddress={walletAddress ?? undefined}
+                      variant="minimal"
+                    />
+                  </div>
+                  <div className="pt-6 lg:pt-0 lg:pl-8 flex">
+                    <RewardsWidget
+                      walletAddress={walletAddress}
+                      hideIfEmpty={false}
+                      variant="minimal"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {/* Action Section: Grow Your Impact */}
+              <section className="flex flex-col gap-4 pt-12">
+                <SectionHeader title="Grow Your Impact" />
+                <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch">
+                    <div
+                      id="bento-launchpad-status"
+                      className="pb-6 lg:pb-0 lg:pr-8 flex"
+                    >
+                      <LaunchpadStatusWidget variant="minimal" />
+                    </div>
+                    <div className="pt-6 lg:pt-0 lg:pl-8 flex">
+                      <GctlHeatmapWidget
+                        walletAddress={walletAddress}
+                        variant="minimal"
+                        onMintAndStakeClick={() => {
+                          setMintAndStakeForceStep1(false);
+                          setIsMintAndStakeOpen(true);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Journey Section */}
+              <section className="flex flex-col gap-4 pt-12">
+                <SectionHeader title="Your Journey" />
+                <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch pb-8 mb-8 border-b border-border/50">
+                    <div className="pb-6 lg:pb-0 lg:pr-8 flex lg:col-span-1">
+                      <WeeklyActivityWidget
+                        walletAddress={walletAddress}
+                        hideIfEmpty={false}
+                        variant="minimal"
+                      />
+                    </div>
+
+                    <div className="pt-6 lg:pt-0 lg:pl-8 flex lg:col-span-2">
+                      <RecentActivityWidget
+                        walletAddress={walletAddress}
+                        hideIfEmpty={false}
+                        variant="minimal"
+                      />
+                    </div>
+                    <div className="py-6 lg:py-0 lg:px-8 flex lg:col-span-1">
+                      <PortfolioSummaryWidget
+                        walletAddress={walletAddress}
+                        variant="minimal"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-6">
+                      My Farms
+                    </h3>
+                    <MyFarmsGridSection walletAddress={walletAddress} />
+                  </div>
+                </div>
+              </section>
             </motion.div>
           ) : isWalletSettling ? (
             <motion.div
@@ -318,27 +344,93 @@ export default function GlowSoftDashboard({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="grid grid-cols-12 gap-4 grid-flow-row-dense"
+              className="flex flex-col gap-12"
             >
-              <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[340px]">
-                <OnboardingHeroWidget className="h-full" />
-              </div>
-              <div className="col-span-12 lg:col-span-6 min-h-0 lg:h-[340px]">
-                <LaunchpadStatusWidget className="h-full" />
-              </div>
+              {/* Hero Section */}
+              <section className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-0  items-stretch">
+                  <div className="pb-6 lg:pb-0 lg:pr-8 flex min-h-[340px]">
+                    <OnboardingHeroWidget
+                      className="w-full h-full"
+                      variant="minimal"
+                    />
+                  </div>
+                  <div className="pt-6 lg:pt-0 lg:pl-8 flex min-h-[340px]">
+                    <LaunchpadStatusWidget
+                      className="w-full h-full"
+                      variant="minimal"
+                    />
+                  </div>
+                </div>
+              </section>
 
-              <div className="col-span-12 lg:col-span-8 min-h-0 lg:h-[400px]">
-                <GlowFaqWidget className="w-full h-full" />
-              </div>
-              <div className="col-span-12 lg:col-span-4 min-h-0 lg:h-[400px]">
-                <GlobalLeaderboardWidget className="h-full" />
-              </div>
-              <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[340px]">
-                <NewsletterWidget className="w-full h-full" />
-              </div>
-              <div className="col-span-12 lg:col-span-7 min-h-0 lg:h-[340px]">
-                <DiscordWidget className="w-full h-full" />
-              </div>
+              {/* Community & Leaderboard Section */}
+              <section className="flex flex-col gap-4">
+                <SectionHeader title="Community & Leaderboard" />
+                <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch">
+                    <div className="pb-6 lg:pb-0 lg:pr-8 lg:col-span-8 flex min-h-[400px]">
+                      <CommunityActivityWidget
+                        className="w-full h-full"
+                        variant="minimal"
+                      />
+                    </div>
+                    <div className="pt-6 lg:pt-0 lg:pl-8 lg:col-span-4 flex min-h-[400px]">
+                      <GlobalLeaderboardWidget
+                        className="h-full w-full"
+                        variant="minimal"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Protocol Metrics Section */}
+              <section className="flex flex-col gap-4">
+                <SectionHeader title="Protocol Metrics" />
+                <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
+                  <ProtocolMetricsWidget />
+                </div>
+              </section>
+
+              {/* Education Section */}
+              <section className="flex flex-col gap-4">
+                <SectionHeader title="Education" />
+                <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch">
+                    <div className="pb-6 lg:pb-0 lg:pr-8 lg:col-span-7 flex min-h-[400px]">
+                      <GlowFaqWidget
+                        className="w-full h-full"
+                        variant="minimal"
+                      />
+                    </div>
+                    <div className="pt-6 lg:pt-0 lg:pl-8 lg:col-span-5 flex min-h-[400px]">
+                      <BlogFeaturedWidget className="w-full h-full" />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Stay Connected Section */}
+              <section className="flex flex-col gap-4">
+                <SectionHeader title="Stay Connected" />
+                <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch">
+                    <div className="pb-6 lg:pb-0 lg:pr-8 lg:col-span-5 flex min-h-[340px]">
+                      <NewsletterWidget
+                        className="w-full h-full"
+                        variant="minimal"
+                      />
+                    </div>
+                    <div className="pt-6 lg:pt-0 lg:pl-8 lg:col-span-7 flex min-h-[340px]">
+                      <DiscordWidget
+                        className="w-full h-full"
+                        variant="minimal"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
             </motion.div>
           )}
         </AnimatePresence>

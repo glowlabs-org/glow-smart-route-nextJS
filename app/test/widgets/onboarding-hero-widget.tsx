@@ -15,45 +15,56 @@ import { trackEvent } from "@/lib/telemetry";
 
 interface OnboardingHeroWidgetProps {
   className?: string;
+  variant?: "default" | "minimal";
 }
 
 export default function OnboardingHeroWidget({
   className,
+  variant = "default",
 }: OnboardingHeroWidgetProps) {
   const [isBuyOpen, setIsBuyOpen] = React.useState(false);
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
   const { isConnected, address } = useAccount();
   const walletAddress = address?.toLowerCase() ?? null;
   const source = "onboarding_hero_widget";
+  const isMinimal = variant === "minimal";
 
   return (
     <Card
       className={cn(
-        "relative flex h-full flex-col gap-4 overflow-hidden bg-card dark:bg-muted/20 border-foreground/10 dark:border-border",
+        "relative flex h-full flex-col gap-4 overflow-hidden",
+        isMinimal
+          ? "bg/muted dark:bg-muted/20 p-6 dark:border-border"
+          : "bg-card dark:bg-muted/20 border-foreground/10 dark:border-border",
         className
       )}
     >
       {/* Background Decor: Glow Logo Watermark - Repositioned to not block text */}
-      <div className="absolute -right-20 -top-40 opacity-[0.05] dark:opacity-[0.03] pointer-events-none select-none">
+      <div className="absolute -right-20 -top-40 opacity-[0.03] dark:opacity-[0.03] pointer-events-none select-none">
         <GlowSymbol className="h-[500px] w-[500px] text-foreground dark:text-white rotate-12" />
       </div>
 
-      <CardHeader className="pb-0">
+      <CardHeader className={cn("pb-0", isMinimal && "px-0 pt-0")}>
         <div className="text-muted-foreground dark:text-white/60">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center md:justify-start gap-2">
             <div className="h-1.5 w-1.5 rounded-full bg-[color:var(--color-glow-green)] animate-pulse shadow-[0_0_8px_var(--color-glow-green)]" />
-            <span className="text-[10px] md:text-xs font-mono font-bold tracking-[0.2em] uppercase text-foreground dark:text-white/90">
-              Start Here
+            <span className="text-xs md:text-sm font-mono font-bold tracking-[0.2em] uppercase text-foreground dark:text-white/90">
+              New to Glow? Start Here
             </span>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="relative z-10 flex flex-1 min-h-0 flex-col gap-4 pt-0">
+      <CardContent
+        className={cn(
+          "relative z-10 flex flex-1 min-h-0 flex-col gap-4 pt-0",
+          isMinimal && "px-0 pb-0"
+        )}
+      >
         <div className="flex flex-1 min-h-0 items-center">
-          <div className="max-w-4xl relative">
+          <div className="max-w-4xl relative w-full">
             <h2
-              className="text-xl sm:text-2xl md:text-3xl lg:text-[2rem] leading-[1.2] tracking-tight text-foreground/95 dark:text-white/95"
+              className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.5rem] leading-[1.2] tracking-tight text-foreground/95 dark:text-white/95 text-center md:text-left"
               style={{ fontFamily: "Duplicate Slab, serif" }}
             >
               <span className="italic">“If everyone in the world owned</span>{" "}
@@ -65,9 +76,9 @@ export default function OnboardingHeroWidget({
               </span>
             </h2>
 
-            <div className="mt-3 flex items-center gap-3">
+            <div className="mt-3 flex items-center justify-center md:justify-start gap-3">
               <div className="h-px w-6 bg-border dark:bg-white/20" />
-              <p className="text-xs sm:text-sm text-muted-foreground dark:text-white/50 font-sans tracking-wide">
+              <p className="text-sm sm:text-base text-muted-foreground dark:text-white/50 font-sans tracking-wide">
                 David Vorick, CEO
               </p>
             </div>
@@ -90,26 +101,7 @@ export default function OnboardingHeroWidget({
               Buy GLW
             </Button>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <ConnectKitButton.Custom>
-                {({ show }) => (
-                  <Button
-                    onClick={() => {
-                      trackEvent("dashboard_connect_wallet_click", {
-                        source,
-                        wallet_connected: false,
-                        wallet_address: walletAddress,
-                      });
-                      show?.();
-                    }}
-                    className="group relative w-full h-12 font-mono font-bold text-base"
-                  >
-                    <Wallet className="mr-2 h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover:-rotate-12" />
-                    Connect Wallet
-                  </Button>
-                )}
-              </ConnectKitButton.Custom>
-
+            <div className="grid grid-cols-1  gap-3">
               <Button
                 onClick={() => {
                   trackEvent("dashboard_buy_glw_click", {
@@ -119,7 +111,6 @@ export default function OnboardingHeroWidget({
                   });
                   setIsBuyOpen(true);
                 }}
-                variant="outline"
                 className="group w-full h-12 font-mono font-bold text-base"
               >
                 <CreditCard className="mr-2 h-4 w-4 sm:h-5 sm:w-5 opacity-70 group-hover:opacity-100" />
