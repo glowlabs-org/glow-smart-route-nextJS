@@ -326,7 +326,7 @@ export function useWalletPortfolio(params: { walletAddress?: string | null }) {
     // (≈50% more padding than before.)
     const pad = range > 0 ? Math.max(range * 0.225, 10) : 10;
 
-    return [Math.max(0, min - pad), max + pad];
+    return [0, max + pad];
   }, [chartData]);
 
   // Portfolio allocations should reflect *wallet-held* tokens, not the broader

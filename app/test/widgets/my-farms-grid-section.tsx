@@ -99,6 +99,7 @@ interface FarmCardData {
   }>;
   inProgressPercent?: number;
   estimatedUserWeeklyGlw?: number;
+  isPendingStart?: boolean;
 }
 
 interface FarmCardProps {
@@ -111,10 +112,18 @@ function FarmCard({ farm, onClick }: FarmCardProps) {
   const isMiner = farm.type === "miner";
   const isDelegation = farm.type === "delegation";
   const isOther = farm.type === "other";
+  const isPendingStart = Boolean(farm.isPendingStart);
   const inProgressIsMiningCenter =
     isInProgress && farm.inProgressKind === "mining-center";
 
+  const totalValue = farm.recovered + farm.inflation;
+  const roiPercent =
+    farm.initialCost > 0 ? (totalValue / farm.initialCost) * 100 : 0;
+  const isProfitable = roiPercent >= 100;
+
   const getTypeBadge = () => {
+    // For pending start, we still want to show the type (Miner/Delegation)
+    // but the "Starts Next Week" badge is handled separately in the parent
     if (isInProgress) {
       return (
         <div
@@ -172,7 +181,15 @@ function FarmCard({ farm, onClick }: FarmCardProps) {
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t dark:from-background/90 dark:via-background/40 to-transparent dark:opacity-90" />
-        <div className="absolute top-3 right-3 z-10">{getTypeBadge()}</div>
+        <div className="absolute top-3 right-3 z-10 flex gap-2">
+          {getTypeBadge()}
+          {isPendingStart && (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold font-mono uppercase tracking-wider border bg-muted/50 text-muted-foreground border-border backdrop-blur-xl">
+              <Clock className="w-3 h-3" />
+              Starts Next Week
+            </div>
+          )}
+        </div>
         <div className="absolute bottom-4 left-4 right-4 z-10">
           <div className="flex items-center gap-2 mb-1.5">
             <Badge
@@ -211,7 +228,9 @@ function FarmCard({ farm, onClick }: FarmCardProps) {
                   Active
                 </div>
                 <div className="text-sm font-mono font-medium">
-                  {farm.weeksActive} / {farm.totalWeeks} wks
+                  {isPendingStart
+                    ? "—"
+                    : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
                 </div>
               </div>
               <div className="text-right">
@@ -221,19 +240,56 @@ function FarmCard({ farm, onClick }: FarmCardProps) {
                 <div
                   className={cn(
                     "text-sm font-mono font-bold",
-                    isMiner
+                    isPendingStart
+                      ? "text-muted-foreground"
+                      : isMiner
                       ? "text-[color:var(--color-miner-yellow-contrast)]"
                       : isDelegation
                       ? "text-[#C084FC]"
                       : "text-[color:var(--color-glow-green)]"
                   )}
                 >
-                  {isMiner
+                  {isPendingStart
+                    ? "—"
+                    : isMiner
                     ? fmtUsd(farm.inflation)
                     : `${fmtGlw(farm.recovered + farm.inflationGlw)} GLW`}
                 </div>
               </div>
             </div>
+            {!isOther && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[10px] font-medium text-muted-foreground">
+                  <span>
+                    {isMiner ? "Cost" : "Delegated"}:{" "}
+                    {isMiner
+                      ? fmtUsd(farm.initialCost)
+                      : `${fmtGlw(farm.initialCost)} GLW`}
+                  </span>
+                  <span
+                    className={cn(
+                      "font-mono font-bold",
+                      isPendingStart
+                        ? "text-muted-foreground"
+                        : isProfitable
+                        ? "text-emerald-500"
+                        : "text-foreground"
+                    )}
+                  >
+                    {isPendingStart
+                      ? "—"
+                      : `${roiPercent.toFixed(0)}% Progress`}
+                  </span>
+                </div>
+                <Progress
+                  value={isPendingStart ? 0 : Math.min(roiPercent, 100)}
+                  className={cn(
+                    "h-1.5 bg-muted",
+                    isProfitable && !isPendingStart && "[&>div]:bg-emerald-500"
+                  )}
+                />
+              </div>
+            )}
             <div className="pt-2 border-t border-border/50 flex justify-end">
               <div className="text-xs font-medium text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                 View Details <ChevronRight className="w-3 h-3" />
@@ -439,7 +495,7 @@ function FarmDetailDialog({
                         )}
                       </div>
                       <div className="text-[11px] font-bold font-mono uppercase tracking-wider">
-                        {isMiner ? "Initial Investment" : "Total Delegated"}
+                        {isMiner ? "Initial Cost" : "Total Delegated"}
                       </div>
                     </div>
                     <div className="text-3xl font-bold font-mono tracking-tight text-foreground">
@@ -466,22 +522,38 @@ function FarmDetailDialog({
                   )}
                 />
                 <CardContent className="p-6 flex flex-col h-full justify-between gap-4 relative z-10">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <div
-                      className={cn(
-                        "p-1.5 rounded-md bg-muted/50",
-                        isMiner
-                          ? "text-[color:var(--color-miner-yellow-contrast)]"
-                          : "text-[#C084FC]"
-                      )}
-                    >
-                      <Gift className="w-4 h-4" />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <div
+                        className={cn(
+                          "p-1.5 rounded-md bg-muted/50",
+                          isMiner
+                            ? "text-[color:var(--color-miner-yellow-contrast)]"
+                            : "text-[#C084FC]"
+                        )}
+                      >
+                        <Gift className="w-4 h-4" />
+                      </div>
+                      <div className="text-[11px] font-bold font-mono uppercase tracking-wider">
+                        {isInProgress
+                          ? "Est. Weekly Rewards"
+                          : "Lifetime Earnings"}
+                      </div>
                     </div>
-                    <div className="text-[11px] font-bold font-mono uppercase tracking-wider">
-                      {isInProgress
-                        ? "Est. Weekly Rewards"
-                        : "Lifetime Earnings"}
-                    </div>
+                    {!isInProgress && !isOther && (
+                      <div className="text-xs font-mono font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-sm">
+                        {farm.initialCost > 0
+                          ? `${Math.round(
+                              ((farm.recovered +
+                                (isMiner
+                                  ? farm.inflation
+                                  : farm.inflationGlw)) /
+                                farm.initialCost) *
+                                100
+                            )}%`
+                          : "—"}
+                      </div>
+                    )}
                   </div>
                   <div
                     className={cn(
@@ -824,6 +896,18 @@ export default function MyFarmsGridSection({
     return map;
   }, [splitsActivity]);
 
+  const rewardedFarmTypeKeys = React.useMemo(() => {
+    if (!rewardsBreakdown) return new Set<string>();
+    return new Set(
+      rewardsBreakdown.farmDetails.map(
+        (f) =>
+          `${f.farmId}:${
+            f.type === "launchpad" ? "launchpad" : "mining-center"
+          }`
+      )
+    );
+  }, [rewardsBreakdown]);
+
   const farmCards = React.useMemo<FarmCardData[]>(() => {
     if (!rewardsBreakdown) return [];
 
@@ -939,6 +1023,113 @@ export default function MyFarmsGridSection({
       });
     });
 
+    // Add Pending Start Cards
+    const pendingByFarm = new Map<
+      string,
+      {
+        farmId: string;
+        farmName: string;
+        fractionType: "launchpad" | "mining-center";
+        totalAmount: bigint;
+      }
+    >();
+
+    for (const evt of splitsActivity) {
+      const fractionType = evt.fractionType;
+      if (!fractionType) continue;
+      const status = (evt.fractionStatus ?? "").toLowerCase();
+
+      const isPendingStart =
+        (fractionType === "launchpad" && status === "filled") ||
+        (fractionType === "mining-center" &&
+          (status === "filled" || status === "expired"));
+      if (!isPendingStart) continue;
+
+      const farmId = evt.farmId ?? evt.applicationId;
+      if (!farmId) continue;
+      const farmTypeKey = `${farmId}:${fractionType}`;
+      if (rewardedFarmTypeKeys.has(farmTypeKey)) continue;
+
+      let amount = BigInt(0);
+      try {
+        amount = BigInt(evt.amount);
+      } catch {
+        amount = BigInt(0);
+      }
+
+      const existing = pendingByFarm.get(farmTypeKey) ?? {
+        farmId,
+        farmName: evt.farmName || `Farm ${farmId.substring(0, 8)}`,
+        fractionType,
+        totalAmount: BigInt(0),
+      };
+      existing.totalAmount += amount;
+      pendingByFarm.set(farmTypeKey, existing);
+    }
+
+    pendingByFarm.forEach((item) => {
+      const imageUrls = ["/images/sections/residential.jpg"]; // Placeholder
+      // Try to find image in sponsorListings or miningCenterListings if available
+      if (item.fractionType === "launchpad") {
+        const app = sponsorListings?.find((a) => a.id === item.farmId);
+        if (app?.afterInstallPictures?.length) {
+          // Reset array
+          while (imageUrls.length) imageUrls.pop();
+          app.afterInstallPictures.forEach((p) => imageUrls.push(p.url));
+        }
+      } else {
+        const app = miningCenterListings?.find((a) => a.id === item.farmId);
+        if (app?.afterInstallPictures?.length) {
+          while (imageUrls.length) imageUrls.pop();
+          app.afterInstallPictures.forEach((p) => imageUrls.push(p.url));
+        }
+      }
+      if (imageUrls.length === 0)
+        imageUrls.push("/images/sections/residential.jpg");
+
+      if (item.fractionType === "launchpad") {
+        const initialCost = parseGlwFromWei(item.totalAmount.toString());
+        cards.push({
+          farmId: item.farmId,
+          farmName: item.farmName,
+          regionName: "Launchpad",
+          imageUrls,
+          type: "delegation", // Explicitly delegation
+          isPendingStart: true,
+          initialCost,
+          recovered: 0,
+          inflation: 0,
+          inflationGlw: 0,
+          protocolDepositAsset: "GLW",
+          isProtocolDepositUsd: false,
+          weeksActive: 0,
+          totalWeeks: 100,
+          weeklyBreakdown: [],
+        });
+      } else {
+        const initialCostUsd = parseUsdcFromBaseUnits(
+          item.totalAmount.toString()
+        );
+        cards.push({
+          farmId: item.farmId,
+          farmName: item.farmName,
+          regionName: "Miner",
+          imageUrls,
+          type: "miner",
+          isPendingStart: true,
+          initialCost: initialCostUsd,
+          recovered: 0,
+          inflation: 0,
+          inflationGlw: 0,
+          protocolDepositAsset: "USDC",
+          isProtocolDepositUsd: true,
+          weeksActive: 0,
+          totalWeeks: 99,
+          weeklyBreakdown: [],
+        });
+      }
+    });
+
     [
       ...sponsorshipsInProgressWithEstimates,
       ...miningCenterInProgressWithEstimates,
@@ -974,6 +1165,8 @@ export default function MyFarmsGridSection({
     });
 
     return cards.sort((a, b) => {
+      if (a.isPendingStart && !b.isPendingStart) return -1;
+      if (!a.isPendingStart && b.isPendingStart) return 1;
       if (a.type === "in-progress" && b.type !== "in-progress") return -1;
       if (a.type !== "in-progress" && b.type === "in-progress") return 1;
       const totalA = a.recovered + a.inflationGlw;
@@ -987,6 +1180,10 @@ export default function MyFarmsGridSection({
     purchasedFarms,
     regions,
     rewardsBreakdown,
+    rewardedFarmTypeKeys,
+    splitsActivity,
+    sponsorListings,
+    miningCenterListings,
     sponsorshipsInProgressWithEstimates,
   ]);
 

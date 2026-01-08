@@ -27,6 +27,7 @@ export function SendDialog({ open, onOpenChange }: SendDialogProps) {
             GLOW: tokens.GLOW,
             USDG: tokens.USDG,
             USDC: tokens.USDC,
+            ETH: tokens.ETH,
           }}
         />
       </DialogContent>

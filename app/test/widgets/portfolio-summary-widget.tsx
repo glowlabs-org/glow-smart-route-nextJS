@@ -11,10 +11,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Dialog } from "@/components/ui/dialog";
 import { useRewardsBreakdown } from "@/hooks";
 import { useWalletPortfolio } from "./use-wallet-portfolio";
 import { cn } from "@/lib/utils";
 import { GlowSymbol } from "@/components/glow-symbol";
+import {
+  FarmsPerformanceDialogContent,
+  type FilterValue,
+} from "./farms-performance-dialog";
 
 interface PortfolioSummaryWidgetProps {
   walletAddress?: string | null;
@@ -71,6 +76,15 @@ export default function PortfolioSummaryWidget({
 
   const isLoading = hasWallet && (isPortfolioLoading || isRewardsLoading);
 
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [dialogFilter, setDialogFilter] = React.useState<FilterValue>("all");
+
+  const handleRowClick = (filter: FilterValue) => {
+    if (!hasWallet) return;
+    setDialogFilter(filter);
+    setDialogOpen(true);
+  };
+
   if (!hasWallet && isWalletConnecting) {
     return (
       <Card className="h-full bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
@@ -96,11 +110,17 @@ export default function PortfolioSummaryWidget({
       )}
     >
       <CardHeader className="pb-0">
-        <CardTitle className="text-center">Mining sSummary</CardTitle>
+        <CardTitle className="text-center">Mining Summary</CardTitle>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col justify-center p-4 gap-3">
         {/* Row 1: Actively Delegated */}
-        <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50 hover:bg-muted/60 transition-colors">
+        <div
+          className={cn(
+            "flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50 hover:bg-muted/60 transition-colors",
+            hasWallet && "cursor-pointer active:scale-[0.98]"
+          )}
+          onClick={() => handleRowClick("delegations")}
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-[#C084FC]/10 text-[#C084FC] border border-[#C084FC]/20">
               <Layers className="w-5 h-5" />
@@ -122,7 +142,10 @@ export default function PortfolioSummaryWidget({
           <TooltipProvider delayDuration={0}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="p-1 hover:bg-muted rounded-full transition-colors">
+                <div
+                  className="p-1 hover:bg-muted rounded-full transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <Info className="w-4 h-4 text-muted-foreground/50 cursor-pointer hover:text-foreground transition-colors" />
                 </div>
               </TooltipTrigger>
@@ -134,7 +157,13 @@ export default function PortfolioSummaryWidget({
         </div>
 
         {/* Row 2: Active Miners */}
-        <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50 hover:bg-muted/60 transition-colors">
+        <div
+          className={cn(
+            "flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50 hover:bg-muted/60 transition-colors",
+            hasWallet && "cursor-pointer active:scale-[0.98]"
+          )}
+          onClick={() => handleRowClick("miners")}
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-[color:var(--color-miner-yellow)]/10 text-[color:var(--color-miner-yellow)] border border-[color:var(--color-miner-yellow)]/20">
               <Cpu className="w-5 h-5" />
@@ -151,7 +180,13 @@ export default function PortfolioSummaryWidget({
         </div>
 
         {/* Row 3: Active Delegations */}
-        <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50 hover:bg-muted/60 transition-colors">
+        <div
+          className={cn(
+            "flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50 hover:bg-muted/60 transition-colors",
+            hasWallet && "cursor-pointer active:scale-[0.98]"
+          )}
+          onClick={() => handleRowClick("delegations")}
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-[#C084FC]/10 text-[#C084FC] border border-[#C084FC]/20">
               <GlowSymbol className="w-5 h-5" />
@@ -167,6 +202,13 @@ export default function PortfolioSummaryWidget({
           </div>
         </div>
       </CardContent>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <FarmsPerformanceDialogContent
+          walletAddress={walletAddress ?? undefined}
+          initialFilter={dialogFilter}
+        />
+      </Dialog>
     </Card>
   );
 }

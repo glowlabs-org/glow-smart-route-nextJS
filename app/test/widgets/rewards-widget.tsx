@@ -274,15 +274,20 @@ export default function RewardsWidget({
 
   const nonFinalizedTotals = React.useMemo(() => {
     const nonFinalizedWeeks = weeklyBreakdown.filter((w) => !w.isFinalized);
+    if (nonFinalizedWeeks.length === 0) return {};
+
+    // Only show the very next claim (earliest week), not all future ones
+    const nextWeek = nonFinalizedWeeks.reduce((prev, curr) =>
+      prev.week < curr.week ? prev : curr
+    );
+
     const totals: Record<string, number> = {};
-    for (const week of nonFinalizedWeeks) {
-      for (const reward of week.rewards) {
-        const amount = Number.parseFloat(reward.amount);
-        if (!Number.isFinite(amount) || amount <= 0) continue;
-        const currency =
-          reward.type === "glowInflation" ? "GLW" : reward.currency;
-        totals[currency] = (totals[currency] ?? 0) + amount;
-      }
+    for (const reward of nextWeek.rewards) {
+      const amount = Number.parseFloat(reward.amount);
+      if (!Number.isFinite(amount) || amount <= 0) continue;
+      const currency =
+        reward.type === "glowInflation" ? "GLW" : reward.currency;
+      totals[currency] = (totals[currency] ?? 0) + amount;
     }
     return totals;
   }, [weeklyBreakdown]);

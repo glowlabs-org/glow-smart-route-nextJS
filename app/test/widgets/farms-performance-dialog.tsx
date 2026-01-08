@@ -74,14 +74,14 @@ const fmtUsdAmount = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n);
 
-const FILTER_VALUES = [
+export const FILTER_VALUES = [
   "all",
   "miners",
   "delegations",
   "other",
   "in-progress",
 ] as const;
-type FilterValue = (typeof FILTER_VALUES)[number];
+export type FilterValue = (typeof FILTER_VALUES)[number];
 
 function isFilterValue(value: string): value is FilterValue {
   return (FILTER_VALUES as readonly string[]).includes(value);
@@ -220,93 +220,63 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
 
   const getIconContainerClass = () => {
     if (isMiner || (isInProgress && inProgressIsMiningCenter)) {
-      return "bg-[color:var(--color-miner-yellow)]/15 border-[color:var(--color-miner-yellow)]/30 text-[color:var(--color-miner-yellow-contrast)]";
+      return "bg-[color:var(--color-miner-yellow)]/25 border-[color:var(--color-miner-yellow)]/50 text-[color:var(--color-miner-yellow-contrast)]";
     }
     if (
       data.type === "delegation" ||
       (isInProgress && !inProgressIsMiningCenter)
     ) {
-      return "bg-[#C084FC]/15 border-[#C084FC]/30 text-[#C084FC]";
+      return "bg-[#C084FC]/25 border-[#C084FC]/50 text-[#9333EA] dark:text-[#C084FC]";
     }
-    return "bg-[color:var(--color-glow-green)]/15 border-[color:var(--color-glow-green)]/30 text-[color:var(--color-glow-green)]";
+    return "bg-[color:var(--color-glow-green)]/25 border-[color:var(--color-glow-green)]/50 text-emerald-700 dark:text-[color:var(--color-glow-green)]";
   };
 
-  const getStatusBadge = () => {
+  const ProgressDisplay = ({ className }: { className?: string }) => {
     if (isPendingStart) {
       return (
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded border border-border/60 bg-muted/30 text-muted-foreground">
-          <span className="text-xs font-bold font-mono">STARTS NEXT WEEK</span>
+        <div className={cn("text-xs font-bold font-mono text-muted-foreground", className)}>
+          STARTS NEXT WEEK
         </div>
       );
     }
     if (isInProgress) {
       return (
-        <div
-          className={cn(
-            "flex items-center gap-1.5 px-2 py-1 rounded border",
-            inProgressIsMiningCenter
-              ? "text-[color:var(--color-miner-yellow-contrast)] bg-[color:var(--color-miner-yellow)]/10 border-[color:var(--color-miner-yellow)]/20"
-              : "text-[#C084FC] bg-[#C084FC]/10 border-[#C084FC]/20"
-          )}
-        >
-          {inProgressIsMiningCenter ? (
-            <Cpu className="w-3 h-3" />
-          ) : (
-            <Layers className="w-3 h-3" />
-          )}
-          <span className="text-xs font-bold font-mono">IN PROGRESS</span>
+        <div className={cn("text-xs font-bold font-mono text-muted-foreground", className)}>
+          IN PROGRESS
         </div>
       );
     }
+    // "Other" / Rewards rows don't really have a "Cost" so progress is just 100% or hidden?
+    // User didn't specify for "Other", but "Progress" usually implies ROI.
+    // For "Other" (rewards), valuePercent is 0 in current logic (line 116).
+    // Let's check logic: const valuePercent = data.type === "other" ? 0 : (totalEarned / denom) * 100;
+    // Maybe show nothing or "N/A" for other? Or just the earned amount is enough?
+    // Let's stick to percentage if meaningful.
     if (isOther) {
-      return (
-        <div className="flex items-center gap-1.5 text-[color:var(--color-glow-green)] bg-[color:var(--color-glow-green)]/10 px-2 py-1 rounded border border-[color:var(--color-glow-green)]/20">
-          <Gift className="w-3 h-3" />
-          <span className="text-xs font-bold font-mono">REWARDS</span>
+       return (
+        <div className={cn("text-xs font-bold font-mono text-emerald-600 dark:text-[color:var(--color-glow-green)]", className)}>
+          REWARDS
         </div>
       );
     }
-    if (isProfit) {
-      return (
-        <div className="flex items-center gap-1.5 text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded border border-emerald-400/20">
-          <TrendingUp className="w-3 h-3" />
-          <span className="text-xs font-bold font-mono">PROFIT</span>
-        </div>
-      );
-    }
-    if (isLagging) {
-      return (
-        <div className="flex items-center gap-1.5 text-orange-400 bg-orange-400/10 px-2 py-1 rounded border border-orange-400/20">
-          <AlertCircle className="w-3 h-3" />
-          <span className="text-xs font-bold font-mono">LAGGING</span>
-        </div>
-      );
-    }
+
     return (
-      <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/20 px-2 py-1 rounded border border-border/60">
-        <CheckCircle2 className="w-3 h-3" />
-        <span className="text-xs font-bold font-mono">ON TRACK</span>
-      </div>
+        <div
+            className={cn(
+                "text-sm font-bold font-mono tabular-nums",
+                valuePercent >= 100 ? "text-emerald-500" : "text-muted-foreground",
+                className
+            )}
+        >
+            {valuePercent.toFixed(1)}%
+        </div>
     );
   };
-
-  const principalPct =
-    isOther || isInProgress
-      ? 0
-      : Math.min((data.recovered / Math.max(data.initialCost, 1)) * 100, 100);
-  const inflationPct =
-    isOther || isInProgress
-      ? 0
-      : Math.min(
-          (data.inflation / Math.max(data.initialCost, 1)) * 100,
-          100 - principalPct
-        );
-  const totalBarPct = Math.min(principalPct + inflationPct, 100);
 
   return (
     <div
       className={cn(
-        "rounded-xl border border-border bg-muted/10 transition-colors",
+        "rounded-xl border border-border bg-muted/30 transition-colors",
         isPendingStart && "opacity-60"
       )}
     >
@@ -335,7 +305,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             </div>
           </div>
           <div className="shrink-0 flex items-center gap-2">
-            {getStatusBadge()}
+            <ProgressDisplay />
             {!isInProgress && (
               <ChevronDown
                 className={cn(
@@ -369,7 +339,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   "text-xs font-mono font-bold tabular-nums",
                   inProgressIsMiningCenter
                     ? "text-[color:var(--color-miner-yellow-contrast)]"
-                    : "text-[#C084FC]"
+                    : "text-[#9333EA] dark:text-[#C084FC]"
                 )}
               >
                 {formatGlwPrecise(data.estimatedUserWeeklyGlw ?? 0)} GLW/wk
@@ -378,31 +348,32 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
           </div>
         ) : (
           <>
-            <div
-              className={cn(
-                "mt-4 grid gap-2",
-                isOther ? "grid-cols-1" : "grid-cols-3"
-              )}
-            >
-              {!isOther && (
-                <div className="text-center">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
-                    {isMiner ? "Invested" : "Delegated"}
-                  </div>
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-sm font-bold font-mono text-foreground tabular-nums">
-                      {isMiner
-                        ? fmtUsd(data.initialCost)
-                        : fmtGlw(data.initialCost)}
-                    </span>
-                    {!isMiner && (
-                      <span className="text-[10px] font-mono text-muted-foreground">
-                        GLW
-                      </span>
-                    )}
-                  </div>
+            <div className="mt-4 grid gap-2 grid-cols-2">
+              <div className="text-center">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+                  {isOther ? "Cost" : isMiner ? "Cost" : "Delegated"}
                 </div>
-              )}
+                <div className="flex items-baseline justify-center gap-1">
+                  {isOther ? (
+                    <span className="text-sm font-bold font-mono text-muted-foreground tabular-nums">
+                      —
+                    </span>
+                  ) : (
+                    <>
+                      <span className="text-sm font-bold font-mono text-foreground tabular-nums">
+                        {isMiner
+                          ? fmtUsd(data.initialCost)
+                          : fmtGlw(data.initialCost)}
+                      </span>
+                      {!isMiner && (
+                        <span className="text-[10px] font-mono text-muted-foreground">
+                          GLW
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
               <div className="text-center">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
                   Earned
@@ -415,47 +386,22 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                         ? "text-muted-foreground"
                         : isMiner
                         ? "text-[color:var(--color-miner-yellow-contrast)]"
-                        : "text-[#C084FC]"
+                        : "text-[#9333EA] dark:text-[#C084FC]"
                     )}
                   >
                     {isPendingStart
                       ? "—"
                       : isMiner
-                      ? fmtUsd(totalEarned)
+                      ? fmtGlw(totalEarnedGlw)
                       : fmtGlw(totalEarnedGlw)}
                   </span>
-                  {!isMiner && !isPendingStart && (
+                  {!isPendingStart && (
                     <span className="text-[10px] font-mono text-muted-foreground">
                       GLW
                     </span>
                   )}
                 </div>
               </div>
-              {!isOther && (
-                <div className="text-center">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
-                    Delta
-                  </div>
-                  <div
-                    className={cn(
-                      "text-sm font-bold font-mono tabular-nums",
-                      isPendingStart
-                        ? "text-muted-foreground"
-                        : isProfit
-                        ? "text-emerald-500"
-                        : isLagging
-                        ? "text-orange-400"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    {isPendingStart
-                      ? "—"
-                      : `${deltaPercent >= 0 ? "+" : ""}${deltaPercent.toFixed(
-                          1
-                        )}%`}
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="mt-4">
@@ -465,44 +411,11 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                 </span>
                 <span>{weeksRemaining} left</span>
               </div>
-              <div
-                className={cn(
-                  "relative w-full h-3 bg-muted rounded-full overflow-hidden border",
-                  isProfit
-                    ? "border-emerald-500/30 ring-1 ring-emerald-500/20"
-                    : isOther
-                    ? "border-[color:var(--color-glow-green)]/30"
-                    : "border-border/70"
-                )}
-              >
-                {isOther ? (
-                  <div
-                    className="absolute left-0 h-full bg-[color:var(--color-glow-green)]"
+              <div className="relative w-full h-3 bg-muted rounded-full overflow-hidden border border-border/70">
+                <div
+                    className="absolute left-0 h-full bg-foreground/20"
                     style={{ width: `${timePercent}%` }}
-                  />
-                ) : (
-                  <>
-                    <div
-                      className={cn(
-                        "absolute left-0 h-full",
-                        isMiner ? "bg-muted-foreground/35" : "bg-[#C084FC]"
-                      )}
-                      style={{ width: `${principalPct}%` }}
-                    />
-                    <div
-                      className="absolute h-full bg-[color:var(--color-miner-yellow)]"
-                      style={{
-                        left: `${principalPct}%`,
-                        width: `${inflationPct}%`,
-                      }}
-                    />
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 w-0.5 h-full bg-foreground/60"
-                      style={{ left: `${timePercent}%` }}
-                      title={`Time: ${timePercent.toFixed(0)}%`}
-                    />
-                  </>
-                )}
+                />
               </div>
             </div>
 
@@ -517,7 +430,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                       <span className="text-muted-foreground">
                         PD Recovered
                       </span>
-                      <span className={cn("text-right", "text-[#C084FC]")}>
+                      <span className={cn("text-right", "text-[#9333EA] dark:text-[#C084FC]")}>
                         {isOther && data.isProtocolDepositUsd
                           ? `${fmtUsdAmount(data.recovered)} USDG`
                           : `${fmtGlw(data.recovered)} GLW`}
@@ -549,7 +462,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   <span
                     className={cn(
                       "text-right",
-                      isProfit ? "text-emerald-500" : "text-foreground"
+                      isProfit ? "text-emerald-600 dark:text-emerald-500" : "text-foreground"
                     )}
                   >
                     {valuePercent.toFixed(0)}%
@@ -564,8 +477,8 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
       {/* DESKTOP ROW */}
       <div
         className={cn(
-          "hidden sm:block cursor-pointer hover:bg-muted/20 transition-colors",
-          isExpanded && "bg-muted/15"
+          "hidden sm:block cursor-pointer hover:bg-muted/40 transition-colors",
+          isExpanded && "bg-muted/30"
         )}
         onClick={() => !isInProgress && setIsExpanded(!isExpanded)}
       >
@@ -590,7 +503,32 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             </div>
           </div>
 
-          {/* COLUMN 2: KEY METRICS (INVESTED / EARNED / DELTA) */}
+          {/* COLUMN 2: LIFECYCLE BAR */}
+          <div className="col-span-3 px-2">
+            {isInProgress ? (
+              <div className="text-xs font-mono text-muted-foreground">
+                {data.inProgressFilledLabel ??
+                  `${Math.round(data.inProgressPercent ?? 0)}% filled`}
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground mb-1.5">
+                  <span>
+                    {data.weeksActive} / {data.totalWeeks} wks
+                  </span>
+                  <span>{weeksRemaining} left</span>
+                </div>
+                <div className="relative w-full h-2.5 bg-muted rounded-full overflow-hidden border border-border/70">
+                    <div
+                      className="absolute left-0 h-full transition-all bg-foreground/20"
+                      style={{ width: `${timePercent}%` }}
+                    />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* COLUMN 3: KEY METRICS (INVESTED / EARNED) */}
           <div className="col-span-4 flex items-center justify-center gap-6">
             {isInProgress ? (
               <div className="flex items-center gap-4 w-full">
@@ -611,7 +549,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                       "text-lg font-bold font-mono tabular-nums",
                       inProgressIsMiningCenter
                         ? "text-[color:var(--color-miner-yellow-contrast)]"
-                        : "text-[#C084FC]"
+                        : "text-[#9333EA] dark:text-[#C084FC]"
                     )}
                   >
                     {formatGlwPrecise(data.estimatedUserWeeklyGlw ?? 0)}
@@ -623,25 +561,31 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
               </div>
             ) : (
               <>
-                {!isOther && (
-                  <div className="text-center min-w-[70px]">
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
-                      {isMiner ? "Invested" : "Delegated"}
-                    </div>
-                    <div className="flex items-baseline justify-center gap-1">
-                      <span className="text-lg font-bold font-mono text-foreground tabular-nums leading-tight">
-                        {isMiner
-                          ? fmtUsd(data.initialCost)
-                          : fmtGlw(data.initialCost)}
-                      </span>
-                      {!isMiner && (
-                        <span className="text-[10px] font-mono text-muted-foreground">
-                          GLW
-                        </span>
-                      )}
-                    </div>
+                <div className="text-center min-w-[70px]">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
+                    {isOther ? "Cost" : isMiner ? "Cost" : "Delegated"}
                   </div>
-                )}
+                  <div className="flex items-baseline justify-center gap-1">
+                    {isOther ? (
+                      <span className="text-lg font-bold font-mono text-muted-foreground tabular-nums leading-tight">
+                        —
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-lg font-bold font-mono text-foreground tabular-nums leading-tight">
+                          {isMiner
+                            ? fmtUsd(data.initialCost)
+                            : fmtGlw(data.initialCost)}
+                        </span>
+                        {!isMiner && (
+                          <span className="text-[10px] font-mono text-muted-foreground">
+                            GLW
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
                 <div className="text-center min-w-[70px]">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
                     Earned
@@ -654,112 +598,29 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                           ? "text-muted-foreground"
                           : isMiner
                           ? "text-[color:var(--color-miner-yellow-contrast)]"
-                          : "text-[#C084FC]"
+                          : "text-[#9333EA] dark:text-[#C084FC]"
                       )}
                     >
                       {isPendingStart
                         ? "—"
                         : isMiner
-                        ? fmtUsd(totalEarned)
+                        ? fmtGlw(totalEarnedGlw)
                         : fmtGlw(totalEarnedGlw)}
                     </span>
-                    {!isMiner && !isPendingStart && (
+                    {!isPendingStart && (
                       <span className="text-[10px] font-mono text-muted-foreground">
                         GLW
                       </span>
                     )}
                   </div>
                 </div>
-                {!isOther && (
-                  <div className="text-center min-w-[60px]">
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
-                      Delta
-                    </div>
-                    <div
-                      className={cn(
-                        "text-lg font-bold font-mono tabular-nums leading-tight",
-                        isPendingStart
-                          ? "text-muted-foreground"
-                          : isProfit
-                          ? "text-emerald-500"
-                          : isLagging
-                          ? "text-orange-400"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      {isPendingStart
-                        ? "—"
-                        : `${
-                            deltaPercent >= 0 ? "+" : ""
-                          }${deltaPercent.toFixed(1)}%`}
-                    </div>
-                  </div>
-                )}
               </>
             )}
           </div>
 
-          {/* COLUMN 3: LIFECYCLE BAR */}
-          <div className="col-span-3 px-2">
-            {isInProgress ? (
-              <div className="text-xs font-mono text-muted-foreground">
-                {data.inProgressFilledLabel ??
-                  `${Math.round(data.inProgressPercent ?? 0)}% filled`}
-              </div>
-            ) : (
-              <div>
-                <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground mb-1.5">
-                  <span>
-                    {data.weeksActive} / {data.totalWeeks} wks
-                  </span>
-                  <span>{weeksRemaining} left</span>
-                </div>
-                <div
-                  className={cn(
-                    "relative w-full h-2.5 bg-muted rounded-full overflow-hidden border",
-                    isProfit
-                      ? "border-emerald-500/30 ring-1 ring-emerald-500/20"
-                      : isOther
-                      ? "border-[color:var(--color-glow-green)]/30"
-                      : "border-border/70"
-                  )}
-                >
-                  {isOther ? (
-                    <div
-                      className="absolute left-0 h-full transition-all bg-[color:var(--color-glow-green)]"
-                      style={{ width: `${timePercent}%` }}
-                    />
-                  ) : (
-                    <>
-                      <div
-                        className={cn(
-                          "absolute left-0 h-full transition-all",
-                          isMiner ? "bg-muted-foreground/35" : "bg-[#C084FC]"
-                        )}
-                        style={{ width: `${principalPct}%` }}
-                      />
-                      <div
-                        className="absolute h-full bg-[color:var(--color-miner-yellow)] transition-all"
-                        style={{
-                          left: `${principalPct}%`,
-                          width: `${inflationPct}%`,
-                        }}
-                      />
-                      <div
-                        className="absolute top-0 w-0.5 h-full bg-foreground/80 z-10"
-                        style={{ left: `${Math.min(timePercent, 100)}%` }}
-                        title={`Time: ${timePercent.toFixed(0)}%`}
-                      />
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* COLUMN 4: STATUS */}
+          {/* COLUMN 4: PROGRESS */}
           <div className="col-span-2 flex items-center justify-end gap-2">
-            {getStatusBadge()}
+            <ProgressDisplay />
             {!isInProgress && (
               <ChevronDown
                 className={cn(
@@ -785,7 +646,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     {!isOther && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
-                          {isMiner ? "Invested" : "Delegated"}
+                          {isMiner ? "Cost" : "Delegated"}
                         </span>
                         <span className="text-foreground">
                           {isMiner
@@ -797,14 +658,14 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     {!isMiner && (
                       <div className="flex justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-[#C084FC]" />
+                          <div className="w-2 h-2 rounded-full bg-[#9333EA] dark:bg-[#C084FC]" />
                           <span className="text-muted-foreground">
                             {isOther
                               ? `PD (${data.protocolDepositAsset ?? "—"})`
                               : "Recovered"}
                           </span>
                         </div>
-                        <span className="text-[#C084FC]">
+                        <span className="text-[#9333EA] dark:text-[#C084FC]">
                           {isOther && data.isProtocolDepositUsd
                             ? `${fmtUsdAmount(data.recovered)} USDG`
                             : `${fmtGlw(data.recovered)} GLW`}
@@ -863,7 +724,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                       <span
                         className={cn(
                           isProfit
-                            ? "text-emerald-500 font-bold"
+                            ? "text-emerald-600 dark:text-emerald-500 font-bold"
                             : "text-foreground"
                         )}
                       >
@@ -890,12 +751,19 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
 
 interface FarmsPerformanceDialogContentProps {
   walletAddress?: string;
+  initialFilter?: FilterValue;
 }
 
 export function FarmsPerformanceDialogContent({
   walletAddress,
+  initialFilter = "all",
 }: FarmsPerformanceDialogContentProps) {
-  const [filter, setFilter] = React.useState<FilterValue>("all");
+  const [filter, setFilter] = React.useState<FilterValue>(initialFilter);
+
+  // Sync internal filter state when initialFilter prop changes
+  React.useEffect(() => {
+    setFilter(initialFilter);
+  }, [initialFilter]);
 
   const hasWallet = Boolean(walletAddress);
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
@@ -1398,7 +1266,7 @@ export function FarmsPerformanceDialogContent({
   return (
     <DialogContent className="max-w-4xl h-[92dvh] sm:h-[80vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden shadow-2xl">
       {/* Header */}
-      <DialogHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border bg-muted/20 flex-shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 space-y-0">
+      <DialogHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border bg-muted/40 flex-shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 space-y-0">
         <DialogTitle className="text-xl sm:text-2xl font-bold font-mono uppercase tracking-wide leading-tight">
           Farm Performance
         </DialogTitle>
@@ -1435,7 +1303,7 @@ export function FarmsPerformanceDialogContent({
             {tabCounts.delegations > 0 || filter === "delegations" ? (
               <TabsTrigger
                 value="delegations"
-                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[#C084FC]"
+                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[#9333EA] dark:data-[state=active]:text-[#C084FC]"
               >
                 DELEGATIONS
               </TabsTrigger>
@@ -1443,7 +1311,7 @@ export function FarmsPerformanceDialogContent({
             {tabCounts.other > 0 || filter === "other" ? (
               <TabsTrigger
                 value="other"
-                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[color:var(--color-glow-green)]"
+                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-emerald-700 dark:data-[state=active]:text-[color:var(--color-glow-green)]"
               >
                 OTHER
               </TabsTrigger>
@@ -1451,7 +1319,7 @@ export function FarmsPerformanceDialogContent({
             {tabCounts.inProgress > 0 || filter === "in-progress" ? (
               <TabsTrigger
                 value="in-progress"
-                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[#C084FC]"
+                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[#9333EA] dark:data-[state=active]:text-[#C084FC]"
               >
                 IN PROGRESS
               </TabsTrigger>
@@ -1461,23 +1329,11 @@ export function FarmsPerformanceDialogContent({
       </DialogHeader>
 
       {/* Legend / Columns */}
-      <div className="hidden sm:grid grid-cols-12 px-6 py-3 border-b border-border/60 bg-muted/10 text-xs font-mono uppercase text-muted-foreground tracking-wider flex-shrink-0 gap-4">
+      <div className="hidden sm:grid grid-cols-12 px-6 py-3 border-b border-border bg-muted/30 text-xs font-mono uppercase text-muted-foreground tracking-wider flex-shrink-0 gap-4">
         <div className="col-span-3">Identity</div>
+        <div className="col-span-3 px-2">Lifecycle</div>
         <div className="col-span-4 text-center">Key Metrics</div>
-        <div className="col-span-3 flex items-center gap-3 px-2">
-          <span>Lifecycle</span>
-          <span className="ml-auto normal-case tracking-normal flex items-center gap-2">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-[#C084FC]" />
-              <span>PD</span>
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-[color:var(--color-miner-yellow)]" />
-              <span>Emissions</span>
-            </span>
-          </span>
-        </div>
-        <div className="col-span-2 text-right">Status</div>
+        <div className="col-span-2 text-right">Progress</div>
       </div>
 
       {/* Scrollable List */}

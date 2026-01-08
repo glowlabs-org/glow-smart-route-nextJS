@@ -135,6 +135,7 @@ export default function View({
                       GLOW: tokens.GLOW,
                       USDG: tokens.USDG,
                       USDC: tokens.USDC,
+                      ETH: tokens.ETH,
                     }}
                   />
                 </div>

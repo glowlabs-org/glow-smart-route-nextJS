@@ -9,6 +9,7 @@ import {
   Wallet,
   Zap,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { useAccount } from "wagmi";
 
@@ -339,6 +340,18 @@ export function ImpactScoreBreakdownDialogContent(
     safePointsNumber(impactScore?.totals?.vaultBonusPoints) > 0;
   const hasGlowWorth = safeBigInt(displayedGlowWorthWei) > 0n;
 
+  const steeringPts = safePointsNumber(impactScore?.totals?.steeringPoints);
+  const inflationPts = safePointsNumber(impactScore?.totals?.inflationPoints);
+  const vaultPts = safePointsNumber(impactScore?.totals?.vaultBonusPoints);
+  const rolloverPts = safePointsNumber(impactScore?.totals?.rolloverPoints);
+
+  // The difference between the Total Rollover and the sum of base components
+  // represents the points added by the Multiplier (Base 1x/3x + Streak)
+  const multiplierBonusPts = Math.max(
+    0,
+    rolloverPts - (steeringPts + inflationPts + vaultPts)
+  );
+
   const impactStreakWeeksLastRollover = latestWeek?.impactStreakWeeks ?? 0;
   const streakBonusMultiplierLastRollover =
     latestWeek?.streakBonusMultiplier ?? 0;
@@ -579,7 +592,7 @@ export function ImpactScoreBreakdownDialogContent(
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider dark:text-zinc-500">
-                  Active Multiplier
+                  Rollover Points
                 </h4>
                 <span className="text-[10px] text-muted-foreground/80 font-mono dark:text-zinc-600">
                   Range {impactScore?.weekRange?.startWeek ?? "—"}–
@@ -637,6 +650,17 @@ export function ImpactScoreBreakdownDialogContent(
                   onCtaClick={() => setIsLaunchpadOpen(true)}
                   tone="purple"
                   isDisabled={!hasVaultBonus}
+                />
+
+                <BreakdownRow
+                  icon={Sparkles}
+                  label="Multiplier Bonus"
+                  sublabel="Points from Miner & Streak multipliers"
+                  value={`+${formatPoints(String(multiplierBonusPts), {
+                    maximumFractionDigits: 2,
+                  })}`}
+                  tone="yellow"
+                  isDisabled={multiplierBonusPts <= 0.01}
                 />
               </div>
 

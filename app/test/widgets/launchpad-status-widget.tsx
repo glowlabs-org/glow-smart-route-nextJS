@@ -33,7 +33,7 @@ import type { TaggedAuctionApplication } from "@/app/marketplace/launchpad-view"
 
 function formatUsdPrice(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "$—";
-  const decimals = value < 1 ? 4 : 2;
+  const decimals = value < 1 ? 3 : 2;
   return `$${value.toFixed(decimals)}`;
 }
 
@@ -481,7 +481,7 @@ export default function LaunchpadStatusWidget({
 
             {/* Prep Section */}
             <div className="mt-auto space-y-4">
-              <div className="bg-muted/20 rounded-xl p-4 flex gap-4 border border-border/50 flex-col sm:flex-row sm:items-start text-center sm:text-left">
+              <div className="bg-muted/20 rounded-xl p-4 flex gap-4 border border-border/50 flex-col sm:flex-row text-center sm:text-left">
                 {/* GLW Price - styled like the icon box in gctl widget */}
                 <div className="shrink-0 flex flex-col items-center justify-center p-3 rounded-xl bg-background/50 border border-border/60 min-w-[100px] gap-0.5">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
