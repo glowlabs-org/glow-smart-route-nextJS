@@ -544,6 +544,7 @@ export function MintAndStakeGctlDialog({
   const [processingTxHash, setProcessingTxHash] = React.useState<string | null>(
     null
   );
+  const [hasPerformedAction, setHasPerformedAction] = React.useState(false);
 
   const handleSetPct = React.useCallback(
     (pct: number) => {
@@ -555,7 +556,7 @@ export function MintAndStakeGctlDialog({
       const nextInput =
         selectedCurrency === "ETH"
           ? roundDownToDecimalsString(next, 6)
-          : new Decimal(next).toFixed(2);
+          : roundDownToDecimalsString(next, 2);
       setAmountInput(nextInput);
 
       if (selectedCurrency === "ETH") runEthUsdcQuote(nextInput);
@@ -599,19 +600,21 @@ export function MintAndStakeGctlDialog({
       onOpenChange(nextOpen);
 
       if (!nextOpen) {
+        if (hasPerformedAction) {
+          void (async () => {
+            try {
+              await invalidateAllQueries();
+            } catch {
+              // no-op
+            }
+          })();
+        }
         setStepOverride(null);
         setIsUnstakeAcknowledged(false);
-
-        void (async () => {
-          try {
-            await invalidateAllQueries();
-          } catch {
-            // no-op
-          }
-        })();
+        setHasPerformedAction(false);
       }
     },
-    [invalidateAllQueries, onOpenChange]
+    [hasPerformedAction, invalidateAllQueries, onOpenChange]
   );
 
   const handleStakeExisting = React.useCallback(async () => {
@@ -839,6 +842,7 @@ export function MintAndStakeGctlDialog({
 
       setProcessingTxHash(txHash);
       setIsProcessingModalOpen(true);
+      setHasPerformedAction(true);
 
       setOptimisticHasGctlByAddress((prev) => {
         const key = (address as string | undefined)?.toLowerCase();

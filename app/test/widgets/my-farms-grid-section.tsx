@@ -37,6 +37,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
@@ -1116,6 +1123,9 @@ export default function MyFarmsGridSection({
   const [viewMode, setViewMode] = React.useState<
     "default" | "compact" | "list" | "mosaic"
   >("default");
+  const [sortBy, setSortBy] = React.useState<
+    "default" | "alphabetical" | "size" | "date"
+  >("default");
   const hasWallet = Boolean(walletAddress);
 
   const {
@@ -1267,7 +1277,7 @@ export default function MyFarmsGridSection({
     );
   }, [rewardsBreakdown]);
 
-  const farmCards = React.useMemo<FarmCardData[]>(() => {
+  const unsortedFarmCards = React.useMemo<FarmCardData[]>(() => {
     if (!rewardsBreakdown) return [];
 
     const cards: FarmCardData[] = [];
@@ -1536,15 +1546,7 @@ export default function MyFarmsGridSection({
       });
     });
 
-    return cards.sort((a, b) => {
-      if (a.isPendingStart && !b.isPendingStart) return -1;
-      if (!a.isPendingStart && b.isPendingStart) return 1;
-      if (a.type === "in-progress" && b.type !== "in-progress") return -1;
-      if (a.type !== "in-progress" && b.type === "in-progress") return 1;
-      const totalA = a.recovered + a.inflationGlw;
-      const totalB = b.recovered + b.inflationGlw;
-      return totalB - totalA;
-    });
+    return cards;
   }, [
     farmNameByFarmId,
     glwSpotPriceUsd,
@@ -1558,6 +1560,55 @@ export default function MyFarmsGridSection({
     miningCenterListings,
     sponsorshipsInProgressWithEstimates,
   ]);
+
+  const farmCards = React.useMemo(() => {
+    const cards = [...unsortedFarmCards];
+
+    const getSize = (f: FarmCardData) => {
+      const price = glwSpotPriceUsd || 0;
+      // If miner, initialCost is USD
+      if (f.type === "miner") {
+        return f.initialCost;
+      }
+      // Delegation/Pending Launchpad is GLW
+      // Convert GLW to USD for comparison if price exists, else treat as raw number
+      // (This assumes parity if price is 0 which is wrong but safe fallback)
+      return f.initialCost * (price > 0 ? price : 0);
+    };
+
+    switch (sortBy) {
+      case "alphabetical":
+        return cards.sort((a, b) => a.farmName.localeCompare(b.farmName));
+      case "size":
+        // Descending size
+        return cards.sort((a, b) => getSize(b) - getSize(a));
+      case "date":
+        // Newest first
+        return cards.sort((a, b) => {
+          const isAPending = a.isPendingStart || a.type === "in-progress";
+          const isBPending = b.isPendingStart || b.type === "in-progress";
+
+          if (isAPending && !isBPending) return -1;
+          if (!isAPending && isBPending) return 1;
+
+          if (isAPending && isBPending) {
+            return (b.inProgressPercent || 0) - (a.inProgressPercent || 0);
+          }
+
+          return a.weeksActive - b.weeksActive;
+        });
+      default:
+        return cards.sort((a, b) => {
+          if (a.isPendingStart && !b.isPendingStart) return -1;
+          if (!a.isPendingStart && b.isPendingStart) return 1;
+          if (a.type === "in-progress" && b.type !== "in-progress") return -1;
+          if (a.type !== "in-progress" && b.type === "in-progress") return 1;
+          const totalA = a.recovered + a.inflationGlw;
+          const totalB = b.recovered + b.inflationGlw;
+          return totalB - totalA;
+        });
+    }
+  }, [unsortedFarmCards, sortBy, glwSpotPriceUsd]);
 
   const isLoading =
     isRewardsLoading ||
@@ -1607,7 +1658,29 @@ export default function MyFarmsGridSection({
 
   return (
     <>
-      <div className="flex justify-end mb-6">
+      <div className="flex flex-col sm:flex-row items-end sm:items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider hidden sm:block">
+            Sort by
+          </span>
+          <Select
+            value={sortBy}
+            onValueChange={(v) =>
+              setSortBy(v as "default" | "alphabetical" | "size" | "date")
+            }
+          >
+            <SelectTrigger className="w-[160px] h-9">
+              <SelectValue placeholder="Sort by..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Default</SelectItem>
+              <SelectItem value="date">Newest</SelectItem>
+              <SelectItem value="alphabetical">Name (A-Z)</SelectItem>
+              <SelectItem value="size">Size (Highest)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="flex items-center bg-muted/50 p-1 rounded-lg border border-border/50">
           <Button
             variant={viewMode === "default" ? "secondary" : "ghost"}

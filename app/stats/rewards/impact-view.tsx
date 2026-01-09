@@ -53,6 +53,7 @@ import {
   useImpactScoreQuery,
   type ImpactGlowScoreLeaderboardRow,
 } from "@/hooks";
+import { formatNumber } from "@/utils/format";
 import { copyTextToClipboard } from "@/utils/clipboard";
 import {
   formatGlwFromWei,
@@ -405,6 +406,13 @@ function ImpactHero(props: {
 
   const normalizedAddress = address?.toLowerCase() ?? "";
 
+  const selfLeaderboardRow = React.useMemo(() => {
+    if (!normalizedAddress) return null;
+    return rows.find(
+      (r) => r.walletAddress.toLowerCase() === normalizedAddress
+    );
+  }, [rows, normalizedAddress]);
+
   const { usdcBalance, usdgBalance } = useWalletTokenBalances(address);
   const { spotPrice: glowSpotPrice } = useGlowSpotPrice();
 
@@ -423,7 +431,9 @@ function ImpactHero(props: {
   const isSelfLoading =
     Boolean(address) && (selfScoreQuery.isLoading || selfScoreQuery.isFetching);
 
-  const selfPoints = safeNumber(selfScoreQuery.data?.totals?.totalPoints);
+  const selfPoints = selfLeaderboardRow
+    ? safeNumber(selfLeaderboardRow.totalPoints)
+    : safeNumber(selfScoreQuery.data?.totals?.totalPoints);
   const isZeroScore =
     Boolean(address) &&
     !isSelfLoading &&
@@ -542,10 +552,7 @@ function ImpactHero(props: {
                       Points
                     </div>
                     <div className="font-mono text-3xl md:text-5xl font-bold tracking-tight tabular-nums">
-                      {formatImpactPoints(
-                        selfScoreQuery.data?.totals?.totalPoints,
-                        2
-                      )}{" "}
+                      {formatNumber(selfPoints, { maximumFractionDigits: 2 })}{" "}
                       <span className="text-xs text-muted-foreground">pts</span>
                     </div>
                     <div className="text-xs text-muted-foreground font-mono">

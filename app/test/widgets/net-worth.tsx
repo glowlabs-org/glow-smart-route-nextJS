@@ -48,6 +48,7 @@ function formatCompact(value: number) {
 interface NetWorthWidgetProps {
   walletAddress?: string | null;
   variant?: "default" | "minimal";
+  onBuyGlowClick?: () => void;
 }
 
 function GlowWorthChartTooltip({
@@ -239,6 +240,7 @@ function NetWorthSkeleton() {
 export default function NetWorthWidget({
   walletAddress,
   variant = "default",
+  onBuyGlowClick,
 }: NetWorthWidgetProps) {
   const chainId = useChainId();
   const isMinimal = variant === "minimal";
@@ -279,7 +281,13 @@ export default function NetWorthWidget({
   }, [chartData]);
 
   if (shouldShowSkeleton) return <NetWorthSkeleton />;
-  if (showEmptyState) return <OnboardingHeroWidget className="h-full" />;
+  if (showEmptyState)
+    return (
+      <OnboardingHeroWidget
+        className="h-full"
+        onBuyGlowClick={onBuyGlowClick}
+      />
+    );
 
   const breakdownForDialog = glowWorthBreakdown
     ? ({

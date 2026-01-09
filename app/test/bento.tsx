@@ -328,6 +328,7 @@ export default function GlowSoftDashboard({
                     <NetWorthWidget
                       walletAddress={walletAddress}
                       variant="minimal"
+                      onBuyGlowClick={handleBuyGlowClick}
                     />
                   </div>
 
