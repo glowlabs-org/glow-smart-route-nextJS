@@ -26,7 +26,7 @@ import { useEnsNames } from "@/hooks/useEnsNames";
 import { shortAddress } from "@/utils/impact";
 
 import { Button } from "@/components/ui/button";
-import { CashMinerIcon, VaultIcon } from "@/components/impact-icons";
+import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 
 function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -521,14 +521,14 @@ export function SponsoredFarmsActivity({
                   className={cn(
                     "relative h-10 w-10 rounded-xl overflow-hidden shrink-0 border flex items-center justify-center",
                     isMiningCenter
-                      ? "border-[color:var(--color-miner-yellow)]/90 bg-[color:var(--color-miner-yellow)]/15 text-[color:var(--color-miner-yellow)]"
+                      ? "border-[color:var(--color-miner)]/90 bg-[color:var(--color-miner)]/15 text-[color:var(--color-miner)]"
                       : "border-delegation-purple/90 bg-delegation-purple/25 text-delegation-purple"
                   )}
                 >
                   {isMiningCenter ? (
                     <CashMinerIcon className="w-6 h-6" />
                   ) : (
-                    <VaultIcon className="w-6 h-6" />
+                    <DelegationIcon className="w-6 h-6" />
                   )}
                 </div>
 
@@ -543,7 +543,7 @@ export function SponsoredFarmsActivity({
                         className={cn(
                           "px-1.5 py-0.5 rounded-xl text-[10px] font-medium uppercase tracking-wider shrink-0 border",
                           isMiningCenter
-                            ? "border-[color:var(--color-miner-yellow)]/90 bg-[color:var(--color-miner-yellow)]/15 text-[color:var(--color-miner-yellow)]"
+                            ? "border-[color:var(--color-miner)]/90 bg-[color:var(--color-miner)]/15 text-[color:var(--color-miner)]"
                             : "border-delegation-purple/90 bg-delegation-purple/25 text-delegation-purple"
                         )}
                       >
@@ -667,7 +667,7 @@ export function SponsoredFarmsActivity({
                         className={cn(
                           "px-2 py-1 rounded-xl text-[10px] font-medium uppercase tracking-wider inline-block whitespace-nowrap border",
                           purchase.fractionType === "mining-center"
-                            ? "border-[color:var(--color-miner-yellow)]/90 bg-[color:var(--color-miner-yellow)]/25 text-[color:var(--color-miner-yellow)]"
+                            ? "border-[color:var(--color-miner)]/90 bg-[color:var(--color-miner)]/25 text-[color:var(--color-miner)]"
                             : "border-delegation-purple/90 bg-delegation-purple/25 text-delegation-purple"
                         )}
                       >

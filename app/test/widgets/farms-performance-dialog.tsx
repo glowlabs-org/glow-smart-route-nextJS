@@ -55,7 +55,7 @@ import {
   deriveMiningCenterSponsorshipsInProgress,
 } from "@/utils/sponsorships-in-progress";
 import { GlowSymbol } from "@/components/glow-symbol";
-import { CashMinerIcon, VaultIcon } from "@/components/impact-icons";
+import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 
 // --- HELPER: FORMATTERS ---
 const fmtGlw = (n: number) =>
@@ -147,8 +147,7 @@ function getTotalRewardsLabel(data: PerformanceRowData) {
 }
 
 function getTotalRewardsClassName(data: PerformanceRowData) {
-  if (data.type === "miner")
-    return "text-[color:var(--color-miner-yellow-contrast)]";
+  if (data.type === "miner") return "text-[color:var(--color-miner-contrast)]";
   if (data.type === "delegation") return "text-[color:var(--color-glow-green)]";
   if (data.type === "other") return "text-[color:var(--color-glow-green)]";
   return "text-foreground";
@@ -216,13 +215,13 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
     return isMiner ? (
       <CashMinerIcon className="w-6 h-6" />
     ) : (
-      <VaultIcon className="w-6 h-6" />
+      <DelegationIcon className="w-6 h-6" />
     );
   };
 
   const getIconContainerClass = () => {
     if (isMiner || (isInProgress && inProgressIsMiningCenter)) {
-      return "bg-[color:var(--color-miner-yellow)]/25 border-[color:var(--color-miner-yellow)]/50 text-[color:var(--color-miner-yellow-contrast)]";
+      return "bg-[color:var(--color-miner)]/25 border-[color:var(--color-miner)]/50 text-[color:var(--color-miner-contrast)]";
     }
     if (
       data.type === "delegation" ||
@@ -355,7 +354,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                 className={cn(
                   "text-xs font-mono font-bold tabular-nums",
                   inProgressIsMiningCenter
-                    ? "text-[color:var(--color-miner-yellow-contrast)]"
+                    ? "text-[color:var(--color-miner-contrast)]"
                     : "text-delegation-purple dark:text-delegation-purple"
                 )}
               >
@@ -402,7 +401,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                       isPendingStart
                         ? "text-muted-foreground"
                         : isMiner
-                        ? "text-[color:var(--color-miner-yellow-contrast)]"
+                        ? "text-[color:var(--color-miner-contrast)]"
                         : "text-delegation-purple dark:text-delegation-purple"
                     )}
                   >
@@ -460,7 +459,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     </>
                   )}
                   <span className="text-muted-foreground">Emissions</span>
-                  <span className="text-right text-[color:var(--color-miner-yellow-contrast)]">
+                  <span className="text-right text-[color:var(--color-miner-contrast)]">
                     +{fmtGlw(data.inflationGlw)} GLW
                   </span>
                   <div className="col-span-2 h-px bg-border" />
@@ -578,7 +577,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     className={cn(
                       "text-lg font-bold font-mono tabular-nums",
                       inProgressIsMiningCenter
-                        ? "text-[color:var(--color-miner-yellow-contrast)]"
+                        ? "text-[color:var(--color-miner-contrast)]"
                         : "text-delegation-purple dark:text-delegation-purple"
                     )}
                   >
@@ -627,7 +626,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                         isPendingStart
                           ? "text-muted-foreground"
                           : isMiner
-                          ? "text-[color:var(--color-miner-yellow-contrast)]"
+                          ? "text-[color:var(--color-miner-contrast)]"
                           : "text-delegation-purple dark:text-delegation-purple"
                       )}
                     >
@@ -704,10 +703,10 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     )}
                     <div className="flex justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-[color:var(--color-miner-yellow)]" />
+                        <div className="w-2 h-2 rounded-full bg-[color:var(--color-miner)]" />
                         <span className="text-muted-foreground">Emissions</span>
                       </div>
-                      <span className="text-[color:var(--color-miner-yellow-contrast)]">
+                      <span className="text-[color:var(--color-miner-contrast)]">
                         +{fmtGlw(data.inflationGlw)} GLW
                       </span>
                     </div>
@@ -1327,7 +1326,7 @@ export function FarmsPerformanceDialogContent({
             {tabCounts.miners > 0 || filter === "miners" ? (
               <TabsTrigger
                 value="miners"
-                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-miner-yellow"
+                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-miner"
               >
                 MINERS
               </TabsTrigger>

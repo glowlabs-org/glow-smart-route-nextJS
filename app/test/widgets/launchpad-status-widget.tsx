@@ -19,11 +19,12 @@ import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import { useGlowLaunchpad, useMiningCenter } from "@/hooks";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
-import { DepositDialog } from "@/app/marketplace/deposit-dialog";
 import { SponsoredFarmsActivity } from "@/app/marketplace/sponsored-farms-activity";
 import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { trackEvent } from "@/lib/telemetry";
 import { useAccount } from "wagmi";
+import Link from "next/link";
+import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 import type {
   LaunchpadRewardScore,
   MiningCenterScore,
@@ -61,12 +62,17 @@ interface LaunchpadStatusWidgetProps {
   className?: string;
   forcedType?: "delegations" | "miners";
   variant?: "card" | "full-row" | "flow" | "minimal";
+  onPayDeposit?: (
+    application: TaggedAuctionApplication,
+    scoreData?: LaunchpadRewardScore | MiningCenterScore | null
+  ) => void;
 }
 
 export default function LaunchpadStatusWidget({
   className,
   forcedType,
   variant = "card",
+  onPayDeposit,
 }: LaunchpadStatusWidgetProps) {
   const { address, isConnected } = useAccount();
   const walletAddress = address?.toLowerCase() ?? null;
@@ -148,12 +154,6 @@ export default function LaunchpadStatusWidget({
     return resolvedTab;
   }, [hasDelegationsAvailable, resolvedTab]);
 
-  const [depositOpen, setDepositOpen] = React.useState(false);
-  const [selectedApplicationForDeposit, setSelectedApplicationForDeposit] =
-    React.useState<TaggedAuctionApplication | null>(null);
-  const [selectedRewardScore, setSelectedRewardScore] = React.useState<
-    LaunchpadRewardScore | MiningCenterScore | null
-  >(null);
   const [buyGlowOpen, setBuyGlowOpen] = React.useState(false);
 
   const handleCountdownComplete = React.useCallback(() => {
@@ -180,27 +180,10 @@ export default function LaunchpadStatusWidget({
       application: TaggedAuctionApplication,
       scoreData?: LaunchpadRewardScore | MiningCenterScore | null
     ) => {
-      trackEvent("dashboard_launchpad_deposit_open_click", {
-        source,
-        wallet_connected: isConnected,
-        wallet_address: walletAddress,
-        application_id: application.id,
-        listing_type: application._type,
-        payment_currency: application._type === "miners" ? "USDC" : "GLW",
-      });
-      setSelectedApplicationForDeposit(application);
-      setSelectedRewardScore(scoreData ?? null);
-      setDepositOpen(true);
+      onPayDeposit?.(application, scoreData);
     },
-    [isConnected, source, walletAddress]
+    [onPayDeposit]
   );
-
-  const handleDepositOpenChange = React.useCallback((nextOpen: boolean) => {
-    setDepositOpen(nextOpen);
-    if (nextOpen) return;
-    setSelectedApplicationForDeposit(null);
-    setSelectedRewardScore(null);
-  }, []);
 
   return (
     <Card
@@ -247,7 +230,7 @@ export default function LaunchpadStatusWidget({
             </CardTitle>
           </div>
 
-          {isLive ? (
+          {isLive && variant === "full-row" ? (
             <Tabs
               value={resolvedTab}
               onValueChange={(v) => {
@@ -438,17 +421,80 @@ export default function LaunchpadStatusWidget({
             <div
               className={cn(
                 "min-h-0 flex-1 flex flex-col",
-                isMobile ? "px-4 pb-6" : "px-5 pb-0"
+                isMobile ? "px-4 pb-6" : "px-5 pb-5"
               )}
             >
-              <ScrollArea className="min-h-0 flex-1 h-full">
-                <LaunchpadView
-                  variant="widget"
-                  typeFilter={launchpadTypeFilter}
-                  widgetLayout="stack"
-                  onPayDeposit={handlePayDeposit}
-                />
-              </ScrollArea>
+              <div className="flex flex-col gap-3 h-full">
+                <Link
+                  href="https://glow.org/blog/guide-to-delegating-glow"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group rounded-xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-delegation-purple/50 flex-1 flex flex-col justify-center"
+                  onClick={() => {
+                    trackEvent("dashboard_education_click", {
+                      source,
+                      wallet_connected: isConnected,
+                      wallet_address: walletAddress,
+                      topic: "delegation",
+                      url: "https://glow.org/blog/guide-to-delegating-glow",
+                    });
+                  }}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background/50 transition-colors group-hover:border-delegation-purple/30">
+                      <DelegationIcon className="h-6 w-6 text-foreground group-hover:text-delegation-purple transition-colors" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-lg font-semibold text-foreground transition-colors group-hover:text-delegation-purple">
+                        Guide to Delegation
+                      </div>
+                      <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                        Delegate your GLW tokens to specific solar farms. If the
+                        farm is efficient, you earn yield. If it underperforms,
+                        you may forfeit tokens.
+                      </div>
+                      <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-delegation-purple/80 transition-colors flex items-center gap-1">
+                        Learn more <span aria-hidden="true">→</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+
+                <Link
+                  href="https://glow.org/blog/guide-to-glow-mining"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group rounded-xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-[color:var(--color-miner)]/50 flex-1 flex flex-col justify-center"
+                  onClick={() => {
+                    trackEvent("dashboard_education_click", {
+                      source,
+                      wallet_connected: isConnected,
+                      wallet_address: walletAddress,
+                      topic: "mining",
+                      url: "https://glow.org/blog/guide-to-glow-mining",
+                    });
+                  }}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background/50 transition-colors group-hover:border-[color:var(--color-miner)]/30">
+                      <CashMinerIcon className="h-6 w-6 text-foreground group-hover:text-[color:var(--color-miner)] transition-colors" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-lg font-semibold text-foreground transition-colors group-hover:text-[color:var(--color-miner-contrast)]">
+                        How Mining Works
+                      </div>
+                      <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                        Buy "miners" (digital solar representations) with USDC.
+                        They produce GLW tokens for 99 weeks based on real-world
+                        electricity generation.
+                      </div>
+                      <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-[color:var(--color-miner-contrast)]/80 transition-colors flex items-center gap-1">
+                        Learn more <span aria-hidden="true">→</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              </div>
             </div>
           )
         ) : (
@@ -506,24 +552,6 @@ export default function LaunchpadStatusWidget({
               </div>
             </div>
           </div>
-        )}
-
-        {selectedApplicationForDeposit?._type === "miners" ? (
-          <DepositDialog
-            open={depositOpen}
-            onOpenChange={handleDepositOpenChange}
-            application={selectedApplicationForDeposit}
-            selectedCurrency="USDC"
-            rewardScore={selectedRewardScore as MiningCenterScore | null}
-          />
-        ) : (
-          <DepositDialog
-            open={depositOpen}
-            onOpenChange={handleDepositOpenChange}
-            application={selectedApplicationForDeposit}
-            selectedCurrency="GLW"
-            rewardScore={selectedRewardScore as LaunchpadRewardScore | null}
-          />
         )}
 
         <BuyGlowDialog

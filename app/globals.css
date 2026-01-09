@@ -274,8 +274,8 @@
   --delegation-purple: #a855f7;
 
   /* Semantic: Protocol role colors */
-  --color-miner-yellow: #d9f368;
-  --color-miner-yellow-contrast: #7a8a12;
+  --color-miner: #2081e2;
+  --color-miner-contrast: #2081e2;
 
   /* Ultrawide Responsive Design System */
   --container-sm: 640px;
@@ -359,8 +359,8 @@
   --delegation-purple: #d792ff;
 
   /* Semantic: Protocol role colors */
-  --color-miner-yellow: #d9f368;
-  --color-miner-yellow-contrast: var(--color-miner-yellow);
+  --color-miner: #2081e2;
+  --color-miner-contrast: #2081e2;
 
   /* Dark mode - Inverted theme colors */
   --background: var(--color-glow-black);
@@ -652,8 +652,13 @@
   color: var(--color-glow-yellow);
 }
 
+.text-miner {
+  color: var(--color-miner-contrast);
+}
+
+/* Legacy class for backwards compatibility */
 .text-miner-yellow {
-  color: var(--color-miner-yellow-contrast);
+  color: var(--color-miner-contrast);
 }
 
 .text-glow-purple {

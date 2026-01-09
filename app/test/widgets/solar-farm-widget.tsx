@@ -10,7 +10,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { Zap, LayoutGrid, Sun, Rocket, Gift, Info } from "lucide-react";
-import { CashMinerIcon, VaultIcon } from "@/components/impact-icons";
+import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 import Link from "next/link";
 import {
   useGlowLaunchpad,
@@ -507,7 +507,7 @@ export default function SolarFarmWidget({
         count: stats.activeMiners,
         label: "Miners",
         iconSrc: "/images/icons/cash-miner.svg",
-        iconClassName: "text-miner-yellow",
+        iconClassName: "text-miner",
       },
       {
         key: "delegations" as const,
@@ -965,7 +965,7 @@ export default function SolarFarmWidget({
                         href="https://glow.org/blog/guide-to-glow-mining"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-[color:var(--color-miner-yellow)]/50"
+                        className="group rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-[color:var(--color-miner)]/50"
                         onClick={() => {
                           trackEvent("dashboard_education_click", {
                             source,
@@ -981,7 +981,7 @@ export default function SolarFarmWidget({
                             <CashMinerIcon className="h-6 w-6" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm font-semibold text-foreground transition-colors group-hover:text-[color:var(--color-miner-yellow-contrast)]">
+                            <div className="text-sm font-semibold text-foreground transition-colors group-hover:text-[color:var(--color-miner-contrast)]">
                               How Mining Works
                             </div>
                             <div className="mt-1 text-xs text-zinc-500">
@@ -1008,7 +1008,7 @@ export default function SolarFarmWidget({
                       >
                         <div className="flex items-start gap-3">
                           <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/50">
-                            <VaultIcon className="h-6 w-6" />
+                            <DelegationIcon className="h-6 w-6" />
                           </div>
                           <div className="min-w-0">
                             <div className="text-sm font-semibold text-foreground transition-colors group-hover:text-delegation-purple">
@@ -1106,7 +1106,7 @@ export default function SolarFarmWidget({
                             iconSrc === "/images/icons/cash-miner.svg"
                               ? CashMinerIcon
                               : iconSrc === "/images/icons/vault.svg"
-                              ? VaultIcon
+                              ? DelegationIcon
                               : null;
                           return (
                             <div

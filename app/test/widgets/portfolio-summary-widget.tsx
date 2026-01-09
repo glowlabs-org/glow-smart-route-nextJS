@@ -3,7 +3,7 @@
 import React from "react";
 import { useAccount } from "wagmi";
 import { Info } from "lucide-react";
-import { CashMinerIcon, VaultIcon } from "@/components/impact-icons";
+import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -130,7 +130,7 @@ export default function PortfolioSummaryWidget({
         >
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-delegation-purple/10 text-delegation-purple border border-delegation-purple/20">
-              <VaultIcon className="w-6 h-6" />
+              <DelegationIcon className="w-6 h-6" />
             </div>
             <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
@@ -174,7 +174,7 @@ export default function PortfolioSummaryWidget({
           onClick={() => isMinersClickable && handleRowClick("miners")}
         >
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[color:var(--color-miner-yellow)]/10 text-[color:var(--color-miner-yellow)] border border-[color:var(--color-miner-yellow)]/20">
+            <div className="p-2 rounded-xl bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)] border border-[color:var(--color-miner)]/20">
               <CashMinerIcon className="w-6 h-6" />
             </div>
             <div className="flex flex-col">

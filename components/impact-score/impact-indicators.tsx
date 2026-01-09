@@ -54,12 +54,12 @@ function IndicatorIcon(props: {
   const active =
     variant === "multiplier"
       ? meta.key === "miner"
-        ? "border-[color:var(--color-miner-yellow)]/90 bg-[color:var(--color-miner-yellow)]/25 text-[color:var(--color-miner-yellow)] "
+        ? "border-[color:var(--color-miner)]/90 bg-[color:var(--color-miner)]/25 text-[color:var(--color-miner)] "
         : "border-delegation-purple/90 bg-delegation-purple/25 text-delegation-purple"
       : meta.key === "steering"
       ? "border-[#22D3EE] bg-[#22D3EE]/12 text-[#22D3EE]"
       : meta.key === "emissions"
-      ? "border-[color:var(--color-miner-yellow)] bg-[color:var(--color-miner-yellow)]/12 text-[color:var(--color-miner-yellow)]"
+      ? "border-[color:var(--color-miner)] bg-[color:var(--color-miner)]/12 text-[color:var(--color-miner)]"
       : meta.key === "vault"
       ? "border-delegation-purple bg-delegation-purple/12 text-delegation-purple"
       : "border-[#4ADE80] bg-[#4ADE80]/5 text-[#4ADE80]";

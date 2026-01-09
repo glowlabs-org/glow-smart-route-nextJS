@@ -19,24 +19,43 @@ The dialog is typically opened from:
   - If the selected listing is `_type === "miners"` → opens with `selectedCurrency="USDC"`.
   - Otherwise → opens with `selectedCurrency="GLW"`.
 - `app/marketplace/mining-center-view.tsx` (miners listings view).
+- `app/marketplace/launchpad-view.tsx` (hero/asset cards).
 
 ## Supported payment options & chains
 
 ### Miners purchases (`selectedCurrency="USDC"`)
 
 - **Pay with USDC** (default).
-- **Pay with ETH** (optional):
+- **Pay with ETH**:
   - Only available on **Ethereum mainnet (chainId 1)** and **Sepolia (chainId 11155111)**.
   - Executes an onchain swap **ETH → USDC** (Uniswap V2 router) before buying miners with USDC.
 
 ### Delegation (`selectedCurrency="GLW"`)
 
-- Requires **GLW** in the wallet.
-- If the user is short on GLW, the dialog provides a **Buy GLW** path via `BuyGlowDialog`, which supports paying with **ETH / USDC / USDG**.
+- **Pay with GLW**: Requires sufficient GLW balance.
+- **Pay with USDC or ETH**:
+  - If the user selects a currency other than GLW for delegation, the dialog automatically switches to a **"Swap & Delegate"** flow.
+  - This redirects to `BuyGlowDialog` to first acquire GLW, then returns the user to the delegation flow.
+
+## UI Design & Interaction
+
+The dialog features a modern, dark-themed UI (`bg-[#0A0A0A]`) with:
+
+- **Quantity Selection**: Simple +/- stepper with direct numeric input and max availability indicator.
+- **Animated Rewards**: "Est. Weekly Rewards" displayed with a glowing effect and `framer-motion` animations when values update.
+- **Smart Payment Selection**:
+  - Automatically selects the best payment method based on wallet balance.
+  - For delegation: Defaults to GLW if balance >= cost, otherwise suggests USDC/ETH.
+  - For miners: Defaults to USDC.
+- **Payment Method List**: 
+  - Displays GLW, USDC, and ETH options.
+  - Shows user's current balance for each token.
+  - Shows estimated cost in that specific currency (fetching real-time ETH price for conversion).
+- **Sticky Footer**: Contains the total cost summary and the primary action button.
 
 ## UI phases (what the user sees)
 
-The dialog is rendered via `components/dialogs/transaction-dialog.tsx`, with custom content from `deposit-dialog.tsx`.
+The dialog manages its own internal state rather than relying on an external `transaction-dialog` wrapper.
 
 ### Phase A — Review
 
@@ -46,48 +65,37 @@ What the user can do:
 
 - **Select quantity (“steps”)**
   - +/- buttons
-  - manual numeric input
-  - Min/Max quick actions
   - Quantity is clamped to the listing’s remaining availability.
-- **(Miners only) Choose “You pay”**
-  - USDC (default)
-  - ETH (only on mainnet or sepolia)
-- Review balance + warnings
-  - Shows token balances and “Top up” warnings if needed.
+- **Choose Payment Method**
+  - GLW (Delegation only)
+  - USDC
+  - ETH
+- **Review Costs & Rewards**
+  - See total cost in selected currency.
+  - See estimated weekly rewards in GLW and USD value.
 
 ### Phase B — Processing
 
-Shown after the user confirms and the dialog is submitting/processing.
+Shown after the user confirms and the dialog is submitting/processing. The primary button shows a loading spinner.
 
 Key behaviors:
 
-- The dialog prevents dismissing by clicking outside.
-- Copy changes based on the current processing step:
+- Copy/State changes based on the current processing step:
   - “Swapping ETH → USDC” (miners ETH only)
-  - “Processing Miners Purchase” / “Processing Delegation”
-  - “Confirming Purchase/Delegation” (while waiting for splits confirmation)
+  - “Purchasing miners...” / “Delegating GLW...”
+  - “Confirming transaction...” (while waiting for splits confirmation)
 
 ### Phase C — Success
 
-Shown when the dialog confirms the action completed.
-
-User-visible notes:
-
-- The dialog explicitly tells users it may take **up to ~1 minute** for the result to show on the power wallet page due to backend processing.
-- For delegation (GLW), the success footer includes a link to `/wallet`.
+Shown via a toast notification upon successful completion. The dialog closes automatically on success.
 
 ### Phase D — Error
 
-Shown when something fails (swap, buy tx, confirmation timeout, etc.).
-
-Key UX:
-
-- Error message is surfaced via toast + dialog content.
-- If a tx hash exists and is embedded in the error message, the dialog shows a “Transaction ID” block with copy-to-clipboard and support CTA.
+Shown via toast notifications if something fails (swap, buy tx, confirmation timeout, etc.).
 
 ### Phase E — Smart-account blocked (warning modal)
 
-Before executing the action, the dialog performs a **smart account / delegated account** check. If a smart account is detected, the action is blocked and a warning dialog is shown.
+Before executing the action, the dialog performs a **smart account / delegated account** check. If a smart account is detected, the action is blocked and a separate warning dialog is shown.
 
 ## Core flows (end-to-end)
 
@@ -95,105 +103,62 @@ Before executing the action, the dialog performs a **smart account / delegated a
 
 1. User opens Deposit Dialog for a miners listing (`selectedCurrency="USDC"`).
 2. User sets **Quantity**.
-3. User leaves “You pay” as **USDC**.
-4. Confirm button is enabled when the user has enough USDC and quantity is valid.
-5. On confirm:
-   - Calls `fractions.buyFractions(...)` paying in USDC.
-   - Then polls “splits” until it sees the purchase reflected (see “Confirming via splits”).
-6. On success:
-   - Shows success UI and the backend-processing note.
+3. User selects **USDC** payment method.
+4. User clicks **Confirm Payment**.
+5. System:
+   - Checks balance.
+   - Calls `fractions.buyFractions(...)`.
+   - Polls splits to confirm completion.
+6. On success: Toast "Miners purchased!" and dialog closes.
 
 ### Flow 2 — Buy miners with ETH (ETH → USDC → buy)
 
 1. User opens Deposit Dialog for a miners listing (`selectedCurrency="USDC"`).
 2. User sets **Quantity**.
-3. User sets “You pay” to **ETH** (only available on mainnet/sepolia).
-4. Dialog estimates:
-   - ETH balance
-   - approximate ETH needed to swap to cover the missing USDC
-   - approximate USDC output
-5. On confirm:
-   - If the wallet already has sufficient USDC, the flow proceeds without swapping.
-   - Otherwise:
-     - Swaps **ETH → USDC** on Uniswap V2 (`useSwapETHToUSDC`).
-     - Re-checks USDC balance.
+3. User selects **ETH** payment method.
+4. User clicks **Confirm Payment**.
+5. System:
+   - Calculates missing USDC.
+   - Estimates ETH needed (with buffer).
+   - Swaps **ETH → USDC** on Uniswap V2 (`useSwapETHToUSDC`).
+   - Refetches USDC balance to ensure swap was sufficient.
    - Calls `fractions.buyFractions(...)` paying in USDC.
    - Polls splits to confirm completion.
-
-Important notes:
-
-- The ETH amount is estimated with buffers; exact required ETH can drift with price movement and gas.
-- The swap and the miners purchase are separate onchain transactions (multi-tx flow).
 
 ### Flow 3 — Delegate GLW (direct)
 
 1. User opens Deposit Dialog for a launchpad listing (`selectedCurrency="GLW"`).
 2. User sets **Quantity**.
-3. Confirm button is enabled when:
-   - wallet is connected,
-   - quantity is valid,
-   - GLW balance is sufficient.
-4. On confirm:
+3. User selects **GLW** payment method (if balance sufficient).
+4. User clicks **Confirm Payment**.
+5. System:
    - Calls `fractions.buyFractions(...)` paying in GLW.
    - Polls splits to confirm completion.
-5. On success:
-   - Shows success UI + link to `/wallet`.
+6. On success: Toast "Delegation successful!" and dialog closes.
 
-### Flow 4 — Delegate GLW (with top-up via Buy GLW)
+### Flow 4 — Delegate GLW (via Swap)
 
-If the user is short on GLW:
+If the user selects USDC or ETH for a delegation (GLW) listing:
 
-1. The dialog shows a **“Top up GLW to continue”** panel.
-2. User clicks **Buy GLW**.
-3. `BuyGlowDialog` opens and the user can fund the purchase with **ETH / USDC / USDG**.
-4. On success, the dialog refetches balances.
-5. User returns to Deposit Dialog and confirms delegation once GLW is sufficient.
-
-## Confirm / disable rules (high-level)
-
-The confirm button is disabled when any of the following is true:
-
-- Wallet is not connected.
-- Quantity is invalid (0, or above remaining availability).
-- A tx is already submitting/processing.
-- Insufficient funds for the selected pay path:
-  - Miners + USDC pay: insufficient USDC.
-  - Miners + ETH pay: insufficient ETH (based on estimate + buffer), or quote/balance is not yet known.
-  - Delegation: insufficient GLW.
-
-## Confirmation via “splits” (post-transaction validation)
-
-After submitting the purchase/delegation transaction, the dialog verifies completion by polling the user’s “splits” summary:
-
-- Poll interval: **5 seconds**
-- Max wait: **60 seconds**
-- Success condition: `totalStepsPurchased` increases vs the initial value.
-
-If the confirmation times out, the dialog shows an error indicating the transaction may still be processing and the user should check their wallet.
+1. Button text changes to **"Swap & Delegate"**.
+2. User clicks button.
+3. Dialog opens `BuyGlowDialog` pre-filled with the required GLW amount.
+4. User completes purchase in `BuyGlowDialog`.
+5. On success, `DepositDialog` remains open (or user re-opens) with updated GLW balance to proceed with Flow 3.
 
 ## Telemetry (events)
 
 Deposit Dialog fires telemetry events to track conversion and failures:
 
 - `marketplace_deposit_confirm_click`
-  - When the user clicks confirm.
-  - Includes `currency`, and for miners includes `pay_token` (USDC or ETH).
 - `marketplace_deposit_blocked_smart_account`
-  - When the dialog blocks execution due to smart account detection.
 - `marketplace_deposit_eth_swap_submit`
-  - When beginning the ETH → USDC swap (miners ETH only).
 - `marketplace_deposit_eth_swap_confirmed`
-  - After the ETH → USDC swap confirms.
 - `marketplace_deposit_tx_submitted`
-  - When the core `buyFractions` tx is submitted.
 - `marketplace_deposit_confirmed`
-  - When the purchase/delegation is confirmed via splits.
 - `marketplace_deposit_buy_glw_click`
-  - When the user clicks Buy GLW in the GLW shortfall UI.
 - `marketplace_deposit_buy_glw_dialog_open`
-  - When `BuyGlowDialog` opens.
 - `marketplace_deposit_error`
-  - Generic error reporting with a `stage` string and contextual metadata.
 
 ## Known limitations / gotchas
 

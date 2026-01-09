@@ -120,9 +120,10 @@ export function MiningStatsDialog({
     () => [
       {
         id: "cost",
-        label: "Cost per Miner",
+        label: "Cost",
         value: costPerMiner > 0 ? `$${formatNumber(costPerMiner, 0)}` : "N/A",
         tooltip: "Upfront USDC payment for this miner.",
+        secondary: "per miner",
       },
       {
         id: "weekly-glw",
@@ -134,9 +135,10 @@ export function MiningStatsDialog({
       },
       {
         id: "duration",
-        label: "Weeks Remaining",
+        label: "Duration",
         value: formatNumber(weeksRemaining, 0),
-        tooltip: "Weeks remaining in the farm's GLW emission schedule.",
+        tooltip: "Remaining weeks in the farm's GLW emission schedule.",
+        secondary: "weeks",
       },
       {
         id: "apr",
@@ -179,7 +181,7 @@ export function MiningStatsDialog({
       },
       {
         id: "farms-on-deck",
-        label: "Farms Under Construction",
+        label: "Farms Pipeline",
         value:
           regionDetails?.solarFarmApplications != null
             ? formatNumber(farmsOnDeck, 0)

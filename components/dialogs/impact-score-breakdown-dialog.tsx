@@ -154,9 +154,9 @@ function getToneClasses(tone: BreakdownTone) {
     return {
       row: "border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10",
       iconWrap:
-        "bg-[color:var(--color-miner-yellow)]/10 border-[color:var(--color-miner-yellow)]/20 text-[color:var(--color-miner-yellow-contrast)]",
-      label: "text-[color:var(--color-miner-yellow-contrast)]",
-      value: "text-[color:var(--color-miner-yellow-contrast)]",
+        "bg-[color:var(--color-miner)]/10 border-[color:var(--color-miner)]/20 text-[color:var(--color-miner-contrast)]",
+      label: "text-[color:var(--color-miner-contrast)]",
+      value: "text-[color:var(--color-miner-contrast)]",
     } as const;
   if (tone === "emerald")
     return {
@@ -515,21 +515,21 @@ export function ImpactScoreBreakdownDialogContent(
 
               <div className="space-y-2 rounded-2xl border border-border bg-muted/10 p-3 dark:border-zinc-800 dark:bg-zinc-900/30">
                 {isCashMinerActive ? (
-                  <div className="flex items-center justify-between p-3 bg-[color:var(--color-miner-yellow)]/10 border border-[color:var(--color-miner-yellow)]/20 rounded-xl">
+                  <div className="flex items-center justify-between p-3 bg-[color:var(--color-miner)]/10 border border-[color:var(--color-miner)]/20 rounded-xl">
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[color:var(--color-miner-yellow)] text-black font-bold font-mono text-sm">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[color:var(--color-miner)] text-black font-bold font-mono text-sm">
                         <CashMinerIcon className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-[color:var(--color-miner-yellow-contrast)] uppercase">
+                        <div className="text-xs font-bold text-[color:var(--color-miner-contrast)] uppercase">
                           Cash Miner Bonus
                         </div>
-                        <div className="text-[10px] text-[color:var(--color-miner-yellow-contrast)]/60">
+                        <div className="text-[10px] text-[color:var(--color-miner-contrast)]/60">
                           3× multiplier • {cashMinerStatusLabel}
                         </div>
                       </div>
                     </div>
-                    <CheckCircle2 className="w-5 h-5 text-[color:var(--color-miner-yellow-contrast)]" />
+                    <CheckCircle2 className="w-5 h-5 text-[color:var(--color-miner-contrast)]" />
                   </div>
                 ) : (
                   <div className="flex items-center justify-between p-3 bg-muted/20 border border-border rounded-xl opacity-60 dark:bg-zinc-900 dark:border-zinc-800">
@@ -684,12 +684,20 @@ export function ImpactScoreBreakdownDialogContent(
               <div className="flex justify-end pt-2 border-t border-dashed border-border dark:border-zinc-800">
                 <div className="text-right">
                   <span className="text-[10px] uppercase text-muted-foreground mr-3 dark:text-zinc-500">
-                    Rollover Total
+                    Total Points
                   </span>
                   <span className="font-mono text-xl font-bold text-foreground dark:text-white">
-                    {formatPoints(impactScore?.totals?.rolloverPoints, {
-                      maximumFractionDigits: 2,
-                    })}
+                    {formatPoints(
+                      String(
+                        safePointsNumber(impactScore?.totals?.rolloverPoints) +
+                          safePointsNumber(
+                            impactScore?.totals?.continuousPoints
+                          )
+                      ),
+                      {
+                        maximumFractionDigits: 2,
+                      }
+                    )}
                   </span>
                   {/* {latestWeek ? (
                     <div className="mt-1 text-[10px] text-muted-foreground/80 font-mono dark:text-zinc-600">

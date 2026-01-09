@@ -3,6 +3,7 @@
 import React from "react";
 import { FallbackImage } from "@/components/ui/fallback-image";
 import { SponsoredFarmsActivity } from "@/app/marketplace/sponsored-farms-activity";
+import { ArrowUpRight } from "lucide-react";
 
 // Image proxy helper for optimized caching with compression
 function getProxiedImageUrl(url: string, width?: number, quality: number = 75) {
@@ -54,6 +55,7 @@ import { useRewardScore, getRewardScoreForApplication } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useMiningCenter, type MiningCenterFilters } from "@/hooks";
 import { useMiningScore, getMiningScoreForApplication } from "@/hooks";
+import { useEthPrice } from "@/hooks/useEthPrice";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowSymbol } from "@/components/glow-symbol";
@@ -864,7 +866,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                           className={cn(
                             "ml-auto text-xl font-semibold border",
                             application._type === "miners"
-                              ? "border-[color:var(--color-miner-yellow)]/30 bg-[color:var(--color-miner-yellow)]/10 text-miner-yellow"
+                              ? "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-miner"
                               : "border-purple-500/30 bg-purple-500/10 text-foreground"
                           )}
                         >
@@ -1580,6 +1582,7 @@ function LaunchpadMarketplaceWidget({
 }: LaunchpadMarketplaceWidgetProps) {
   const { address } = useAccount();
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
+  const { ethPrice } = useEthPrice();
   const isMobile = useIsMobile();
   const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
   const [selectedApplicationForStats, setSelectedApplicationForStats] =
@@ -1769,21 +1772,9 @@ function LaunchpadMarketplaceWidget({
     const merged: Array<(typeof withMetrics)[number]> = [];
     let i = 0;
     let j = 0;
-    const denomD = Math.max(1, delegations.length - 1);
-    const denomM = Math.max(1, miners.length - 1);
     while (i < delegations.length || j < miners.length) {
-      if (i >= delegations.length) {
-        merged.push(miners[j++]);
-        continue;
-      }
-      if (j >= miners.length) {
-        merged.push(delegations[i++]);
-        continue;
-      }
-      const nd = i / denomD;
-      const nm = j / denomM;
-      if (nd <= nm) merged.push(delegations[i++]);
-      else merged.push(miners[j++]);
+      if (i < delegations.length) merged.push(delegations[i++]);
+      if (j < miners.length) merged.push(miners[j++]);
     }
 
     return merged;
@@ -2079,11 +2070,16 @@ function LaunchpadMarketplaceWidget({
                   key={row.application.id}
                   data-carousel-item
                   className={cn(
-                    "snap-start shrink-0",
-                    isHeroCarousel || rows.length <= 1
+                    "snap-start shrink-0 cursor-pointer transition-opacity hover:opacity-95",
+                    rows.length <= 1
                       ? "w-full max-w-full"
+                      : isHeroCarousel
+                      ? "w-[calc(50%-8px)]"
                       : "w-[520px] max-w-[86vw]"
                   )}
+                  onClick={() => {
+                    onPayDeposit(row.application, row.scoreData);
+                  }}
                 >
                   {isHeroCarousel ? (
                     <LaunchpadWidgetHeroCarouselCard
@@ -2094,6 +2090,7 @@ function LaunchpadMarketplaceWidget({
                           : isMiningScoresLoading
                       }
                       glwSpotPrice={glwSpotPrice}
+                      ethPrice={ethPrice}
                       onPayDeposit={onPayDeposit}
                       onOpenStats={(application, scoreData) => {
                         setSelectedApplicationForStats(application);
@@ -2110,6 +2107,7 @@ function LaunchpadMarketplaceWidget({
                           : isMiningScoresLoading
                       }
                       glwSpotPrice={glwSpotPrice}
+                      ethPrice={ethPrice}
                       onPayDeposit={onPayDeposit}
                       onOpenStats={(application, scoreData) => {
                         setSelectedApplicationForStats(application);
@@ -2142,6 +2140,7 @@ function LaunchpadMarketplaceWidget({
                   : isMiningScoresLoading
               }
               glwSpotPrice={glwSpotPrice}
+              ethPrice={ethPrice}
               onPayDeposit={onPayDeposit}
               onOpenStats={(application, scoreData) => {
                 setSelectedApplicationForStats(application);
@@ -2160,6 +2159,7 @@ function LaunchpadWidgetAssetCard({
   row,
   isScoresLoading,
   glwSpotPrice,
+  ethPrice,
   onPayDeposit,
   onOpenStats,
 }: {
@@ -2184,6 +2184,7 @@ function LaunchpadWidgetAssetCard({
   };
   isScoresLoading: boolean;
   glwSpotPrice: number;
+  ethPrice: number;
   onPayDeposit: LaunchpadViewProps["onPayDeposit"];
   onOpenStats: (
     application: TaggedAuctionApplication,
@@ -2218,6 +2219,10 @@ function LaunchpadWidgetAssetCard({
     ? glwSpotPrice > 0
       ? `≈ $${Math.round(cost * glwSpotPrice).toLocaleString()} USD`
       : "—"
+    : ethPrice > 0
+    ? `≈ ${(cost / ethPrice).toLocaleString(undefined, {
+        maximumFractionDigits: 4,
+      })} ETH`
     : "Stable price";
 
   const rewardsMain =
@@ -2283,14 +2288,14 @@ function LaunchpadWidgetAssetCard({
       }
     : {
         badge:
-          "border-[color:var(--color-miner-yellow)]/30 bg-[color:var(--color-miner-yellow)]/10 text-miner-yellow",
+          "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-miner",
         progress: "bg-primary/70",
       };
 
   return (
     <div className="w-full overflow-hidden rounded-2xl border border-border bg-muted/10 p-4">
-      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:gap-3">
-        <div className="relative w-full overflow-hidden rounded-xl border border-border/60 bg-muted/20 aspect-[16/9] sm:aspect-auto sm:h-28 sm:w-28 sm:shrink-0">
+      <div className="flex min-w-0 gap-3">
+        <div className="relative overflow-hidden rounded-xl border border-border/60 bg-muted/20 h-24 w-24 shrink-0">
           <FallbackImage
             src={imageSrc}
             widthForProxy={280}
@@ -2304,47 +2309,46 @@ function LaunchpadWidgetAssetCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 truncate text-lg font-semibold text-foreground">
-              {title}
-            </div>
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <div className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/60 bg-background/40 px-2 py-1 text-xs text-muted-foreground">
-              <MapPin className="h-3.5 w-3.5" />
-              <span className="truncate">{application.zone.name}</span>
-            </div>
-            <Badge
-              variant="secondary"
-              className={cn(
-                "border px-2 py-0.5 text-xs leading-none",
-                accent.badge
-              )}
-            >
-              {isDelegation ? "Delegation" : "Miner"}
-            </Badge>
-          </div>
-
-          <div className="mt-3 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
             <div className="min-w-0 flex-1">
-              <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted/40 border border-border/60">
-                <div
-                  className={cn(
-                    "absolute inset-y-0 left-0 rounded-full",
-                    accent.progress
-                  )}
-                  style={{ width: `${remainingPct}%` }}
-                />
+              <div className="min-w-0 truncate text-xl font-semibold text-foreground">
+                {title}
               </div>
-              <div className="mt-2 text-xs font-mono font-medium tabular-nums text-foreground/80">
-                {isSoldOut
-                  ? "SOLD OUT"
-                  : `${availability.remaining} / ${availability.total} Left`}
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <div className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/60 bg-background/40 px-2.5 py-1 text-xs text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5" />
+                  <span className="truncate">{application.zone.name}</span>
+                </div>
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    "border px-2 py-0.5 text-xs leading-none",
+                    accent.badge
+                  )}
+                >
+                  {isDelegation ? "Delegation" : "Miner"}
+                </Badge>
+              </div>
+              <div className="mt-3">
+                <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted/40 border border-border/60">
+                  <div
+                    className={cn(
+                      "absolute inset-y-0 left-0 rounded-full",
+                      accent.progress
+                    )}
+                    style={{ width: `${remainingPct}%` }}
+                  />
+                </div>
+                <div className="mt-1.5 text-xs font-mono font-medium tabular-nums text-foreground/80">
+                  {isSoldOut
+                    ? "SOLD OUT"
+                    : `${availability.remaining} / ${availability.total} Left`}
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+            <div className="flex flex-col gap-2 shrink-0">
               <Button
-                className="h-10 w-full rounded-full px-4 text-sm sm:w-auto whitespace-nowrap"
+                className="h-10 rounded-full px-4 text-sm whitespace-nowrap"
                 disabled={isSoldOut}
                 onClick={() => {
                   if (isSoldOut) return;
@@ -2359,7 +2363,7 @@ function LaunchpadWidgetAssetCard({
               </Button>
               <Button
                 variant="outline"
-                className="h-10 w-full rounded-full px-3 text-sm sm:w-auto whitespace-nowrap"
+                className="h-10 rounded-full px-4 text-sm whitespace-nowrap"
                 onClick={() => onOpenStats(application, scoreData)}
               >
                 Advanced Stats
@@ -2370,17 +2374,17 @@ function LaunchpadWidgetAssetCard({
       </div>
 
       <div className="mt-4 min-w-0">
-        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <div className="rounded-xl border border-border bg-background/30 p-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-border bg-background/30 p-4">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
               {costLabel}
             </div>
-            <div className="mt-2 text-sm font-semibold text-foreground">
+            <div className="mt-2 text-base font-semibold text-foreground">
               {costMain}
             </div>
             <div className="mt-1 text-xs text-muted-foreground">{costSub}</div>
           </div>
-          <div className="rounded-xl border border-border bg-background/30 p-3">
+          <div className="rounded-xl border border-border bg-background/30 p-4">
             {isDelegation ? (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -2441,11 +2445,34 @@ function LaunchpadWidgetAssetCard({
                 </TooltipContent>
               </Tooltip>
             ) : (
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                Weekly Rewards (99 weeks)
-              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="inline-flex cursor-help items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                    Weekly Rewards (99 weeks)
+                    <Info className="h-3.5 w-3.5 opacity-70" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  align="start"
+                  sideOffset={8}
+                  className="max-w-[280px] p-3"
+                >
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold text-primary-foreground">
+                      Estimated rewards
+                    </div>
+                    <div className="text-[11px] leading-snug text-primary-foreground/80">
+                      Estimated weekly rewards per miner for 99 weeks. These
+                      estimates may decrease as new farms join the region and
+                      dilute the regional GLW allocation. See Advanced Stats for
+                      detailed information.
+                    </div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
             )}
-            <div className="mt-2 text-sm font-semibold text-foreground">
+            <div className="mt-2 text-base font-semibold text-foreground">
               {rewardsMain}
             </div>
             {isDelegation ? (
@@ -2505,6 +2532,7 @@ function LaunchpadWidgetHeroCarouselCard({
   row,
   isScoresLoading,
   glwSpotPrice,
+  ethPrice,
   onPayDeposit,
   onOpenStats,
 }: {
@@ -2529,6 +2557,7 @@ function LaunchpadWidgetHeroCarouselCard({
   };
   isScoresLoading: boolean;
   glwSpotPrice: number;
+  ethPrice: number;
   onPayDeposit: LaunchpadViewProps["onPayDeposit"];
   onOpenStats: (
     application: TaggedAuctionApplication,
@@ -2556,6 +2585,10 @@ function LaunchpadWidgetHeroCarouselCard({
     ? glwSpotPrice > 0
       ? `≈ $${Math.round(cost * glwSpotPrice).toLocaleString()} USD`
       : "—"
+    : ethPrice > 0
+    ? `≈ ${(cost / ethPrice).toLocaleString(undefined, {
+        maximumFractionDigits: 4,
+      })} ETH`
     : "Stable price";
 
   const unitsValue = `${availability.remaining.toLocaleString()} / ${availability.total.toLocaleString()}`;
@@ -2615,13 +2648,15 @@ function LaunchpadWidgetHeroCarouselCard({
                 <div
                   className={cn(
                     "inline-flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-xs font-medium backdrop-blur-md",
-                    isDelegation ? "text-purple-300" : "text-miner-yellow"
+                    isDelegation ? "text-purple-300" : "text-miner"
                   )}
                 >
                   <span
                     className={cn(
                       "h-1.5 w-1.5 rounded-full",
-                      isDelegation ? "bg-purple-300" : "bg-miner-yellow"
+                      isDelegation
+                        ? "bg-purple-300"
+                        : "bg-[color:var(--color-miner)]"
                     )}
                   />
                   {isDelegation ? "Delegation" : "Miner"}
@@ -2629,11 +2664,19 @@ function LaunchpadWidgetHeroCarouselCard({
               </div>
             </div>
 
-            <div className="w-full max-w-full overflow-hidden rounded-2xl border border-white/10 bg-black/25 backdrop-blur-xl sm:w-auto">
+            <div
+              className="w-full max-w-full overflow-hidden rounded-2xl border border-white/10 bg-black/25 backdrop-blur-xl sm:w-auto cursor-pointer hover:bg-black/35 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenStats(application, scoreData);
+              }}
+            >
               <div className="grid w-full grid-cols-2 overflow-hidden rounded-xl border border-white/10 bg-white/5 sm:grid-cols-3">
                 <div className="border-b border-white/10 sm:border-b-0 sm:border-r sm:border-white/10">
                   <HeroStatColumn
-                    label={isDelegation ? "Price / Fraction" : "Price / Miner"}
+                    label={
+                      isDelegation ? "Delegation Amount" : "Price per Miner"
+                    }
                     value={priceValue}
                     subValue={priceSubValue}
                   />
@@ -2675,40 +2718,43 @@ function LaunchpadWidgetHeroCarouselCard({
                     value={rewardsMain}
                     subValue={rewardsSub}
                   />
+                  <div className="px-3 pb-2 text-[9px] text-white/40 leading-tight -mt-1">
+                    Weekly earnings are subject to change.
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
           <div className="w-full shrink-0 sm:w-auto">
-            <div className="rounded-2xl border border-white/10 bg-black/25 p-2 backdrop-blur-xl">
-              <div className="flex flex-col gap-2">
-                <Button
-                  className="h-9 w-full rounded-full bg-white px-6 text-black hover:bg-white/90 sm:w-auto sm:px-8"
-                  disabled={isSoldOut}
-                  onClick={() => {
-                    if (isSoldOut) return;
-                    onPayDeposit(application, scoreData);
-                  }}
-                >
-                  {isSoldOut
-                    ? "Waitlist"
-                    : isDelegation
-                    ? "Delegate GLW"
-                    : "Buy Miners"}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-9 w-full rounded-full border-white/25 bg-white/5 px-6 text-white hover:bg-white/10 hover:text-white sm:w-auto sm:px-8"
-                  onClick={() => onOpenStats(application, scoreData)}
-                >
-                  Advanced Stats
-                </Button>
-              </div>
-            </div>
+            <Button
+              className="h-10 w-full rounded-full bg-white/10 px-6 text-white hover:bg-white/20 hover:text-white backdrop-blur-md border border-white/10 sm:w-auto sm:px-8 shadow-lg"
+              disabled={isSoldOut}
+              onClick={() => {
+                if (isSoldOut) return;
+                onPayDeposit(application, scoreData);
+              }}
+            >
+              {isSoldOut
+                ? "Waitlist"
+                : isDelegation
+                ? "Delegate GLW"
+                : "Buy Miners"}
+            </Button>
           </div>
         </div>
       </div>
+      <Button
+        variant="ghost"
+        className="absolute top-4 right-4 h-7 rounded-full bg-black/40 px-3 !text-xs font-medium text-white/90 hover:bg-black/60 hover:text-white backdrop-blur-md border border-white/10 transition-colors"
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenStats(application, scoreData);
+        }}
+      >
+        <span>Advanced Stats</span>
+        <ArrowUpRight className="ml-1.5 h-3 w-3 opacity-70" />
+      </Button>
     </div>
   );
 }
@@ -3303,7 +3349,7 @@ function LaunchpadMarketplaceDialogContent({
               className={cn(
                 "h-10 rounded-xl border px-3 text-sm font-semibold transition-colors",
                 tab === "miners"
-                  ? "border-[color:var(--color-miner-yellow)]/40 bg-[color:var(--color-miner-yellow)]/10 text-miner-yellow"
+                  ? "border-[color:var(--color-miner)]/40 bg-[color:var(--color-miner)]/10 text-miner"
                   : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/30"
               )}
             >
@@ -3489,11 +3535,11 @@ function LaunchpadAssetCard({
           "border-purple-500/30 text-foreground hover:bg-purple-500/10 hover:border-purple-500/50",
       }
     : {
-        badge: "text-miner-yellow border-[color:var(--color-miner-yellow)]/30",
+        badge: "text-miner border-[color:var(--color-miner)]/30",
         reward: "text-foreground",
         progress: "bg-primary/70",
         button:
-          "border-[color:var(--color-miner-yellow)]/30 text-foreground hover:bg-[color:var(--color-miner-yellow)]/10 hover:border-[color:var(--color-miner-yellow)]/50",
+          "border-[color:var(--color-miner)]/30 text-foreground hover:bg-[color:var(--color-miner)]/10 hover:border-[color:var(--color-miner)]/50",
       };
 
   const title = application.farmName || "Unnamed Farm";
@@ -3537,95 +3583,143 @@ function LaunchpadAssetCard({
         "hover:bg-muted/20"
       )}
     >
-      <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-[minmax(0,22%)_minmax(0,18%)_minmax(0,35%)_minmax(0,25%)] md:items-center">
-        <div className="relative min-w-0">
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl">
-            <FallbackImage
-              src={imageSrc}
-              widthForProxy={520}
-              quality={70}
-              alt={title}
-              className="h-full w-full object-cover"
-              loading="lazy"
-              decoding="async"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-          </div>
-          <div className="absolute left-2 top-2">
-            <Badge
-              variant="outline"
-              className={cn(
-                "border bg-background/90 font-semibold shadow-sm backdrop-blur-md",
-                accent.badge
-              )}
-            >
-              {isDelegation ? "Delegation" : "Miner"}
-            </Badge>
-          </div>
-        </div>
-
-        <div className="min-w-0">
-          <div className="text-base font-semibold text-foreground truncate">
-            {title}
-          </div>
-          <div className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-border/60 bg-background/40 px-2 py-1 text-xs text-muted-foreground">
-            <MapPin className="h-3.5 w-3.5" />
-            <span className="truncate">{application.zone.name}</span>
-          </div>
-
-          {/* Availability moved under region */}
-          <div className="mt-3 w-full max-w-[260px]">
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted/40">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-[width] duration-300 ease-out",
-                  accent.progress
-                )}
-                style={{ width: `${remainingPct}%` }}
+      <div className="flex flex-col gap-4">
+        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-[minmax(0,18%)_minmax(0,1fr)]">
+          <div className="relative min-w-0">
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl">
+              <FallbackImage
+                src={imageSrc}
+                widthForProxy={520}
+                quality={70}
+                alt={title}
+                className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {isSoldOut
-                ? "SOLD OUT"
-                : `${availability.remaining} / ${availability.total} Left`}
+            <div className="absolute left-2 top-2">
+              <Badge
+                variant="outline"
+                className={cn(
+                  "border bg-background/90 font-semibold shadow-sm backdrop-blur-md",
+                  accent.badge
+                )}
+              >
+                {isDelegation ? "Delegation" : "Miner"}
+              </Badge>
+            </div>
+          </div>
+
+          <div className="min-w-0 flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-xl font-semibold text-foreground truncate">
+                  {title}
+                </div>
+                <div className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full border border-border/60 bg-background/40 px-2.5 py-1 text-xs text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5" />
+                  <span className="truncate">{application.zone.name}</span>
+                </div>
+              </div>
+
+              <div className="shrink-0">
+                <div className="h-2 w-48 overflow-hidden rounded-full bg-muted/40 border border-border/60">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-[width] duration-300 ease-out",
+                      accent.progress
+                    )}
+                    style={{ width: `${remainingPct}%` }}
+                  />
+                </div>
+                <div className="mt-1.5 text-xs font-medium text-muted-foreground text-right">
+                  {isSoldOut
+                    ? "SOLD OUT"
+                    : `${availability.remaining} / ${availability.total} Left`}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-border bg-background/30 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                  {costLabel}
+                </div>
+                <div className="mt-2 text-lg font-semibold text-foreground">
+                  {costMain}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {costSub}
+                </div>
+              </div>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="rounded-xl border border-border bg-background/30 p-4 cursor-help">
+                    <div className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                      {isDelegation
+                        ? "EST. REWARDS (100 WEEKS)"
+                        : "WEEKLY REWARDS (99 WEEKS)"}
+                      <Info className="h-3.5 w-3.5 opacity-70" />
+                    </div>
+                    <div
+                      className={cn(
+                        "mt-2 text-lg font-semibold",
+                        accent.reward
+                      )}
+                    >
+                      {rewardsMain}
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {isDelegation ? (
+                        <span>{rewardsSub}</span>
+                      ) : (
+                        <span>{rewardsSub}</span>
+                      )}
+                    </div>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  align="start"
+                  sideOffset={8}
+                  className="max-w-[280px] p-3"
+                >
+                  {isDelegation ? (
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-primary-foreground">
+                        Estimated rewards
+                      </div>
+                      <div className="text-[11px] leading-snug text-primary-foreground/80">
+                        Weekly estimate per delegation, paid weekly for 100
+                        weeks. Can decrease as regions fill. See Advanced Stats
+                        for details.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-primary-foreground">
+                        Estimated rewards
+                      </div>
+                      <div className="text-[11px] leading-snug text-primary-foreground/80">
+                        Estimated weekly rewards per miner for 99 weeks. These
+                        estimates may decrease as new farms join the region and
+                        dilute the regional GLW allocation. See Advanced Stats
+                        for detailed information.
+                      </div>
+                    </div>
+                  )}
+                </TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </div>
 
-        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-border bg-background/30 p-3">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              {costLabel}
-            </div>
-            <div className="mt-2 text-base font-semibold text-foreground">
-              {costMain}
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground">{costSub}</div>
-          </div>
-
-          <div className="rounded-xl border border-border bg-background/30 p-3">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              {isDelegation
-                ? "EST. REWARDS (100 WEEKS)"
-                : "WEEKLY REWARDS (99 WEEKS)"}
-            </div>
-            <div className={cn("mt-2 text-base font-semibold", accent.reward)}>
-              {rewardsMain}
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {isDelegation ? (
-                <span>{rewardsSub}</span>
-              ) : (
-                <span>{rewardsSub}</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-3 md:items-end">
+        <div className="flex min-w-0 flex-col sm:flex-row gap-3">
           <Button
             variant={isSoldOut ? "ghost" : "default"}
-            className={cn("h-11 w-full md:max-w-[190px] md:ml-auto")}
+            className="h-11 w-full sm:flex-1 rounded-full"
             disabled={isSoldOut}
             onClick={() => {
               if (isSoldOut) return;
@@ -3641,7 +3735,7 @@ function LaunchpadAssetCard({
 
           <Button
             variant="outline"
-            className="h-11 w-full md:max-w-[190px] md:ml-auto"
+            className="h-11 w-full sm:flex-1 rounded-full"
             onClick={() => onOpenStats(application, scoreData)}
           >
             Advanced Stats

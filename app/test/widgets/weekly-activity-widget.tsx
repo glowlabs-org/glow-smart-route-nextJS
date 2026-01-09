@@ -30,7 +30,7 @@ type WeekStatus = "missed" | "delegated" | "miner" | "both";
 
 function getWeekStyle(status: WeekStatus) {
   if (status === "delegated") return "bg-delegation-purple/25";
-  if (status === "miner") return "bg-[color:var(--color-miner-yellow)]/25";
+  if (status === "miner") return "bg-[color:var(--color-miner)]/25";
   if (status === "both") return "bg-[#4ADE80]/25";
   return "bg-muted";
 }
@@ -488,7 +488,7 @@ export default function WeeklyActivityWidget({
                         cell.status === "delegated"
                           ? "var(--color-delegation-purple)"
                           : cell.status === "miner"
-                          ? "var(--color-miner-yellow)"
+                          ? "var(--color-miner)"
                           : cell.status === "both"
                           ? "#4ADE80"
                           : "hsl(var(--muted))";
@@ -550,7 +550,7 @@ export default function WeeklyActivityWidget({
                                     <span className="text-muted-foreground">
                                       Miner
                                     </span>
-                                    <span className="font-mono font-semibold tabular-nums text-miner-yellow">
+                                    <span className="font-mono font-semibold tabular-nums text-miner">
                                       {cell.minerAmount.toLocaleString(
                                         undefined,
                                         {
@@ -590,7 +590,7 @@ export default function WeeklyActivityWidget({
                   <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-muted-foreground font-mono uppercase">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full bg-[color:var(--color-miner-yellow)] opacity-80 border border-border/40" />
+                        <span className="h-2 w-2 rounded-full bg-[color:var(--color-miner)] opacity-80 border border-border/40" />
                         <span>Miner</span>
                       </div>
                       <div className="flex items-center gap-1.5">

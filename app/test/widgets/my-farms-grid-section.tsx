@@ -12,7 +12,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CashMinerIcon, VaultIcon } from "@/components/impact-icons";
+import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 import { formatUnits } from "viem";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -180,7 +180,7 @@ function FarmListRow({ farm, onClick }: FarmListRowProps) {
                 className={cn(
                   "border-0 bg-transparent px-0 text-[9px] font-bold uppercase tracking-wider",
                   inProgressIsMiningCenter
-                    ? "text-[color:var(--color-miner-yellow)]"
+                    ? "text-[color:var(--color-miner)]"
                     : "text-delegation-purple"
                 )}
               >
@@ -258,7 +258,7 @@ function FarmListRow({ farm, onClick }: FarmListRowProps) {
                     isPendingStart
                       ? "text-muted-foreground"
                       : isMiner
-                      ? "text-[color:var(--color-miner-yellow-contrast)]"
+                      ? "text-[color:var(--color-miner-contrast)]"
                       : isDelegation
                       ? "text-delegation-purple"
                       : "text-[color:var(--color-glow-green)]"
@@ -356,14 +356,14 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
             "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border backdrop-blur-xl",
             isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]",
             inProgressIsMiningCenter
-              ? "border-[color:var(--color-miner-yellow)]/90 bg-[color:var(--color-miner-yellow)]/15 text-[color:var(--color-miner-yellow)]"
+              ? "border-[color:var(--color-miner)]/90 bg-[color:var(--color-miner)]/15 text-[color:var(--color-miner)]"
               : "border-delegation-purple/90 bg-delegation-purple/25 text-delegation-purple"
           )}
         >
           {inProgressIsMiningCenter ? (
-            <CashMinerIcon className={isCompact ? "w-4 h-4" : "w-6 h-6"} />
+            <CashMinerIcon className={"w-5 h-5"} />
           ) : (
-            <VaultIcon className={isCompact ? "w-4 h-4" : "w-6 h-6"} />
+            <DelegationIcon className={"w-5 h-5"} />
           )}
           In Progress
         </div>
@@ -373,11 +373,11 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
       return (
         <div
           className={cn(
-            "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border border-[color:var(--color-miner-yellow)]/90 bg-[color:var(--color-miner-yellow)]/15 text-[color:var(--color-miner-yellow)] backdrop-blur-xl",
+            "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border border-[color:var(--color-miner)]/90 bg-[color:var(--color-miner)]/15 text-[color:var(--color-miner)] backdrop-blur-xl",
             isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]"
           )}
         >
-          <CashMinerIcon className={isCompact ? "w-4 h-4" : "w-6 h-6"} />
+          <CashMinerIcon className={"w-5 h-5"} />
           Miner
         </div>
       );
@@ -390,7 +390,7 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
             isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]"
           )}
         >
-          <VaultIcon className={isCompact ? "w-4 h-4" : "w-6 h-6"} />
+          <DelegationIcon className={"w-5 h-5"} />
           Delegation
         </div>
       );
@@ -534,7 +534,7 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
                     isPendingStart
                       ? "text-muted-foreground"
                       : isMiner
-                      ? "text-[color:var(--color-miner-yellow-contrast)]"
+                      ? "text-[color:var(--color-miner-contrast)]"
                       : isDelegation
                       ? "text-delegation-purple"
                       : "text-[color:var(--color-glow-green)]"
@@ -687,7 +687,7 @@ function FarmDetailDialog({
             </div>
             <div className="flex items-center gap-2">
               {farm.type === "miner" && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-[color:var(--color-miner-yellow-contrast)] bg-[color:var(--color-miner-yellow)]/10 border-[color:var(--color-miner-yellow)]/20">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-[color:var(--color-miner-contrast)] bg-[color:var(--color-miner)]/10 border-[color:var(--color-miner)]/20">
                   <CashMinerIcon className="w-6 h-6" />
                   Miner
                 </div>
@@ -709,11 +709,11 @@ function FarmDetailDialog({
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border",
                     farm.inProgressKind === "mining-center"
-                      ? "text-[color:var(--color-miner-yellow-contrast)] bg-[color:var(--color-miner-yellow)]/10 border-[color:var(--color-miner-yellow)]/20"
+                      ? "text-[color:var(--color-miner-contrast)] bg-[color:var(--color-miner)]/10 border-[color:var(--color-miner)]/20"
                       : "text-delegation-purple bg-delegation-purple/10 border-delegation-purple/20"
                   )}
                 >
-                  <VaultIcon className="w-6 h-6" />
+                  <DelegationIcon className="w-6 h-6" />
                   In Progress
                 </div>
               )}
@@ -800,7 +800,7 @@ function FarmDetailDialog({
                         {isMiner ? (
                           <CashMinerIcon className="w-6 h-6" />
                         ) : (
-                          <VaultIcon className="w-6 h-6" />
+                          <DelegationIcon className="w-6 h-6" />
                         )}
                       </div>
                       <div className="text-[11px] font-bold font-mono uppercase tracking-wider">
@@ -826,7 +826,7 @@ function FarmDetailDialog({
                   className={cn(
                     "absolute top-0 right-0 w-48 h-48 bg-gradient-to-br opacity-10 blur-3xl rounded-full translate-x-12 -translate-y-12",
                     isMiner
-                      ? "from-[var(--color-miner-yellow)] to-transparent"
+                      ? "from-[var(--color-miner)] to-transparent"
                       : "from-delegation-purple to-transparent"
                   )}
                 />
@@ -837,7 +837,7 @@ function FarmDetailDialog({
                         className={cn(
                           "p-1.5 rounded-xl bg-muted/50",
                           isMiner
-                            ? "text-[color:var(--color-miner-yellow-contrast)]"
+                            ? "text-[color:var(--color-miner-contrast)]"
                             : "text-delegation-purple"
                         )}
                       >
@@ -867,8 +867,7 @@ function FarmDetailDialog({
                   <div
                     className={cn(
                       "text-3xl font-bold font-mono tracking-tight",
-                      isMiner &&
-                        "text-[color:var(--color-miner-yellow-contrast)]",
+                      isMiner && "text-[color:var(--color-miner-contrast)]",
                       farm.type === "delegation" && "text-delegation-purple",
                       isOther && "text-[color:var(--color-glow-green)]"
                     )}
@@ -922,7 +921,7 @@ function FarmDetailDialog({
                   <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <div className="p-1.5 rounded-xl bg-muted/50">
-                        <VaultIcon className="w-6 h-6" />
+                        <DelegationIcon className="w-6 h-6" />
                       </div>
                       <div className="text-[11px] font-bold font-mono uppercase tracking-wider">
                         Funding Progress
@@ -957,7 +956,7 @@ function FarmDetailDialog({
                       <div className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-delegation-purple/10 flex items-center justify-center text-delegation-purple">
-                            <VaultIcon className="w-6 h-6" />
+                            <DelegationIcon className="w-6 h-6" />
                           </div>
                           <div>
                             <div className="font-medium text-sm">
@@ -984,7 +983,7 @@ function FarmDetailDialog({
 
                     <div className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-[color:var(--color-miner-yellow)]/10 flex items-center justify-center text-[color:var(--color-miner-yellow-contrast)]">
+                        <div className="w-8 h-8 rounded-full bg-[color:var(--color-miner)]/10 flex items-center justify-center text-[color:var(--color-miner-contrast)]">
                           <Gift className="w-4 h-4" />
                         </div>
                         <div>
@@ -994,7 +993,7 @@ function FarmDetailDialog({
                           </div>
                         </div>
                       </div>
-                      <div className="text-right font-mono font-bold text-[color:var(--color-miner-yellow-contrast)]">
+                      <div className="text-right font-mono font-bold text-[color:var(--color-miner-contrast)]">
                         +{fmtGlw(farm.inflationGlw)} GLW
                       </div>
                     </div>
@@ -1066,7 +1065,7 @@ function FarmDetailDialog({
                                     </span>
                                   </td>
                                 )}
-                                <td className="py-3.5 px-6 text-right font-mono text-[color:var(--color-miner-yellow-contrast)] text-sm tabular-nums">
+                                <td className="py-3.5 px-6 text-right font-mono text-[color:var(--color-miner-contrast)] text-sm tabular-nums">
                                   {fmtGlw(inflationGlw)}
                                   <span className="text-[10px] font-normal text-muted-foreground ml-1">
                                     GLW
@@ -1585,7 +1584,9 @@ export default function MyFarmsGridSection({
     return (
       <Card className="p-12 border-dashed bg-muted/20">
         <div className="flex flex-col items-center justify-center text-center text-muted-foreground gap-3">
-          {!isRewardsError && <VaultIcon className="w-10 h-10 opacity-20" />}
+          {!isRewardsError && (
+            <DelegationIcon className="w-10 h-10 opacity-20" />
+          )}
           <p className="text-sm font-mono uppercase tracking-wider">
             {isRewardsError
               ? "Unable to load farms"
@@ -1711,7 +1712,7 @@ export default function MyFarmsGridSection({
                           className={cn(
                             "inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-bold font-mono uppercase tracking-wider border",
                             inProgressIsMiningCenter
-                              ? "border-[color:var(--color-miner-yellow)]/30 bg-[color:var(--color-miner-yellow)]/10 text-[color:var(--color-miner-yellow)]"
+                              ? "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]"
                               : "border-delegation-purple/30 bg-delegation-purple/10 text-delegation-purple"
                           )}
                         >
@@ -1726,7 +1727,7 @@ export default function MyFarmsGridSection({
                           className={cn(
                             "inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-bold font-mono uppercase tracking-wider border",
                             isMiner
-                              ? "border-[color:var(--color-miner-yellow)]/30 bg-[color:var(--color-miner-yellow)]/10 text-[color:var(--color-miner-yellow)]"
+                              ? "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]"
                               : isDelegation
                               ? "border-delegation-purple/30 bg-delegation-purple/10 text-delegation-purple"
                               : "border-[color:var(--color-glow-green)]/30 bg-[color:var(--color-glow-green)]/10 text-[color:var(--color-glow-green)]"
@@ -1766,7 +1767,7 @@ export default function MyFarmsGridSection({
                             isPendingStart
                               ? "text-muted-foreground"
                               : isMiner
-                              ? "text-[color:var(--color-miner-yellow-contrast)]"
+                              ? "text-[color:var(--color-miner-contrast)]"
                               : isDelegation
                               ? "text-delegation-purple"
                               : "text-[color:var(--color-glow-green)]"

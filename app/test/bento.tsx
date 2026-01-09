@@ -30,12 +30,22 @@ import { useER20Balances } from "@/hooks/useERC20Balances";
 import DiscordWidget from "./widgets/discord-widget";
 import NewsletterWidget from "./widgets/newsletter-widget";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useRefundableFractions } from "@/hooks";
+import {
+  useRefundableFractions,
+  useGlowLaunchpad,
+  useMiningCenter,
+} from "@/hooks";
 import { RefundClaimsPanel } from "@/app/wallet/refund-claims-panel";
 import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trackEvent } from "@/lib/telemetry";
 import { useCountdownTo } from "@/app/components/animated-countdown";
+import {
+  DepositDialog,
+  type LaunchpadRewardScore,
+  type MiningCenterScore,
+} from "@/app/marketplace/deposit-dialog";
+import type { TaggedAuctionApplication } from "@/app/marketplace/launchpad-view";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
@@ -61,6 +71,20 @@ function formatGlw(amount: string): string {
   } catch {
     return "0";
   }
+}
+
+function countAvailableApplications(
+  applications: Array<{
+    activeFraction: { isFilled: boolean; remainingSteps: number | null } | null;
+  }>
+) {
+  return applications.reduce((count, app) => {
+    const fraction = app.activeFraction;
+    if (!fraction) return count;
+    const remainingSteps = fraction.remainingSteps ?? 0;
+    const hasAvailability = !fraction.isFilled && remainingSteps > 0;
+    return hasAvailability ? count + 1 : count;
+  }, 0);
 }
 
 function DashboardConnectingSkeleton() {
@@ -103,17 +127,30 @@ export default function GlowSoftDashboard({
   const walletAddress = walletAddressOverride ?? connectedAddress ?? null;
   const hasWallet = Boolean(walletAddress);
   const { isConnecting, isReconnecting } = useAccount();
-  const isWalletSettling =
-    !walletAddressOverride && !hasWallet && (isConnecting || isReconnecting);
   const { signer } = useEthersSigner();
   const { usdcBalance, usdgBalance } = useER20Balances({ signer });
   const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
   const [mintAndStakeForceStep1, setMintAndStakeForceStep1] =
     React.useState(false);
   const [isRefundDialogOpen, setIsRefundDialogOpen] = React.useState(false);
+  const [isDepositDialogOpen, setIsDepositDialogOpen] = React.useState(false);
+  const [selectedApplicationForDeposit, setSelectedApplicationForDeposit] =
+    React.useState<TaggedAuctionApplication | null>(null);
+  const [selectedRewardScore, setSelectedRewardScore] = React.useState<
+    LaunchpadRewardScore | MiningCenterScore | null
+  >(null);
   const refundToastIdRef = React.useRef<string | number | null>(null);
   const didTrackViewRef = React.useRef(false);
   const queryClient = useQueryClient();
+
+  const hasAnyDialogOpen =
+    isRefundDialogOpen || isMintAndStakeOpen || isDepositDialogOpen;
+
+  const isWalletSettling =
+    !walletAddressOverride &&
+    !hasWallet &&
+    (isConnecting || isReconnecting) &&
+    !hasAnyDialogOpen;
 
   React.useEffect(() => {
     if (didTrackViewRef.current) return;
@@ -130,6 +167,22 @@ export default function GlowSoftDashboard({
     nextBatchAtMs: launchpadNextBatchAtMs,
     refreshNextBatchAtMs: refreshLaunchpadNextBatchAtMs,
   } = useLaunchpadStatus();
+
+  const { applications: delegationApplications } = useGlowLaunchpad({
+    filters: { paymentCurrency: "GLW" },
+    enabled: isLaunchpadLive,
+  });
+  const { applications: minerApplications } = useMiningCenter({
+    filters: { paymentCurrency: "USDC" },
+    enabled: isLaunchpadLive,
+  });
+
+  const shouldShowLaunchpadLiveSection = React.useMemo(() => {
+    if (!isLaunchpadLive) return false;
+    const delegationsCount = countAvailableApplications(delegationApplications);
+    const minersCount = countAvailableApplications(minerApplications);
+    return delegationsCount > 0 || minersCount > 0;
+  }, [isLaunchpadLive, delegationApplications, minerApplications]);
 
   const handleLaunchpadCountdownComplete = React.useCallback(() => {
     refreshLaunchpadNextBatchAtMs();
@@ -201,6 +254,33 @@ export default function GlowSoftDashboard({
       });
   }, [queryClient, walletAddress]);
 
+  const handlePayDeposit = React.useCallback(
+    (
+      application: TaggedAuctionApplication,
+      scoreData?: LaunchpadRewardScore | MiningCenterScore | null
+    ) => {
+      trackEvent("dashboard_launchpad_deposit_open_click", {
+        source: "bento",
+        wallet_connected: isConnected,
+        wallet_address: walletAddress?.toLowerCase() ?? null,
+        application_id: application.id,
+        listing_type: application._type,
+        payment_currency: application._type === "miners" ? "USDC" : "GLW",
+      });
+      setSelectedApplicationForDeposit(application);
+      setSelectedRewardScore(scoreData ?? null);
+      setIsDepositDialogOpen(true);
+    },
+    [isConnected, walletAddress]
+  );
+
+  const handleDepositOpenChange = React.useCallback((nextOpen: boolean) => {
+    setIsDepositDialogOpen(nextOpen);
+    if (nextOpen) return;
+    setSelectedApplicationForDeposit(null);
+    setSelectedRewardScore(null);
+  }, []);
+
   return (
     <div className="min-h-screen bg-muted dark:bg-background text-foreground p-6  selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
       <div className="max-w-screen-2xl mx-auto">
@@ -244,6 +324,17 @@ export default function GlowSoftDashboard({
                 </div>
               </section>
 
+              {/* Launchpad Live Section */}
+              {shouldShowLaunchpadLiveSection && (
+                <section className="flex flex-col gap-4">
+                  <SectionHeader title="Launchpad Live" />
+                  <LaunchpadStatusWidget
+                    variant="full-row"
+                    onPayDeposit={handlePayDeposit}
+                  />
+                </section>
+              )}
+
               {/* Mining & Rewards Section */}
               <section className="flex flex-col gap-4">
                 <SectionHeader title="Mining & Rewards" />
@@ -278,7 +369,10 @@ export default function GlowSoftDashboard({
                       id="bento-launchpad-status"
                       className="pb-6 lg:pb-0 lg:pr-8 flex"
                     >
-                      <LaunchpadStatusWidget variant="minimal" />
+                      <LaunchpadStatusWidget
+                        variant="minimal"
+                        onPayDeposit={handlePayDeposit}
+                      />
                     </div>
                     <div className="pt-6 lg:pt-0 lg:pl-8 flex">
                       <GctlHeatmapWidget
@@ -362,10 +456,22 @@ export default function GlowSoftDashboard({
                     <LaunchpadStatusWidget
                       className="w-full h-full"
                       variant="minimal"
+                      onPayDeposit={handlePayDeposit}
                     />
                   </div>
                 </div>
               </section>
+
+              {/* Launchpad Live Section */}
+              {shouldShowLaunchpadLiveSection && (
+                <section className="flex flex-col gap-4">
+                  <SectionHeader title="Launchpad Live" />
+                  <LaunchpadStatusWidget
+                    variant="full-row"
+                    onPayDeposit={handlePayDeposit}
+                  />
+                </section>
+              )}
 
               {/* Community & Leaderboard Section */}
               <section className="flex flex-col gap-4">
@@ -465,6 +571,24 @@ export default function GlowSoftDashboard({
         usdgBalance={usdgBalance}
         forceStep1={mintAndStakeForceStep1}
       />
+
+      {selectedApplicationForDeposit?._type === "miners" ? (
+        <DepositDialog
+          open={isDepositDialogOpen}
+          onOpenChange={handleDepositOpenChange}
+          application={selectedApplicationForDeposit}
+          selectedCurrency="USDC"
+          rewardScore={selectedRewardScore as MiningCenterScore | null}
+        />
+      ) : (
+        <DepositDialog
+          open={isDepositDialogOpen}
+          onOpenChange={handleDepositOpenChange}
+          application={selectedApplicationForDeposit}
+          selectedCurrency="GLW"
+          rewardScore={selectedRewardScore as LaunchpadRewardScore | null}
+        />
+      )}
     </div>
   );
 }

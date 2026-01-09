@@ -294,7 +294,7 @@ function buildSplitActivity(split: SplitActivity): ActivityItem | null {
     pill,
     icon: <ShoppingCart className="h-4 w-4" />,
     iconClassName: isMiningCenter
-      ? "text-[color:var(--color-miner-yellow-contrast)] bg-[color:var(--color-miner-yellow)]/10"
+      ? "text-[color:var(--color-miner-contrast)] bg-[color:var(--color-miner)]/10"
       : "text-delegation-purple bg-delegation-purple/10",
   };
 }

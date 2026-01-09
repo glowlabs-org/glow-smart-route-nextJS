@@ -13,6 +13,7 @@ export interface WalletTokenBalances {
   glwBalance: bigint | null;
   usdcBalance: bigint | null;
   usdgBalance: bigint | null;
+  ethBalance: bigint | null;
 }
 
 export interface UseWalletTokenBalancesResult extends WalletTokenBalances {
@@ -59,30 +60,37 @@ export function useWalletTokenBalances(
       : {}),
     queryFn: async (): Promise<WalletTokenBalances> => {
       if (!walletAddress) {
-        return { glwBalance: null, usdcBalance: null, usdgBalance: null };
+        return {
+          glwBalance: null,
+          usdcBalance: null,
+          usdgBalance: null,
+          ethBalance: null,
+        };
       }
 
       const accountAddress = walletAddress as `0x${string}`;
 
-      const [glwBalance, usdcBalance, usdgBalance] = await Promise.all([
-        getERC20Balance({
-          client: publicClient,
-          tokenAddress: SDKAddresses.GLW as `0x${string}`,
-          accountAddress,
-        }),
-        getERC20Balance({
-          client: publicClient,
-          tokenAddress: SDKAddresses.USDC as `0x${string}`,
-          accountAddress,
-        }),
-        getERC20Balance({
-          client: publicClient,
-          tokenAddress: SDKAddresses.USDG as `0x${string}`,
-          accountAddress,
-        }),
-      ]);
+      const [glwBalance, usdcBalance, usdgBalance, ethBalance] =
+        await Promise.all([
+          getERC20Balance({
+            client: publicClient,
+            tokenAddress: SDKAddresses.GLW as `0x${string}`,
+            accountAddress,
+          }),
+          getERC20Balance({
+            client: publicClient,
+            tokenAddress: SDKAddresses.USDC as `0x${string}`,
+            accountAddress,
+          }),
+          getERC20Balance({
+            client: publicClient,
+            tokenAddress: SDKAddresses.USDG as `0x${string}`,
+            accountAddress,
+          }),
+          publicClient.getBalance({ address: accountAddress }),
+        ]);
 
-      return { glwBalance, usdcBalance, usdgBalance };
+      return { glwBalance, usdcBalance, usdgBalance, ethBalance };
     },
   });
 
@@ -90,6 +98,7 @@ export function useWalletTokenBalances(
     glwBalance: query.data?.glwBalance ?? null,
     usdcBalance: query.data?.usdcBalance ?? null,
     usdgBalance: query.data?.usdgBalance ?? null,
+    ethBalance: query.data?.ethBalance ?? null,
     isLoading: query.isLoading,
     isFetching: query.isFetching,
     isError: query.isError,

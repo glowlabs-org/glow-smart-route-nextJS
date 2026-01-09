@@ -186,6 +186,7 @@ export default function GlobalLeaderboardWidget({
             >
               <Link
                 href="/stats/rewards"
+                target="_blank"
                 onClick={() => {
                   trackEvent("dashboard_leaderboard_open_click", {
                     source,

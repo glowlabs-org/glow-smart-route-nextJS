@@ -104,6 +104,64 @@ function getIndicatorsStateFromRow(
   };
 }
 
+function getIndicatorsStateFromProjection(
+  projection: {
+    hasMinerMultiplier: boolean;
+    hasSteeringStake: boolean;
+    impactStreakWeeks?: number;
+    streakBonusMultiplier?: number;
+    projectedPoints: {
+      delegatedGlwWei: string;
+      glowWorthWei: string;
+      inflationGlwWei: string;
+    };
+  } | null
+): ImpactIndicatorsState {
+  if (!projection) {
+    return {
+      hasMinerMultiplier: false,
+      hasImpactStreak: false,
+      streakBonusMultiplier: 0,
+      hasSteeringStake: false,
+      hasEmissionsEarned: false,
+      hasVaultBonus: false,
+      hasGlwWorth: false,
+    };
+  }
+
+  const hasMinerMultiplier = Boolean(projection.hasMinerMultiplier);
+  const streakBonusMultiplier = projection.streakBonusMultiplier ?? 0;
+  const hasImpactStreak =
+    (projection.impactStreakWeeks ?? 0) > 0 && streakBonusMultiplier > 0;
+
+  const hasDelegations = (() => {
+    try {
+      return BigInt(projection.projectedPoints.delegatedGlwWei) > BigInt(0);
+    } catch {
+      return false;
+    }
+  })();
+
+  const hasInflationEarnings = (() => {
+    try {
+      return BigInt(projection.projectedPoints.inflationGlwWei) > BigInt(0);
+    } catch {
+      return false;
+    }
+  })();
+
+  return {
+    hasMinerMultiplier,
+    hasImpactStreak,
+    streakBonusMultiplier,
+    hasSteeringStake: Boolean(projection.hasSteeringStake),
+    hasEmissionsEarned: hasInflationEarnings,
+    hasVaultBonus: hasDelegations,
+    hasGlwWorth:
+      safeBigIntFromString(projection.projectedPoints.glowWorthWei) > 0n,
+  };
+}
+
 function SortIcon(props: { dir: "asc" | "desc" }) {
   const { dir } = props;
   return dir === "asc" ? (
@@ -329,6 +387,8 @@ function ImpactHero(props: {
   remainingMsToCacheUpdate: number;
   isLeaderboardLoading: boolean;
   isRefreshing: boolean;
+  address: `0x${string}` | undefined;
+  selfScoreQuery: ReturnType<typeof useImpactScoreQuery>;
 }) {
   const {
     weekRange,
@@ -339,9 +399,10 @@ function ImpactHero(props: {
     remainingMsToCacheUpdate,
     isLeaderboardLoading,
     isRefreshing,
+    address,
+    selfScoreQuery,
   } = props;
 
-  const { address } = useAccount();
   const normalizedAddress = address?.toLowerCase() ?? "";
 
   const { usdcBalance, usdgBalance } = useWalletTokenBalances(address);
@@ -350,13 +411,6 @@ function ImpactHero(props: {
   const [isLaunchpadOpen, setIsLaunchpadOpen] = React.useState(false);
   const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
   const [isBuyGlowOpen, setIsBuyGlowOpen] = React.useState(false);
-
-  const selfScoreQuery = useImpactScoreQuery({
-    walletAddress: address ?? null,
-    weekRange,
-    enabled: Boolean(address && weekRange),
-    toastTitle: "Failed to load your Impact Score",
-  });
 
   const selfGlobalRank = normalizedAddress
     ? globalRankByWallet.get(normalizedAddress) ?? null
@@ -638,7 +692,7 @@ function ImpactHero(props: {
                 className={cn(
                   "flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-start sm:justify-between transition-colors",
                   hasMinerMultiplier
-                    ? "border-[color:var(--color-miner-yellow)]/30 bg-[color:var(--color-miner-yellow)]/10"
+                    ? "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10"
                     : "border-border bg-muted/10 opacity-60"
                 )}
               >
@@ -648,7 +702,7 @@ function ImpactHero(props: {
                       className={cn(
                         "h-6 w-6",
                         hasMinerMultiplier
-                          ? "text-[color:var(--color-miner-yellow)]"
+                          ? "text-[color:var(--color-miner)]"
                           : "text-muted-foreground"
                       )}
                     />
@@ -662,7 +716,7 @@ function ImpactHero(props: {
                         className={cn(
                           "ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono",
                           hasMinerMultiplier
-                            ? "border-[color:var(--color-miner-yellow)]/35 bg-[color:var(--color-miner-yellow)]/15 text-foreground"
+                            ? "border-[color:var(--color-miner)]/35 bg-[color:var(--color-miner)]/15 text-foreground"
                             : "border-border bg-muted/20 text-muted-foreground"
                         )}
                       >
@@ -829,6 +883,9 @@ function ImpactHero(props: {
 }
 
 export function ImpactView() {
+  const { address } = useAccount();
+  const normalizedAddress = address?.toLowerCase() ?? "";
+
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
   const [search, setSearch] = useQueryState(
     "search",
@@ -853,10 +910,20 @@ export function ImpactView() {
     dir: sortDir,
   });
 
+  const weekRange = leaderboardQuery.data?.weekRange ?? null;
+
+  const selfScoreQuery = useImpactScoreQuery({
+    walletAddress: address ?? null,
+    weekRange,
+    enabled: Boolean(address && weekRange),
+    toastTitle: "Failed to load your Impact Score",
+  });
+
+  const selfProjection = selfScoreQuery.data?.currentWeekProjection ?? null;
+
   const isLeaderboardRefreshing =
     leaderboardQuery.isFetching && !leaderboardQuery.isLoading;
 
-  const weekRange = leaderboardQuery.data?.weekRange ?? null;
   const allRows = leaderboardQuery.data?.wallets ?? [];
   const totalWalletCount =
     leaderboardQuery.data?.totalWalletCount ?? allRows.length;
@@ -967,6 +1034,8 @@ export function ImpactView() {
           remainingMsToCacheUpdate={remainingMsToCacheUpdate}
           isLeaderboardLoading={leaderboardQuery.isLoading}
           isRefreshing={isLeaderboardRefreshing}
+          address={address}
+          selfScoreQuery={selfScoreQuery}
         />
       </div>
 
@@ -1153,13 +1222,22 @@ export function ImpactView() {
                       : NaN;
                   const isLeader = globalRank === 1;
                   const ensName = allEnsNames[row.walletAddress] ?? null;
+                  const isConnectedUser =
+                    normalizedAddress &&
+                    row.walletAddress.toLowerCase() === normalizedAddress;
+                  const indicatorsState = isConnectedUser
+                    ? getIndicatorsStateFromProjection(selfProjection)
+                    : getIndicatorsStateFromRow(row);
 
                   return (
                     <div
                       key={row.walletAddress}
                       className={cn(
                         "px-4 py-4 cursor-pointer",
+                        isConnectedUser &&
+                          "bg-[color:var(--color-glow-orange)]/12 dark:bg-[color:var(--color-glow-orange)]/8 ring-1 ring-inset ring-[color:var(--color-glow-orange)]/30",
                         isLeader &&
+                          !isConnectedUser &&
                           "bg-[color:var(--color-glow-yellow)]/12 dark:bg-[color:var(--color-glow-yellow)]/6",
                         "hover:bg-muted/20"
                       )}
@@ -1185,6 +1263,14 @@ export function ImpactView() {
                             <span className="min-w-0 truncate font-mono text-sm">
                               {ensName ?? shortAddress(row.walletAddress)}
                             </span>
+                            {isConnectedUser ? (
+                              <Badge
+                                variant="outline"
+                                className="ml-1 text-[10px] font-mono uppercase tracking-wider border-[color:var(--color-glow-orange)]/40 bg-[color:var(--color-glow-orange)]/15 text-[color:var(--color-glow-orange)]"
+                              >
+                                You
+                              </Badge>
+                            ) : null}
                           </div>
                           {ensName ? (
                             <div className="text-xs font-mono text-muted-foreground">
@@ -1241,16 +1327,14 @@ export function ImpactView() {
                             <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
                               Multipliers
                             </div>
-                            <ImpactMultipliersIcons
-                              state={getIndicatorsStateFromRow(row)}
-                            />
+                            <ImpactMultipliersIcons state={indicatorsState} />
                           </div>
                           <div className="flex items-center justify-between gap-3">
                             <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
                               Point sources
                             </div>
                             <ImpactPointSourcesIcons
-                              state={getIndicatorsStateFromRow(row)}
+                              state={indicatorsState}
                               className="justify-end"
                             />
                           </div>
@@ -1341,13 +1425,22 @@ export function ImpactView() {
                         ? (globalRank / totalWalletCount) * 100
                         : NaN;
                     const isLeader = globalRank === 1;
+                    const isConnectedUser =
+                      normalizedAddress &&
+                      row.walletAddress.toLowerCase() === normalizedAddress;
+                    const indicatorsState = isConnectedUser
+                      ? getIndicatorsStateFromProjection(selfProjection)
+                      : getIndicatorsStateFromRow(row);
 
                     return (
                       <TableRow
                         key={row.walletAddress}
                         className={cn(
                           "cursor-pointer",
+                          isConnectedUser &&
+                            "bg-[color:var(--color-glow-orange)]/12 dark:bg-[color:var(--color-glow-orange)]/8 ring-1 ring-inset ring-[color:var(--color-glow-orange)]/30",
                           isLeader &&
+                            !isConnectedUser &&
                             "bg-[color:var(--color-glow-yellow)]/12 dark:bg-[color:var(--color-glow-yellow)]/6",
                           "hover:bg-muted/20"
                         )}
@@ -1386,6 +1479,14 @@ export function ImpactView() {
                                 </>
                               )}
                             </div>
+                            {isConnectedUser ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] font-mono uppercase tracking-wider border-[color:var(--color-glow-orange)]/40 bg-[color:var(--color-glow-orange)]/15 text-[color:var(--color-glow-orange)]"
+                              >
+                                You
+                              </Badge>
+                            ) : null}
                             <Button
                               type="button"
                               variant="ghost"
@@ -1418,14 +1519,10 @@ export function ImpactView() {
                           </span>
                         </TableCell>
                         <TableCell className="py-3 px-3 hidden lg:table-cell">
-                          <ImpactPointSourcesIcons
-                            state={getIndicatorsStateFromRow(row)}
-                          />
+                          <ImpactPointSourcesIcons state={indicatorsState} />
                         </TableCell>
                         <TableCell className="py-3 px-3 hidden md:table-cell">
-                          <ImpactMultipliersIcons
-                            state={getIndicatorsStateFromRow(row)}
-                          />
+                          <ImpactMultipliersIcons state={indicatorsState} />
                         </TableCell>
                       </TableRow>
                     );
