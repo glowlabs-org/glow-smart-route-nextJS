@@ -604,9 +604,9 @@ export function ImpactScoreBreakdownDialogContent(
                 <BreakdownRow
                   icon={SteeringIcon}
                   label="Steering GLW (sGCTL)"
-                  sublabel={`3.0x • Total • ${formatGlwCompact(
+                  sublabel={`3.0x • Accumulated • ${formatGlwCompact(
                     totalSteeringGlw
-                  )} GLW`}
+                  )} GLW steered over range`}
                   value={`+${formatPoints(impactScore?.totals?.steeringPoints, {
                     maximumFractionDigits: 2,
                   })}`}
@@ -619,9 +619,9 @@ export function ImpactScoreBreakdownDialogContent(
                 <BreakdownRow
                   icon={EmissionsIcon}
                   label="Emissions Earned"
-                  sublabel={`1.0x • Total • ${formatGlwCompact(
+                  sublabel={`1.0x • Accumulated • ${formatGlwCompact(
                     totalInflationGlw
-                  )} GLW`}
+                  )} GLW earned over range`}
                   value={`+${formatPoints(
                     impactScore?.totals?.inflationPoints,
                     {
@@ -637,9 +637,7 @@ export function ImpactScoreBreakdownDialogContent(
                 <BreakdownRow
                   icon={VaultIcon}
                   label="Vault Bonus"
-                  sublabel={`0.005x • Total • ${formatGlwCompact(
-                    delegatedActiveGlw
-                  )} GLW delegated`}
+                  sublabel={`0.005x per week • Accumulated from delegations`}
                   value={`+${formatPoints(
                     impactScore?.totals?.vaultBonusPoints,
                     {
@@ -655,7 +653,7 @@ export function ImpactScoreBreakdownDialogContent(
                 <BreakdownRow
                   icon={CashMinerIcon}
                   label="Multiplier Bonus"
-                  sublabel="Points from Miner & Streak multipliers"
+                  sublabel="Accumulated bonus from Miner & Streak multipliers"
                   value={`+${formatPoints(String(multiplierBonusPts), {
                     maximumFractionDigits: 2,
                   })}`}
@@ -666,9 +664,7 @@ export function ImpactScoreBreakdownDialogContent(
                 <BreakdownRow
                   icon={GlwWorthIcon}
                   label="GLW Worth"
-                  sublabel={`${formatGlwCompact(
-                    glowWorthGlw
-                  )} GLW • Total continuous points over range`}
+                  sublabel="Accumulated continuous points over range"
                   value={`+${formatPoints(
                     impactScore?.totals?.continuousPoints,
                     {
