@@ -8,10 +8,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, ExternalLink, X } from "lucide-react";
+import { Copy, ExternalLink, X, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
 import { cn } from "@/lib/utils";
+import { GlwWorthIcon, SteeringIcon } from "@/components/impact-icons";
 
 export interface TransactionDetail {
   label: string;
@@ -58,6 +59,11 @@ export interface TransactionDialogProps {
   errorContent?: React.ReactNode;
   footer?: React.ReactNode;
   successFooter?: React.ReactNode;
+  
+  // Features
+  showImpactScoreBoost?: boolean;
+  impactScoreBoostMessage?: React.ReactNode;
+  impactScoreBoostIconType?: "glw" | "gctl" | "default";
 
   // Processing progress
   showProcessingProgress?: boolean;
@@ -111,6 +117,9 @@ export function TransactionDialog({
   errorContent,
   footer,
   successFooter,
+  showImpactScoreBoost = false,
+  impactScoreBoostMessage,
+  impactScoreBoostIconType = "default",
   showProcessingProgress = false,
   processingMaxSeconds = 60,
   onConfirm,
@@ -197,9 +206,40 @@ export function TransactionDialog({
             <div className="text-center">
               {/* Success Header */}
               <div className="mb-6">
-                <div className="text-4xl font-bold text-foreground mb-2">
+                <div
+                  className={cn(
+                    "text-4xl font-bold mb-2",
+                    showImpactScoreBoost
+                      ? "text-emerald-700 dark:text-[color:var(--color-glow-green)]"
+                      : "text-foreground"
+                  )}
+                >
                   {successTitle}
                 </div>
+                {showImpactScoreBoost && (
+                  <div className="mt-4 flex flex-col items-center gap-2">
+                    <div
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium",
+                        "border-[color:var(--color-glow-green)]/30 bg-[color:var(--color-glow-green)]/10 text-emerald-700 dark:text-[color:var(--color-glow-green)]"
+                      )}
+                    >
+                      {impactScoreBoostIconType === "glw" ? (
+                        <GlwWorthIcon className="h-3 w-3" />
+                      ) : impactScoreBoostIconType === "gctl" ? (
+                        <SteeringIcon className="h-3 w-3" />
+                      ) : (
+                        <TrendingUp className="h-3 w-3" />
+                      )}
+                      Impact Score Boosted
+                    </div>
+                    {impactScoreBoostMessage && (
+                      <div className="text-sm text-muted-foreground max-w-[280px] mx-auto">
+                        {impactScoreBoostMessage}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Success Content (custom or default) */}

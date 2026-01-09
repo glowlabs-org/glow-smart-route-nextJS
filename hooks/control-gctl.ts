@@ -561,17 +561,28 @@ export function useGctlApi(
         queryKey: QUERY_KEYS.gctlCirculatingSupply(),
       }),
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.regions() }),
+      queryClient.invalidateQueries({
+        queryKey: ["impact-leaderboard"],
+      }),
       ...(wallet
         ? [
             queryClient.invalidateQueries({
               queryKey: APP_QUERY_KEYS.balances.gctl(wallet),
             }),
-            // Used by `useWallets` consumers (e.g. GCTL heatmap widget).
             queryClient.invalidateQueries({
               queryKey: APP_QUERY_KEYS.wallets.details(wallet),
             }),
             queryClient.invalidateQueries({
               queryKey: QUERY_KEYS.latestNonce(wallet),
+            }),
+            queryClient.invalidateQueries({
+              queryKey: ["impact-glow-score", wallet],
+            }),
+            queryClient.invalidateQueries({
+              queryKey: ["impact-score-breakdown"],
+            }),
+            queryClient.invalidateQueries({
+              queryKey: ["impact-glow-worth"],
             }),
           ]
         : []),

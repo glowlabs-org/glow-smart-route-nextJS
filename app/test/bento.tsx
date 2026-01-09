@@ -46,6 +46,8 @@ import {
   type MiningCenterScore,
 } from "@/app/marketplace/deposit-dialog";
 import type { TaggedAuctionApplication } from "@/app/marketplace/launchpad-view";
+import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
+import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
@@ -134,6 +136,7 @@ export default function GlowSoftDashboard({
     React.useState(false);
   const [isRefundDialogOpen, setIsRefundDialogOpen] = React.useState(false);
   const [isDepositDialogOpen, setIsDepositDialogOpen] = React.useState(false);
+  const [isBuyGlowDialogOpen, setIsBuyGlowDialogOpen] = React.useState(false);
   const [selectedApplicationForDeposit, setSelectedApplicationForDeposit] =
     React.useState<TaggedAuctionApplication | null>(null);
   const [selectedRewardScore, setSelectedRewardScore] = React.useState<
@@ -142,9 +145,13 @@ export default function GlowSoftDashboard({
   const refundToastIdRef = React.useRef<string | number | null>(null);
   const didTrackViewRef = React.useRef(false);
   const queryClient = useQueryClient();
+  const { spotPriceUsd: glwSpotPrice } = useGlowSpotPriceSummary();
 
   const hasAnyDialogOpen =
-    isRefundDialogOpen || isMintAndStakeOpen || isDepositDialogOpen;
+    isRefundDialogOpen ||
+    isMintAndStakeOpen ||
+    isDepositDialogOpen ||
+    isBuyGlowDialogOpen;
 
   const isWalletSettling =
     !walletAddressOverride &&
@@ -280,6 +287,15 @@ export default function GlowSoftDashboard({
     setSelectedApplicationForDeposit(null);
     setSelectedRewardScore(null);
   }, []);
+
+  const handleBuyGlowClick = React.useCallback(() => {
+    trackEvent("dashboard_buy_glw_click", {
+      source: "bento",
+      wallet_connected: isConnected,
+      wallet_address: walletAddress?.toLowerCase() ?? null,
+    });
+    setIsBuyGlowDialogOpen(true);
+  }, [isConnected, walletAddress]);
 
   return (
     <div className="min-h-screen bg-muted dark:bg-background text-foreground p-6  selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
@@ -450,6 +466,7 @@ export default function GlowSoftDashboard({
                     <OnboardingHeroWidget
                       className="w-full h-full"
                       variant="minimal"
+                      onBuyGlowClick={handleBuyGlowClick}
                     />
                   </div>
                   <div className="pt-6 lg:pt-0 lg:pl-8 flex min-h-[340px]">
@@ -589,6 +606,14 @@ export default function GlowSoftDashboard({
           rewardScore={selectedRewardScore as LaunchpadRewardScore | null}
         />
       )}
+
+      <BuyGlowDialog
+        open={isBuyGlowDialogOpen}
+        onOpenChange={setIsBuyGlowDialogOpen}
+        usdcBalance={usdcBalance ?? null}
+        glowSpotPrice={glwSpotPrice}
+        defaultUsdcAmount="20"
+      />
     </div>
   );
 }

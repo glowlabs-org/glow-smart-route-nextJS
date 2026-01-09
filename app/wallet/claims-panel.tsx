@@ -791,7 +791,7 @@ function TotalsSummaryCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border bg-muted/20 p-4 shadow-sm",
+        "rounded-2xl border border-border bg-muted/20 p-4",
         className
       )}
     >
@@ -802,7 +802,7 @@ function TotalsSummaryCard({
           </div>
           <div className="mt-1 text-xs text-muted-foreground">{subtitle}</div>
         </div>
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-background shadow-sm">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-background">
           {icon}
         </div>
       </div>
@@ -842,7 +842,7 @@ function TotalsSummaryCard({
                   <div className="flex items-center gap-2 min-w-0">
                     <div
                       className={cn(
-                        "rounded-full bg-background p-1.5 shadow-sm",
+                        "rounded-full bg-background p-1.5",
                         config.color
                       )}
                     >
@@ -1458,7 +1458,7 @@ export function ClaimsPanel({
               className="flex items-start justify-between gap-4 rounded-xl border border-border/60 bg-muted/30 p-4"
             >
               <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted shadow-sm">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
                   {meta.icon}
                 </div>
                 <div className="space-y-1">
@@ -1750,7 +1750,7 @@ export function ClaimsPanel({
                 key={weekData.week}
                 defaultOpen={false}
                 className={cn(
-                  "rounded-xl border border-border/60 bg-background shadow-sm transition-shadow hover:shadow-md",
+                  "rounded-xl border border-border/60 bg-background",
                   isClaimed && "opacity-60 bg-muted/10"
                 )}
               >

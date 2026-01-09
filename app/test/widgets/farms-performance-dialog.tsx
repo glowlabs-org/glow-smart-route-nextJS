@@ -210,26 +210,26 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
   const weeksRemaining = data.totalWeeks - data.weeksActive;
 
   const getIconElement = () => {
-    const isMiner =
-      data.type === "miner" || (isInProgress && inProgressIsMiningCenter);
-    return isMiner ? (
-      <CashMinerIcon className="w-6 h-6" />
-    ) : (
-      <DelegationIcon className="w-6 h-6" />
-    );
+    if (data.type === "miner" || (isInProgress && inProgressIsMiningCenter)) {
+      return <CashMinerIcon className="w-6 h-6" />;
+    }
+    if (data.type === "other") {
+      return <Gift className="w-5 h-5" />;
+    }
+    return <DelegationIcon className="w-6 h-6" />;
   };
 
   const getIconContainerClass = () => {
     if (isMiner || (isInProgress && inProgressIsMiningCenter)) {
-      return "bg-[color:var(--color-miner)]/25 border-[color:var(--color-miner)]/50 text-[color:var(--color-miner-contrast)]";
+      return "bg-[color:var(--color-miner)]/12 border-[color:var(--color-miner)] text-[color:var(--color-miner-contrast)]";
     }
     if (
       data.type === "delegation" ||
       (isInProgress && !inProgressIsMiningCenter)
     ) {
-      return "bg-delegation-purple/25 border-delegation-purple/50 text-delegation-purple dark:text-delegation-purple";
+      return "bg-delegation-purple/12 border-delegation-purple text-delegation-purple dark:text-delegation-purple";
     }
-    return "bg-[color:var(--color-glow-green)]/25 border-[color:var(--color-glow-green)]/50 text-emerald-700 dark:text-[color:var(--color-glow-green)]";
+    return "bg-[color:var(--color-glow-green)]/10 border-[color:var(--color-glow-green)] text-emerald-700 dark:text-[color:var(--color-glow-green)]";
   };
 
   const ProgressDisplay = ({ className }: { className?: string }) => {
@@ -1319,14 +1319,14 @@ export function FarmsPerformanceDialogContent({
           <TabsList className="w-full sm:w-auto bg-muted/30 border border-border h-10 sm:h-12 p-1 overflow-x-auto">
             <TabsTrigger
               value="all"
-              className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground"
+              className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[#ffb472] data-[state=active]:bg-[#ffb472]/12 data-[state=active]:border data-[state=active]:border-[#ffb472]"
             >
               ALL
             </TabsTrigger>
             {tabCounts.miners > 0 || filter === "miners" ? (
               <TabsTrigger
                 value="miners"
-                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-miner"
+                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[color:var(--color-miner)] data-[state=active]:bg-[color:var(--color-miner)]/12 data-[state=active]:border data-[state=active]:border-[color:var(--color-miner)]"
               >
                 MINERS
               </TabsTrigger>
@@ -1334,7 +1334,7 @@ export function FarmsPerformanceDialogContent({
             {tabCounts.delegations > 0 || filter === "delegations" ? (
               <TabsTrigger
                 value="delegations"
-                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-delegation-purple dark:data-[state=active]:text-delegation-purple"
+                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-delegation-purple data-[state=active]:bg-delegation-purple/12 data-[state=active]:border data-[state=active]:border-delegation-purple"
               >
                 DELEGATIONS
               </TabsTrigger>
@@ -1342,7 +1342,7 @@ export function FarmsPerformanceDialogContent({
             {tabCounts.other > 0 || filter === "other" ? (
               <TabsTrigger
                 value="other"
-                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-emerald-700 dark:data-[state=active]:text-[color:var(--color-glow-green)]"
+                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-emerald-700 dark:data-[state=active]:text-[color:var(--color-glow-green)] data-[state=active]:bg-[color:var(--color-glow-green)]/10 data-[state=active]:border data-[state=active]:border-[color:var(--color-glow-green)]"
               >
                 OTHER
               </TabsTrigger>
@@ -1350,7 +1350,7 @@ export function FarmsPerformanceDialogContent({
             {tabCounts.inProgress > 0 || filter === "in-progress" ? (
               <TabsTrigger
                 value="in-progress"
-                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-delegation-purple dark:data-[state=active]:text-delegation-purple"
+                className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-delegation-purple data-[state=active]:bg-delegation-purple/12 data-[state=active]:border data-[state=active]:border-delegation-purple"
               >
                 IN PROGRESS
               </TabsTrigger>

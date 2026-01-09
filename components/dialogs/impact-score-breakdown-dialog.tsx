@@ -515,21 +515,21 @@ export function ImpactScoreBreakdownDialogContent(
 
               <div className="space-y-2 rounded-2xl border border-border bg-muted/10 p-3 dark:border-zinc-800 dark:bg-zinc-900/30">
                 {isCashMinerActive ? (
-                  <div className="flex items-center justify-between p-3 bg-[color:var(--color-miner)]/10 border border-[color:var(--color-miner)]/20 rounded-xl">
+                  <div className="flex items-center justify-between p-3 bg-[color:var(--color-miner)]/12 border border-[color:var(--color-miner)] rounded-xl">
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[color:var(--color-miner)] text-black font-bold font-mono text-sm">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-[color:var(--color-miner)]/25 border border-[color:var(--color-miner)]/90 text-[color:var(--color-miner)]">
                         <CashMinerIcon className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-[color:var(--color-miner-contrast)] uppercase">
+                        <div className="text-xs font-bold text-[color:var(--color-miner)] uppercase">
                           Cash Miner Bonus
                         </div>
-                        <div className="text-[10px] text-[color:var(--color-miner-contrast)]/60">
+                        <div className="text-[10px] text-[color:var(--color-miner)]/70">
                           3× multiplier • {cashMinerStatusLabel}
                         </div>
                       </div>
                     </div>
-                    <CheckCircle2 className="w-5 h-5 text-[color:var(--color-miner-contrast)]" />
+                    <CheckCircle2 className="w-5 h-5 text-[color:var(--color-miner)]" />
                   </div>
                 ) : (
                   <div className="flex items-center justify-between p-3 bg-muted/20 border border-border rounded-xl opacity-60 dark:bg-zinc-900 dark:border-zinc-800">
@@ -550,9 +550,9 @@ export function ImpactScoreBreakdownDialogContent(
                 )}
 
                 {isStreakActive ? (
-                  <div className="flex items-center justify-between p-3 bg-delegation-purple/10 border border-delegation-purple/20 rounded-xl">
+                  <div className="flex items-center justify-between p-3 bg-delegation-purple/12 border border-delegation-purple rounded-xl">
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-delegation-purple text-black font-bold font-mono text-xs">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-delegation-purple/25 border border-delegation-purple/90 text-delegation-purple">
                         <ImpactStreakIcon className="w-5 h-5" />
                       </div>
                       <div>

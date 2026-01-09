@@ -838,6 +838,15 @@ export const UsdcToTokenDialog: FC<{
         ) : null
       }
       confirmLabel="Approve and Buy"
+      showImpactScoreBoost={selectedTokenBuy.label === "GLOW"}
+      impactScoreBoostMessage={
+        selectedTokenBuy.label === "GLOW"
+          ? "You've increased your Glow Worth. You are now earning passive Impact Points on this balance."
+          : undefined
+      }
+      impactScoreBoostIconType={
+        selectedTokenBuy.label === "GLOW" ? "glw" : "default"
+      }
     />
   );
 };

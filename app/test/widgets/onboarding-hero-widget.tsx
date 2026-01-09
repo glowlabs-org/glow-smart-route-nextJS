@@ -7,23 +7,21 @@ import { useAccount } from "wagmi";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { cn } from "@/lib/utils";
-import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { trackEvent } from "@/lib/telemetry";
 
 interface OnboardingHeroWidgetProps {
   className?: string;
   variant?: "default" | "minimal";
+  onBuyGlowClick?: () => void;
 }
 
 export default function OnboardingHeroWidget({
   className,
   variant = "default",
+  onBuyGlowClick,
 }: OnboardingHeroWidgetProps) {
-  const [isBuyOpen, setIsBuyOpen] = React.useState(false);
-  const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
   const { isConnected, address } = useAccount();
   const walletAddress = address?.toLowerCase() ?? null;
   const source = "onboarding_hero_widget";
@@ -94,7 +92,7 @@ export default function OnboardingHeroWidget({
                   wallet_connected: true,
                   wallet_address: walletAddress,
                 });
-                setIsBuyOpen(true);
+                onBuyGlowClick?.();
               }}
               className="group w-full h-12 font-mono font-bold text-base"
             >
@@ -109,7 +107,7 @@ export default function OnboardingHeroWidget({
                     wallet_connected: false,
                     wallet_address: walletAddress,
                   });
-                  setIsBuyOpen(true);
+                  onBuyGlowClick?.();
                 }}
                 className="group w-full h-12 font-mono font-bold text-base"
               >
@@ -120,15 +118,6 @@ export default function OnboardingHeroWidget({
           )}
         </div>
       </CardContent>
-
-      <BuyGlowDialog
-        key={isBuyOpen ? "buy-glow-open" : "buy-glow-closed"}
-        open={isBuyOpen}
-        onOpenChange={setIsBuyOpen}
-        usdcBalance={null}
-        glowSpotPrice={glwSpotPrice || 0}
-        defaultUsdcAmount="20"
-      />
     </Card>
   );
 }

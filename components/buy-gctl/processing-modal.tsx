@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/dialog";
 import { Copy, ExternalLink, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAccount } from "wagmi";
 import { useGctlApi } from "@/hooks";
 import { SuccessState } from "@/components/buy-gctl/success-state";
 import { useQueryState } from "nuqs";
@@ -35,6 +37,9 @@ export function ProcessingModal({
   onConfirmed,
   onFailed,
 }: ProcessingModalProps) {
+  const queryClient = useQueryClient();
+  const { address } = useAccount();
+  
   const copyTxHash = () => {
     if (trackingTxHash) {
       navigator.clipboard.writeText(trackingTxHash);
@@ -137,15 +142,39 @@ export function ProcessingModal({
   // ---------------------- Render shortcuts ------------------
 
   if (status === "success") {
+    const handleSuccessClose = () => {
+      if (address) {
+        void (async () => {
+          try {
+            await Promise.all([
+              queryClient.invalidateQueries({
+                queryKey: ["impact-glow-score", address],
+              }),
+              queryClient.invalidateQueries({
+                queryKey: ["impact-leaderboard"],
+              }),
+              queryClient.invalidateQueries({
+                queryKey: ["impact-score-breakdown"],
+              }),
+              queryClient.invalidateQueries({
+                queryKey: ["impact-glow-worth"],
+              }),
+            ]);
+          } catch {}
+        })();
+      }
+      onClose();
+    };
+
     return (
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && handleSuccessClose()}>
         <DialogContent className="bg-card/90 backdrop-blur-sm rounded-2xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden">
           {/* Visually hidden title for accessibility */}
           <DialogHeader>
             <DialogTitle className="sr-only">Transaction Success</DialogTitle>
           </DialogHeader>
           <SuccessState
-            handleClose={onClose}
+            handleClose={handleSuccessClose}
             processedAmount={processedAmount}
             trackingTxHash={trackingTxHash ?? undefined}
             gctlPrice={gctlPriceNumber}

@@ -340,42 +340,24 @@ export default function GctlHeatmapWidget({
         )}
       >
         <CardHeader className="pb-0 pt-4">
-          <div className="flex items-center justify-between gap-3">
-            <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
-              Glow Control
-            </CardTitle>
-            <Button
-              size="sm"
-              className="h-8 rounded-full px-3 text-[11px] font-mono tracking-wider gap-2"
-              onClick={() => {
-                trackEvent("dashboard_gctl_mint_stake_open_click", {
-                  source,
-                  wallet_connected: Boolean(normalizedWalletAddress),
-                  wallet_address: normalizedWalletAddress,
-                });
-                onMintAndStakeClick?.();
-              }}
-              disabled={isLoading}
-            >
-              <Rocket className="h-3.5 w-3.5" />
-              <span>Mint GCTL</span>
-            </Button>
-          </div>
+          <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
+            Glow Control
+          </CardTitle>
         </CardHeader>
         <CardContent className="min-h-0 flex-1 flex flex-col px-5 pb-5 pt-0">
           <div className="flex-1 flex flex-col items-center justify-center py-2 gap-6">
             <div className="flex flex-col items-center gap-1.5 text-center px-4">
               <span className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground max-w-[20ch]">
-                Steer Glow’s Economy
+                Steer Glow's Economy
               </span>
               <span className="text-sm text-muted-foreground max-w-[32ch] leading-relaxed">
-                GCTL directs Glow’s 175,000 GLW/week subsidy across
+                GCTL directs Glow's 175,000 GLW/week subsidy across
                 Infrastructure Projects.
               </span>
             </div>
           </div>
 
-          <div className="mt-auto space-y-4">
+          <div className="mt-auto space-y-3">
             <Link
               href="https://glow.org/blog/beginner-guide-to-gctl"
               target="_blank"
@@ -406,6 +388,21 @@ export default function GctlHeatmapWidget({
                 </div>
               </div>
             </Link>
+            <Button
+              className="w-full h-12 font-mono font-bold gap-2"
+              onClick={() => {
+                trackEvent("dashboard_gctl_mint_stake_open_click", {
+                  source,
+                  wallet_connected: Boolean(normalizedWalletAddress),
+                  wallet_address: normalizedWalletAddress,
+                });
+                onMintAndStakeClick?.();
+              }}
+              disabled={isLoading}
+            >
+              <Rocket className="h-4 w-4" />
+              <span>Mint GCTL</span>
+            </Button>
           </div>
         </CardContent>
       </Card>

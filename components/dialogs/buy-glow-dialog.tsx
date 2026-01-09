@@ -20,6 +20,7 @@ import {
   ArrowLeftRight,
   X,
   Wallet,
+  TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
@@ -934,6 +935,18 @@ export function BuyGlowDialog({
             queryClient.invalidateQueries({
               queryKey: ["unclaimed-glw-rewards", address],
             }),
+            queryClient.invalidateQueries({
+              queryKey: ["impact-glow-score", address],
+            }),
+            queryClient.invalidateQueries({
+              queryKey: ["impact-leaderboard"],
+            }),
+            queryClient.invalidateQueries({
+              queryKey: ["impact-score-breakdown"],
+            }),
+            queryClient.invalidateQueries({
+              queryKey: ["impact-glow-worth"],
+            }),
           ]);
         } catch {}
       })();
@@ -1010,7 +1023,7 @@ export function BuyGlowDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
         className="bg-background backdrop-blur-sm rounded-2xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden"
-        onInteractOutside={(e) => phase === "processing" && e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader className="sr-only">
           <DialogTitle>
@@ -1380,12 +1393,22 @@ export function BuyGlowDialog({
                 <div className="flex items-center justify-center mb-4">
                   <GlowSymbol className="size-14" />
                 </div>
-                <div className="text-4xl font-bold text-foreground mb-2">
+                <div className="text-4xl font-bold text-[color:var(--color-glow-green)] mb-2">
                   +
                   {Number(estimatedGlw).toLocaleString("en-US", {
                     maximumFractionDigits: 4,
                   })}{" "}
                   GLW
+                </div>
+                <div className="mt-4 flex flex-col items-center gap-2">
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--color-glow-green)]/30 bg-[color:var(--color-glow-green)]/10 px-3 py-1 text-xs font-medium text-[color:var(--color-glow-green)]">
+                    <TrendingUp className="h-3 w-3" />
+                    Impact Score Boosted
+                  </div>
+                  <div className="text-sm text-muted-foreground max-w-[280px] mx-auto">
+                    You've increased your Glow Worth. You are now earning
+                    passive Impact Points on this balance.
+                  </div>
                 </div>
               </div>
 

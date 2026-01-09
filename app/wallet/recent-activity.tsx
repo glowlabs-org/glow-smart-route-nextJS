@@ -11,8 +11,8 @@ import {
   Gift,
   Clock,
   ExternalLink,
-  ShoppingCart,
 } from "lucide-react";
+import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -191,7 +191,7 @@ function buildClaimActivity(rows: WalletRewardClaimRow[]): ActivityItem | null {
     icon: <Gift className="h-5 w-5" />,
     iconClassName: isProtocol
       ? "text-delegation-purple bg-delegation-purple/10"
-      : "text-emerald-400 bg-emerald-500/10",
+      : "text-[color:var(--color-miner-contrast)] bg-[color:var(--color-miner)]/10",
   };
 }
 
@@ -292,7 +292,11 @@ function buildSplitActivity(split: SplitActivity): ActivityItem | null {
     title,
     subtitle,
     pill,
-    icon: <ShoppingCart className="h-4 w-4" />,
+    icon: isMiningCenter ? (
+      <CashMinerIcon className="w-5 h-5" />
+    ) : (
+      <DelegationIcon className="w-5 h-5" />
+    ),
     iconClassName: isMiningCenter
       ? "text-[color:var(--color-miner-contrast)] bg-[color:var(--color-miner)]/10"
       : "text-delegation-purple bg-delegation-purple/10",

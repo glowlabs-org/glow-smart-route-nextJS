@@ -12,7 +12,12 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
+import {
+  CashMinerIcon,
+  DelegationIcon,
+  VaultIcon,
+  EmissionsIcon,
+} from "@/components/impact-icons";
 import { formatUnits } from "viem";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -261,7 +266,7 @@ function FarmListRow({ farm, onClick }: FarmListRowProps) {
                       ? "text-[color:var(--color-miner-contrast)]"
                       : isDelegation
                       ? "text-delegation-purple"
-                      : "text-[color:var(--color-glow-green)]"
+                      : "text-emerald-700 dark:text-[color:var(--color-glow-green)]"
                   )}
                 >
                   {isPendingStart
@@ -356,8 +361,8 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
             "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border backdrop-blur-xl",
             isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]",
             inProgressIsMiningCenter
-              ? "border-[color:var(--color-miner)]/90 bg-[color:var(--color-miner)]/15 text-[color:var(--color-miner)]"
-              : "border-delegation-purple/90 bg-delegation-purple/25 text-delegation-purple"
+              ? "border-[color:var(--color-miner)] bg-[color:var(--color-miner)]/12 text-[color:var(--color-miner)]"
+              : "border-delegation-purple bg-delegation-purple/12 text-delegation-purple"
           )}
         >
           {inProgressIsMiningCenter ? (
@@ -373,7 +378,7 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
       return (
         <div
           className={cn(
-            "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border border-[color:var(--color-miner)]/90 bg-[color:var(--color-miner)]/15 text-[color:var(--color-miner)] backdrop-blur-xl",
+            "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border border-[color:var(--color-miner)] bg-[color:var(--color-miner)]/12 text-[color:var(--color-miner)] backdrop-blur-xl",
             isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]"
           )}
         >
@@ -386,7 +391,7 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
       return (
         <div
           className={cn(
-            "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border border-delegation-purple/90 bg-delegation-purple/25 text-delegation-purple backdrop-blur-xl",
+            "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border border-delegation-purple bg-delegation-purple/12 text-delegation-purple backdrop-blur-xl",
             isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]"
           )}
         >
@@ -398,7 +403,7 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
     return (
       <div
         className={cn(
-          "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border border-[color:var(--color-glow-green)]/90 bg-[color:var(--color-glow-green)]/15 text-[color:var(--color-glow-green)] backdrop-blur-xl",
+          "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border border-[color:var(--color-glow-green)] bg-[color:var(--color-glow-green)]/10 text-emerald-700 dark:text-[color:var(--color-glow-green)] backdrop-blur-xl",
           isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]"
         )}
       >
@@ -537,7 +542,7 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
                       ? "text-[color:var(--color-miner-contrast)]"
                       : isDelegation
                       ? "text-delegation-purple"
-                      : "text-[color:var(--color-glow-green)]"
+                      : "text-emerald-700 dark:text-[color:var(--color-glow-green)]"
                   )}
                 >
                   {isPendingStart
@@ -687,19 +692,19 @@ function FarmDetailDialog({
             </div>
             <div className="flex items-center gap-2">
               {farm.type === "miner" && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-[color:var(--color-miner-contrast)] bg-[color:var(--color-miner)]/10 border-[color:var(--color-miner)]/20">
-                  <CashMinerIcon className="w-6 h-6" />
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-[color:var(--color-miner-contrast)] bg-[color:var(--color-miner)]/12 border-[color:var(--color-miner)]">
+                  <CashMinerIcon className="w-5 h-5" />
                   Miner
                 </div>
               )}
               {farm.type === "delegation" && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-delegation-purple bg-delegation-purple/10 border-delegation-purple/20">
-                  <GlowSymbol className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-delegation-purple bg-delegation-purple/12 border-delegation-purple">
+                  <DelegationIcon className="w-5 h-5" />
                   Delegation
                 </div>
               )}
               {farm.type === "other" && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-[color:var(--color-glow-green)] bg-[color:var(--color-glow-green)]/10 border-[color:var(--color-glow-green)]/20">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-emerald-700 dark:text-[color:var(--color-glow-green)] bg-[color:var(--color-glow-green)]/10 border-[color:var(--color-glow-green)]">
                   <Gift className="w-3.5 h-3.5" />
                   Rewards
                 </div>
@@ -709,11 +714,15 @@ function FarmDetailDialog({
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border",
                     farm.inProgressKind === "mining-center"
-                      ? "text-[color:var(--color-miner-contrast)] bg-[color:var(--color-miner)]/10 border-[color:var(--color-miner)]/20"
-                      : "text-delegation-purple bg-delegation-purple/10 border-delegation-purple/20"
+                      ? "text-[color:var(--color-miner-contrast)] bg-[color:var(--color-miner)]/12 border-[color:var(--color-miner)]"
+                      : "text-delegation-purple bg-delegation-purple/12 border-delegation-purple"
                   )}
                 >
-                  <DelegationIcon className="w-6 h-6" />
+                  {farm.inProgressKind === "mining-center" ? (
+                    <CashMinerIcon className="w-5 h-5" />
+                  ) : (
+                    <DelegationIcon className="w-5 h-5" />
+                  )}
                   In Progress
                 </div>
               )}
@@ -869,7 +878,8 @@ function FarmDetailDialog({
                       "text-3xl font-bold font-mono tracking-tight",
                       isMiner && "text-[color:var(--color-miner-contrast)]",
                       farm.type === "delegation" && "text-delegation-purple",
-                      isOther && "text-[color:var(--color-glow-green)]"
+                      isOther &&
+                        "text-emerald-700 dark:text-[color:var(--color-glow-green)]"
                     )}
                   >
                     {earnedLabel}
@@ -956,7 +966,7 @@ function FarmDetailDialog({
                       <div className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-delegation-purple/10 flex items-center justify-center text-delegation-purple">
-                            <DelegationIcon className="w-6 h-6" />
+                            <VaultIcon className="w-5 h-5" />
                           </div>
                           <div>
                             <div className="font-medium text-sm">
@@ -984,7 +994,7 @@ function FarmDetailDialog({
                     <div className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-[color:var(--color-miner)]/10 flex items-center justify-center text-[color:var(--color-miner-contrast)]">
-                          <Gift className="w-4 h-4" />
+                          <EmissionsIcon className="w-5 h-5" />
                         </div>
                         <div>
                           <div className="font-medium text-sm">Emissions</div>
@@ -1584,9 +1594,7 @@ export default function MyFarmsGridSection({
     return (
       <Card className="p-12 border-dashed bg-muted/20">
         <div className="flex flex-col items-center justify-center text-center text-muted-foreground gap-3">
-          {!isRewardsError && (
-            <DelegationIcon className="w-10 h-10 opacity-20" />
-          )}
+          {!isRewardsError && <GlowSymbol className="w-10 h-10 opacity-20" />}
           <p className="text-sm font-mono uppercase tracking-wider">
             {isRewardsError
               ? "Unable to load farms"
@@ -1730,7 +1738,7 @@ export default function MyFarmsGridSection({
                               ? "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]"
                               : isDelegation
                               ? "border-delegation-purple/30 bg-delegation-purple/10 text-delegation-purple"
-                              : "border-[color:var(--color-glow-green)]/30 bg-[color:var(--color-glow-green)]/10 text-[color:var(--color-glow-green)]"
+                              : "border-[color:var(--color-glow-green)]/30 bg-[color:var(--color-glow-green)]/10 text-emerald-700 dark:text-[color:var(--color-glow-green)]"
                           )}
                         >
                           {isMiner
@@ -1770,7 +1778,7 @@ export default function MyFarmsGridSection({
                               ? "text-[color:var(--color-miner-contrast)]"
                               : isDelegation
                               ? "text-delegation-purple"
-                              : "text-[color:var(--color-glow-green)]"
+                              : "text-emerald-700 dark:text-[color:var(--color-glow-green)]"
                           )}
                         >
                           {isPendingStart
