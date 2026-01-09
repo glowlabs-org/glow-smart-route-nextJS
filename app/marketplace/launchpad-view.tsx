@@ -75,6 +75,7 @@ import {
   Info,
   MapPin,
   SlidersHorizontal,
+  Sparkles,
   X,
 } from "lucide-react";
 import { HowItWorks } from "@/components/how-it-works";
@@ -2033,6 +2034,36 @@ function LaunchpadMarketplaceWidget({
           title="Launchpad"
           subtitle="The next batch of farms will be available soon"
         />
+      ) : resolvedLayout === "carousel" && isHeroCarousel && isMobile ? (
+        // Mobile hero: vertical stack, no carousel controls
+        <div className="w-full space-y-4">
+          {rows.map((row) => (
+            <div
+              key={row.application.id}
+              className="cursor-pointer transition-opacity hover:opacity-95"
+              onClick={() => {
+                onPayDeposit(row.application, row.scoreData);
+              }}
+            >
+              <LaunchpadWidgetHeroCarouselCard
+                row={row}
+                isScoresLoading={
+                  row.application._type === "delegations"
+                    ? isRewardScoresLoading
+                    : isMiningScoresLoading
+                }
+                glwSpotPrice={glwSpotPrice}
+                ethPrice={ethPrice}
+                onPayDeposit={onPayDeposit}
+                onOpenStats={(application, scoreData) => {
+                  setSelectedApplicationForStats(application);
+                  setSelectedScoreDataForStats(scoreData ?? null);
+                  setStatsDialogOpen(true);
+                }}
+              />
+            </div>
+          ))}
+        </div>
       ) : resolvedLayout === "carousel" ? (
         <div className="w-full">
           {!isHeroCarousel ? (
@@ -2610,14 +2641,12 @@ function LaunchpadWidgetHeroCarouselCard({
       ? `≈ $${formatSignedCompactNumber(weeklyYield * glwSpotPrice)} USD / wk`
       : null;
 
-  const rewardScoreLabel = React.useMemo(() => {
+  const rewardScoreValue = React.useMemo(() => {
     if (!isDelegation) return null;
-    if (isScoresLoading) return "Score: …";
-    return `Score: ${
-      row.rewardScore?.rewardScore
-        ? Math.round(row.rewardScore.rewardScore).toLocaleString()
-        : "0"
-    }`;
+    if (isScoresLoading) return "…";
+    return row.rewardScore?.rewardScore
+      ? Math.round(row.rewardScore.rewardScore).toLocaleString()
+      : "0";
   }, [isDelegation, isScoresLoading, row.rewardScore?.rewardScore]);
 
   return (
@@ -2640,7 +2669,7 @@ function LaunchpadWidgetHeroCarouselCard({
               <div className="truncate text-2xl font-semibold text-white sm:text-3xl">
                 {title}
               </div>
-              <div className="mt-1 flex max-w-full items-center gap-2">
+              <div className="mt-1 flex max-w-full flex-wrap items-center gap-2">
                 <div className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-xs text-white/80 backdrop-blur-md">
                   <MapPin className="h-3.5 w-3.5" />
                   <span className="truncate">{application.zone.name}</span>
@@ -2661,6 +2690,36 @@ function LaunchpadWidgetHeroCarouselCard({
                   />
                   {isDelegation ? "Delegation" : "Miner"}
                 </div>
+                {isDelegation && rewardScoreValue && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-purple-400/30 bg-purple-500/20 px-2.5 py-1 text-xs font-medium backdrop-blur-md cursor-help">
+                        <Sparkles className="h-3 w-3 text-purple-300" />
+                        <span className="text-purple-200/80">
+                          Reward Score:
+                        </span>
+                        <span className="font-bold text-purple-200 tabular-nums">
+                          {rewardScoreValue}
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[300px]">
+                      <div className="text-xs">
+                        <div className="font-semibold mb-1.5">Reward Score</div>
+                        <div className="text-primary-foreground/80 leading-relaxed">
+                          The Reward Score is a tool that combines both revenue
+                          streams (deposit recovery and GLW inflation) into a
+                          single metric representing expected rewards per dollar
+                          delegated. Higher Reward Scores generally indicate
+                          better delegation opportunities, but do not guarantee
+                          realized performance, since a farm's actual
+                          competitiveness and rewards may shift as new farms
+                          join its region.
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
             </div>
 
@@ -2672,6 +2731,7 @@ function LaunchpadWidgetHeroCarouselCard({
               }}
             >
               <div className="grid w-full grid-cols-2 overflow-hidden rounded-xl border border-white/10 bg-white/5 sm:grid-cols-3">
+                {/* First column: Delegation Amount OR Price per Miner */}
                 <div className="border-b border-white/10 sm:border-b-0 sm:border-r sm:border-white/10">
                   <HeroStatColumn
                     label={
@@ -2682,6 +2742,7 @@ function LaunchpadWidgetHeroCarouselCard({
                   />
                 </div>
 
+                {/* Second column: Units with progress bar */}
                 <div className="border-b border-white/10 sm:border-b-0 sm:border-r sm:border-white/10">
                   <div className="px-3 py-2">
                     <div className="text-[9px] font-mono uppercase tracking-widest text-white/65">
@@ -2691,17 +2752,7 @@ function LaunchpadWidgetHeroCarouselCard({
                       {unitsValue}
                     </div>
                     <div className="mt-1 text-[11px] text-white/60">
-                      {isDelegation && rewardScoreLabel ? (
-                        <>
-                          <span>{unitsSubValue}</span>
-                          <span className="hidden sm:inline">
-                            {" "}
-                            • {rewardScoreLabel}
-                          </span>
-                        </>
-                      ) : (
-                        unitsSubValue
-                      )}
+                      {unitsSubValue}
                     </div>
                     <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                       <div
@@ -2712,6 +2763,7 @@ function LaunchpadWidgetHeroCarouselCard({
                   </div>
                 </div>
 
+                {/* Third column: Weekly Rewards */}
                 <div className="col-span-2 sm:col-span-1">
                   <HeroStatColumn
                     label="Est. Weekly Rewards"

@@ -191,6 +191,17 @@ export default function GlowSoftDashboard({
     return delegationsCount > 0 || minersCount > 0;
   }, [isLaunchpadLive, delegationApplications, minerApplications]);
 
+  const ONE_HOUR_MS = 60 * 60 * 1000;
+  const isApproachingLaunchpad = React.useMemo(() => {
+    if (isLaunchpadLive) return false;
+    const now = Date.now();
+    const timeUntilLive = launchpadNextBatchAtMs - now;
+    return timeUntilLive > 0 && timeUntilLive <= ONE_HOUR_MS;
+  }, [isLaunchpadLive, launchpadNextBatchAtMs]);
+
+  const shouldShowLaunchpadHeroRow =
+    shouldShowLaunchpadLiveSection || isApproachingLaunchpad;
+
   const handleLaunchpadCountdownComplete = React.useCallback(() => {
     refreshLaunchpadNextBatchAtMs();
     void (async () => {
@@ -310,6 +321,24 @@ export default function GlowSoftDashboard({
               transition={{ duration: 0.15 }}
               className="flex flex-col gap-6"
             >
+              {/* Launchpad Live/Approaching Section - First Row */}
+              {shouldShowLaunchpadHeroRow && (
+                <section className="flex flex-col gap-4">
+                  <SectionHeader
+                    title={
+                      isApproachingLaunchpad
+                        ? "Launchpad Opening Soon"
+                        : "Launchpad Live"
+                    }
+                  />
+                  <LaunchpadStatusWidget
+                    variant="full-row"
+                    onPayDeposit={handlePayDeposit}
+                    isApproaching={isApproachingLaunchpad}
+                  />
+                </section>
+              )}
+
               {/* Dashboard Header Band */}
               <section className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-4 lg:p-8">
                 <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
@@ -340,17 +369,6 @@ export default function GlowSoftDashboard({
                   </div>
                 </div>
               </section>
-
-              {/* Launchpad Live Section */}
-              {shouldShowLaunchpadLiveSection && (
-                <section className="flex flex-col gap-4">
-                  <SectionHeader title="Launchpad Live" />
-                  <LaunchpadStatusWidget
-                    variant="full-row"
-                    onPayDeposit={handlePayDeposit}
-                  />
-                </section>
-              )}
 
               {/* Mining & Rewards Section */}
               <section className="flex flex-col gap-4">
@@ -460,6 +478,24 @@ export default function GlowSoftDashboard({
               transition={{ duration: 0.15 }}
               className="flex flex-col gap-12"
             >
+              {/* Launchpad Live/Approaching Section - First Row */}
+              {shouldShowLaunchpadHeroRow && (
+                <section className="flex flex-col gap-4">
+                  <SectionHeader
+                    title={
+                      isApproachingLaunchpad
+                        ? "Launchpad Opening Soon"
+                        : "Launchpad Live"
+                    }
+                  />
+                  <LaunchpadStatusWidget
+                    variant="full-row"
+                    onPayDeposit={handlePayDeposit}
+                    isApproaching={isApproachingLaunchpad}
+                  />
+                </section>
+              )}
+
               {/* Hero Section */}
               <section className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-0  items-stretch">
@@ -479,17 +515,6 @@ export default function GlowSoftDashboard({
                   </div>
                 </div>
               </section>
-
-              {/* Launchpad Live Section */}
-              {shouldShowLaunchpadLiveSection && (
-                <section className="flex flex-col gap-4">
-                  <SectionHeader title="Launchpad Live" />
-                  <LaunchpadStatusWidget
-                    variant="full-row"
-                    onPayDeposit={handlePayDeposit}
-                  />
-                </section>
-              )}
 
               {/* Community & Leaderboard Section */}
               <section className="flex flex-col gap-4">
