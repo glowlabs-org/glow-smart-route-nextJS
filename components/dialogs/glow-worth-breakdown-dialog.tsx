@@ -1,7 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { GlwWorthIcon, VaultIcon, EmissionsIcon } from "@/components/impact-icons";
+import {
+  GlwWorthIcon,
+  VaultIcon,
+  EmissionsIcon,
+} from "@/components/impact-icons";
 
 import {
   Dialog,
@@ -29,7 +33,9 @@ interface GlowWorthBreakdownDialogProps {
 function formatGlw(value: number, opts?: { maximumFractionDigits?: number }) {
   if (!Number.isFinite(value)) return "—";
   const maximumFractionDigits = opts?.maximumFractionDigits ?? 0;
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits }).format(value);
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits }).format(
+    value
+  );
 }
 
 type BreakdownTone = "emerald" | "purple" | "cyan";
@@ -45,7 +51,8 @@ function getToneClasses(tone: BreakdownTone) {
   if (tone === "purple")
     return {
       row: "border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10",
-      iconWrap: "bg-delegation-purple/10 border-delegation-purple/20 text-delegation-purple",
+      iconWrap:
+        "bg-delegation-purple/10 border-delegation-purple/20 text-delegation-purple",
       label: "text-delegation-purple",
       value: "text-delegation-purple",
     } as const;
@@ -178,38 +185,9 @@ export function GlowWorthBreakdownDialog(props: GlowWorthBreakdownDialogProps) {
                 tone="cyan"
               />
             </div>
-
-            <div className="space-y-3">
-              <div className="text-xs font-bold uppercase text-muted-foreground tracking-wider dark:text-zinc-500">
-                When do these numbers change?
-              </div>
-              <div className="rounded-2xl border border-border bg-muted/10 p-4 text-sm text-muted-foreground dark:border-zinc-800 dark:bg-zinc-900/30">
-                <ul className="space-y-2 list-disc pl-5">
-                  <li>
-                    If you buy or receive GLW, your “GLW in your wallet” updates
-                    right away.
-                  </li>
-                  <li>
-                    Buying a miner usually won’t change Glow Worth immediately.
-                    Rewards show up later, after weekly processing.
-                  </li>
-                  <li>
-                    Buying a delegation can take time to reflect: your wallet GLW
-                    changes immediately, but the “GLW from delegations” part may
-                    appear later.
-                  </li>
-                  <li>
-                    Unclaimed rewards become claimable a few weeks later (about
-                    3–4 weeks).
-                  </li>
-                </ul>
-              </div>
-            </div>
           </div>
         </ScrollArea>
       </DialogContent>
     </Dialog>
   );
 }
-
-

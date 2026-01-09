@@ -713,6 +713,8 @@ export function RankWidget({
                 >
                   <Link
                     href="/stats/rewards"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     onClick={() => {
                       trackEvent("dashboard_leaderboard_open_click", {
                         source,

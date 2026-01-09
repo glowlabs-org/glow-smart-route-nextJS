@@ -230,7 +230,7 @@ function FarmListRow({ farm, onClick }: FarmListRowProps) {
                 </div>
                 <div className="font-mono font-medium text-xs">
                   {isPendingStart
-                    ? "—"
+                    ? "Pending"
                     : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
                 </div>
               </div>
@@ -265,9 +265,7 @@ function FarmListRow({ farm, onClick }: FarmListRowProps) {
                   )}
                 >
                   {isPendingStart
-                    ? "—"
-                    : isMiner
-                    ? fmtUsd(farm.inflation)
+                    ? "Pending"
                     : `${fmtGlw(farm.recovered + farm.inflationGlw)} GLW`}
                 </div>
               </div>
@@ -516,7 +514,7 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
                   )}
                 >
                   {isPendingStart
-                    ? "—"
+                    ? "Pending"
                     : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
                 </div>
               </div>
@@ -543,9 +541,7 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
                   )}
                 >
                   {isPendingStart
-                    ? "—"
-                    : isMiner
-                    ? fmtUsd(farm.inflation)
+                    ? "Pending"
                     : `${fmtGlw(farm.recovered + farm.inflationGlw)} GLW`}
                 </div>
               </div>
@@ -575,7 +571,7 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
                     )}
                   >
                     {isPendingStart
-                      ? "—"
+                      ? "Pending"
                       : `${roiPercent.toFixed(0)}% Progress`}
                   </span>
                 </div>
@@ -1336,7 +1332,6 @@ export default function MyFarmsGridSection({
     (rewardsBreakdown.otherFarmsWithRewards?.farms ?? []).forEach((farm) => {
       const displayName =
         farm.farmName || `Farm ${farm.farmId.substring(0, 8)}`;
-      const identityDetail = farm.asset ?? "—";
 
       const farmMetadata =
         purchasedFarms.find((f) => f.farmId === farm.farmId) ||
@@ -1371,7 +1366,7 @@ export default function MyFarmsGridSection({
       cards.push({
         farmId: farm.farmId,
         farmName: displayName,
-        regionName: identityDetail,
+        regionName: "Clean Grid Project",
         imageUrls,
         type: "other",
         initialCost: 0,
@@ -1747,7 +1742,7 @@ export default function MyFarmsGridSection({
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
                       {isPendingStart
-                        ? "—"
+                        ? "Pending"
                         : isInProgress
                         ? "—"
                         : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
@@ -1778,9 +1773,7 @@ export default function MyFarmsGridSection({
                           )}
                         >
                           {isPendingStart
-                            ? "—"
-                            : isMiner
-                            ? fmtUsd(farm.inflation)
+                            ? "Pending"
                             : `${fmtGlw(
                                 farm.recovered + farm.inflationGlw
                               )} GLW`}
@@ -1800,7 +1793,7 @@ export default function MyFarmsGridSection({
                         </div>
                       ) : isPendingStart ? (
                         <span className="text-muted-foreground text-xs font-mono">
-                          —
+                          Pending
                         </span>
                       ) : (
                         <span

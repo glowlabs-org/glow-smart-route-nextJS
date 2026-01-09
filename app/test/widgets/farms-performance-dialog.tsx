@@ -480,17 +480,23 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   <span className="text-right text-foreground">
                     {timePercent.toFixed(0)}%
                   </span>
-                  <span className="text-muted-foreground">Value Progress</span>
-                  <span
-                    className={cn(
-                      "text-right",
-                      isProfit
-                        ? "text-emerald-600 dark:text-emerald-500"
-                        : "text-foreground"
-                    )}
-                  >
-                    {valuePercent.toFixed(0)}%
-                  </span>
+                  {!isMiner && (
+                    <>
+                      <span className="text-muted-foreground">
+                        Value Progress
+                      </span>
+                      <span
+                        className={cn(
+                          "text-right",
+                          isProfit
+                            ? "text-emerald-600 dark:text-emerald-500"
+                            : "text-foreground"
+                        )}
+                      >
+                        {valuePercent.toFixed(0)}%
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -741,20 +747,22 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                         {timePercent.toFixed(1)}%
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Value Progress
-                      </span>
-                      <span
-                        className={cn(
-                          isProfit
-                            ? "text-emerald-600 dark:text-emerald-500 font-bold"
-                            : "text-foreground"
-                        )}
-                      >
-                        {valuePercent.toFixed(1)}%
-                      </span>
-                    </div>
+                    {!isMiner && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Value Progress
+                        </span>
+                        <span
+                          className={cn(
+                            isProfit
+                              ? "text-emerald-600 dark:text-emerald-500 font-bold"
+                              : "text-foreground"
+                          )}
+                        >
+                          {valuePercent.toFixed(1)}%
+                        </span>
+                      </div>
+                    )}
                     <div className="h-px bg-border my-2" />
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Remaining</span>

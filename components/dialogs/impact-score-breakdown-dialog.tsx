@@ -662,6 +662,23 @@ export function ImpactScoreBreakdownDialogContent(
                   tone="yellow"
                   isDisabled={multiplierBonusPts <= 0.01}
                 />
+
+                <BreakdownRow
+                  icon={GlwWorthIcon}
+                  label="GLW Worth"
+                  sublabel={`${formatGlwCompact(
+                    glowWorthGlw
+                  )} GLW • Total continuous points over range`}
+                  value={`+${formatPoints(
+                    impactScore?.totals?.continuousPoints,
+                    {
+                      maximumFractionDigits: 2,
+                    }
+                  )}`}
+                  ctaText="Buy GLW"
+                  onCtaClick={() => setIsBuyGlowOpen(true)}
+                  tone="emerald"
+                />
               </div>
 
               <div className="flex justify-end pt-2 border-t border-dashed border-border dark:border-zinc-800">
@@ -697,27 +714,6 @@ export function ImpactScoreBreakdownDialogContent(
                   ) : null} */}
                 </div>
               </div>
-            </div>
-
-            <div className="space-y-4">
-              <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider dark:text-zinc-500">
-                Passive
-              </h4>
-
-              <BreakdownRow
-                icon={GlwWorthIcon}
-                label="GLW Worth"
-                sublabel={`${formatGlwCompact(
-                  glowWorthGlw
-                )} GLW • Total continuous points over range`}
-                value={`+${formatPoints(impactScore?.totals?.continuousPoints, {
-                  maximumFractionDigits: 2,
-                })}`}
-                ctaText="Buy GLW"
-                onCtaClick={() => setIsBuyGlowOpen(true)}
-                tone="emerald"
-                isPassive
-              />
             </div>
           </div>
         </ScrollArea>
