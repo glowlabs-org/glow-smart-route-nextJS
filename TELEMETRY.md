@@ -53,7 +53,13 @@ Local dev note: geo headers won’t exist locally, so geo fields may be `null` /
 ### Instrumented areas (high level)
 
 - **Marketplace**
-  - `app/marketplace/deposit-dialog.tsx`: deposit funnel + tx lifecycle + share on X click
+  - `app/marketplace/deposit-dialog.tsx`: deposit funnel + tx lifecycle + success/error + share on X click
+    - `marketplace_deposit_success`: purchase/delegation completed successfully
+      - props: `currency`, `payment_method`, `listing_type`, `application_id`, `fraction_id`, `quantity`, `tx_hash`, `farm_name`, `zone_name`
+    - `marketplace_deposit_error`: purchase/delegation failed (not tracked for user rejections)
+      - props: `currency`, `payment_method`, `listing_type`, `application_id`, `fraction_id`, `quantity`, `failed_step`, `error_message`
+    - `marketplace_deposit_share_x_click`: user clicked Share on X after success
+      - props: `currency`, `application_id`, `fraction_id`, `steps_to_buy`, `tx_hash`
   - `app/marketplace/launchpad-view.tsx`: filters + CTAs + stats opens
 - **Buy flows**
   - `app/buy/view.tsx`: swap intent/result + dialog opens + smart-account blocks

@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSwapETHToUSDC } from "./useSwapETHToUSDC";
 import { formatUnits } from "viem";
+import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
 
 export function useEthPrice() {
   const { estimateEthToUsdc } = useSwapETHToUSDC();
@@ -15,7 +16,10 @@ export function useEthPrice() {
         // USDC has 6 decimals
         return parseFloat(formatUnits(res.val.amountOutUsdc, 6));
       }
-      return null;
+      
+      // Fallback to Coingecko if onchain fails (e.g. local dev / wrong chain)
+      const fallbackPrice = await getEthPriceInUSD();
+      return fallbackPrice;
     },
     refetchInterval: 60000,
     staleTime: 30000,

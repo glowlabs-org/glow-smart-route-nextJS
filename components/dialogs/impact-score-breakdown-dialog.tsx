@@ -592,7 +592,7 @@ export function ImpactScoreBreakdownDialogContent(
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider dark:text-zinc-500">
-                  Rollover Points
+                  Total points
                 </h4>
                 <span className="text-[10px] text-muted-foreground/80 font-mono dark:text-zinc-600">
                   Range {impactScore?.weekRange?.startWeek ?? "—"}–
