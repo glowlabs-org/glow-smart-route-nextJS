@@ -1227,7 +1227,11 @@ export function ImpactView() {
                     globalRank && totalWalletCount > 0
                       ? (globalRank / totalWalletCount) * 100
                       : NaN;
-                  const isLeader = globalRank === 1;
+                  const isRank1 = globalRank === 1;
+                  const isRank2 = globalRank === 2;
+                  const isRank3 = globalRank === 3;
+                  const isTop3 = isRank1 || isRank2 || isRank3;
+
                   const ensName = allEnsNames[row.walletAddress] ?? null;
                   const isConnectedUser =
                     normalizedAddress &&
@@ -1240,12 +1244,18 @@ export function ImpactView() {
                     <div
                       key={row.walletAddress}
                       className={cn(
-                        "px-4 py-4 cursor-pointer",
+                        "px-4 py-4 cursor-pointer relative overflow-hidden transition-all",
                         isConnectedUser &&
-                          "bg-[color:var(--color-glow-orange)]/12 dark:bg-[color:var(--color-glow-orange)]/8 ring-1 ring-inset ring-[color:var(--color-glow-orange)]/30",
-                        isLeader &&
+                          "bg-[color:var(--color-glow-orange)]/12 dark:bg-[color:var(--color-glow-orange)]/8 ring-1 ring-inset ring-[color:var(--color-glow-orange)]/30 z-10",
+                        isRank1 &&
                           !isConnectedUser &&
-                          "bg-[color:var(--color-glow-yellow)]/12 dark:bg-[color:var(--color-glow-yellow)]/6",
+                          "bg-yellow-500/5 dark:bg-yellow-500/[0.03] border-y border-yellow-500/10",
+                        isRank2 &&
+                          !isConnectedUser &&
+                          "bg-slate-400/5 dark:bg-slate-400/[0.03] border-y border-slate-400/10",
+                        isRank3 &&
+                          !isConnectedUser &&
+                          "bg-orange-600/5 dark:bg-orange-600/[0.03] border-y border-orange-600/10",
                         "hover:bg-muted/20"
                       )}
                       role="button"
@@ -1257,17 +1267,36 @@ export function ImpactView() {
                         handleRowClick(row.walletAddress);
                       }}
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start justify-between gap-3 relative z-10">
                         <div className="min-w-0 space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono text-muted-foreground tabular-nums">
-                              {globalRank && globalRank <= 3 ? (
-                                <>#{globalRank.toLocaleString("en-US")}</>
-                              ) : (
-                                <>Top {formatTopPercentile(percentile)}</>
+                            {isRank1 ? (
+                              <span className="text-[10px] font-bold font-mono text-yellow-600 dark:text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                Rank 1
+                              </span>
+                            ) : isRank2 ? (
+                              <span className="text-[10px] font-bold font-mono text-slate-500 dark:text-slate-400 bg-slate-400/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                Rank 2
+                              </span>
+                            ) : isRank3 ? (
+                              <span className="text-[10px] font-bold font-mono text-orange-700 dark:text-orange-600 bg-orange-600/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                Rank 3
+                              </span>
+                            ) : (
+                              <span className="text-xs font-mono text-muted-foreground tabular-nums">
+                                {globalRank && globalRank <= 3 ? (
+                                  <>#{globalRank.toLocaleString("en-US")}</>
+                                ) : (
+                                  <>Top {formatTopPercentile(percentile)}</>
+                                )}
+                              </span>
+                            )}
+                            <span
+                              className={cn(
+                                "min-w-0 truncate font-mono text-sm",
+                                isTop3 && "font-bold"
                               )}
-                            </span>
-                            <span className="min-w-0 truncate font-mono text-sm">
+                            >
                               {ensName ?? shortAddress(row.walletAddress)}
                             </span>
                             {isConnectedUser ? (
@@ -1303,7 +1332,14 @@ export function ImpactView() {
                         </Button>
                       </div>
 
-                      <div className="mt-3 font-mono text-3xl font-bold tracking-tight tabular-nums text-foreground">
+                      <div
+                        className={cn(
+                          "mt-3 font-mono text-3xl font-bold tracking-tight tabular-nums relative z-10",
+                          isRank1
+                            ? "text-yellow-600 dark:text-yellow-500"
+                            : "text-foreground"
+                        )}
+                      >
                         {formatImpactPoints(row.totalPoints, 2)}
                         <span className="ml-2 text-xs font-mono text-muted-foreground">
                           pts
@@ -1431,7 +1467,11 @@ export function ImpactView() {
                       globalRank && totalWalletCount > 0
                         ? (globalRank / totalWalletCount) * 100
                         : NaN;
-                    const isLeader = globalRank === 1;
+                    const isRank1 = globalRank === 1;
+                    const isRank2 = globalRank === 2;
+                    const isRank3 = globalRank === 3;
+                    const isTop3 = isRank1 || isRank2 || isRank3;
+
                     const isConnectedUser =
                       normalizedAddress &&
                       row.walletAddress.toLowerCase() === normalizedAddress;
@@ -1443,21 +1483,35 @@ export function ImpactView() {
                       <TableRow
                         key={row.walletAddress}
                         className={cn(
-                          "cursor-pointer",
+                          "cursor-pointer transition-colors relative",
                           isConnectedUser &&
                             "bg-[color:var(--color-glow-orange)]/12 dark:bg-[color:var(--color-glow-orange)]/8 ring-1 ring-inset ring-[color:var(--color-glow-orange)]/30",
-                          isLeader &&
+                          isRank1 &&
                             !isConnectedUser &&
-                            "bg-[color:var(--color-glow-yellow)]/12 dark:bg-[color:var(--color-glow-yellow)]/6",
-                          "hover:bg-muted/20"
+                            "bg-yellow-500/10 dark:bg-yellow-500/5 hover:bg-yellow-500/15",
+                          isRank2 &&
+                            !isConnectedUser &&
+                            "bg-slate-400/10 dark:bg-slate-400/5 hover:bg-slate-400/15",
+                          isRank3 &&
+                            !isConnectedUser &&
+                            "bg-orange-600/10 dark:bg-orange-600/5 hover:bg-orange-600/15",
+                          !isTop3 && "hover:bg-muted/20"
                         )}
                         onClick={() => handleRowClick(row.walletAddress)}
                       >
                         <TableCell className="font-mono text-xs py-3 px-3">
-                          {globalRank && globalRank <= 3 ? (
-                            <div className="inline-flex items-center gap-2 text-muted-foreground">
-                              #{globalRank.toLocaleString("en-US")}
-                            </div>
+                          {isRank1 ? (
+                            <span className="text-[10px] font-bold font-mono text-yellow-600 dark:text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                              Rank 1
+                            </span>
+                          ) : isRank2 ? (
+                            <span className="text-[10px] font-bold font-mono text-slate-500 dark:text-slate-400 bg-slate-400/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                              Rank 2
+                            </span>
+                          ) : isRank3 ? (
+                            <span className="text-[10px] font-bold font-mono text-orange-700 dark:text-orange-600 bg-orange-600/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                              Rank 3
+                            </span>
                           ) : (
                             <div className="text-muted-foreground">
                               Top {formatTopPercentile(percentile)}
@@ -1470,7 +1524,12 @@ export function ImpactView() {
                               {allEnsNames[row.walletAddress] ? (
                                 <>
                                   {allEnsNames[row.walletAddress] && (
-                                    <span className="text-sm font-medium">
+                                    <span
+                                      className={cn(
+                                        "text-sm font-medium",
+                                        isTop3 && "font-bold text-foreground"
+                                      )}
+                                    >
                                       {allEnsNames[row.walletAddress]}
                                     </span>
                                   )}
@@ -1480,7 +1539,12 @@ export function ImpactView() {
                                 </>
                               ) : (
                                 <>
-                                  <span className="font-mono text-sm">
+                                  <span
+                                    className={cn(
+                                      "font-mono text-sm",
+                                      isTop3 && "font-bold text-foreground"
+                                    )}
+                                  >
                                     {shortAddress(row.walletAddress)}
                                   </span>
                                 </>
@@ -1511,7 +1575,14 @@ export function ImpactView() {
                             </Button>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-mono tabular-nums py-3 px-3 text-base font-semibold text-foreground">
+                        <TableCell
+                          className={cn(
+                            "text-right font-mono tabular-nums py-3 px-3 text-base font-semibold",
+                            isRank1
+                              ? "text-yellow-600 dark:text-yellow-500"
+                              : "text-foreground"
+                          )}
+                        >
                           {formatImpactPoints(row.totalPoints, 2)}
                         </TableCell>
                         <TableCell className="py-3 px-3 hidden md:table-cell text-right font-mono tabular-nums text-sm text-muted-foreground">

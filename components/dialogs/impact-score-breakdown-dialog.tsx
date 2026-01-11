@@ -357,9 +357,9 @@ export function ImpactScoreBreakdownDialogContent(
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[100px] pointer-events-none" />
 
           <div className="relative z-10 flex flex-col items-center text-center space-y-2">
-            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+            <DialogTitle className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
               {title || "Current Impact"}
-            </h2>
+            </DialogTitle>
 
             <div className="flex flex-col items-center">
               <div className="text-6xl font-mono font-bold text-foreground tracking-tighter drop-shadow-sm">
@@ -567,6 +567,7 @@ export function ImpactScoreBreakdownDialog(
     <Dialog open={open} onOpenChange={onOpenChange}>
       {query.isLoading ? (
         <DialogContent className="sm:max-w-md p-6 bg-[#09090b] border-white/10">
+          <DialogTitle className="sr-only">Loading Impact Score</DialogTitle>
           <div className="space-y-4">
             <Skeleton className="h-20 w-full rounded-xl bg-zinc-800" />
             <Skeleton className="h-32 w-full rounded-xl bg-zinc-800" />
@@ -575,6 +576,7 @@ export function ImpactScoreBreakdownDialog(
         </DialogContent>
       ) : query.isError ? (
         <DialogContent className="sm:max-w-md p-6 bg-[#09090b] border-white/10">
+          <DialogTitle className="sr-only">Error</DialogTitle>
           <div className="text-center text-zinc-500 py-10">
             Unable to load score data.
           </div>
