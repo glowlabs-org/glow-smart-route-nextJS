@@ -125,10 +125,14 @@ function DashboardConnectingSkeleton() {
 export default function GlowSoftDashboard({
   walletAddressOverride,
 }: GlowSoftDashboardProps) {
-  const { address: connectedAddress, isConnected } = useAccount();
+  const {
+    address: connectedAddress,
+    isConnected,
+    isConnecting,
+    isReconnecting,
+  } = useAccount();
   const walletAddress = walletAddressOverride ?? connectedAddress ?? null;
   const hasWallet = Boolean(walletAddress);
-  const { isConnecting, isReconnecting } = useAccount();
   const { signer } = useEthersSigner();
   const { usdcBalance, usdgBalance } = useER20Balances({ signer });
   const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
@@ -153,7 +157,14 @@ export default function GlowSoftDashboard({
     isDepositDialogOpen ||
     isBuyGlowDialogOpen;
 
+  const [isMounted, setIsMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const isWalletSettling =
+    isMounted &&
     !walletAddressOverride &&
     !hasWallet &&
     (isConnecting || isReconnecting) &&

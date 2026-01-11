@@ -129,18 +129,27 @@ if (typeof window !== "undefined") {
   }
 
   // Subscribe to connector changes to filter out non-allowed wallets discovered via EIP-6963
+  // Use a debounce to prevent rapid-fire updates from causing performance issues
   let isFiltering = false;
+  let pendingFilter: ReturnType<typeof setTimeout> | null = null;
+
   wagmiConfig._internal.connectors.subscribe((connectors) => {
     if (isFiltering) return;
 
-    isFiltering = true;
-    try {
-      const validConnectors = filterAllowedConnectors(connectors);
-      if (validConnectors.length < connectors.length) {
-        wagmiConfig._internal.connectors.setState(validConnectors);
+    // Debounce rapid connector announcements (EIP-6963 can fire multiple times quickly)
+    if (pendingFilter) clearTimeout(pendingFilter);
+
+    pendingFilter = setTimeout(() => {
+      pendingFilter = null;
+      isFiltering = true;
+      try {
+        const validConnectors = filterAllowedConnectors(connectors);
+        if (validConnectors.length < connectors.length) {
+          wagmiConfig._internal.connectors.setState(validConnectors);
+        }
+      } finally {
+        isFiltering = false;
       }
-    } finally {
-      isFiltering = false;
-    }
+    }, 50);
   });
 }
