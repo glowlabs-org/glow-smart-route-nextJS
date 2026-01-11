@@ -424,6 +424,7 @@ export default function GlowSoftDashboard({
                       <GctlHeatmapWidget
                         walletAddress={walletAddress}
                         variant="minimal"
+                        onMintAndStakeClick={() => setIsMintAndStakeOpen(true)}
                       />
                     </div>
                   </div>

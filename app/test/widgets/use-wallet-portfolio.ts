@@ -317,14 +317,11 @@ export function useWalletPortfolio(params: { walletAddress?: string | null }) {
       .filter((v) => Number.isFinite(v));
     if (values.length === 0) return [0, 1];
 
-    const min = Math.min(...values);
     const max = Math.max(...values);
-    const range = max - min;
-    // Slightly widen the y-domain so fluctuations feel less zoomed-in.
-    // (≈50% more padding than before.)
-    const pad = range > 0 ? Math.max(range * 0.225, 10) : 10;
+    // Ensure at least 20% buffer at the top to prevent overlap with value display overlay
+    const paddedMax = max * 1.25;
 
-    return [0, max + pad];
+    return [0, paddedMax];
   }, [chartData]);
 
   // Portfolio allocations should reflect *wallet-held* tokens, not the broader

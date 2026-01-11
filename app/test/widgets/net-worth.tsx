@@ -159,7 +159,7 @@ function NetWorthSkeleton() {
               />
 
               {/* Value display skeleton */}
-              <div className="absolute left-0 top-0 z-10 bg-background p-2">
+              <div className="absolute left-0 top-0 z-10 bg-transparent p-2">
                 <div className="flex items-baseline gap-2">
                   <Skeleton className="h-10 w-32 rounded-xl" />
                   <Skeleton className="h-6 w-12 rounded-xl" />
@@ -349,7 +349,10 @@ export default function NetWorthWidget({
           className={cn(
             "flex flex-col flex-1 min-h-0",
             !hasWallet &&
-              "pointer-events-none select-none blur-[5px] opacity-60 bg-background"
+              cn(
+                "pointer-events-none select-none blur-[5px] opacity-60",
+                isMinimal ? "bg-transparent" : "bg-card dark:bg-muted/30"
+              )
           )}
         >
           <div className="flex flex-1 min-h-[300px] max-h-[300px] lg:min-h-0 lg:max-h-[400px]">
@@ -376,7 +379,12 @@ export default function NetWorthWidget({
                       opacity: 0.1,
                     }}
                   />
-                  <div className="absolute left-0 top-0 z-10 bg-background p-2">
+                  <div
+                    className={cn(
+                      "absolute left-0 top-0 z-10 p-2",
+                      isMinimal ? "bg-transparent" : "bg-card dark:bg-muted/30"
+                    )}
+                  >
                     <div className="flex items-baseline gap-2">
                       <div className="font-mono text-3xl sm:text-4xl font-bold tracking-tight text-foreground tabular-nums leading-none">
                         <NumberTicker
