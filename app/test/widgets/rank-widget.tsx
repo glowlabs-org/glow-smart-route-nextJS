@@ -77,14 +77,17 @@ function safeNumber(value?: string) {
 function getIndicatorsStateFromImpactScore(
   impactScore: ImpactGlowScoreResponse
 ): ImpactIndicatorsState {
-  const projection = impactScore.currentWeekProjection;
-  const streakBonusMultiplier = projection?.streakBonusMultiplier ?? 0;
+  const latestWeek = impactScore?.weekly?.[impactScore.weekly.length - 1];
+
+  // Use historical data from latestWeek (not projection, which is for current week potential)
+  const streakBonusMultiplier = latestWeek?.streakBonusMultiplier ?? 0;
+  const hasMiner = latestWeek?.hasCashMinerBonus ?? false;
 
   return {
-    hasMinerMultiplier: Boolean(projection?.hasMinerMultiplier),
+    hasMinerMultiplier: Boolean(hasMiner),
     hasImpactStreak: streakBonusMultiplier > 0,
     streakBonusMultiplier,
-    hasSteeringStake: Boolean(projection?.hasSteeringStake),
+    hasSteeringStake: safeNumber(impactScore.totals?.steeringPoints) > 0,
     hasEmissionsEarned: safeNumber(impactScore.totals?.inflationPoints) > 0,
     hasVaultBonus:
       safeBigInt(impactScore.glowWorth?.delegatedActiveGlwWei) > 0n,

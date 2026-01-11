@@ -1,13 +1,12 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import Decimal from "decimal.js";
 import { formatUnits, parseUnits } from "viem";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { useAccount, useBalance, useChainId } from "wagmi";
-import { Sun, X, ChevronLeft } from "lucide-react";
+import { Sun, X, ChevronLeft, Zap, Check, Loader2, Info } from "lucide-react";
 import {
   DECIMALS_BY_TOKEN,
   type Currency,
@@ -15,6 +14,7 @@ import {
   buildStakeMessage,
   stakeEIP712Types,
   stakeControlEIP712Domain,
+  type PendingTransfer,
 } from "@glowlabs-org/utils/browser";
 
 import {
@@ -36,15 +36,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { ProcessingModal } from "../buy-gctl/processing-modal";
 import { ConnectButton } from "../connect-button";
 import { UnstakingExplanationModal } from "./unstaking-explanation-modal";
+import {
+  TransactionStepper,
+  type TransactionStep,
+  type StepStatus,
+} from "@/components/transaction-stepper";
+import { SegmentedCircleProgress } from "@/components/ui/circle-progress";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
-import { useActiveRegionsSummary, useGctlApi, useRegions } from "@/hooks";
+import {
+  useActiveRegionsSummary,
+  useGctlApi,
+  useRegions,
+  useWallets,
+} from "@/hooks";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { useDebouncedAsync } from "@/hooks/useDebouncedAsync";
 import { trackEvent } from "@/lib/telemetry";
 import { bucketEth, bucketToken, bucketUsd } from "@/lib/telemetry-buckets";
+import { cn } from "@/lib/utils";
+import { SteeringIcon } from "@/components/impact-icons";
+import { usePolling } from "@/utils/use-polling";
+import { animate, motion, useMotionValue, useTransform } from "framer-motion";
+
+// --- Types & Constants ---
 
 interface MintAndStakeGctlDialogProps {
   open: boolean;
@@ -61,6 +77,8 @@ const STEERING_POINTS_PER_GLW = 3;
 const ETH_DECIMALS = 18;
 const DEFAULT_SLIPPAGE_BPS = 100n; // 1%
 const MAX_UINT256 = (1n << 256n) - 1n;
+
+// --- Helpers ---
 
 function isValidDecimalInput(value: string) {
   return value === "" || /^\d*\.?\d*$/.test(value);
@@ -121,17 +139,6 @@ function formatCompact(
   );
 }
 
-function formatPercent(
-  value: number,
-  options?: { maximumFractionDigits?: number }
-) {
-  if (!Number.isFinite(value)) return "—";
-  return value.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: options?.maximumFractionDigits ?? 2,
-  });
-}
-
 function formatPercent1(value: number) {
   if (!Number.isFinite(value)) return "—";
   return value.toLocaleString(undefined, {
@@ -170,6 +177,102 @@ function toWholeNumberString(value: number) {
   });
 }
 
+function gctlAmountFromRaw(raw: string | null | undefined) {
+  try {
+    return Number(formatUnits(BigInt(raw || "0"), DECIMALS_BY_TOKEN.GCTL));
+  } catch {
+    return 0;
+  }
+}
+
+function computeSteeringScorePoints(args: {
+  activeSummary: any | null | undefined;
+  userStakedGctlByRegionId: Map<number, number>;
+  addedGctl: number;
+  selectedRegionId: number | null;
+}) {
+  const {
+    activeSummary,
+    userStakedGctlByRegionId,
+    addedGctl,
+    selectedRegionId,
+  } = args;
+  if (!activeSummary) return 0;
+
+  const totalGlwRewards = Number(activeSummary.totalGlwRewards);
+  const totalStaked = Number(activeSummary.totalGctlStaked);
+  if (!Number.isFinite(totalGlwRewards) || totalGlwRewards <= 0) return 0;
+  if (!Number.isFinite(totalStaked) || totalStaked <= 0) return 0;
+
+  const delta = Number.isFinite(addedGctl) ? Math.max(0, addedGctl) : 0;
+  const regions: any[] = Array.isArray(activeSummary.regions)
+    ? activeSummary.regions
+    : [];
+
+  let totalDirectedGlw = 0;
+
+  // Baseline: mirror `gctl-heatmap-widget` exactly (use current region `glwPerWeek`)
+  if (!selectedRegionId || delta <= 0) {
+    for (const r of regions) {
+      const regionId = Number(r?.id);
+      if (!Number.isFinite(regionId)) continue;
+
+      const regionStaked = Number(r?.stakedGctl);
+      if (!Number.isFinite(regionStaked) || regionStaked <= 0) continue;
+
+      const regionGlwPerWeek = Number(r?.glwPerWeek);
+      if (!Number.isFinite(regionGlwPerWeek) || regionGlwPerWeek <= 0) continue;
+
+      const userStaked = userStakedGctlByRegionId.get(regionId) ?? 0;
+      if (!Number.isFinite(userStaked) || userStaked <= 0) continue;
+
+      const share = userStaked / regionStaked;
+      if (!Number.isFinite(share) || share <= 0) continue;
+
+      totalDirectedGlw += regionGlwPerWeek * share;
+    }
+
+    if (!Number.isFinite(totalDirectedGlw) || totalDirectedGlw <= 0) return 0;
+    return totalDirectedGlw * STEERING_POINTS_PER_GLW;
+  }
+
+  // Preview: re-compute region weekly emissions after adding stake to selected region
+  const nextTotalStaked = totalStaked + delta;
+  if (!Number.isFinite(nextTotalStaked) || nextTotalStaked <= 0) return 0;
+
+  for (const r of regions) {
+    const regionId = Number(r?.id);
+    if (!Number.isFinite(regionId)) continue;
+
+    const currentRegionStaked = Number(r?.stakedGctl);
+    if (!Number.isFinite(currentRegionStaked) || currentRegionStaked <= 0)
+      continue;
+
+    const regionDelta = selectedRegionId === regionId ? delta : 0;
+    const nextRegionStaked = currentRegionStaked + regionDelta;
+    if (!Number.isFinite(nextRegionStaked) || nextRegionStaked <= 0) continue;
+
+    const nextRegionGlwPerWeek =
+      totalGlwRewards * (nextRegionStaked / nextTotalStaked);
+    if (!Number.isFinite(nextRegionGlwPerWeek) || nextRegionGlwPerWeek <= 0)
+      continue;
+
+    const userCurrentStaked = userStakedGctlByRegionId.get(regionId) ?? 0;
+    const userNextStaked = userCurrentStaked + regionDelta;
+    if (!Number.isFinite(userNextStaked) || userNextStaked <= 0) continue;
+
+    const share = userNextStaked / nextRegionStaked;
+    if (!Number.isFinite(share) || share <= 0) continue;
+
+    totalDirectedGlw += nextRegionGlwPerWeek * share;
+  }
+
+  if (!Number.isFinite(totalDirectedGlw) || totalDirectedGlw <= 0) return 0;
+  return totalDirectedGlw * STEERING_POINTS_PER_GLW;
+}
+
+// --- Component ---
+
 export function MintAndStakeGctlDialog({
   open,
   onOpenChange,
@@ -206,6 +309,7 @@ export function MintAndStakeGctlDialog({
     latestNonce,
     stakeGctlMutation,
     invalidateAllQueries,
+    fetchTransferDetails,
   } = useGctlApi(address, { enabled: open });
   const { data: activeSummary } = useActiveRegionsSummary({ enabled: open });
   const { estimateEthToUsdc, swapEthToUsdc } = useSwapETHToUSDC();
@@ -236,6 +340,24 @@ export function MintAndStakeGctlDialog({
     },
   });
 
+  const { walletDetails } = useWallets({
+    walletAddress: address ?? undefined,
+    enabled: open && Boolean(address),
+  });
+
+  const userStakedGctlByRegionId = React.useMemo(() => {
+    const map = new Map<number, number>();
+    const rows = walletDetails?.regions ?? [];
+    for (const row of rows as any[]) {
+      const regionId = Number((row as any)?.regionId);
+      if (!Number.isFinite(regionId)) continue;
+      const staked = gctlAmountFromRaw((row as any)?.totalStaked);
+      if (!Number.isFinite(staked) || staked <= 0) continue;
+      map.set(regionId, staked);
+    }
+    return map;
+  }, [walletDetails?.regions]);
+
   const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
   const { checkTokenAllowance, approveToken, mintGCTLAndStake, isProcessing } =
     useForwarder(signer || undefined, chainId);
@@ -260,7 +382,8 @@ export function MintAndStakeGctlDialog({
   );
   const [isSwappingEth, setIsSwappingEth] = React.useState(false);
 
-  const [stepOverride, setStepOverride] = React.useState<1 | 2 | 3 | null>(
+  // Step 4 is the new SUCCESS State
+  const [stepOverride, setStepOverride] = React.useState<1 | 2 | 3 | 4 | null>(
     null
   );
 
@@ -292,9 +415,9 @@ export function MintAndStakeGctlDialog({
     return hasAnyGctl ? 2 : 1;
   }, [hasAnyGctl, isConnected, isGctlBalanceLoading, forceStep1]);
 
-  const step = React.useMemo((): 1 | 2 | 3 => {
+  const step = React.useMemo((): 1 | 2 | 3 | 4 => {
     if (!isConnected) return 1;
-    return (stepOverride ?? defaultStep) as 1 | 2 | 3;
+    return (stepOverride ?? defaultStep) as 1 | 2 | 3 | 4;
   }, [defaultStep, isConnected, stepOverride]);
 
   const stakeMode = selectedCurrency === "GCTL" ? "stake" : "mint";
@@ -444,6 +567,35 @@ export function MintAndStakeGctlDialog({
     stakeMode,
   ]);
 
+  const steeringScoreBefore = React.useMemo(() => {
+    return computeSteeringScorePoints({
+      activeSummary,
+      userStakedGctlByRegionId,
+      addedGctl: 0,
+      selectedRegionId: null,
+    });
+  }, [activeSummary, userStakedGctlByRegionId]);
+
+  const steeringScoreAfterPreview = React.useMemo(() => {
+    const added = Number.isFinite(estimatedGctl ?? NaN)
+      ? (estimatedGctl as number)
+      : 0;
+    if (!selectedRegionId) return steeringScoreBefore;
+    if (!Number.isFinite(added) || added <= 0) return steeringScoreBefore;
+    return computeSteeringScorePoints({
+      activeSummary,
+      userStakedGctlByRegionId,
+      addedGctl: added,
+      selectedRegionId,
+    });
+  }, [
+    activeSummary,
+    estimatedGctl,
+    selectedRegionId,
+    steeringScoreBefore,
+    userStakedGctlByRegionId,
+  ]);
+
   const inflationPreview = React.useMemo(() => {
     if (!activeSummary) return null;
     if (!selectedRegionId) return null;
@@ -538,13 +690,107 @@ export function MintAndStakeGctlDialog({
 
   const [isApproving, setIsApproving] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [stakeUiState, setStakeUiState] = React.useState<
+    "review" | "processing" | "error"
+  >("review");
+  const [stakeUiErrorMessage, setStakeUiErrorMessage] = React.useState<
+    string | null
+  >(null);
+  const [stakeSteps, setStakeSteps] = React.useState<TransactionStep[]>([]);
+  const stakeStepsRef = React.useRef<TransactionStep[]>([]);
 
-  const [isProcessingModalOpen, setIsProcessingModalOpen] =
-    React.useState(false);
-  const [processingTxHash, setProcessingTxHash] = React.useState<string | null>(
+  const updateStakeStepStatus = React.useCallback(
+    (
+      stepId: string,
+      status: StepStatus,
+      extras?: { errorMessage?: string }
+    ) => {
+      setStakeSteps((prev) => {
+        const updated = prev.map((s) => {
+          if (s.id !== stepId) return s;
+          return {
+            ...s,
+            status,
+            startedAt:
+              status === "waiting_signature" || status === "confirming"
+                ? s.startedAt ?? Date.now()
+                : s.startedAt,
+            errorMessage: extras?.errorMessage ?? s.errorMessage,
+          };
+        });
+        stakeStepsRef.current = updated;
+        return updated;
+      });
+    },
+    []
+  );
+
+  const [trackingTxHash, setTrackingTxHash] = React.useState<string | null>(
     null
   );
   const [hasPerformedAction, setHasPerformedAction] = React.useState(false);
+  const [successReceipt, setSuccessReceipt] = React.useState<{
+    regionId: number;
+    regionLabel: string;
+    amountGctl: number;
+    deltaGlwPerWeek: number | null;
+    nextRegionSharePercent: number | null;
+    scoreBoostPerWeekLabel: string | null;
+  } | null>(null);
+  const [successScoreSnapshot, setSuccessScoreSnapshot] = React.useState<{
+    prevSteeringPoints: number;
+    nextSteeringPoints: number;
+    deltaSteeringPoints: number;
+  } | null>(null);
+
+  const {
+    isPolling: isTransferPolling,
+    countdown: transferCountdown,
+    startPolling: startTransferPolling,
+    stopPolling: stopTransferPolling,
+    reset: resetTransferPolling,
+  } = usePolling<PendingTransfer>({
+    enabled: open && Boolean(trackingTxHash),
+    pollInterval: 10_000,
+    maxDuration: 80,
+    pollFn: async () => {
+      if (!trackingTxHash) throw new Error("Missing tx hash");
+      const res = await fetchTransferDetails(trackingTxHash);
+      if (res.ok) return res.val;
+      throw new Error(res.val);
+    },
+    shouldStopPolling: (data) =>
+      data.status === "confirmed" || data.status === "failed",
+    onSuccess: async (data) => {
+      if (data.status === "failed") {
+        const msg =
+          (data as any)?.errorMessage ||
+          (data as any)?.errorDetails ||
+          "Transaction failed";
+        updateStakeStepStatus("FINALIZE", "error", { errorMessage: msg });
+        setStakeUiState("error");
+        setStakeUiErrorMessage(msg);
+        return;
+      }
+
+      updateStakeStepStatus("FINALIZE", "completed");
+      setTrackingTxHash(null);
+      stopTransferPolling();
+      try {
+        await invalidateAllQueries();
+      } catch {
+        // no-op
+      }
+      setStepOverride(4);
+      setStakeUiState("review");
+    },
+    onError: (error) => {
+      const msg = error?.message || "Polling failed";
+      updateStakeStepStatus("FINALIZE", "error", { errorMessage: msg });
+      setStakeUiState("error");
+      setStakeUiErrorMessage(msg);
+    },
+  });
 
   const handleSetPct = React.useCallback(
     (pct: number) => {
@@ -595,11 +841,27 @@ export function MintAndStakeGctlDialog({
       onError: () => setEthUsdcQuoteWei(null),
     });
 
+  const isBusy =
+    isApproving ||
+    isSubmitting ||
+    isProcessing ||
+    isSwappingEth ||
+    stakeUiState === "processing" ||
+    isTransferPolling;
+
   const handleDialogOpenChange = React.useCallback(
     (nextOpen: boolean) => {
+      if (!nextOpen && isBusy) {
+        toast.error("Please wait for the current action to finish.");
+        return;
+      }
+
       onOpenChange(nextOpen);
 
       if (!nextOpen) {
+        stopTransferPolling();
+        resetTransferPolling();
+        setTrackingTxHash(null);
         if (hasPerformedAction) {
           void (async () => {
             try {
@@ -612,9 +874,22 @@ export function MintAndStakeGctlDialog({
         setStepOverride(null);
         setIsUnstakeAcknowledged(false);
         setHasPerformedAction(false);
+        setStakeUiState("review");
+        setStakeUiErrorMessage(null);
+        setStakeSteps([]);
+        stakeStepsRef.current = [];
+        setSuccessReceipt(null);
+        setSuccessScoreSnapshot(null);
       }
     },
-    [hasPerformedAction, invalidateAllQueries, onOpenChange]
+    [
+      hasPerformedAction,
+      invalidateAllQueries,
+      isBusy,
+      onOpenChange,
+      resetTransferPolling,
+      stopTransferPolling,
+    ]
   );
 
   const handleStakeExisting = React.useCallback(async () => {
@@ -644,6 +919,32 @@ export function MintAndStakeGctlDialog({
     });
 
     try {
+      setStakeUiState("processing");
+      setStakeUiErrorMessage(null);
+
+      const steps: TransactionStep[] = [
+        {
+          id: "SIGN_STAKE",
+          title: "Sign stake message",
+          description: "Wallet signature (no gas)",
+          status: "waiting_signature",
+        },
+        {
+          id: "SUBMIT_STAKE",
+          title: "Submit stake",
+          description: "Sending to Glow Control",
+          status: "idle",
+        },
+        {
+          id: "REFRESH",
+          title: "Refresh balances",
+          description: "Updating your dashboard",
+          status: "idle",
+        },
+      ];
+      setStakeSteps(steps);
+      stakeStepsRef.current = steps;
+
       setIsApproving(true);
       const atomicAmount = Math.round(amountNumber * 1_000_000).toString();
       const nonce = (Number(latestNonce) + 1).toString();
@@ -665,11 +966,18 @@ export function MintAndStakeGctlDialog({
 
       if (!signature) {
         setIsApproving(false);
+        updateStakeStepStatus("SIGN_STAKE", "error", {
+          errorMessage: "Signature missing",
+        });
+        setStakeUiState("error");
+        setStakeUiErrorMessage("Failed to sign message");
         toast.error("Failed to sign message");
         return;
       }
 
       setIsApproving(false);
+      updateStakeStepStatus("SIGN_STAKE", "completed");
+      updateStakeStepStatus("SUBMIT_STAKE", "confirming");
       setIsSubmitting(true);
 
       const result = await stakeGctlMutation.mutateAsync({
@@ -682,6 +990,8 @@ export function MintAndStakeGctlDialog({
       });
 
       setIsSubmitting(false);
+      updateStakeStepStatus("SUBMIT_STAKE", "completed");
+      updateStakeStepStatus("REFRESH", "confirming");
 
       if (result) {
         trackGctlEvent("gctl_stake_existing_success", {
@@ -690,8 +1000,24 @@ export function MintAndStakeGctlDialog({
           stake_amount_bucket: stakeAmountBucket,
         });
 
-        toast.success("GCTL staked successfully!");
-
+        // SUCCESS: Show the dopamine screen instead of closing
+        setSuccessReceipt({
+          regionId: selectedRegionId,
+          regionLabel: selectedRegionLabel || `Region ${selectedRegionId}`,
+          amountGctl: amountNumber,
+          deltaGlwPerWeek: inflationPreview?.deltaGlwPerWeek ?? null,
+          nextRegionSharePercent:
+            inflationPreview?.nextEmissionSharePercent ?? null,
+          scoreBoostPerWeekLabel:
+            steeringImpactQuote?.deltaPerWeekPoints ?? null,
+        });
+        const prevPoints = Math.max(0, Math.round(steeringScoreBefore));
+        const nextPoints = Math.max(0, Math.round(steeringScoreAfterPreview));
+        setSuccessScoreSnapshot({
+          prevSteeringPoints: prevPoints,
+          nextSteeringPoints: nextPoints,
+          deltaSteeringPoints: Math.max(0, nextPoints - prevPoints),
+        });
         setOptimisticHasGctlByAddress((prev) => {
           const key = (address as string | undefined)?.toLowerCase();
           if (!key) return prev;
@@ -700,22 +1026,33 @@ export function MintAndStakeGctlDialog({
         });
 
         await invalidateAllQueries();
-        setStepOverride(null);
+        updateStakeStepStatus("REFRESH", "completed");
+        setStepOverride(4); // Move to success step
         setIsUnstakeAcknowledged(false);
-        onOpenChange(false);
+        setStakeUiState("review");
       } else {
         throw new Error("Stake failed");
       }
     } catch (error) {
       setIsApproving(false);
       setIsSubmitting(false);
+      const msg = getErrorMessage(error);
+      setStakeUiState("error");
+      setStakeUiErrorMessage(msg);
+      const currentSteps = stakeStepsRef.current;
+      const activeStep = currentSteps.find(
+        (s) => s.status === "waiting_signature" || s.status === "confirming"
+      );
+      if (activeStep)
+        updateStakeStepStatus(activeStep.id, "error", { errorMessage: msg });
+
       trackGctlEvent("gctl_stake_existing_error", {
         step,
         region_id: selectedRegionId,
-        error_message: getErrorMessage(error),
+        error_message: msg,
       });
       toast.error("Failed to stake GCTL", {
-        description: getErrorMessage(error),
+        description: msg,
       });
     }
   }, [
@@ -725,12 +1062,18 @@ export function MintAndStakeGctlDialog({
     isConnected,
     isUnstakeAcknowledged,
     latestNonce,
-    onOpenChange,
     selectedRegionId,
     signer,
     stakeGctlMutation,
     step,
     trackGctlEvent,
+    inflationPreview?.deltaGlwPerWeek,
+    inflationPreview?.nextEmissionSharePercent,
+    selectedRegionLabel,
+    steeringScoreAfterPreview,
+    steeringScoreBefore,
+    steeringImpactQuote?.deltaPerWeekPoints,
+    updateStakeStepStatus,
   ]);
 
   const handleSubmit = React.useCallback(async () => {
@@ -777,7 +1120,52 @@ export function MintAndStakeGctlDialog({
     });
 
     try {
-      let stage: "swap_eth" | "allowance" | "approve" | "mint" = "allowance";
+      setStakeUiState("processing");
+      setStakeUiErrorMessage(null);
+      setTrackingTxHash(null);
+      resetTransferPolling();
+
+      const steps: TransactionStep[] = [];
+      if (selectedCurrency === "ETH") {
+        steps.push({
+          id: "SWAP_ETH_TO_USDC",
+          title: "Swap ETH → USDC",
+          description: "Converting via Uniswap",
+          tokenFrom: "ETH",
+          tokenTo: "USDC",
+          status: "waiting_signature",
+        });
+      }
+      steps.push(
+        {
+          id: "CHECK_ALLOWANCE",
+          title: "Check allowance",
+          description: "Verifying token permissions",
+          status: "idle",
+        },
+        {
+          id: "APPROVE",
+          title: "Approve token",
+          description: "One-time approval (if needed)",
+          status: "idle",
+        },
+        {
+          id: "MINT_AND_STAKE",
+          title: "Mint & Stake GCTL",
+          description: "Submitting transaction",
+          status: "idle",
+        },
+        {
+          id: "FINALIZE",
+          title: "Finalize",
+          description: "Waiting for confirmation",
+          status: "idle",
+        }
+      );
+
+      setStakeSteps(steps);
+      stakeStepsRef.current = steps;
+
       let amountAtomic = toAtomic6(amountNumber);
       let mintCurrency: Currency = selectedCurrency as unknown as Currency;
 
@@ -787,8 +1175,8 @@ export function MintAndStakeGctlDialog({
           return;
         }
 
-        stage = "swap_eth";
         setIsSwappingEth(true);
+        updateStakeStepStatus("SWAP_ETH_TO_USDC", "confirming");
         const amountInWei = parseUnits(
           trimToDecimals(amountInput, ETH_DECIMALS),
           ETH_DECIMALS
@@ -805,23 +1193,29 @@ export function MintAndStakeGctlDialog({
 
         amountAtomic = swapRes.val.usdcReceived;
         mintCurrency = "USDC" as Currency;
+        updateStakeStepStatus("SWAP_ETH_TO_USDC", "completed");
       }
 
       setIsApproving(true);
-      stage = "allowance";
+      updateStakeStepStatus("CHECK_ALLOWANCE", "confirming");
       const allowance = await checkTokenAllowance(
         address as string,
         mintCurrency
       );
+      updateStakeStepStatus("CHECK_ALLOWANCE", "completed");
       if (allowance < amountAtomic) {
-        stage = "approve";
+        updateStakeStepStatus("APPROVE", "waiting_signature");
         await approveToken(MAX_UINT256, mintCurrency);
+        updateStakeStepStatus("APPROVE", "completed");
         toast.success(`${String(mintCurrency)} approved`);
+      } else {
+        updateStakeStepStatus("APPROVE", "completed");
       }
       setIsApproving(false);
 
       setIsSubmitting(true);
-      stage = "mint";
+      updateStakeStepStatus("MINT_AND_STAKE", "waiting_signature");
+      updateStakeStepStatus("MINT_AND_STAKE", "confirming");
       const txHash = await mintGCTLAndStake(
         amountAtomic,
         address as string,
@@ -829,6 +1223,7 @@ export function MintAndStakeGctlDialog({
         mintCurrency
       );
       setIsSubmitting(false);
+      updateStakeStepStatus("MINT_AND_STAKE", "completed");
 
       trackGctlEvent("gctl_mint_stake_tx_sent", {
         step,
@@ -840,9 +1235,10 @@ export function MintAndStakeGctlDialog({
         tx_hash: txHash,
       });
 
-      setProcessingTxHash(txHash);
-      setIsProcessingModalOpen(true);
       setHasPerformedAction(true);
+      setTrackingTxHash(txHash);
+      updateStakeStepStatus("FINALIZE", "confirming");
+      startTransferPolling();
 
       setOptimisticHasGctlByAddress((prev) => {
         const key = (address as string | undefined)?.toLowerCase();
@@ -850,20 +1246,46 @@ export function MintAndStakeGctlDialog({
         if (prev[key]) return prev;
         return { ...prev, [key]: true };
       });
+
+      setSuccessReceipt({
+        regionId: selectedRegionId,
+        regionLabel: selectedRegionLabel || `Region ${selectedRegionId}`,
+        amountGctl: estimatedGctl ?? 0,
+        deltaGlwPerWeek: inflationPreview?.deltaGlwPerWeek ?? null,
+        nextRegionSharePercent:
+          inflationPreview?.nextEmissionSharePercent ?? null,
+        scoreBoostPerWeekLabel: steeringImpactQuote?.deltaPerWeekPoints ?? null,
+      });
+      const prevPoints = Math.max(0, Math.round(steeringScoreBefore));
+      const nextPoints = Math.max(0, Math.round(steeringScoreAfterPreview));
+      setSuccessScoreSnapshot({
+        prevSteeringPoints: prevPoints,
+        nextSteeringPoints: nextPoints,
+        deltaSteeringPoints: Math.max(0, nextPoints - prevPoints),
+      });
     } catch (error) {
       setIsApproving(false);
       setIsSubmitting(false);
       setIsSwappingEth(false);
+      const msg = getErrorMessage(error);
+      setStakeUiState("error");
+      setStakeUiErrorMessage(msg);
+      const currentSteps = stakeStepsRef.current;
+      const activeStep = currentSteps.find(
+        (s) => s.status === "waiting_signature" || s.status === "confirming"
+      );
+      if (activeStep)
+        updateStakeStepStatus(activeStep.id, "error", { errorMessage: msg });
       trackGctlEvent("gctl_mint_stake_error", {
         step,
         region_id: selectedRegionId,
         pay_currency: selectedCurrency,
         pay_amount_bucket: payAmountBucket,
         minted_gctl_bucket: mintedGctlBucket,
-        error_message: getErrorMessage(error),
+        error_message: msg,
       });
       toast.error("Failed to mint & stake GCTL", {
-        description: getErrorMessage(error),
+        description: msg,
       });
     }
   }, [
@@ -881,11 +1303,20 @@ export function MintAndStakeGctlDialog({
     mintGCTLAndStake,
     selectedCurrency,
     selectedRegionId,
+    selectedRegionLabel,
     signer,
     stakeMode,
     swapEthToUsdc,
     trackGctlEvent,
     step,
+    inflationPreview?.deltaGlwPerWeek,
+    inflationPreview?.nextEmissionSharePercent,
+    resetTransferPolling,
+    startTransferPolling,
+    steeringImpactQuote?.deltaPerWeekPoints,
+    steeringScoreAfterPreview,
+    steeringScoreBefore,
+    updateStakeStepStatus,
   ]);
 
   const regionsForSelection = React.useMemo(() => {
@@ -922,15 +1353,17 @@ export function MintAndStakeGctlDialog({
 
   const dialogTitle = React.useMemo(() => {
     if (step === 1) return "Introduction";
-    if (step === 2) return "Choose a Region";
+    if (step === 2) return "Choose Target";
+    if (step === 4) return "Impact Activated";
     if (selectedRegionLabel) {
       if (stakeMode === "stake") return `Stake to ${selectedRegionLabel}`;
       return `Mint & Stake to ${selectedRegionLabel}`;
     }
-    return stakeMode === "stake" ? "Stake" : "Mint & Stake";
+    return stakeMode === "stake" ? "Stake Power" : "Mint & Stake";
   }, [selectedRegionLabel, stakeMode, step]);
 
   const handleBack = React.useCallback(() => {
+    if (isBusy) return;
     if (step === 3) return setStepOverride(2);
     if (step === 2) {
       if (!hasAnyGctl) return setStepOverride(1);
@@ -938,7 +1371,7 @@ export function MintAndStakeGctlDialog({
       return;
     }
     handleDialogOpenChange(false);
-  }, [handleDialogOpenChange, hasAnyGctl, step]);
+  }, [handleDialogOpenChange, hasAnyGctl, isBusy, step]);
 
   const handleNext = React.useCallback(() => {
     if (step === 1) {
@@ -951,6 +1384,10 @@ export function MintAndStakeGctlDialog({
     if (step === 2) return setStepOverride(3);
   }, [isConnected, step]);
 
+  // Hide the close button in step 4 to force user to click the "Done" button (better closure)
+  const showHeaderClose = step !== 4;
+  const showProcessing = step === 3 && stakeUiState !== "review";
+
   return (
     <>
       <Dialog open={open} onOpenChange={handleDialogOpenChange}>
@@ -958,136 +1395,154 @@ export function MintAndStakeGctlDialog({
           showCloseButton={false}
           className="bg-background backdrop-blur-sm rounded-2xl p-0 sm:max-w-md w-full border-border overflow-hidden flex flex-col gap-0 max-h-[calc(100dvh-2rem)]"
         >
-          <DialogHeader className="px-5 py-4 border-b border-border/60">
-            <div className="flex items-center justify-between gap-3">
-              {step !== 1 ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2"
-                  onClick={handleBack}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="ml-1">Back</span>
-                </Button>
-              ) : (
-                <div className="h-8 w-[66px]" />
-              )}
-
-              <div className="min-w-0 text-center">
-                <DialogTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground truncate">
-                  {dialogTitle}
-                </DialogTitle>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                  Step {step}/3
-                </div>
-                <DialogClose asChild>
+          {/* Header */}
+          {step === 4 ? (
+            <></>
+          ) : (
+            <DialogHeader className="px-5 py-4 border-b border-border/60">
+              <div className="flex items-center justify-between gap-3">
+                {step !== 1 ? (
                   <Button
                     type="button"
                     variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    aria-label="Close"
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={handleBack}
+                    disabled={isBusy}
                   >
-                    <X className="h-4 w-4" />
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="ml-1">Back</span>
                   </Button>
-                </DialogClose>
+                ) : (
+                  <div className="h-8 w-[66px]" />
+                )}
+
+                <div className="min-w-0 text-center">
+                  <DialogTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground truncate">
+                    {dialogTitle}
+                  </DialogTitle>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                    Step {step}/3
+                  </div>
+                  {showHeaderClose && (
+                    <DialogClose asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        aria-label="Close"
+                        disabled={isBusy}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </DialogClose>
+                  )}
+                </div>
               </div>
-            </div>
-          </DialogHeader>
+            </DialogHeader>
+          )}
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 space-y-4">
             {step === 1 ? (
-              <div className="space-y-4">
-                <div className="rounded-xl border border-border bg-muted/10 p-4 space-y-3">
+              // STEP 1: INTRO
+              <div className="space-y-5">
+                <div className="rounded-xl border border-border bg-muted/10 p-5 space-y-3">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl border border-border bg-background/60 flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-lg border border-border bg-background flex items-center justify-center">
                       <Sun className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div>
                       <div className="text-base font-semibold">
-                        Take Control of the Grid
+                        Glow Control (GCTL)
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Introduction
+                        Governance • Impact • Rewards
                       </div>
                     </div>
                   </div>
 
-                  <div className="text-sm text-muted-foreground">
-                    GCTL is not just a token; it&apos;s voting power that
-                    directs where solar infrastructure gets built.
+                  <div className="text-sm text-muted-foreground leading-relaxed">
+                    GCTL is the governance power that directs where solar
+                    infrastructure is built. By staking to a region, you direct{" "}
+                    <span className="text-foreground font-medium">GLW</span>{" "}
+                    emissions to fund solar farms there.
                   </div>
 
-                  <div className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">
-                      Important:
-                    </span>{" "}
-                    GCTL is currently an{" "}
-                    <span className="font-medium text-foreground">
-                      offchain asset,
-                    </span>{" "}
-                    it can&apos;t be sold or transferred yet.
+                  <div className="pt-1">
+                    <div className="p-3 bg-glow-orange/5 border border-glow-orange/10 rounded-lg">
+                      <div className="text-[10px] font-bold text-glow-orange flex items-center gap-1.5 uppercase tracking-wider">
+                        Off-chain Asset
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                        GCTL is currently managed off-chain. It is{" "}
+                        <span className="text-foreground font-medium">
+                          non-transferable
+                        </span>{" "}
+                        and cannot be sold or traded at this time.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="text-sm font-semibold">
-                    Why Mint &amp; Stake?
+                <div className="space-y-1">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider pl-1 pb-1">
+                    Your Benefits
                   </div>
-                  <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-5">
-                    <li>
-                      Steer protocol emissions: you decide which regions build
-                      more solar power.
-                    </li>
-                    <li>Maximize impact: earn 3 pts/GLW on the leaderboard.</li>
-                  </ul>
-                </div>
-
-                <div className="rounded-xl border border-border bg-muted/10 p-4 text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    IMPORTANT:
-                  </span>{" "}
-                  GCTL is a long-term commitment. Unstaking takes ~100 weeks (1%
-                  released per week).
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <Link
-                      href="https://glow.org/blog/beginner-guide-to-gctl"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="underline underline-offset-4 text-muted-foreground hover:text-foreground"
-                    >
-                      Learn more
-                    </Link>
+                  <div className="rounded-xl border border-border bg-muted/5 divide-y divide-border/40">
+                    <div className="p-3.5 flex items-start gap-3">
+                      <Zap className="h-4 w-4 text-cyan-500 mt-0.5" />
+                      <div>
+                        <div className="text-sm font-medium">
+                          Boost Impact Score
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          Earn 3 pts per GLW steered on the leaderboard.
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-3.5 flex items-start gap-3">
+                      <Check className="h-4 w-4 text-zinc-500 mt-0.5" />
+                      <div>
+                        <div className="text-sm font-medium">
+                          Direct Protocol Rewards
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          You decide which regions receive funding.
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 {!isConnected ? (
-                  <div className="space-y-3">
-                    <div className="text-sm text-muted-foreground">
-                      Connect your wallet to continue.
-                    </div>
+                  <div className="pt-2">
                     <ConnectButton variant="default" size="medium" />
                   </div>
-                ) : null}
-
-                {isConnected ? (
-                  <Button type="button" className="w-full" onClick={handleNext}>
-                    Get Started
+                ) : (
+                  <Button
+                    type="button"
+                    className="w-full h-11 text-sm font-medium"
+                    onClick={handleNext}
+                  >
+                    Start Staking
                   </Button>
-                ) : null}
+                )}
               </div>
             ) : step === 2 ? (
+              // STEP 2: SELECT REGION
               <div className="space-y-4">
-                <div className="text-sm font-semibold">
-                  Where should the GLW rewards flow?
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium">Select Region</div>
+                  <div className="text-xs text-muted-foreground">
+                    Where to direct GLW?
+                  </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="grid gap-2">
                   {regionsForSelection.regions.map((r) => {
                     const isSelected = selectedRegionId === r.id;
                     const share =
@@ -1104,27 +1559,25 @@ export function MintAndStakeGctlDialog({
                         key={r.id}
                         type="button"
                         onClick={() => setSelectedRegionId(r.id)}
-                        className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
+                        className={cn(
+                          "relative w-full rounded-xl border px-4 py-3.5 text-left transition-all",
                           isSelected
-                            ? "border-primary/40 bg-muted/20"
-                            : "border-border bg-muted/10 hover:bg-muted/20"
-                        }`}
+                            ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
+                            : "border-border bg-muted/5 hover:bg-muted/10 hover:border-border/80"
+                        )}
                       >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium truncate">
-                              {r.name}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Current Share: {shareLabel} of total emissions
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm font-medium">{r.name}</div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              Current Share: {shareLabel}
                             </div>
                           </div>
-
-                          {regionsForSelection.mostActiveId === r.id ? (
-                            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                              MOST ACTIVE
+                          {isSelected && (
+                            <div className="h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center">
+                              <div className="h-2 w-2 rounded-full bg-primary" />
                             </div>
-                          ) : null}
+                          )}
                         </div>
                       </button>
                     );
@@ -1133,279 +1586,444 @@ export function MintAndStakeGctlDialog({
 
                 <Button
                   type="button"
-                  className="w-full"
+                  className="w-full mt-2"
                   onClick={handleNext}
                   disabled={!selectedRegionId || isRegionsLoading}
                 >
-                  Next
+                  Continue
                 </Button>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                  <div className="text-sm font-semibold">Input Amount</div>
-                  <div className="text-xs text-muted-foreground font-mono sm:text-right">
-                    Avail:{" "}
-                    {formatTokenAmount(maxAmountNumber, {
-                      maximumFractionDigits:
-                        stakeMode === "stake"
-                          ? 2
-                          : selectedCurrency === "ETH"
-                          ? 6
-                          : 2,
-                    })}{" "}
-                    {stakeMode === "stake" ? "GCTL" : selectedCurrency}
+            ) : step === 3 ? (
+              // STEP 3: AMOUNT & CONFIRM
+              <div className="space-y-6">
+                {showProcessing ? (
+                  <div className="space-y-5">
+                    <div className="text-center space-y-2">
+                      <div className="flex items-center justify-center mx-auto">
+                        {stakeUiState === "processing" ? (
+                          <div className="flex items-center justify-center">
+                            <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : (
+                          <div className="h-14 w-14 rounded-full bg-destructive/15 border border-destructive/30 flex items-center justify-center">
+                            <X className="h-8 w-8 text-destructive" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-xl font-semibold text-foreground">
+                        {stakeUiState === "processing"
+                          ? "Processing"
+                          : "Transaction Failed"}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {stakeUiState === "processing"
+                          ? trackingTxHash
+                            ? `Finalizing (≈ ${transferCountdown}s)…`
+                            : "Follow the steps below in your wallet."
+                          : "We couldn’t complete your transaction."}
+                      </div>
+                    </div>
+
+                    {stakeSteps.length > 0 ? (
+                      <div className="bg-muted/20 border border-border/50 rounded-2xl p-4">
+                        <TransactionStepper
+                          steps={stakeSteps}
+                          chainId={wagmiChainId}
+                        />
+                      </div>
+                    ) : null}
+
+                    {stakeUiState === "error" && stakeUiErrorMessage ? (
+                      <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl">
+                        <p className="text-sm text-destructive break-words">
+                          {stakeUiErrorMessage}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {stakeUiState === "error" ? (
+                      <div className="flex gap-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => handleDialogOpenChange(false)}
+                          className="flex-1"
+                        >
+                          Close
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setStakeUiState("review");
+                            setStakeUiErrorMessage(null);
+                            setStakeSteps([]);
+                            stakeStepsRef.current = [];
+                            stopTransferPolling();
+                            resetTransferPolling();
+                            setTrackingTxHash(null);
+                          }}
+                          className="flex-1"
+                        >
+                          Try Again
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
-                </div>
+                ) : null}
 
-                <div className="rounded-xl border border-border bg-muted/10 px-4 py-3">
-                  <div className="flex items-center justify-between gap-3 min-w-0">
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="0.00"
-                      value={amountInput}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (!isValidDecimalInput(v)) return;
-                        setAmountInput(v);
-                        if (stakeMode === "stake" || selectedCurrency !== "ETH")
-                          return;
-                        if (!v || Number(v) <= 0) {
-                          setEthUsdcQuoteWei(null);
-                          return;
-                        }
-                        runEthUsdcQuote(v);
-                      }}
-                      className="border-0 bg-transparent p-0 h-10 text-lg font-mono tabular-nums focus-visible:ring-0 min-w-0"
-                    />
+                {showProcessing ? null : (
+                  <>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between px-1">
+                        <div className="text-sm font-medium">Input Amount</div>
+                        <div className="text-xs font-mono text-muted-foreground">
+                          Available:{" "}
+                          {formatTokenAmount(maxAmountNumber, {
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          {stakeMode === "stake" ? "GCTL" : selectedCurrency}
+                        </div>
+                      </div>
 
-                    <Select
-                      value={selectedCurrency}
-                      onValueChange={(v) => {
-                        setSelectedCurrency(v as SourceCurrency);
-                        setAmountInput("");
-                        setEthUsdcQuoteWei(null);
-                      }}
-                    >
-                      <SelectTrigger className="h-9 w-[110px] rounded-full bg-background/60">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent align="end">
-                        {unstkedGctlBalanceNumber > 0 ? (
-                          <SelectItem value="GCTL">
-                            <span className="flex items-center gap-2">
-                              <span>GCTL</span>
-                              <span className="text-xs text-muted-foreground">
-                                (
-                                {formatTokenAmount(unstkedGctlBalanceNumber, {
-                                  maximumFractionDigits: 0,
-                                })}
-                                )
+                      <div className="p-4 rounded-xl border border-border bg-muted/5 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            value={amountInput}
+                            disabled={isBusy}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (!isValidDecimalInput(v)) return;
+                              setAmountInput(v);
+                              if (
+                                stakeMode === "stake" ||
+                                selectedCurrency !== "ETH"
+                              )
+                                return;
+                              if (!v || Number(v) <= 0) {
+                                setEthUsdcQuoteWei(null);
+                                return;
+                              }
+                              runEthUsdcQuote(v);
+                            }}
+                            className="flex-1 border-0 bg-transparent p-0 text-2xl font-mono tabular-nums focus-visible:ring-0 placeholder:text-muted-foreground/30 h-auto"
+                          />
+                          <Select
+                            value={selectedCurrency}
+                            disabled={isBusy}
+                            onValueChange={(v) => {
+                              setSelectedCurrency(v as SourceCurrency);
+                              setAmountInput("");
+                              setEthUsdcQuoteWei(null);
+                            }}
+                          >
+                            <SelectTrigger className="w-auto min-w-[90px] h-9 rounded-lg bg-muted/20 border-border/50 text-xs font-medium gap-2">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent align="end">
+                              {unstkedGctlBalanceNumber > 0 ? (
+                                <SelectItem value="GCTL">GCTL</SelectItem>
+                              ) : null}
+                              <SelectItem value="USDC">USDC</SelectItem>
+                              <SelectItem value="USDG">USDG</SelectItem>
+                              {isEthPayEnabled ? (
+                                <SelectItem value="ETH">ETH</SelectItem>
+                              ) : null}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="pt-2 border-t border-border/30">
+                          <Slider
+                            value={[sliderPct]}
+                            disabled={isBusy}
+                            onValueChange={(value) => {
+                              const pct = value[0] ?? 0;
+                              handleSetPct(pct);
+                            }}
+                            max={100}
+                            step={1}
+                            className="w-full"
+                          />
+                          <div className="flex justify-between mt-2">
+                            {[25, 50, 75, 100].map((p) => (
+                              <button
+                                key={p}
+                                onClick={() => handleSetPct(p)}
+                                disabled={isBusy}
+                                className="text-[10px] font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted/50 transition-colors"
+                              >
+                                {p}%
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider pl-1">
+                        Impact Preview
+                      </div>
+                      <div className="rounded-xl border border-border bg-muted/5 overflow-hidden">
+                        <div className="p-4 border-b border-border/30 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full bg-cyan-500/10 flex items-center justify-center">
+                              <Zap className="h-4 w-4 text-cyan-500" />
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium">
+                                Rewards Directed
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                to {selectedRegionLabel || "Region"}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-mono font-semibold text-foreground">
+                              {inflationPreview ? (
+                                <>
+                                  +
+                                  {formatCompact(
+                                    inflationPreview.deltaGlwPerWeek
+                                  )}
+                                </>
+                              ) : (
+                                "—"
+                              )}
+                            </div>
+                            <div className="text-xs font-medium text-cyan-600 dark:text-cyan-400">
+                              GLW/week
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 divide-x divide-border/30 bg-muted/10">
+                          <div className="p-3 text-center">
+                            <div className="text-[10px] text-muted-foreground font-mono uppercase">
+                              Score Boost
+                            </div>
+                            <div className="mt-0.5 font-mono text-sm text-foreground">
+                              {steeringImpactQuote ? (
+                                <>+{steeringImpactQuote.deltaPerWeekPoints}</>
+                              ) : (
+                                "—"
+                              )}
+                              <span className="text-xs text-muted-foreground ml-1">
+                                pts
                               </span>
-                            </span>
-                          </SelectItem>
-                        ) : null}
-                        <SelectItem value="USDC">USDC</SelectItem>
-                        <SelectItem value="USDG">USDG</SelectItem>
-                        {isEthPayEnabled ? (
-                          <SelectItem value="ETH">ETH</SelectItem>
-                        ) : null}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {stakeMode === "mint" ? (
-                  <div className="text-xs font-mono text-muted-foreground">
-                    ≈{" "}
-                    {isEthQuoteRunning && selectedCurrency === "ETH"
-                      ? "Estimating…"
-                      : estimatedGctl
-                      ? formatTokenAmount(estimatedGctl, {
-                          maximumFractionDigits: 2,
-                        })
-                      : "0"}{" "}
-                    GCTL (Auto-staked)
-                  </div>
-                ) : null}
-
-                {isOverBalance ? (
-                  <div className="text-xs text-destructive">
-                    Amount exceeds your available{" "}
-                    {stakeMode === "stake" ? "GCTL" : selectedCurrency} balance
-                  </div>
-                ) : null}
-
-                {stakeMode === "mint" && selectedCurrency === "ETH" ? (
-                  <div className="text-[10px] text-muted-foreground">
-                    You'll swap ETH → USDC on Uniswap, then mint &amp; stake.
-                  </div>
-                ) : null}
-
-                <div className="px-1 pt-2">
-                  <Slider
-                    value={[sliderPct]}
-                    onValueChange={(value) => {
-                      const pct = value[0] ?? 0;
-                      handleSetPct(pct);
-                    }}
-                    max={100}
-                    step={1}
-                    className="w-full"
-                  />
-                </div>
-                <div className="flex justify-between gap-1">
-                  {[25, 50, 75, 100].map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => handleSetPct(p)}
-                      className="text-[10px] font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted transition-colors"
-                    >
-                      {p === 100 ? "Max" : `${p}%`}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="h-px bg-border/60" />
-
-                <div className="rounded-xl border border-border bg-muted/10 p-4">
-                  <div className="text-center space-y-1">
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                      You're adding to{" "}
-                      {inflationPreview?.regionName ??
-                        selectedRegionLabel ??
-                        "this region"}
+                            </div>
+                          </div>
+                          <div className="p-3 text-center">
+                            <div className="text-[10px] text-muted-foreground font-mono uppercase">
+                              Region Share
+                            </div>
+                            <div className="mt-0.5 font-mono text-sm text-foreground">
+                              {inflationPreview ? (
+                                <>
+                                  {formatPercent1(
+                                    inflationPreview.nextEmissionSharePercent
+                                  )}
+                                  %
+                                </>
+                              ) : (
+                                "—"
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="font-mono text-3xl font-bold tracking-tight text-foreground">
-                      {inflationPreview ? (
-                        <>
-                          +
-                          {formatCompact(inflationPreview.deltaGlwPerWeek, {
-                            maximumFractionDigits: 0,
-                          })}
-                          <span className="text-lg text-muted-foreground ml-1">
-                            GLW/week
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </div>
-                  </div>
 
-                  <div className="mt-3 pt-3 border-t border-border/60 flex items-center justify-center gap-4 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
-                      <span>Share:</span>
-                      {inflationPreview ? (
-                        <span className="font-mono text-foreground">
-                          {formatPercent1(
-                            inflationPreview.currentEmissionSharePercent
-                          )}
-                          %<span className="text-muted-foreground mx-1">→</span>
-                          {formatPercent1(
-                            inflationPreview.nextEmissionSharePercent
-                          )}
-                          %
-                        </span>
-                      ) : (
-                        <span className="font-mono">—</span>
-                      )}
-                    </div>
-                    <div className="h-3 w-px bg-border/60" />
-                    <div className="flex items-center gap-1.5">
-                      <span>Your Impact Pts:</span>
-                      {steeringImpactQuote ? (
-                        <span className="font-mono text-foreground">
-                          +{steeringImpactQuote.deltaPerWeekPoints}/wk
-                        </span>
-                      ) : (
-                        <span className="font-mono">—</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                    <div className="pt-2">
+                      <div className="flex items-start gap-2 mb-4 px-1">
+                        <Checkbox
+                          id="unstake-ack"
+                          checked={isUnstakeAcknowledged}
+                          disabled={isBusy}
+                          onCheckedChange={(v) =>
+                            setIsUnstakeAcknowledged(Boolean(v))
+                          }
+                          className="mt-0.5 border-muted-foreground/40"
+                        />
+                        <Label
+                          htmlFor="unstake-ack"
+                          className="text-xs text-muted-foreground leading-relaxed cursor-pointer select-none"
+                        >
+                          I understand that unstaking GCTL takes{" "}
+                          <span className="font-medium text-foreground">
+                            ~100 weeks
+                          </span>{" "}
+                          (1% release/week).
+                        </Label>
+                      </div>
 
-                <div className="flex items-start gap-2">
-                  <Checkbox
-                    id="unstake-ack"
-                    checked={isUnstakeAcknowledged}
-                    onCheckedChange={(v) =>
-                      setIsUnstakeAcknowledged(Boolean(v))
-                    }
-                    className="mt-0.5 border-accent"
-                  />
-                  <Label
-                    htmlFor="unstake-ack"
-                    className="text-sm text-muted-foreground leading-5 cursor-pointer"
-                  >
-                    I understand the{" "}
-                    <span className="font-medium text-accent">1%</span> weekly
-                    unstaking rule.{" "}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setIsUnstakingModalOpen(true);
-                      }}
-                      className="text-accent hover:text-accent/80 underline underline-offset-4 font-medium"
-                    >
-                      Learn more
-                    </button>
-                  </Label>
-                </div>
+                      <Button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={
+                          isSubmitDisabled || isApproving || isSubmitting
+                        }
+                        className="w-full h-11"
+                      >
+                        {isSwappingEth
+                          ? "Swapping ETH..."
+                          : isApproving
+                          ? stakeMode === "stake"
+                            ? "Signing..."
+                            : "Approving..."
+                          : isSubmitting
+                          ? stakeMode === "stake"
+                            ? "Confirming..."
+                            : "Minting..."
+                          : isProcessing
+                          ? "Finalizing..."
+                          : stakeMode === "stake"
+                          ? "Confirm Stake"
+                          : "Confirm Mint & Stake"}
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
+            ) : (
+              <SuccessLevelUp
+                receipt={successReceipt}
+                score={successScoreSnapshot}
+                onDone={() => handleDialogOpenChange(false)}
+              />
             )}
           </div>
-
-          {step === 3 ? (
-            <div className="border-t border-border/60 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] flex">
-              <Button
-                type="button"
-                onClick={handleSubmit}
-                disabled={isSubmitDisabled || isApproving || isSubmitting}
-                className="w-full sm:w-auto sm:ml-auto"
-              >
-                {isSwappingEth
-                  ? "Swapping ETH..."
-                  : isApproving
-                  ? stakeMode === "stake"
-                    ? "Signing..."
-                    : "Approving..."
-                  : isSubmitting
-                  ? stakeMode === "stake"
-                    ? "Staking..."
-                    : "Minting..."
-                  : isProcessing
-                  ? "Indexing..."
-                  : stakeMode === "stake"
-                  ? `Stake ${toWholeNumberString(estimatedGctl ?? 0)} GCTL`
-                  : `Mint & Stake ${toWholeNumberString(
-                      estimatedGctl ?? 0
-                    )} GCTL`}
-              </Button>
-            </div>
-          ) : null}
         </DialogContent>
       </Dialog>
-
-      <ProcessingModal
-        isOpen={isProcessingModalOpen}
-        trackingTxHash={processingTxHash}
-        onConfirmed={() => {
-          void invalidateAllQueries();
-        }}
-        onClose={() => {
-          setIsProcessingModalOpen(false);
-          setProcessingTxHash(null);
-          invalidateAllQueries();
-        }}
-      />
 
       <UnstakingExplanationModal
         open={isUnstakingModalOpen}
         onOpenChange={setIsUnstakingModalOpen}
       />
     </>
+  );
+}
+
+function SuccessLevelUp(props: {
+  receipt: {
+    regionId: number;
+    regionLabel: string;
+    amountGctl: number;
+    deltaGlwPerWeek: number | null;
+    nextRegionSharePercent: number | null;
+    scoreBoostPerWeekLabel: string | null;
+  } | null;
+  score: {
+    prevSteeringPoints: number;
+    nextSteeringPoints: number;
+    deltaSteeringPoints: number;
+  } | null;
+  onDone: () => void;
+}) {
+  const { receipt, score, onDone } = props;
+
+  const prev = Math.max(0, Math.floor(score?.prevSteeringPoints ?? 0));
+  const next = Math.max(0, Math.floor(score?.nextSteeringPoints ?? prev));
+  const delta = Math.max(0, next - prev);
+
+  const count = useMotionValue(prev);
+  const rounded = useTransform(count, (latest) => Math.round(latest));
+
+  React.useEffect(() => {
+    const anim = animate(count, next, {
+      duration: 1.1,
+      ease: [0.43, 0.13, 0.23, 0.96],
+    });
+    return () => anim.stop();
+  }, [count, next]);
+
+  return (
+    <div className="flex flex-col items-center justify-center py-3 space-y-5 animate-in fade-in zoom-in-95 duration-300">
+      <div className="text-center space-y-1.5">
+        <div className="text-xl font-semibold text-foreground">
+          Impact Activated
+        </div>
+        <div className="text-sm text-muted-foreground">
+          Your Governance Power is now live and directing rewards.
+        </div>
+        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1">
+          <Zap className="h-3.5 w-3.5 text-cyan-500" />
+          <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
+            Steering Score
+          </span>
+        </div>
+      </div>
+
+      <div className="relative">
+        <div className="absolute inset-0 bg-cyan-500/20 blur-3xl rounded-full" />
+        <SegmentedCircleProgress
+          totalSteps={100}
+          filledBeforeSteps={0}
+          userSteps={100}
+          label={
+            <div className="flex flex-col items-center justify-center">
+              <motion.span className="text-4xl font-bold tracking-tight font-mono text-foreground tabular-nums">
+                {rounded}
+              </motion.span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                pts
+              </span>
+            </div>
+          }
+          sublabel={
+            <span className="text-xs text-cyan-600 dark:text-cyan-400 font-medium">
+              +{delta.toLocaleString()} gained
+            </span>
+          }
+          userColor="rgba(6,182,212,0.9)"
+          otherColor="rgba(6,182,212,0.25)"
+          size={210}
+          strokeWidth={12}
+        />
+      </div>
+
+      {receipt ? (
+        <div className="w-full rounded-xl border border-border bg-muted/5 overflow-hidden">
+          <div className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground font-medium">
+                Region
+              </span>
+              <span className="text-sm font-semibold text-foreground">
+                {receipt.regionLabel}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground font-medium">
+                Power Activated
+              </span>
+              <span className="text-sm font-mono font-semibold text-foreground">
+                {formatTokenAmount(receipt.amountGctl, {
+                  maximumFractionDigits: 2,
+                })}{" "}
+                GCTL
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground font-medium">
+                GLW Directed
+              </span>
+              <span className="text-sm font-mono font-semibold text-foreground">
+                {receipt.deltaGlwPerWeek != null
+                  ? `+${formatCompact(receipt.deltaGlwPerWeek)}`
+                  : "—"}
+                /wk
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <Button onClick={onDone} className="w-full h-11">
+        Done
+      </Button>
+    </div>
   );
 }

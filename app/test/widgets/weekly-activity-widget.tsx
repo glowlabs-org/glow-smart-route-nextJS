@@ -29,10 +29,10 @@ import { useAccount } from "wagmi";
 type WeekStatus = "missed" | "delegated" | "miner" | "both";
 
 function getWeekStyle(status: WeekStatus) {
-  if (status === "delegated") return "bg-delegation-purple/25";
-  if (status === "miner") return "bg-[color:var(--color-miner)]/25";
-  if (status === "both") return "bg-[#4ADE80]/25";
-  return "bg-muted";
+  if (status === "delegated") return "bg-delegation-purple/50";
+  if (status === "miner") return "bg-[color:var(--color-miner)]/50";
+  if (status === "both") return "bg-[#4ADE80]/50";
+  return "bg-muted/60";
 }
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
@@ -307,41 +307,6 @@ export default function WeeklyActivityWidget({
     [weekCells]
   );
 
-  const maxAmounts = React.useMemo(() => {
-    const maxDelegation = Math.max(
-      ...weekCells.map((w) => w.delegationAmount),
-      0
-    );
-    const maxMiner = Math.max(...weekCells.map((w) => w.minerAmount), 0);
-    return { maxDelegation, maxMiner };
-  }, [weekCells]);
-
-  const getWeekOpacity = React.useCallback(
-    (cell: WeekCell) => {
-      const { status, delegationAmount, minerAmount } = cell;
-      if (status === "missed") return 0.15;
-
-      const delegationRatio =
-        maxAmounts.maxDelegation > 0
-          ? delegationAmount / maxAmounts.maxDelegation
-          : 0;
-      const minerRatio =
-        maxAmounts.maxMiner > 0 ? minerAmount / maxAmounts.maxMiner : 0;
-
-      if (status === "both") {
-        return Math.max(delegationRatio, minerRatio) * 0.8 + 0.2;
-      }
-      if (status === "delegated") {
-        return delegationRatio * 0.8 + 0.2;
-      }
-      if (status === "miner") {
-        return minerRatio * 0.8 + 0.2;
-      }
-      return 0.25;
-    },
-    [maxAmounts]
-  );
-
   const streakWeeks = React.useMemo(() => {
     if (!weekRange) return 0;
     if (!weekCells.length) return 0;
@@ -408,14 +373,14 @@ export default function WeeklyActivityWidget({
 
               <div
                 aria-hidden
-                className="flex flex-1 min-h-0 items-center justify-center blur-[1.5px] opacity-60"
+                className="flex flex-1 min-h-0 items-center justify-center blur-[2px] opacity-50"
               >
                 <div className="grid grid-cols-8 grid-rows-3 gap-2">
                   {PLACEHOLDER_CELLS.map((status, idx) => (
                     <div
                       key={`placeholder-${idx}`}
                       className={cn(
-                        "h-7 w-7 sm:h-8 sm:w-8 rounded-xl border border-border/60",
+                        "h-7 w-7 sm:h-8 sm:w-8 rounded-xl border border-border/80",
                         getWeekStyle(status)
                       )}
                     />
@@ -483,32 +448,43 @@ export default function WeeklyActivityWidget({
                   >
                     {weekCells.map((cell) => {
                       const isCurrentWeek = cell.week === currentWeek;
-                      const opacity = getWeekOpacity(cell);
-                      const baseColor =
-                        cell.status === "delegated"
-                          ? "var(--color-delegation-purple)"
-                          : cell.status === "miner"
-                          ? "var(--color-miner)"
-                          : cell.status === "both"
-                          ? "#4ADE80"
-                          : "hsl(var(--muted))";
+                      const isMissed = cell.status === "missed";
+                      const isMissedPastWeek = isMissed && !isCurrentWeek;
 
                       return (
                         <Tooltip key={cell.id}>
                           <TooltipTrigger asChild>
                             <div
                               className={cn(
-                                "h-7 w-7 sm:h-8 sm:w-8 rounded-xl border border-border/60",
-                                "outline-none focus-visible:ring-2 focus-visible:ring-foreground/10 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                                "hover:ring-2 hover:ring-foreground/10 hover:ring-offset-2 hover:ring-offset-background",
-                                isCurrentWeek && "ring-1 ring-foreground/10"
+                                "relative h-7 w-7 sm:h-8 sm:w-8 rounded-xl",
+                                "outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                                "hover:ring-2 hover:ring-foreground/20 hover:ring-offset-2 hover:ring-offset-background",
+                                "transition-shadow",
+                                isMissed
+                                  ? "border-2 border-dashed border-foreground/15 bg-foreground/[0.03]"
+                                  : "border border-foreground/10",
+                                cell.status === "delegated" &&
+                                  "bg-delegation-purple",
+                                cell.status === "miner" &&
+                                  "bg-[color:var(--color-miner)]",
+                                cell.status === "both" && "bg-[#4ADE80]",
+                                isCurrentWeek && "ring-2 ring-foreground/20"
                               )}
-                              style={{
-                                backgroundColor: `color-mix(in srgb, ${baseColor} ${
-                                  opacity * 100
-                                }%, transparent)`,
-                              }}
-                            />
+                            >
+                              {isMissedPastWeek && (
+                                <svg
+                                  className="absolute inset-0 w-full h-full text-foreground/20"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                >
+                                  <line x1="6" y1="6" x2="18" y2="18" />
+                                  <line x1="18" y1="6" x2="6" y2="18" />
+                                </svg>
+                              )}
+                            </div>
                           </TooltipTrigger>
                           <TooltipContent
                             side="top"
@@ -578,31 +554,31 @@ export default function WeeklyActivityWidget({
                       <div
                         key={`filler-${idx}`}
                         aria-hidden
-                        className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl border border-border/60 bg-muted/40"
+                        className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl border-2 border-dashed border-foreground/10 bg-foreground/[0.02]"
                       />
                     ))}
                   </div>
                 </TooltipProvider>
               </div>
 
-              <div className="mt-4 rounded-xl border border-border bg-muted/20 p-3">
+              <div className="mt-4 rounded-xl border border-border bg-muted/30 p-3">
                 <div className="flex flex-col gap-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-muted-foreground font-mono uppercase">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-foreground/70 font-mono uppercase tracking-wider">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full bg-[color:var(--color-miner)] opacity-80 border border-border/40" />
+                        <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--color-miner)]" />
                         <span>Miner</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full bg-delegation-purple opacity-80 border border-border/40" />
+                        <span className="h-2.5 w-2.5 rounded-full bg-delegation-purple" />
                         <span>Delegator</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full bg-[#4ADE80] opacity-80 border border-border/40" />
+                        <span className="h-2.5 w-2.5 rounded-full bg-[#4ADE80]" />
                         <span>Both</span>
                       </div>
                     </div>
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-foreground/70">
                       Streak {streakWeeks}/4
                     </div>
                   </div>

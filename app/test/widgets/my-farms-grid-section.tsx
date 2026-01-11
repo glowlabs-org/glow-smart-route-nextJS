@@ -140,156 +140,6 @@ interface FarmListRowProps {
   onClick: () => void;
 }
 
-function FarmListRow({ farm, onClick }: FarmListRowProps) {
-  const isInProgress = farm.type === "in-progress";
-  const isMiner = farm.type === "miner";
-  const isDelegation = farm.type === "delegation";
-  const isOther = farm.type === "other";
-  const isPendingStart = Boolean(farm.isPendingStart);
-  const inProgressIsMiningCenter =
-    isInProgress && farm.inProgressKind === "mining-center";
-
-  const totalValue = farm.recovered + farm.inflation;
-  const roiPercent =
-    farm.initialCost > 0 ? (totalValue / farm.initialCost) * 100 : 0;
-  const isProfitable = roiPercent >= 100;
-
-  return (
-    <Card
-      className="group flex items-center p-3 gap-4 cursor-pointer bg-muted/30 hover:bg-muted/10 transition-all duration-300 border-border"
-      onClick={onClick}
-    >
-      {/* Image & Region */}
-      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted/20">
-        <FallbackImage
-          src={farm.imageUrls[0]}
-          widthForProxy={200}
-          quality={75}
-          alt={farm.farmName}
-          className="w-full h-full object-cover"
-        />
-        {isPendingStart && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-            <Clock className="w-5 h-5 text-white" />
-          </div>
-        )}
-      </div>
-
-      {/* Info Grid */}
-      <div className="flex-1 grid grid-cols-12 gap-4 items-center">
-        {/* Name */}
-        <div className="col-span-4 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <Badge
-              variant="secondary"
-              className="bg-muted text-muted-foreground hover:bg-muted font-normal text-[9px] px-1 h-4"
-            >
-              {farm.regionName}
-            </Badge>
-            {isInProgress && (
-              <Badge
-                variant="outline"
-                className={cn(
-                  "border-0 bg-transparent px-0 text-[9px] font-bold uppercase tracking-wider",
-                  inProgressIsMiningCenter
-                    ? "text-[color:var(--color-miner)]"
-                    : "text-delegation-purple"
-                )}
-              >
-                In Progress
-              </Badge>
-            )}
-          </div>
-          <h3 className="font-bold text-sm truncate">{farm.farmName}</h3>
-        </div>
-
-        {/* Stats */}
-        <div className="col-span-8 grid grid-cols-3 gap-4">
-          {isInProgress ? (
-            <>
-              <div className="col-span-2 space-y-1.5">
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-muted-foreground font-medium">
-                    Funding Progress
-                  </span>
-                  <span className="font-mono font-bold">
-                    {Math.round(farm.inProgressPercent ?? 0)}%
-                  </span>
-                </div>
-                <Progress
-                  value={Math.max(
-                    0,
-                    Math.min(100, farm.inProgressPercent ?? 0)
-                  )}
-                  className="h-1 bg-muted"
-                />
-              </div>
-              <div className="text-right">
-                <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
-                  Est. Weekly
-                </div>
-                <div className="font-mono font-bold text-xs text-muted-foreground">
-                  ~{fmtGlw(farm.estimatedUserWeeklyGlw ?? 0)} GLW
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Active Time */}
-              <div>
-                <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
-                  Active
-                </div>
-                <div className="font-mono font-medium text-xs">
-                  {isPendingStart
-                    ? "Pending"
-                    : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
-                </div>
-              </div>
-
-              {/* Cost/Delegated */}
-              <div>
-                <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
-                  {isMiner ? "Cost" : "Delegated"}
-                </div>
-                <div className="font-mono font-medium text-xs text-muted-foreground">
-                  {isMiner
-                    ? fmtUsd(farm.initialCost)
-                    : `${fmtGlw(farm.initialCost)} GLW`}
-                </div>
-              </div>
-
-              {/* Earned */}
-              <div className="text-right">
-                <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
-                  Earned
-                </div>
-                <div
-                  className={cn(
-                    "font-mono font-bold text-xs",
-                    isPendingStart
-                      ? "text-muted-foreground"
-                      : isMiner
-                      ? "text-[color:var(--color-miner-contrast)]"
-                      : isDelegation
-                      ? "text-delegation-purple"
-                      : "text-emerald-700 dark:text-[color:var(--color-glow-green)]"
-                  )}
-                >
-                  {isPendingStart
-                    ? "Pending"
-                    : `${fmtGlw(farm.recovered + farm.inflationGlw)} GLW`}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-      <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform shrink-0" />
-    </Card>
-  );
-}
-
 interface FarmMosaicCardProps {
   farm: FarmCardData;
   onClick: () => void;
@@ -1658,7 +1508,7 @@ export default function MyFarmsGridSection({
 
   return (
     <>
-      <div className="flex flex-col sm:flex-row items-end sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-row items-center justify-between gap-2 sm:gap-4 mb-6">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider hidden sm:block">
             Sort by
@@ -1669,7 +1519,7 @@ export default function MyFarmsGridSection({
               setSortBy(v as "default" | "alphabetical" | "size" | "date")
             }
           >
-            <SelectTrigger className="w-[160px] h-9">
+            <SelectTrigger className="w-[120px] sm:w-[160px] h-9 text-xs sm:text-sm">
               <SelectValue placeholder="Sort by..." />
             </SelectTrigger>
             <SelectContent>
@@ -1685,44 +1535,44 @@ export default function MyFarmsGridSection({
           <Button
             variant={viewMode === "default" ? "secondary" : "ghost"}
             size="sm"
-            className="h-7 px-2.5 text-xs font-medium"
+            className="h-7 px-2 md:px-2.5 text-xs font-medium"
             onClick={() => setViewMode("default")}
           >
-            <LayoutGrid className="w-3.5 h-3.5 mr-1.5" />
-            Default
+            <LayoutGrid className="w-3.5 h-3.5 md:mr-1.5" />
+            <span className="hidden md:inline">Default</span>
           </Button>
           <Button
             variant={viewMode === "compact" ? "secondary" : "ghost"}
             size="sm"
-            className="h-7 px-2.5 text-xs font-medium"
+            className="h-7 px-2 md:px-2.5 text-xs font-medium"
             onClick={() => setViewMode("compact")}
           >
-            <Grid3x3 className="w-3.5 h-3.5 mr-1.5" />
-            Compact
+            <Grid3x3 className="w-3.5 h-3.5 md:mr-1.5" />
+            <span className="hidden md:inline">Compact</span>
           </Button>
           <Button
             variant={viewMode === "mosaic" ? "secondary" : "ghost"}
             size="sm"
-            className="h-7 px-2.5 text-xs font-medium"
+            className="h-7 px-2 md:px-2.5 text-xs font-medium"
             onClick={() => setViewMode("mosaic")}
           >
-            <ImageIcon className="w-3.5 h-3.5 mr-1.5" />
-            Mosaic
+            <ImageIcon className="w-3.5 h-3.5 md:mr-1.5" />
+            <span className="hidden md:inline">Mosaic</span>
           </Button>
           <Button
             variant={viewMode === "list" ? "secondary" : "ghost"}
             size="sm"
-            className="h-7 px-2.5 text-xs font-medium"
+            className="h-7 px-2 md:px-2.5 text-xs font-medium"
             onClick={() => setViewMode("list")}
           >
-            <List className="w-3.5 h-3.5 mr-1.5" />
-            List
+            <List className="w-3.5 h-3.5 md:mr-1.5" />
+            <span className="hidden md:inline">List</span>
           </Button>
         </div>
       </div>
 
       {viewMode === "list" ? (
-        <div className="rounded-xl border border-border/50 bg-card/50 overflow-hidden backdrop-blur-sm">
+        <div className="rounded-xl border border-border/50 bg-card/50 overflow-hidden backdrop-blur-sm mb-8">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent border-border/50">
@@ -1899,7 +1749,7 @@ export default function MyFarmsGridSection({
       ) : (
         <div
           className={cn(
-            "grid gap-4 transition-all duration-300",
+            "grid gap-4 transition-all duration-300 pb-8",
             viewMode === "mosaic"
               ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
               : viewMode === "compact"

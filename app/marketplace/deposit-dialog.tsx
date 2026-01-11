@@ -816,7 +816,7 @@ export function DepositDialog({
           <div className="space-y-3 pt-4">
             {shareUrl ? (
               <Button
-                className="w-full bg-white text-black hover:bg-white/90"
+                className="w-full bg-white text-black hover:bg-white/90 flex gap-2"
                 asChild
               >
                 <a
@@ -833,7 +833,7 @@ export function DepositDialog({
                     });
                   }}
                 >
-                  <Share2 className="w-4 h-4 mr-2" />
+                  <Share2 className="w-4 h-4 " />
                   Share on X
                 </a>
               </Button>

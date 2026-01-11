@@ -1,10 +1,9 @@
 "use client";
 
 import React from "react";
-import { motion, AnimatePresence, Variants } from "framer-motion";
-import { Check, X, Loader2, ExternalLink, Wallet, Clock } from "lucide-react";
+import { motion, Variants } from "framer-motion";
+import { X, Loader2, ExternalLink, Wallet, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { GlowSymbol } from "@/components/glow-symbol";
 
 export type StepStatus =
   | "idle"
@@ -29,47 +28,6 @@ interface TransactionStepperProps {
   steps: TransactionStep[];
   chainId?: number;
   className?: string;
-}
-
-const TOKEN_ICONS: Record<string, string> = {
-  ETH: "/images/tokens/eth.svg",
-  USDC: "/images/tokens/usdc.svg",
-  USDG: "/images/tokens/usdg.svg",
-};
-
-function TokenIcon({ symbol, size = 20 }: { symbol: string; size?: number }) {
-  if (symbol === "GLW") {
-    return (
-      <div
-        className="rounded-full bg-muted border border-border flex items-center justify-center"
-        style={{ width: size, height: size }}
-      >
-        <GlowSymbol className="w-3 h-3" />
-      </div>
-    );
-  }
-
-  const iconSrc = TOKEN_ICONS[symbol];
-  if (iconSrc) {
-    return (
-      <img
-        src={iconSrc}
-        alt={symbol}
-        className="rounded-full"
-        style={{ width: size, height: size }}
-        draggable={false}
-      />
-    );
-  }
-
-  return (
-    <div
-      className="rounded-full bg-muted border border-border flex items-center justify-center text-xs font-medium"
-      style={{ width: size, height: size }}
-    >
-      {symbol.slice(0, 2)}
-    </div>
-  );
 }
 
 function getEtherscanUrl(txHash: string, chainId: number = 1): string {
@@ -99,25 +57,6 @@ function ElapsedTimer({ startedAt }: { startedAt: number }) {
   );
 }
 
-const stepNodeVariants: Variants = {
-  idle: { scale: 1, opacity: 0.5 },
-  active: { scale: 1, opacity: 1 },
-  completed: { scale: 1, opacity: 1 },
-  error: { scale: 1, opacity: 1 },
-};
-
-const pulseVariants: Variants = {
-  pulse: {
-    scale: [1, 1.15, 1],
-    opacity: [0.5, 0.8, 0.5],
-    transition: {
-      duration: 1.5,
-      repeat: Infinity,
-      ease: "easeInOut",
-    },
-  },
-};
-
 const checkmarkPathVariants: Variants = {
   hidden: { pathLength: 0, opacity: 0 },
   visible: {
@@ -130,164 +69,121 @@ const checkmarkPathVariants: Variants = {
   },
 };
 
-const stepContentVariants: Variants = {
-  hidden: { opacity: 0, x: -8 },
+// Animation variants for staggered children
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    x: 0,
-    transition: { duration: 0.3, ease: "easeOut" },
+    transition: {
+      staggerChildren: 0.12,
+    },
   },
-  exit: { opacity: 0, x: 8, transition: { duration: 0.2 } },
 };
 
-function StepNode({ status }: { status: StepStatus }) {
-  const isActive = status === "waiting_signature" || status === "confirming";
-  const isCompleted = status === "completed";
-  const isError = status === "error";
+const itemVariants: Variants = {
+  hidden: { y: 12, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: { duration: 0.3, ease: "easeOut" },
+  },
+};
 
-  return (
-    <div className="relative flex items-center justify-center w-8 h-8 shrink-0">
-      {/* Pulse ring for active states */}
-      {isActive && (
-        <motion.div
-          className="absolute inset-0 rounded-full border-2 border-primary"
-          variants={pulseVariants}
-          animate="pulse"
-        />
-      )}
-
-      {/* Main node circle */}
-      <motion.div
-        className={cn(
-          "relative z-10 w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors duration-300",
-          status === "idle" && "border-border bg-background",
-          status === "waiting_signature" &&
-            "border-primary bg-primary/10 shadow-[0_0_12px_rgba(var(--primary-rgb),0.3)]",
-          status === "confirming" && "border-primary bg-primary/10",
-          status === "completed" &&
-            "border-green-500 bg-green-500 dark:border-green-400 dark:bg-green-400",
-          status === "error" && "border-red-500 bg-red-500"
-        )}
-        variants={stepNodeVariants}
-        initial="idle"
-        animate={
-          isActive ? "active" : isCompleted || isError ? "completed" : "idle"
-        }
-      >
-        {status === "idle" && (
-          <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
-        )}
-
-        {status === "waiting_signature" && (
-          <Wallet className="w-4 h-4 text-primary animate-pulse" />
-        )}
-
-        {status === "confirming" && (
-          <Loader2 className="w-4 h-4 text-primary animate-spin" />
-        )}
-
-        {status === "completed" && (
-          <svg
-            className="w-4 h-4 text-white dark:text-black"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <motion.path
-              d="M5 12l5 5L19 7"
-              variants={checkmarkPathVariants}
-              initial="hidden"
-              animate="visible"
-            />
-          </svg>
-        )}
-
-        {status === "error" && <X className="w-4 h-4 text-white" />}
-      </motion.div>
-    </div>
-  );
+function StepIcon({ status }: { status: StepStatus }) {
+  switch (status) {
+    case "completed":
+      return (
+        <svg
+          className="w-4 h-4 text-white"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <motion.path
+            d="M5 12l5 5L19 7"
+            variants={checkmarkPathVariants}
+            initial="hidden"
+            animate="visible"
+          />
+        </svg>
+      );
+    case "waiting_signature":
+      return <Wallet className="w-4 h-4 text-primary" />;
+    case "confirming":
+      return <Loader2 className="w-4 h-4 text-primary animate-spin" />;
+    case "error":
+      return <X className="w-4 h-4 text-white" />;
+    default:
+      return <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />;
+  }
 }
 
-function TransactionStepCard({
+function TimelineItem({
   step,
-  isLast,
   chainId,
+  isLast,
 }: {
   step: TransactionStep;
+  chainId: number;
   isLast: boolean;
-  chainId?: number;
 }) {
   const isActive =
     step.status === "waiting_signature" || step.status === "confirming";
   const showTimer = isActive && step.startedAt;
 
-  const statusText: Record<StepStatus, string> = {
+  const statusLabel: Record<StepStatus, string> = {
     idle: "Pending",
     waiting_signature: "Waiting for signature...",
     confirming: "Confirming on-chain...",
     completed: "Completed",
-    error: step.errorMessage || "Failed",
+    error: "Failed",
   };
 
   return (
-    <div className="flex gap-3 min-h-[56px]">
-      {/* Timeline column */}
-      <div className="flex flex-col items-center">
-        <StepNode status={step.status} />
-        {/* Connecting line */}
-        {!isLast && (
-          <div className="relative w-0.5 flex-1 min-h-[24px] my-1">
-            <div className="absolute inset-0 bg-border" />
-            <motion.div
-              className="absolute inset-0 bg-green-500 dark:bg-green-400 origin-top"
-              initial={{ scaleY: 0 }}
-              animate={{
-                scaleY: step.status === "completed" ? 1 : 0,
-              }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-            />
-          </div>
+    <motion.li
+      className={cn("ml-8 relative", !isLast && "pb-6")}
+      variants={itemVariants}
+      aria-current={isActive ? "step" : undefined}
+    >
+      {/* The icon circle - positioned over the border line */}
+      <span
+        className={cn(
+          "absolute -left-[2.55rem] flex h-8 w-8 items-center justify-center rounded-full ring-4 ring-background transition-all duration-300",
+          step.status === "completed" && "bg-green-500 dark:bg-green-400",
+          step.status === "error" && "bg-red-500",
+          isActive && "bg-primary/20",
+          step.status === "idle" && "bg-muted"
         )}
-      </div>
-
-      {/* Content column */}
-      <motion.div
-        className={cn("flex-1 pb-4", isLast && "pb-0")}
-        variants={stepContentVariants}
-        initial="hidden"
-        animate="visible"
       >
-        {/* Header row */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            {/* Token pair icons */}
-            {step.tokenFrom && step.tokenTo && (
-              <div className="flex items-center gap-1 mr-1">
-                <TokenIcon symbol={step.tokenFrom} size={18} />
-                <span className="text-muted-foreground text-xs">→</span>
-                <TokenIcon symbol={step.tokenTo} size={18} />
-              </div>
-            )}
+        {/* Pulsing animation for active states */}
+        {isActive && (
+          <span className="absolute inset-0 animate-ping rounded-full bg-primary/40 opacity-75" />
+        )}
+        <span className="relative z-10">
+          <StepIcon status={step.status} />
+        </span>
+      </span>
 
-            {/* Title */}
-            <span
-              className={cn(
-                "text-sm font-medium transition-colors duration-200",
-                step.status === "idle" && "text-muted-foreground",
-                isActive && "text-foreground",
-                step.status === "completed" && "text-foreground",
-                step.status === "error" && "text-red-500"
-              )}
-            >
-              {step.title}
-            </span>
-          </div>
+      {/* Content: Title, Status, Timer */}
+      <div className="flex flex-col min-h-[32px] justify-center">
+        <div className="flex items-center justify-between gap-2">
+          <h3
+            className={cn(
+              "text-sm font-medium transition-colors duration-200",
+              step.status === "completed" && "text-foreground",
+              isActive && "text-foreground",
+              step.status === "idle" && "text-muted-foreground",
+              step.status === "error" && "text-red-500"
+            )}
+          >
+            {step.title}
+          </h3>
 
           {/* Right side: Timer or Etherscan link */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {showTimer && <ElapsedTimer startedAt={step.startedAt!} />}
             {step.status === "completed" && step.txHash && (
               <a
@@ -297,49 +193,39 @@ function TransactionStepCard({
                 className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
-                <span className="hidden sm:inline">View</span>
-                <ExternalLink className="w-3 h-3" />
+                <ExternalLink className="w-3.5 h-3.5" />
               </a>
             )}
           </div>
         </div>
 
-        {/* Status text */}
-        <AnimatePresence mode="wait">
-          <motion.p
-            key={step.status}
+        {/* Status text - hide for errors since we show error box */}
+        {step.status !== "error" && (
+          <p
             className={cn(
-              "text-xs mt-0.5 transition-colors duration-200",
-              step.status === "idle" && "text-muted-foreground/60",
-              step.status === "waiting_signature" && "text-primary",
-              step.status === "confirming" && "text-muted-foreground",
+              "text-xs transition-colors duration-200",
               step.status === "completed" &&
                 "text-green-600 dark:text-green-400",
-              step.status === "error" && "text-red-500"
+              step.status === "waiting_signature" && "text-primary",
+              step.status === "confirming" && "text-muted-foreground",
+              step.status === "idle" && "text-muted-foreground/60"
             )}
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 4 }}
-            transition={{ duration: 0.2 }}
           >
-            {step.description || statusText[step.status]}
-          </motion.p>
-        </AnimatePresence>
-
-        {/* Error details */}
-        {step.status === "error" && step.errorMessage && (
-          <motion.div
-            className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-          >
-            <p className="text-xs text-red-500 break-all line-clamp-2">
-              {step.errorMessage}
-            </p>
-          </motion.div>
+            {statusLabel[step.status]}
+          </p>
         )}
-      </motion.div>
-    </div>
+
+        {/* Error message - simplified */}
+        {step.status === "error" && (
+          <p className="text-xs text-red-500">
+            {step.errorMessage?.includes("User rejected") ||
+            step.errorMessage?.includes("user rejected")
+              ? "Transaction rejected"
+              : "Transaction failed"}
+          </p>
+        )}
+      </div>
+    </motion.li>
   );
 }
 
@@ -350,21 +236,17 @@ function ProgressHeader({
   steps: TransactionStep[];
   currentStepIndex: number;
 }) {
-  const completedCount = steps.filter((s) => s.status === "completed").length;
   const currentStep = steps[currentStepIndex];
 
   return (
-    <div className="mb-6">
-      {/* Segmented progress dots */}
-      <div className="flex items-center justify-center gap-1.5 mb-3">
+    <div className="mb-5">
+      {/* Segmented progress bar */}
+      <div className="flex items-center gap-1 mb-3">
         {steps.map((step, index) => (
           <motion.div
             key={step.id}
             className={cn(
-              "h-1.5 rounded-full transition-all duration-300",
-              index < steps.length - 1
-                ? "flex-1 max-w-[40px]"
-                : "flex-1 max-w-[40px]",
+              "h-1 rounded-full flex-1 transition-all duration-300",
               step.status === "completed" && "bg-green-500 dark:bg-green-400",
               (step.status === "waiting_signature" ||
                 step.status === "confirming") &&
@@ -381,11 +263,11 @@ function ProgressHeader({
 
       {/* Step counter and title */}
       <div className="text-center">
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <span className="font-medium">
+        <div className="flex items-center justify-center gap-2 text-sm">
+          <span className="text-muted-foreground font-medium tabular-nums">
             Step {currentStepIndex + 1} of {steps.length}
           </span>
-          <span className="text-border">•</span>
+          <span className="text-muted-foreground/30">•</span>
           <span className="text-foreground font-medium">
             {currentStep?.title || "Processing"}
           </span>
@@ -422,10 +304,12 @@ export function TransactionStepper({
   if (steps.length === 0) {
     return (
       <div className={cn("w-full", className)}>
-        <div className="flex items-center justify-center py-4">
+        <div className="flex items-center justify-center py-6">
           <div className="flex items-center gap-3 text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm">Preparing transaction...</span>
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            <span className="text-sm font-medium">
+              Preparing transaction...
+            </span>
           </div>
         </div>
       </div>
@@ -439,25 +323,22 @@ export function TransactionStepper({
         <ProgressHeader steps={steps} currentStepIndex={currentStepIndex} />
       )}
 
-      {/* Steps timeline */}
-      <div className="space-y-0">
-        <AnimatePresence mode="sync">
-          {steps.map((step, index) => (
-            <motion.div
-              key={step.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.08, duration: 0.3 }}
-            >
-              <TransactionStepCard
-                step={step}
-                isLast={index === steps.length - 1}
-                chainId={chainId}
-              />
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+      {/* Timeline with left border */}
+      <motion.ol
+        className="relative border-l-2 border-border/40 ml-4"
+        initial="hidden"
+        animate="visible"
+        variants={containerVariants}
+      >
+        {steps.map((step, index) => (
+          <TimelineItem
+            key={step.id}
+            step={step}
+            chainId={chainId}
+            isLast={index === steps.length - 1}
+          />
+        ))}
+      </motion.ol>
     </div>
   );
 }

@@ -413,10 +413,6 @@ export default function GlowSoftDashboard({
                       <GctlHeatmapWidget
                         walletAddress={walletAddress}
                         variant="minimal"
-                        onMintAndStakeClick={() => {
-                          setMintAndStakeForceStep1(false);
-                          setIsMintAndStakeOpen(true);
-                        }}
                       />
                     </div>
                   </div>
@@ -424,11 +420,11 @@ export default function GlowSoftDashboard({
               </section>
 
               {/* Journey Section */}
-              <section className="flex flex-col gap-4 pt-12">
+              <section className="flex flex-col gap-4 pt-12 pb-12">
                 <SectionHeader title="Your Journey" />
                 <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
-                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch pb-8 mb-8 border-b border-border/50">
-                    <div className="pb-6 lg:pb-0 lg:pr-8 flex lg:col-span-1">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch pb-8 mb-8 border-b border-border/50">
+                    <div className="pb-6 lg:pb-0 lg:pr-8 flex lg:col-span-4">
                       <WeeklyActivityWidget
                         walletAddress={walletAddress}
                         hideIfEmpty={false}
@@ -436,14 +432,14 @@ export default function GlowSoftDashboard({
                       />
                     </div>
 
-                    <div className="pt-6 lg:pt-0 lg:pl-8 flex lg:col-span-2">
+                    <div className="pt-6 lg:pt-0 lg:pl-8 flex lg:col-span-5">
                       <RecentActivityWidget
                         walletAddress={walletAddress}
                         hideIfEmpty={false}
                         variant="minimal"
                       />
                     </div>
-                    <div className="py-6 lg:py-0 lg:px-8 flex lg:col-span-1">
+                    <div className="py-6 lg:py-0 lg:px-8 flex lg:col-span-3">
                       <PortfolioSummaryWidget
                         walletAddress={walletAddress}
                         variant="minimal"

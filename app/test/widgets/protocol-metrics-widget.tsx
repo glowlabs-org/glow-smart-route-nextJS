@@ -232,33 +232,35 @@ export default function ProtocolMetricsWidget({
     <div className={`flex flex-col gap-6 ${className}`}>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Metric 1: GLW Spot Price */}
-        <Card className="bg-card dark:bg-muted/20 border-border/50">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-muted-foreground">
-                GLW Price
-              </span>
-              <a
-                href="https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d?quoteToken=token1&cache=1dafc"
-                target="_blank"
-                rel="noreferrer"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ArrowRight className="w-4 h-4 -rotate-45" />
-              </a>
-            </div>
-            <div className="text-2xl font-bold">
-              {isMetricsLoading || spotPrice === null ? (
-                <Skeleton className="h-8 w-24" />
-              ) : (
-                `$${spotPrice.toFixed(4)}`
-              )}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Current spot price
-            </div>
-          </CardContent>
-        </Card>
+        <a
+          href="https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d?quoteToken=token1&cache=1dafc"
+          target="_blank"
+          rel="noreferrer"
+          className="block"
+        >
+          <Card className="group bg-card dark:bg-muted/20 border-border/50 hover:bg-muted/30 transition-colors cursor-pointer">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-muted-foreground">
+                  GLW Price
+                </span>
+                <div className="text-muted-foreground group-hover:text-foreground transition-colors">
+                  <ArrowRight className="w-4 h-4 -rotate-45" />
+                </div>
+              </div>
+              <div className="text-2xl font-bold">
+                {isMetricsLoading || spotPrice === null ? (
+                  <Skeleton className="h-8 w-24" />
+                ) : (
+                  `$${spotPrice.toFixed(4)}`
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Current spot price
+              </div>
+            </CardContent>
+          </Card>
+        </a>
 
         {/* Metric 2: Market Cap */}
         <Card className="bg-card dark:bg-muted/20 border-border/50">

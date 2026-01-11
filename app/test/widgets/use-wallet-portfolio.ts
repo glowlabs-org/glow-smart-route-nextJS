@@ -257,22 +257,20 @@ export function useWalletPortfolio(params: { walletAddress?: string | null }) {
 
   const weeklyAccumulatedGlw = React.useMemo(() => {
     if (!hasWallet) return MOCK_WEEKLY_ACCUMULATED;
-    const projected = impactScore?.currentWeekProjection?.projectedPoints;
-    if (!projected) return 0;
 
-    try {
-      const inflation = BigInt(projected.inflationGlwWei || "0");
-      const steering = BigInt(projected.steeringGlwWei || "0");
-      const totalWei = (inflation + steering).toString();
-      return parseGlwFromWei(totalWei);
-    } catch {
-      return 0;
+    const weekly = impactScore?.weekly ?? [];
+    if (weekly.length < 2) {
+      // Only one data point (current week) - accumulated = current glowWorth
+      return glowWorthGlw;
     }
-  }, [
-    hasWallet,
-    impactScore?.currentWeekProjection?.projectedPoints?.inflationGlwWei,
-    impactScore?.currentWeekProjection?.projectedPoints?.steeringGlwWei,
-  ]);
+
+    const currentGlw = glowWorthGlw;
+    const previousWeekRow = weekly[weekly.length - 2];
+    const previousGlw = parseGlwFromWei(previousWeekRow?.glowWorthGlwWei);
+
+    const accumulated = currentGlw - previousGlw;
+    return Math.max(0, accumulated);
+  }, [hasWallet, impactScore?.weekly, glowWorthGlw]);
 
   const chartData = React.useMemo<GlowWorthPoint[]>(() => {
     if (!hasWallet) return MOCK_CHART_DATA as GlowWorthPoint[];

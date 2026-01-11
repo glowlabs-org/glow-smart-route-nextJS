@@ -2,7 +2,16 @@
 
 import * as React from "react";
 import { formatUnits } from "viem";
-import { CheckCircle2, ArrowRight } from "lucide-react";
+import {
+  ArrowRight,
+  Zap,
+  Trophy,
+  Lock,
+  TrendingUp,
+  Plus,
+  Clock,
+  Calendar,
+} from "lucide-react";
 import { useAccount } from "wagmi";
 import {
   CashMinerIcon,
@@ -16,11 +25,12 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
@@ -33,6 +43,8 @@ import {
 } from "@/hooks";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
+
+// --- Types & Interfaces ---
 
 interface ImpactScoreBreakdownDialogContentProps {
   impactScore: ImpactGlowScoreResponse;
@@ -51,22 +63,15 @@ interface ImpactScoreBreakdownDialogProps {
   showCurrentWeekProjection?: boolean;
 }
 
-function safeGlwFromWei(wei?: string) {
-  if (!wei) return "0";
-  try {
-    return formatUnits(BigInt(wei), 18);
-  } catch {
-    return "0";
-  }
-}
+// --- Formatters ---
 
 function formatPoints(
   value?: string,
   opts: { maximumFractionDigits: number } = { maximumFractionDigits: 0 }
 ) {
-  if (!value) return "—";
+  if (!value) return "0";
   const num = Number(value);
-  if (!Number.isFinite(num)) return "—";
+  if (!Number.isFinite(num)) return "0";
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: opts.maximumFractionDigits,
   }).format(num);
@@ -77,645 +82,438 @@ function safePointsNumber(value?: string): number {
   return Number.isFinite(num) ? num : 0;
 }
 
-function formatGlwCompact(value?: string) {
-  if (!value) return "—";
-  const num = Number(value);
-  if (!Number.isFinite(num)) return value;
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: num >= 1_000 ? 0 : 2,
-  }).format(num);
-}
-
-function formatPointsRate(value?: string) {
-  if (!value) return "—";
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "—";
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: num >= 1 ? 2 : 4,
-  }).format(num);
-}
-
 function formatMultiplier(value: number | undefined) {
-  if (value == null) return "—";
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "—";
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(
-    num
+  if (value == null) return "1.00";
+  return value.toFixed(2);
+}
+
+// --- Components ---
+
+/**
+ * A "Slot" card for Multipliers.
+ * Designed to look like an equipment slot in a game.
+ */
+function MultiplierCard({
+  icon: Icon,
+  title,
+  multiplierValue,
+  isActive,
+  description,
+  onClick,
+  colorClass, // e.g. "text-orange-500"
+  bgClass, // e.g. "bg-orange-500/10"
+  borderClass, // e.g. "border-orange-500/50"
+  shadowClass, // e.g. "shadow-[0_0_20px_-5px_var(--color-miner)]"
+}: {
+  icon: React.ElementType;
+  title: string;
+  multiplierValue: string;
+  isActive: boolean;
+  description: string;
+  onClick?: () => void;
+  colorClass: string;
+  bgClass: string;
+  borderClass: string;
+  shadowClass?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={cn(
+        "relative flex flex-col items-start p-4 rounded-xl border transition-all w-full text-left group",
+        isActive
+          ? cn(bgClass, borderClass, shadowClass)
+          : "bg-muted/10 border-dashed border-border/60 hover:border-border hover:bg-muted/20"
+      )}
+    >
+      {/* Header Row */}
+      <div className="flex items-center justify-between w-full mb-3">
+        <div
+          className={cn(
+            "flex items-center justify-center w-10 h-10 rounded-lg transition-all",
+            isActive
+              ? cn(
+                  bgClass,
+                  colorClass,
+                  "shadow-[0_0_20px_-3px_currentColor]",
+                  "dark:shadow-[0_0_25px_-5px_currentColor]"
+                )
+              : "bg-muted text-muted-foreground/50 grayscale"
+          )}
+        >
+          <Icon className="w-5 h-5" />
+        </div>
+        <div
+          className={cn(
+            "px-2 py-1 rounded text-xs font-mono font-bold tracking-wider",
+            isActive
+              ? cn(bgClass, colorClass)
+              : "bg-muted text-muted-foreground"
+          )}
+        >
+          {isActive ? `${multiplierValue}x` : "INACTIVE"}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="space-y-1">
+        <span
+          className={cn(
+            "text-sm font-bold uppercase tracking-tight",
+            isActive ? "text-foreground" : "text-muted-foreground"
+          )}
+        >
+          {title}
+        </span>
+        <p className="text-[11px] text-muted-foreground leading-tight">
+          {description}
+        </p>
+      </div>
+
+      {/* Inactive Hover Prompt */}
+      {!isActive && onClick && (
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-background/90 backdrop-blur-sm rounded-xl border border-dashed border-border">
+          <span className="text-xs font-bold uppercase flex items-center gap-1 text-foreground">
+            Activate <ArrowRight className="w-3 h-3" />
+          </span>
+        </div>
+      )}
+    </button>
   );
 }
 
-const GLW_DECIMALS = BigInt(1_000_000_000_000_000_000);
-const POINTS_SCALE_SCALED6 = BigInt(1_000_000);
-
-const INFLATION_POINTS_PER_GLW_SCALED6 = BigInt(1_000_000); // +1.0 per GLW
-const STEERING_POINTS_PER_GLW_SCALED6 = BigInt(3_000_000); // +3.0 per GLW
-const VAULT_BONUS_POINTS_PER_GLW_SCALED6 = BigInt(5_000); // +0.005 per GLW per week
-const GLOW_WORTH_POINTS_PER_GLW_SCALED6 = BigInt(1_000); // +0.001 per GLW per week
-
-function safeBigInt(value?: string) {
-  if (!value) return BigInt(0);
-  try {
-    return BigInt(value);
-  } catch {
-    return BigInt(0);
-  }
-}
-
-function formatPointsScaled6(valueScaled6: bigint) {
-  const isNegative = valueScaled6 < BigInt(0);
-  const abs = isNegative ? -valueScaled6 : valueScaled6;
-  const whole = abs / POINTS_SCALE_SCALED6;
-  const frac = abs % POINTS_SCALE_SCALED6;
-  const fracStr = frac.toString().padStart(6, "0").replace(/0+$/, "");
-  const sign = isNegative ? "-" : "";
-  return `${sign}${whole.toString()}${fracStr ? `.${fracStr}` : ""}`;
-}
-
-function glwWeiToPointsScaled6(params: {
-  glwWei: bigint;
-  pointsPerGlwScaled6: bigint;
-}) {
-  const { glwWei, pointsPerGlwScaled6 } = params;
-  if (glwWei <= BigInt(0) || pointsPerGlwScaled6 <= BigInt(0)) return BigInt(0);
-  return (glwWei * pointsPerGlwScaled6) / GLW_DECIMALS;
-}
-
-type BreakdownTone = "cyan" | "purple" | "yellow" | "emerald";
-
-function getToneClasses(tone: BreakdownTone) {
-  if (tone === "cyan")
-    return {
-      row: "border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10",
-      iconWrap: "bg-[#22D3EE]/10 border-[#22D3EE]/20 text-[#22D3EE]",
-      label: "text-[#22D3EE]",
-      value: "text-[#22D3EE]",
-    } as const;
-  if (tone === "yellow")
-    return {
-      row: "border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10",
-      iconWrap:
-        "bg-[color:var(--color-miner)]/10 border-[color:var(--color-miner)]/20 text-[color:var(--color-miner-contrast)]",
-      label: "text-[color:var(--color-miner-contrast)]",
-      value: "text-[color:var(--color-miner-contrast)]",
-    } as const;
-  if (tone === "emerald")
-    return {
-      row: "border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10",
-      iconWrap: "bg-[#4ADE80]/10 border-[#4ADE80]/20 text-[#4ADE80]",
-      label: "text-[#4ADE80]",
-      value: "text-[#4ADE80]",
-    } as const;
-  return {
-    row: "border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10",
-    iconWrap:
-      "bg-delegation-purple/10 border-delegation-purple/20 text-delegation-purple",
-    label: "text-delegation-purple",
-    value: "text-delegation-purple",
-  } as const;
-}
-
-function BreakdownRow({
+/**
+ * A row for a Point Source (e.g. Steering, Emissions).
+ */
+function SourceRow({
   icon: Icon,
   label,
-  sublabel,
   value,
-  ctaText,
-  ctaHref,
-  onCtaClick,
-  tone,
-  isPassive = false,
-  isDisabled = false,
+  subValue,
+  ctaLabel,
+  onCta,
+  themeColor, // Hex or Tailwind class prefix logic
 }: {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ElementType;
   label: string;
-  sublabel: string;
   value: string;
-  ctaText?: string;
-  ctaHref?: string;
-  onCtaClick?: () => void;
-  tone: BreakdownTone;
-  isPassive?: boolean;
-  isDisabled?: boolean;
+  subValue?: string;
+  ctaLabel?: string;
+  onCta?: () => void;
+  themeColor: "cyan" | "yellow" | "purple" | "green";
 }) {
-  const toneClasses = getToneClasses(tone);
-  const disabledClasses = isDisabled
-    ? ({
-        row: "border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10 opacity-60",
-        iconWrap: "bg-muted/10 border-border text-muted-foreground",
-        label: "text-muted-foreground",
-        value: "text-muted-foreground",
-      } as const)
-    : null;
+  // Theme styling logic
+  const themeStyles = {
+    cyan: {
+      icon: "text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
+      text: "text-cyan-700 dark:text-cyan-300",
+      value: "text-cyan-600 dark:text-cyan-400",
+      btn: "hover:bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20",
+    },
+    yellow: {
+      icon: "text-[color:var(--color-miner)] bg-[color:var(--color-miner)]/10 border-[color:var(--color-miner)]/20",
+      text: "text-[color:var(--color-miner)]",
+      value: "text-[color:var(--color-miner)]",
+      btn: "hover:bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)] border-[color:var(--color-miner)]/20",
+    },
+    purple: {
+      icon: "text-[color:var(--delegation-purple)] bg-[color:var(--delegation-purple)]/10 border-[color:var(--delegation-purple)]/20",
+      text: "text-[color:var(--delegation-purple)]",
+      value: "text-[color:var(--delegation-purple)]",
+      btn: "hover:bg-[color:var(--delegation-purple)]/10 !text-[color:var(--delegation-purple)] border-[color:var(--delegation-purple)]/20",
+    },
+    green: {
+      icon: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+      text: "text-emerald-700 dark:text-emerald-300",
+      value: "text-emerald-600 dark:text-emerald-400",
+      btn: "hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    },
+  }[themeColor];
+
+  const hasValue = value !== "0" && value !== "—";
+
   return (
-    <div
-      className={cn(
-        "flex items-center justify-between p-3 rounded-xl border transition-all",
-        isPassive
-          ? "bg-muted/20 dark:bg-zinc-900/20"
-          : "bg-muted/30 dark:bg-zinc-900/40",
-        disabledClasses?.row ?? toneClasses.row
-      )}
-    >
+    <div className="group flex items-center justify-between p-3 rounded-xl border border-transparent hover:border-border/50 hover:bg-muted/10 transition-all">
       <div className="flex items-center gap-3">
         <div
           className={cn(
-            "flex items-center justify-center w-8 h-8 rounded-xl border",
-            disabledClasses?.iconWrap ?? toneClasses.iconWrap
+            "flex items-center justify-center w-10 h-10 rounded-xl border transition-colors",
+            themeStyles.icon
           )}
         >
           <Icon className="w-5 h-5" />
         </div>
         <div className="flex flex-col">
-          <span
-            className={cn(
-              "text-xs font-bold uppercase tracking-wide text-foreground dark:text-zinc-200",
-              disabledClasses?.label ?? toneClasses.label
-            )}
-          >
-            {label}
-          </span>
-          <span className="text-[10px] text-muted-foreground font-mono dark:text-zinc-500">
-            {sublabel}
+          <span className="text-sm font-bold text-foreground">{label}</span>
+          <span className="text-[10px] text-muted-foreground font-mono">
+            {subValue || "Passive income"}
           </span>
         </div>
       </div>
 
-      <div className="flex flex-col items-end gap-1">
-        <span
-          className={cn(
-            "font-mono font-bold text-sm text-foreground dark:text-white",
-            disabledClasses?.value ?? toneClasses.value
-          )}
-        >
-          {value}
-        </span>
-        {ctaText && (ctaHref || onCtaClick) ? (
-          <button
-            type="button"
-            onClick={onCtaClick}
-            className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors dark:text-zinc-500 dark:hover:text-white"
+      <div className="flex items-center gap-4">
+        {hasValue ? (
+          <div className="text-right">
+            <div
+              className={cn("font-mono font-bold text-base", themeStyles.value)}
+            >
+              +{value}
+            </div>
+            <div className="text-[10px] text-muted-foreground uppercase font-medium text-right">
+              Points
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground/50 font-mono">
+            0 pts
+          </div>
+        )}
+
+        {ctaLabel && (
+          <Button
+            size="sm"
+            variant="outline"
+            className={cn(
+              "h-8 text-xs font-medium border-dashed bg-transparent transition-all",
+              themeStyles.btn
+            )}
+            onClick={onCta}
           >
-            {ctaText} <ArrowRight className="w-3 h-3" />
-          </button>
-        ) : null}
+            {ctaLabel}
+          </Button>
+        )}
       </div>
     </div>
   );
 }
 
+// --- Main Content Component ---
+
 export function ImpactScoreBreakdownDialogContent(
   props: ImpactScoreBreakdownDialogContentProps
 ) {
-  const {
-    impactScore,
-    title = "Score Breakdown",
-    description,
-    showCurrentWeekProjection = true,
-  } = props;
-
+  const { impactScore, title, showCurrentWeekProjection } = props;
   const { address } = useAccount();
   const { usdcBalance, usdgBalance } = useWalletTokenBalances(address);
   const { spotPrice: glowSpotPrice } = useGlowSpotPrice();
 
+  // Dialog States
   const [isLaunchpadOpen, setIsLaunchpadOpen] = React.useState(false);
   const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
   const [isBuyGlowOpen, setIsBuyGlowOpen] = React.useState(false);
 
-  const latestWeek = React.useMemo(() => {
-    const weekly = impactScore?.weekly ?? [];
-    if (weekly.length === 0) return null;
-    return weekly[weekly.length - 1] ?? null;
-  }, [impactScore?.weekly]);
+  // --- Data Logic (Extracted from previous) ---
+  const latestWeek = impactScore?.weekly?.[impactScore.weekly.length - 1];
+  const projection = impactScore?.currentWeekProjection;
+  const projectedPoints = projection?.projectedPoints;
+  const hasProjection = showCurrentWeekProjection && !!projection;
 
-  const lastRolloverWeekNumber = latestWeek?.weekNumber ?? null;
-
-  const totalsPoints = impactScore?.totals?.totalPoints ?? undefined;
-  const projection = impactScore?.currentWeekProjection ?? null;
-  const projectedPoints = projection?.projectedPoints ?? null;
-  const hasProjection =
-    showCurrentWeekProjection && Boolean(projection && projectedPoints);
-  const projectedThisWeek = React.useMemo(() => {
-    const totalProjectedScore = projectedPoints?.totalProjectedScore;
-    const projectedPointsNumber = Number(totalProjectedScore ?? "0");
-    if (!Number.isFinite(projectedPointsNumber) || projectedPointsNumber <= 0)
-      return null;
-    return {
-      weekNumber: projection?.weekNumber ?? null,
-      projectedPoints: totalProjectedScore,
-    };
-  }, [projectedPoints?.totalProjectedScore, projection?.weekNumber]);
-
-  const displayedWeekNumber = hasProjection
-    ? projection?.weekNumber ?? null
-    : latestWeek?.weekNumber ?? null;
-
-  const displayedSteeringGlwWei = hasProjection
-    ? projectedPoints?.steeringGlwWei
-    : latestWeek?.steeringGlwWei;
-  const displayedInflationGlwWei = hasProjection
-    ? projectedPoints?.inflationGlwWei
-    : latestWeek?.inflationGlwWei;
-  const displayedDelegatedGlwWei = hasProjection
-    ? projectedPoints?.delegatedGlwWei
-    : latestWeek?.delegatedActiveGlwWei;
-  const displayedGlowWorthWei = hasProjection
-    ? projectedPoints?.glowWorthWei
-    : impactScore?.glowWorth?.glowWorthWei;
-
-  const totalSteeringGlw = safeGlwFromWei(
-    impactScore?.totals?.totalSteeringGlwWei
-  );
-  const totalInflationGlw = safeGlwFromWei(
-    impactScore?.totals?.totalInflationGlwWei
-  );
-  const delegatedActiveGlw = safeGlwFromWei(
-    impactScore?.glowWorth?.delegatedActiveGlwWei
-  );
-  const glowWorthGlw = safeGlwFromWei(impactScore?.glowWorth?.glowWorthWei);
-
-  const hasSteeringMultiplier =
-    safePointsNumber(impactScore?.totals?.steeringPoints) > 0;
-  const hasEmissionsEarned =
-    safePointsNumber(impactScore?.totals?.inflationPoints) > 0;
-  const hasVaultBonus =
-    safePointsNumber(impactScore?.totals?.vaultBonusPoints) > 0;
-  const hasGlowWorth = safeBigInt(displayedGlowWorthWei) > 0n;
-
-  const steeringPts = safePointsNumber(impactScore?.totals?.steeringPoints);
-  const inflationPts = safePointsNumber(impactScore?.totals?.inflationPoints);
-  const vaultPts = safePointsNumber(impactScore?.totals?.vaultBonusPoints);
-  const rolloverPts = safePointsNumber(impactScore?.totals?.rolloverPoints);
-
-  // The difference between the Total Rollover and the sum of base components
-  // represents the points added by the Multiplier (Base 1x/3x + Streak)
-  const multiplierBonusPts = Math.max(
-    0,
-    rolloverPts - (steeringPts + inflationPts + vaultPts)
-  );
-
-  const impactStreakWeeksLastRollover = latestWeek?.impactStreakWeeks ?? 0;
-  const streakBonusMultiplierLastRollover =
-    latestWeek?.streakBonusMultiplier ?? 0;
-  const hasCashMinerBonusLastRollover = Boolean(latestWeek?.hasCashMinerBonus);
-  const baseMultiplierLastRollover =
-    latestWeek?.baseMultiplier ?? (hasCashMinerBonusLastRollover ? 3 : 1);
-  const rolloverMultiplierLastRollover =
-    latestWeek?.rolloverMultiplier ??
-    baseMultiplierLastRollover + streakBonusMultiplierLastRollover;
-  const hasStreakBonusLastRollover =
-    impactStreakWeeksLastRollover > 0 && streakBonusMultiplierLastRollover > 0;
-
-  const impactStreakWeeksThisWeek = hasProjection
-    ? projection?.impactStreakWeeks ?? 0
-    : 0;
-  const streakBonusMultiplierThisWeek = hasProjection
+  // Multiplier States
+  const hasMiner = hasProjection
+    ? !!projection?.hasMinerMultiplier
+    : !!latestWeek?.hasCashMinerBonus;
+  const streakMultiplier = hasProjection
     ? projection?.streakBonusMultiplier ?? 0
-    : 0;
-  const hasCashMinerBonusThisWeek = hasProjection
-    ? Boolean(projection?.hasMinerMultiplier)
-    : false;
-  const baseMultiplierThisWeek = hasProjection
-    ? projection?.baseMultiplier ?? (hasCashMinerBonusThisWeek ? 3 : 1)
-    : baseMultiplierLastRollover;
-  const rolloverMultiplierThisWeek = hasProjection
-    ? projection?.totalMultiplier ??
-      baseMultiplierThisWeek + streakBonusMultiplierThisWeek
-    : rolloverMultiplierLastRollover;
-  const hasStreakBonusThisWeek =
-    hasProjection &&
-    impactStreakWeeksThisWeek > 0 &&
-    streakBonusMultiplierThisWeek > 0;
+    : latestWeek?.streakBonusMultiplier ?? 0;
+  const hasStreak = streakMultiplier > 0;
 
-  const hasCashMinerBonus = hasProjection
-    ? hasCashMinerBonusThisWeek
-    : hasCashMinerBonusLastRollover;
-  const cashMinerStatusLabel = hasProjection
-    ? hasCashMinerBonusThisWeek
-      ? "ACTIVE (this week)"
-      : "MISSING"
-    : hasCashMinerBonusLastRollover
-    ? "ACTIVE (last rollover)"
-    : "MISSING";
-  const isCashMinerActive = hasProjection
-    ? hasCashMinerBonusThisWeek
-    : hasCashMinerBonusLastRollover;
+  // Point Values
+  const steeringPoints = formatPoints(impactScore?.totals?.steeringPoints, {
+    maximumFractionDigits: 2,
+  });
+  const emissionPoints = formatPoints(impactScore?.totals?.inflationPoints, {
+    maximumFractionDigits: 2,
+  });
+  const vaultPoints = formatPoints(impactScore?.totals?.vaultBonusPoints, {
+    maximumFractionDigits: 2,
+  });
+  const worthPoints = formatPoints(impactScore?.totals?.continuousPoints, {
+    maximumFractionDigits: 2,
+  });
 
-  const streakStatusLabel = hasProjection
-    ? hasStreakBonusThisWeek
-      ? "ACTIVE (this week)"
-      : "MISSING"
-    : hasStreakBonusLastRollover
-    ? "ACTIVE (last rollover)"
-    : "MISSING";
-  const isStreakActive = hasProjection
-    ? hasStreakBonusThisWeek
-    : hasStreakBonusLastRollover;
+  // Calculate Bonus Points (The "Extra" earned from multipliers)
+  const basePoints =
+    safePointsNumber(impactScore?.totals?.steeringPoints) +
+    safePointsNumber(impactScore?.totals?.inflationPoints) +
+    safePointsNumber(impactScore?.totals?.vaultBonusPoints);
+  const totalRollover = safePointsNumber(impactScore?.totals?.rolloverPoints);
+  const bonusPoints = Math.max(0, totalRollover - basePoints);
 
-  const displayedImpactStreakWeeks = hasProjection
-    ? impactStreakWeeksThisWeek
-    : impactStreakWeeksLastRollover;
-  const displayedStreakBonusMultiplier = hasProjection
-    ? streakBonusMultiplierThisWeek
-    : streakBonusMultiplierLastRollover;
-  const displayedRolloverMultiplier = hasProjection
-    ? rolloverMultiplierThisWeek
-    : rolloverMultiplierLastRollover;
-  const rolloverMultiplier = hasProjection
-    ? rolloverMultiplierThisWeek
-    : rolloverMultiplierLastRollover;
-
-  const projectedBreakdown = React.useMemo(() => {
-    if (!hasProjection) return null;
-
-    const steeringGlwWei = safeBigInt(projectedPoints?.steeringGlwWei);
-    const inflationGlwWei = safeBigInt(projectedPoints?.inflationGlwWei);
-    const delegatedGlwWei = safeBigInt(projectedPoints?.delegatedGlwWei);
-    const glowWorthWei = safeBigInt(projectedPoints?.glowWorthWei);
-
-    const steeringPtsScaled6 = glwWeiToPointsScaled6({
-      glwWei: steeringGlwWei,
-      pointsPerGlwScaled6: STEERING_POINTS_PER_GLW_SCALED6,
-    });
-    const inflationPtsScaled6 = glwWeiToPointsScaled6({
-      glwWei: inflationGlwWei,
-      pointsPerGlwScaled6: INFLATION_POINTS_PER_GLW_SCALED6,
-    });
-    const vaultPtsScaled6 = glwWeiToPointsScaled6({
-      glwWei: delegatedGlwWei,
-      pointsPerGlwScaled6: VAULT_BONUS_POINTS_PER_GLW_SCALED6,
-    });
-    const continuousPtsScaled6 = glwWeiToPointsScaled6({
-      glwWei: glowWorthWei,
-      pointsPerGlwScaled6: GLOW_WORTH_POINTS_PER_GLW_SCALED6,
-    });
-
-    const rolloverPreScaled6 =
-      steeringPtsScaled6 + inflationPtsScaled6 + vaultPtsScaled6;
-    const multiplierScaled6 = BigInt(
-      Math.max(
-        0,
-        Math.round(
-          Number(rolloverMultiplier || 0) * Number(POINTS_SCALE_SCALED6)
-        )
-      )
-    );
-    const rolloverScaled6 =
-      multiplierScaled6 > BigInt(0)
-        ? (rolloverPreScaled6 * multiplierScaled6) / POINTS_SCALE_SCALED6
-        : BigInt(0);
-
-    return {
-      steeringPoints: formatPointsScaled6(steeringPtsScaled6),
-      inflationPoints: formatPointsScaled6(inflationPtsScaled6),
-      vaultBonusPoints: formatPointsScaled6(vaultPtsScaled6),
-      continuousPoints: formatPointsScaled6(continuousPtsScaled6),
-      rolloverPoints: formatPointsScaled6(rolloverScaled6),
-    };
-  }, [hasProjection, projectedPoints, rolloverMultiplier]);
+  const totalScore = formatPoints(
+    String(
+      totalRollover + safePointsNumber(impactScore?.totals?.continuousPoints)
+    ),
+    { maximumFractionDigits: 0 }
+  );
 
   return (
     <>
-      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
-        <div className="px-6 pr-14 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
-          <DialogHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle className="font-mono uppercase tracking-wide text-lg text-foreground dark:text-white">
-                  {title}
-                </DialogTitle>
-                <DialogDescription className="text-muted-foreground mt-1 dark:text-zinc-400">
-                  {description ??
-                    "Updates weekly based on your onchain activity."}
-                </DialogDescription>
-              </div>
+      <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-[24px] bg-background border shadow-2xl">
+        {/* HERO HEADER */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-muted/80 via-background to-background border-b pb-6 pt-8 px-6">
+          {/* Ambient Glow */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[100px] pointer-events-none" />
 
-              <div className="text-right">
-                <div className="text-[10px] uppercase text-muted-foreground font-mono dark:text-zinc-500">
-                  Current Score
-                </div>
-                <div className="text-xl font-bold font-mono text-foreground tracking-tight dark:text-white">
-                  {formatPoints(totalsPoints)}
-                </div>
+          <div className="relative z-10 flex flex-col items-center text-center space-y-2">
+            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+              {title || "Current Impact"}
+            </h2>
+
+            <div className="flex flex-col items-center">
+              <div className="text-6xl font-mono font-bold text-foreground tracking-tighter drop-shadow-sm">
+                {totalScore}
+              </div>
+              <div className="flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full bg-muted border">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+                  Updating Weekly
+                </span>
               </div>
             </div>
-          </DialogHeader>
+          </div>
         </div>
 
-        <ScrollArea className="max-h-[70vh]">
-          <div className="p-6 space-y-8">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider dark:text-zinc-500">
-                  Bonuses
-                </h4>
-                <span className="text-[10px] text-muted-foreground/80 font-mono dark:text-zinc-600">
-                  Week {displayedWeekNumber ?? "—"}
-                </span>
+        <ScrollArea className="max-h-[65vh]">
+          <div className="p-5 space-y-8">
+            {/* SECTION 1: EQUIPMENT (MULTIPLIERS) */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Active Multipliers
+                </h3>
+                {bonusPoints > 0 && (
+                  <span className="text-[10px] font-mono text-[color:var(--color-miner)]">
+                    +{formatPoints(String(bonusPoints))} pts bonus
+                  </span>
+                )}
               </div>
 
-              <div className="space-y-2 rounded-2xl border border-border bg-muted/10 p-3 dark:border-zinc-800 dark:bg-zinc-900/30">
-                {isCashMinerActive ? (
-                  <div className="flex items-center justify-between p-3 bg-[color:var(--color-miner)]/12 border border-[color:var(--color-miner)] rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-[color:var(--color-miner)]/25 border border-[color:var(--color-miner)]/90 text-[color:var(--color-miner)]">
-                        <CashMinerIcon className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-[color:var(--color-miner)] uppercase">
-                          Cash Miner Bonus
-                        </div>
-                        <div className="text-[10px] text-[color:var(--color-miner)]/70">
-                          3× multiplier • {cashMinerStatusLabel}
-                        </div>
-                      </div>
-                    </div>
-                    <CheckCircle2 className="w-5 h-5 text-[color:var(--color-miner)]" />
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between p-3 bg-muted/20 border border-border rounded-xl opacity-60 dark:bg-zinc-900 dark:border-zinc-800">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-bold font-mono text-sm dark:bg-zinc-800 dark:text-zinc-500">
-                        <CashMinerIcon className="w-5 h-5 opacity-50" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-foreground/80 uppercase dark:text-zinc-400">
-                          Cash Miner Bonus
-                        </div>
-                        <div className="text-[10px] text-muted-foreground dark:text-zinc-600">
-                          Buy a miner to triple points • {cashMinerStatusLabel}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {isStreakActive ? (
-                  <div className="flex items-center justify-between p-3 bg-delegation-purple/12 border border-delegation-purple rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-delegation-purple/25 border border-delegation-purple/90 text-delegation-purple">
-                        <ImpactStreakIcon className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-delegation-purple uppercase">
-                          Impact streak
-                        </div>
-                        <div className="text-[10px] text-delegation-purple/70 font-mono">
-                          Week {Math.min(displayedImpactStreakWeeks, 4)}/4 • +
-                          {formatMultiplier(displayedStreakBonusMultiplier)}×
-                          bonus • {streakStatusLabel}
-                        </div>
-                      </div>
-                    </div>
-                    <CheckCircle2 className="w-5 h-5 text-delegation-purple" />
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between p-3 bg-muted/20 border border-border rounded-xl opacity-60 dark:bg-zinc-900 dark:border-zinc-800">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-bold font-mono text-xs dark:bg-zinc-800 dark:text-zinc-500">
-                        <ImpactStreakIcon className="w-5 h-5 opacity-50" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-foreground/80 uppercase dark:text-zinc-400">
-                          Impact streak
-                        </div>
-                        <div className="text-[10px] text-muted-foreground dark:text-zinc-600">
-                          Increase delegation weekly for +0.25× (max +1.0×) •{" "}
-                          {streakStatusLabel}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+              <div className="grid grid-cols-2 gap-3">
+                <MultiplierCard
+                  icon={CashMinerIcon}
+                  title="Miner Bonus"
+                  description="Buy a miner this week to activate."
+                  multiplierValue="3.0"
+                  isActive={hasMiner}
+                  onClick={() => setIsLaunchpadOpen(true)}
+                  colorClass="text-[color:var(--color-miner)]"
+                  bgClass="bg-[color:var(--color-miner)]/10"
+                  borderClass="border-[color:var(--color-miner)]"
+                />
+                <MultiplierCard
+                  icon={ImpactStreakIcon}
+                  title="Streak"
+                  description="Grow delegation weekly to build."
+                  multiplierValue={(1 + (streakMultiplier || 0)).toFixed(2)}
+                  isActive={hasStreak}
+                  onClick={() => setIsLaunchpadOpen(true)} // Or dedicated streak modal
+                  colorClass="text-[color:var(--delegation-purple)]"
+                  bgClass="bg-[color:var(--delegation-purple)]/10"
+                  borderClass="border-[color:var(--delegation-purple)]"
+                />
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider dark:text-zinc-500">
-                  Total points
-                </h4>
-                <span className="text-[10px] text-muted-foreground/80 font-mono dark:text-zinc-600">
-                  Range {impactScore?.weekRange?.startWeek ?? "—"}–
-                  {impactScore?.weekRange?.endWeek ?? "—"}
-                </span>
-              </div>
+            <Separator />
+
+            {/* SECTION 2: POINT SOURCES */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
+                Point Sources
+              </h3>
 
               <div className="space-y-2">
-                <BreakdownRow
+                <SourceRow
                   icon={SteeringIcon}
-                  label="Steering GLW (sGCTL)"
-                  sublabel={`3.0x • Accumulated • ${formatGlwCompact(
-                    totalSteeringGlw
-                  )} GLW steered over range`}
-                  value={`+${formatPoints(impactScore?.totals?.steeringPoints, {
-                    maximumFractionDigits: 2,
-                  })}`}
-                  ctaText="Stake GCTL"
-                  onCtaClick={() => setIsMintAndStakeOpen(true)}
-                  tone="cyan"
-                  isDisabled={!hasSteeringMultiplier}
+                  label="Steering Power"
+                  subValue="Staked GCTL (3x Pts)"
+                  value={steeringPoints}
+                  ctaLabel={steeringPoints === "0" ? "Stake" : "Boost"}
+                  onCta={() => setIsMintAndStakeOpen(true)}
+                  themeColor="cyan"
                 />
 
-                <BreakdownRow
+                <SourceRow
                   icon={EmissionsIcon}
-                  label="Emissions Earned"
-                  sublabel={`1.0x • Accumulated • ${formatGlwCompact(
-                    totalInflationGlw
-                  )} GLW earned over range`}
-                  value={`+${formatPoints(
-                    impactScore?.totals?.inflationPoints,
-                    {
-                      maximumFractionDigits: 2,
-                    }
-                  )}`}
-                  ctaText="Buy Miner"
-                  onCtaClick={() => setIsLaunchpadOpen(true)}
-                  tone="yellow"
-                  isDisabled={!hasEmissionsEarned}
+                  label="Emissions"
+                  subValue="Mining Rewards (1x Pts)"
+                  value={emissionPoints}
+                  ctaLabel={emissionPoints === "0" ? "Earn" : "Add More"}
+                  onCta={() => setIsLaunchpadOpen(true)}
+                  themeColor="yellow"
                 />
 
-                <BreakdownRow
+                <SourceRow
                   icon={VaultIcon}
-                  label="Vault Bonus"
-                  sublabel={`0.005x per week • Accumulated from delegations`}
-                  value={`+${formatPoints(
-                    impactScore?.totals?.vaultBonusPoints,
-                    {
-                      maximumFractionDigits: 2,
-                    }
-                  )}`}
-                  ctaText="Delegate"
-                  onCtaClick={() => setIsLaunchpadOpen(true)}
-                  tone="purple"
-                  isDisabled={!hasVaultBonus}
+                  label="Delegation"
+                  subValue="Vault Bonus (0.005x)"
+                  value={vaultPoints}
+                  ctaLabel={vaultPoints === "0" ? "Delegate" : "Add"}
+                  onCta={() => setIsLaunchpadOpen(true)}
+                  themeColor="purple"
                 />
 
-                <BreakdownRow
-                  icon={CashMinerIcon}
-                  label="Multiplier Bonus"
-                  sublabel="Accumulated bonus from Miner & Streak multipliers"
-                  value={`+${formatPoints(String(multiplierBonusPts), {
-                    maximumFractionDigits: 2,
-                  })}`}
-                  tone="yellow"
-                  isDisabled={multiplierBonusPts <= 0.01}
-                />
-
-                <BreakdownRow
+                <SourceRow
                   icon={GlwWorthIcon}
-                  label="GLW Worth"
-                  sublabel="Accumulated continuous points over range"
-                  value={`+${formatPoints(
-                    impactScore?.totals?.continuousPoints,
-                    {
-                      maximumFractionDigits: 2,
-                    }
-                  )}`}
-                  ctaText="Buy GLW"
-                  onCtaClick={() => setIsBuyGlowOpen(true)}
-                  tone="emerald"
+                  label="Glow Worth"
+                  subValue="Holding GLW"
+                  value={worthPoints}
+                  ctaLabel="Buy"
+                  onCta={() => setIsBuyGlowOpen(true)}
+                  themeColor="green"
                 />
               </div>
+            </div>
 
-              <div className="flex justify-end pt-2 border-t border-dashed border-border dark:border-zinc-800">
-                <div className="text-right">
-                  <span className="text-[10px] uppercase text-muted-foreground mr-3 dark:text-zinc-500">
-                    Total Points
-                  </span>
-                  <span className="font-mono text-xl font-bold text-foreground dark:text-white">
-                    {formatPoints(
-                      String(
-                        safePointsNumber(impactScore?.totals?.rolloverPoints) +
-                          safePointsNumber(
-                            impactScore?.totals?.continuousPoints
-                          )
-                      ),
-                      {
-                        maximumFractionDigits: 2,
-                      }
-                    )}
-                  </span>
-                  {/* {latestWeek ? (
-                    <div className="mt-1 text-[10px] text-muted-foreground/80 font-mono dark:text-zinc-600">
-                      Last rollover week {lastRolloverWeekNumber ?? "—"}:{" "}
-                      <span className="tabular-nums">
-                        +
-                        {formatPoints(latestWeek.inflationPoints, {
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        emissions • +
-                        {formatPoints(latestWeek.steeringPoints, {
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        steering • +
-                        {formatPoints(latestWeek.vaultBonusPoints, {
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        vault •{" "}
-                        {formatMultiplier(latestWeek.rolloverMultiplier)}×
-                      </span>
+            {/* SCORE EXPLAINER */}
+            <div className="space-y-3">
+              <Separator />
+
+              <div className="space-y-3 px-1">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  How Scores Update
+                </h3>
+
+                <div className="space-y-2 text-xs">
+                  <div className="rounded-lg bg-muted/50 border p-3 space-y-1.5">
+                    <div className="flex items-start gap-2">
+                      <div className="space-y-0.5">
+                        <p className="font-semibold text-foreground">
+                          Continuous Updates
+                        </p>
+                        <p className="text-muted-foreground text-[11px] leading-relaxed">
+                          <span className="font-medium text-foreground">
+                            Glow Worth
+                          </span>{" "}
+                          points update in real-time as you hold GLW (+0.001
+                          pts/week per GLW).
+                        </p>
+                      </div>
                     </div>
-                  ) : null} */}
+                  </div>
+
+                  <div className="rounded-lg bg-muted/50 border p-3 space-y-1.5">
+                    <div className="flex items-start gap-2">
+                      <div className="space-y-0.5">
+                        <p className="font-semibold text-foreground">
+                          Weekly Rollover (Sundays 00:00 UTC)
+                        </p>
+                        <p className="text-muted-foreground text-[11px] leading-relaxed">
+                          <span className="font-medium text-foreground">
+                            Emissions, Steering, and Vault Bonus
+                          </span>{" "}
+                          points are calculated and locked in each week.
+                          Multipliers (Miner 3×, Streak up to +1×) are applied
+                          to these rollover points.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -723,24 +521,18 @@ export function ImpactScoreBreakdownDialogContent(
         </ScrollArea>
       </DialogContent>
 
+      {/* Sub-Dialogs */}
       <LaunchpadDialog
-        key={isLaunchpadOpen ? "launchpad-open" : "launchpad-closed"}
         open={isLaunchpadOpen}
         onOpenChange={setIsLaunchpadOpen}
       />
-
       <MintAndStakeGctlDialog
-        key={
-          isMintAndStakeOpen ? "mint-and-stake-open" : "mint-and-stake-closed"
-        }
         open={isMintAndStakeOpen}
         onOpenChange={setIsMintAndStakeOpen}
         usdcBalance={usdcBalance}
         usdgBalance={usdgBalance}
       />
-
       <BuyGlowDialog
-        key={isBuyGlowOpen ? "buy-glow-open" : "buy-glow-closed"}
         open={isBuyGlowOpen}
         onOpenChange={setIsBuyGlowOpen}
         usdcBalance={usdcBalance}
@@ -774,46 +566,17 @@ export function ImpactScoreBreakdownDialog(
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {query.isLoading ? (
-        <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
-          <div className="px-6 pr-14 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
-            <DialogHeader className="sr-only">
-              <DialogTitle>{title ?? "Score Breakdown"}</DialogTitle>
-              <DialogDescription>
-                {description ?? "Loading breakdown."}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <Skeleton className="h-5 w-48 rounded-xl" />
-                <Skeleton className="h-4 w-64 rounded-xl" />
-              </div>
-              <div className="space-y-2 text-right">
-                <Skeleton className="h-3 w-24 rounded-xl ml-auto" />
-                <Skeleton className="h-7 w-20 rounded-xl ml-auto" />
-              </div>
-            </div>
-          </div>
-          <div className="p-6 space-y-3">
-            <Skeleton className="h-6 w-40 rounded-xl" />
-            <Skeleton className="h-12 w-full rounded-xl" />
-            <Skeleton className="h-12 w-full rounded-xl" />
-            <Skeleton className="h-12 w-full rounded-xl" />
+        <DialogContent className="sm:max-w-md p-6 bg-[#09090b] border-white/10">
+          <div className="space-y-4">
+            <Skeleton className="h-20 w-full rounded-xl bg-zinc-800" />
+            <Skeleton className="h-32 w-full rounded-xl bg-zinc-800" />
+            <Skeleton className="h-48 w-full rounded-xl bg-zinc-800" />
           </div>
         </DialogContent>
       ) : query.isError ? (
-        <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
-          <div className="px-6 pr-14 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
-            <DialogHeader>
-              <DialogTitle className="font-mono uppercase tracking-wide text-lg text-foreground dark:text-white">
-                {title ?? "Score Breakdown"}
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground mt-1 dark:text-zinc-400">
-                {description ?? "Unable to load breakdown."}
-              </DialogDescription>
-            </DialogHeader>
-          </div>
-          <div className="p-6 text-sm text-muted-foreground">
-            Unable to load.
+        <DialogContent className="sm:max-w-md p-6 bg-[#09090b] border-white/10">
+          <div className="text-center text-zinc-500 py-10">
+            Unable to load score data.
           </div>
         </DialogContent>
       ) : query.data ? (

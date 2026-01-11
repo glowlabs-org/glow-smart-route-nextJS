@@ -1,7 +1,17 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Droplets, Lock, Wallet, Rocket } from "lucide-react";
+import {
+  Zap,
+  ArrowRight,
+  AlertCircle,
+  TrendingUp,
+  Activity,
+  Lock,
+  Wallet,
+  Globe,
+  Info,
+} from "lucide-react";
 import Link from "next/link";
 import { useAccount } from "wagmi";
 
@@ -14,18 +24,21 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Progress } from "@/components/ui/progress";
 import { formatUnits } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { cn } from "@/lib/utils";
-import { useGctlApi, useWallets, useRegions } from "@/hooks";
+import {
+  useGctlApi,
+  useWallets,
+  useRegions,
+  useActiveRegionsSummary,
+} from "@/hooks";
 import { ConnectButton } from "@/components/connect-button";
 import { trackEvent } from "@/lib/telemetry";
+import { SteeringIcon } from "@/components/impact-icons";
 
-interface RegionStakeTile {
-  regionId: number;
-  regionName: string;
-  amountGctl: number;
-}
+// --- Utility Functions ---
 
 function gctlAmountFromRaw(raw: string) {
   try {
@@ -40,94 +53,100 @@ function formatCompact(value: number) {
   if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
   if (value >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
   if (value >= 1e3) return `${(value / 1e3).toFixed(2)}K`;
-  return value.toFixed(value >= 10 ? 2 : 4).replace(/\.?0+$/, "");
+  return value.toFixed(1).replace(/\.?0+$/, "");
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
+// --- Components ---
 
-function stableUnitFromNumber(value: number) {
-  const x = Math.sin(value * 999 + 0.12345) * 10000;
-  return x - Math.floor(x);
-}
-
-function getTreemapTileColors({
-  regionId,
-  intensity,
-}: {
-  regionId: number;
-  intensity: number;
-}) {
-  const unit = stableUnitFromNumber(regionId);
-  const hue = 188 + (unit - 0.5) * 12; // subtle variation around cyan
-  const saturation = 86;
-  const baseLightness = 52 + intensity * 10 + (unit - 0.5) * 6;
-  const fillLightness = clamp(baseLightness, 40, 70);
-  const dotLightness = clamp(baseLightness + 6, 40, 76);
-
-  const fillAlpha = 0.18 + intensity * 0.45;
-  const dotAlpha = 0.35 + intensity * 0.55;
-
-  return {
-    fill: `hsla(${hue.toFixed(1)}, ${saturation}%, ${fillLightness.toFixed(
-      1
-    )}%, ${fillAlpha.toFixed(3)})`,
-    dot: `hsla(${hue.toFixed(1)}, ${saturation}%, ${dotLightness.toFixed(
-      1
-    )}%, ${dotAlpha.toFixed(3)})`,
-  };
-}
-
-function GctlHeatmapSkeleton() {
+function GctlSkeleton() {
   return (
-    <Card className="h-full lg:max-h-[380px] overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border pt-0">
-      <CardHeader className="pb-0 pt-4">
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
-            GCTL
-          </CardTitle>
-          <Button
-            size="sm"
-            className="h-8 rounded-full px-3 text-[11px] font-mono tracking-wider gap-2"
-            disabled
-          >
-            <Rocket className="h-3.5 w-3.5" />
-            <span>Stake</span>
-          </Button>
-        </div>
+    <Card className="h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-border">
+      <CardHeader className="pb-2">
+        <Skeleton className="h-6 w-32" />
       </CardHeader>
-      <CardContent className="min-h-0 flex-1 flex flex-col p-4 pt-3">
-        <div className="flex flex-col flex-1 min-h-0 gap-3">
-          <div className="flex items-start justify-between gap-4 shrink-0">
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-3 w-24 rounded-xl" />
-              <Skeleton className="h-8 w-40 rounded-xl" />
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              <Skeleton className="h-3 w-28 rounded-xl" />
-              <Skeleton className="h-3 w-28 rounded-xl" />
-            </div>
-          </div>
-
-          <div className="flex-1 min-h-[200px]  rounded-2xl overflow-hidden border border-border bg-muted/10 flex flex-col">
-            <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border/60 shrink-0">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                Staked across projects
-              </span>
-              <Droplets className="w-3.5 h-3.5 text-muted-foreground" />
-            </div>
-            <div className="flex-1 min-h-0 p-3">
-              <div className="h-full w-full rounded-xl bg-muted/30" />
-            </div>
-          </div>
-        </div>
+      <CardContent className="space-y-4">
+        <Skeleton className="h-20 w-full rounded-xl" />
+        <Skeleton className="h-10 w-full rounded-xl" />
+        <Skeleton className="h-10 w-full rounded-xl" />
       </CardContent>
     </Card>
   );
 }
 
-export default function GctlHeatmapWidget({
+/**
+ * Represents a single region the user is steering towards.
+ * Displays: Region Name, User's GCTL Staked, % of Region Controlled, and Est. GLW Directed.
+ */
+function RegionSteeringRow({
+  regionName,
+  userStakedGctl,
+  totalRegionStakedGctl,
+  regionWeeklyEmissions,
+  isMax,
+}: {
+  regionName: string;
+  userStakedGctl: number;
+  totalRegionStakedGctl: number;
+  regionWeeklyEmissions: number;
+  isMax: boolean;
+}) {
+  // Calculate Share %
+  const shareOfRegion =
+    totalRegionStakedGctl > 0 ? userStakedGctl / totalRegionStakedGctl : 0;
+
+  // Calculate GLW Directed (The Impact)
+  const glwDirected = regionWeeklyEmissions * shareOfRegion;
+
+  return (
+    <div className="group relative overflow-hidden rounded-xl bg-muted/40 border border-border/50 transition-all hover:bg-muted/60 hover:border-cyan-500/30">
+      {/* Background Fill Animation based on share strength */}
+      <div
+        className="absolute inset-y-0 left-0 bg-cyan-500/5 dark:bg-cyan-900/10 transition-all duration-1000 ease-out"
+        style={{ width: `${Math.min(shareOfRegion * 500, 100)}%` }} // Visual scaling, purely cosmetic
+      />
+
+      <div className="relative flex items-center justify-between p-3">
+        <div className="flex items-center gap-3">
+          <div
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-lg border transition-colors",
+              isMax
+                ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-600 dark:text-cyan-400"
+                : "bg-background/50 border-border text-muted-foreground"
+            )}
+          >
+            <Globe className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="font-semibold text-sm text-foreground leading-none">
+              {regionName}
+            </div>
+            <div className="text-[10px] text-muted-foreground font-mono mt-1">
+              {formatCompact(userStakedGctl)} GCTL Staked
+            </div>
+          </div>
+        </div>
+
+        <div className="text-right">
+          <div className="font-mono font-bold text-foreground flex items-center justify-end gap-1">
+            {formatCompact(glwDirected)}{" "}
+            <span className="text-[10px] text-muted-foreground font-normal">
+              GLW/wk
+            </span>
+          </div>
+          <div className="text-[10px] text-cyan-600 dark:text-cyan-400 font-medium">
+            {/* If we don't have totalRegionStakedGctl yet, hide the %, or show <1% */}
+            {totalRegionStakedGctl > 0
+              ? `Directing ${(shareOfRegion * 100).toFixed(2)}% of Region`
+              : "Directing Emissions"}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function GctlControlWidget({
   walletAddress,
   onMintAndStakeClick,
   variant = "default",
@@ -139,269 +158,182 @@ export default function GctlHeatmapWidget({
   const { isConnecting, isReconnecting } = useAccount();
   const isEnabled = Boolean(walletAddress);
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
-  const source = "gctl_heatmap_widget";
   const isWalletConnecting = isConnecting || isReconnecting;
   const isFlow = variant === "flow";
   const isMinimal = variant === "minimal";
 
+  // --- Data Fetching ---
   const { gctlBalance, isGctlBalanceLoading } = useGctlApi(
     walletAddress ?? undefined,
-    {
-      enabled: isEnabled,
-    }
+    { enabled: isEnabled }
   );
   const { walletDetails, isWalletDetailsLoading } = useWallets({
     walletAddress: walletAddress ?? undefined,
     enabled: isEnabled,
   });
   const { regions, isRegionsLoading } = useRegions();
+  const { data: activeSummary, isLoading: isActiveSummaryLoading } =
+    useActiveRegionsSummary({
+      enabled: isEnabled,
+    });
 
+  // --- Computations ---
   const walletBalanceGctl = useMemo(() => {
     if (!isEnabled) return 0;
     return gctlAmountFromRaw(gctlBalance);
   }, [gctlBalance, isEnabled]);
 
-  const stakes = useMemo((): RegionStakeTile[] => {
-    if (!isEnabled) return [];
+  const regionDataMap = useMemo(() => {
+    if (!activeSummary) return new Map();
+    return new Map(
+      activeSummary.regions.map((r) => [
+        r.id,
+        {
+          totalStaked: r.stakedGctl,
+          weeklyEmissions: r.glwPerWeek,
+        },
+      ])
+    );
+  }, [activeSummary]);
 
-    const tiles =
+  const stakes = useMemo(() => {
+    if (!isEnabled) return [];
+    return (
       walletDetails?.regions
-        ?.filter((regionStake) => {
+        ?.filter((r) => {
           try {
-            return BigInt(regionStake.totalStaked || "0") > BigInt(0);
+            return BigInt(r.totalStaked || "0") > BigInt(0);
           } catch {
             return false;
           }
         })
-        .map((regionStake) => {
+        .map((r) => {
           const fallbackName =
-            regions.find((r) => r.id === regionStake.regionId)?.name ??
-            `Region ${regionStake.regionId}`;
+            regions.find((reg) => reg.id === r.regionId)?.name ??
+            `Region ${r.regionId}`;
+          const regionData = regionDataMap.get(r.regionId);
 
           return {
-            regionId: regionStake.regionId,
-            regionName: regionStake.region?.name || fallbackName,
-            amountGctl: gctlAmountFromRaw(regionStake.totalStaked),
+            regionId: r.regionId,
+            regionName: r.region?.name || fallbackName,
+            amountGctl: gctlAmountFromRaw(r.totalStaked),
+            totalRegionStaked: regionData?.totalStaked ?? 0,
+            weeklyEmissions: regionData?.weeklyEmissions ?? 0,
           };
-        }) ?? [];
+        })
+        .sort((a, b) => b.amountGctl - a.amountGctl)
+        .slice(0, 4) ?? []
+    );
+  }, [isEnabled, regions, walletDetails?.regions, regionDataMap]);
 
-    return tiles.sort((a, b) => b.amountGctl - a.amountGctl).slice(0, 8);
-  }, [isEnabled, regions, walletDetails?.regions]);
-
-  const stakedTotalGctl = useMemo(() => {
-    return stakes.reduce((sum, tile) => sum + tile.amountGctl, 0);
-  }, [stakes]);
+  const stakedTotalGctl = useMemo(
+    () => stakes.reduce((acc, curr) => acc + curr.amountGctl, 0),
+    [stakes]
+  );
   const totalBalanceGctl = walletBalanceGctl + stakedTotalGctl;
-  const liquidPercent =
-    totalBalanceGctl > 0 ? walletBalanceGctl / totalBalanceGctl : 0;
-  const stakedPercent =
-    totalBalanceGctl > 0 ? stakedTotalGctl / totalBalanceGctl : 0;
+  const hasLiquidGctl = walletBalanceGctl > 0.01;
+  const isLoading =
+    isGctlBalanceLoading ||
+    isWalletDetailsLoading ||
+    isRegionsLoading ||
+    isActiveSummaryLoading;
 
-  const mockStakes: RegionStakeTile[] = useMemo(
-    () => [
-      { regionId: 1, regionName: "Utah", amountGctl: 45000 },
-      { regionId: 2, regionName: "Nevada", amountGctl: 28000 },
-      { regionId: 3, regionName: "Arizona", amountGctl: 15000 },
-      { regionId: 4, regionName: "Texas", amountGctl: 12000 },
-    ],
-    []
+  // Calculate Total Steering Points (KPI)
+  // Logic: Estimated GLW Directed * 3
+  // TODO: Replace with actual value from Impact Score API if available (impactScore.composition.steeringPoints)
+  const totalSteeringPoints = stakes.reduce((acc, curr) => {
+    const share = curr.amountGctl / curr.totalRegionStaked;
+    const glw = curr.weeklyEmissions * share;
+    return acc + glw * 3;
+  }, 0);
+
+  // --- Layout Classes ---
+  const cardClasses = cn(
+    "overflow-hidden flex flex-col pt-0 w-full transition-all duration-300",
+    isMinimal
+      ? "bg-transparent border-transparent h-full"
+      : isFlow
+      ? "bg-card/30 border-foreground/5 min-h-[380px]"
+      : "h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-border shadow-sm hover:shadow-md hover:border-border/80"
   );
 
-  const mockTotalBalance = 100000;
-  const mockLiquidPercent = 0.25;
-  const mockStakedPercent = 0.75;
-  const mockStakedTotal = 75000;
+  // --- 1. Loading State ---
+  if (isWalletConnecting && !isEnabled) return <GctlSkeleton />;
 
-  if (isWalletConnecting && !isEnabled) return <GctlHeatmapSkeleton />;
-
+  // --- 2. Disconnected State ---
   if (!isEnabled) {
     return (
-      <Card
-        className={cn(
-          "overflow-hidden flex flex-col pt-0 w-full",
-          isMinimal
-            ? "bg-transparent border-transparent h-full"
-            : isFlow
-            ? "bg-card/30 border-foreground/5 min-h-[380px]"
-            : "h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
-        )}
-      >
-        <CardHeader className="pb-0 pt-4">
-          <div className="flex items-center justify-between gap-3">
-            <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
-              GCTL
-            </CardTitle>
-            <Button
-              size="sm"
-              className="h-8 rounded-full px-3 text-[11px] font-mono tracking-wider gap-2"
-              disabled
-            >
-              <Rocket className="h-3.5 w-3.5" />
-              <span>Stake</span>
-            </Button>
-          </div>
+      <Card className={cardClasses}>
+        <CardHeader className="pb-0 pt-4 flex-row items-center justify-between">
+          <CardTitle className="text-lg font-semibold tracking-tight">
+            Glow Control (GCTL)
+          </CardTitle>
+          <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
         </CardHeader>
-        <CardContent className="min-h-0 flex-1 flex flex-col p-4 pt-3 relative">
-          <div className="flex-1 min-h-0 blur-[8px] opacity-40 pointer-events-none select-none flex flex-col gap-3">
-            <div className="flex items-start justify-between gap-4 shrink-0">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                  Total balance
-                </span>
-                <div className="mt-1 font-mono text-2xl font-bold tracking-tight text-foreground">
-                  {formatCompact(mockTotalBalance)}{" "}
-                  <span className="text-xs font-mono text-muted-foreground">
-                    GCTL
-                  </span>
-                </div>
-              </div>
-              <div className="flex flex-col items-end text-[10px] font-mono uppercase text-muted-foreground leading-tight">
-                <div className="inline-flex items-center gap-1">
-                  <Wallet className="w-3.5 h-3.5" />
-                  <span>{Math.round(mockLiquidPercent * 100)}% Liquid</span>
-                </div>
-                <div className="inline-flex items-center gap-1 mt-1">
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>{Math.round(mockStakedPercent * 100)}% Staked</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex-1 min-h-[200px] rounded-2xl overflow-hidden border border-border bg-muted/10 flex flex-col">
-              <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border/60 shrink-0">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                  Staked across projects
-                </span>
-                <Droplets className="w-3.5 h-3.5 text-muted-foreground" />
-              </div>
-              <div className="flex-1 min-h-0 flex flex-col">
-                <div className="flex-1 min-h-0 w-full flex divide-x divide-black/10 dark:divide-white/15">
-                  {mockStakes.map((tile, i) => {
-                    const intensity = clamp(
-                      tile.amountGctl / Math.max(1, mockStakedTotal),
-                      0,
-                      1
-                    );
-                    const { fill } = getTreemapTileColors({
-                      regionId: tile.regionId + i * 1000,
-                      intensity,
-                    });
-                    return (
-                      <div
-                        key={tile.regionId}
-                        className="h-full"
-                        style={{
-                          flexGrow: tile.amountGctl,
-                          flexBasis: 0,
-                          backgroundColor: fill,
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+        <CardContent className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-6">
+          <div className="relative">
+            <div className="absolute inset-0 bg-cyan-500/20 blur-2xl rounded-full" />
+            <SteeringIcon className="relative h-16 w-16 text-muted-foreground/50" />
           </div>
-
-          <div className="absolute inset-0 flex items-center justify-center p-6">
-            <div className="bg-background/80 backdrop-blur-md border border-border rounded-2xl p-6 shadow-2xl max-w-[280px] text-center space-y-4">
-              <div className="space-y-1">
-                <div className="text-sm font-bold text-foreground">
-                  Connect your wallet
-                </div>
-                <div className="text-xs text-muted-foreground leading-relaxed">
-                  Connect your wallet to see how your GCTL steers Infrastructure
-                  Projects.
-                </div>
-              </div>
-              <div className="flex justify-center">
-                <ConnectButton variant="default" size="large" />
-              </div>
-            </div>
+          <div>
+            <h3 className="font-semibold text-foreground">
+              Steer Solar Rewards
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1 max-w-[200px] mx-auto">
+              Direct GLW emissions to regions and earn 3 points per GLW.
+            </p>
           </div>
+          <ConnectButton variant="default" />
         </CardContent>
       </Card>
     );
   }
 
-  const isLoading =
-    isGctlBalanceLoading || isWalletDetailsLoading || isRegionsLoading;
-
+  // --- 3. Zero Balance State (Sales Pitch) ---
   if (!isLoading && totalBalanceGctl <= 0) {
     return (
-      <Card
-        className={cn(
-          "overflow-hidden flex flex-col pt-0 w-full",
-          isMinimal
-            ? "bg-transparent border-transparent h-full"
-            : isFlow
-            ? "bg-card/30 border-foreground/5 min-h-[380px]"
-            : "h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
-        )}
-      >
-        <CardHeader className="pb-0 pt-4">
-          <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
-            Glow Control
-          </CardTitle>
+      <Card className={cn(cardClasses)}>
+        <CardHeader className="pb-0 pt-4 flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
+              Glow Control
+            </CardTitle>
+          </div>
         </CardHeader>
-        <CardContent className="min-h-0 flex-1 flex flex-col px-5 pb-5 pt-0">
-          <div className="flex-1 flex flex-col items-center justify-center py-2 gap-6">
-            <div className="flex flex-col items-center gap-1.5 text-center px-4">
-              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground max-w-[20ch]">
-                Steer Glow's Economy
-              </span>
-              <span className="text-sm text-muted-foreground max-w-[32ch] leading-relaxed">
-                GCTL directs Glow's 175,000 GLW/week subsidy across
-                Infrastructure Projects.
+
+        <CardContent className="flex-1 flex flex-col p-6 pt-2">
+          <div className="flex-1 flex flex-col justify-center items-center text-center gap-5">
+            {/* Hero Visual */}
+            <div
+              className="relative group cursor-pointer"
+              onClick={onMintAndStakeClick}
+            >
+              <div className="absolute inset-0 bg-cyan-500/20 rounded-full blur-xl animate-pulse group-hover:bg-cyan-500/30 transition-colors" />
+              <div className="relative flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-b from-cyan-500/10 to-transparent border border-cyan-500/30 group-hover:scale-105 transition-transform">
+                <SteeringIcon className="w-10 h-10 text-cyan-500" />
+              </div>
+            </div>
+
+            {/* Value Prop */}
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-foreground">
+                Direct Global Emissions
+              </h3>
+              <p className="text-sm text-muted-foreground max-w-[280px] mx-auto">
+                Decide where solar gets built.
+              </p>
+            </div>
+
+            {/* Gamification Hook */}
+            <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-lg px-4 py-2 flex items-center gap-2">
+              <Zap className="h-4 w-4 text-cyan-500 fill-cyan-500" />
+              <span className="text-xs font-medium text-cyan-600 dark:text-cyan-400">
+                Earn <span className="font-bold">3 Points</span> per GLW Steered
               </span>
             </div>
-          </div>
 
-          <div className="mt-auto space-y-3">
-            <Link
-              href="https://glow.org/blog/beginner-guide-to-gctl"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => {
-                trackEvent("dashboard_education_click", {
-                  source,
-                  wallet_connected: Boolean(normalizedWalletAddress),
-                  wallet_address: normalizedWalletAddress,
-                  topic: "gctl",
-                  url: "https://glow.org/blog/beginner-guide-to-gctl",
-                });
-              }}
-              className="group block bg-muted/20 rounded-xl p-3.5 border border-border/50 hover:bg-muted/30 hover:border-cyan-500/50 transition-all text-left"
-            >
-              <div className="flex gap-3 flex-col items-center text-center sm:flex-row sm:items-start sm:text-left">
-                <div className="shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-background/50 border border-border/60">
-                  <Droplets className="h-4 w-4 text-cyan-400" />
-                </div>
-                <div className="space-y-0.5">
-                  <p className="text-base font-semibold text-foreground group-hover:text-cyan-400 transition-colors">
-                    Beginner&apos;s Guide to GCTL
-                  </p>
-                  <p className="text-muted-foreground text-xs leading-relaxed">
-                    Learn how to mint GCTL and vote on solar farms to maximize
-                    your impact and rewards.
-                  </p>
-                </div>
-              </div>
-            </Link>
-            <Button
-              className="w-full h-12 font-mono font-bold gap-2"
-              onClick={() => {
-                trackEvent("dashboard_gctl_mint_stake_open_click", {
-                  source,
-                  wallet_connected: Boolean(normalizedWalletAddress),
-                  wallet_address: normalizedWalletAddress,
-                });
-                onMintAndStakeClick?.();
-              }}
-              disabled={isLoading}
-            >
-              <Rocket className="h-4 w-4" />
-              <span>Mint GCTL</span>
+            <Button className="w-full " onClick={onMintAndStakeClick}>
+              Mint & Stake GCTL
             </Button>
           </div>
         </CardContent>
@@ -409,246 +341,142 @@ export default function GctlHeatmapWidget({
     );
   }
 
-  const maxStake = Math.max(1, ...stakes.map((t) => t.amountGctl));
-
+  // --- 4. Active State (The Control Panel) ---
   return (
-    <Card
-      className={cn(
-        "overflow-hidden flex flex-col pt-0 w-full",
-        isMinimal
-          ? "bg-transparent border-transparent h-full"
-          : isFlow
-          ? "bg-card/30 border-foreground/5 min-h-[380px]"
-          : "h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
-      )}
-    >
-      <CardHeader className="pb-0 pt-4">
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
-            GCTL
-          </CardTitle>
+    <Card className={cardClasses}>
+      <CardHeader className="pb-2 pt-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
+              Glow Control (GCTL)
+            </CardTitle>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-cyan-500 transition-colors" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  Your governance influence over the solar grid.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
           <Button
+            variant="outline"
             size="sm"
-            className="h-8 rounded-full px-3 text-[11px] font-mono tracking-wider gap-2"
-            onClick={() => {
-              trackEvent("dashboard_gctl_mint_stake_open_click", {
-                source,
-                wallet_connected: Boolean(normalizedWalletAddress),
-                wallet_address: normalizedWalletAddress,
-              });
-              onMintAndStakeClick?.();
-            }}
-            disabled={isLoading}
+            className="h-7 text-xs gap-1.5 border-dashed border-border hover:border-cyan-500/50 hover:bg-cyan-500/5 hover:text-cyan-600"
+            onClick={onMintAndStakeClick}
           >
-            <Rocket className="h-3.5 w-3.5" />
-            <span>Stake</span>
+            <TrendingUp className="h-3 w-3" />
+            Boost
           </Button>
         </div>
       </CardHeader>
 
-      <CardContent className="min-h-0 flex-1 flex flex-col p-4 pt-3">
-        <div className="flex flex-col flex-1 min-h-0 gap-3">
-          {/* Summary row */}
-          <div className="flex flex-col gap-3 shrink-0">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                  Total balance
-                </span>
-                <div className="mt-1 font-mono text-2xl font-bold tracking-tight text-foreground">
-                  {isLoading ? "—" : formatCompact(totalBalanceGctl)}{" "}
-                  <span className="text-xs font-mono text-muted-foreground">
-                    GCTL
-                  </span>
-                </div>
-              </div>
+      <CardContent className="flex-1 flex flex-col p-4 gap-4">
+        {/* Top: KPI Grid */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* KPI 1: Holdings */}
+          <div className="space-y-1">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              My Holdings
             </div>
-
-            {/* Liquid vs Staked breakdown */}
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5 font-mono">
-                  <Wallet className="w-3.5 h-3.5 text-glow-orange" />
-                  <span className="text-muted-foreground">Liquid</span>
-                </div>
-                <div className="font-mono font-semibold text-foreground">
-                  {isLoading ? "—" : formatCompact(walletBalanceGctl)}{" "}
-                  <span className="text-[10px] text-muted-foreground">
-                    ({Math.round(liquidPercent * 100)}%)
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5 font-mono">
-                  <Lock className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
-                  <span className="text-muted-foreground">Staked</span>
-                </div>
-                <div className="font-mono font-semibold text-foreground">
-                  {isLoading ? "—" : formatCompact(stakedTotalGctl)}{" "}
-                  <span className="text-[10px] text-muted-foreground">
-                    ({Math.round(stakedPercent * 100)}%)
-                  </span>
-                </div>
-              </div>
-
-              {/* Visual bar */}
-              {!isLoading && totalBalanceGctl > 0 && (
-                <div className="flex h-2 w-full rounded-full overflow-hidden bg-muted/30 border border-border/40">
-                  <div
-                    className="transition-all"
-                    style={{
-                      width: `${liquidPercent * 100}%`,
-                      backgroundColor: "rgba(255, 180, 114, 0.7)",
-                    }}
-                  />
-                  <div
-                    className="bg-cyan-500/60 dark:bg-cyan-400/70 transition-all"
-                    style={{ width: `${stakedPercent * 100}%` }}
-                  />
-                </div>
-              )}
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-mono font-bold text-foreground">
+                {formatCompact(totalBalanceGctl)}
+              </span>
+              <span className="text-xs text-muted-foreground">GCTL</span>
+            </div>
+            <div className="flex gap-2 text-[10px] text-muted-foreground">
+              <span
+                className={cn(hasLiquidGctl && "text-[#ffb472] font-medium")}
+              >
+                {formatCompact(walletBalanceGctl)} Liquid
+              </span>
+              <span>•</span>
+              <span className="text-cyan-600 dark:text-cyan-400 font-medium">
+                {formatCompact(stakedTotalGctl)} Active
+              </span>
             </div>
           </div>
 
-          {/* Treemap */}
-          <div className="flex-1 min-h-[200px] rounded-2xl overflow-hidden border border-border bg-muted/10 flex flex-col">
-            <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border/60 shrink-0">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                Staked across projects
-              </span>
-              <Droplets className="w-3.5 h-3.5 text-muted-foreground" />
+          {/* KPI 2: Impact Score Contribution */}
+          <div className="space-y-1 text-right">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Steering Score
             </div>
-
-            {isLoading ? (
-              <div className="flex-1 min-h-0 flex items-center justify-center">
-                <span className="text-xs text-muted-foreground font-mono">
-                  Loading…
-                </span>
-              </div>
-            ) : stakes.length === 0 ? (
-              <div className="flex-1 min-h-0 flex items-center justify-center">
-                <span className="text-xs text-muted-foreground">
-                  No active GCTL stakes
-                </span>
-              </div>
-            ) : (
-              <TooltipProvider delayDuration={150}>
-                <div className="flex-1 min-h-0 flex flex-col">
-                  {/* Row 1: proportional bar */}
-                  <div className="flex-1 min-h-0 w-full flex divide-x divide-black/10 dark:divide-white/15">
-                    {stakes.map((tile) => {
-                      const share =
-                        stakedTotalGctl > 0
-                          ? tile.amountGctl / stakedTotalGctl
-                          : 0;
-                      const showInlineLabel = share >= 0.2;
-
-                      const intensity = tile.amountGctl / maxStake;
-                      const { fill, dot } = getTreemapTileColors({
-                        regionId: tile.regionId,
-                        intensity,
-                      });
-
-                      const tooltipText = `${tile.regionName} • ${formatCompact(
-                        tile.amountGctl
-                      )} GCTL • ${Math.round(share * 100)}%`;
-
-                      return (
-                        <Tooltip key={tile.regionId}>
-                          <TooltipTrigger asChild>
-                            <div
-                              className="relative h-full overflow-hidden"
-                              style={
-                                {
-                                  flexGrow: tile.amountGctl,
-                                  flexBasis: 0,
-                                  backgroundColor: fill,
-                                } as React.CSSProperties
-                              }
-                              aria-label={tooltipText}
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent dark:from-black/20" />
-
-                              {showInlineLabel ? (
-                                <div className="relative h-full w-full p-2.5 flex flex-col justify-between">
-                                  <div className="font-mono text-xs font-bold text-white/95 drop-shadow-sm truncate">
-                                    {tile.regionName}
-                                  </div>
-                                  <div className="font-mono text-sm font-bold text-white drop-shadow-sm">
-                                    {formatCompact(tile.amountGctl)}{" "}
-                                    <span className="text-[10px] font-mono font-semibold text-white/80">
-                                      GCTL
-                                    </span>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="sr-only">{tooltipText}</div>
-                              )}
-
-                              <div
-                                className="absolute bottom-2 right-2 h-2 w-2 rounded-full border border-white/20"
-                                style={
-                                  {
-                                    backgroundColor: dot,
-                                  } as React.CSSProperties
-                                }
-                              />
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="top"
-                            align="center"
-                            sideOffset={10}
-                          >
-                            <div className="font-mono text-[10px]">
-                              {tooltipText}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      );
-                    })}
-                  </div>
-
-                  {/* Row 2: clean legend */}
-                  <div className="shrink-0 flex flex-nowrap overflow-x-auto gap-3 px-2.5 py-1.5 border-t border-border/60">
-                    {stakes.map((tile) => {
-                      const share =
-                        stakedTotalGctl > 0
-                          ? tile.amountGctl / stakedTotalGctl
-                          : 0;
-                      const intensity = tile.amountGctl / maxStake;
-                      const { dot } = getTreemapTileColors({
-                        regionId: tile.regionId,
-                        intensity,
-                      });
-
-                      return (
-                        <div
-                          key={tile.regionId}
-                          className="inline-flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground"
-                        >
-                          <span
-                            className="h-2 w-2 rounded-xl"
-                            style={
-                              { backgroundColor: dot } as React.CSSProperties
-                            }
-                          />
-                          <span className="text-foreground/90">
-                            {tile.regionName}
-                          </span>
-                          <span className="text-muted-foreground">
-                            ({Math.round(share * 100)}%)
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </TooltipProvider>
-            )}
+            <div className="flex items-baseline justify-end gap-2">
+              <span className="text-2xl font-mono font-bold text-foreground">
+                {/* TODO: Connect to real Steering Points from Impact API */}
+                {formatCompact(
+                  totalSteeringPoints > 0
+                    ? totalSteeringPoints
+                    : stakedTotalGctl * 0.1
+                )}
+              </span>
+              <span className="text-xs text-muted-foreground">Pts</span>
+            </div>
+            <div className="text-[10px] text-cyan-600 dark:text-cyan-400 font-medium">
+              +3 pts / GLW rate
+            </div>
           </div>
         </div>
+
+        {/* Middle: Region Steering List */}
+        <div className="flex-1 flex flex-col gap-2 min-h-0 overflow-y-auto pr-1 -mr-1">
+          <div className="flex items-center justify-between text-[10px] uppercase font-mono text-muted-foreground/70 mb-1 border-b border-border/40 pb-1">
+            <span>Active Stakes</span>
+            <span>Impact</span>
+          </div>
+
+          {stakes.length > 0 ? (
+            stakes.map((stake, i) => (
+              <RegionSteeringRow
+                key={stake.regionId}
+                regionName={stake.regionName}
+                userStakedGctl={stake.amountGctl}
+                totalRegionStakedGctl={stake.totalRegionStaked}
+                regionWeeklyEmissions={stake.weeklyEmissions}
+                isMax={i === 0}
+              />
+            ))
+          ) : (
+            <div
+              className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-border/50 rounded-xl p-4 cursor-pointer hover:bg-muted/30 hover:border-cyan-500/30 transition-all group"
+              onClick={onMintAndStakeClick}
+            >
+              <SteeringIcon className="h-8 w-8 text-muted-foreground/30 group-hover:text-cyan-500/50 mb-2 transition-colors" />
+              <span className="text-xs font-medium text-muted-foreground">
+                No Active Steering
+              </span>
+              <span className="text-[10px] text-cyan-600 dark:text-cyan-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                Stake GCTL to Direct Emissions
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Warning if Liquid GCTL exists (Loss Aversion) */}
+        {hasLiquidGctl && (
+          <div className="mt-auto pt-2 border-t border-border/50 flex items-center justify-between animate-in fade-in">
+            <div className="flex items-center gap-1.5 text-[#ffb472]">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <span className="text-[10px] font-bold uppercase">
+                Unused Influence
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-[10px] text-muted-foreground hover:text-[#ffb472] px-2"
+              onClick={onMintAndStakeClick}
+            >
+              Stake {formatCompact(walletBalanceGctl)} GCTL
+              <ArrowRight className="ml-1 h-3 w-3" />
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
