@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { formatUnits } from "viem";
 import {
   ArrowRight,
@@ -13,6 +12,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { useAccount } from "wagmi";
+import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import {
   CashMinerIcon,
   ImpactStreakIcon,
@@ -40,9 +40,12 @@ import {
   useImpactScoreQuery,
   type ImpactGlowScoreResponse,
   type ImpactWeekRange,
+  useWallets,
+  useActiveRegionsSummary,
 } from "@/hooks";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
+import { useMemo, useState } from "react";
 
 // --- Types & Interfaces ---
 
@@ -80,6 +83,24 @@ function formatPoints(
 function safePointsNumber(value?: string): number {
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
+}
+
+function weiToGlw(weiValue: string | undefined): number {
+  if (!weiValue) return 0;
+  try {
+    const glw = Number(formatUnits(BigInt(weiValue), 18));
+    return Number.isFinite(glw) ? glw : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function gctlAmountFromRaw(raw: string) {
+  try {
+    return Number(formatUnits(BigInt(raw || "0"), DECIMALS_BY_TOKEN.GCTL));
+  } catch {
+    return 0;
+  }
 }
 
 function formatMultiplier(value: number | undefined) {
@@ -191,20 +212,21 @@ function SourceRow({
   icon: Icon,
   label,
   value,
+  pendingValue,
   subValue,
   ctaLabel,
   onCta,
-  themeColor, // Hex or Tailwind class prefix logic
+  themeColor,
 }: {
   icon: React.ElementType;
   label: string;
   value: string;
+  pendingValue?: string;
   subValue?: string;
   ctaLabel?: string;
   onCta?: () => void;
   themeColor: "cyan" | "yellow" | "purple" | "green";
 }) {
-  // Theme styling logic
   const themeStyles = {
     cyan: {
       icon: "text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
@@ -233,6 +255,8 @@ function SourceRow({
   }[themeColor];
 
   const hasValue = value !== "0" && value !== "—";
+  const hasPending =
+    pendingValue && pendingValue !== "0" && pendingValue !== "—";
 
   return (
     <div className="group flex items-center justify-between p-3 rounded-xl border border-transparent hover:border-border/50 hover:bg-muted/10 transition-all">
@@ -254,20 +278,36 @@ function SourceRow({
       </div>
 
       <div className="flex items-center gap-4">
-        {hasValue ? (
-          <div className="text-right">
-            <div
-              className={cn("font-mono font-bold text-base", themeStyles.value)}
-            >
-              +{value}
+        <div className="text-right">
+          {hasValue ? (
+            <>
+              <div
+                className={cn(
+                  "font-mono font-bold text-base",
+                  themeStyles.value
+                )}
+              >
+                +{value}
+              </div>
+              <div className="text-[10px] text-muted-foreground uppercase font-medium">
+                Finalized
+              </div>
+            </>
+          ) : (
+            <div className="text-sm text-muted-foreground/50 font-mono">
+              0 pts
             </div>
-            <div className="text-[10px] text-muted-foreground uppercase font-medium text-right">
-              Points
+          )}
+        </div>
+
+        {hasPending && (
+          <div className="text-right border-l border-border/50 pl-3">
+            <div className="font-mono font-bold text-base text-amber-500 dark:text-amber-400 flex items-center justify-end gap-1">
+              <Clock className="h-3 w-3" />+{pendingValue}
             </div>
-          </div>
-        ) : (
-          <div className="text-sm text-muted-foreground/50 font-mono">
-            0 pts
+            <div className="text-[10px] text-amber-600/70 dark:text-amber-400/70 uppercase font-medium">
+              Pending
+            </div>
           </div>
         )}
 
@@ -300,9 +340,58 @@ export function ImpactScoreBreakdownDialogContent(
   const { spotPrice: glowSpotPrice } = useGlowSpotPrice();
 
   // Dialog States
-  const [isLaunchpadOpen, setIsLaunchpadOpen] = React.useState(false);
-  const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
-  const [isBuyGlowOpen, setIsBuyGlowOpen] = React.useState(false);
+  const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(false);
+  const [isMintAndStakeOpen, setIsMintAndStakeOpen] = useState(false);
+  const [isBuyGlowOpen, setIsBuyGlowOpen] = useState(false);
+
+  // --- Client-Side Optimistic Data (Steering) ---
+  const { walletDetails } = useWallets({
+    walletAddress: address ?? undefined,
+    enabled: Boolean(address),
+  });
+  const { data: activeSummary } = useActiveRegionsSummary({
+    enabled: Boolean(address),
+  });
+
+  const clientSteeringPoints = useMemo(() => {
+    if (!walletDetails?.regions || !activeSummary) return 0;
+
+    const regionDataMap = new Map(
+      activeSummary.regions.map((r) => [
+        r.id,
+        {
+          totalStaked: r.stakedGctl,
+          weeklyEmissions: r.glwPerWeek,
+        },
+      ])
+    );
+
+    const stakes = walletDetails.regions
+      .filter((r) => {
+        try {
+          return BigInt(r.totalStaked || "0") > BigInt(0);
+        } catch {
+          return false;
+        }
+      })
+      .map((r) => {
+        const regionData = regionDataMap.get(r.regionId);
+        return {
+          amountGctl: gctlAmountFromRaw(r.totalStaked),
+          totalRegionStaked: regionData?.totalStaked ?? 0,
+          weeklyEmissions: regionData?.weeklyEmissions ?? 0,
+        };
+      });
+
+    const total = stakes.reduce((acc, curr) => {
+      if (curr.totalRegionStaked <= 0) return acc;
+      const share = curr.amountGctl / curr.totalRegionStaked;
+      const glw = curr.weeklyEmissions * share;
+      return acc + glw * 3;
+    }, 0);
+
+    return total;
+  }, [activeSummary, walletDetails]);
 
   // --- Data Logic (Extracted from previous) ---
   const latestWeek = impactScore?.weekly?.[impactScore.weekly.length - 1];
@@ -319,7 +408,7 @@ export function ImpactScoreBreakdownDialogContent(
     : latestWeek?.streakBonusMultiplier ?? 0;
   const hasStreak = streakMultiplier > 0;
 
-  // Point Values
+  // Locked Point Values (historical/finalized)
   const steeringPoints = formatPoints(impactScore?.totals?.steeringPoints, {
     maximumFractionDigits: 2,
   });
@@ -332,6 +421,53 @@ export function ImpactScoreBreakdownDialogContent(
   const worthPoints = formatPoints(impactScore?.totals?.continuousPoints, {
     maximumFractionDigits: 2,
   });
+
+  // Pending Point Values (current week projection)
+  // Convert wei to GLW and apply points rate:
+  // - Steering: 3 pts/GLW, Emissions: 1 pt/GLW, Vault: 0.005 pts/GLW, Worth: 0.001 pts/GLW
+  const pendingSteeringGlw = weiToGlw(
+    projection?.projectedPoints?.steeringGlwWei
+  );
+  const pendingEmissionsGlw = weiToGlw(
+    projection?.projectedPoints?.inflationGlwWei
+  );
+  const pendingDelegatedGlw = weiToGlw(
+    projection?.projectedPoints?.delegatedGlwWei
+  );
+  const pendingWorthGlw = weiToGlw(projection?.projectedPoints?.glowWorthWei);
+
+  // Use client-side optimistic value if available, else fall back to backend projection
+  const pendingSteeringPoints = useMemo(() => {
+    if (clientSteeringPoints > 0) {
+      return formatPoints(String(clientSteeringPoints), {
+        maximumFractionDigits: 2,
+      });
+    }
+    return hasProjection && pendingSteeringGlw > 0
+      ? formatPoints(String(pendingSteeringGlw * 3), {
+          maximumFractionDigits: 2,
+        })
+      : undefined;
+  }, [clientSteeringPoints, hasProjection, pendingSteeringGlw]);
+
+  const pendingEmissionPoints =
+    hasProjection && pendingEmissionsGlw > 0
+      ? formatPoints(String(pendingEmissionsGlw * 1), {
+          maximumFractionDigits: 2,
+        })
+      : undefined;
+  const pendingVaultPoints =
+    hasProjection && pendingDelegatedGlw > 0
+      ? formatPoints(String(pendingDelegatedGlw * 0.005), {
+          maximumFractionDigits: 2,
+        })
+      : undefined;
+  const pendingWorthPoints =
+    hasProjection && pendingWorthGlw > 0
+      ? formatPoints(String(pendingWorthGlw * 0.001), {
+          maximumFractionDigits: 2,
+        })
+      : undefined;
 
   // Calculate Bonus Points (The "Extra" earned from multipliers)
   const basePoints =
@@ -433,6 +569,7 @@ export function ImpactScoreBreakdownDialogContent(
                   label="Steering Power"
                   subValue="Staked GCTL (3x Pts)"
                   value={steeringPoints}
+                  pendingValue={pendingSteeringPoints}
                   ctaLabel={steeringPoints === "0" ? "Stake" : "Boost"}
                   onCta={() => setIsMintAndStakeOpen(true)}
                   themeColor="cyan"
@@ -443,7 +580,8 @@ export function ImpactScoreBreakdownDialogContent(
                   label="Emissions"
                   subValue="Mining Rewards (1x Pts)"
                   value={emissionPoints}
-                  ctaLabel={emissionPoints === "0" ? "Earn" : "Add More"}
+                  pendingValue={pendingEmissionPoints}
+                  ctaLabel={emissionPoints === "0" ? "Earn" : "Add"}
                   onCta={() => setIsLaunchpadOpen(true)}
                   themeColor="yellow"
                 />
@@ -453,6 +591,7 @@ export function ImpactScoreBreakdownDialogContent(
                   label="Delegation"
                   subValue="Vault Bonus (0.005x)"
                   value={vaultPoints}
+                  pendingValue={pendingVaultPoints}
                   ctaLabel={vaultPoints === "0" ? "Delegate" : "Add"}
                   onCta={() => setIsLaunchpadOpen(true)}
                   themeColor="purple"
@@ -463,6 +602,7 @@ export function ImpactScoreBreakdownDialogContent(
                   label="Glow Worth"
                   subValue="Holding GLW"
                   value={worthPoints}
+                  pendingValue={pendingWorthPoints}
                   ctaLabel="Buy"
                   onCta={() => setIsBuyGlowOpen(true)}
                   themeColor="green"
