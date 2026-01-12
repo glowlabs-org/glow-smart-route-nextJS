@@ -208,11 +208,12 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
   const totalValue = farm.recovered + farm.inflation;
   const timeBasedProgress =
     (farm.weeksActive / Math.max(farm.totalWeeks, 1)) * 100;
-  const roiPercent = isMiner
-    ? timeBasedProgress
-    : farm.initialCost > 0
-    ? (totalValue / farm.initialCost) * 100
-    : 0;
+  const roiPercent =
+    isMiner || isOther
+      ? timeBasedProgress
+      : farm.initialCost > 0
+      ? (totalValue / farm.initialCost) * 100
+      : 0;
   const isProfitable = roiPercent >= 100;
 
   const getTypeBadge = () => {
@@ -415,45 +416,45 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
                 </div>
               </div>
             </div>
-            {!isOther && (
-              <div className={cn("space-y-1.5", isCompact && "space-y-1")}>
-                <div
+            <div className={cn("space-y-1.5", isCompact && "space-y-1")}>
+              <div
+                className={cn(
+                  "flex items-center justify-between font-medium text-muted-foreground",
+                  isCompact ? "text-[9px]" : "text-[10px]"
+                )}
+              >
+                <span>
+                  {isOther ? "Timeline" : isMiner ? "Cost" : "Delegated"}:{" "}
+                  {isOther
+                    ? `${farm.weeksActive} / ${farm.totalWeeks} wks`
+                    : isMiner
+                    ? fmtUsd(farm.initialCost)
+                    : `${fmtGlw(farm.initialCost)} GLW`}
+                </span>
+                <span
                   className={cn(
-                    "flex items-center justify-between font-medium text-muted-foreground",
-                    isCompact ? "text-[9px]" : "text-[10px]"
+                    "font-mono font-bold",
+                    isPendingStart
+                      ? "text-muted-foreground"
+                      : isProfitable
+                      ? "text-emerald-500"
+                      : "text-foreground"
                   )}
                 >
-                  <span>
-                    {isMiner ? "Cost" : "Delegated"}:{" "}
-                    {isMiner
-                      ? fmtUsd(farm.initialCost)
-                      : `${fmtGlw(farm.initialCost)} GLW`}
-                  </span>
-                  <span
-                    className={cn(
-                      "font-mono font-bold",
-                      isPendingStart
-                        ? "text-muted-foreground"
-                        : isProfitable
-                        ? "text-emerald-500"
-                        : "text-foreground"
-                    )}
-                  >
-                    {isPendingStart
-                      ? "Pending"
-                      : `${roiPercent.toFixed(0)}% Progress`}
-                  </span>
-                </div>
-                <Progress
-                  value={isPendingStart ? 0 : Math.min(roiPercent, 100)}
-                  className={cn(
-                    "bg-muted",
-                    isCompact ? "h-1" : "h-1.5",
-                    isProfitable && !isPendingStart && "[&>div]:bg-emerald-500"
-                  )}
-                />
+                  {isPendingStart
+                    ? "Pending"
+                    : `${roiPercent.toFixed(0)}% Progress`}
+                </span>
               </div>
-            )}
+              <Progress
+                value={isPendingStart ? 0 : Math.min(roiPercent, 100)}
+                className={cn(
+                  "bg-muted",
+                  isCompact ? "h-1" : "h-1.5",
+                  isProfitable && !isPendingStart && "[&>div]:bg-emerald-500"
+                )}
+              />
+            </div>
             <div
               className={cn(
                 "border-t border-border/50 flex justify-between items-center",
@@ -1655,11 +1656,14 @@ export default function MyFarmsGridSection({
                   isInProgress && farm.inProgressKind === "mining-center";
                 const timeBasedProgress =
                   (farm.weeksActive / Math.max(farm.totalWeeks, 1)) * 100;
-                const roiPercent = isMiner
-                  ? timeBasedProgress
-                  : farm.initialCost > 0
-                  ? ((farm.recovered + farm.inflation) / farm.initialCost) * 100
-                  : 0;
+                const isOther = farm.type === "other";
+                const roiPercent =
+                  isMiner || isOther
+                    ? timeBasedProgress
+                    : farm.initialCost > 0
+                    ? ((farm.recovered + farm.inflation) / farm.initialCost) *
+                      100
+                    : 0;
 
                 return (
                   <TableRow
