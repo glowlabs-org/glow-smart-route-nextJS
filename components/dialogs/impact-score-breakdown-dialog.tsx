@@ -1,16 +1,7 @@
 "use client";
 
 import { formatUnits } from "viem";
-import {
-  ArrowRight,
-  Zap,
-  Trophy,
-  Lock,
-  TrendingUp,
-  Plus,
-  Clock,
-  Calendar,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useAccount } from "wagmi";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import {
@@ -210,7 +201,7 @@ function SourceRow({
   icon: Icon,
   label,
   value,
-  pendingValue,
+  weeklyRate,
   subValue,
   ctaLabel,
   onCta,
@@ -219,7 +210,7 @@ function SourceRow({
   icon: React.ElementType;
   label: string;
   value: string;
-  pendingValue?: string;
+  weeklyRate?: string;
   subValue?: string;
   ctaLabel?: string;
   onCta?: () => void;
@@ -253,8 +244,6 @@ function SourceRow({
   }[themeColor];
 
   const hasValue = value !== "0" && value !== "—";
-  const hasPending =
-    pendingValue && pendingValue !== "0" && pendingValue !== "—";
 
   return (
     <div className="group flex flex-col gap-3 p-3 rounded-xl border border-transparent hover:border-border/50 hover:bg-muted/10 transition-all sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -294,8 +283,31 @@ function SourceRow({
                 >
                   +{value}
                 </div>
+                <div className="text-[9px] sm:text-[10px] uppercase font-medium">
+                  {weeklyRate ? (
+                    <div className="flex flex-col items-start sm:items-end gap-0.5">
+                      <span className="text-muted-foreground">Finalized</span>
+                      <span className={cn("font-semibold", themeStyles.value)}>
+                        +{weeklyRate}/wk
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">Finalized</span>
+                  )}
+                </div>
+              </>
+            ) : weeklyRate ? (
+              <>
+                <div
+                  className={cn(
+                    "font-mono font-bold text-sm sm:text-base",
+                    themeStyles.value
+                  )}
+                >
+                  +{weeklyRate}
+                </div>
                 <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">
-                  Finalized
+                  Per Week
                 </div>
               </>
             ) : (
@@ -304,19 +316,6 @@ function SourceRow({
               </div>
             )}
           </div>
-
-          {/* Pending Value */}
-          {hasPending && (
-            <div className="text-left sm:text-right border-l border-border/50 pl-3">
-              <div className="font-mono font-bold text-sm sm:text-base text-amber-500 dark:text-amber-400 flex items-center gap-1 sm:justify-end">
-                <Clock className="h-3 w-3 shrink-0" />
-                <span>+{pendingValue}</span>
-              </div>
-              <div className="text-[9px] sm:text-[10px] text-amber-600/70 dark:text-amber-400/70 uppercase font-medium">
-                Pending
-              </div>
-            </div>
-          )}
         </div>
 
         {/* CTA Button */}
@@ -437,19 +436,27 @@ export function ImpactScoreBreakdownDialogContent(
     maximumFractionDigits: 2,
   });
 
-  // Pending Point Values (current week projection)
-  // Convert wei to GLW and apply points rate:
-  // - Steering: 3 pts/GLW, Emissions: 1 pt/GLW, Vault: 0.005 pts/GLW, Worth: 0.001 pts/GLW
+  // Weekly GLW amounts for point calculations
+  // Use projection if available, otherwise fall back to latest week's data
   const pendingSteeringGlw = weiToGlw(
     projection?.projectedPoints?.steeringGlwWei
   );
-  const pendingEmissionsGlw = weiToGlw(
-    projection?.projectedPoints?.inflationGlwWei
-  );
-  const pendingDelegatedGlw = weiToGlw(
-    projection?.projectedPoints?.delegatedGlwWei
-  );
-  const pendingWorthGlw = weiToGlw(projection?.projectedPoints?.glowWorthWei);
+
+  // Emissions: use projection, or fallback to latest week's emissions
+  const pendingEmissionsGlw =
+    weiToGlw(projection?.projectedPoints?.inflationGlwWei) ||
+    weiToGlw(latestWeek?.inflationGlwWei);
+
+  // Delegation: use projection, or fallback to latest week's delegated amount
+  const pendingDelegatedGlw =
+    weiToGlw(projection?.projectedPoints?.delegatedGlwWei) ||
+    weiToGlw(latestWeek?.delegatedActiveGlwWei);
+
+  // Glow Worth: use projection, or fallback to glow worth data
+  const pendingWorthGlw =
+    weiToGlw(projection?.projectedPoints?.glowWorthWei) ||
+    weiToGlw(impactScore?.glowWorth?.glowWorthWei) ||
+    weiToGlw(latestWeek?.glowWorthGlwWei);
 
   // Use client-side optimistic value if available, else fall back to backend projection
   const pendingSteeringPoints = useMemo(() => {
@@ -465,23 +472,42 @@ export function ImpactScoreBreakdownDialogContent(
       : undefined;
   }, [clientSteeringPoints, hasProjection, pendingSteeringGlw]);
 
-  const pendingEmissionPoints =
-    hasProjection && pendingEmissionsGlw > 0
+  // Weekly rates for each point source (calculated directly from GLW amounts)
+  const emissionsWeeklyRate =
+    pendingEmissionsGlw > 0
       ? formatPoints(String(pendingEmissionsGlw * 1), {
           maximumFractionDigits: 2,
         })
       : undefined;
-  const pendingVaultPoints =
-    hasProjection && pendingDelegatedGlw > 0
+
+  const delegationWeeklyRate =
+    pendingDelegatedGlw > 0
       ? formatPoints(String(pendingDelegatedGlw * 0.005), {
           maximumFractionDigits: 2,
         })
       : undefined;
-  const pendingWorthPoints =
-    hasProjection && pendingWorthGlw > 0
+
+  const glowWorthWeeklyRate =
+    pendingWorthGlw > 0
       ? formatPoints(String(pendingWorthGlw * 0.001), {
-          maximumFractionDigits: 2,
+          maximumFractionDigits: 4,
         })
+      : undefined;
+
+  // Formatted GLW amounts for display
+  const formattedEmissionsGlw =
+    pendingEmissionsGlw > 0
+      ? formatPoints(String(pendingEmissionsGlw), { maximumFractionDigits: 0 })
+      : undefined;
+
+  const formattedDelegatedGlw =
+    pendingDelegatedGlw > 0
+      ? formatPoints(String(pendingDelegatedGlw), { maximumFractionDigits: 0 })
+      : undefined;
+
+  const formattedGlwWorth =
+    pendingWorthGlw > 0
+      ? formatPoints(String(pendingWorthGlw), { maximumFractionDigits: 0 })
       : undefined;
 
   // Calculate Bonus Points (The "Extra" earned from multipliers)
@@ -600,7 +626,7 @@ export function ImpactScoreBreakdownDialogContent(
                   label="Steering Power"
                   subValue="Staked GCTL (3x Pts)"
                   value={steeringPoints}
-                  pendingValue={pendingSteeringPoints}
+                  weeklyRate={pendingSteeringPoints}
                   ctaLabel={
                     isOwnWallet
                       ? steeringPoints === "0"
@@ -627,9 +653,13 @@ export function ImpactScoreBreakdownDialogContent(
                 <SourceRow
                   icon={EmissionsIcon}
                   label="Emissions"
-                  subValue="GLW Emissions Rewards (1x Pts)"
+                  subValue={
+                    formattedEmissionsGlw
+                      ? `${formattedEmissionsGlw} GLW × 1 pt/wk`
+                      : "GLW Emissions Rewards"
+                  }
                   value={emissionPoints}
-                  pendingValue={pendingEmissionPoints}
+                  weeklyRate={emissionsWeeklyRate}
                   ctaLabel={
                     isOwnWallet
                       ? emissionPoints === "0"
@@ -656,9 +686,13 @@ export function ImpactScoreBreakdownDialogContent(
                 <SourceRow
                   icon={VaultIcon}
                   label="Delegation"
-                  subValue="Vault Bonus (0.005x)"
+                  subValue={
+                    formattedDelegatedGlw
+                      ? `${formattedDelegatedGlw} GLW × 0.005 pts/wk`
+                      : "Vault Bonus"
+                  }
                   value={vaultPoints}
-                  pendingValue={pendingVaultPoints}
+                  weeklyRate={delegationWeeklyRate}
                   ctaLabel={
                     isOwnWallet
                       ? vaultPoints === "0"
@@ -685,9 +719,13 @@ export function ImpactScoreBreakdownDialogContent(
                 <SourceRow
                   icon={GlwWorthIcon}
                   label="Glow Worth"
-                  subValue="Holding GLW"
+                  subValue={
+                    formattedGlwWorth
+                      ? `${formattedGlwWorth} GLW × 0.001 pts/wk`
+                      : "Holding GLW"
+                  }
                   value={worthPoints}
-                  pendingValue={pendingWorthPoints}
+                  weeklyRate={glowWorthWeeklyRate}
                   ctaLabel={isOwnWallet ? "Buy" : undefined}
                   onCta={
                     isOwnWallet
