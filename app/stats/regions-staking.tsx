@@ -431,17 +431,20 @@ export function RegionsStaking({ shouldLoad = true }: RegionsStakingProps) {
                     </div>
                     <div className="bg-muted/50 rounded-lg p-4 border border-border">
                       <div className="text-xs text-muted-foreground mb-2">
-                        GCTL/PD
+                        GCTL/PD (×1000)
                       </div>
                       <div className="text-2xl font-bold">
-                        {region.totalProtocolDepositsUsd === 0
-                          ? "—"
-                          : (
-                              region.stakedGctl /
-                              region.totalProtocolDepositsUsd
-                            ).toLocaleString(undefined, {
-                              maximumFractionDigits: 2,
-                            })}
+                        {(() => {
+                          if (region.totalProtocolDepositsUsd === 0) return "—";
+                          const ratio =
+                            (region.stakedGctl /
+                              region.totalProtocolDepositsUsd) *
+                            1000;
+                          const rounded = Math.round(ratio);
+                          return rounded === 0
+                            ? "Low"
+                            : rounded.toLocaleString();
+                        })()}
                       </div>
                     </div>
                   </div>
