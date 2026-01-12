@@ -409,7 +409,7 @@ function ImpactHero(props: {
   const selfLeaderboardRow = React.useMemo(() => {
     if (!normalizedAddress) return null;
     return rows.find(
-      (r) => r.walletAddress.toLowerCase() === normalizedAddress
+      (r) => r.walletAddress && r.walletAddress.toLowerCase() === normalizedAddress
     );
   }, [rows, normalizedAddress]);
 
@@ -940,7 +940,7 @@ export function ImpactView() {
   const searchLower = search.trim().toLowerCase();
 
   const allWalletAddresses = React.useMemo(
-    () => allRows.map((row) => row.walletAddress),
+    () => allRows.filter((row) => row.walletAddress).map((row) => row.walletAddress),
     [allRows]
   );
 
@@ -952,14 +952,17 @@ export function ImpactView() {
   const globalRankByWallet = React.useMemo(() => {
     const map = new Map<string, number>();
     allRows.forEach((row, idx) => {
-      map.set(row.walletAddress.toLowerCase(), row.globalRank ?? idx + 1);
+      if (row.walletAddress) {
+        map.set(row.walletAddress.toLowerCase(), row.globalRank ?? idx + 1);
+      }
     });
     return map;
   }, [allRows]);
 
   const filteredRows = React.useMemo(() => {
-    if (!searchLower) return allRows;
-    return allRows.filter((row) => {
+    const validRows = allRows.filter((row) => row.walletAddress);
+    if (!searchLower) return validRows;
+    return validRows.filter((row) => {
       const address = row.walletAddress.toLowerCase();
       const ensName = allEnsNames[row.walletAddress]?.toLowerCase() || "";
       return address.includes(searchLower) || ensName.includes(searchLower);
@@ -998,10 +1001,11 @@ export function ImpactView() {
   );
 
   const topWallet = React.useMemo(() => {
-    if (allRows.length === 0) return null;
-    let best = allRows[0]!;
+    const validRows = allRows.filter((row) => row.walletAddress);
+    if (validRows.length === 0) return null;
+    let best = validRows[0]!;
     let bestPoints = safeNumber(best.totalPoints);
-    for (const row of allRows) {
+    for (const row of validRows) {
       const p = safeNumber(row.totalPoints);
       if (p > bestPoints) {
         best = row;

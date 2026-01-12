@@ -792,15 +792,17 @@ export function MintAndStakeGctlDialog({
     },
   });
 
-  // Fallback timeout: if stuck at FINALIZE "confirming" for >60s, do an explicit check
-  // Uses a ref to store the txHash so the timeout callback always has the latest value
+  // Fallback interval: if stuck at FINALIZE, check every 15s starting after 30s
+  // This is a safety net in case the main polling mechanism fails
   const trackingTxHashRef = React.useRef<string | null>(null);
   trackingTxHashRef.current = trackingTxHash;
 
   React.useEffect(() => {
     if (!trackingTxHash) return;
 
-    const timeoutId = setTimeout(async () => {
+    let initialDelayDone = false;
+
+    const checkTransferStatus = async () => {
       const currentTxHash = trackingTxHashRef.current;
       if (!currentTxHash) return;
 
@@ -830,12 +832,26 @@ export function MintAndStakeGctlDialog({
           setStakeUiErrorMessage(msg);
         }
       } catch {
-        // Silent fail - let regular polling continue
+        // Silent fail - will retry on next interval
       }
-    }, 60_000);
+    };
 
-    return () => clearTimeout(timeoutId);
-    // Only re-run when trackingTxHash changes (not on every stakeSteps update)
+    // Start checking after 30s, then every 15s thereafter
+    const initialTimeout = setTimeout(() => {
+      initialDelayDone = true;
+      checkTransferStatus();
+    }, 30_000);
+
+    const intervalId = setInterval(() => {
+      if (initialDelayDone) {
+        checkTransferStatus();
+      }
+    }, 15_000);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(intervalId);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackingTxHash]);
 
