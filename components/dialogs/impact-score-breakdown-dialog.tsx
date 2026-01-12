@@ -54,6 +54,7 @@ interface ImpactScoreBreakdownDialogContentProps {
   title?: string;
   description?: string;
   showCurrentWeekProjection?: boolean;
+  walletAddress: string | null;
 }
 
 interface ImpactScoreBreakdownDialogProps {
@@ -334,10 +335,14 @@ function SourceRow({
 export function ImpactScoreBreakdownDialogContent(
   props: ImpactScoreBreakdownDialogContentProps
 ) {
-  const { impactScore, title, showCurrentWeekProjection } = props;
+  const { impactScore, title, showCurrentWeekProjection, walletAddress } = props;
   const { address } = useAccount();
   const { usdcBalance, usdgBalance } = useWalletTokenBalances(address);
   const { spotPrice: glowSpotPrice } = useGlowSpotPrice();
+
+  const isOwnWallet = address && walletAddress 
+    ? address.toLowerCase() === walletAddress.toLowerCase()
+    : false;
 
   // Dialog States
   const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(false);
@@ -536,7 +541,15 @@ export function ImpactScoreBreakdownDialogContent(
                   description="Buy a miner this week to activate."
                   multiplierValue="3.0"
                   isActive={hasMiner}
-                  onClick={() => setIsLaunchpadOpen(true)}
+                  onClick={() => {
+                    trackEvent("dashboard_breakdown_cta_click", {
+                      source: "impact_breakdown_dialog",
+                      wallet_connected: true,
+                      wallet_address: walletAddress,
+                      cta_type: "miner_bonus",
+                    });
+                    setIsLaunchpadOpen(true);
+                  }}
                   colorClass="text-[color:var(--color-miner)]"
                   bgClass="bg-[color:var(--color-miner)]/10"
                   borderClass="border-[color:var(--color-miner)]"
@@ -547,7 +560,15 @@ export function ImpactScoreBreakdownDialogContent(
                   description="Grow delegation weekly to build."
                   multiplierValue={(1 + (streakMultiplier || 0)).toFixed(2)}
                   isActive={hasStreak}
-                  onClick={() => setIsLaunchpadOpen(true)} // Or dedicated streak modal
+                  onClick={() => {
+                    trackEvent("dashboard_breakdown_cta_click", {
+                      source: "impact_breakdown_dialog",
+                      wallet_connected: true,
+                      wallet_address: walletAddress,
+                      cta_type: "streak",
+                    });
+                    setIsLaunchpadOpen(true);
+                  }}
                   colorClass="text-[color:var(--delegation-purple)]"
                   bgClass="bg-[color:var(--delegation-purple)]/10"
                   borderClass="border-[color:var(--delegation-purple)]"
@@ -570,8 +591,16 @@ export function ImpactScoreBreakdownDialogContent(
                   subValue="Staked GCTL (3x Pts)"
                   value={steeringPoints}
                   pendingValue={pendingSteeringPoints}
-                  ctaLabel={steeringPoints === "0" ? "Stake" : "Boost"}
-                  onCta={() => setIsMintAndStakeOpen(true)}
+                  ctaLabel={isOwnWallet ? (steeringPoints === "0" ? "Stake" : "Boost") : undefined}
+                  onCta={isOwnWallet ? () => {
+                    trackEvent("dashboard_breakdown_cta_click", {
+                      source: "impact_breakdown_dialog",
+                      wallet_connected: true,
+                      wallet_address: walletAddress,
+                      cta_type: "steering",
+                    });
+                    setIsMintAndStakeOpen(true);
+                  } : undefined}
                   themeColor="cyan"
                 />
 
@@ -581,8 +610,16 @@ export function ImpactScoreBreakdownDialogContent(
                   subValue="Mining Rewards (1x Pts)"
                   value={emissionPoints}
                   pendingValue={pendingEmissionPoints}
-                  ctaLabel={emissionPoints === "0" ? "Earn" : "Add"}
-                  onCta={() => setIsLaunchpadOpen(true)}
+                  ctaLabel={isOwnWallet ? (emissionPoints === "0" ? "Earn" : "Add") : undefined}
+                  onCta={isOwnWallet ? () => {
+                    trackEvent("dashboard_breakdown_cta_click", {
+                      source: "impact_breakdown_dialog",
+                      wallet_connected: true,
+                      wallet_address: walletAddress,
+                      cta_type: "emissions",
+                    });
+                    setIsLaunchpadOpen(true);
+                  } : undefined}
                   themeColor="yellow"
                 />
 
@@ -592,8 +629,16 @@ export function ImpactScoreBreakdownDialogContent(
                   subValue="Vault Bonus (0.005x)"
                   value={vaultPoints}
                   pendingValue={pendingVaultPoints}
-                  ctaLabel={vaultPoints === "0" ? "Delegate" : "Add"}
-                  onCta={() => setIsLaunchpadOpen(true)}
+                  ctaLabel={isOwnWallet ? (vaultPoints === "0" ? "Delegate" : "Add") : undefined}
+                  onCta={isOwnWallet ? () => {
+                    trackEvent("dashboard_breakdown_cta_click", {
+                      source: "impact_breakdown_dialog",
+                      wallet_connected: true,
+                      wallet_address: walletAddress,
+                      cta_type: "delegation",
+                    });
+                    setIsLaunchpadOpen(true);
+                  } : undefined}
                   themeColor="purple"
                 />
 
@@ -603,8 +648,16 @@ export function ImpactScoreBreakdownDialogContent(
                   subValue="Holding GLW"
                   value={worthPoints}
                   pendingValue={pendingWorthPoints}
-                  ctaLabel="Buy"
-                  onCta={() => setIsBuyGlowOpen(true)}
+                  ctaLabel={isOwnWallet ? "Buy" : undefined}
+                  onCta={isOwnWallet ? () => {
+                    trackEvent("dashboard_breakdown_cta_click", {
+                      source: "impact_breakdown_dialog",
+                      wallet_connected: true,
+                      wallet_address: walletAddress,
+                      cta_type: "glow_worth",
+                    });
+                    setIsBuyGlowOpen(true);
+                  } : undefined}
                   themeColor="green"
                 />
               </div>
@@ -677,6 +730,7 @@ export function ImpactScoreBreakdownDialogContent(
         onOpenChange={setIsBuyGlowOpen}
         usdcBalance={usdcBalance}
         glowSpotPrice={glowSpotPrice || 0}
+        source="impact_breakdown_dialog"
         defaultUsdcAmount="20"
       />
     </>
@@ -727,6 +781,7 @@ export function ImpactScoreBreakdownDialog(
           title={title}
           description={description}
           showCurrentWeekProjection={showCurrentWeekProjection}
+          walletAddress={walletAddress}
         />
       ) : null}
     </Dialog>

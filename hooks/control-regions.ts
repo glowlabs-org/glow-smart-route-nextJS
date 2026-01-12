@@ -47,6 +47,8 @@ export interface ActiveRegionSummaryDerived {
   pendingRestakeOut: number;
   pendingRestakeIn: number;
   churnEpoch: number;
+  totalProtocolDepositsUsd: number;
+  solarFarmCount: number;
   history: ActiveRegionHistoryPoint[];
 }
 
@@ -78,6 +80,7 @@ function parseNumber(value: string | number | null | undefined): number {
 
 const GCTL_SCALE = 1_000_000;
 const GLW_SCALE = 1_000_000_000_000_000_000;
+const USDC_SCALE = 1_000_000;
 
 function parseScaledAmount(
   value: string | number | null | undefined,
@@ -94,6 +97,10 @@ function parseGctlAmount(value: string | number | null | undefined): number {
 
 function parseGlwAmount(value: string | number | null | undefined): number {
   return parseScaledAmount(value, GLW_SCALE);
+}
+
+function parseUsdcAmount(value: string | number | null | undefined): number {
+  return parseScaledAmount(value, USDC_SCALE);
 }
 
 function getChurnEpoch(
@@ -151,6 +158,11 @@ function mapSummary(
       }))
       .sort((a, b) => a.timestamp - b.timestamp);
 
+    const totalProtocolDepositsUsd = parseUsdcAmount(
+      (region as any).totalProtocolDepositsUsd
+    );
+    const solarFarmCount = parseNumber((region as any).solarFarmCount);
+
     return {
       id: region.id,
       name: region.name,
@@ -164,6 +176,8 @@ function mapSummary(
       pendingRestakeOut,
       pendingRestakeIn,
       churnEpoch,
+      totalProtocolDepositsUsd,
+      solarFarmCount,
       history,
     } satisfies ActiveRegionSummaryDerived;
   });

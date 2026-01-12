@@ -789,6 +789,7 @@ export function RankWidget({
         onOpenChange={setIsBuyGlowOpen}
         usdcBalance={usdcBalance}
         glowSpotPrice={glowSpotPrice || 0}
+        source="rank_widget"
         defaultUsdcAmount="20"
       />
     </>

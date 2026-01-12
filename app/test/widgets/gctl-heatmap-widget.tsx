@@ -83,12 +83,14 @@ function RegionSteeringRow({
   totalRegionStakedGctl,
   regionWeeklyEmissions,
   isMax,
+  normalizedWidth,
 }: {
   regionName: string;
   userStakedGctl: number;
   totalRegionStakedGctl: number;
   regionWeeklyEmissions: number;
   isMax: boolean;
+  normalizedWidth: number;
 }) {
   // Calculate Share %
   const shareOfRegion =
@@ -99,10 +101,10 @@ function RegionSteeringRow({
 
   return (
     <div className="group relative overflow-hidden rounded-xl bg-muted/40 border border-border/50 transition-all hover:bg-muted/60 hover:border-cyan-500/30">
-      {/* Background Fill Animation based on share strength */}
+      {/* Background Fill Animation - normalized so the max stake is 100% */}
       <div
         className="absolute inset-y-0 left-0 bg-cyan-500/5 dark:bg-cyan-900/10 transition-all duration-1000 ease-out"
-        style={{ width: `${Math.min(shareOfRegion * 500, 100)}%` }} // Visual scaling, purely cosmetic
+        style={{ width: `${normalizedWidth}%` }}
       />
 
       <div className="relative flex items-center justify-between p-3">
@@ -161,6 +163,16 @@ export default function GctlControlWidget({
   const isWalletConnecting = isConnecting || isReconnecting;
   const isFlow = variant === "flow";
   const isMinimal = variant === "minimal";
+  const source = "gctl_heatmap_widget";
+  
+  const handleMintAndStakeClick = () => {
+    trackEvent("dashboard_gctl_mint_stake_open_click", {
+      source,
+      wallet_connected: isEnabled,
+      wallet_address: normalizedWalletAddress,
+    });
+    onMintAndStakeClick?.();
+  };
 
   // --- Data Fetching ---
   const { gctlBalance, isGctlBalanceLoading } = useGctlApi(
@@ -231,6 +243,22 @@ export default function GctlControlWidget({
     [stakes]
   );
   const totalBalanceGctl = walletBalanceGctl + stakedTotalGctl;
+
+  // Calculate shares for normalization (biggest stake = 100% bar width)
+  const stakesWithNormalizedWidth = useMemo(() => {
+    const shares = stakes.map((stake) => ({
+      ...stake,
+      share:
+        stake.totalRegionStaked > 0
+          ? stake.amountGctl / stake.totalRegionStaked
+          : 0,
+    }));
+    const maxShare = Math.max(...shares.map((s) => s.share), 0);
+    return shares.map((stake) => ({
+      ...stake,
+      normalizedWidth: maxShare > 0 ? (stake.share / maxShare) * 100 : 0,
+    }));
+  }, [stakes]);
   const hasLiquidGctl = walletBalanceGctl > 0.01;
   const isLoading =
     isGctlBalanceLoading ||
@@ -306,7 +334,7 @@ export default function GctlControlWidget({
             {/* Hero Visual */}
             <div
               className="relative group cursor-pointer"
-              onClick={onMintAndStakeClick}
+              onClick={handleMintAndStakeClick}
             >
               <div className="absolute inset-0 bg-cyan-500/20 rounded-full blur-xl animate-pulse group-hover:bg-cyan-500/30 transition-colors" />
               <div className="relative flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-b from-cyan-500/10 to-transparent border border-cyan-500/30 group-hover:scale-105 transition-transform">
@@ -332,7 +360,7 @@ export default function GctlControlWidget({
               </span>
             </div>
 
-            <Button className="w-full " onClick={onMintAndStakeClick}>
+            <Button className="w-full " onClick={handleMintAndStakeClick}>
               Mint & Stake GCTL
             </Button>
           </div>
@@ -366,7 +394,7 @@ export default function GctlControlWidget({
             variant="outline"
             size="sm"
             className="h-7 text-xs gap-1.5 border-dashed border-border hover:border-cyan-500/50 hover:bg-cyan-500/5 hover:text-cyan-600"
-            onClick={onMintAndStakeClick}
+            onClick={handleMintAndStakeClick}
           >
             <TrendingUp className="h-3 w-3" />
             Boost
@@ -430,8 +458,8 @@ export default function GctlControlWidget({
             <span>Impact</span>
           </div>
 
-          {stakes.length > 0 ? (
-            stakes.map((stake, i) => (
+          {stakesWithNormalizedWidth.length > 0 ? (
+            stakesWithNormalizedWidth.map((stake, i) => (
               <RegionSteeringRow
                 key={stake.regionId}
                 regionName={stake.regionName}
@@ -439,12 +467,13 @@ export default function GctlControlWidget({
                 totalRegionStakedGctl={stake.totalRegionStaked}
                 regionWeeklyEmissions={stake.weeklyEmissions}
                 isMax={i === 0}
+                normalizedWidth={stake.normalizedWidth}
               />
             ))
           ) : (
             <div
               className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-border/50 rounded-xl p-4 cursor-pointer hover:bg-muted/30 hover:border-cyan-500/30 transition-all group"
-              onClick={onMintAndStakeClick}
+              onClick={handleMintAndStakeClick}
             >
               <SteeringIcon className="h-8 w-8 text-muted-foreground/30 group-hover:text-cyan-500/50 mb-2 transition-colors" />
               <span className="text-xs font-medium text-muted-foreground">
@@ -470,7 +499,7 @@ export default function GctlControlWidget({
               variant="ghost"
               size="sm"
               className="h-6 text-[10px] text-muted-foreground hover:text-[#ffb472] px-2"
-              onClick={onMintAndStakeClick}
+              onClick={handleMintAndStakeClick}
             >
               Stake {formatCompact(walletBalanceGctl)} GCTL
               <ArrowRight className="ml-1 h-3 w-3" />

@@ -11,6 +11,7 @@ import {
   List,
   Image as ImageIcon,
 } from "lucide-react";
+import { useAccount } from "wagmi";
 import { cn } from "@/lib/utils";
 import {
   CashMinerIcon,
@@ -19,6 +20,7 @@ import {
   EmissionsIcon,
 } from "@/components/impact-icons";
 import { formatUnits } from "viem";
+import { trackEvent } from "@/lib/telemetry";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -967,6 +969,10 @@ interface MyFarmsGridSectionProps {
 export default function MyFarmsGridSection({
   walletAddress,
 }: MyFarmsGridSectionProps) {
+  const { isConnected } = useAccount();
+  const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
+  const source = "my_farms_grid_section";
+  
   const [selectedFarm, setSelectedFarm] = React.useState<FarmCardData | null>(
     null
   );
@@ -1515,9 +1521,15 @@ export default function MyFarmsGridSection({
           </span>
           <Select
             value={sortBy}
-            onValueChange={(v) =>
-              setSortBy(v as "default" | "alphabetical" | "size" | "date")
-            }
+            onValueChange={(v) => {
+              trackEvent("dashboard_my_farms_sort_change", {
+                source,
+                wallet_connected: isConnected,
+                wallet_address: normalizedWalletAddress,
+                sort_by: v,
+              });
+              setSortBy(v as "default" | "alphabetical" | "size" | "date");
+            }}
           >
             <SelectTrigger className="w-[120px] sm:w-[160px] h-9 text-xs sm:text-sm">
               <SelectValue placeholder="Sort by..." />
@@ -1536,7 +1548,15 @@ export default function MyFarmsGridSection({
             variant={viewMode === "default" ? "secondary" : "ghost"}
             size="sm"
             className="h-7 px-2 md:px-2.5 text-xs font-medium"
-            onClick={() => setViewMode("default")}
+            onClick={() => {
+              trackEvent("dashboard_my_farms_view_change", {
+                source,
+                wallet_connected: isConnected,
+                wallet_address: normalizedWalletAddress,
+                view_mode: "default",
+              });
+              setViewMode("default");
+            }}
           >
             <LayoutGrid className="w-3.5 h-3.5 md:mr-1.5" />
             <span className="hidden md:inline">Default</span>
@@ -1545,7 +1565,15 @@ export default function MyFarmsGridSection({
             variant={viewMode === "compact" ? "secondary" : "ghost"}
             size="sm"
             className="h-7 px-2 md:px-2.5 text-xs font-medium"
-            onClick={() => setViewMode("compact")}
+            onClick={() => {
+              trackEvent("dashboard_my_farms_view_change", {
+                source,
+                wallet_connected: isConnected,
+                wallet_address: normalizedWalletAddress,
+                view_mode: "compact",
+              });
+              setViewMode("compact");
+            }}
           >
             <Grid3x3 className="w-3.5 h-3.5 md:mr-1.5" />
             <span className="hidden md:inline">Compact</span>
@@ -1554,7 +1582,15 @@ export default function MyFarmsGridSection({
             variant={viewMode === "mosaic" ? "secondary" : "ghost"}
             size="sm"
             className="h-7 px-2 md:px-2.5 text-xs font-medium"
-            onClick={() => setViewMode("mosaic")}
+            onClick={() => {
+              trackEvent("dashboard_my_farms_view_change", {
+                source,
+                wallet_connected: isConnected,
+                wallet_address: normalizedWalletAddress,
+                view_mode: "mosaic",
+              });
+              setViewMode("mosaic");
+            }}
           >
             <ImageIcon className="w-3.5 h-3.5 md:mr-1.5" />
             <span className="hidden md:inline">Mosaic</span>
@@ -1563,7 +1599,15 @@ export default function MyFarmsGridSection({
             variant={viewMode === "list" ? "secondary" : "ghost"}
             size="sm"
             className="h-7 px-2 md:px-2.5 text-xs font-medium"
-            onClick={() => setViewMode("list")}
+            onClick={() => {
+              trackEvent("dashboard_my_farms_view_change", {
+                source,
+                wallet_connected: isConnected,
+                wallet_address: normalizedWalletAddress,
+                view_mode: "list",
+              });
+              setViewMode("list");
+            }}
           >
             <List className="w-3.5 h-3.5 md:mr-1.5" />
             <span className="hidden md:inline">List</span>
@@ -1614,7 +1658,16 @@ export default function MyFarmsGridSection({
                   <TableRow
                     key={farm.farmId}
                     className="cursor-pointer border-border/50 hover:bg-muted/40 transition-colors group"
-                    onClick={() => setSelectedFarm(farm)}
+                    onClick={() => {
+                      trackEvent("dashboard_my_farm_click", {
+                        source,
+                        wallet_connected: isConnected,
+                        wallet_address: normalizedWalletAddress,
+                        farm_id: farm.farmId,
+                        farm_type: farm.type,
+                      });
+                      setSelectedFarm(farm);
+                    }}
                   >
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-3">
@@ -1762,13 +1815,31 @@ export default function MyFarmsGridSection({
               <FarmMosaicCard
                 key={farm.farmId}
                 farm={farm}
-                onClick={() => setSelectedFarm(farm)}
+                onClick={() => {
+                  trackEvent("dashboard_my_farm_click", {
+                    source,
+                    wallet_connected: isConnected,
+                    wallet_address: normalizedWalletAddress,
+                    farm_id: farm.farmId,
+                    farm_type: farm.type,
+                  });
+                  setSelectedFarm(farm);
+                }}
               />
             ) : (
               <FarmCard
                 key={farm.farmId}
                 farm={farm}
-                onClick={() => setSelectedFarm(farm)}
+                onClick={() => {
+                  trackEvent("dashboard_my_farm_click", {
+                    source,
+                    wallet_connected: isConnected,
+                    wallet_address: normalizedWalletAddress,
+                    farm_id: farm.farmId,
+                    farm_type: farm.type,
+                  });
+                  setSelectedFarm(farm);
+                }}
                 isCompact={viewMode === "compact"}
               />
             )

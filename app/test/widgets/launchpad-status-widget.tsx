@@ -757,6 +757,7 @@ export default function LaunchpadStatusWidget({
           onOpenChange={setBuyGlowOpen}
           usdcBalance={usdcBalance ?? null}
           glowSpotPrice={spotPriceUsd}
+          source="launchpad_status_widget"
           onSuccess={() => {
             void (async () => {
               try {

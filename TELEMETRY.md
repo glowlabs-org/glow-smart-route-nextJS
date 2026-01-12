@@ -99,105 +99,189 @@ For any “amount”-like telemetry, only send **bucket strings**:
 
 #### Event catalog
 
-All events below follow `snake_case` and use `dashboard_*` (dashboard surface area) or `gctl_*` (protocol action) prefixes.
+All events below follow `snake_case` and use `dashboard_*` (dashboard surface area), `gctl_*` (GCTL protocol actions), `marketplace_*` (marketplace actions), or `wallet_*` (wallet actions) prefixes.
 
-- **Dashboard**
-  - `dashboard_view`: Bento dashboard rendered
-    - emitted by: `app/test/bento.tsx`
+##### Priority Events (Core Conversions & Protocol Actions)
 
-- **Onboarding (disconnected state)**
-  - `dashboard_connect_wallet_click`: user clicked connect wallet
-    - emitted by: `app/test/widgets/onboarding-hero-widget.tsx`
-  - `dashboard_buy_glw_click`: user clicked buy GLW (opens Buy GLW dialog)
-    - emitted by: `app/test/widgets/onboarding-hero-widget.tsx`
+- **Newsletter subscription**
 
-- **Quick actions**
-  - `dashboard_buy_glw_click`: user clicked buy GLW tile
-    - emitted by: `app/test/widgets/quick-actions-widget.tsx`
-  - `dashboard_launchpad_open_click`: user clicked launchpad tile (opens launchpad dialog)
-    - emitted by: `app/test/widgets/quick-actions-widget.tsx`
-    - props: `launchpad_mode` (`delegations|miners`)
-  - `dashboard_add_liquidity_open_click`: user clicked add liquidity tile
-    - emitted by: `app/test/widgets/quick-actions-widget.tsx`
-    - props: `pair` (`glw_usdg`)
-  - `dashboard_gctl_mint_stake_open_click`: user clicked stake GCTL tile (opens mint/stake dialog)
-    - emitted by: `app/test/widgets/quick-actions-widget.tsx`
-
-- **Launchpad widget**
-  - `dashboard_launchpad_tab_change`: changed tabs in launchpad widget (all/delegations/miners/activity)
-    - emitted by: `app/test/widgets/launchpad-status-widget.tsx`
-    - props: `tab`
-  - `dashboard_launchpad_deposit_open_click`: clicked deposit CTA in widget (opens deposit dialog)
-    - emitted by: `app/test/widgets/launchpad-status-widget.tsx`
-    - props: `application_id`, `listing_type` (`miners|delegations`), `payment_currency` (`USDC|GLW`)
-
-- **Portfolio / net worth**
-  - `dashboard_swap_open_click`: opens swap dialog
-    - emitted by: `app/test/widgets/portfolio-allocation.tsx`, `app/test/widgets/net-worth.tsx`
-    - props: optional `cta` (`swap_tokens|swap_for_glw`)
-  - `dashboard_send_open_click`: opens send dialog
-    - emitted by: `app/test/widgets/net-worth.tsx`
-
-- **Impact + leaderboard**
-  - `dashboard_impact_help_open_click`: opened “How Glow Impact Score works”
-    - emitted by: `app/test/widgets/rank-widget.tsx`
-    - props: `ui` (`tooltip|drawer`)
-  - `dashboard_impact_breakdown_open_click`: opened Impact Score breakdown dialog
-    - emitted by: `app/test/widgets/rank-widget.tsx`
-  - `dashboard_leaderboard_open_click`: navigated to leaderboard (`/stats/rewards`)
-    - emitted by: `app/test/widgets/rank-widget.tsx`, `app/test/widgets/global-leaderboard-widget.tsx`
-
-- **Rewards**
-  - `dashboard_rewards_claim_open_click`: opened rewards claim dialog
-    - emitted by: `app/test/widgets/rewards-widget.tsx`
-  - Claim lifecycle is instrumented in: `app/wallet/claims-panel.tsx` (`wallet_claim_*`)
-
-- **Education**
-  - `dashboard_education_click`: clicked an educational outbound link
-    - emitted by: `app/test/widgets/solar-farm-widget.tsx`, `app/test/widgets/gctl-heatmap-widget.tsx`
-    - props: `topic` (`mining|delegation|gctl`), optional `url`
-
-- **Mining (solar farm widget)**
-  - `dashboard_mining_details_open_click`: opened mining performance details dialog
-    - emitted by: `app/test/widgets/solar-farm-widget.tsx`
-  - `dashboard_mining_launchpad_open_click`: clicked “Browse Launchpad” from mining empty state
-    - emitted by: `app/test/widgets/solar-farm-widget.tsx`
-  - `dashboard_mining_retry_click`: retry after mining widget error
-    - emitted by: `app/test/widgets/solar-farm-widget.tsx`
-  - `dashboard_mining_filter_change`: changed filter in farms performance dialog (all/miners/delegations/other/in-progress)
-    - emitted by: `app/test/widgets/farms-performance-dialog.tsx`
-    - props: `filter`
-
-- **FAQ**
-  - `dashboard_faq_item_select`: selected an FAQ item
-    - emitted by: `app/test/widgets/glow-faq-widget.tsx`
-    - props: `faq_id`
-
-- **Newsletter**
   - `dashboard_newsletter_subscribe_submit`: submitted newsletter form (client-side intent)
+  - `dashboard_newsletter_subscribe_success`: subscription successful
+  - `dashboard_newsletter_subscribe_error`: subscription failed
+    - props: `source`, `wallet_connected`, `wallet_address`, `http_status` (when available)
     - emitted by: `app/test/widgets/newsletter-widget.tsx`
-  - `dashboard_newsletter_subscribe_success` / `dashboard_newsletter_subscribe_error`: client-side result (no email)
-    - emitted by: `app/test/widgets/newsletter-widget.tsx`
-    - props: `http_status` when available
-  - Server-side outcomes are also instrumented in: `app/api/newsletter/route.ts` (`api_newsletter_*`)
+  - Server-side outcomes also tracked in: `app/api/newsletter/route.ts` (`api_newsletter_*`)
 
-- **Community**
-  - `dashboard_discord_click`: clicked the Discord widget (outbound)
+- **Community engagement**
+
+  - `dashboard_discord_click`: clicked Discord widget banner
+    - props: `source`, `wallet_connected`, `wallet_address`
     - emitted by: `app/test/widgets/discord-widget.tsx`
 
-- **Liquidity (GLW/USDG)**
-  - `dashboard_add_liquidity_review_click`: clicked “Review/Add/…” in the quick add-liquidity dialog
-  - `dashboard_add_liquidity_update_ratio_click`: clicked “Update ratio” warning action
-  - `dashboard_add_liquidity_go_to_swap_click`: clicked “Go to Swap” (internal navigation to `/` — `/glow-swap` now redirects to `/`)
-  - `dashboard_remove_liquidity_open_click`: clicked “Remove” (opens remove flow)
-    - emitted by: `app/test/widgets/add-liquidity-quick-dialog.tsx`
+- **GCTL minting & staking (key protocol KPI)**
 
-- **GCTL mint & stake (key KPI)**
-  - `gctl_mint_stake_dialog_open` / `gctl_mint_stake_dialog_close`
-  - `gctl_mint_stake_submit` (props: `region_id`, `pay_currency`, `pay_amount_bucket`, `minted_gctl_bucket`)
-  - `gctl_mint_stake_tx_sent` (props: `tx_hash`, plus the same bucketing props)
-  - `gctl_mint_stake_error` (props: `error_message`, plus the same bucketing props)
+  - `gctl_mint_stake_dialog_open` / `gctl_mint_stake_dialog_close`: dialog lifecycle
+  - `gctl_mint_stake_submit`: user submitted mint & stake transaction
+    - props: `step`, `region_id`, `pay_currency`, `pay_amount_bucket`, `minted_gctl_bucket`, `eth_pay_enabled`
+  - `gctl_mint_stake_tx_sent`: transaction submitted to blockchain
+    - props: `step`, `region_id`, `pay_currency`, `mint_currency`, `pay_amount_bucket`, `minted_gctl_bucket`, `tx_hash`
+  - `gctl_mint_stake_error`: minting/staking failed
+    - props: `step`, `region_id`, `pay_currency`, `pay_amount_bucket`, `minted_gctl_bucket`, `error_message`
+  - `gctl_stake_existing_submit` / `gctl_stake_existing_success` / `gctl_stake_existing_error`: staking existing GCTL
+    - props: `step`, `region_id`, `stake_amount_bucket`
     - emitted by: `components/dialogs/mint-and-stake-gctl-dialog.tsx`
+
+- **Miner purchases & GLW delegations (marketplace)**
+
+  - `marketplace_deposit_success`: purchase or delegation completed
+    - props: `currency`, `payment_method`, `listing_type` (`miners|delegations`), `application_id`, `fraction_id`, `quantity`, `tx_hash`, `farm_name`, `zone_name`
+  - `marketplace_deposit_error`: purchase or delegation failed (not tracked for user rejections)
+    - props: `currency`, `payment_method`, `listing_type`, `application_id`, `fraction_id`, `quantity`, `failed_step`, `error_message`
+  - `marketplace_deposit_share_x_click`: user shared success on X
+    - props: `currency`, `application_id`, `fraction_id`, `steps_to_buy`, `tx_hash`
+    - emitted by: `app/marketplace/deposit-dialog.tsx`
+
+- **GLW purchases (with source tracking)**
+
+  - `buy_glw_dialog_open` / `buy_glw_dialog_close`: dialog lifecycle
+  - `buy_glw_pay_token_change`: user changed payment token
+    - props: `pay_token`, `source`
+  - `buy_glw_submit_click`: user initiated purchase
+    - props: `pay_token`, `pay_amount`, `usdc_balance`, `usdg_balance`, `has_bonding_step`, `source`
+  - `buy_glw_step_result`: individual transaction step result
+    - props: `step`, `ok`, `error_message` (if failed), `skipped` (if applicable), `source`
+  - `buy_glw_success`: purchase completed
+    - props: `pay_token`, `pay_amount`, `estimated_glw`, `has_bonding_step`, `source`
+  - `buy_glw_error`: purchase failed
+    - props: `error_message`, `source`
+  - `buy_glw_connect_wallet_click`: connect wallet CTA clicked
+    - props: `location` (`dialog_max|dialog_footer`), `source`
+  - `buy_glw_max_click`: "max" button clicked
+    - props: `pay_token`, `pay_balance`, `source`
+    - emitted by: `components/dialogs/buy-glow-dialog.tsx`
+
+- **Reward claiming**
+  - `wallet_claim_week_click`: user clicked claim button for specific week
+  - `wallet_claim_week_blocked`: claim blocked (reasons: `not_connected|no_proof|no_rewards`)
+  - `wallet_claim_dialog_open` / `wallet_claim_dialog_close`: claim dialog lifecycle
+  - `wallet_claim_confirm_click`: user confirmed claim in dialog
+  - `wallet_claim_blocked`: claim blocked (reason: `smart_account`)
+  - `wallet_claim_processing_start`: claim processing started
+  - `wallet_claim_stage_update`: individual stage update (inflation/protocolDeposits)
+  - `wallet_claim_tx_submitted`: transaction submitted
+  - `wallet_claim_result`: final claim result (success/error/partial_error/exception/skipped)
+  - `wallet_claim_single_reward_click` / `wallet_claim_single_reward_result`: individual reward claiming
+    - emitted by: `app/wallet/claims-panel.tsx`
+
+##### Dashboard & Widget Interactions
+
+- **Dashboard view**
+
+  - `dashboard_view`: Bento dashboard rendered
+    - props: `source` (`bento`), `wallet_connected`, `wallet_address`
+    - emitted by: `app/test/bento.tsx`
+
+- **Buy GLW entry points (with source tracking)**
+
+  - `dashboard_buy_glw_click`: user clicked "Buy GLW" button
+    - props: `source` (e.g. `onboarding_hero_widget`, `launchpad_status_widget`, `rank_widget`), `wallet_connected`, `wallet_address`
+    - emitted by: `app/test/widgets/onboarding-hero-widget.tsx`, `app/test/widgets/launchpad-status-widget.tsx`, `app/test/widgets/rank-widget.tsx`
+
+- **GCTL entry points (with source tracking)**
+
+  - `dashboard_gctl_mint_stake_open_click`: user clicked "Mint & Stake GCTL" button
+    - props: `source` (e.g. `quick_actions_widget`, `rank_widget`, `gctl_heatmap_widget`), `wallet_connected`, `wallet_address`, optional `cta` (`link` for rank widget link)
+    - emitted by: `app/test/widgets/quick-actions-widget.tsx`, `app/test/widgets/rank-widget.tsx`, `app/test/widgets/gctl-heatmap-widget.tsx`
+
+- **Impact & Leaderboard**
+
+  - `dashboard_impact_help_open_click`: opened "How Glow Impact Score works"
+    - props: `source`, `wallet_connected`, `wallet_address`, `ui` (`tooltip|drawer`)
+  - `dashboard_impact_indicator_click`: clicked individual impact indicator
+    - props: `source`, `wallet_connected`, `wallet_address`, `indicator` (`miner|streak|steering|vault|emissions|worth`)
+  - `dashboard_impact_breakdown_open_click`: opened Impact Score breakdown dialog
+    - props: `source`, `wallet_connected`, `wallet_address`
+  - `dashboard_breakdown_cta_click`: clicked CTA within Impact Score breakdown dialog
+    - props: `source`, `wallet_connected`, `wallet_address`, `cta_type` (`steering|emissions|delegation|glow_worth|miner_bonus|streak`)
+  - `dashboard_leaderboard_open_click`: navigated to leaderboard
+    - props: `source`, `wallet_connected`, `wallet_address`
+    - emitted by: `app/test/widgets/rank-widget.tsx`, `components/dialogs/impact-score-breakdown-dialog.tsx`
+
+- **Portfolio & Net Worth**
+
+  - `dashboard_glow_worth_breakdown_open_click`: opened Glow Worth breakdown dialog
+    - props: `source`, `wallet_connected`, `wallet_address`, `chain_id`
+    - emitted by: `app/test/widgets/net-worth.tsx`
+  - `dashboard_swap_open_click`: opened swap dialog
+    - props: `source`, `wallet_connected`, `wallet_address`, `chain_id`, optional `cta`
+  - `dashboard_send_open_click`: opened send dialog
+    - props: `source`, `wallet_connected`, `wallet_address`, `chain_id`
+    - emitted by: `app/test/widgets/wallet-widget.tsx`
+
+- **Blog & FAQ**
+
+  - `dashboard_blog_click`: clicked featured blog post
+    - props: `source`, `wallet_connected`, `wallet_address`, `article_slug`, `article_url`
+    - emitted by: `app/test/widgets/blog-featured-widget.tsx`
+  - `dashboard_faq_item_select`: selected FAQ item
+    - props: `source`, `wallet_connected`, `wallet_address`, `faq_id`
+    - emitted by: `app/test/widgets/glow-faq-widget.tsx`
+
+- **Launchpad widget & view**
+
+  - `dashboard_launchpad_tab_change`: changed tabs in launchpad widget
+    - props: `source`, `wallet_connected`, `wallet_address`, `tab` (`all|delegations|miners|activity`)
+    - emitted by: `app/test/widgets/launchpad-status-widget.tsx`
+  - `marketplace_launchpad_filter_change`: changed filter in launchpad view
+    - props: `filter` (`zone|type`), `value`
+  - `marketplace_launchpad_pay_click`: clicked "Buy Miners" or "Delegate GLW" button
+    - props: `application_id`, `app_type` (`miners|delegations`), `zone_id`
+  - `marketplace_launchpad_advanced_stats_open`: opened advanced stats dialog
+    - props: `application_id`, `app_type`, `zone_id`
+    - emitted by: `app/marketplace/launchpad-view.tsx`
+
+- **Mining (solar farm widget)**
+
+  - `dashboard_mining_details_open_click`: opened mining performance details dialog
+    - props: `source`, `wallet_connected`, `wallet_address`, `cta` (`view_details|stats_block`)
+  - `dashboard_mining_launchpad_open_click`: clicked "Browse Launchpad"
+    - props: `source`, `wallet_connected`, `wallet_address`
+  - `dashboard_mining_retry_click`: retry after error
+    - props: `source`, `wallet_connected`, `wallet_address`
+  - `dashboard_mining_filter_change`: changed filter in farms performance dialog
+    - props: `filter` (`all|miners|delegations|other|in-progress`)
+    - emitted by: `app/test/widgets/solar-farm-widget.tsx`
+
+- **My Farms**
+
+  - `dashboard_my_farm_click`: clicked on a farm card/row
+    - props: `source`, `wallet_connected`, `wallet_address`, `farm_id`, `farm_type` (`miner|delegation|other|in-progress`)
+  - `dashboard_my_farms_sort_change`: changed sort order
+    - props: `source`, `wallet_connected`, `wallet_address`, `sort_by` (`default|alphabetical|size|date`)
+  - `dashboard_my_farms_view_change`: changed view mode
+    - props: `source`, `wallet_connected`, `wallet_address`, `view_mode` (`default|grid|list`)
+    - emitted by: `app/test/widgets/my-farms-grid-section.tsx`
+
+- **Education**
+
+  - `dashboard_education_click`: clicked educational outbound link
+    - props: `source`, `wallet_connected`, `wallet_address`, `topic` (`mining|delegation|gctl`), `url`
+    - emitted by: `app/test/widgets/solar-farm-widget.tsx`, `app/test/widgets/gctl-heatmap-widget.tsx`
+
+- **Quick actions**
+
+  - `dashboard_launchpad_open_click`: clicked launchpad tile
+    - props: `source`, `wallet_connected`, `wallet_address`, `launchpad_mode` (`delegations|miners`)
+  - `dashboard_add_liquidity_open_click`: clicked add liquidity tile
+    - props: `source`, `wallet_connected`, `wallet_address`, `pair` (`glw_usdg`)
+    - emitted by: `app/test/widgets/quick-actions-widget.tsx`
+
+- **Liquidity (GLW/USDG)**
+  - `dashboard_add_liquidity_review_click`
+  - `dashboard_add_liquidity_update_ratio_click`
+  - `dashboard_add_liquidity_go_to_swap_click`
+  - `dashboard_remove_liquidity_open_click`
+    - emitted by: `app/test/widgets/add-liquidity-quick-dialog.tsx`
 
 #### Landing site (glow.org)
 

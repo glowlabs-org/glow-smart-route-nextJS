@@ -646,6 +646,7 @@ export default function GlowSoftDashboard({
         onOpenChange={setIsBuyGlowDialogOpen}
         usdcBalance={usdcBalance ?? null}
         glowSpotPrice={glwSpotPrice}
+        source="bento"
         defaultUsdcAmount="20"
       />
     </div>

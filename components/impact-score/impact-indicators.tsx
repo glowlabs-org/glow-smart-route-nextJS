@@ -60,37 +60,33 @@ function getVariantStyles(
     case "miner":
       return cn(
         "border-[color:var(--color-miner)] text-[color:var(--color-miner)]",
-        "bg-[color:var(--color-miner)]/10",
-        "shadow-[0_0_15px_-3px_var(--color-miner)]",
-        "dark:shadow-[0_0_20px_-5px_var(--color-miner)]" // Stronger glow in dark mode
+        "bg-[color:var(--color-miner)]/10"
       );
 
     // Streak: Purple (Same as Vault now)
     case "streak":
       return cn(
         "border-[color:var(--delegation-purple)] text-[color:var(--delegation-purple)]",
-        "bg-[color:var(--delegation-purple)]/10",
-        "shadow-[0_0_15px_-3px_var(--delegation-purple)]",
-        "dark:shadow-[0_0_20px_-5px_var(--delegation-purple)]"
+        "bg-[color:var(--delegation-purple)]/10"
       );
 
     // --- Sources (Fuel) ---
 
     // Steering: Cyan
     case "steering":
-      return "border-cyan-400/30 bg-cyan-400/10 text-cyan-600 dark:text-cyan-400 shadow-[0_0_10px_-4px_rgba(34,211,238,0.5)]";
+      return "border-cyan-400/30 bg-cyan-400/10 text-cyan-600 dark:text-cyan-400";
 
     // Emissions: Miner Blue (Brand consistency)
     case "emissions":
-      return "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)] shadow-[0_0_10px_-4px_var(--color-miner)]";
+      return "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]";
 
     // Vault: Purple
     case "vault":
-      return "border-[color:var(--delegation-purple)]/30 bg-[color:var(--delegation-purple)]/10 text-[color:var(--delegation-purple)] shadow-[0_0_10px_-4px_var(--delegation-purple)]";
+      return "border-[color:var(--delegation-purple)]/30 bg-[color:var(--delegation-purple)]/10 text-[color:var(--delegation-purple)]";
 
     // Worth: Green
     case "worth":
-      return "border-green-400/30 bg-green-400/10 text-green-600 dark:text-green-400 shadow-[0_0_10px_-4px_rgba(74,222,128,0.5)]";
+      return "border-green-400/30 bg-green-400/10 text-green-600 dark:text-green-400";
 
     default:
       return "";

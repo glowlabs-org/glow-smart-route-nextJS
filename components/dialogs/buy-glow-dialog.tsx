@@ -98,6 +98,7 @@ interface BuyGlowDialogProps {
   onOpenChange: (open: boolean) => void;
   usdcBalance: bigint | null;
   glowSpotPrice: number;
+  source?: string;
   defaultUsdcAmount?: string;
   onSuccess?: () => void;
 }
@@ -190,6 +191,7 @@ export function BuyGlowDialog({
   onOpenChange,
   usdcBalance,
   glowSpotPrice,
+  source,
   defaultUsdcAmount,
   onSuccess,
 }: BuyGlowDialogProps) {
@@ -496,10 +498,10 @@ export function BuyGlowDialog({
   ]);
 
   React.useEffect(() => {
-    if (open && !wasOpenRef.current) trackEvent("buy_glw_dialog_open");
-    if (!open && wasOpenRef.current) trackEvent("buy_glw_dialog_close");
+    if (open && !wasOpenRef.current) trackEvent("buy_glw_dialog_open", { source });
+    if (!open && wasOpenRef.current) trackEvent("buy_glw_dialog_close", { source });
     wasOpenRef.current = open;
-  }, [open]);
+  }, [open, source]);
 
   const handleInputChange = React.useCallback(
     (value: string) => {
@@ -529,7 +531,7 @@ export function BuyGlowDialog({
       setTransactionSteps([]);
       stepsRef.current = [];
 
-      trackEvent("buy_glw_pay_token_change", { pay_token: next });
+      trackEvent("buy_glw_pay_token_change", { pay_token: next, source });
 
       if (next === "USDC" && defaultUsdcAmount) {
         if (open && phase === "input") {
@@ -607,7 +609,7 @@ export function BuyGlowDialog({
 
     if (!isConnected) {
       toast.error("Connect your wallet to continue");
-      trackEvent("buy_glw_connect_required");
+      trackEvent("buy_glw_connect_required", { source });
       return;
     }
 
@@ -714,6 +716,7 @@ export function BuyGlowDialog({
         usdc_balance: usdcBalanceFormatted,
         usdg_balance: usdgBalanceFormatted,
         has_bonding_step: hasBondingOutputInitial,
+        source,
       });
 
       if (payToken === "ETH") {
@@ -730,12 +733,14 @@ export function BuyGlowDialog({
             step: "swap_eth_to_usdc",
             ok: false,
             error_message: String(swapEthRes.val),
+            source,
           });
           throw new Error(String(swapEthRes.val));
         }
         trackEvent("buy_glw_step_result", {
           step: "swap_eth_to_usdc",
           ok: true,
+          source,
         });
         updateStepStatus("SWAP_ETH_TO_USDC", "completed", {
           txHash: swapEthRes.val.txHash,
@@ -797,12 +802,14 @@ export function BuyGlowDialog({
             step: "swap_usdc_to_usdg",
             ok: false,
             error_message: String(swapUsdcResult.val),
+            source,
           });
           throw new Error(String(swapUsdcResult.val));
         }
         trackEvent("buy_glw_step_result", {
           step: "swap_usdc_to_usdg",
           ok: true,
+          source,
         });
         updateStepStatus("SWAP_USDC_TO_USDG", "completed");
         if (usdcToUsdgLastTxHashRef.current)
@@ -840,12 +847,14 @@ export function BuyGlowDialog({
             step: "swap_usdg_to_glw_uniswap",
             ok: false,
             error_message: String(uniswapResult.val),
+            source,
           });
           throw new Error(String(uniswapResult.val));
         }
         trackEvent("buy_glw_step_result", {
           step: "swap_usdg_to_glw_uniswap",
           ok: true,
+          source,
         });
         updateStepStatus("SWAP_USDG_TO_GLOW_ON_UNISWAP", "completed");
         if (uniswapLastTxHashRef.current)
@@ -866,6 +875,7 @@ export function BuyGlowDialog({
             step: "purchase_glw_bonding",
             ok: false,
             error_message: String(quoteResult.val),
+            source,
           });
           throw new Error(String(quoteResult.val));
         }
@@ -883,6 +893,7 @@ export function BuyGlowDialog({
             step: "purchase_glw_bonding",
             ok: true,
             skipped: true,
+            source,
           });
         } else {
           const purchaseResult = await purchaseGlowEarlyLiquidity({
@@ -894,6 +905,7 @@ export function BuyGlowDialog({
               step: "purchase_glw_bonding",
               ok: false,
               error_message: String(purchaseResult.val),
+              source,
             });
             throw new Error(String(purchaseResult.val));
           }
@@ -902,6 +914,7 @@ export function BuyGlowDialog({
             step: "purchase_glw_bonding",
             ok: true,
             skipped: false,
+            source,
           });
           if (glowLastTxHashRef.current) setTxHash(glowLastTxHashRef.current);
         }
@@ -917,6 +930,7 @@ export function BuyGlowDialog({
         pay_amount: inputAmount,
         estimated_glw: finalEstimatedGlw,
         has_bonding_step: hasBondingOutput,
+        source,
       });
       onSuccess?.();
     } catch (error: any) {
@@ -950,6 +964,7 @@ export function BuyGlowDialog({
 
       trackEvent("buy_glw_error", {
         error_message: msg,
+        source,
       });
     }
   }, [
@@ -1303,6 +1318,7 @@ export function BuyGlowDialog({
                         if (!isCkConnected) {
                           trackEvent("buy_glw_connect_wallet_click", {
                             location: "dialog_max",
+                            source,
                           });
                           show?.();
                           return;
@@ -1311,6 +1327,7 @@ export function BuyGlowDialog({
                         trackEvent("buy_glw_max_click", {
                           pay_token: payToken,
                           pay_balance: availablePayBalanceFormatted,
+                          source,
                         });
 
                         if (payToken === "ETH") {
@@ -1503,6 +1520,7 @@ export function BuyGlowDialog({
                   onClick={() => {
                     trackEvent("buy_glw_connect_wallet_click", {
                       location: "dialog_footer",
+                      source,
                     });
                     show?.();
                   }}

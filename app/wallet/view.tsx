@@ -943,6 +943,7 @@ export default function View() {
           }}
           usdcBalance={usdcBalance}
           glowSpotPrice={glowSpotPrice || 0}
+          source="wallet_view"
           onSuccess={refreshBalances}
         />
       </div>
@@ -1674,6 +1675,7 @@ export default function View() {
         }}
         usdcBalance={usdcBalance}
         glowSpotPrice={glowSpotPrice || 0}
+        source="wallet_view"
         onSuccess={refreshBalances}
       />
     </div>

@@ -4,7 +4,9 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
+import { useAccount } from "wagmi";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/telemetry";
 
 interface BlogFeaturedWidgetProps {
   className?: string;
@@ -13,6 +15,10 @@ interface BlogFeaturedWidgetProps {
 export default function BlogFeaturedWidget({
   className,
 }: BlogFeaturedWidgetProps) {
+  const { address, isConnected } = useAccount();
+  const walletAddress = address?.toLowerCase() ?? null;
+  const source = "blog_featured_widget";
+  
   const post = {
     slug: "progressive-vaults-transparency",
     title: "Progressive Vaults: Competitive Deposit Recovery in Glow",
@@ -35,6 +41,15 @@ export default function BlogFeaturedWidget({
       target="_blank"
       rel="noopener noreferrer"
       className={cn("group block h-full w-full", className)}
+      onClick={() => {
+        trackEvent("dashboard_blog_click", {
+          source,
+          wallet_connected: isConnected,
+          wallet_address: walletAddress,
+          article_slug: post.slug,
+          article_url: post.url,
+        });
+      }}
     >
       <div className="relative h-full w-full rounded-xl overflow-hidden group cursor-pointer shadow-sm hover:shadow-md transition-all duration-300 bg-muted">
         {/* Background Image */}

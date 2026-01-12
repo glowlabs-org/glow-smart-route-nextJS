@@ -883,6 +883,7 @@ function ImpactHero(props: {
         onOpenChange={setIsBuyGlowOpen}
         usdcBalance={usdcBalance}
         glowSpotPrice={glowSpotPrice || 0}
+        source="impact_view"
         defaultUsdcAmount="20"
       />
     </div>
@@ -1249,13 +1250,13 @@ export function ImpactView() {
                           "bg-[color:var(--color-glow-orange)]/12 dark:bg-[color:var(--color-glow-orange)]/8 ring-1 ring-inset ring-[color:var(--color-glow-orange)]/30 z-10",
                         isRank1 &&
                           !isConnectedUser &&
-                          "bg-yellow-500/5 dark:bg-yellow-500/[0.03] border-y border-yellow-500/10",
+                          "bg-[color:var(--color-glow-yellow)]/20 dark:bg-[color:var(--color-glow-yellow)]/10 border-y border-[color:var(--color-glow-yellow)]/30",
                         isRank2 &&
                           !isConnectedUser &&
-                          "bg-slate-400/5 dark:bg-slate-400/[0.03] border-y border-slate-400/10",
+                          "bg-[color:var(--color-glow-green)]/20 dark:bg-[color:var(--color-glow-green)]/10 border-y border-[color:var(--color-glow-green)]/30",
                         isRank3 &&
                           !isConnectedUser &&
-                          "bg-orange-600/5 dark:bg-orange-600/[0.03] border-y border-orange-600/10",
+                          "bg-[color:var(--color-glow-purple)]/20 dark:bg-[color:var(--color-glow-purple)]/10 border-y border-[color:var(--color-glow-purple)]/30",
                         "hover:bg-muted/20"
                       )}
                       role="button"
@@ -1271,15 +1272,15 @@ export function ImpactView() {
                         <div className="min-w-0 space-y-1">
                           <div className="flex items-center gap-2">
                             {isRank1 ? (
-                              <span className="text-[10px] font-bold font-mono text-yellow-600 dark:text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                              <span className="text-[10px] font-bold font-mono text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-black)] bg-[color:var(--color-glow-yellow)]/80 px-1.5 py-0.5 rounded uppercase tracking-wider">
                                 Rank 1
                               </span>
                             ) : isRank2 ? (
-                              <span className="text-[10px] font-bold font-mono text-slate-500 dark:text-slate-400 bg-slate-400/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                              <span className="text-[10px] font-bold font-mono text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-black)] bg-[color:var(--color-glow-green)]/80 px-1.5 py-0.5 rounded uppercase tracking-wider">
                                 Rank 2
                               </span>
                             ) : isRank3 ? (
-                              <span className="text-[10px] font-bold font-mono text-orange-700 dark:text-orange-600 bg-orange-600/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                              <span className="text-[10px] font-bold font-mono text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-black)] bg-[color:var(--color-glow-purple)]/80 px-1.5 py-0.5 rounded uppercase tracking-wider">
                                 Rank 3
                               </span>
                             ) : (
@@ -1336,7 +1337,7 @@ export function ImpactView() {
                         className={cn(
                           "mt-3 font-mono text-3xl font-bold tracking-tight tabular-nums relative z-10",
                           isRank1
-                            ? "text-yellow-600 dark:text-yellow-500"
+                            ? "text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-yellow)]"
                             : "text-foreground"
                         )}
                       >
@@ -1488,28 +1489,28 @@ export function ImpactView() {
                             "bg-[color:var(--color-glow-orange)]/12 dark:bg-[color:var(--color-glow-orange)]/8 ring-1 ring-inset ring-[color:var(--color-glow-orange)]/30",
                           isRank1 &&
                             !isConnectedUser &&
-                            "bg-yellow-500/10 dark:bg-yellow-500/5 hover:bg-yellow-500/15",
+                            "bg-[color:var(--color-glow-yellow)]/30 dark:bg-[color:var(--color-glow-yellow)]/10 hover:bg-[color:var(--color-glow-yellow)]/40 dark:hover:bg-[color:var(--color-glow-yellow)]/15",
                           isRank2 &&
                             !isConnectedUser &&
-                            "bg-slate-400/10 dark:bg-slate-400/5 hover:bg-slate-400/15",
+                            "bg-[color:var(--color-glow-green)]/30 dark:bg-[color:var(--color-glow-green)]/10 hover:bg-[color:var(--color-glow-green)]/40 dark:hover:bg-[color:var(--color-glow-green)]/15",
                           isRank3 &&
                             !isConnectedUser &&
-                            "bg-orange-600/10 dark:bg-orange-600/5 hover:bg-orange-600/15",
+                            "bg-[color:var(--color-glow-purple)]/30 dark:bg-[color:var(--color-glow-purple)]/10 hover:bg-[color:var(--color-glow-purple)]/40 dark:hover:bg-[color:var(--color-glow-purple)]/15",
                           !isTop3 && "hover:bg-muted/20"
                         )}
                         onClick={() => handleRowClick(row.walletAddress)}
                       >
                         <TableCell className="font-mono text-xs py-3 px-3">
                           {isRank1 ? (
-                            <span className="text-[10px] font-bold font-mono text-yellow-600 dark:text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                            <span className="text-[10px] font-bold font-mono text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-black)] bg-[color:var(--color-glow-yellow)]/80 px-1.5 py-0.5 rounded uppercase tracking-wider">
                               Rank 1
                             </span>
                           ) : isRank2 ? (
-                            <span className="text-[10px] font-bold font-mono text-slate-500 dark:text-slate-400 bg-slate-400/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                            <span className="text-[10px] font-bold font-mono text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-black)] bg-[color:var(--color-glow-green)]/80 px-1.5 py-0.5 rounded uppercase tracking-wider">
                               Rank 2
                             </span>
                           ) : isRank3 ? (
-                            <span className="text-[10px] font-bold font-mono text-orange-700 dark:text-orange-600 bg-orange-600/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                            <span className="text-[10px] font-bold font-mono text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-black)] bg-[color:var(--color-glow-purple)]/80 px-1.5 py-0.5 rounded uppercase tracking-wider">
                               Rank 3
                             </span>
                           ) : (
@@ -1579,7 +1580,7 @@ export function ImpactView() {
                           className={cn(
                             "text-right font-mono tabular-nums py-3 px-3 text-base font-semibold",
                             isRank1
-                              ? "text-yellow-600 dark:text-yellow-500"
+                              ? "text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-yellow)]"
                               : "text-foreground"
                           )}
                         >
