@@ -792,6 +792,69 @@ export function MintAndStakeGctlDialog({
     },
   });
 
+  // Fallback timeout: if stuck at FINALIZE "confirming" for >60s, do an explicit check
+  const stuckCheckTimeoutRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  React.useEffect(() => {
+    if (stuckCheckTimeoutRef.current) {
+      clearTimeout(stuckCheckTimeoutRef.current);
+      stuckCheckTimeoutRef.current = null;
+    }
+
+    if (!trackingTxHash) return;
+
+    const finalizeStep = stakeSteps.find((s) => s.id === "FINALIZE");
+    if (!finalizeStep || finalizeStep.status !== "confirming") return;
+
+    stuckCheckTimeoutRef.current = setTimeout(async () => {
+      if (!trackingTxHash) return;
+
+      try {
+        const res = await fetchTransferDetails(trackingTxHash);
+        if (!res.ok) return;
+
+        const data = res.val;
+        if (data.status === "confirmed") {
+          updateStakeStepStatus("FINALIZE", "completed");
+          setTrackingTxHash(null);
+          stopTransferPolling();
+          try {
+            await invalidateAllQueries();
+          } catch {
+            // no-op
+          }
+          setStepOverride(4);
+          setStakeUiState("review");
+        } else if (data.status === "failed") {
+          const msg =
+            (data as any)?.errorMessage ||
+            (data as any)?.errorDetails ||
+            "Transaction failed";
+          updateStakeStepStatus("FINALIZE", "error", { errorMessage: msg });
+          setStakeUiState("error");
+          setStakeUiErrorMessage(msg);
+        }
+      } catch {
+        // Silent fail - let regular polling continue
+      }
+    }, 60_000);
+
+    return () => {
+      if (stuckCheckTimeoutRef.current) {
+        clearTimeout(stuckCheckTimeoutRef.current);
+        stuckCheckTimeoutRef.current = null;
+      }
+    };
+  }, [
+    trackingTxHash,
+    stakeSteps,
+    fetchTransferDetails,
+    updateStakeStepStatus,
+    stopTransferPolling,
+    invalidateAllQueries,
+  ]);
+
   const handleSetPct = React.useCallback(
     (pct: number) => {
       const next = (pct / 100) * (maxAmountNumber || 0);
