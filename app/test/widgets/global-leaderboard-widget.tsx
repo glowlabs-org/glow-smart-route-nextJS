@@ -41,17 +41,24 @@ export default function GlobalLeaderboardWidget({
 }: GlobalLeaderboardWidgetProps & { variant?: "default" | "minimal" }) {
   const source = "global_leaderboard_widget";
   const leaderboardQuery = useImpactLeaderboardQuery();
-  const rows = leaderboardQuery.data?.wallets ?? [];
+  const allRows = React.useMemo(() => {
+    const rawWallets = leaderboardQuery.data?.wallets ?? [];
+    return rawWallets.filter(
+      (row): row is ImpactGlowScoreLeaderboardRow =>
+        "walletAddress" in row && !("isSystemRow" in row)
+    );
+  }, [leaderboardQuery.data?.wallets]);
+
   const totalWalletCount =
-    leaderboardQuery.data?.totalWalletCount ?? rows.length;
+    leaderboardQuery.data?.totalWalletCount ?? allRows.length;
   const isMinimal = variant === "minimal";
 
   const topRows = React.useMemo(() => {
-    if (!rows.length) return [];
-    return [...rows]
+    if (!allRows.length) return [];
+    return [...allRows]
       .sort(sortByPointsDesc)
       .slice(0, Math.max(3, Math.min(5, limit)));
-  }, [limit, rows]);
+  }, [limit, allRows]);
 
   const addresses = React.useMemo(
     () => topRows.map((r) => r.walletAddress),
