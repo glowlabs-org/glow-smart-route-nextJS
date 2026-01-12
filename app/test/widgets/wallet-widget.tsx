@@ -28,9 +28,9 @@ const HOLDING_FALLBACK_BY_SYMBOL = {
   },
   USDG: {
     letter: "U",
-    bgClassName: "bg-cyan-500/20",
-    ringClassName: "ring-cyan-500/30",
-    textClassName: "text-cyan-500",
+    bgClassName: "bg-muted-foreground/10",
+    ringClassName: "ring-muted-foreground/30",
+    textClassName: "text-muted-foreground",
   },
 } as const;
 

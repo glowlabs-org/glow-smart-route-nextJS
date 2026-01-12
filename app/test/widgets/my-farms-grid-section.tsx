@@ -305,7 +305,7 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
               )}
             >
               <Clock className={isCompact ? "w-2.5 h-2.5" : "w-3 h-3"} />
-              Starts Next Week
+              Starts Next Thursday
             </div>
           </div>
         )}
@@ -972,7 +972,7 @@ export default function MyFarmsGridSection({
   const { isConnected } = useAccount();
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
   const source = "my_farms_grid_section";
-  
+
   const [selectedFarm, setSelectedFarm] = React.useState<FarmCardData | null>(
     null
   );

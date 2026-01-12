@@ -241,7 +241,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             className
           )}
         >
-          STARTS NEXT WEEK
+          STARTS NEXT THURSDAY
         </div>
       );
     }

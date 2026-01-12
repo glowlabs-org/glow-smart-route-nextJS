@@ -760,7 +760,10 @@ export function RankWidget({
         onOpenChange={setIsBreakdownOpen}
       >
         {hasWallet && impactScore ? (
-          <ImpactScoreBreakdownDialogContent impactScore={impactScore} />
+          <ImpactScoreBreakdownDialogContent
+            impactScore={impactScore}
+            walletAddress={normalizedWalletAddress}
+          />
         ) : null}
       </Dialog>
 

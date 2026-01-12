@@ -5,6 +5,7 @@ import { GENESIS_TIMESTAMP } from "@/utils/getCurrentEpoch";
 
 const GLW_DECIMALS = 18;
 const SECONDS_PER_WEEK = 7 * 86_400;
+const USDC_DECIMALS = 6;
 
 export function getGlwFromWei(value?: string) {
   if (!value) return 0;
@@ -15,9 +16,16 @@ export function getGlwFromWei(value?: string) {
   }
 }
 
-export function buildWeeklyDelegations(
-  data?: RewardsBreakdownResponse | null
-) {
+export function getUsdcFromWei(value?: string) {
+  if (!value) return 0;
+  try {
+    return Number(formatUnits(BigInt(value), USDC_DECIMALS));
+  } catch {
+    return 0;
+  }
+}
+
+export function buildWeeklyDelegations(data?: RewardsBreakdownResponse | null) {
   const weeklyDelegations = new Map<number, number>();
   if (!data) return weeklyDelegations;
 
@@ -63,5 +71,3 @@ export function getWeekNumberFromTimestamp(timestamp: number) {
   const delta = Math.max(0, timestampSeconds - GENESIS_TIMESTAMP);
   return Math.floor(delta / SECONDS_PER_WEEK);
 }
-
-

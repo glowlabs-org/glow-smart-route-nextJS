@@ -2,6 +2,9 @@
 
 import React from "react";
 
+import { useQuery } from "@tanstack/react-query";
+import { isAddress } from "viem";
+
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,24 +19,20 @@ import {
   type SplitActivity,
   useRewardsBreakdown,
   useImpactLeaderboardQuery,
+  type ImpactGlowScoreResponse,
 } from "@/hooks";
+import { hubGet } from "@/lib/api/hub-client";
 import {
   buildWeeklyDelegations,
   getCurrentWeekNumber,
   getGlwFromWei,
+  getUsdcFromWei,
   getWeekNumberFromTimestamp,
   weekToTimestamp,
 } from "@/lib/rewards/weekly-delegations";
 import { useAccount } from "wagmi";
 
 type WeekStatus = "missed" | "delegated" | "miner" | "both";
-
-function getWeekStyle(status: WeekStatus) {
-  if (status === "delegated") return "bg-delegation-purple/50";
-  if (status === "miner") return "bg-[color:var(--color-miner)]/50";
-  if (status === "both") return "bg-[#4ADE80]/50";
-  return "bg-muted/60";
-}
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 
@@ -70,7 +69,7 @@ function groupMinerPurchasesByWeek(splits: SplitActivity[]) {
   splits
     .filter((split) => split.fractionType === "mining-center")
     .forEach((split) => {
-      const amount = getGlwFromWei(split.amount);
+      const amount = getUsdcFromWei(split.amount);
       if (amount <= 0) return;
       const weekNumber = getWeekNumberFromTimestamp(split.timestamp);
       map.set(weekNumber, (map.get(weekNumber) ?? 0) + amount);
@@ -120,40 +119,12 @@ interface WeeklyActivityWidgetProps {
   variant?: "default" | "flow" | "minimal";
 }
 
-const PLACEHOLDER_ACTIVE_WEEKS = 17;
-const DISPLAY_WEEKS_CAP = 24;
-const GRID_COLUMNS = 8;
-
-const PLACEHOLDER_CELLS: WeekStatus[] = [
-  "missed",
-  "delegated",
-  "miner",
-  "both",
-  "missed",
-  "missed",
-  "delegated",
-  "missed",
-  "miner",
-  "missed",
-  "both",
-  "delegated",
-  "missed",
-  "missed",
-  "delegated",
-  "miner",
-  "missed",
-  "both",
-  "missed",
-  "delegated",
-  "missed",
-  "miner",
-  "missed",
-  "both",
-];
+const DISPLAY_WEEKS_CAP = 4;
+const GRID_COLUMNS = 4;
 
 function WeeklyActivitySkeleton() {
   return (
-    <Card className="overflow-hidden h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+    <Card className="overflow-hidden h-full lg:max-h-[280px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
       <CardHeader className="pb-0">
         <CardTitle className="text-center">Weekly Streak</CardTitle>
       </CardHeader>
@@ -164,7 +135,7 @@ function WeeklyActivitySkeleton() {
             <Skeleton className="mt-2 h-3 w-32 rounded-xl" />
           </div>
           <div className="flex flex-1 min-h-0 items-center justify-center">
-            <Skeleton className="h-[128px] w-full rounded-xl" />
+            <Skeleton className="h-10 w-48 rounded-xl" />
           </div>
           <Skeleton className="h-16 w-full rounded-xl" />
         </div>
@@ -207,6 +178,48 @@ export default function WeeklyActivityWidget({
     enabled: hasWallet,
     limit: 200,
   });
+
+  const isValidWalletAddress =
+    Boolean(walletAddress) && isAddress(walletAddress as string);
+
+  const impactScoreQuery = useQuery({
+    queryKey: ["impact-glow-score", walletAddress],
+    enabled: Boolean(HUB_URL && hasWallet && isValidWalletAddress),
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    retry: 0,
+    queryFn: async (): Promise<ImpactGlowScoreResponse> => {
+      if (!HUB_URL) throw new Error("NEXT_PUBLIC_HUB_URL is not set");
+      if (!walletAddress) throw new Error("Missing wallet address");
+      return await hubGet<ImpactGlowScoreResponse>("/impact/glow-score", {
+        params: { walletAddress },
+      });
+    },
+  });
+
+  const currentMultiplier = React.useMemo(() => {
+    const impactScore = impactScoreQuery.data;
+
+    if (impactScore?.weekly?.length) {
+      const latestWeek = impactScore.weekly[impactScore.weekly.length - 1];
+      const hasCashMinerBonus = latestWeek?.hasCashMinerBonus ?? false;
+      const streakBonusMultiplier = latestWeek?.streakBonusMultiplier ?? 0;
+
+      const baseMultiplier = hasCashMinerBonus ? 3 : 1;
+      const totalMultiplier = baseMultiplier + streakBonusMultiplier;
+
+      return {
+        base: baseMultiplier,
+        streakBonus: streakBonusMultiplier,
+        total: totalMultiplier,
+        hasCashMinerBonus,
+        isFromApi: true,
+      };
+    }
+
+    return null;
+  }, [impactScoreQuery.data]);
 
   const rewardsDelegations = React.useMemo(
     () => buildWeeklyDelegations(rewardsData),
@@ -307,16 +320,18 @@ export default function WeeklyActivityWidget({
     [weekCells]
   );
 
-  const streakWeeks = React.useMemo(() => {
-    if (!weekRange) return 0;
-    if (!weekCells.length) return 0;
+  const { streakWeeks, isStreakAtRisk } = React.useMemo(() => {
+    if (!weekRange) return { streakWeeks: 0, isStreakAtRisk: false };
+    if (!weekCells.length) return { streakWeeks: 0, isStreakAtRisk: false };
 
     const statusByWeek = new Map<number, WeekStatus>();
     weekCells.forEach((cell) => statusByWeek.set(cell.week, cell.status));
 
     const currentStatus = statusByWeek.get(currentWeek) ?? "missed";
-    const endWeekForStreak =
-      currentStatus === "missed" ? currentWeek - 1 : currentWeek;
+    const currentWeekIsMissed = currentStatus === "missed";
+    const endWeekForStreak = currentWeekIsMissed
+      ? currentWeek - 1
+      : currentWeek;
 
     let streak = 0;
     for (let week = endWeekForStreak; week >= weekRange.startWeek; week--) {
@@ -326,8 +341,28 @@ export default function WeeklyActivityWidget({
       streak++;
     }
 
-    return streak;
+    const atRisk = streak > 0 && currentWeekIsMissed;
+
+    return { streakWeeks: streak, isStreakAtRisk: atRisk };
   }, [currentWeek, weekCells, weekRange]);
+
+  const displayMultiplier = React.useMemo(() => {
+    if (currentMultiplier) return currentMultiplier;
+
+    if (streakWeeks > 0) {
+      const streakBonus = Math.min(streakWeeks * 0.25, 1.0);
+      return {
+        base: 1,
+        streakBonus,
+        total: 1 + streakBonus,
+        hasCashMinerBonus: false,
+        isFromApi: false,
+      };
+    }
+
+    return null;
+  }, [currentMultiplier, streakWeeks]);
+
   const isLoading = hasWallet && (isRewardsLoading || isSplitsLoading);
   const isError = hasWallet && (isRewardsError || isSplitsError);
 
@@ -348,8 +383,8 @@ export default function WeeklyActivityWidget({
         isMinimal
           ? "bg-transparent border-transparent h-full"
           : isFlow
-          ? "bg-card/30 border-foreground/5 min-h-[380px]"
-          : "h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+          ? "bg-card/30 border-foreground/5 min-h-[280px]"
+          : "h-full lg:max-h-[280px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
       )}
     >
       <CardHeader className="pb-0">
@@ -358,45 +393,56 @@ export default function WeeklyActivityWidget({
       <CardContent className="flex flex-col flex-1 min-h-0 p-4 py-0">
         <div className="flex flex-col flex-1 min-h-0">
           {!hasWallet ? (
-            <div className="flex flex-col flex-1 min-h-0 gap-4">
+            <>
               <div className="flex flex-col items-center justify-center text-center select-none">
-                <div className="font-mono text-5xl font-bold tracking-tight text-foreground leading-none blur-[2px] opacity-60">
-                  {PLACEHOLDER_ACTIVE_WEEKS}
-                  <span className="ml-2 text-sm font-mono font-semibold text-muted-foreground uppercase tracking-wider align-middle">
+                <div className="font-mono text-5xl font-bold tracking-tight text-muted-foreground/40 leading-none">
+                  —
+                  <span className="ml-2 text-sm font-mono font-semibold text-muted-foreground/40 uppercase tracking-wider align-middle">
                     Wks
                   </span>
                 </div>
-                <div className="mt-2 font-mono text-xs text-muted-foreground blur-[1px] opacity-60">
-                  Last {weeksCount} Weeks
+                <div className="mt-2 font-mono text-xs text-muted-foreground/60">
+                  Current Streak
                 </div>
               </div>
 
-              <div
-                aria-hidden
-                className="flex flex-1 min-h-0 items-center justify-center blur-[2px] opacity-50"
-              >
-                <div className="grid grid-cols-8 grid-rows-3 gap-2">
-                  {PLACEHOLDER_CELLS.map((status, idx) => (
+              <div className="mt-4 flex flex-1 min-h-0 items-center justify-center">
+                <div className="grid grid-cols-4 gap-3">
+                  {[0, 1, 2, 3].map((idx) => (
                     <div
-                      key={`placeholder-${idx}`}
+                      key={`empty-${idx}`}
                       className={cn(
-                        "h-7 w-7 sm:h-8 sm:w-8 rounded-xl border border-border/80",
-                        getWeekStyle(status)
+                        "relative h-10 w-10 sm:h-12 sm:w-12 rounded-xl",
+                        "border-2 border-dashed border-foreground/10 bg-foreground/[0.02]",
+                        idx === 3 && "ring-2 ring-foreground/10"
                       )}
                     />
                   ))}
                 </div>
               </div>
 
-              <div className="mt-auto rounded-xl border border-border bg-muted/20 p-3 text-center">
-                <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Connect your wallet
-                </div>
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Connect your wallet to see your streak.
+              <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-foreground/70 font-mono uppercase tracking-wider">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--color-miner)]" />
+                      <span>Miner</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-delegation-purple" />
+                      <span>Delegator</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#4ADE80]" />
+                      <span>Both</span>
+                    </div>
+                  </div>
+                  <div className="text-[10px] font-mono font-semibold uppercase tracking-wider text-primary">
+                    Connect wallet
+                  </div>
                 </div>
               </div>
-            </div>
+            </>
           ) : isLoading ? (
             <div className="flex flex-col flex-1 min-h-0 gap-4">
               <div className="flex flex-col items-center justify-center text-center select-none">
@@ -414,14 +460,53 @@ export default function WeeklyActivityWidget({
               </div>
             </div>
           ) : shouldHide ? (
-            <div className="flex flex-1 min-h-0 flex-col items-center justify-center text-center gap-2 px-4">
-              <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                No streak yet
+            <>
+              <div className="flex flex-col items-center justify-center text-center select-none">
+                <div className="font-mono text-5xl font-bold tracking-tight text-foreground leading-none">
+                  0
+                  <span className="ml-2 text-sm font-mono font-semibold text-muted-foreground uppercase tracking-wider align-middle">
+                    Wks
+                  </span>
+                </div>
+                <div className="mt-2 font-mono text-xs text-muted-foreground">
+                  Current Streak
+                </div>
               </div>
-              <div className="text-sm text-muted-foreground max-w-[320px]">
-                Delegate GLW or buy miners to start building your weekly streak.
+
+              <div className="mt-4 flex flex-1 min-h-0 items-center justify-center">
+                <div className="grid grid-cols-4 gap-3">
+                  {[0, 1, 2, 3].map((idx) => (
+                    <div
+                      key={`empty-${idx}`}
+                      className={cn(
+                        "relative h-10 w-10 sm:h-12 sm:w-12 rounded-xl",
+                        "border-2 border-dashed border-foreground/10 bg-foreground/[0.02]",
+                        idx === 3 && "ring-2 ring-foreground/10"
+                      )}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+
+              <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="h-4 w-4 shrink-0 text-primary"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                  <div className="text-xs text-primary">
+                    Delegate GLW or buy a miner to start your streak!
+                  </div>
+                </div>
+              </div>
+            </>
           ) : (
             <>
               <div className="flex flex-col items-center justify-center text-center select-none">
@@ -438,14 +523,7 @@ export default function WeeklyActivityWidget({
 
               <div className="mt-4 flex flex-1 min-h-0 items-center justify-center">
                 <TooltipProvider delayDuration={200}>
-                  <div
-                    className="grid gap-2"
-                    style={{
-                      gridTemplateColumns: `repeat(${
-                        weekRange?.gridColumns ?? GRID_COLUMNS
-                      }, minmax(0, 1fr))`,
-                    }}
-                  >
+                  <div className="grid grid-cols-4 gap-3">
                     {weekCells.map((cell) => {
                       const isCurrentWeek = cell.week === currentWeek;
                       const isMissed = cell.status === "missed";
@@ -456,7 +534,7 @@ export default function WeeklyActivityWidget({
                           <TooltipTrigger asChild>
                             <div
                               className={cn(
-                                "relative h-7 w-7 sm:h-8 sm:w-8 rounded-xl",
+                                "relative h-10 w-10 sm:h-12 sm:w-12 rounded-xl",
                                 "outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                                 "hover:ring-2 hover:ring-foreground/20 hover:ring-offset-2 hover:ring-offset-background",
                                 "transition-shadow",
@@ -468,7 +546,10 @@ export default function WeeklyActivityWidget({
                                 cell.status === "miner" &&
                                   "bg-[color:var(--color-miner)]",
                                 cell.status === "both" && "bg-[#4ADE80]",
-                                isCurrentWeek && "ring-2 ring-foreground/20"
+                                isCurrentWeek && "ring-2 ring-foreground/20",
+                                isCurrentWeek &&
+                                  isStreakAtRisk &&
+                                  "ring-2 ring-amber-500/70 border-amber-500/50"
                               )}
                             >
                               {isMissedPastWeek && (
@@ -534,7 +615,7 @@ export default function WeeklyActivityWidget({
                                           maximumFractionDigits: 2,
                                         }
                                       )}{" "}
-                                      GLW
+                                      USDC
                                     </span>
                                   </div>
                                 )}
@@ -544,25 +625,103 @@ export default function WeeklyActivityWidget({
                         </Tooltip>
                       );
                     })}
-
-                    {Array.from({
-                      length: Math.max(
-                        0,
-                        (weekRange?.gridSize ?? 0) - weekCells.length
-                      ),
-                    }).map((_, idx) => (
-                      <div
-                        key={`filler-${idx}`}
-                        aria-hidden
-                        className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl border-2 border-dashed border-foreground/10 bg-foreground/[0.02]"
-                      />
-                    ))}
                   </div>
                 </TooltipProvider>
               </div>
 
-              <div className="mt-4 rounded-xl border border-border bg-muted/30 p-3">
-                <div className="flex flex-col gap-2">
+              {isStreakAtRisk ? (
+                <div className="mt-4 space-y-2">
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <svg
+                          className="h-4 w-4 shrink-0 text-amber-500"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                          <line x1="12" y1="9" x2="12" y2="13" />
+                          <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                        <div className="text-xs text-amber-600 dark:text-amber-400">
+                          <span className="font-semibold">Streak at risk!</span>{" "}
+                          Delegate GLW or buy a miner this week.
+                        </div>
+                      </div>
+                      {displayMultiplier && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 cursor-help shrink-0">
+                              <svg
+                                className="h-3 w-3 text-primary"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                              </svg>
+                              <span className="font-mono font-bold text-[10px] text-primary tabular-nums uppercase tracking-wider">
+                                {displayMultiplier.total.toFixed(2)}×
+                              </span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="top"
+                            align="center"
+                            sideOffset={8}
+                            className="rounded-xl border border-foreground/10 dark:border-zinc-800 bg-popover/95 px-3 py-2"
+                          >
+                            <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                              Current Multiplier
+                            </div>
+                            <div className="mt-1.5 space-y-1">
+                              <div className="flex items-center justify-between gap-4 text-xs">
+                                <span className="text-muted-foreground">
+                                  Base
+                                </span>
+                                <span className="font-mono font-semibold tabular-nums">
+                                  {displayMultiplier.base}×
+                                  {displayMultiplier.hasCashMinerBonus && (
+                                    <span className="ml-1 text-[10px] text-[color:var(--color-miner)]">
+                                      (Miner)
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                              {displayMultiplier.streakBonus > 0 && (
+                                <div className="flex items-center justify-between gap-4 text-xs">
+                                  <span className="text-muted-foreground">
+                                    Streak
+                                  </span>
+                                  <span className="font-mono font-semibold tabular-nums text-delegation-purple">
+                                    +{displayMultiplier.streakBonus.toFixed(2)}×
+                                  </span>
+                                </div>
+                              )}
+                              <div className="pt-1 border-t border-border/50 flex items-center justify-between gap-4 text-xs">
+                                <span className="text-muted-foreground font-semibold">
+                                  Total
+                                </span>
+                                <span className="font-mono font-bold tabular-nums text-primary">
+                                  {displayMultiplier.total.toFixed(2)}×
+                                </span>
+                              </div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border border-border bg-muted/30 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-foreground/70 font-mono uppercase tracking-wider">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1.5">
@@ -578,12 +737,78 @@ export default function WeeklyActivityWidget({
                         <span>Both</span>
                       </div>
                     </div>
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-foreground/70">
-                      Streak {streakWeeks}/4
-                    </div>
+                    {displayMultiplier ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 cursor-help">
+                            <svg
+                              className="h-3 w-3 text-primary"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                            </svg>
+                            <span className="font-bold text-primary tabular-nums">
+                              {displayMultiplier.total.toFixed(2)}×
+                            </span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="top"
+                          align="center"
+                          sideOffset={8}
+                          className="rounded-xl border border-foreground/10 dark:border-zinc-800 bg-popover/95 px-3 py-2"
+                        >
+                          <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                            Current Multiplier
+                          </div>
+                          <div className="mt-1.5 space-y-1">
+                            <div className="flex items-center justify-between gap-4 text-xs">
+                              <span className="text-muted-foreground">
+                                Base
+                              </span>
+                              <span className="font-mono font-semibold tabular-nums">
+                                {displayMultiplier.base}×
+                                {displayMultiplier.hasCashMinerBonus && (
+                                  <span className="ml-1 text-[10px] text-[color:var(--color-miner)]">
+                                    (Miner)
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                            {displayMultiplier.streakBonus > 0 && (
+                              <div className="flex items-center justify-between gap-4 text-xs">
+                                <span className="text-muted-foreground">
+                                  Streak
+                                </span>
+                                <span className="font-mono font-semibold tabular-nums text-delegation-purple">
+                                  +{displayMultiplier.streakBonus.toFixed(2)}×
+                                </span>
+                              </div>
+                            )}
+                            <div className="pt-1 border-t border-border/50 flex items-center justify-between gap-4 text-xs">
+                              <span className="text-muted-foreground font-semibold">
+                                Total
+                              </span>
+                              <span className="font-mono font-bold tabular-nums text-primary">
+                                {displayMultiplier.total.toFixed(2)}×
+                              </span>
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-foreground/70">
+                        Streak {streakWeeks}/4
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
             </>
           )}
         </div>

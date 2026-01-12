@@ -46,6 +46,7 @@ import {
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useMemo, useState } from "react";
+import { trackEvent } from "@/lib/telemetry";
 
 // --- Types & Interfaces ---
 
@@ -156,12 +157,7 @@ function MultiplierCard({
           className={cn(
             "flex items-center justify-center w-10 h-10 rounded-lg transition-all",
             isActive
-              ? cn(
-                  bgClass,
-                  colorClass,
-                  "shadow-[0_0_20px_-3px_currentColor]",
-                  "dark:shadow-[0_0_25px_-5px_currentColor]"
-                )
+              ? cn(bgClass, colorClass)
               : "bg-muted text-muted-foreground/50 grayscale"
           )}
         >
@@ -335,14 +331,16 @@ function SourceRow({
 export function ImpactScoreBreakdownDialogContent(
   props: ImpactScoreBreakdownDialogContentProps
 ) {
-  const { impactScore, title, showCurrentWeekProjection, walletAddress } = props;
+  const { impactScore, title, showCurrentWeekProjection, walletAddress } =
+    props;
   const { address } = useAccount();
   const { usdcBalance, usdgBalance } = useWalletTokenBalances(address);
   const { spotPrice: glowSpotPrice } = useGlowSpotPrice();
 
-  const isOwnWallet = address && walletAddress 
-    ? address.toLowerCase() === walletAddress.toLowerCase()
-    : false;
+  const isOwnWallet =
+    address && walletAddress
+      ? address.toLowerCase() === walletAddress.toLowerCase()
+      : false;
 
   // Dialog States
   const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(false);
@@ -591,16 +589,26 @@ export function ImpactScoreBreakdownDialogContent(
                   subValue="Staked GCTL (3x Pts)"
                   value={steeringPoints}
                   pendingValue={pendingSteeringPoints}
-                  ctaLabel={isOwnWallet ? (steeringPoints === "0" ? "Stake" : "Boost") : undefined}
-                  onCta={isOwnWallet ? () => {
-                    trackEvent("dashboard_breakdown_cta_click", {
-                      source: "impact_breakdown_dialog",
-                      wallet_connected: true,
-                      wallet_address: walletAddress,
-                      cta_type: "steering",
-                    });
-                    setIsMintAndStakeOpen(true);
-                  } : undefined}
+                  ctaLabel={
+                    isOwnWallet
+                      ? steeringPoints === "0"
+                        ? "Stake"
+                        : "Boost"
+                      : undefined
+                  }
+                  onCta={
+                    isOwnWallet
+                      ? () => {
+                          trackEvent("dashboard_breakdown_cta_click", {
+                            source: "impact_breakdown_dialog",
+                            wallet_connected: true,
+                            wallet_address: walletAddress,
+                            cta_type: "steering",
+                          });
+                          setIsMintAndStakeOpen(true);
+                        }
+                      : undefined
+                  }
                   themeColor="cyan"
                 />
 
@@ -610,16 +618,26 @@ export function ImpactScoreBreakdownDialogContent(
                   subValue="Mining Rewards (1x Pts)"
                   value={emissionPoints}
                   pendingValue={pendingEmissionPoints}
-                  ctaLabel={isOwnWallet ? (emissionPoints === "0" ? "Earn" : "Add") : undefined}
-                  onCta={isOwnWallet ? () => {
-                    trackEvent("dashboard_breakdown_cta_click", {
-                      source: "impact_breakdown_dialog",
-                      wallet_connected: true,
-                      wallet_address: walletAddress,
-                      cta_type: "emissions",
-                    });
-                    setIsLaunchpadOpen(true);
-                  } : undefined}
+                  ctaLabel={
+                    isOwnWallet
+                      ? emissionPoints === "0"
+                        ? "Earn"
+                        : "Add"
+                      : undefined
+                  }
+                  onCta={
+                    isOwnWallet
+                      ? () => {
+                          trackEvent("dashboard_breakdown_cta_click", {
+                            source: "impact_breakdown_dialog",
+                            wallet_connected: true,
+                            wallet_address: walletAddress,
+                            cta_type: "emissions",
+                          });
+                          setIsLaunchpadOpen(true);
+                        }
+                      : undefined
+                  }
                   themeColor="yellow"
                 />
 
@@ -629,16 +647,26 @@ export function ImpactScoreBreakdownDialogContent(
                   subValue="Vault Bonus (0.005x)"
                   value={vaultPoints}
                   pendingValue={pendingVaultPoints}
-                  ctaLabel={isOwnWallet ? (vaultPoints === "0" ? "Delegate" : "Add") : undefined}
-                  onCta={isOwnWallet ? () => {
-                    trackEvent("dashboard_breakdown_cta_click", {
-                      source: "impact_breakdown_dialog",
-                      wallet_connected: true,
-                      wallet_address: walletAddress,
-                      cta_type: "delegation",
-                    });
-                    setIsLaunchpadOpen(true);
-                  } : undefined}
+                  ctaLabel={
+                    isOwnWallet
+                      ? vaultPoints === "0"
+                        ? "Delegate"
+                        : "Add"
+                      : undefined
+                  }
+                  onCta={
+                    isOwnWallet
+                      ? () => {
+                          trackEvent("dashboard_breakdown_cta_click", {
+                            source: "impact_breakdown_dialog",
+                            wallet_connected: true,
+                            wallet_address: walletAddress,
+                            cta_type: "delegation",
+                          });
+                          setIsLaunchpadOpen(true);
+                        }
+                      : undefined
+                  }
                   themeColor="purple"
                 />
 
@@ -649,15 +677,19 @@ export function ImpactScoreBreakdownDialogContent(
                   value={worthPoints}
                   pendingValue={pendingWorthPoints}
                   ctaLabel={isOwnWallet ? "Buy" : undefined}
-                  onCta={isOwnWallet ? () => {
-                    trackEvent("dashboard_breakdown_cta_click", {
-                      source: "impact_breakdown_dialog",
-                      wallet_connected: true,
-                      wallet_address: walletAddress,
-                      cta_type: "glow_worth",
-                    });
-                    setIsBuyGlowOpen(true);
-                  } : undefined}
+                  onCta={
+                    isOwnWallet
+                      ? () => {
+                          trackEvent("dashboard_breakdown_cta_click", {
+                            source: "impact_breakdown_dialog",
+                            wallet_connected: true,
+                            wallet_address: walletAddress,
+                            cta_type: "glow_worth",
+                          });
+                          setIsBuyGlowOpen(true);
+                        }
+                      : undefined
+                  }
                   themeColor="green"
                 />
               </div>
