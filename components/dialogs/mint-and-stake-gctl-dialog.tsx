@@ -5,7 +5,7 @@ import Decimal from "decimal.js";
 import { formatUnits, parseUnits } from "viem";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { useAccount, useBalance, useChainId } from "wagmi";
+import { useAccount, useBalance, useChainId, usePublicClient } from "wagmi";
 import { Sun, X, ChevronLeft, Zap, Check, Loader2, Info } from "lucide-react";
 import {
   DECIMALS_BY_TOKEN,
@@ -283,6 +283,7 @@ export function MintAndStakeGctlDialog({
   const { address, isConnected } = useAccount();
   const { signer } = useEthersSigner();
   const wagmiChainId = useChainId();
+  const publicClient = usePublicClient();
   const isEthPayEnabled = wagmiChainId === 1 || wagmiChainId === 11155111;
   const addressKey = address?.toLowerCase() ?? null;
   const source = "mint_and_stake_gctl_dialog";
@@ -360,7 +361,7 @@ export function MintAndStakeGctlDialog({
 
   const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
   const { checkTokenAllowance, approveToken, mintGCTLAndStake, isProcessing } =
-    useForwarder(signer || undefined, chainId);
+    useForwarder(signer || undefined, chainId, publicClient);
 
   const [selectedRegionId, setSelectedRegionId] = React.useState<number | null>(
     null
