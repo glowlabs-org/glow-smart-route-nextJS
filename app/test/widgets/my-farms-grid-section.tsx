@@ -206,8 +206,13 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
     isInProgress && farm.inProgressKind === "mining-center";
 
   const totalValue = farm.recovered + farm.inflation;
-  const roiPercent =
-    farm.initialCost > 0 ? (totalValue / farm.initialCost) * 100 : 0;
+  const timeBasedProgress =
+    (farm.weeksActive / Math.max(farm.totalWeeks, 1)) * 100;
+  const roiPercent = isMiner
+    ? timeBasedProgress
+    : farm.initialCost > 0
+    ? (totalValue / farm.initialCost) * 100
+    : 0;
   const isProfitable = roiPercent >= 100;
 
   const getTypeBadge = () => {
@@ -1648,11 +1653,13 @@ export default function MyFarmsGridSection({
                 const isPendingStart = Boolean(farm.isPendingStart);
                 const inProgressIsMiningCenter =
                   isInProgress && farm.inProgressKind === "mining-center";
-                const roiPercent =
-                  farm.initialCost > 0
-                    ? ((farm.recovered + farm.inflation) / farm.initialCost) *
-                      100
-                    : 0;
+                const timeBasedProgress =
+                  (farm.weeksActive / Math.max(farm.totalWeeks, 1)) * 100;
+                const roiPercent = isMiner
+                  ? timeBasedProgress
+                  : farm.initialCost > 0
+                  ? ((farm.recovered + farm.inflation) / farm.initialCost) * 100
+                  : 0;
 
                 return (
                   <TableRow

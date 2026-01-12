@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import {
   useImpactLeaderboardQuery,
   type ImpactGlowScoreResponse,
+  type ImpactGlowScoreLeaderboardRow,
 } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
@@ -385,7 +386,13 @@ export function RankWidget({
   const leaderboardQuery = useImpactLeaderboardQuery({
     enabled: Boolean(HUB_URL && hasWallet && isValidWalletAddress),
   });
-  const leaderboardRows = leaderboardQuery.data?.wallets ?? [];
+  const leaderboardRows = React.useMemo(() => {
+    const rawWallets = leaderboardQuery.data?.wallets ?? [];
+    return rawWallets.filter(
+      (row): row is ImpactGlowScoreLeaderboardRow =>
+        "walletAddress" in row && !("isSystemRow" in row)
+    );
+  }, [leaderboardQuery.data?.wallets]);
   const totalWalletCount = leaderboardQuery.data?.totalWalletCount ?? 0;
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? "";
 
