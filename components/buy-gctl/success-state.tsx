@@ -52,11 +52,11 @@ export function SuccessState({
         <div className="mt-4 flex flex-col items-center gap-2">
           <div
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium",
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium",
               "border-[#22D3EE] bg-[#22D3EE]/12 text-[#22D3EE]"
             )}
           >
-            <SteeringIcon className="h-3 w-3" />
+            <SteeringIcon className="h-4 w-4" />
             Impact Score Boosted
           </div>
           <div className="text-sm text-muted-foreground max-w-[280px] mx-auto">

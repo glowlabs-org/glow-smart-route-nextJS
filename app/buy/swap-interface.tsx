@@ -817,6 +817,11 @@ export function SwapInterface({
   };
 
   const estimateAmount = async (amountStr: string, signal: AbortSignal) => {
+    // Early return if contracts aren't ready - this prevents "Contracts not available" errors
+    if (!signer || !isReady) {
+      return;
+    }
+
     try {
       if (selectedTokenSell.label === "ETH") {
         if (selectedTokenBuy.label !== "GLOW") {
@@ -1138,6 +1143,10 @@ export function SwapInterface({
           await findAmountGlowFromUSDGAmount(toUnitsDecimal(amountStr, 6));
 
         if (!uniswapEstimate.ok) {
+          // Don't show "Contracts not available" error - it's expected when wallet not connected
+          if (String(uniswapEstimate.val).includes("Contracts not available")) {
+            return;
+          }
           console.error("!uniswapEstimate.ok", uniswapEstimate.val);
           if (!signal.aborted)
             setEstimateErrorMessage(String(uniswapEstimate.val));
@@ -1348,6 +1357,13 @@ export function SwapInterface({
 
   // Estimate output when inputs change; no balance fetch here
   useEffect(() => {
+    // Only estimate if contracts are ready (signer available)
+    if (!signer || !isReady) {
+      setSmartBalancingAmounts(undefined);
+      setEstimatedOutputAmount(defaultTokensEstimate);
+      return;
+    }
+
     if (selectedTokenSell && selectedTokenBuy && amountToSell) {
       if (!Number.isNaN(Number(amountToSell)) && Number(amountToSell) > 0) {
         debouncedEstimate(amountToSell);

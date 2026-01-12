@@ -555,7 +555,7 @@ export function ImpactScoreBreakdownDialogContent(
                 <MultiplierCard
                   icon={ImpactStreakIcon}
                   title="Streak"
-                  description="Grow delegation weekly to build."
+                  description="Grow delegation or buy a miner weekly to build."
                   multiplierValue={(1 + (streakMultiplier || 0)).toFixed(2)}
                   isActive={hasStreak}
                   onClick={() => {
@@ -615,7 +615,7 @@ export function ImpactScoreBreakdownDialogContent(
                 <SourceRow
                   icon={EmissionsIcon}
                   label="Emissions"
-                  subValue="Mining Rewards (1x Pts)"
+                  subValue="GLW Emissions Rewards (1x Pts)"
                   value={emissionPoints}
                   pendingValue={pendingEmissionPoints}
                   ctaLabel={

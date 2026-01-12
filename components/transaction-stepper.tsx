@@ -168,7 +168,7 @@ function TimelineItem({
       </span>
 
       {/* Content: Title, Status, Timer */}
-      <div className="flex flex-col min-h-[32px] justify-center">
+      <div className="flex flex-col min-h-[32px] justify-center text-left">
         <div className="flex items-center justify-between gap-2">
           <h3
             className={cn(
@@ -203,7 +203,7 @@ function TimelineItem({
         {step.status !== "error" && (
           <p
             className={cn(
-              "text-xs transition-colors duration-200",
+              "text-xs text-left transition-colors duration-200",
               step.status === "completed" &&
                 "text-green-600 dark:text-green-400",
               step.status === "waiting_signature" && "text-primary",
@@ -217,7 +217,7 @@ function TimelineItem({
 
         {/* Error message - simplified */}
         {step.status === "error" && (
-          <p className="text-xs text-red-500">
+          <p className="text-xs text-left text-red-500">
             {step.errorMessage?.includes("User rejected") ||
             step.errorMessage?.includes("user rejected")
               ? "Transaction rejected"

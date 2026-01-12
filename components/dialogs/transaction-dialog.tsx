@@ -59,7 +59,7 @@ export interface TransactionDialogProps {
   errorContent?: React.ReactNode;
   footer?: React.ReactNode;
   successFooter?: React.ReactNode;
-  
+
   // Features
   showImpactScoreBoost?: boolean;
   impactScoreBoostMessage?: React.ReactNode;
@@ -220,16 +220,16 @@ export function TransactionDialog({
                   <div className="mt-4 flex flex-col items-center gap-2">
                     <div
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium",
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium",
                         "border-[color:var(--color-glow-green)]/30 bg-[color:var(--color-glow-green)]/10 text-emerald-700 dark:text-[color:var(--color-glow-green)]"
                       )}
                     >
                       {impactScoreBoostIconType === "glw" ? (
-                        <GlwWorthIcon className="h-3 w-3" />
+                        <GlwWorthIcon className="h-4 w-4" />
                       ) : impactScoreBoostIconType === "gctl" ? (
-                        <SteeringIcon className="h-3 w-3" />
+                        <SteeringIcon className="h-4 w-4" />
                       ) : (
-                        <TrendingUp className="h-3 w-3" />
+                        <TrendingUp className="h-4 w-4" />
                       )}
                       Impact Score Boosted
                     </div>

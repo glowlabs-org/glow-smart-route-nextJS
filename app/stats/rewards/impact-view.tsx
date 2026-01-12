@@ -1584,11 +1584,11 @@ export function ImpactView() {
                               : "text-foreground"
                           )}
                         >
-                          {formatImpactPoints(row.totalPoints, 2)}
+                          {formatImpactPoints(row.totalPoints, 0)}
                         </TableCell>
                         <TableCell className="py-3 px-3 hidden md:table-cell text-right font-mono tabular-nums text-sm text-muted-foreground">
                           {row.lastWeekPoints
-                            ? formatImpactPoints(row.lastWeekPoints, 2)
+                            ? formatImpactPoints(row.lastWeekPoints, 0)
                             : "—"}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell text-right font-mono tabular-nums py-3 px-3 text-sm text-muted-foreground">
