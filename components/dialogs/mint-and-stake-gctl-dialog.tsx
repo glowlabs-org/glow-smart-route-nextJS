@@ -753,7 +753,7 @@ export function MintAndStakeGctlDialog({
   } = usePolling<PendingTransfer>({
     enabled: open && Boolean(trackingTxHash),
     pollInterval: 10_000,
-    maxDuration: 80,
+    maxDuration: 60,
     pollFn: async () => {
       if (!trackingTxHash) throw new Error("Missing tx hash");
       const res = await fetchTransferDetails(trackingTxHash);
