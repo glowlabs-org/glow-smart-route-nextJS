@@ -31,12 +31,11 @@ import {
 
 import { useGlowPrices } from "@/hooks/useGlowPrices";
 import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
-import { useFractionsSummary } from "@/hooks";
+import { useWalletsActivity } from "@/hooks";
 import {
   useCompletedFarms,
   CompletedApplication,
 } from "@/hooks/useCompletedFarms";
-import { parseFractionsSummary } from "@/lib/fractions";
 import {
   DECIMALS_BY_TOKEN,
   PaymentCurrency,
@@ -59,22 +58,33 @@ export default function ProtocolMetricsWidget({
     isLoading: isSupplyLoading,
   } = useGlowCirculatingSupply();
 
-  const { summary: fractionsSummary, isLoading: isFractionsLoading } =
-    useFractionsSummary();
+  const { data: delegatorsData, isLoading: isDelegatorsLoading } =
+    useWalletsActivity({
+      type: "delegator",
+      limit: 1000,
+    });
 
   const { farms: completedFarms, isLoading: isFarmsLoading } =
     useCompletedFarms();
 
-  // 2. Derived Data Calculation
-  const { totalDelegatedGlw } = React.useMemo(
-    () => parseFractionsSummary(fractionsSummary),
-    [fractionsSummary]
-  );
+  // 2. Derived Data Calculation - actively delegated GLW from leaderboard
+  const totalGlwDelegated = React.useMemo(() => {
+    if (!delegatorsData?.wallets) return 0;
+
+    const totalActiveDelegatedWei = delegatorsData.wallets.reduce(
+      (sum, wallet) => {
+        return sum + BigInt(wallet.glwDelegated || "0");
+      },
+      BigInt(0)
+    );
+
+    return Number(formatUnits(totalActiveDelegatedWei, 18));
+  }, [delegatorsData]);
 
   const percentGlwDelegated = React.useMemo(() => {
     if (!circulatingSupply || circulatingSupply === 0) return 0;
-    return (totalDelegatedGlw / circulatingSupply) * 100;
-  }, [totalDelegatedGlw, circulatingSupply]);
+    return (totalGlwDelegated / circulatingSupply) * 100;
+  }, [totalGlwDelegated, circulatingSupply]);
 
   // 3. Chart Data Processing (Last 3 Months)
   const farmsChartData = React.useMemo(() => {
@@ -226,7 +236,7 @@ export default function ProtocolMetricsWidget({
 
   // Loading States
   const isMetricsLoading =
-    spotPriceLoading || isSupplyLoading || isFractionsLoading;
+    spotPriceLoading || isSupplyLoading || isDelegatorsLoading;
 
   return (
     <div className={`flex flex-col gap-6 ${className}`}>
