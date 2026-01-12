@@ -4,7 +4,7 @@ import { Result, Ok, Err } from "ts-results";
 
 import { JsonRpcSigner } from "ethers";
 
-export type SYMBOLS = "GLOW" | "GCC" | "IMPACT POWER POINTS" | "USDG" | "USDC";
+export type SYMBOLS = "GLOW" | "GCC" | "IMPACT POWER POINTS" | "USDG" | "USDC" | "ETH";
 
 export enum SendTokensError {
   CONTRACTS_NOT_AVAILABLE = "Contracts not available",
@@ -49,6 +49,12 @@ export const useERC20 = ({
         console.log("usdc", usdc);
         if (!usdc) return new Err(SendTokensError.CONTRACTS_NOT_AVAILABLE);
         tx = await usdc.transfer(to, amount);
+        break;
+      case "ETH":
+        tx = await signer.sendTransaction({
+          to,
+          value: amount,
+        });
         break;
     }
 

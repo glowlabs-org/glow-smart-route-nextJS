@@ -6,9 +6,9 @@ import type {
   FractionRecord,
   FractionsAvailabilityGroupedResponse,
   FractionsAvailabilityResponse,
-} from "@/hooks/useFractionsAvailability";
-import type { FractionsSummaryResponse } from "@/hooks/useFractionsSummary";
-import type { SplitActivity } from "@/hooks/useGlowLaunchpad";
+} from "@/hooks";
+import type { FractionsSummaryResponse } from "@/hooks";
+import type { SplitActivity } from "@/hooks";
 
 export interface ProtocolActivityMetrics {
   totalDelegatedGlw: number;

@@ -10,7 +10,7 @@ interface ThemeToggleProps {
 }
 
 export function ThemeToggle({ className }: ThemeToggleProps) {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   // Handle mounting to avoid hydration mismatch
@@ -22,7 +22,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
     return (
       <div
         className={cn(
-          "relative inline-flex h-8 w-14 lg:h-10 lg:w-20 items-center rounded-full bg-muted border border-border",
+          "relative inline-flex h-8 w-14 lg:h-10 lg:w-20 items-center rounded-full bg-muted border border-border flex-shrink-0",
           className
         )}
       >
@@ -31,7 +31,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
     );
   }
 
-  const isDark = theme === "dark";
+  const isDark = resolvedTheme === "dark";
 
   return (
     <button
@@ -50,13 +50,13 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
         <Sun
           className={cn(
             "h-4 w-4 lg:h-5 lg:w-5 transition-opacity duration-200",
-            isDark ? "opacity-50" : "opacity-100 text-muted-foreground"
+            isDark ? "opacity-50" : "opacity-0"
           )}
         />
         <Moon
           className={cn(
             "h-4 w-4 lg:h-5 lg:w-5 transition-opacity duration-200",
-            isDark ? "opacity-100 text-muted-foreground" : "opacity-50"
+            isDark ? "opacity-0" : "opacity-50"
           )}
         />
       </span>

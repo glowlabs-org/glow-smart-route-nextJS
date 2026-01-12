@@ -60,7 +60,7 @@ interface LifetimeFarmsProps {
   isGlwDataLoading?: boolean;
 }
 
-type ChartRangeValue = "2m" | "6m" | "all";
+type ChartRangeValue = "3m" | "6m" | "all";
 
 interface ChartRangeOption {
   value: ChartRangeValue;
@@ -70,12 +70,12 @@ interface ChartRangeOption {
 }
 
 const CHART_RANGE_OPTIONS: ChartRangeOption[] = [
-  { value: "2m", label: "2M", description: "last 2 months", months: 2 },
+  { value: "3m", label: "3M", description: "last 3 months", months: 3 },
   { value: "6m", label: "6M", description: "last 6 months", months: 6 },
   { value: "all", label: "All", description: "entire history" },
 ];
 
-const DEFAULT_CHART_RANGE: ChartRangeValue = "2m";
+const DEFAULT_CHART_RANGE: ChartRangeValue = "3m";
 
 function formatPayment(
   amount?: string,
@@ -152,8 +152,8 @@ function CompletedTimelineRow({ row }: { row: CompletedFarmRow }) {
   const content = (
     <>
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10">
-          <Sun className="h-5 w-5 text-primary" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-glow-orange/20 bg-glow-orange/10">
+          <Sun className="h-5 w-5 text-glow-orange" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold">{row.name}</div>

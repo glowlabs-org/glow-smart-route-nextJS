@@ -3,37 +3,32 @@
 import { useQuery } from "@tanstack/react-query";
 import { useChainId } from "wagmi";
 import { getHeadlineStats } from "@/web3/web3/queries/getHeadlineStats";
+import { QUERY_KEYS } from "@/hooks/query-keys";
+import { QUERY_CONFIG } from "@/hooks/query-config";
 
 export function useGlowCirculatingSupply(options?: { enabled?: boolean }) {
   const { enabled = true } = options ?? {};
   const chainId = useChainId();
 
-  const { data, isLoading, error, isFetching } = useQuery({
-    queryKey: ["glow-circulating-supply", chainId],
-    queryFn: async () => {
-      const stats = await getHeadlineStats();
-
-      return {
-        circulatingSupply: stats.circulatingSupply,
-        totalSupply: stats.totalSupply,
-        marketCap: stats.marketCap,
-        glowPrice: stats.glowPrice,
-      };
-    },
+  const headlineStatsQuery = useQuery({
+    queryKey: QUERY_KEYS.prices.headline(chainId),
+    queryFn: getHeadlineStats,
     enabled,
-    staleTime: 30_000, // 30 seconds
-    refetchInterval: enabled ? 60_000 : false, // 1 minute
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
+    refetchInterval: enabled ? 60_000 : false,
     refetchOnMount: enabled,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
   });
+
+  const data = headlineStatsQuery.data;
 
   return {
     circulatingSupply: data?.circulatingSupply ?? 0,
     totalSupply: data?.totalSupply ?? 0,
     marketCap: data?.marketCap ?? 0,
     glowPrice: data?.glowPrice ?? 0,
-    isLoading,
-    isFetching,
-    error,
+    isLoading: headlineStatsQuery.isLoading,
+    isFetching: headlineStatsQuery.isFetching,
+    error: headlineStatsQuery.error,
   };
 }

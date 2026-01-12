@@ -661,7 +661,7 @@ export function MiningView() {
                   <thead>
                     <tr className="border-b bg-muted/50">
                       <th className="text-left p-3 font-medium">Week</th>
-                      <th className="text-right p-3 font-medium">Inflation</th>
+                      <th className="text-right p-3 font-medium">Emissions</th>
                       <th className="text-right p-3 font-medium">
                         Protocol Deposit
                       </th>

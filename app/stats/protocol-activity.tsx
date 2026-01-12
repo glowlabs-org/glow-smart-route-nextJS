@@ -3,34 +3,36 @@
 import React from "react";
 import Link from "next/link";
 
-import { Activity, Building, DollarSign, Users, Zap } from "lucide-react";
+import { Activity, Building, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FallbackImage } from "@/components/ui/fallback-image";
+import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
+import { cn } from "@/lib/utils";
 
 import {
   useFractionsSummary,
   type FractionsSummaryResponse,
-} from "@/hooks/useFractionsSummary";
+} from "@/hooks";
 import {
   useGlowLaunchpad,
   useSplitsActivity,
   calculateProtocolDepositAmount,
   type AuctionApplication,
-} from "@/hooks/useGlowLaunchpad";
-import { useMiningCenter } from "@/hooks/useMiningCenter";
+} from "@/hooks";
+import { useMiningCenter } from "@/hooks";
 import {
   useRewardScore,
   getRewardScoreForApplication,
-} from "@/hooks/useRewardScore";
+} from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import {
   useMiningScore,
   getMiningScoreForApplication,
-} from "@/hooks/useMiningScore";
+} from "@/hooks";
 import { formatNumber } from "@/app/marketplace/utils";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { formatUnits } from "viem";
@@ -149,7 +151,10 @@ function InventoryList({
     );
   }
 
-  const accent = badgeColor === "green" ? "bg-green-500" : "bg-blue-500";
+  const accent =
+    badgeColor === "green"
+      ? "bg-delegation-purple"
+      : "bg-[color:var(--color-miner)]";
 
   return (
     <div className="mb-6 space-y-3">
@@ -280,8 +285,8 @@ function EventList({
           key={event.id}
           className="group flex items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-4 transition-all hover:border-border hover:bg-muted hover:shadow-sm"
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-green-500/20 bg-green-500/10">
-            <Zap className="h-5 w-5 text-green-600 dark:text-green-400" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-delegation-purple/20 bg-delegation-purple/10">
+            <DelegationIcon className="h-5 w-5 text-delegation-purple" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="mb-1.5 text-sm font-semibold">{event.title}</div>
@@ -311,7 +316,7 @@ function EventList({
 function DelegationEmptyState() {
   return (
     <EmptyState
-      icon={<Zap className="h-8 w-8 text-muted-foreground" />}
+      icon={<DelegationIcon className="h-8 w-8 text-muted-foreground" />}
       title="No delegations yet"
       description="When delegations happen, they'll appear here. Start with an available farm above."
     />
@@ -321,8 +326,8 @@ function DelegationEmptyState() {
 function MinerItem({ event }: { event: ProtocolEventRowProps }) {
   return (
     <div className="group flex items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-4 transition-all hover:border-border hover:bg-muted hover:shadow-sm">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-blue-500/20 bg-blue-500/10">
-        <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--color-miner)]/20 bg-[color:var(--color-miner)]/10">
+        <CashMinerIcon className="h-5 w-5 text-[color:var(--color-miner)]" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="mb-1.5 text-sm font-semibold">{event.title}</div>
@@ -345,7 +350,7 @@ function MinerItem({ event }: { event: ProtocolEventRowProps }) {
 function MinerEmptyState() {
   return (
     <EmptyState
-      icon={<DollarSign className="h-8 w-8 text-muted-foreground" />}
+      icon={<CashMinerIcon className="h-8 w-8 text-muted-foreground" />}
       title="No purchases yet"
       description="Miner purchases will appear here."
     />

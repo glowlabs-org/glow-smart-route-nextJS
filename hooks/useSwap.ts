@@ -3,7 +3,7 @@ Users purchase GCC From Uniswap using USDG
 */
 
 import { useEthersSigner } from "./useEthersSigner";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Result, Ok, Err } from "ts-results";
 import { addresses } from "@glowlabs-org/guarded-launch-abis";
 import { publicClient } from "@/web3/web3/clients/publicClient";
@@ -12,6 +12,8 @@ import { formatEther, parseAbi } from "viem";
 import Decimal from "decimal.js";
 import { waitForViemTransactionWithRetry } from "@glowlabs-org/utils/browser";
 import * as Sentry from "@sentry/nextjs";
+
+const MAX_UINT256 = (BigInt(1) << BigInt(256)) - BigInt(1);
 
 const UNISWAP_V2_FACTORY_ABI = parseAbi([
   "function getPair(address tokenA, address tokenB) external view returns (address pair)",
@@ -92,6 +94,8 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
   const [uniswapRouter, setUniswapRouter] = useState<any | null>(null);
   const [uniswapPurchaseState, setUniswapPurchaseState] =
     useState<UniswapPurchaseState>("NONE");
+  const [lastTxHash, setLastTxHash] = useState<`0x${string}` | null>(null);
+  const lastTxHashRef = useRef<`0x${string}` | null>(null);
   const [pairAddress, setPairAddress] = useState<`0x${string}` | null>(null);
   const [tokenADecimals, setTokenADecimals] = useState<number | null>(null);
   const [tokenBDecimals, setTokenBDecimals] = useState<number | null>(null);
@@ -173,6 +177,11 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     };
   }
 
+  const resetLastTxHash = useCallback(() => {
+    lastTxHashRef.current = null;
+    setLastTxHash(null);
+  }, []);
+
   function makeErc20(address: `0x${string}`) {
     return {
       address,
@@ -211,6 +220,8 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
           functionName: "approve",
           args: [spender, amount],
         });
+        lastTxHashRef.current = hash;
+        setLastTxHash(hash);
         return makeTx(hash);
       },
       estimateGas: {
@@ -251,6 +262,8 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
           functionName: "swapExactTokensForTokens",
           args: [amountIn, amountOutMin, path, to, BigInt(deadline)],
         });
+        lastTxHashRef.current = hash;
+        setLastTxHash(hash);
         return makeTx(hash);
       },
     };
@@ -326,7 +339,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     if (allowanceTokenA < amountBigInt) {
       const estimatedGas: bigint = await tokenA.estimateGas.approve(
         uniswapRouter.address,
-        amountBigInt
+        MAX_UINT256
       );
       const gasPrice: bigint = await tokenA.provider.getGasPrice();
       const estimatedCost: bigint = estimatedGas * gasPrice;
@@ -386,7 +399,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         setUniswapPurchaseState("REQUESTING_TOKEN_APPROVAL");
         const approveTx = await tokenA.approve(
           uniswapRouter.address,
-          amountBigInt
+          MAX_UINT256
         );
         setUniswapPurchaseState("APPROVING_TOKEN");
         await approveTx.wait();
@@ -603,7 +616,7 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         setUniswapPurchaseState("REQUESTING_TOKEN_APPROVAL");
         const approveTx = await glowToken.approve(
           uniswapRouter.address,
-          amountBigInt
+          MAX_UINT256
         );
         setUniswapPurchaseState("APPROVING_TOKEN");
         await approveTx.wait();
@@ -762,5 +775,8 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
     swapGlowToUSDG,
     resetUniswapPurchaseState,
     uniswapPurchaseState,
+    lastTxHash,
+    lastTxHashRef,
+    resetLastTxHash,
   };
 };

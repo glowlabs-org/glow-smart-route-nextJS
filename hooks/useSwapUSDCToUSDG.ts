@@ -1,8 +1,11 @@
 import { formatEther } from "viem";
+import React from "react";
 import { useContracts } from "./useContracts";
 import { useEthersSigner } from "./useEthersSigner";
 import { Result, Ok, Err } from "ts-results";
 import { waitForEthersTransactionWithRetry } from "@glowlabs-org/utils/browser";
+
+const MAX_UINT256 = (BigInt(1) << BigInt(256)) - BigInt(1);
 
 export enum SwapUSDCToUSDGError {
   CONTRACTS_NOT_AVAILABLE = "Contracts not available",
@@ -68,6 +71,13 @@ function parseSwapError(error: any): string {
 export const useSwapUSDCToUSDG = () => {
   const { signer } = useEthersSigner();
   const { usdc, usdg, isReady } = useContracts(signer);
+  const [lastTxHash, setLastTxHash] = React.useState<`0x${string}` | null>(null);
+  const lastTxHashRef = React.useRef<`0x${string}` | null>(null);
+
+  const resetLastTxHash = React.useCallback(() => {
+    lastTxHashRef.current = null;
+    setLastTxHash(null);
+  }, []);
 
   const estimateGasForswapUSDCToUSDG = async (
     amount: bigint,
@@ -85,7 +95,7 @@ export const useSwapUSDCToUSDG = () => {
       if (allowance < amount) {
         const estimatedGas = await usdc.estimateGas.approve(
           usdg.address,
-          amount
+          MAX_UINT256
         );
 
         const estimatedCost = estimatedGas * BigInt(usdcGasPrice);
@@ -140,13 +150,47 @@ export const useSwapUSDCToUSDG = () => {
 
       if (allowance < amount) {
         try {
-          const tx = await usdc.approve(usdg.address, amount);
-          await waitForEthersTransactionWithRetry(signer!, tx.hash, {
-            maxRetries: 10, // Increased retries for USDG-related approvals
-            timeoutMs: 300000, // 5 minutes timeout
-            enableLogging: true,
-            pollIntervalMs: 3000, // Poll every 3 seconds to avoid rate limiting
-          });
+          try {
+            const tx = await usdc.approve(usdg.address, MAX_UINT256);
+            lastTxHashRef.current = tx.hash as `0x${string}`;
+            setLastTxHash(tx.hash as `0x${string}`);
+            await waitForEthersTransactionWithRetry(signer!, tx.hash, {
+              maxRetries: 10, // Increased retries for USDG-related approvals
+              timeoutMs: 300000, // 5 minutes timeout
+              enableLogging: true,
+              pollIntervalMs: 3000, // Poll every 3 seconds to avoid rate limiting
+            });
+          } catch (approvalErr: any) {
+            // Some tokens require setting allowance to 0 before raising it.
+            const message = String(approvalErr?.message || "");
+            if (
+              message.toLowerCase().includes("non-zero") ||
+              message.toLowerCase().includes("nonzero") ||
+              message.toLowerCase().includes("reset")
+            ) {
+              const resetTx = await usdc.approve(usdg.address, BigInt(0));
+              lastTxHashRef.current = resetTx.hash as `0x${string}`;
+              setLastTxHash(resetTx.hash as `0x${string}`);
+              await waitForEthersTransactionWithRetry(signer!, resetTx.hash, {
+                maxRetries: 10,
+                timeoutMs: 300000,
+                enableLogging: true,
+                pollIntervalMs: 3000,
+              });
+
+              const tx = await usdc.approve(usdg.address, MAX_UINT256);
+              lastTxHashRef.current = tx.hash as `0x${string}`;
+              setLastTxHash(tx.hash as `0x${string}`);
+              await waitForEthersTransactionWithRetry(signer!, tx.hash, {
+                maxRetries: 10,
+                timeoutMs: 300000,
+                enableLogging: true,
+                pollIntervalMs: 3000,
+              });
+            } else {
+              throw approvalErr;
+            }
+          }
         } catch (approvalError: any) {
           return new Err(parseSwapError(approvalError));
         }
@@ -161,6 +205,8 @@ export const useSwapUSDCToUSDG = () => {
             "Failed to get transaction hash from swap. Please try again."
           );
         }
+        lastTxHashRef.current = tx.hash as `0x${string}`;
+        setLastTxHash(tx.hash as `0x${string}`);
 
         await waitForEthersTransactionWithRetry(signer!, tx.hash, {
           maxRetries: 10, // Increased retries for USDG swaps
@@ -193,5 +239,11 @@ export const useSwapUSDCToUSDG = () => {
     }
   };
 
-  return { swapUSDCToUSDG, estimateGasForswapUSDCToUSDG };
+  return {
+    swapUSDCToUSDG,
+    estimateGasForswapUSDCToUSDG,
+    lastTxHash,
+    lastTxHashRef,
+    resetLastTxHash,
+  };
 };

@@ -49,7 +49,7 @@ export function RegionSelectionModal({
 }: RegionSelectionModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-card rounded-3xl p-0 max-w-5xl max-h-[95vh] border-border shadow-2xl overflow-hidden">
+      <DialogContent className="bg-card rounded-2xl p-0 max-w-5xl max-h-[95vh] border-border shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="px-8 pt-8 pb-6 border-b border-border/10">
           <div className="flex items-center justify-between">

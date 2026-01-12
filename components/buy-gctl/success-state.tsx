@@ -1,8 +1,9 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Check, CheckCircle2, Copy } from "lucide-react";
+import { TrendingUp, Copy } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { SteeringIcon } from "@/components/impact-icons";
 
 interface SuccessStateProps {
   processedAmount: string;
@@ -45,11 +46,26 @@ export function SuccessState({
     <div className="px-8 py-12 text-center">
       {/* Amount Display */}
       <div className="mb-6">
-        <div className="text-4xl font-bold text-foreground mb-2">
+        <div className="text-4xl font-bold text-[#22D3EE] mb-2">
           + {parseFloat(processedAmount).toLocaleString()} GCTL
         </div>
+        <div className="mt-4 flex flex-col items-center gap-2">
+          <div
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium",
+              "border-[#22D3EE] bg-[#22D3EE]/12 text-[#22D3EE]"
+            )}
+          >
+            <SteeringIcon className="h-4 w-4" />
+            Impact Score Boosted
+          </div>
+          <div className="text-sm text-muted-foreground max-w-[280px] mx-auto">
+            You&apos;ve acquired and staked GCTL. This boosts your Impact Score
+            multiplier.
+          </div>
+        </div>
         {usdcAmount && (
-          <div className="text-muted-foreground text-sm">
+          <div className="text-muted-foreground text-sm mt-2">
             Including network fee: ~$
             {(parseFloat(usdcAmount) * 0.001).toFixed(6)} USDC
           </div>

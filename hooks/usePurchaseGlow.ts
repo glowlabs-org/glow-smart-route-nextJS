@@ -1,22 +1,24 @@
 import { useContracts } from "./useContracts";
 import { Ok, Err, Result } from "ts-results";
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { estimateGlowFromUSDG } from "@/utils/math/estimateGlowFromUSDG";
-import { formatEther, formatUnits, parseUnits } from "viem";
+import { formatEther, formatUnits, parseAbi, parseUnits } from "viem";
 import { getOptimalUSDGAmounts } from "@/utils/glowSmartBalancing";
 import { getReserves } from "@/utils/uniswapv2/getReserves";
-import { Contract } from "ethers";
 import { addresses } from "@/web3/constants/addresses";
+import { publicClient } from "@/web3/web3/clients/publicClient";
 import { useEthersSigner } from "./useEthersSigner";
 import Decimal from "decimal.js";
 import { waitForEthersTransactionWithRetry } from "@glowlabs-org/utils/browser";
 
-const UNISWAP_V2_FACTORY_ABI = [
+const UNISWAP_V2_FACTORY_ABI = parseAbi([
   "function getPair(address tokenA, address tokenB) external view returns (address pair)",
-];
+]);
 
 const UNISWAP_V2_FACTORY_ADDRESS: `0x${string}` =
   "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f" as `0x${string}`;
+
+const MAX_UINT256 = (BigInt(1) << BigInt(256)) - BigInt(1);
 
 export type SmartBalancingAmounts = {
   amount_in_uni: bigint;
@@ -67,6 +69,13 @@ export function usePurchaseGlow() {
   const { usdc, usdg, glow, earlyLiquidity } = useContracts(signer);
   const [glowPurchaseState, setGlowPurchaseState] =
     useState<PurchaseGlowState>("NONE");
+  const [lastTxHash, setLastTxHash] = useState<`0x${string}` | null>(null);
+  const lastTxHashRef = useRef<`0x${string}` | null>(null);
+
+  const resetLastTxHash = useCallback(() => {
+    lastTxHashRef.current = null;
+    setLastTxHash(null);
+  }, []);
 
   function resetGlowPurchaseState() {
     setGlowPurchaseState("NONE");
@@ -174,7 +183,9 @@ export function usePurchaseGlow() {
         setGlowPurchaseState("REQUESTING_USDC_APPROVAL_TO_OBTAIN_USDG");
 
         try {
-          const approveTx = await usdc.approve(usdg.address, usdcNeeded);
+          const approveTx = await usdc.approve(usdg.address, MAX_UINT256);
+          lastTxHashRef.current = approveTx.hash as `0x${string}`;
+          setLastTxHash(approveTx.hash as `0x${string}`);
           setGlowPurchaseState("APPROVING_USDC_TO_OBTAIN_USDG");
           await waitForEthersTransactionWithRetry(signer!, approveTx.hash, {
             maxRetries: 5,
@@ -191,6 +202,8 @@ export function usePurchaseGlow() {
       setGlowPurchaseState("PURCHASING_USDG");
       try {
         const swapTx = await usdg.swap(signerAddress, usdcNeeded);
+        lastTxHashRef.current = swapTx.hash as `0x${string}`;
+        setLastTxHash(swapTx.hash as `0x${string}`);
         await waitForEthersTransactionWithRetry(signer!, swapTx.hash, {
           maxRetries: 5,
           timeoutMs: 120000, // 2 minutes timeout
@@ -213,8 +226,10 @@ export function usePurchaseGlow() {
       try {
         const approveTx = await usdg.approve(
           earlyLiquidity.address,
-          usdgNeeded
+          MAX_UINT256
         );
+        lastTxHashRef.current = approveTx.hash as `0x${string}`;
+        setLastTxHash(approveTx.hash as `0x${string}`);
         setGlowPurchaseState("APPROVING_USDG_TO_OBTAIN_GLOW");
         await waitForEthersTransactionWithRetry(signer!, approveTx.hash, {
           maxRetries: 5,
@@ -236,6 +251,8 @@ export function usePurchaseGlow() {
         incrementsToPurchase,
         usdgNeeded
       );
+      lastTxHashRef.current = purchaseTx.hash as `0x${string}`;
+      setLastTxHash(purchaseTx.hash as `0x${string}`);
       await waitForEthersTransactionWithRetry(signer!, purchaseTx.hash, {
         maxRetries: 5,
         timeoutMs: 120000, // 2 minutes timeout
@@ -292,7 +309,7 @@ export function usePurchaseGlow() {
     if (usdgAllowance < usdgNeeded) {
       const estimatedGas = await usdg.estimateGas.approve(
         earlyLiquidity.address,
-        usdgNeeded
+        MAX_UINT256
       );
 
       const estimatedCost = estimatedGas * BigInt(usdcGasPrice);
@@ -317,7 +334,7 @@ export function usePurchaseGlow() {
 
   /**
    *
-   * @param amountUsdgIn ~ The amount of USDG to purchase glow with
+   * @param amountUsdgIn ~ The amount of USDG to purchase glow with (decimal string or number)
    * @param earlyLiquidityCurrentPrice ~ The price of glow in USD for the early liquidity
    * @returns
    */
@@ -325,10 +342,23 @@ export function usePurchaseGlow() {
     amountUsdgIn,
     earlyLiquidityCurrentPrice,
   }: {
-    amountUsdgIn: number;
+    amountUsdgIn: number | string;
     earlyLiquidityCurrentPrice: number;
   }): Promise<Result<SmartBalancingAmounts, string>> {
-    if (!signer) return new Err("Signer not available");
+    let amountUsdgInNumber: number;
+    try {
+      const d = new Decimal(String(amountUsdgIn ?? "0"));
+      if (!d.isFinite() || d.lte(0)) return new Err("Invalid amount");
+      // USDG has 6 decimals; clamp/round down to avoid float drift from user input.
+      const rounded = d.toDecimalPlaces(6, Decimal.ROUND_DOWN);
+      // Guard against float overflow / precision collapse for extreme values.
+      if (rounded.gt(new Decimal("1000000000000")))
+        return new Err("Amount too large");
+      amountUsdgInNumber = rounded.toNumber();
+    } catch {
+      return new Err("Invalid amount");
+    }
+
     if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") {
       return new Ok({
         amount_in_uni: BigInt(0),
@@ -340,20 +370,26 @@ export function usePurchaseGlow() {
         expectedEndingPriceEarlyLiquidity: 0,
         expectedEndingPriceUniswap: 0,
         earlyLiquidityCurrentPrice: earlyLiquidityCurrentPrice,
-        usdgToSpend: amountUsdgIn,
+        usdgToSpend: amountUsdgInNumber,
       });
     }
-    const factory = new Contract(
-      UNISWAP_V2_FACTORY_ADDRESS,
-      UNISWAP_V2_FACTORY_ABI,
-      signer
-    );
-    const pairAddress = await factory.getPair(addresses.usdg, addresses.glow);
+    const pairAddress = (await publicClient.readContract({
+      address: UNISWAP_V2_FACTORY_ADDRESS,
+      abi: UNISWAP_V2_FACTORY_ABI,
+      functionName: "getPair",
+      args: [addresses.usdg, addresses.glow],
+    })) as `0x${string}`;
+
+    if (
+      !pairAddress ||
+      pairAddress === "0x0000000000000000000000000000000000000000"
+    )
+      return new Err("Uniswap pair not available");
+
     const getReservesResult = await getReserves({
       tokenA: addresses.usdg,
       tokenB: addresses.glow,
       pairAddress: pairAddress,
-      signer,
     });
 
     if (!getReservesResult.ok) return new Err("Error getting reserves");
@@ -374,7 +410,7 @@ export function usePurchaseGlow() {
       uniswapUSDGReserve: reservesUsdg,
       uniswapGlowReserve: reservesGlow,
       earlyLiquidityCurrentPrice: earlyLiquidityCurrentPrice,
-      usdgToSpend: amountUsdgIn,
+      usdgToSpend: amountUsdgInNumber,
     });
 
     return new Ok({
@@ -395,7 +431,7 @@ export function usePurchaseGlow() {
       expectedEndingPriceEarlyLiquidity: expectedEndingPriceEarlyLiquidity,
       expectedEndingPriceUniswap: expectedEndingPriceUniswap,
       earlyLiquidityCurrentPrice: earlyLiquidityCurrentPrice,
-      usdgToSpend: amountUsdgIn,
+      usdgToSpend: amountUsdgInNumber,
     });
   }
 
@@ -407,5 +443,8 @@ export function usePurchaseGlow() {
     findAmountGlowFromUSDGAmount,
     getSmartBalancingAmounts,
     estimateGasForPurchaseGlowEarlyLiquidity,
+    lastTxHash,
+    lastTxHashRef,
+    resetLastTxHash,
   };
 }

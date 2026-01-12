@@ -58,6 +58,7 @@
   --color-glow-yellow: #f7fcc4;
   --color-glow-green: #ccffd4;
   --color-glow-purple: #dcc4ff;
+  --color-delegation-purple: var(--delegation-purple);
 
   /* Animation keyframes and utilities */
   --animate-spin: spin 1s linear infinite;
@@ -269,7 +270,12 @@
   --color-glow-orange: #ffb472;
   --color-glow-yellow: #f7fcc4;
   --color-glow-green: #ccffd4;
-  --color-glow-purple: #dcc4ff;
+  --color-glow-purple: #d792ff;
+  --delegation-purple: #a855f7;
+
+  /* Semantic: Protocol role colors */
+  --color-miner: #2081e2;
+  --color-miner-contrast: #2081e2;
 
   /* Ultrawide Responsive Design System */
   --container-sm: 640px;
@@ -349,7 +355,12 @@
   --color-glow-orange: #ffb472;
   --color-glow-yellow: #f7fcc4;
   --color-glow-green: #ccffd4;
-  --color-glow-purple: #dcc4ff;
+  --color-glow-purple: #d792ff;
+  --delegation-purple: #d792ff;
+
+  /* Semantic: Protocol role colors */
+  --color-miner: #2081e2;
+  --color-miner-contrast: #2081e2;
 
   /* Dark mode - Inverted theme colors */
   --background: var(--color-glow-black);
@@ -639,6 +650,15 @@
 
 .text-glow-yellow {
   color: var(--color-glow-yellow);
+}
+
+.text-miner {
+  color: var(--color-miner-contrast);
+}
+
+/* Legacy class for backwards compatibility */
+.text-miner-yellow {
+  color: var(--color-miner-contrast);
 }
 
 .text-glow-purple {

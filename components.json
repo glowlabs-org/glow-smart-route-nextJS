@@ -9,8 +9,12 @@
     "cssVariables": true,
     "prefix": ""
   },
+  "iconLibrary": "radix",
   "aliases": {
     "components": "@/components",
     "utils": "@/lib/utils"
+  },
+  "registries": {
+    "@magicui": "https://magicui.design/r/{name}.json"
   }
 }

@@ -1,7 +1,5 @@
-"use client";
-
-import View from "@/app/wallet/view";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <View />;
+  redirect("/");
 }

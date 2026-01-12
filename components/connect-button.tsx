@@ -13,11 +13,13 @@ export const ConnectButton = ({
   variant = "default",
   size = "large",
   onConnect,
+  minimal = false,
 }: {
   className?: string;
   variant: "default" | "outline-white";
   size?: "small" | "medium" | "large";
   onConnect?: () => void;
+  minimal?: boolean;
 }) => {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
@@ -51,16 +53,18 @@ export const ConnectButton = ({
                   variant={variant}
                   onClick={show}
                   type="button"
-                  className={`w-full ${
+                  className={clsx(
+                    "font-semibold",
+                    minimal ? "w-auto px-2 min-w-0 aspect-square" : "w-full",
                     size === "small"
                       ? "h-8 lg:h-10 text-sm lg:text-base"
                       : size === "medium"
                       ? "h-10 lg:h-12 text-base lg:text-lg"
                       : "h-12 lg:h-16 text-base lg:text-lg"
-                  } font-semibold`}
+                  )}
                 >
-                  <Wallet className="mr-2 h-4 w-4" />
-                  Connect Wallet
+                  <Wallet className={clsx(minimal ? "mr-0" : "mr-2 h-4 w-4")} />
+                  {!minimal && "Connect Wallet"}
                 </Button>
               );
             }
@@ -70,16 +74,18 @@ export const ConnectButton = ({
                 <Button
                   variant="destructive"
                   type="button"
-                  className={`w-full ${
+                  className={clsx(
+                    "font-semibold",
+                    minimal ? "w-auto px-2 min-w-0 aspect-square" : "w-full",
                     size === "small"
                       ? "h-8 lg:h-10 text-sm lg:text-base"
                       : size === "medium"
                       ? "h-10 lg:h-12 text-base lg:text-lg"
                       : "h-12 lg:h-16 text-base lg:text-lg"
-                  } font-semibold`}
+                  )}
                 >
-                  <Loader2 className="mr-2 h-4 w-4" />
-                  Wrong Network
+                  <Loader2 className={clsx(minimal ? "mr-0" : "mr-2 h-4 w-4")} />
+                  {!minimal && "Wrong Network"}
                 </Button>
               );
             }
@@ -89,17 +95,23 @@ export const ConnectButton = ({
                 variant={variant}
                 onClick={() => setIsAccountModalOpen(true)}
                 type="button"
-                className={`w-full ${
+                className={clsx(
+                  "font-semibold",
+                  minimal ? "w-auto px-2 min-w-0 aspect-square" : "w-full",
                   size === "small"
                     ? "h-8 lg:h-10 text-sm lg:text-base"
                     : size === "medium"
                     ? "h-10 lg:h-12 text-base lg:text-lg"
                     : "h-12 lg:h-16 text-base lg:text-lg"
-                } font-semibold`}
+                )}
               >
-                {address
-                  ? `${address.slice(0, 6)}...${address.slice(-4)}`
-                  : ensName || "Connected"}
+                 {!minimal ? (
+                  address
+                    ? `${address.slice(0, 6)}...${address.slice(-4)}`
+                    : ensName || "Connected"
+                 ) : (
+                    <div className="h-2 w-2 rounded-full bg-green-500" />
+                 )}
               </Button>
             );
           }}
@@ -108,7 +120,7 @@ export const ConnectButton = ({
 
       {/* Account Modal */}
       <Dialog open={isAccountModalOpen} onOpenChange={setIsAccountModalOpen}>
-        <DialogContent className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-[500px] w-full border-border shadow-2xl overflow-hidden">
+        <DialogContent className="bg-background backdrop-blur-sm rounded-2xl p-0 sm:max-w-[500px] w-full border-border shadow-2xl overflow-hidden">
           <Account onClose={() => setIsAccountModalOpen(false)} />
         </DialogContent>
       </Dialog>

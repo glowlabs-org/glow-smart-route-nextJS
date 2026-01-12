@@ -129,7 +129,7 @@ export function WeeklyReportPanel({ week, className }: WeeklyReportPanelProps) {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
                 <div className="text-sm text-muted-foreground mb-1">
-                  Total GLW Inflation
+                  Total GLW Emissions
                 </div>
                 <div className="text-base font-semibold break-all">
                   {weeklyReport.totalGlowInflationRewards}
@@ -188,7 +188,7 @@ export function WeeklyReportPanel({ week, className }: WeeklyReportPanelProps) {
                     <TableHead>Region</TableHead>
                     <TableHead>Asset</TableHead>
                     <TableHead>Asset Earned (raw)</TableHead>
-                    <TableHead>GLW Inflation (raw)</TableHead>
+                    <TableHead>GLW Emissions (raw)</TableHead>
                     <TableHead>Protocol Deposit (raw)</TableHead>
                   </TableRow>
                 </TableHeader>

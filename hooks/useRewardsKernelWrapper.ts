@@ -1,9 +1,11 @@
 "use client";
 
+import React from "react";
 import { useCallback, useState } from "react";
 import { useWalletClient, usePublicClient } from "wagmi";
 import { toast } from "sonner";
 import { getContract } from "viem";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useRewardsKernel,
   type ClaimPayoutParams,
@@ -13,9 +15,14 @@ import {
 } from "@glowlabs-org/utils/browser";
 import { MinerPoolAndGCAABI } from "@glowlabs-org/guarded-launch-abis";
 import { addresses } from "@/web3/constants/addresses";
-import type { ClaimableReward } from "./useClaimableRewards";
+import type { ClaimableReward } from "./control-wallets";
 import * as Sentry from "@sentry/nextjs";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
+import {
+  DEFAULT_WALLET_CLAIMS_LIMIT,
+  fetchWalletRewardClaimsIndex,
+  type WalletRewardClaimsIndex,
+} from "@/lib/api/wallet-reward-claims-index";
 
 if (!process.env.NEXT_PUBLIC_CHAIN_ID) {
   throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
@@ -32,6 +39,9 @@ const TOKEN_ADDRESSES: Record<string, `0x${string}`> = {
   USDC: SDKAddresses.USDC as `0x${string}`,
   USDG: SDKAddresses.USDG_UNISWAP as `0x${string}`,
 };
+
+const POSITIONS_API_BASE =
+  process.env.NEXT_PUBLIC_POSITIONS_API_BASE || "http://localhost:42069";
 
 export type ClaimStage = "inflation" | "protocolDeposits";
 
@@ -116,27 +126,76 @@ export interface UseRewardsKernelWrapperResult {
   checkSmartAccount: () => Promise<boolean>;
 }
 
+function asLowerHexAddress(value: `0x${string}`): `0x${string}` {
+  return value.toLowerCase() as `0x${string}`;
+}
+
 export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
+  const queryClient = useQueryClient();
   const [isClaimingWeek, setIsClaimingWeek] = useState<number | null>(null);
   const [isClaimingAll, setIsClaimingAll] = useState(false);
 
-  const rewardsKernel = useRewardsKernel(
-    walletClient || undefined,
-    publicClient || undefined,
-    CHAIN_ID
+  const rewardsKernel = React.useMemo(
+    () =>
+      useRewardsKernel(
+        walletClient || undefined,
+        publicClient || undefined,
+        CHAIN_ID
+      ),
+    [walletClient, publicClient]
   );
 
-  // MinerPoolAndGCA contract for GLW inflation claims
-  const minerPoolContract =
-    publicClient && walletClient
-      ? getContract({
-          address: addresses.gcaAndMinerPoolContract as `0x${string}`,
-          abi: MinerPoolAndGCAABI,
-          client: { wallet: walletClient, public: publicClient },
-        })
-      : null;
+  // MinerPoolAndGCA contract (read-only; does not require a connected wallet)
+  const minerPoolReadContract = React.useMemo(() => {
+    if (!publicClient) return null;
+    return getContract({
+      address: addresses.gcaAndMinerPoolContract as `0x${string}`,
+      abi: MinerPoolAndGCAABI,
+      client: { public: publicClient },
+    });
+  }, [publicClient]);
+
+  // MinerPoolAndGCA contract (write-enabled; requires connected wallet)
+  const minerPoolWriteContract = React.useMemo(() => {
+    if (!publicClient || !walletClient) return null;
+    return getContract({
+      address: addresses.gcaAndMinerPoolContract as `0x${string}`,
+      abi: MinerPoolAndGCAABI,
+      client: { wallet: walletClient, public: publicClient },
+    });
+  }, [publicClient, walletClient]);
+
+  const getWalletClaimIndex = useCallback(
+    async (walletAddress: `0x${string}`) => {
+      const addressLower = asLowerHexAddress(walletAddress);
+      const queryKey = [
+        "wallet-reward-claims-index",
+        CHAIN_ID,
+        addressLower,
+        DEFAULT_WALLET_CLAIMS_LIMIT,
+      ] as const;
+
+      const cached =
+        queryClient.getQueryData<WalletRewardClaimsIndex>(queryKey);
+      if (cached) return cached;
+
+      return await queryClient.fetchQuery({
+        queryKey,
+        queryFn: () =>
+          fetchWalletRewardClaimsIndex({
+            walletAddress: addressLower,
+            limit: DEFAULT_WALLET_CLAIMS_LIMIT,
+            baseUrl: POSITIONS_API_BASE,
+          }),
+        staleTime: 60_000,
+        gcTime: 10 * 60_000,
+        retry: 1,
+      });
+    },
+    [queryClient]
+  );
 
   // Helper to build claim parameters from onchain assets earned
   const buildClaimParams = useCallback(
@@ -190,7 +249,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       v1Proof: `0x${string}`[],
       userAddress: `0x${string}`
     ): Promise<ClaimAttemptResult> => {
-      if (!minerPoolContract) {
+      if (!minerPoolWriteContract) {
         toast.error("Contract not available");
         return { status: "error", message: "Contract not available" };
       }
@@ -208,7 +267,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             : new Error(
                 typeof errorToCapture === "string"
                   ? errorToCapture
-                  : "GLW inflation claim error"
+                  : "GLW emission rewards claim error"
               );
         Sentry.captureException(normalizedError, {
           tags: {
@@ -229,7 +288,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
 
       try {
         // Check if already claimed
-        const bitmap = (await minerPoolContract.read.bucketClaimBitmap([
+        const bitmap = (await minerPoolWriteContract.read.bucketClaimBitmap([
           bucketId,
           userAddress,
         ])) as bigint;
@@ -239,14 +298,14 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         if (alreadyClaimed) {
           return {
             status: "skipped",
-            message: "Inflation rewards already claimed",
+            message: "Emission rewards already claimed",
           };
         }
 
         // Check if bucket is finalized
-        const isFinalized = await minerPoolContract.read.isBucketFinalized([
-          bucketId,
-        ]);
+        const isFinalized = await minerPoolWriteContract.read.isBucketFinalized(
+          [bucketId]
+        );
         if (!isFinalized) {
           toast.error(`Week ${week} not yet finalized for GLW claims`);
           return {
@@ -257,7 +316,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
 
         // Simulate to detect reverts before submitting the transaction
         try {
-          await minerPoolContract.simulate.claimRewardFromBucket(
+          await minerPoolWriteContract.simulate.claimRewardFromBucket(
             [
               bucketId,
               BigInt(glwWeight),
@@ -280,7 +339,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           if (simMessage.includes("UserAlreadyClaimed")) {
             return {
               status: "skipped",
-              message: "Inflation rewards already claimed",
+              message: "Emission rewards already claimed",
             };
           } else if (simMessage.includes("BucketNotFinalized")) {
             toast.error("GLW rewards not yet finalized");
@@ -306,7 +365,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             toast.info("Transaction cancelled");
             return { status: "error", message: "Transaction cancelled" };
           } else {
-            toast.error("Failed to simulate GLW inflation claim", {
+            toast.error("Failed to simulate GLW emission rewards claim", {
               description: simMessage || "Unknown error",
             });
             captureInflationError(simError, {
@@ -321,24 +380,26 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         }
 
         // Execute claim (bucketId, glwWeight, usdcWeight, proof, index, user, claimFromInflation, signature)
-        const txHash = await minerPoolContract.write.claimRewardFromBucket([
-          bucketId,
-          BigInt(glwWeight),
-          BigInt(0), // usdcWeight is always 0 for v2
-          v1Proof,
-          BigInt(0), // index is always 0 for current reports
-          userAddress,
-          true, // claimFromInflation
-          "0x", // no delegation signature
-        ]);
+        const txHash = await minerPoolWriteContract.write.claimRewardFromBucket(
+          [
+            bucketId,
+            BigInt(glwWeight),
+            BigInt(0), // usdcWeight is always 0 for v2
+            v1Proof,
+            BigInt(0), // index is always 0 for current reports
+            userAddress,
+            true, // claimFromInflation
+            "0x", // no delegation signature
+          ]
+        );
 
         return {
           status: "success",
           txHash,
-          message: "Inflation rewards claimed",
+          message: "Emission rewards claimed",
         };
       } catch (error: any) {
-        console.error("GLW inflation claim error:", error);
+        console.error("GLW emission rewards claim error:", error);
         const errorMessage =
           error?.message ||
           error?.shortMessage ||
@@ -348,7 +409,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         if (errorMessage.includes("UserAlreadyClaimed")) {
           return {
             status: "skipped",
-            message: "Inflation rewards already claimed",
+            message: "Emission rewards already claimed",
           };
         } else if (errorMessage.includes("BucketNotFinalized")) {
           toast.error("GLW rewards not yet finalized");
@@ -375,7 +436,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           return { status: "error", message: "Transaction cancelled" };
         }
 
-        toast.error("Failed to claim GLW inflation", {
+        toast.error("Failed to claim GLW emission rewards", {
           description: errorMessage,
         });
         captureInflationError(error, {
@@ -389,7 +450,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         };
       }
     },
-    [minerPoolContract]
+    [minerPoolWriteContract]
   );
 
   // Claim protocol deposit rewards from RewardsKernel contract
@@ -539,7 +600,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             notifyProgress({
               stage: "inflation",
               status: "error",
-              message: "Missing GLW weight for inflation claim",
+              message: "Missing GLW weight for emission rewards claim",
             });
           } else {
             notifyProgress({
@@ -587,7 +648,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
               notifyProgress({
                 stage: "inflation",
                 status: "skipped",
-                message: glwResult.message ?? "No inflation rewards this week",
+                message: glwResult.message ?? "No emission rewards this week",
               });
             }
           }
@@ -595,7 +656,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           notifyProgress({
             stage: "inflation",
             status: "skipped",
-            message: "No inflation rewards this week",
+            message: "No emission rewards this week",
           });
         }
 
@@ -766,8 +827,18 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
   // Check if rewards have been claimed
   const checkIfClaimed = useCallback(
     async (userAddress: `0x${string}`, nonce: bigint): Promise<boolean> => {
+      const addressLower = asLowerHexAddress(userAddress);
+      const nonceStr = nonce.toString();
+
       try {
-        return await rewardsKernel.isClaimed(userAddress, nonce);
+        const idx = await getWalletClaimIndex(addressLower);
+        if (idx.indexingComplete) return idx.claimedV2Nonces.has(nonceStr);
+      } catch (error) {
+        console.error("Error checking claim status via API:", error);
+      }
+
+      try {
+        return await rewardsKernel.isClaimed(addressLower, nonce);
       } catch (error) {
         console.error("Error checking claim status:", error);
         return false;
@@ -792,13 +863,25 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
   // Check if GLW inflation is claimed for a specific week
   const checkIfGlwClaimed = useCallback(
     async (week: number, userAddress: `0x${string}`): Promise<boolean> => {
-      if (!minerPoolContract) return false;
+      const addressLower = asLowerHexAddress(userAddress);
+      const bucketWeekStr = BigInt(week).toString();
+
+      try {
+        const idx = await getWalletClaimIndex(addressLower);
+        if (idx.indexingComplete && idx.hasMinerPoolBucketIds) {
+          return idx.claimedV1Buckets.has(bucketWeekStr);
+        }
+      } catch (error) {
+        console.error("Error checking GLW claim status via API:", error);
+      }
+
+      if (!minerPoolReadContract) return false;
 
       try {
         const bucketId = BigInt(week);
-        const bitmap = (await minerPoolContract.read.bucketClaimBitmap([
+        const bitmap = (await minerPoolReadContract.read.bucketClaimBitmap([
           bucketId,
-          userAddress,
+          addressLower,
         ])) as bigint;
         return (bitmap & (BigInt(1) << BigInt(week % 256))) > BigInt(0);
       } catch (error) {
@@ -806,7 +889,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         return false;
       }
     },
-    [minerPoolContract]
+    [getWalletClaimIndex, minerPoolReadContract]
   );
 
   // Check if the connected wallet is a smart account

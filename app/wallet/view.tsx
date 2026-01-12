@@ -39,7 +39,7 @@ import { ClaimsPanel } from "@/app/wallet/claims-panel";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
-import { useGctlApi } from "@/hooks/useGctlApi";
+import { useGctlApi } from "@/hooks";
 import { formatUnits } from "ethers";
 import { formatUnits as formatUnitsViem } from "viem";
 import { Header } from "@/components/header";
@@ -50,21 +50,19 @@ import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
 import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { addresses, SDKAddresses } from "@/web3/constants/addresses";
-import { useWalletFarms } from "@/hooks/useWalletFarms";
-import { useWallets } from "@/hooks/useWallets";
+import { useWalletFarms, useWallets } from "@/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useRegions } from "@/hooks/useRegions";
+import { useRegions } from "@/hooks";
 import { RefundClaimsPanel } from "./refund-claims-panel";
 import { MigrationClaimPanel } from "./migration-claim-panel";
 import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
 import { FallbackImage } from "@/components/ui/fallback-image";
-import { useGlowLaunchpad, useSplitsActivity } from "@/hooks/useGlowLaunchpad";
-import {
-  useRewardScore,
-  getRewardScoreForApplication,
-} from "@/hooks/useRewardScore";
-import { useRewardsBreakdown } from "@/hooks/useRewardsBreakdown";
+import { useGlowLaunchpad, useSplitsActivity } from "@/hooks";
+import { useWalletSwaps } from "@/hooks/useWalletSwaps";
+import type { SwapActivity } from "@/hooks/useRecentActivityFeed";
+import { useRewardScore, getRewardScoreForApplication } from "@/hooks";
+import { useRewardsBreakdown } from "@/hooks";
 import { Badge } from "@/components/ui/badge";
 import { RewardsBreakdownPanel } from "./rewards-breakdown-panel";
 import Image from "next/image";
@@ -97,14 +95,14 @@ export const tokens = {
     label: "USDC",
     address: SDKAddresses.USDC as `0x${string}`,
     decimals: 6,
-    allowedPairs: ["GLOW", "USDG", "GCTL"],
+    allowedPairs: ["GLOW", "USDG"],
     toFixed: 6,
   },
   USDG: {
     label: "USDG",
     address: SDKAddresses.USDG,
     decimals: 6,
-    allowedPairs: ["GLOW", "USDC", "GCTL"],
+    allowedPairs: ["GLOW", "USDC"],
     toFixed: 6,
   },
   GLOW: {
@@ -196,6 +194,19 @@ export default function View() {
       enabled: Boolean(isConnected && address),
       limit: 100,
     });
+
+  const { swaps, isLoading: isSwapsActivityLoading } = useWalletSwaps(address);
+
+  const swapsActivity = React.useMemo<SwapActivity[]>(() => {
+    return swaps.map((swap) => ({
+      txHash: swap.txHash,
+      timestampMs: swap.timestamp,
+      glwIn: swap.glwIn,
+      glwOut: swap.glwOut,
+      usdgIn: swap.usdgIn,
+      usdgOut: swap.usdgOut,
+    }));
+  }, [swaps]);
 
   const { applications: sponsorListings, isLoading: isSponsorListingsLoading } =
     useGlowLaunchpad({
@@ -693,7 +704,7 @@ export default function View() {
                   Launchpad
                 </Button>
               </Link>
-              <Link href="/glow-swap">
+              <Link href="/">
                 <Button
                   variant="outline"
                   size="default"
@@ -932,6 +943,7 @@ export default function View() {
           }}
           usdcBalance={usdcBalance}
           glowSpotPrice={glowSpotPrice || 0}
+          source="wallet_view"
           onSuccess={refreshBalances}
         />
       </div>
@@ -962,7 +974,7 @@ export default function View() {
                 Launchpad
               </Button>
             </Link>
-            <Link href="/glow-swap">
+            <Link href="/">
               <Button
                 variant="outline"
                 size="default"
@@ -1432,12 +1444,15 @@ export default function View() {
 
         {/* D. Claims Panel */}
 
-        <ClaimsPanel onClaimSuccess={refreshBalances} />
+        <ClaimsPanel variant="card" onClaimSuccess={refreshBalances} />
 
         {/* H. Recent Activity */}
         <RecentActivity
           walletAddress={address}
           splitsActivity={splitsActivity || []}
+          swapsActivity={swapsActivity}
+          isSplitsActivityLoading={isSplitsActivityLoading}
+          isSwapsActivityLoading={isSwapsActivityLoading}
         />
       </div>
 
@@ -1660,6 +1675,7 @@ export default function View() {
         }}
         usdcBalance={usdcBalance}
         glowSpotPrice={glowSpotPrice || 0}
+        source="wallet_view"
         onSuccess={refreshBalances}
       />
     </div>

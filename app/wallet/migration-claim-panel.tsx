@@ -29,8 +29,7 @@ import {
   Info,
   ExternalLink,
 } from "lucide-react";
-import { useMigrationClaim } from "@/hooks/useMigrationClaim";
-import { useRegions } from "@/hooks/useRegions";
+import { useMigrationClaim, useRegions } from "@/hooks";
 import FallbackImage from "@/components/ui/fallback-image";
 
 interface MigrationData {
@@ -104,7 +103,7 @@ export function MigrationClaimPanel({
   // Don't render if loading and no data
   if (isLoading && !migrationData) {
     return (
-      <Card className="mb-8 md:max-w-xl">
+      <Card className="mb-8 md:max-w-sm">
         <CardHeader>
           <div className="flex items-center gap-2">
             <Gift className="w-5 h-5" />

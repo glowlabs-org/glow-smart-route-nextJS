@@ -8,9 +8,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, ExternalLink, X } from "lucide-react";
+import { Copy, ExternalLink, X, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
+import { cn } from "@/lib/utils";
+import { GlwWorthIcon, SteeringIcon } from "@/components/impact-icons";
 
 export interface TransactionDetail {
   label: string;
@@ -26,6 +28,10 @@ export interface TransactionDialogProps {
   isSubmitting?: boolean;
   isSuccess?: boolean;
   isError?: boolean;
+
+  // Layout overrides
+  contentClassName?: string;
+  bodyClassName?: string;
 
   // Content customization
   title?: string;
@@ -53,6 +59,11 @@ export interface TransactionDialogProps {
   errorContent?: React.ReactNode;
   footer?: React.ReactNode;
   successFooter?: React.ReactNode;
+
+  // Features
+  showImpactScoreBoost?: boolean;
+  impactScoreBoostMessage?: React.ReactNode;
+  impactScoreBoostIconType?: "glw" | "gctl" | "default";
 
   // Processing progress
   showProcessingProgress?: boolean;
@@ -87,6 +98,8 @@ export function TransactionDialog({
   isSubmitting,
   isSuccess,
   isError,
+  contentClassName,
+  bodyClassName,
   title = "Review & Confirm",
   successTitle = "Transaction Successful",
   errorTitle = "Transaction Failed",
@@ -104,6 +117,9 @@ export function TransactionDialog({
   errorContent,
   footer,
   successFooter,
+  showImpactScoreBoost = false,
+  impactScoreBoostMessage,
+  impactScoreBoostIconType = "default",
   showProcessingProgress = false,
   processingMaxSeconds = 60,
   onConfirm,
@@ -168,7 +184,10 @@ export function TransactionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="bg-background backdrop-blur-sm rounded-3xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden"
+        className={cn(
+          "bg-background backdrop-blur-sm rounded-2xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden",
+          contentClassName
+        )}
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader className="sr-only">
@@ -177,31 +196,50 @@ export function TransactionDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-8 py-12 max-h-[80vh] overflow-y-auto">
+        <div
+          className={cn(
+            "px-8 py-12 max-h-[80vh] overflow-y-auto",
+            bodyClassName
+          )}
+        >
           {isSuccess ? (
             <div className="text-center">
               {/* Success Header */}
               <div className="mb-6">
-                <div className="text-4xl font-bold text-foreground mb-2">
+                <div
+                  className={cn(
+                    "text-4xl font-bold mb-2",
+                    showImpactScoreBoost
+                      ? "text-emerald-700 dark:text-[color:var(--color-glow-green)]"
+                      : "text-foreground"
+                  )}
+                >
                   {successTitle}
                 </div>
-              </div>
-
-              {/* Status Badge */}
-              <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full mb-8">
-                <span className="text-foreground text-sm font-medium">
-                  Completed •{" "}
-                  {new Date().toLocaleDateString("en-US", {
-                    day: "numeric",
-                    month: "short",
-                  })}
-                  ,{" "}
-                  {new Date().toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false,
-                  })}
-                </span>
+                {showImpactScoreBoost && (
+                  <div className="mt-4 flex flex-col items-center gap-2">
+                    <div
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium",
+                        "border-[color:var(--color-glow-green)]/30 bg-[color:var(--color-glow-green)]/10 text-emerald-700 dark:text-[color:var(--color-glow-green)]"
+                      )}
+                    >
+                      {impactScoreBoostIconType === "glw" ? (
+                        <GlwWorthIcon className="h-4 w-4" />
+                      ) : impactScoreBoostIconType === "gctl" ? (
+                        <SteeringIcon className="h-4 w-4" />
+                      ) : (
+                        <TrendingUp className="h-4 w-4" />
+                      )}
+                      Impact Score Boosted
+                    </div>
+                    {impactScoreBoostMessage && (
+                      <div className="text-sm text-muted-foreground max-w-[280px] mx-auto">
+                        {impactScoreBoostMessage}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Success Content (custom or default) */}
@@ -256,12 +294,17 @@ export function TransactionDialog({
                   <Button
                     onClick={() => onOpenChange(false)}
                     className="flex-1"
+                    variant="outline"
                   >
                     Close
                   </Button>
                 </div>
               ) : (
-                <Button onClick={() => onOpenChange(false)} className="w-full">
+                <Button
+                  onClick={() => onOpenChange(false)}
+                  className="w-full"
+                  variant="outline"
+                >
                   Close
                 </Button>
               )}

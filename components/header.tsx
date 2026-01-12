@@ -2,18 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import {
-  Menu,
-  X,
-  Wallet,
-  ChevronDown,
-  Copy,
-  LogOut,
-  User,
-  AlertTriangle,
-} from "lucide-react";
+import { Menu, X } from "lucide-react";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -22,23 +12,6 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  useAccount,
-  useDisconnect,
-  useConnect,
-  useChainId,
-  useSwitchChain,
-} from "wagmi";
-import { mainnet, sepolia } from "wagmi/chains";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import {
   Drawer,
   DrawerClose,
@@ -51,14 +24,11 @@ import {
 
 import { cn } from "@/lib/utils";
 
-import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { GlowLockup } from "./glow-lockup";
-import { ConnectButton } from "./connect-button";
 import { TosDialog } from "./tos-dialog";
 import { ThemeToggle } from "./ui/theme-toggle";
-import { useER20Balances } from "@/hooks/useERC20Balances";
-import { useRefundableFractions } from "@/hooks/useFractionSplits";
-import { forceDisconnect } from "@/utils/forceDisconnect";
+import { WalletStatus } from "./wallet-status";
+import { GlowSymbol } from "./glow-symbol";
 
 // ListItem component for navigation menu content
 const ListItem = React.forwardRef<
@@ -91,173 +61,337 @@ const ListItem = React.forwardRef<
 });
 ListItem.displayName = "ListItem";
 
+export interface HeaderHamburgerMenuProps {
+  triggerClassName?: string;
+}
+
+export function HeaderHamburgerMenu({
+  triggerClassName,
+}: HeaderHamburgerMenuProps) {
+  return (
+    <Drawer direction="right" shouldScaleBackground={false}>
+      <DrawerTrigger asChild>
+        <motion.button
+          className={cn(
+            "p-2 rounded-xl border border-border bg-background/80 backdrop-blur-sm hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-all duration-300 relative z-50 text-zinc-900 dark:text-zinc-100",
+            triggerClassName
+          )}
+          whileTap={{ scale: 0.95 }}
+          aria-label="Open menu"
+        >
+          <Menu className="h-6 w-6" />
+        </motion.button>
+      </DrawerTrigger>
+
+      <DrawerContent
+        showHandle={false}
+        className="fixed right-0 inset-y-0 h-screen w-80 max-w-[85vw] bg-background backdrop-blur-xl border-l border-border shadow-2xl"
+      >
+        <DrawerHeader className="border-b border-border">
+          <div className="flex items-center justify-between">
+            <WalletStatus className="h-10" />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <DrawerClose asChild>
+                <motion.button
+                  className="p-2 rounded-xl hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                  whileTap={{ scale: 0.95 }}
+                  aria-label="Close menu"
+                >
+                  <X className="h-5 w-5" />
+                </motion.button>
+              </DrawerClose>
+            </div>
+          </div>
+          <DrawerTitle className="sr-only">Navigation Menu</DrawerTitle>
+          <DrawerDescription className="sr-only">
+            Main navigation menu with links to different sections of the
+            website.
+          </DrawerDescription>
+        </DrawerHeader>
+
+        <div className="p-6 flex-1 overflow-y-auto">
+          <nav className="space-y-2">
+            <div className="pt-4 border-t border-border mt-4">
+              <div className="space-y-2">
+                <div>
+                  <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                    App
+                  </div>
+                  <div className="ml-4 space-y-1">
+                    <DrawerClose asChild>
+                      <Link
+                        href="/stats/rewards"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Glow Leaderboard
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="/stats"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Protocol Stats
+                      </Link>
+                    </DrawerClose>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                    Impact
+                  </div>
+                  <div className="ml-4 space-y-1">
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://impact.glow.org"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Infrastructure projects
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://impact.glow.org/new-campaign"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Create a Region
+                      </Link>
+                    </DrawerClose>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                    Resources
+                  </div>
+                  <div className="ml-4 space-y-1">
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/blog"
+                        target="_blank"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Blog
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/press"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Press
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/branding"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Branding
+                      </Link>
+                    </DrawerClose>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                    Audits
+                  </div>
+                  <div className="ml-4 space-y-1">
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/audits"
+                        target="_blank"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Solar Farms Map
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/audits?view=list"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Solar Farms List
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/gves"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Glow Verification Entities
+                      </Link>
+                    </DrawerClose>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                    Data
+                  </div>
+                  <div className="ml-4 space-y-1">
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/archives"
+                        target="_blank"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Archives
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/weekly-reports"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Weekly Reports
+                      </Link>
+                    </DrawerClose>
+                    <DrawerClose asChild>
+                      <Link
+                        href="https://glow.org/rewards"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          setTimeout(() => {
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }, 100);
+                        }}
+                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        Rewards
+                      </Link>
+                    </DrawerClose>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </nav>
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
 export function Header({
   withIsScrolled = true,
 }: {
   withIsScrolled?: boolean;
 }) {
-  const [scrolled, setScrolled] = React.useState(false);
-  const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
-  const { connectors } = useConnect();
-  const { signer } = useEthersSigner();
-  const router = useRouter();
-  const chainId = useChainId();
-  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
-
-  // Use ERC20 balance hook to check for network issues
-  const { hasError, hasSigner } = useER20Balances({ signer });
-
-  // Check for refundable fractions
-  const { refundableFractions, summary } = useRefundableFractions({
-    walletAddress: address || null,
-    enabled: Boolean(address && isConnected),
-  });
-
-  const hasNetworkIssues = hasError || (!hasSigner && isConnected);
-  const isWrongNetwork =
-    isConnected && chainId !== parseInt(process.env.NEXT_PUBLIC_CHAIN_ID!);
-
-  const handleForceDisconnect = () => {
-    forceDisconnect(disconnect, connectors);
-  };
-
-  const handleSwitchToMainnet = async () => {
-    try {
-      if (process.env.NEXT_PUBLIC_CHAIN_ID === "1") {
-        await switchChain({ chainId: mainnet.id });
-        toast.success("Switched to Ethereum Mainnet");
-      } else {
-        await switchChain({ chainId: sepolia.id });
-        toast.success("Switched to Sepolia Testnet");
-      }
-    } catch (error: any) {
-      console.error("Failed to switch network:", error);
-      toast.error(error?.message || "Failed to switch network");
-    }
-  };
-
-  // Clean up localStorage for claimed refunds and show toast for new refunds
-  React.useEffect(() => {
-    // Clean up localStorage - remove dismissed refunds that no longer exist
-    const dismissedRefunds = JSON.parse(
-      localStorage.getItem("dismissedRefunds") || "[]"
-    ) as string[];
-
-    if (dismissedRefunds.length > 0) {
-      const currentFractionIds = refundableFractions.map(
-        (refund) => refund.fraction.id
-      );
-      const stillValidDismissed = dismissedRefunds.filter((id) =>
-        currentFractionIds.includes(id)
-      );
-
-      // Update localStorage if there are dismissed refunds that no longer exist
-      if (stillValidDismissed.length !== dismissedRefunds.length) {
-        localStorage.setItem(
-          "dismissedRefunds",
-          JSON.stringify(stillValidDismissed)
-        );
-      }
-    }
-
-    // Show toast for new refunds
-    if (
-      refundableFractions.length > 0 &&
-      summary.totalRefundableFractions > 0
-    ) {
-      // Filter out refunds that have been dismissed
-      const newRefunds = refundableFractions.filter(
-        (refund) => !dismissedRefunds.includes(refund.fraction.id)
-      );
-
-      // Only show toast if there are new (non-dismissed) refunds
-      if (newRefunds.length > 0) {
-        const fractionIds = newRefunds.map((refund) => refund.fraction.id);
-
-        const toastId = toast.error(
-          `You have ${newRefunds.length} refund${
-            newRefunds.length > 1 ? "s" : ""
-          } available`,
-          {
-            description:
-              "Click to claim your refunds from expired farm sponsorships",
-            duration: Infinity, // Keep toast until dismissed
-            position: "top-right",
-            action: {
-              label: "Claim Refunds",
-              onClick: () => {
-                // Mark these refunds as dismissed in localStorage
-                const currentDismissed = JSON.parse(
-                  localStorage.getItem("dismissedRefunds") || "[]"
-                ) as string[];
-                const updatedDismissed = [...currentDismissed, ...fractionIds];
-                localStorage.setItem(
-                  "dismissedRefunds",
-                  JSON.stringify(updatedDismissed)
-                );
-
-                router.push("/wallet");
-                toast.dismiss(toastId);
-              },
-            },
-            onDismiss: () => {
-              // Mark these refunds as dismissed when user manually dismisses
-              const currentDismissed = JSON.parse(
-                localStorage.getItem("dismissedRefunds") || "[]"
-              ) as string[];
-              const updatedDismissed = [...currentDismissed, ...fractionIds];
-              localStorage.setItem(
-                "dismissedRefunds",
-                JSON.stringify(updatedDismissed)
-              );
-              toast.dismiss(toastId);
-            },
-          }
-        );
-
-        // Return cleanup function to dismiss toast if component unmounts
-        return () => {
-          toast.dismiss(toastId);
-        };
-      }
-    }
-  }, [refundableFractions, summary.totalRefundableFractions]);
-
-  React.useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 10);
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [withIsScrolled]);
+  const headerClassName = cn(
+    "relative isolate z-50 h-[72px] w-full border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60",
+    !withIsScrolled && "bg-transparent border-transparent backdrop-blur-0"
+  );
 
   return (
     <>
-      <motion.header
-        className={cn(
-          "fixed w-full z-50 transition-all duration-300 px-6 md:px-12 xl:px-16",
-          withIsScrolled && scrolled
-            ? "bg-background shadow-sm"
-            : "bg-transparent"
-        )}
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <div className="max-w-screen-xl 2xl:max-w-screen-2xl mx-auto h-20 flex items-center justify-between">
+      <header className={headerClassName}>
+        <div className="mx-auto flex h-[72px] w-full max-w-screen-2xl items-center justify-between gap-6 px-6">
           <Link href="/" className="flex items-center space-x-2 group">
-            <GlowLockup className="w-24 md:w-36 h-12 relative z-10 text-zinc-900 dark:text-zinc-100" />
+            <GlowSymbol className="w-10 md:w-12 shrink-0 relative z-10 text-zinc-900 dark:text-zinc-100" />
           </Link>
 
-          <nav className="hidden lg:flex items-center gap-2">
-            <Link
-              href="/glow-swap?tab=swap"
-              className="text-zinc-900 dark:text-zinc-100 transition-colors text-base px-4 py-2 rounded-xl hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 font-medium"
-            >
-              Swap
-            </Link>
+          <nav className="hidden lg:flex flex-1 items-center justify-center gap-4">
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
@@ -266,20 +400,8 @@ export function Header({
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
                     <ul className="grid gap-3 p-6 md:w-[300px]">
-                      <ListItem href="/?tab=launchpad" title="Glow Launchpad">
-                        Delegate GLW to solar farms or buy miners with USDC
-                      </ListItem>
-                      <ListItem href="/glow-swap?tab=swap" title="Swap">
-                        Swap GLW, USDG, and more
-                      </ListItem>
-                      <ListItem
-                        href="/glow-swap?tab=liquidity"
-                        title="Liquidity"
-                      >
-                        Add liquidity to the GLW/USDG pool and earn rewards
-                      </ListItem>
-                      <ListItem href="/wallet" title="Wallet">
-                        View your balances, delegations, and claim rewards
+                      <ListItem href="/" title="Home">
+                        Back to the dashboard
                       </ListItem>
                       <ListItem href="/stats/rewards" title="Glow Leaderboard">
                         View top wallets and rewards leaderboard
@@ -318,6 +440,7 @@ export function Header({
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
+
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
@@ -352,6 +475,7 @@ export function Header({
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
+
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
@@ -386,10 +510,11 @@ export function Header({
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
+
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger className="text-zinc-900 dark:text-zinc-100 transition-colors relative group text-base bg-transparent hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 data-[state=open]:bg-foreground data-[state=open]:text-background dark:data-[state=open]:bg-accent/10 dark:data-[state=open]:text-zinc-100 mr-6">
+                  <NavigationMenuTrigger className="text-zinc-900 dark:text-zinc-100 transition-colors relative group text-base bg-transparent hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100 data-[state=open]:bg-foreground data-[state=open]:text-background dark:data-[state=open]:bg-accent/10 dark:data-[state=open]:text-zinc-100">
                     Data
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
@@ -420,108 +545,15 @@ export function Header({
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
-
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-
-              {isConnected && address ? (
-                hasNetworkIssues ? (
-                  <Button
-                    size={"sm"}
-                    variant={"orange"}
-                    onClick={handleForceDisconnect}
-                  >
-                    Reconnect Wallet
-                  </Button>
-                ) : isWrongNetwork ? (
-                  <Button
-                    size={"sm"}
-                    variant={"orange"}
-                    onClick={handleSwitchToMainnet}
-                    disabled={isSwitchingChain}
-                    className="flex items-center gap-2"
-                  >
-                    <AlertTriangle className="w-4 h-4" />
-                    {isSwitchingChain
-                      ? "Switching..."
-                      : `Switch to ${
-                          process.env.NEXT_PUBLIC_CHAIN_ID === "11155111"
-                            ? "Sepolia"
-                            : "Mainnet"
-                        }`}
-                  </Button>
-                ) : (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm transition-all duration-200 bg-background/95 backdrop-blur-xl border-border hover:bg-muted/30 hover:border-border/60 text-zinc-900 dark:text-zinc-100"
-                        aria-label="Wallet menu"
-                        title={address}
-                      >
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-foreground/10 backdrop-blur-sm">
-                          <Wallet className="w-3.5 h-3.5" />
-                        </span>
-                        <span
-                          style={{ fontFamily: "Söhne, sans-serif" }}
-                          className="font-medium"
-                        >
-                          {address.slice(0, 6)}...{address.slice(-4)}
-                        </span>
-                        <ChevronDown className="w-3.5 h-3.5 opacity-60" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="w-72 backdrop-blur-xl bg-background/95 border-border"
-                    >
-                      <DropdownMenuItem
-                        onSelect={async (e) => {
-                          e.preventDefault();
-                          try {
-                            await navigator.clipboard.writeText(address);
-                            toast.success("Address copied");
-                          } catch {
-                            toast.error("Failed to copy");
-                          }
-                        }}
-                        className="cursor-pointer"
-                      >
-                        <Copy className="w-4 h-4 mr-2" /> Copy address
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem asChild className="cursor-pointer">
-                        <Link href={`/wallet`} rel="noreferrer">
-                          <User className="w-4 h-4 mr-2" /> My Wallet
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          disconnect();
-                        }}
-                        className="cursor-pointer text-destructive focus:text-destructive"
-                      >
-                        <LogOut className="w-4 h-4 mr-2" /> Disconnect
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )
-              ) : (
-                <ConnectButton
-                  variant="default"
-                  className="w-auto"
-                  size="small"
-                />
-              )}
-            </div>
           </nav>
 
-          {/* Mobile controls */}
+          <div className="hidden lg:flex items-center gap-2">
+            <ThemeToggle />
+            <WalletStatus />
+          </div>
+
           <div className="flex items-center gap-3 lg:hidden">
-            {/* Always-visible connect button to the left of the hamburger */}
-            <ConnectButton variant="default" className="w-auto" size="small" />
+            <WalletStatus />
             <Drawer direction="right" shouldScaleBackground={false}>
               <DrawerTrigger asChild>
                 <motion.button
@@ -539,9 +571,8 @@ export function Header({
               >
                 <DrawerHeader className="border-b border-border">
                   <div className="flex items-center justify-between">
-                    <GlowLockup className="w-32 h-10" />
+                    <WalletStatus className="h-10" />
                     <div className="flex items-center gap-2">
-                      {/* Theme toggle moved inside the drawer on mobile */}
                       <ThemeToggle />
                       <DrawerClose asChild>
                         <motion.button
@@ -561,13 +592,10 @@ export function Header({
                   </DrawerDescription>
                 </DrawerHeader>
 
-                {/* Navigation Items */}
                 <div className="p-6 flex-1 overflow-y-auto">
                   <nav className="space-y-2">
-                    {/* Dropdown Menus */}
                     <div className="pt-4 border-t border-border mt-4">
                       <div className="space-y-2">
-                        {/* App Menu */}
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
                             App
@@ -575,7 +603,7 @@ export function Header({
                           <div className="ml-4 space-y-1">
                             <DrawerClose asChild>
                               <Link
-                                href="/?tab=launchpad"
+                                href="/"
                                 onClick={() => {
                                   setTimeout(() => {
                                     window.scrollTo({
@@ -586,55 +614,7 @@ export function Header({
                                 }}
                                 className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                               >
-                                Glow Launchpad
-                              </Link>
-                            </DrawerClose>
-                            <DrawerClose asChild>
-                              <Link
-                                href="/glow-swap?tab=swap"
-                                onClick={() => {
-                                  setTimeout(() => {
-                                    window.scrollTo({
-                                      top: 0,
-                                      behavior: "smooth",
-                                    });
-                                  }, 100);
-                                }}
-                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
-                              >
-                                Swap
-                              </Link>
-                            </DrawerClose>
-                            <DrawerClose asChild>
-                              <Link
-                                href="/glow-swap?tab=liquidity"
-                                onClick={() => {
-                                  setTimeout(() => {
-                                    window.scrollTo({
-                                      top: 0,
-                                      behavior: "smooth",
-                                    });
-                                  }, 100);
-                                }}
-                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
-                              >
-                                Liquidity
-                              </Link>
-                            </DrawerClose>
-                            <DrawerClose asChild>
-                              <Link
-                                href="/wallet"
-                                onClick={() => {
-                                  setTimeout(() => {
-                                    window.scrollTo({
-                                      top: 0,
-                                      behavior: "smooth",
-                                    });
-                                  }, 100);
-                                }}
-                                className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
-                              >
-                                Wallet
+                                Home
                               </Link>
                             </DrawerClose>
                             <DrawerClose asChild>
@@ -672,7 +652,6 @@ export function Header({
                           </div>
                         </div>
 
-                        {/* Impact Menu */}
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
                             Impact
@@ -701,7 +680,6 @@ export function Header({
                           </div>
                         </div>
 
-                        {/* Resources Menu */}
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
                             Resources
@@ -763,7 +741,6 @@ export function Header({
                           </div>
                         </div>
 
-                        {/* Audits Menu */}
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
                             Audits
@@ -825,7 +802,6 @@ export function Header({
                           </div>
                         </div>
 
-                        {/* Data Menu */}
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
                             Data
@@ -890,91 +866,12 @@ export function Header({
                     </div>
                   </nav>
                 </div>
-
-                {/* Footer CTA */}
-                <div className="border-t border-border bg-muted p-4">
-                  {isConnected && address ? (
-                    isWrongNetwork ? (
-                      <Button
-                        onClick={handleSwitchToMainnet}
-                        disabled={isSwitchingChain}
-                        className="w-full flex items-center gap-2"
-                        variant="orange"
-                      >
-                        <AlertTriangle className="w-4 h-4" />
-                        {isSwitchingChain
-                          ? "Switching..."
-                          : "Switch to Mainnet"}
-                      </Button>
-                    ) : (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            className="w-full inline-flex items-center justify-between rounded-2xl border px-4 py-3 bg-background/95 backdrop-blur-xl hover:bg-muted/30 hover:border-border/60 transition-all duration-200"
-                            aria-label="Wallet menu"
-                            title={address}
-                          >
-                            <span className="inline-flex items-center gap-2">
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-foreground/10 backdrop-blur-sm">
-                                <Wallet className="w-3.5 h-3.5" />
-                              </span>
-                              <span
-                                style={{ fontFamily: "Söhne, sans-serif" }}
-                                className="font-medium"
-                              >
-                                {address.slice(0, 6)}...{address.slice(-4)}
-                              </span>
-                            </span>
-                            <ChevronDown className="w-4 h-4 opacity-60" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-72 backdrop-blur-xl bg-background/95 border-border"
-                        >
-                          <DropdownMenuItem
-                            onSelect={async (e) => {
-                              e.preventDefault();
-                              try {
-                                await navigator.clipboard.writeText(address);
-                                toast.success("Address copied");
-                              } catch {
-                                toast.error("Failed to copy");
-                              }
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Copy className="w-4 h-4 mr-2" /> Copy address
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem asChild className="cursor-pointer">
-                            <Link href={`/wallet`} rel="noreferrer">
-                              <User className="w-4 h-4 mr-2" /> My Wallet
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              disconnect();
-                            }}
-                            className="cursor-pointer text-destructive focus:text-destructive"
-                          >
-                            <LogOut className="w-4 h-4 mr-2" /> Disconnect
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )
-                  ) : (
-                    <ConnectButton className="w-full" variant="default" />
-                  )}
-                </div>
               </DrawerContent>
             </Drawer>
           </div>
         </div>
-      </motion.header>
+      </header>
+
       <TosDialog />
     </>
   );

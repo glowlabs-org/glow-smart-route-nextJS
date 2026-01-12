@@ -1,39 +1,45 @@
 "use client";
 
 import React from "react";
-import {
-  TransactionDialog,
-  type TransactionDetail,
-} from "@/components/dialogs/transaction-dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { TransactionDetail } from "@/components/dialogs/transaction-dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import { Minus, Plus, Loader2, X, Coins, Share2 } from "lucide-react";
+import { GlowSymbol } from "@/components/glow-symbol";
+import { cn } from "@/lib/utils";
+import { useAccount, useChainId } from "wagmi";
+import { useEthersSigner } from "@/hooks/useEthersSigner";
+import { SegmentedCircleProgress } from "@/components/ui/circle-progress";
 import { formatNumber } from "./utils";
-import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
 import { formatUnits, parseUnits } from "viem";
 import {
   DECIMALS_BY_TOKEN,
   useOffchainFractions,
 } from "@glowlabs-org/utils/browser";
-import { useEthersSigner } from "@/hooks/useEthersSigner";
-import { useAccount, useWalletClient } from "wagmi";
-import { publicClient } from "@/web3/web3/clients/publicClient";
+import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
+import { useEthPrice } from "@/hooks/useEthPrice";
+import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
+import { useSponsorApplication, type AuctionApplication } from "@/hooks";
 import { ConnectButton } from "@/components/connect-button";
-import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
-import {
-  useSponsorApplication,
-  type AuctionApplication,
-} from "@/hooks/useGlowLaunchpad";
-import { useFractionSplits } from "@/hooks/useFractionSplits";
-import Decimal from "decimal.js";
-import Link from "next/link";
-import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
-import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
-import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { trackEvent } from "@/lib/telemetry";
+import { AnimatePresence, motion } from "framer-motion";
+import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
+import { publicClient } from "@/web3/web3/clients/publicClient";
+import { useWalletClient } from "wagmi";
+import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
+import { toast } from "sonner";
+import { useFractionSplits } from "@/hooks";
+import { addresses } from "@/web3/constants/addresses";
+import { useSwapUSDCToUSDG } from "@/hooks/useSwapUSDCToUSDG";
+import { useSwap } from "@/hooks/useSwap";
+import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
+import {
+  TransactionStepper,
+  type TransactionStep,
+  type StepStatus,
+} from "@/components/transaction-stepper";
 
-const BUY_GLOW_USDC_BUFFER = new Decimal(1);
+import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 
 export type LaunchpadRewardScore = {
   userWeeklyGlwRewards: string;
@@ -64,7 +70,15 @@ type DepositDialogProps =
       onSuccess?: () => void;
     };
 
-// const QUOTE_LOCK_MINUTES = 60;
+type PaymentMethod = "GLW" | "USDC" | "ETH";
+
+type Phase = "review" | "processing" | "success" | "error";
+
+interface SuccessMetrics {
+  totalSteps: number;
+  filledBeforeSteps: number;
+  userSteps: number;
+}
 
 export function DepositDialog({
   open,
@@ -74,1415 +88,1141 @@ export function DepositDialog({
   rewardScore,
   onSuccess,
 }: DepositDialogProps) {
-  const { isConnected } = useAccount();
-  // const [quoteId, setQuoteId] = React.useState<string>(generateQuoteId());
-  const [lockedAtMs, setLockedAtMs] = React.useState<number>(Date.now());
-  const [nowMs, setNowMs] = React.useState<number>(Date.now());
-  // Use the selectedCurrency from props
-  const currency = selectedCurrency;
-  const [stepsToBuy, setStepsToBuy] = React.useState(1);
-  const [quantityInput, setQuantityInput] = React.useState<string>("1");
-  const [isBuyGlowDialogOpen, setIsBuyGlowDialogOpen] = React.useState(false);
-
-  // Transaction states
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [isProcessing, setIsProcessing] = React.useState(false);
-  const [isSuccess, setIsSuccess] = React.useState(false);
-  const [isError, setIsError] = React.useState(false);
-  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
-  const [txHash, setTxHash] = React.useState<string | null>(null);
-  const [networkCostUSD, setNetworkCostUSD] = React.useState<string>("");
-  const [isNetworkCostLoading, setIsNetworkCostLoading] = React.useState(false);
-
-  // Hooks
+  const { isConnected, address } = useAccount();
+  const chainId = useChainId();
   const { signer } = useEthersSigner();
   const { data: walletClient } = useWalletClient();
-  const [signerAddress, setSignerAddress] = React.useState<
-    string | undefined
-  >();
-  const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
+  const { spotPriceUsd: glwSpotPrice } = useGlowSpotPriceSummary();
+  const { ethPrice: ethSpotPrice } = useEthPrice();
+  const {
+    usdcBalance,
+    glwBalance,
+    ethBalance,
+    refetch: refetchBalances,
+  } = useWalletTokenBalances(address);
+  const { swapEthToUsdc, estimateEthToUsdc } = useSwapETHToUSDC();
+  const { swapUSDCToUSDG } = useSwapUSDCToUSDG();
+  const { swap: swapUsdgToGlow } = useSwap({
+    tokenA_address: addresses.usdg,
+    tokenB_address: addresses.glow,
+  });
+
+  // State
+  const [quantity, setQuantity] = React.useState<number>(1);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] =
+    React.useState<PaymentMethod>(selectedCurrency === "GLW" ? "GLW" : "USDC");
   const [isSmartAccountWarningOpen, setIsSmartAccountWarningOpen] =
     React.useState(false);
-  const [isCheckingSmartAccount, setIsCheckingSmartAccount] =
-    React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [phase, setPhase] = React.useState<Phase>("review");
+  const [transactionSteps, setTransactionSteps] = React.useState<
+    TransactionStep[]
+  >([]);
+  const stepsRef = React.useRef<TransactionStep[]>([]);
+  const [txHash, setTxHash] = React.useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [successMetrics, setSuccessMetrics] =
+    React.useState<SuccessMetrics | null>(null);
 
+  // Smart auto-selection of payment method on open/connect
   React.useEffect(() => {
-    if (signer) {
-      signer.getAddress().then(setSignerAddress);
-    }
-  }, [signer]);
+    if (open && isConnected && application) {
+      if (selectedCurrency === "GLW") {
+        // Delegation: Prefer GLW if enough, else USDC, else ETH
+        const costGLW = calculateCostInGLW(1);
+        const glwBalNum = glwBalance
+          ? parseFloat(formatUnits(glwBalance, 18))
+          : 0;
+        const usdcBalNum = usdcBalance
+          ? parseFloat(formatUnits(usdcBalance, 6))
+          : 0;
 
-  React.useEffect(() => {
-    setQuantityInput(String(stepsToBuy));
-  }, [stepsToBuy]);
-
-  // Clamp steps to available range when remaining steps changes
-  React.useEffect(() => {
-    if (!application?.activeFraction) return;
-    const maxSteps = application.activeFraction.remainingSteps ?? 0;
-    const minBound = maxSteps > 0 ? 1 : 0;
-    if (stepsToBuy > maxSteps || stepsToBuy < minBound) {
-      const clamped = Math.min(Math.max(stepsToBuy, minBound), maxSteps);
-      setStepsToBuy(clamped);
-      setQuantityInput(String(clamped));
+        if (glwBalNum >= costGLW) {
+          setSelectedPaymentMethod("GLW");
+        } else if (usdcBalNum > 0) {
+          setSelectedPaymentMethod("USDC");
+        } else {
+          // Default fallback
+          setSelectedPaymentMethod("GLW");
+        }
+      } else {
+        // Miner: Prefer USDC, else ETH
+        setSelectedPaymentMethod("USDC");
+      }
     }
   }, [
-    application?.activeFraction?.remainingSteps,
-    application?.activeFraction,
-    stepsToBuy,
+    open,
+    isConnected,
+    usdcBalance,
+    glwBalance,
+    selectedCurrency,
+    application,
   ]);
 
-  const sponsorMutation = useSponsorApplication();
+  // Reset on open
+  React.useEffect(() => {
+    if (open) {
+      setQuantity(1);
+      setIsSubmitting(false);
+      setPhase("review");
+      setTransactionSteps([]);
+      stepsRef.current = [];
+      setTxHash(null);
+      setErrorMessage(null);
+      setSuccessMetrics(null);
+    }
+  }, [open]);
 
-  // Initialize offchain fractions hook
-  const fractions = useOffchainFractions(
+  // Icon Helpers
+  const TOKEN_ICON_SRC_BY_SYMBOL = {
+    ETH: "/images/tokens/eth.svg",
+    USDC: "/images/tokens/usdc.svg",
+  } as const;
+
+  function TokenIcon(props: { symbol: "ETH" | "GLW" | "USDC" }) {
+    const { symbol } = props;
+
+    if (symbol === "GLW") {
+      return (
+        <div className="h-6 w-6 rounded-full bg-muted border border-border flex items-center justify-center">
+          <GlowSymbol className="h-4 w-4" />
+        </div>
+      );
+    }
+
+    const iconSrc =
+      symbol === "ETH" || symbol === "USDC"
+        ? TOKEN_ICON_SRC_BY_SYMBOL[symbol]
+        : null;
+
+    if (iconSrc) {
+      return (
+        <img
+          src={iconSrc}
+          alt={`${symbol} token`}
+          className="h-6 w-6 rounded-full"
+          draggable={false}
+        />
+      );
+    }
+    return <Coins className="h-6 w-6" />;
+  }
+  const calculateCostInGLW = (qty: number) => {
+    if (!application?.activeFraction) return 0;
+    const step = parseFloat(
+      formatUnits(BigInt(application.activeFraction.step), 18)
+    );
+    return step * qty;
+  };
+
+  const calculateCostInUSDC = (qty: number) => {
+    if (!application?.activeFraction) return 0;
+    if (selectedCurrency === "USDC") {
+      // Miner
+      const stepPrice = parseFloat(
+        formatUnits(BigInt(application.activeFraction.stepPrice), 6)
+      );
+      return stepPrice * qty;
+    } else {
+      // Delegation (via swap)
+      const glwCost = calculateCostInGLW(qty);
+      return glwCost * (glwSpotPrice || 0);
+    }
+  };
+
+  const calculateCostInETH = (qty: number) => {
+    const usdcCost = calculateCostInUSDC(qty);
+    return ethSpotPrice > 0 ? usdcCost / ethSpotPrice : 0;
+  };
+
+  const estimatedRewards = React.useMemo(() => {
+    if (!application?.activeFraction || !rewardScore) return 0;
+
+    // Logic from original file to calculate per-share rewards
+    let weeklyGlw = 0;
+    const totalShares = application.activeFraction.totalSteps || 1; // avoid div 0
+
+    if ("userWeeklyGlwRewards" in rewardScore) {
+      // Launchpad
+      const glw = parseFloat(
+        formatUnits(BigInt(rewardScore.userWeeklyGlwRewards), 18)
+      );
+      const pd = parseFloat(
+        formatUnits(BigInt(rewardScore.userWeeklyPdRewards), 18)
+      );
+      weeklyGlw = (glw + pd) / totalShares;
+    } else if ("miningScore" in rewardScore) {
+      // Mining
+      if (rewardScore.weeklyGlwRewards) {
+        weeklyGlw = parseFloat(
+          formatUnits(BigInt(rewardScore.weeklyGlwRewards || "0"), 18)
+        );
+      }
+    }
+
+    return weeklyGlw * quantity;
+  }, [quantity, application, rewardScore]);
+
+  const maxQuantity = application?.activeFraction?.remainingSteps ?? 0;
+
+  // Handlers
+  const handleQuantityChange = (delta: number) => {
+    setQuantity((prev) => Math.max(1, Math.min(maxQuantity, prev + delta)));
+  };
+
+  const handleSmartAccountCheck = async () => {
+    if (!signer || !walletClient || !address) return true;
+    try {
+      const status = await getSmartAccountStatus({
+        address: address as `0x${string}`,
+        walletClient,
+        getBytecode: publicClient?.getBytecode,
+      });
+      if (
+        status &&
+        (status.isContractWallet ||
+          status.isEip7702Delegated ||
+          status.hasWalletAABatching)
+      ) {
+        setIsSmartAccountWarningOpen(true);
+        return false;
+      }
+    } catch {
+      // ignore error
+    }
+    return true;
+  };
+
+  const fractionsHook = useOffchainFractions(
     walletClient,
     publicClient,
-    parseInt(process.env.NEXT_PUBLIC_CHAIN_ID!)
-  );
+    chainId
+  ); // Chain ID handled inside hook or env
+  const sponsorMutation = useSponsorApplication();
 
-  // Balance queries
-
-  // GLW balance query
-  const {
-    data: glwBalance,
-    isLoading: isGlwLoading,
-    refetch: refetchGlwBalance,
-  } = useQuery({
-    queryKey: ["token-balance", "GLW", signerAddress],
-    enabled: Boolean(
-      signer &&
-        fractions.isSignerAvailable &&
-        open &&
-        signerAddress &&
-        currency === "GLW"
-    ),
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: true,
-    queryFn: async () => {
-      try {
-        if (!signer || !fractions.isSignerAvailable) return null;
-        const userAddress = await signer.getAddress();
-        const bal = await fractions.checkTokenBalance(
-          userAddress,
-          fractions.addresses.GLW
-        );
-        return formatUnits(bal, DECIMALS_BY_TOKEN.GLW);
-      } catch (e) {
-        return null;
-      }
-    },
-  });
-
-  // USDC balance query
-  const {
-    data: usdcBalance,
-    isLoading: isUsdcLoading,
-    refetch: refetchUsdcBalance,
-  } = useQuery({
-    queryKey: ["token-balance", "USDC", signerAddress],
-    enabled: Boolean(
-      signer &&
-        fractions.isSignerAvailable &&
-        open &&
-        signerAddress &&
-        (currency === "USDC" || currency === "GLW")
-    ),
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: true,
-    queryFn: async () => {
-      try {
-        if (!signer || !fractions.isSignerAvailable) return null;
-        const userAddress = await signer.getAddress();
-        const bal = await fractions.checkTokenBalance(
-          userAddress,
-          fractions.addresses.USDC
-        );
-        return formatUnits(bal, DECIMALS_BY_TOKEN.USDC);
-      } catch (e) {
-        return null;
-      }
-    },
-  });
-
-  // Splits polling using the dedicated hook
-  const {
-    summary: splitsSummary,
-    isLoading: isLoadingSplits,
-    refetch: refetchSplits,
-  } = useFractionSplits({
-    walletAddress: signerAddress || null,
+  // Polling for splits to confirm purchase
+  const { refetch: refetchSplits, summary: splitsSummary } = useFractionSplits({
+    walletAddress: address || null,
     fractionId: application?.activeFraction?.id || null,
-    enabled: Boolean(signerAddress && application?.activeFraction?.id && open),
-    refetchInterval: 10_000, // Poll every 10 seconds
+    enabled: false, // We manually refetch
   });
 
-  // const expiryMs = lockedAtMs + QUOTE_LOCK_MINUTES * 60 * 1000;
-  // const secondsRemaining = Math.max(0, Math.floor((expiryMs - nowMs) / 1000));
-  // const minutes = Math.floor(secondsRemaining / 60);
-  // const seconds = secondsRemaining % 60;
-
-  // For fractions, we use step-based purchasing instead of deposit amounts
-  const depositAmountNumber = 0;
-
-  // Get user balance for selected currency
-  const userBalance = React.useMemo(() => {
-    try {
-      if (currency === "USDC") {
-        return new Decimal(usdcBalance || "0").toNumber();
-      } else {
-        return new Decimal(glwBalance || "0").toNumber();
-      }
-    } catch {
-      return 0;
-    }
-  }, [glwBalance, usdcBalance, currency]);
-
-  const hasInsufficientBalance = depositAmountNumber > userBalance;
-
-  // Display currency is based on the selected currency
-  const displayCurrency = currency;
-
-  const usdcBalanceBigInt = React.useMemo(() => {
-    try {
-      if (!usdcBalance) return null;
-      return parseUnits(usdcBalance, DECIMALS_BY_TOKEN.USDC as number);
-    } catch {
-      return null;
-    }
-  }, [usdcBalance]);
-
-  const glwShortfall = React.useMemo(() => {
-    try {
-      if (!isConnected) return null;
-      if (currency !== "GLW") return null;
-      if (!application?.activeFraction) return null;
-
-      const requiredGlwUnits =
-        BigInt(application.activeFraction.stepPrice) * BigInt(stepsToBuy);
-      const requiredGlw = new Decimal(
-        formatUnits(requiredGlwUnits, DECIMALS_BY_TOKEN.GLW)
-      );
-
-      if (isGlwLoading || glwBalance == null) {
-        return {
-          requiredGlw,
-          currentGlw: null,
-          missingGlw: null,
-          estimatedUsdcNeeded: null,
-          hasInsufficientGlw: false,
-          isBalanceKnown: false,
-        };
-      }
-
-      const currentGlw = new Decimal(glwBalance);
-      const missingGlw = Decimal.max(
-        new Decimal(0),
-        requiredGlw.minus(currentGlw)
-      );
-      const estimatedUsdcNeeded =
-        glwSpotPrice > 0 ? missingGlw.mul(new Decimal(glwSpotPrice)) : null;
-
-      return {
-        requiredGlw,
-        currentGlw,
-        missingGlw,
-        estimatedUsdcNeeded,
-        hasInsufficientGlw: missingGlw.gt(0),
-        isBalanceKnown: true,
-      };
-    } catch {
-      return null;
-    }
-  }, [
-    isConnected,
-    currency,
-    application?.activeFraction,
-    stepsToBuy,
-    isGlwLoading,
-    glwBalance,
-    glwSpotPrice,
-  ]);
-
-  const usdcBalanceDecimal = React.useMemo(() => {
-    try {
-      if (!isConnected) return null;
-      if (isUsdcLoading || usdcBalance == null) return null;
-      return new Decimal(usdcBalance);
-    } catch {
-      return null;
-    }
-  }, [isConnected, isUsdcLoading, usdcBalance]);
-
-  const buyGlowInitialUsdcAmount = React.useMemo(() => {
-    try {
-      if (currency !== "GLW") return null;
-      if (!application?.activeFraction) return null;
-      if (!glwSpotPrice || glwSpotPrice <= 0) return null;
-
-      const requiredGlwUnits =
-        BigInt(application.activeFraction.stepPrice) * BigInt(stepsToBuy);
-      const requiredGlw = new Decimal(
-        formatUnits(requiredGlwUnits, DECIMALS_BY_TOKEN.GLW)
-      );
-      const currentGlw = new Decimal(glwBalance || "0");
-      const missingGlw = Decimal.max(
-        new Decimal(0),
-        requiredGlw.minus(currentGlw)
-      );
-
-      if (missingGlw.lte(0)) return null;
-
-      const usdcNeeded = missingGlw
-        .mul(new Decimal(glwSpotPrice))
-        .add(BUY_GLOW_USDC_BUFFER);
-      return usdcNeeded
-        .toDecimalPlaces(DECIMALS_BY_TOKEN.USDC as number, Decimal.ROUND_UP)
-        .toString();
-    } catch {
-      return null;
-    }
-  }, [
-    currency,
-    application?.activeFraction,
-    glwSpotPrice,
-    glwBalance,
-    stepsToBuy,
-  ]);
-
-  // Reset states when dialog opens/closes
-  React.useEffect(() => {
-    if (!open) {
-      setIsSubmitting(false);
-      setIsProcessing(false);
-      setIsSuccess(false);
-      setIsError(false);
-      setErrorMessage(null);
-      setTxHash(null);
-      setNetworkCostUSD("");
-    } else {
-      // setQuoteId(generateQuoteId());
-      setLockedAtMs(Date.now());
-    }
-  }, [open]);
-
-  // For fractions, currency is always GLW - no need to sync
-
-  // // Update quote when currency changes
-  // React.useEffect(() => {
-  //   if (open && application) {
-  //     setQuoteId(generateQuoteId());
-  //     setLockedAtMs(Date.now());
-  //   }
-  // }, [currency, open, application]);
-
-  // Timer for quote expiry
-  React.useEffect(() => {
-    if (!open) return;
-    const interval = setInterval(() => setNowMs(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, [open]);
-
-  async function handleStepPurchase() {
-    if (
-      !application?.activeFraction ||
-      !signer ||
-      !fractions.isSignerAvailable
-    ) {
-      toast.error(
-        currency === "USDC"
-          ? "Missing required information for purchase"
-          : "Missing required information for delegation"
-      );
-      trackEvent("marketplace_deposit_error", {
-        stage: "precondition",
-        currency,
-        application_id: application?.id ?? null,
-        fraction_id: application?.activeFraction?.id ?? null,
-        error_message: "Missing required information for purchase/delegation",
+  const updateStepStatus = (
+    stepId: string,
+    status: StepStatus,
+    extras?: { txHash?: string; errorMessage?: string }
+  ) => {
+    setTransactionSteps((prev) => {
+      const updated = prev.map((s) => {
+        if (s.id === stepId) {
+          return {
+            ...s,
+            status,
+            startedAt:
+              status === "waiting_signature" || status === "confirming"
+                ? s.startedAt ?? Date.now()
+                : s.startedAt,
+            txHash: extras?.txHash ?? s.txHash,
+            errorMessage: extras?.errorMessage ?? s.errorMessage,
+          };
+        }
+        return s;
       });
-      return;
-    }
+      stepsRef.current = updated;
+      return updated;
+    });
+  };
 
-    let stage:
-      | "balance_check"
-      | "buy_fractions"
-      | "confirm_splits"
-      | "refresh_balances"
-      | "sponsor_mutation" = "balance_check";
+  const handleConfirm = async () => {
+    if (!isConnected || !application?.activeFraction) return;
+
+    // Check smart account
+    const isSafe = await handleSmartAccountCheck();
+    if (!isSafe) return;
+
+    // If Delegating with swap (selectedCurrency=GLW, method!=GLW)
+    const isSwapDelegate =
+      selectedCurrency === "GLW" && selectedPaymentMethod !== "GLW";
+
     try {
       setIsSubmitting(true);
-      setIsError(false);
+      setPhase("processing");
       setErrorMessage(null);
 
-      const userAddress = await signer.getAddress();
       const { activeFraction } = application;
+      const userAddress = address as `0x${string}`;
 
-      // Determine which token and price to use
-      const isUSDC = currency === "USDC";
-      const tokenAddress = isUSDC
-        ? fractions.addresses.USDC
-        : fractions.addresses.GLW;
-      const tokenDecimals = isUSDC
-        ? DECIMALS_BY_TOKEN.USDC
-        : DECIMALS_BY_TOKEN.GLW;
-      const tokenSymbol = isUSDC ? "USDC" : "GLW";
+      // Pre-calculate costs to determine which steps are needed
+      let requiredUsdc = 0n;
 
-      // Calculate total needed based on currency
-      // For USDC (mining center), use stepPrice; for GLW (launchpad), use step
-      const pricePerStep = BigInt(activeFraction.stepPrice);
-
-      const totalNeeded = pricePerStep * BigInt(stepsToBuy);
-
-      // Check token balance
-      stage = "balance_check";
-      const tokenBalance = await fractions.checkTokenBalance(
-        userAddress,
-        tokenAddress
-      );
-
-      if (tokenBalance < totalNeeded) {
-        throw new Error(
-          `Insufficient ${tokenSymbol} balance. Need ${formatUnits(
-            totalNeeded,
-            tokenDecimals
-          )} ${tokenSymbol}, have ${formatUnits(
-            tokenBalance,
-            tokenDecimals
-          )} ${tokenSymbol}`
-        );
+      if (selectedPaymentMethod === "ETH") {
+        if (selectedCurrency === "USDC") {
+          requiredUsdc = BigInt(activeFraction.stepPrice) * BigInt(quantity);
+        } else {
+          const glwNeeded = BigInt(activeFraction.step) * BigInt(quantity);
+          const glwPrice = parseUnits(glwSpotPrice.toFixed(6), 6);
+          const rawUsdcCost = (glwNeeded * glwPrice) / BigInt(1e18);
+          requiredUsdc = (rawUsdcCost * 105n) / 100n;
+        }
       }
 
-      stage = "buy_fractions";
-      const txHash = await fractions.buyFractions({
+      // Initialize transaction steps with rich metadata
+      const steps: TransactionStep[] = [];
+
+      if (selectedPaymentMethod === "ETH") {
+        steps.push({
+          id: "SWAP_ETH_TO_USDC",
+          title: "Swap ETH → USDC",
+          description: "Converting ETH to USDC via Uniswap",
+          tokenFrom: "ETH",
+          tokenTo: "USDC",
+          status: "idle",
+        });
+      }
+      if (isSwapDelegate) {
+        steps.push({
+          id: "SWAP_USDC_TO_USDG",
+          title: "Swap USDC → USDG",
+          description: "Converting USDC to USDG",
+          tokenFrom: "USDC",
+          tokenTo: "USDG",
+          status: "idle",
+        });
+        steps.push({
+          id: "SWAP_USDG_TO_GLOW",
+          title: "Swap USDG → GLW",
+          description: "Converting USDG to GLW via Uniswap",
+          tokenFrom: "USDG",
+          tokenTo: "GLW",
+          status: "idle",
+        });
+        steps.push({
+          id: "DELEGATE_GLW",
+          title: "Delegate GLW",
+          description: "Delegating GLW to the solar farm",
+          tokenFrom: "GLW",
+          status: "idle",
+        });
+      } else {
+        steps.push({
+          id: "BUY_FRACTIONS",
+          title:
+            selectedCurrency === "USDC" ? "Purchase Miners" : "Delegate GLW",
+          description:
+            selectedCurrency === "USDC"
+              ? "Purchasing miner units"
+              : "Delegating GLW to the solar farm",
+          tokenFrom: selectedCurrency === "USDC" ? "USDC" : "GLW",
+          status: "idle",
+        });
+      }
+      steps.push({
+        id: "CONFIRM_TX",
+        title: "Confirm Transaction",
+        description: "Waiting for blockchain confirmation",
+        status: "idle",
+      });
+
+      stepsRef.current = steps;
+      setTransactionSteps(steps);
+
+      // --- 1. ETH Payment Handling (Swap to USDC) ---
+      if (selectedPaymentMethod === "ETH") {
+        if (requiredUsdc <= 0n) {
+          throw new Error("Invalid USDC amount required for swap");
+        }
+
+        updateStepStatus("SWAP_ETH_TO_USDC", "waiting_signature");
+
+        // Estimate ETH needed for the required USDC amount
+        const probeWei = parseUnits("0.1", 18);
+        const probeRes = await estimateEthToUsdc({
+          amountInWei: probeWei,
+          slippageBps: 100n,
+        });
+
+        if (!probeRes.ok) throw new Error("Failed to quote ETH to USDC");
+        if (probeRes.val.amountOutUsdc <= 0n)
+          throw new Error("Failed to quote ETH to USDC");
+
+        // Calculate required ETH with buffer
+        let amountInWei =
+          (probeWei * requiredUsdc) / probeRes.val.amountOutUsdc;
+        amountInWei = (amountInWei * 102n) / 100n; // +2% buffer
+
+        // Refine estimate (simple retry loop)
+        for (let i = 0; i < 3; i++) {
+          const res = await estimateEthToUsdc({
+            amountInWei,
+            slippageBps: 100n,
+          });
+          if (res.ok && res.val.amountOutMinUsdc >= requiredUsdc) break;
+          amountInWei = (amountInWei * 105n) / 100n; // +5% bump
+        }
+
+        updateStepStatus("SWAP_ETH_TO_USDC", "confirming");
+        const swapRes = await swapEthToUsdc({
+          amountInWei,
+          slippageBps: 100n,
+        });
+        if (!swapRes.ok) throw new Error(swapRes.val);
+        await refetchBalances();
+        updateStepStatus("SWAP_ETH_TO_USDC", "completed");
+      }
+
+      // --- 2. Swap USDC to GLW (if delegating via swap) ---
+      if (isSwapDelegate) {
+        // Calculate needed GLW
+        const glwNeeded = BigInt(activeFraction.step) * BigInt(quantity);
+        // Estimate USDC needed: GLW * Price * 1.05 (5% buffer)
+        const glwPrice = parseUnits(glwSpotPrice.toFixed(6), 6);
+        const usdcNeeded =
+          (((glwNeeded * glwPrice) / BigInt(1e18)) * 105n) / 100n;
+
+        // Swap USDC -> USDG
+        updateStepStatus("SWAP_USDC_TO_USDG", "waiting_signature");
+        updateStepStatus("SWAP_USDC_TO_USDG", "confirming");
+        const usdcSwapRes = await swapUSDCToUSDG(usdcNeeded);
+        if (!usdcSwapRes.ok) throw new Error(usdcSwapRes.val);
+        updateStepStatus("SWAP_USDC_TO_USDG", "completed");
+
+        // Swap USDG -> GLW (Uniswap)
+        updateStepStatus("SWAP_USDG_TO_GLOW", "waiting_signature");
+        updateStepStatus("SWAP_USDG_TO_GLOW", "confirming");
+        const glowSwapRes = await swapUsdgToGlow({
+          amount: usdcNeeded,
+          slippagePercentTenThousandDenominator: 100n, // 1%
+        });
+        if (!glowSwapRes.ok) throw new Error(glowSwapRes.val);
+        updateStepStatus("SWAP_USDG_TO_GLOW", "completed");
+
+        // We should now have enough GLW.
+        updateStepStatus("DELEGATE_GLW", "waiting_signature");
+      } else {
+        updateStepStatus("BUY_FRACTIONS", "waiting_signature");
+      }
+
+      // --- 3. Purchase Fractions (Delegate or Buy Miner) ---
+      // Verify balance check skipped (handled by hook/metamask will fail if insufficient)
+      // For "Swap & Delegate", we just bought GLW.
+      // For "Buy Miner", we have USDC.
+
+      const costBigInt =
+        selectedCurrency === "USDC"
+          ? BigInt(activeFraction.stepPrice) * BigInt(quantity)
+          : BigInt(activeFraction.step) * BigInt(quantity);
+
+      const activeStepId = isSwapDelegate ? "DELEGATE_GLW" : "BUY_FRACTIONS";
+      updateStepStatus(activeStepId, "confirming");
+
+      const txHash = await fractionsHook.buyFractions({
         creator: activeFraction.owner,
         id: activeFraction.id,
-        stepsToBuy: BigInt(stepsToBuy),
-        minStepsToBuy: BigInt(stepsToBuy), // Same as stepsToBuy for now
+        stepsToBuy: BigInt(quantity),
+        minStepsToBuy: BigInt(quantity),
         refundTo: userAddress,
         creditTo: userAddress,
         useCounterfactualAddressForRefund: false,
       });
 
+      updateStepStatus(activeStepId, "completed", { txHash });
+
+      // --- 4. Confirm & Sponsor ---
+      updateStepStatus("CONFIRM_TX", "confirming");
       setTxHash(txHash);
-      setIsSubmitting(false);
-      setIsProcessing(true);
-      trackEvent("marketplace_deposit_tx_submitted", {
-        tx_hash: txHash,
-        currency,
-        application_id: application.id,
-        fraction_id: activeFraction.id,
-        steps_to_buy: stepsToBuy,
-        total_needed_base_units: totalNeeded.toString(),
-      });
 
-      // Refresh splits immediately to start polling
-      stage = "confirm_splits";
-      await refetchSplits();
-
-      // Poll splits until we see the purchase reflected
-      const maxWaitTime = 60000; // 60 seconds max wait
-      const pollInterval = 5000; // Check every 5 seconds
-      let waitTime = 0;
-      let purchaseConfirmed = false;
-
-      const initialStepsPurchased = splitsSummary.totalStepsPurchased;
-
-      while (waitTime < maxWaitTime && !purchaseConfirmed) {
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
-        waitTime += pollInterval;
-
-        // Refresh splits data
-        const { data: latestSplits } = await refetchSplits();
-
+      // Poll splits to confirm
+      const initialPurchased = splitsSummary?.totalStepsPurchased || 0;
+      let confirmed = false;
+      for (let i = 0; i < 30; i++) {
+        // 30 attempts * 2s = 60s
+        await new Promise((r) => setTimeout(r, 2000));
+        const res = await refetchSplits();
         if (
-          latestSplits &&
-          latestSplits.summary.totalStepsPurchased > initialStepsPurchased
+          res.data &&
+          res.data.summary.totalStepsPurchased > initialPurchased
         ) {
-          purchaseConfirmed = true;
-
+          confirmed = true;
           break;
         }
       }
 
-      if (!purchaseConfirmed) {
-        const action = currency === "USDC" ? "Purchase" : "Delegation";
+      if (!confirmed) {
         console.warn(
-          `${action} confirmation timeout - transaction may still be processing`
-        );
-        throw new Error(
-          `${action} confirmation timeout. The transaction was submitted but we couldn't confirm it completed. Please check your wallet and contact support if needed.`
+          "Purchase confirmation timed out, but transaction was submitted."
         );
       }
 
-      // Only set success after confirmation
-      setIsProcessing(false);
-      setIsSuccess(true);
-      trackEvent("marketplace_deposit_confirmed", {
-        tx_hash: txHash,
-        currency,
-        application_id: application.id,
-        fraction_id: activeFraction.id,
-        steps_to_buy: stepsToBuy,
-      });
-
-      // Refresh balances
-      stage = "refresh_balances";
-      if (isUSDC) {
-        await refetchUsdcBalance();
-      } else {
-        await refetchGlwBalance();
-      }
-
-      // Trigger the mutation to invalidate queries
-      stage = "sponsor_mutation";
-      await sponsorMutation.mutateAsync({
-        applicationId: application.id,
-        amount: totalNeeded,
-        currency: tokenSymbol,
-        txHash: txHash,
-        onSuccess: onSuccess,
-      });
-    } catch (error: any) {
-      setIsSubmitting(false);
-      setIsProcessing(false);
-      setIsError(true);
-
-      let message =
-        currency === "USDC" ? "Purchase failed" : "Delegation failed";
-
-      // Handle specific error types based on OffchainFractionsError enum
-      if (error.message === "TRANSACTION_SUBMISSION_TIMEOUT") {
-        message =
-          "Transaction submission timed out. The transaction may still be processing. Please refresh the page and check your wallet.";
-      } else if (
-        error.message?.includes("Insufficient balance") ||
-        error.message?.includes("Insufficient GLW balance") ||
-        error.message?.includes("Insufficient USDC balance")
-      ) {
-        message = error.message;
-      } else if (
-        error.message?.includes("User rejected") ||
-        error.message?.includes("User denied")
-      ) {
-        message = "Transaction was rejected";
-      } else if (error.message?.includes("Token approval")) {
-        message = error.message;
-      } else if (error.message?.includes("Invalid parameters")) {
-        message = "Invalid purchase parameters";
-      } else if (error.message?.includes("Fraction not found")) {
-        message = "Application fraction not found";
-      } else if (error.message?.includes("Transaction failed on-chain")) {
-        message = "Transaction failed. Please check your wallet and try again.";
-      } else if (error.message) {
-        // Use the error message if it's informative
-        message = error.message;
-      }
-
-      setErrorMessage(message);
-      setTxHash(error?.txHash ?? null);
-      console.error("handleStepPurchase error", error);
-      toast.error(message);
-      trackEvent("marketplace_deposit_error", {
-        stage:
-          typeof stage === "string"
-            ? stage
-            : "unknown",
-        currency,
-        application_id: application?.id ?? null,
-        fraction_id: application?.activeFraction?.id ?? null,
-        steps_to_buy: stepsToBuy,
-        error_message: message,
-        tx_hash: error?.txHash ?? txHash ?? null,
-      });
-    }
-  }
-
-  async function handleConfirm() {
-    trackEvent("marketplace_deposit_confirm_click", {
-      currency,
-      application_id: application?.id ?? null,
-      fraction_id: application?.activeFraction?.id ?? null,
-      steps_to_buy: stepsToBuy,
-    });
-    // Block if smart/delegated account detected
-    setIsCheckingSmartAccount(true);
-    try {
-      if (signerAddress && walletClient) {
-        const status = await getSmartAccountStatus({
-          address: signerAddress as `0x${string}`,
-          walletClient,
-          getBytecode: publicClient?.getBytecode,
-        });
-
-        const isSmartAccount =
-          status &&
-          (status.isContractWallet ||
-            status.isEip7702Delegated ||
-            status.hasWalletAABatching);
-        if (isSmartAccount) {
-          setIsSmartAccountWarningOpen(true);
-          trackEvent("marketplace_deposit_blocked_smart_account", {
-            currency,
-            application_id: application?.id ?? null,
-            fraction_id: application?.activeFraction?.id ?? null,
-            steps_to_buy: stepsToBuy,
-          });
-          return; // Do not proceed
-        }
-      }
-    } catch (error) {
-      console.error("Smart account check failed:", error);
-      // If the check fails, allow proceeding to avoid blocking legitimate users
-      trackEvent("marketplace_deposit_error", {
-        stage: "smart_account_check",
-        currency,
-        application_id: application?.id ?? null,
-        fraction_id: application?.activeFraction?.id ?? null,
-        steps_to_buy: stepsToBuy,
-        error_message:
-          error instanceof Error ? error.message : "Smart account check failed",
-      });
-    } finally {
-      setIsCheckingSmartAccount(false);
-    }
-    // Only handle step-based purchasing for fractions
-    if (application?.activeFraction) {
-      return handleStepPurchase();
-    }
-
-    // No other payment methods are supported
-    toast.error("Only fraction-based applications are supported");
-  }
-
-  // Estimated weekly rewards for selected shares (keep hooks unconditionally executed)
-  const { estimatedWeeklyGlwForSelection, estimatedWeeklyUsdForSelection } =
-    React.useMemo(() => {
+      // Calculate success metrics
       try {
-        if (!application?.activeFraction || !rewardScore) {
-          return {
-            estimatedWeeklyGlwForSelection: null,
-            estimatedWeeklyUsdForSelection: null,
-          };
-        }
+        const totalSteps = Math.max(
+          0,
+          Math.floor(activeFraction.totalSteps || 0)
+        );
+        let filledBeforeSteps = 0;
 
-        const totalShares = application.activeFraction.totalSteps || 0;
-        if (!totalShares) {
-          return {
-            estimatedWeeklyGlwForSelection: null,
-            estimatedWeeklyUsdForSelection: null,
-          };
-        }
-
-        let glwPerShare = 0;
-        let usdPerShare = 0;
-
-        // Check if this is a reward score (launchpad) or mining score (mining center)
-        if ("userWeeklyGlwRewards" in rewardScore) {
-          // Reward score from launchpad
-          const glwRewards = parseFloat(
-            formatUnits(
-              BigInt(rewardScore.userWeeklyGlwRewards || "0"),
-              DECIMALS_BY_TOKEN["GLW"]
-            )
-          );
-          const pdRewards = parseFloat(
-            formatUnits(
-              BigInt(rewardScore.userWeeklyPdRewards || "0"),
-              DECIMALS_BY_TOKEN["GLW"]
-            )
-          );
-          const totalGlw = glwRewards + pdRewards;
-          glwPerShare = totalGlw / totalShares;
-          usdPerShare = glwPerShare * glwSpotPrice;
-        } else if ("miningScore" in rewardScore) {
-          // Mining score from mining center
-          if (rewardScore.weeklyGlwRewards) {
-            const totalGlw = parseFloat(
-              formatUnits(
-                BigInt(rewardScore.weeklyGlwRewards),
-                DECIMALS_BY_TOKEN["GLW"]
+        if (totalSteps > 0) {
+          if (activeFraction.remainingSteps != null) {
+            filledBeforeSteps = Math.max(
+              0,
+              Math.min(
+                totalSteps,
+                totalSteps -
+                  Math.max(0, Math.floor(activeFraction.remainingSteps))
               )
             );
-            glwPerShare = totalGlw;
-          }
-          if (rewardScore.weeklyGlwRewardsUsd) {
-            const totalUsd = parseFloat(rewardScore.weeklyGlwRewardsUsd);
-            usdPerShare = totalUsd;
+          } else {
+            filledBeforeSteps = Math.max(
+              0,
+              Math.min(totalSteps, Math.floor(activeFraction.splitsSold || 0))
+            );
           }
         }
 
-        const estimatedWeeklyGlwForSelection = glwPerShare * stepsToBuy;
-        const estimatedWeeklyUsdForSelection = usdPerShare * stepsToBuy;
-
-        return {
-          estimatedWeeklyGlwForSelection,
-          estimatedWeeklyUsdForSelection,
-        };
+        setSuccessMetrics({
+          totalSteps,
+          filledBeforeSteps,
+          userSteps: Math.max(0, Math.floor(quantity)),
+        });
       } catch {
-        return {
-          estimatedWeeklyGlwForSelection: null,
-          estimatedWeeklyUsdForSelection: null,
-        };
-      }
-    }, [application?.activeFraction, rewardScore, stepsToBuy, glwSpotPrice]);
-
-  // Early return conditions - check these in render
-  if (!application) return null;
-
-  const isStepPurchaseTokenBalanceSufficient = (() => {
-    try {
-      if (!application.activeFraction) return true;
-      if (!isConnected) return false;
-
-      const pricePerStep = BigInt(application.activeFraction.stepPrice);
-      const totalCost = pricePerStep * BigInt(stepsToBuy);
-
-      if (currency === "GLW") {
-        if (!glwShortfall?.isBalanceKnown) return false;
-        return !glwShortfall.hasInsufficientGlw;
+        setSuccessMetrics(null);
       }
 
-      // USDC (miners)
-      if (isUsdcLoading || usdcBalance == null) return false;
-      const requiredUsdc = parseFloat(
-        formatUnits(totalCost, DECIMALS_BY_TOKEN.USDC)
-      );
-      const currentUsdc = parseFloat(usdcBalance);
-      return currentUsdc >= requiredUsdc;
-    } catch {
-      return false;
-    }
-  })();
+      await sponsorMutation.mutateAsync({
+        applicationId: application.id,
+        amount: costBigInt,
+        currency: selectedCurrency,
+        txHash: txHash,
+        onSuccess: () => {
+          updateStepStatus("CONFIRM_TX", "completed", { txHash });
+          setPhase("success");
 
-  const canConfirm = application.activeFraction
-    ? // For step-based purchasing
-      !isSubmitting &&
-      !isProcessing &&
-      stepsToBuy > 0 &&
-      stepsToBuy <= (application.activeFraction.remainingSteps || 0) &&
-      isStepPurchaseTokenBalanceSufficient &&
-      isConnected
-    : // For full sponsorship
-      !isSubmitting && !isProcessing && !hasInsufficientBalance && isConnected;
+          trackEvent("marketplace_deposit_success", {
+            currency: selectedCurrency,
+            payment_method: selectedPaymentMethod,
+            listing_type:
+              selectedCurrency === "USDC" ? "miners" : "delegations",
+            application_id: application.id,
+            fraction_id: activeFraction.id,
+            quantity,
+            tx_hash: txHash,
+            farm_name: application.farmName ?? null,
+            zone_name: application.zone?.name ?? null,
+          });
 
-  // Transaction details
-  const transactionDetails: TransactionDetail[] = application.activeFraction
-    ? [
-        {
-          label: "Location",
-          value: application.zone.name,
+          toast.success(
+            selectedCurrency === "USDC"
+              ? "Miners purchased!"
+              : "Delegation successful!"
+          );
+          onSuccess?.();
         },
-      ]
-    : [];
+      });
+    } catch (e: any) {
+      console.error(e);
+      const msg = e?.message || "Transaction failed";
 
-  // Success details
-  const successDetails: TransactionDetail[] = application.activeFraction
+      // Mark the current active step as error (using ref to avoid stale closure)
+      const currentSteps = stepsRef.current;
+      const activeStep = currentSteps.find(
+        (s) => s.status === "waiting_signature" || s.status === "confirming"
+      );
+      if (activeStep) {
+        updateStepStatus(activeStep.id, "error", { errorMessage: msg });
+      } else if (currentSteps.length > 0) {
+        // If no active step found, mark the first idle step as error
+        const firstIdleStep = currentSteps.find((s) => s.status === "idle");
+        if (firstIdleStep) {
+          updateStepStatus(firstIdleStep.id, "error", { errorMessage: msg });
+        }
+      }
+
+      const isUserRejected =
+        msg.includes("User rejected") || msg.includes("user rejected");
+
+      if (!isUserRejected) {
+        trackEvent("marketplace_deposit_error", {
+          currency: selectedCurrency,
+          payment_method: selectedPaymentMethod,
+          listing_type: selectedCurrency === "USDC" ? "miners" : "delegations",
+          application_id: application?.id ?? null,
+          fraction_id: application?.activeFraction?.id ?? null,
+          quantity,
+          failed_step: activeStep?.id ?? null,
+          error_message: msg.slice(0, 200),
+        });
+      }
+
+      setPhase("error");
+      setErrorMessage(msg);
+      if (isUserRejected) {
+        toast.error("Transaction rejected");
+      } else {
+        toast.error(msg);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleClose = () => {
+    onOpenChange(false);
+  };
+
+  const farmLabelForShare = React.useMemo(() => {
+    if (!application) return null;
+    if (application.farmName) return application.farmName;
+    return application.zone?.name ?? null;
+  }, [application]);
+
+  const shareUrl = React.useMemo(() => {
+    try {
+      if (!farmLabelForShare) return null;
+      if (!successMetrics) return null;
+
+      if (selectedCurrency === "USDC") {
+        const text = [
+          `I just bought ${quantity} miner${
+            quantity > 1 ? "s" : ""
+          } from ${farmLabelForShare} on @glowFND`,
+          "",
+          `Every miner I own earns me GLW weekly for the next 100 weeks.`,
+          "",
+          `app.glow.org/marketplace`,
+        ].join("\n");
+        return `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+          text
+        )}`;
+      }
+
+      const text = [
+        `I just helped fund ${farmLabelForShare} by delegating GLW tokens.`,
+        "",
+        `You can do the same and start earning GLW weekly for 100 weeks here: app.glow.org`,
+      ].join("\n");
+
+      return `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+        text
+      )}`;
+    } catch {
+      return null;
+    }
+  }, [selectedCurrency, farmLabelForShare, successMetrics, quantity]);
+
+  const successDetails: TransactionDetail[] = application?.activeFraction
     ? [
         {
           label: "Quantity",
-          value: stepsToBuy.toString(),
+          value: quantity.toString(),
         },
         {
-          label: `Total ${currency} Delegated`,
+          label: `Total ${selectedCurrency} Delegated`,
           value: formatNumber(
             parseFloat(
               formatUnits(
-                BigInt(application.activeFraction.stepPrice) *
-                  BigInt(stepsToBuy),
-                DECIMALS_BY_TOKEN[currency]
+                BigInt(application.activeFraction.stepPrice) * BigInt(quantity),
+                DECIMALS_BY_TOKEN[selectedCurrency]
               )
             ),
             0
           ),
-          unit: currency,
+          unit: selectedCurrency,
         },
       ]
     : [];
 
-  // Custom success content with processing delay notice
-  const customSuccessContent = (
-    <div className="space-y-4">
-      {successDetails.map((detail, index) => (
-        <div key={index} className="flex justify-between items-center">
-          <span className="text-sm text-muted-foreground">{detail.label}</span>
-          <div className="text-right">
-            <span className="text-sm font-mono">{detail.value}</span>
-            {detail.unit && (
-              <span className="text-xs text-muted-foreground ml-2">
-                {detail.unit}
-              </span>
-            )}
+  const renderContent = () => {
+    if (phase === "success") {
+      return (
+        <div className="px-6 py-8 text-center space-y-4">
+          <div className="text-center space-y-2">
+            <div className="text-2xl font-bold text-foreground">
+              {selectedCurrency === "USDC"
+                ? "Purchase Complete!"
+                : "Delegation Complete!"}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {selectedCurrency === "USDC"
+                ? "You helped accelerate real-world solar deployment."
+                : "You just activated real-world solar rewards."}
+            </div>
           </div>
-        </div>
-      ))}
-      <div className="bg-accent/10 border border-accent/20 rounded-lg p-3 my-4">
-        <div className="text-sm">
-          Your {currency === "USDC" ? "purchase" : "delegation"} has been
-          confirmed on-chain. It may take up to 1 minute to appear on your power
-          wallet page due to backend processing.
-        </div>
-      </div>
-    </div>
-  );
 
-  // Custom review content
-  const reviewContent = (
-    <div className="space-y-4">
-      {/* Step Selection for Fractions or Currency Selection for Full Sponsorship */}
-      {application.activeFraction ? (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Quantity</span>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setStepsToBuy(Math.max(1, stepsToBuy - 1))}
-                disabled={stepsToBuy <= 1 || isSubmitting}
-                className="h-8 w-8 p-0"
-              >
-                -
-              </Button>
-              <Input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                autoComplete="off"
-                enterKeyHint="done"
-                aria-label="Quantity"
-                className="h-10 w-24 text-center font-mono border-accent"
-                value={quantityInput}
-                onKeyDown={(e) => {
-                  const allowedKeys = [
-                    "Backspace",
-                    "Delete",
-                    "ArrowLeft",
-                    "ArrowRight",
-                    "ArrowUp",
-                    "ArrowDown",
-                    "Tab",
-                    "Home",
-                    "End",
-                    "Enter",
-                  ];
-                  if (e.ctrlKey || e.metaKey || e.altKey) {
-                    return;
-                  }
-                  if (allowedKeys.includes(e.key)) return;
-                  if (!/^\d$/.test(e.key)) {
-                    e.preventDefault();
-                  }
-                }}
-                onPaste={(e) => {
-                  const pasted = e.clipboardData.getData("text");
-                  if (!/^\d+$/.test(pasted)) {
-                    e.preventDefault();
-                  }
-                }}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "") {
-                    setQuantityInput(val);
-                    return;
-                  }
-                  const parsed = parseInt(val, 10);
-                  if (Number.isNaN(parsed)) {
-                    setQuantityInput(val);
-                    return;
-                  }
-                  const maxSteps =
-                    application.activeFraction?.remainingSteps ?? 0;
-                  const minBound = maxSteps > 0 ? 1 : 0;
-                  const clamped = Math.min(
-                    Math.max(parsed, minBound),
-                    maxSteps
-                  );
-                  setQuantityInput(String(clamped));
-                  setStepsToBuy(clamped);
-                }}
-                onBlur={() => {
-                  const maxSteps =
-                    application.activeFraction?.remainingSteps ?? 0;
-                  const minBound = maxSteps > 0 ? 1 : 0;
-                  let parsed = parseInt(quantityInput, 10);
-                  if (Number.isNaN(parsed)) parsed = minBound;
-                  if (parsed < minBound) parsed = minBound;
-                  if (parsed > maxSteps) parsed = maxSteps;
-                  setStepsToBuy(parsed);
-                  setQuantityInput(String(parsed));
-                }}
-                disabled={isSubmitting}
+          {application?.activeFraction && successMetrics ? (
+            <div className="flex flex-col items-center">
+              <SegmentedCircleProgress
+                totalSteps={successMetrics.totalSteps}
+                filledBeforeSteps={successMetrics.filledBeforeSteps}
+                userSteps={successMetrics.userSteps}
+                otherColor={
+                  selectedCurrency === "USDC"
+                    ? "rgba(255,255,255,0.18)"
+                    : "#C084FC"
+                }
+                userColor={
+                  selectedCurrency === "USDC"
+                    ? "var(--color-miner-yellow)"
+                    : "#4ADE80"
+                }
+                className="my-2"
               />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setStepsToBuy(
-                    Math.min(
-                      application.activeFraction?.remainingSteps || 1,
-                      stepsToBuy + 1
-                    )
-                  )
-                }
-                disabled={
-                  stepsToBuy >=
-                    (application.activeFraction?.remainingSteps || 0) ||
-                  isSubmitting
-                }
-                className="h-8 w-8 p-0"
-              >
-                +
-              </Button>
-            </div>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="text-xs text-muted-foreground">
-              Max: {application.activeFraction.remainingSteps} available
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setStepsToBuy(1)}
-                disabled={stepsToBuy <= 1 || isSubmitting}
-                className="h-7 px-2 py-0 text-xs"
-              >
-                Min
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setStepsToBuy(application.activeFraction?.remainingSteps || 1)
-                }
-                disabled={
-                  stepsToBuy >=
-                    (application.activeFraction?.remainingSteps || 0) ||
-                  isSubmitting ||
-                  (application.activeFraction?.remainingSteps || 0) <= 0
-                }
-                className="h-7 px-2 py-0 text-xs"
-              >
-                Max
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              Payment Currency
-            </span>
-            GLW
-          </div>
-        </div>
-      )}
-
-      {/* USDC/USDG toggle not needed for fractions */}
-
-      {/* Balance Info */}
-      {!application.activeFraction && (
-        <div className="bg-muted/50 border border-border rounded-lg p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Your Balance</span>
-            <span
-              className={`text-sm font-mono ${
-                hasInsufficientBalance ? "text-destructive" : ""
-              }`}
-            >
-              {formatNumber(userBalance, 2)} {displayCurrency}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Token Balance Info for Step Purchases */}
-      {application.activeFraction && (
-        <div className="bg-muted/50 border border-border rounded-lg p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              Your {currency} Balance
-            </span>
-            {!isConnected ? (
-              <span className="text-sm text-muted-foreground">
-                Connect wallet
-              </span>
-            ) : currency === "USDC" ? (
-              isUsdcLoading || usdcBalance == null ? (
-                <span className="text-sm text-muted-foreground">Loading…</span>
-              ) : (
-                <span className="text-sm font-mono">
-                  {formatNumber(parseFloat(usdcBalance), 2)} USDC
-                </span>
-              )
-            ) : isGlwLoading || glwBalance == null ? (
-              <span className="text-sm text-muted-foreground">Loading…</span>
-            ) : (
-              <span className="text-sm font-mono">
-                {formatNumber(parseFloat(glwBalance), 2)} GLW
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Estimated rewards for selected shares */}
-      {application.activeFraction &&
-        estimatedWeeklyGlwForSelection !== null && (
-          <div className="bg-muted/50 border border-border rounded-lg p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
-                Est. Weekly Rewards
-              </span>
-              <div className="text-right">
-                <span className="text-sm font-mono">
-                  {formatNumber(estimatedWeeklyGlwForSelection || 0, 2)}
-                </span>
-                <span className="text-xs text-muted-foreground ml-1">GLW</span>
-                {estimatedWeeklyUsdForSelection !== null && (
-                  <div className="text-xs text-muted-foreground">
-                    ≈ ${formatNumber(estimatedWeeklyUsdForSelection || 0, 2)}
-                  </div>
-                )}
+              <div className="mt-4 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{
+                      backgroundColor:
+                        selectedCurrency === "USDC"
+                          ? "rgba(255,255,255,0.25)"
+                          : "#C084FC",
+                    }}
+                  />
+                  <span>Already filled</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{
+                      backgroundColor:
+                        selectedCurrency === "USDC"
+                          ? "var(--color-miner-yellow)"
+                          : "#4ADE80",
+                    }}
+                  />
+                  <span>Your contribution</span>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          ) : null}
 
-      {/* Quote Expiry */}
-      {/* <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-        <div className="flex items-center gap-2">
-          <Info className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
-            Quote expires in
-          </span>
-        </div>
-        <span className="text-sm font-mono">
-          {minutes.toString().padStart(2, "0")}:
-          {seconds.toString().padStart(2, "0")}
-        </span>
-      </div> */}
-
-      {/* Transaction Details */}
-      <div className="space-y-3 pt-2">
-        {transactionDetails.map((detail, index) => (
-          <div key={index} className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">
-              {detail.label}
-            </span>
-            <div className="text-right">
-              <span className="text-sm font-mono">{detail.value}</span>
-              {detail.unit && (
-                <span className="text-xs text-muted-foreground ml-2">
-                  {detail.unit}
+          <div className="space-y-3">
+            {successDetails.map((detail, index) => (
+              <div key={index} className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">
+                  {detail.label}
                 </span>
+                <div className="text-right">
+                  <span className="text-sm font-mono">{detail.value}</span>
+                  {detail.unit && (
+                    <span className="text-xs text-muted-foreground ml-2">
+                      {detail.unit}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-3 pt-4">
+            {shareUrl ? (
+              <Button
+                className="w-full bg-white text-black hover:bg-white/90 flex gap-2"
+                asChild
+              >
+                <a
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  href={shareUrl}
+                  onClick={() => {
+                    trackEvent("marketplace_deposit_share_x_click", {
+                      currency: selectedCurrency,
+                      application_id: application?.id ?? null,
+                      fraction_id: application?.activeFraction?.id ?? null,
+                      steps_to_buy: quantity,
+                      tx_hash: txHash ?? null,
+                    });
+                  }}
+                >
+                  <Share2 className="w-4 h-4 " />
+                  Share on X
+                </a>
+              </Button>
+            ) : null}
+            <Button variant="outline" onClick={handleClose} className="w-full">
+              Close
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    if (phase === "processing" || phase === "error") {
+      const hasError = phase === "error";
+
+      return (
+        <div className="px-6 py-6">
+          {/* Header */}
+          <div className="text-center mb-6">
+            <div className="flex items-center justify-center mx-auto mb-4">
+              {hasError ? (
+                <motion.div
+                  className="h-14 w-14 rounded-full bg-red-500/20 flex items-center justify-center border border-red-500/50"
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", duration: 0.5 }}
+                >
+                  <X className="h-8 w-8 text-red-500" />
+                </motion.div>
+              ) : (
+                <motion.div
+                  className="flex items-center justify-center"
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <GlowSymbolAnimated className="size-12" />
+                </motion.div>
               )}
             </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Insufficient Balance Warning */}
-      {!application.activeFraction && hasInsufficientBalance && (
-        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
-          <div className="text-sm text-destructive">
-            Insufficient {displayCurrency} balance
-          </div>
-        </div>
-      )}
-
-      {/* Insufficient Token Balance Warning for Step Purchases */}
-      {application.activeFraction &&
-        (() => {
-          if (!isConnected) return null;
-
-          const pricePerStep = BigInt(application.activeFraction.stepPrice);
-          const totalCost = pricePerStep * BigInt(stepsToBuy);
-          const tokenDecimals = DECIMALS_BY_TOKEN[currency];
-
-          if (currency === "GLW") {
-            if (
-              !glwShortfall?.isBalanceKnown ||
-              !glwShortfall.hasInsufficientGlw
-            )
-              return null;
-
-            const estimatedUsdcNeededRounded = glwShortfall.estimatedUsdcNeeded
-              ? glwShortfall.estimatedUsdcNeeded
-                  .add(BUY_GLOW_USDC_BUFFER)
-                  .toDecimalPlaces(
-                    DECIMALS_BY_TOKEN.USDC as number,
-                    Decimal.ROUND_UP
-                  )
-              : null;
-
-            const hasUsdcInfo = usdcBalanceDecimal !== null;
-            const hasEstimate = estimatedUsdcNeededRounded !== null;
-            const hasEnoughUsdc =
-              hasUsdcInfo && hasEstimate
-                ? usdcBalanceDecimal.gte(estimatedUsdcNeededRounded)
-                : null;
-
-            return (
-              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
-                <div className="space-y-1">
-                  <div className="text-sm font-medium text-foreground">
-                    Top up GLW to continue
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Required{" "}
-                    <span className="font-mono text-foreground">
-                      {formatNumber(glwShortfall.requiredGlw.toNumber(), 2)} GLW
-                    </span>
-                    {" • "}
-                    Balance{" "}
-                    <span className="font-mono text-foreground">
-                      {formatNumber(glwShortfall.currentGlw!.toNumber(), 2)} GLW
-                    </span>
-                    {" • "}
-                    Missing{" "}
-                    <span className="font-mono text-amber-500">
-                      {formatNumber(glwShortfall.missingGlw!.toNumber(), 2)} GLW
-                    </span>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-border bg-background/40 p-3">
-                  {hasEstimate ? (
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        Est. cost to buy missing GLW
-                      </span>
-                      <span className="text-xs font-mono text-foreground">
-                        ≈{" "}
-                        {formatNumber(
-                          estimatedUsdcNeededRounded!.toNumber(),
-                          2
-                        )}{" "}
-                        USDC
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="text-xs text-muted-foreground">
-                      Loading price… we’ll show an estimate once it’s ready.
-                    </div>
-                  )}
-                  {hasEstimate && (
-                    <div className="mt-1 text-[11px] text-muted-foreground">
-                      Includes a $1 buffer to avoid being short on GLW.
-                    </div>
-                  )}
-
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      Your USDC balance
-                    </span>
-                    {hasUsdcInfo ? (
-                      <span
-                        className={[
-                          "text-xs font-mono",
-                          hasEnoughUsdc === false
-                            ? "text-amber-500"
-                            : "text-foreground",
-                        ].join(" ")}
-                      >
-                        {formatNumber(usdcBalanceDecimal.toNumber(), 2)} USDC
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        Loading…
-                      </span>
-                    )}
-                  </div>
-
-                  {hasEnoughUsdc === false && (
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      To buy more GLW, you must first add/purchase USDC to this
-                      wallet. Once you have USDC, you can buy GLW and then
-                      delegate.
-                    </div>
-                  )}
-                </div>
-
-                {hasEnoughUsdc === true && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      trackEvent("marketplace_deposit_buy_glw_click", {
-                        currency,
-                        application_id: application?.id ?? null,
-                        fraction_id: application?.activeFraction?.id ?? null,
-                        steps_to_buy: stepsToBuy,
-                        estimated_usdc_needed:
-                          estimatedUsdcNeededRounded?.toString() ?? null,
-                      });
-                      setIsBuyGlowDialogOpen(true);
-                      trackEvent("marketplace_deposit_buy_glw_dialog_open", {
-                        application_id: application?.id ?? null,
-                        fraction_id: application?.activeFraction?.id ?? null,
-                      });
-                    }}
-                  >
-                    Buy GLW
-                  </Button>
-                )}
-              </div>
-            );
-          }
-
-          // USDC (miners) warning: keep basic behavior but avoid false positives while loading
-          if (isUsdcLoading || usdcBalance == null) return null;
-
-          const currentUsdc = parseFloat(usdcBalance);
-          const requiredUsdc = parseFloat(
-            formatUnits(totalCost, tokenDecimals)
-          );
-
-          return currentUsdc < requiredUsdc ? (
-            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-              <div className="text-sm font-medium text-foreground">
-                Top up USDC to continue
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Required{" "}
-                <span className="font-mono text-foreground">
-                  {formatNumber(requiredUsdc, 2)} USDC
-                </span>
-                {" • "}
-                Balance{" "}
-                <span className="font-mono text-foreground">
-                  {formatNumber(currentUsdc, 2)} USDC
-                </span>
-              </div>
-            </div>
-          ) : null;
-        })()}
-    </div>
-  );
-
-  // Custom error content for transaction ID display
-  const customErrorContent =
-    isError && txHash && errorMessage?.includes(txHash) ? (
-      <div className="space-y-4">
-        <div className="text-center">
-          <div className="text-sm text-muted-foreground mb-4">
-            {errorMessage.split(txHash)[0]}
-          </div>
-          <div className="bg-muted/50 border border-border rounded-lg p-4 mb-4">
-            <div className="text-xs text-muted-foreground mb-2">
-              Transaction ID
-            </div>
-            <div className="font-mono text-sm break-all select-all">
-              {txHash}
-            </div>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(txHash);
-                toast.success("Transaction ID copied to clipboard");
-              }}
-              className="mt-3 text-xs text-primary hover:text-primary/80 transition-colors"
+            <motion.div
+              className="text-xl font-semibold text-foreground mb-1"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
             >
-              Click to copy
-            </button>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {errorMessage.split(txHash)[1]}
-          </div>
-        </div>
-        <div className="flex gap-3 mt-6">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="flex-1"
-            asChild
-          >
-            <a href="https://discord.gg/glowfnd">Contact Support</a>
-          </Button>
-          <Button
-            onClick={() => {
-              // Reset states to try again
-              setIsError(false);
-              setErrorMessage(null);
-              setTxHash(null);
-              setIsSubmitting(false);
-              setIsProcessing(false);
-              sponsorMutation.reset();
-            }}
-            className="flex-1"
-          >
-            Try Again
-          </Button>
-        </div>
-      </div>
-    ) : null;
-
-  // Custom processing content
-  const processingContent = null;
-
-  // Custom footer with acknowledgement
-  const customFooter =
-    !isSubmitting && !isProcessing ? (
-      <>
-        {/* Prominent Total Cost Row - only for fractions */}
-        {application.activeFraction && (
-          <div className="my-6 p-4 bg-accent/5 border-2 border-accent/20 rounded-xl">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold text-foreground">
-                Total {currency === "USDC" ? "Cost" : "Delegation"}
-              </span>
-              <div className="text-right">
-                <span className="text-xl font-bold text-foreground">
-                  {formatNumber(
-                    parseFloat(
-                      formatUnits(
-                        BigInt(application.activeFraction.stepPrice) *
-                          BigInt(stepsToBuy),
-                        DECIMALS_BY_TOKEN[currency]
-                      )
-                    ),
-                    currency === "USDC" ? 2 : 0
-                  )}
-                </span>
-                <span className="text-base font-semibold text-muted-foreground ml-1">
-                  {currency}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-          {isConnected ? (
-            <Button
-              onClick={handleConfirm}
-              disabled={!canConfirm}
-              isLoading={isCheckingSmartAccount}
-              className="flex-1"
+              {hasError ? "Transaction Failed" : "Processing Transaction"}
+            </motion.div>
+            <motion.div
+              className="text-muted-foreground text-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
             >
-              {application.activeFraction
-                ? currency === "USDC"
-                  ? "Buy Miners"
-                  : "Delegate GLW"
-                : "Confirm Sponsorship"}
-            </Button>
-          ) : (
-            <ConnectButton
-              className="flex-1"
-              size="medium"
-              variant="default"
-              onConnect={() => onOpenChange(false)}
-            />
+              {hasError
+                ? "There was an error processing your transaction."
+                : "Please wait while we process your transaction."}
+            </motion.div>
+          </div>
+
+          {/* Transaction Stepper */}
+          {transactionSteps.length > 0 ? (
+            <motion.div
+              className="bg-muted/20 border border-border/50 rounded-2xl p-4"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15, duration: 0.3 }}
+            >
+              <TransactionStepper steps={transactionSteps} chainId={chainId} />
+            </motion.div>
+          ) : hasError && errorMessage ? (
+            /* Error message only when no steps exist */
+            <motion.div
+              className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <p className="text-sm text-red-500 break-words">{errorMessage}</p>
+            </motion.div>
+          ) : null}
+
+          {/* Error actions */}
+          {hasError && (
+            <motion.div
+              className="mt-5 flex gap-3"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <Button
+                variant="outline"
+                onClick={handleClose}
+                className="flex-1"
+              >
+                Close
+              </Button>
+              <Button
+                onClick={() => {
+                  setPhase("review");
+                  setTransactionSteps([]);
+                  stepsRef.current = [];
+                  setErrorMessage(null);
+                }}
+                className="flex-1"
+              >
+                Try Again
+              </Button>
+            </motion.div>
           )}
         </div>
+      );
+    }
+
+    // Default Review Phase
+    return (
+      <>
+        <div className="p-6 pb-4">
+          <div className="flex items-center justify-between mb-1">
+            <DialogTitle className="text-xl font-semibold">
+              {selectedCurrency === "GLW" ? "Delegate GLW" : "Buy Miners"}
+            </DialogTitle>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {application?.farmName} • {application?.zone?.name}
+          </div>
+        </div>
+
+        <div className="px-6 space-y-6">
+          {/* Quantity Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-foreground/80">
+                Quantity
+              </label>
+              <span className="text-xs text-muted-foreground">
+                {maxQuantity} available
+              </span>
+            </div>
+            <div className="flex items-center gap-3 p-1 rounded-xl bg-muted/50 border border-border/50">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent"
+                onClick={() => handleQuantityChange(-1)}
+                disabled={quantity <= 1}
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+              <div className="flex-1 text-center font-mono text-xl font-medium">
+                {quantity}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent"
+                onClick={() => handleQuantityChange(1)}
+                disabled={quantity >= maxQuantity}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Estimated Rewards - Animated */}
+          <div className="bg-muted/30 rounded-2xl p-4 border border-border/50 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-foreground/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+            <div className="relative flex justify-between items-end">
+              <div>
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                  Est. Weekly Rewards
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <AnimatePresence mode="popLayout">
+                    <motion.span
+                      key={estimatedRewards}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="text-2xl font-bold font-mono text-green-600 dark:text-[#D1FF4D]" // Glow Green-ish
+                    >
+                      {estimatedRewards.toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                      })}
+                    </motion.span>
+                  </AnimatePresence>
+                  <span className="text-sm text-green-600/70 dark:text-[#D1FF4D]/70 font-medium">
+                    GLW
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-muted-foreground/80 mb-1">
+                  Value
+                </div>
+                <div className="text-sm text-foreground/80 font-mono">
+                  ≈ $
+                  {(estimatedRewards * (glwSpotPrice || 0)).toLocaleString(
+                    undefined,
+                    { maximumFractionDigits: 2 }
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Method */}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-foreground/80">
+              {selectedCurrency === "GLW"
+                ? "Delegation Source"
+                : "Select Currency"}
+            </label>
+            <div className="space-y-2">
+              {/* Option: GLW */}
+              {(selectedCurrency === "GLW" || selectedCurrency === "USDC") && (
+                <PaymentOption
+                  value="GLW"
+                  label="Glow (GLW)"
+                  balance={
+                    glwBalance
+                      ? `${parseFloat(
+                          formatUnits(glwBalance, 18)
+                        ).toLocaleString()} GLW`
+                      : "0 GLW"
+                  }
+                  icon={<TokenIcon symbol="GLW" />}
+                  selected={selectedPaymentMethod === "GLW"}
+                  onSelect={() => setSelectedPaymentMethod("GLW")}
+                  disabled={selectedCurrency === "USDC"} // Can't pay miners with GLW
+                  pricePreview={
+                    calculateCostInGLW(quantity).toLocaleString() + " GLW"
+                  }
+                />
+              )}
+              {/* Option: USDC */}
+              <PaymentOption
+                value="USDC"
+                label="USD Coin (USDC)"
+                balance={
+                  usdcBalance
+                    ? `${parseFloat(
+                        formatUnits(usdcBalance, 6)
+                      ).toLocaleString()} USDC`
+                    : "0 USDC"
+                }
+                icon={<TokenIcon symbol="USDC" />}
+                selected={selectedPaymentMethod === "USDC"}
+                onSelect={() => setSelectedPaymentMethod("USDC")}
+                pricePreview={
+                  calculateCostInUSDC(quantity).toLocaleString() + " USDC"
+                }
+              />
+              {/* Option: ETH */}
+              <PaymentOption
+                value="ETH"
+                label="Ethereum (ETH)"
+                balance={
+                  ethBalance
+                    ? `${parseFloat(formatUnits(ethBalance, 18)).toFixed(
+                        4
+                      )} ETH`
+                    : "0 ETH"
+                }
+                icon={<TokenIcon symbol="ETH" />}
+                selected={selectedPaymentMethod === "ETH"}
+                onSelect={() => setSelectedPaymentMethod("ETH")}
+                pricePreview={calculateCostInETH(quantity).toFixed(4) + " ETH"}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 bg-muted/20 border-t border-border mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-lg font-semibold">Total</span>
+            <div className="text-right">
+              <div className="text-xl font-bold font-mono">
+                {selectedPaymentMethod === "GLW" &&
+                  `${calculateCostInGLW(quantity).toLocaleString()} GLW`}
+                {selectedPaymentMethod === "USDC" &&
+                  `$${calculateCostInUSDC(quantity).toLocaleString()}`}
+                {selectedPaymentMethod === "ETH" &&
+                  `${calculateCostInETH(quantity).toFixed(4)} ETH`}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {selectedPaymentMethod !== "USDC"
+                  ? `≈ $${calculateCostInUSDC(quantity).toLocaleString()}`
+                  : "Stable"}
+              </div>
+            </div>
+          </div>
+
+          <div className="relative">
+            {!isConnected ? (
+              <ConnectButton size="medium" variant="default" />
+            ) : (
+              <Button
+                className="w-full h-12 rounded-xl text-base font-medium bg-foreground text-background hover:bg-foreground/90"
+                onClick={handleConfirm}
+                disabled={isSubmitting}
+              >
+                {isSubmitting && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {selectedCurrency === "GLW"
+                  ? selectedPaymentMethod !== "GLW"
+                    ? "Swap & Delegate"
+                    : "Confirm Delegation"
+                  : "Confirm Purchase"}
+              </Button>
+            )}
+          </div>
+
+          <div className="mt-4 text-xs text-center text-muted-foreground/60 px-4 leading-relaxed">
+            By confirming, you agree to the Terms of Service. Rewards are
+            estimated and subject to network conditions.
+          </div>
+        </div>
       </>
-    ) : null;
+    );
+  };
 
   return (
-    <>
-      <SmartAccountWarningDialog
-        open={isSmartAccountWarningOpen}
-        onOpenChange={setIsSmartAccountWarningOpen}
-      />
-      <BuyGlowDialog
-        open={isBuyGlowDialogOpen}
-        onOpenChange={setIsBuyGlowDialogOpen}
-        usdcBalance={usdcBalanceBigInt}
-        glowSpotPrice={glwSpotPrice || 0}
-        initialUsdcAmount={buyGlowInitialUsdcAmount ?? undefined}
-        onSuccess={async () => {
-          await Promise.all([refetchGlwBalance(), refetchUsdcBalance()]);
-        }}
-      />
-      <TransactionDialog
-        open={open}
-        onOpenChange={onOpenChange}
-        isSubmitting={isSubmitting || isProcessing}
-        isSuccess={isSuccess}
-        isError={isError}
-        title={
-          application.activeFraction
-            ? currency === "USDC"
-              ? "Buy Miners"
-              : "Delegate GLW"
-            : "Confirm Sponsorship"
-        }
-        successTitle={
-          application.activeFraction
-            ? currency === "USDC"
-              ? "Purchase Complete!"
-              : "Delegation Complete!"
-            : "Farm Sponsored!"
-        }
-        errorTitle={
-          application.activeFraction
-            ? currency === "USDC"
-              ? "Purchase Failed"
-              : "Delegation Failed"
-            : "Sponsorship Failed"
-        }
-        processingTitle={
-          isProcessing
-            ? "Confirming Transaction"
-            : application.activeFraction
-            ? currency === "USDC"
-              ? "Processing Miners Purchase"
-              : "Processing Delegation"
-            : "Processing Sponsorship"
-        }
-        description={
-          application.activeFraction
-            ? currency === "USDC"
-              ? "Review your purchase details"
-              : "Review your delegation details"
-            : "Review your sponsorship details"
-        }
-        processingDescription={
-          isProcessing
-            ? "Confirming transaction and updating records..."
-            : application.activeFraction
-            ? currency === "USDC"
-              ? "Please wait while we process your purchase"
-              : "Please wait while we process your delegation"
-            : "Please wait while we process your sponsorship"
-        }
-        errorDescription={
-          errorMessage ||
-          (application.activeFraction
-            ? currency === "USDC"
-              ? "Failed to purchase miners"
-              : "Failed to delegate"
-            : "Failed to sponsor the farm")
-        }
-        transactionDetails={transactionDetails}
-        successDetails={successDetails}
-        txHash={txHash}
-        isNetworkFeeLoading={isNetworkCostLoading}
-        reviewContent={isProcessing ? processingContent : reviewContent}
-        successContent={customSuccessContent}
-        errorContent={customErrorContent}
-        footer={customFooter}
-        successFooter={
-          application.activeFraction && currency === "GLW" ? (
-            <Button variant="outline" className="flex-1" asChild>
-              <Link href="/wallet">See Power Wallet</Link>
-            </Button>
-          ) : null
-        }
-        showProcessingProgress={isProcessing}
-        processingMaxSeconds={90}
-        confirmDisabled={!canConfirm}
-      />
-    </>
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent
+        className="md:max-w-md p-0 gap-0 bg-background border-border text-foreground overflow-hidden shadow-2xl sm:rounded-3xl"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        {renderContent()}
+
+        <SmartAccountWarningDialog
+          open={isSmartAccountWarningOpen}
+          onOpenChange={setIsSmartAccountWarningOpen}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PaymentOption({
+  value,
+  label,
+  balance,
+  icon,
+  selected,
+  onSelect,
+  disabled,
+  pricePreview,
+}: {
+  value: string;
+  label: string;
+  balance: string;
+  icon: React.ReactNode;
+  selected: boolean;
+  onSelect: () => void;
+  disabled?: boolean;
+  pricePreview: string;
+}) {
+  if (disabled) return null;
+  return (
+    <div
+      onClick={onSelect}
+      className={cn(
+        "flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all duration-200",
+        selected
+          ? "bg-foreground/5 border-foreground/10 shadow-sm"
+          : "bg-transparent border-border hover:bg-foreground/5 hover:border-foreground/5"
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center border border-border">
+          {icon}
+        </div>
+        <div>
+          <div className="text-sm font-medium text-foreground">{label}</div>
+          <div className="text-xs text-muted-foreground">
+            Balance: {balance}
+          </div>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="text-sm font-medium text-foreground">
+          {pricePreview}
+        </div>
+        {selected && (
+          <div className="h-2 w-2 rounded-full bg-primary ml-auto mt-1" />
+        )}
+      </div>
+    </div>
   );
 }

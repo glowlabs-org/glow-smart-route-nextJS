@@ -1,5 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: {
+    // Next's ESLint rules have been crashing on route handlers in CI/Vercel.
+    // Keep `pnpm lint` for local usage; don't fail production builds on linter runtime errors.
+    ignoreDuringBuilds: true,
+  },
+  async redirects() {
+    return [
+      {
+        source: "/glow-swap/:path*",
+        destination: "/",
+        permanent: true,
+      },
+    ];
+  },
   images: {
     // Broaden support and tune optimization behavior
     formats: ["image/avif", "image/webp"],
@@ -40,6 +54,13 @@ const nextConfig = {
     ],
   },
   webpack: (config, { isServer }) => {
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      // Optional deps pulled in by some wallet SDKs; not needed in our bundles.
+      encoding: false,
+      "pino-pretty": false,
+    };
+
     // Handle web workers properly
     if (!isServer) {
       config.resolve.fallback = {

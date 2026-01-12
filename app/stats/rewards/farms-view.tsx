@@ -59,9 +59,9 @@ import {
   useFarmWeeklyRewards,
   useFarmWeeklyRewardsBatch,
   formatRewardValue,
-} from "@/hooks/useFarmsRewards";
+} from "@/hooks";
 import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
-import { useRegions } from "@/hooks/useRegions";
+import { useRegions } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useGlowPrices } from "@/hooks/useGlowPrices";
 import { calculateFarmEfficiency } from "@glowlabs-org/utils/browser";
@@ -524,7 +524,8 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
           .toNumber();
 
         paymentCurrency = mostRecentWeekReward.paymentCurrency;
-        const decimals = paymentCurrency === "GLW" ? 1e18 : 1e6;
+        const currency = paymentCurrency ?? "USDC";
+        const decimals = currency === "GLW" ? 1e18 : 1e6;
         weeklyProtocolDepositRewards = new Decimal(
           mostRecentWeekReward.protocolDepositRewardsDistributed
         )
@@ -533,7 +534,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
 
         const glwRewardsUsd = weeklyGlwRewards * (glwSpotPrice || 0);
         const pdCurrencyPrice = getCurrencyPrice(
-          paymentCurrency,
+          currency,
           glwSpotPrice,
           gctlMintPrice
         );
@@ -776,7 +777,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                 <Card>
                   <CardContent>
                     <p className="text-xs text-muted-foreground mb-1.5">
-                      Total GLW Inflation
+                      Total GLW Emissions
                     </p>
                     <p className="font-mono font-semibold text-sm">
                       {formatRewardValue(
@@ -841,7 +842,7 @@ export function FarmsView({ selectedFarmId, onSelectFarm }: FarmsViewProps) {
                         <th className="text-left p-3 font-medium">Week</th>
                         <th className="text-left p-3 font-medium">Currency</th>
                         <th className="text-right p-3 font-medium">
-                          GLW Inflation
+                          GLW Emissions
                         </th>
                         <th className="text-right p-3 font-medium">
                           PD Rewards Distributed

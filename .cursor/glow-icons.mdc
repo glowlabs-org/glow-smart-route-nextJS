@@ -1,0 +1,153 @@
+---
+alwaysApply: true
+---
+
+# Glow Icon System
+
+Custom SVG icons for Glow-specific concepts that go beyond standard icon libraries. These icons are located in `public/images/icons/` and should be used to maintain visual consistency across the platform.
+
+## Impact Score Icons
+
+Icons designed specifically for the Glow Impact Score system, representing the core mechanics of earning and multiplying points.
+
+### Multiplier Icons
+
+**cash-miner.svg**
+
+- **Usage**: Cash Miner Bonus (3× multiplier)
+- **Semantic meaning**: Hardware investment, miner purchases, 3× weekly rollover multiplier
+- **Where to use**:
+  - Impact Score breakdown multiplier section
+  - Impact indicators (multiplier variant)
+  - Miner cards, badges, and type indicators
+  - Mining center references
+  - "Buy Miner" CTAs
+- **Replaces**: `Cpu` icon from lucide-react
+
+**impact-streak.svg**
+
+- **Usage**: Impact Streak Bonus (progressive multiplier up to +1.0×)
+- **Semantic meaning**: Consecutive weekly delegation increases, streak progression
+- **Where to use**:
+  - Impact Score breakdown streak section
+  - Impact indicators (multiplier variant)
+  - Streak status displays
+  - Weekly activity widgets showing streaks
+- **Replaces**: `GlowSymbol` icon when used for streak context
+
+### Point Source Icons
+
+**steering.svg**
+
+- **Usage**: Steering Power via staked GCTL (sGCTL)
+- **Semantic meaning**: Impact direction, carbon credit steering, GCTL staking
+- **Where to use**:
+  - Impact Score breakdown (3.0× points per GLW steered)
+  - Impact indicators (source variant)
+  - sGCTL staking references
+  - Steering power displays
+  - "Stake GCTL" CTAs
+- **Replaces**: `Zap` icon from lucide-react for GCTL/steering context
+
+**emissions.svg**
+
+- **Usage**: Emissions Earned
+- **Semantic meaning**: GLW tokens earned through emission rewards (miners, delegations, farms)
+- **Where to use**:
+  - Impact Score breakdown (1.0× points per GLW earned)
+  - Impact indicators (source variant)
+  - Emissions/inflation rewards displays
+- **Replaces**: `Coins` icon from lucide-react for emissions context
+
+**vault.svg**
+
+- **Usage**: Vault Bonus (delegated GLW)
+- **Semantic meaning**: Protocol deposits, delegation, vault ownership, deposit recovery
+- **Where to use**:
+  - Impact Score breakdown (0.005× points per GLW delegated per week)
+  - Impact indicators (source variant)
+  - Delegation cards, badges, and type indicators
+  - Delegation CTAs
+  - Vault bonus displays
+  - DelegatedActiveGLW references
+- **Replaces**: `Layers` icon from lucide-react and `GlowSymbol` when used for delegation/vault context
+
+**glw-worth.svg**
+
+- **Usage**: GLW Worth (continuous passive accumulation)
+- **Semantic meaning**: Total GLW holdings, long-term accumulation, net worth
+- **Where to use**:
+  - Impact Score breakdown (0.001× points per GLW per week)
+  - Impact indicators (source variant)
+  - GLW Worth displays and breakdowns
+  - "Buy GLW" CTAs
+- **Replaces**: `Wallet` icon from lucide-react for GLW worth context
+
+## Implementation Guidelines
+
+### Importing Custom Icons
+
+```tsx
+import Image from "next/image";
+
+// Inline usage
+<Image
+  src="/images/icons/cash-miner.svg"
+  alt="Cash Miner"
+  width={16}
+  height={16}
+  className="w-4 h-4"
+/>;
+```
+
+### Reusable Icon Component Pattern
+
+For consistency, prefer creating a small wrapper:
+
+```tsx
+function ImpactIcon({
+  type,
+  className,
+}: {
+  type:
+    | "cash-miner"
+    | "impact-streak"
+    | "steering"
+    | "emissions"
+    | "vault"
+    | "glw-worth";
+  className?: string;
+}) {
+  return (
+    <Image
+      src={`/images/icons/${type}.svg`}
+      alt={type}
+      width={16}
+      height={16}
+      className={className}
+    />
+  );
+}
+```
+
+## Icon Replacement Checklist
+
+- [ ] `components/impact-score/impact-indicators.tsx` - Replace all impact indicator icons
+- [ ] `components/dialogs/impact-score-breakdown-dialog.tsx` - Replace breakdown icons
+- [ ] `components/dialogs/glow-worth-breakdown-dialog.tsx` - Replace worth breakdown icons
+- [ ] `app/test/widgets/*` - Replace farm type indicators (Cpu → cash-miner, Layers/GlowSymbol → vault)
+- [ ] `app/stats/rewards/impact-view.tsx` - Replace impact leaderboard icons
+- [ ] All "Buy Miner" buttons and miner cards
+- [ ] All delegation cards and vault displays
+- [ ] All GCTL/steering references
+
+## Color Coordination
+
+These icons should respect the semantic color palette:
+
+- **cash-miner**: Use `text-miner-yellow` or `var(--color-miner-yellow)`
+- **vault**: Use `text-delegation-purple` or `var(--color-delegation-purple)`
+- **steering**: Use `text-[#22D3EE]` (GCTL cyan)
+- **emissions**: Use `text-miner-yellow` (emission rewards color)
+- **glw-worth**: Use `text-[#4ADE80]` (GLW green)
+- **impact-streak**: Use `text-delegation-purple` in dark mode, `text-delegation-purple` in light mode

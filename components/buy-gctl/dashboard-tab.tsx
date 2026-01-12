@@ -16,8 +16,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { formatUnits } from "viem";
-import { useGctlApi } from "@/hooks/useGctlApi";
-import { useKickstarters } from "@/hooks/useKickstarters";
+import { useGctlApi, useKickstarters } from "@/hooks";
 import {
   DECIMALS_BY_TOKEN,
   MintedEvent,
@@ -159,7 +158,7 @@ export function DashboardTab({
   };
 
   return (
-    <div className="bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full">
+    <div className="bg-background backdrop-blur-xl rounded-2xl border border-border overflow-hidden w-full">
       <div className="p-6">
         <div className="flex items-center justify-between">
           <div className="flex-1">

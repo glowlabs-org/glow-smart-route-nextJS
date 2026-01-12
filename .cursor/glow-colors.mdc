@@ -1,0 +1,88 @@
+# Glow Color System
+
+This document defines the Glow brand color system and semantic colors used throughout the application.
+
+## Brand Colors
+
+### Core Palette
+
+- **Glow Black**: `#050505` - Primary text and dark elements
+- **Glow White**: `#ffffff` - Primary background and light elements
+- **Glow Light Grey**: `#fafafa` - Subtle backgrounds
+- **Glow Medium Grey**: `#f3f3f3` - Borders and dividers
+
+### Accent Colors
+
+- **Glow Orange**: `#ffb472` - Accent color for CTAs and highlights
+- **Glow Yellow**: `#f7fcc4` - Gradient component
+- **Glow Green**: `#ccffd4` - Gradient component, success states
+- **Glow Purple**: `#dcc4ff` / `#d792ff` - Gradient component, delegation
+
+## Semantic Colors
+
+### Protocol Role Colors
+
+#### Miner Color
+
+- **Miner Blue**: `#2081e2` (OpenSea Sea Blue)
+  - CSS Variable: `--color-miner`
+  - Contrast Variant: `--color-miner-contrast` (same as base for now)
+  - Used for: Miner badges, miner-related UI elements, mining center indicators
+  - Usage: Backgrounds (with opacity), borders, text, icons
+
+#### Delegation Color
+
+- **Delegation Purple**: `#a855f7` (light mode) / `#d792ff` (dark mode)
+  - CSS Variable: `--delegation-purple`
+  - Used for: Delegation badges, delegation-related UI elements
+
+## Migration Notes
+
+### Miner Color Update (Jan 2026)
+
+The miner color was changed from yellow (`#d9f368`) to a modern blue (`#2081e2`, inspired by OpenSea's Sea Blue) to better distinguish miners from other protocol elements and improve visual hierarchy. This vibrant blue provides a contemporary look while maintaining excellent contrast. All references should use the CSS variable `--color-miner` or `--color-miner-contrast` for easy future updates.
+
+## Usage Guidelines
+
+### Using Color Variables
+
+Always reference colors through CSS variables rather than hard-coding hex values:
+
+```css
+/* Good */
+.miner-badge {
+  color: var(--color-miner-contrast);
+  background-color: color-mix(in srgb, var(--color-miner) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-miner) 30%, transparent);
+}
+
+/* Bad */
+.miner-badge {
+  color: #1c4fc9;
+  background-color: rgba(28, 79, 201, 0.1);
+}
+```
+
+### Tailwind Usage
+
+Use the CSS variable classes:
+
+```tsx
+// Good
+<div className="text-[color:var(--color-miner-contrast)]" />
+<div className="bg-[color:var(--color-miner)]/10" />
+<div className="border-[color:var(--color-miner)]/30" />
+
+// Avoid
+<div className="text-miner-yellow" /> // Old class, deprecated
+```
+
+## Color Contrast Requirements
+
+All text colors must meet WCAG AA standards:
+
+- Normal text: minimum 4.5:1 contrast ratio
+- Large text: minimum 3:1 contrast ratio
+- Interactive elements: minimum 3:1 contrast ratio
+
+The miner blue (`#2081e2`, OpenSea Sea Blue) provides excellent contrast on white backgrounds and works well with opacity adjustments for borders and backgrounds. This vibrant shade creates a modern, professional appearance while maintaining WCAG AA accessibility standards.

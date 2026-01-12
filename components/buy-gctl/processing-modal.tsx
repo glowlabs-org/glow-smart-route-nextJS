@@ -10,7 +10,9 @@ import {
 } from "@/components/ui/dialog";
 import { Copy, ExternalLink, XCircle } from "lucide-react";
 import { toast } from "sonner";
-import { useGctlApi } from "@/hooks/useGctlApi";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAccount } from "wagmi";
+import { useGctlApi } from "@/hooks";
 import { SuccessState } from "@/components/buy-gctl/success-state";
 import { useQueryState } from "nuqs";
 import { GlowSymbolAnimated } from "../glow-symbol-animated";
@@ -21,6 +23,8 @@ interface ProcessingModalProps {
   isOpen: boolean;
   trackingTxHash: string | null;
   onClose: () => void;
+  onConfirmed?: (transfer: PendingTransfer) => void;
+  onFailed?: (transfer: PendingTransfer) => void;
 }
 
 const POLL_INTERVAL = 10_000;
@@ -30,7 +34,12 @@ export function ProcessingModal({
   isOpen,
   trackingTxHash,
   onClose,
+  onConfirmed,
+  onFailed,
 }: ProcessingModalProps) {
+  const queryClient = useQueryClient();
+  const { address } = useAccount();
+  
   const copyTxHash = () => {
     if (trackingTxHash) {
       navigator.clipboard.writeText(trackingTxHash);
@@ -51,6 +60,7 @@ export function ProcessingModal({
   );
   const [processedAmount, setProcessedAmount] = useState<string>("0");
   const failureInfoRef = useRef<PendingTransfer | null>(null);
+  const didNotifyFinalStateRef = useRef(false);
 
   const [txIdParam, setTxIdParam] = useQueryState("txId", {
     defaultValue: "",
@@ -81,6 +91,11 @@ export function ProcessingModal({
       return data.status === "confirmed" || data.status === "failed";
     },
     onSuccess: (data) => {
+      if (!didNotifyFinalStateRef.current) {
+        if (data.status === "confirmed") onConfirmed?.(data);
+        if (data.status === "failed") onFailed?.(data);
+        didNotifyFinalStateRef.current = true;
+      }
       if (data.status === "confirmed") {
         setStatus("success");
         setProcessedAmount(
@@ -103,6 +118,7 @@ export function ProcessingModal({
       setStatus("processing");
       setProcessedAmount("0");
       failureInfoRef.current = null;
+      didNotifyFinalStateRef.current = false;
       resetPolling();
       startPolling();
     } else if (!isOpen) {
@@ -126,15 +142,39 @@ export function ProcessingModal({
   // ---------------------- Render shortcuts ------------------
 
   if (status === "success") {
+    const handleSuccessClose = () => {
+      if (address) {
+        void (async () => {
+          try {
+            await Promise.all([
+              queryClient.invalidateQueries({
+                queryKey: ["impact-glow-score", address],
+              }),
+              queryClient.invalidateQueries({
+                queryKey: ["impact-leaderboard"],
+              }),
+              queryClient.invalidateQueries({
+                queryKey: ["impact-score-breakdown"],
+              }),
+              queryClient.invalidateQueries({
+                queryKey: ["impact-glow-worth"],
+              }),
+            ]);
+          } catch {}
+        })();
+      }
+      onClose();
+    };
+
     return (
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="bg-card/90 backdrop-blur-sm rounded-3xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden">
+      <Dialog open={isOpen} onOpenChange={(open) => !open && handleSuccessClose()}>
+        <DialogContent className="bg-card/90 backdrop-blur-sm rounded-2xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden">
           {/* Visually hidden title for accessibility */}
           <DialogHeader>
             <DialogTitle className="sr-only">Transaction Success</DialogTitle>
           </DialogHeader>
           <SuccessState
-            handleClose={onClose}
+            handleClose={handleSuccessClose}
             processedAmount={processedAmount}
             trackingTxHash={trackingTxHash ?? undefined}
             gctlPrice={gctlPriceNumber}
@@ -148,7 +188,7 @@ export function ProcessingModal({
     const failureInfo = failureInfoRef.current;
     return (
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="bg-card/90 backdrop-blur-sm rounded-3xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden">
+        <DialogContent className="bg-card/90 backdrop-blur-sm rounded-2xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden">
           {/* Visually hidden title for accessibility */}
           <DialogHeader>
             <DialogTitle className="sr-only">Transaction Failed</DialogTitle>
@@ -210,7 +250,7 @@ export function ProcessingModal({
         }
       }}
     >
-      <DialogContent className="bg-card rounded-3xl p-0 md:max-w-md w-full border-border shadow-2xl overflow-hidden">
+      <DialogContent className="bg-card rounded-2xl p-0 md:max-w-md w-full border-border shadow-2xl overflow-hidden">
         {/* Visually hidden title for accessibility */}
         <DialogHeader>
           <DialogTitle className="sr-only">Processing Purchase</DialogTitle>

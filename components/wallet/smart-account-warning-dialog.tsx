@@ -133,7 +133,7 @@ export function SmartAccountWarningDialog({
   function getDialogContent() {
     if (smartAccountStatus?.isEip7702Delegated) {
       return {
-        title: "Imcompatible wallet detected",
+        title: "Incompatible wallet detected",
         description:
           "Delegated (smart) accounts cannot interact with Glow contracts.",
         why: [
@@ -194,7 +194,7 @@ export function SmartAccountWarningDialog({
           "Reconnect to Glow.",
         ],
         directivesGeneric: [
-          "Disconnect your Safe/contract wallet.",
+          "Disconnect your Safe/contract wallet detected.",
           "Connect with a personal EOA (regular wallet address).",
           "Reconnect to Glow.",
           "Return here and press “Recheck now”.",
@@ -271,161 +271,151 @@ export function SmartAccountWarningDialog({
 
   const showMetaMaskPath = walletBrand.isMetaMask;
 
-  const issues = [
-    smartAccountStatus?.isEip7702Delegated && "EIP-7702 delegation active",
-    smartAccountStatus?.hasWalletAABatching && "AA / batching enabled",
-    smartAccountStatus?.isContractWallet && "Contract wallet in use",
-  ].filter(Boolean) as string[];
-
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[540px] md:max-w-[600px] lg:max-w-[680px] max-h-[85vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0">
-        <DialogHeader className="space-y-3 pb-4 px-4 sm:px-6 pt-6 border-b">
-          <div className="flex items-start gap-3">
-            <div className="min-w-0 flex-1">
-              <DialogTitle className="text-accent text-left text-base sm:text-lg md:text-xl font-semibold leading-tight mb-2">
-                {content.title}
-              </DialogTitle>
-              <DialogDescription className="text-xs sm:text-sm md:text-base text-left text-muted-foreground">
-                {content.description}
-              </DialogDescription>
+      <DialogContent className="sm:max-w-[540px] md:max-w-[600px] lg:max-w-[680px] max-h-[85vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 border-0 shadow-2xl">
+        {/* Header with Warning Accent */}
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-6">
+          <DialogHeader className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-500" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold text-amber-900 dark:text-amber-100">
+                  {content.title}
+                </DialogTitle>
+                <DialogDescription className="text-amber-800/80 dark:text-amber-200/80 mt-1">
+                  {content.description}
+                </DialogDescription>
+              </div>
             </div>
-          </div>
-        </DialogHeader>
+          </DialogHeader>
+        </div>
 
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 md:space-y-5">
-          {/* Action blocks */}
-          <div className="space-y-4">
-            {/* MetaMask path (smart account on MetaMask) */}
-            {showMetaMaskPath && (
-              <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
-                <div className="p-4 space-y-4">
-                  <div className="bg-accent/5 rounded-lg p-4 border border-accent/20">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
+        <div className="flex-1 overflow-y-auto bg-background">
+          <div className="px-6 py-6 space-y-8">
+            {/* Why Section */}
+            {content.why && content.why.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-muted-foreground" />
+                  Why is this happening?
+                </h4>
+                <ul className="grid gap-2">
+                  {content.why.map((reason, i) => (
+                    <li
+                      key={i}
+                      className="text-sm text-muted-foreground flex gap-2.5 items-start bg-muted/30 p-3 rounded-md"
+                    >
+                      <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
+                      <span className="leading-relaxed">{reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Resolution Section */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 text-muted-foreground" />
+                Resolution Steps
+              </h4>
+
+              {showMetaMaskPath ? (
+                <div className="rounded-xl border border-border bg-card overflow-hidden">
+                  <div className="p-5 space-y-4">
+                    <div className="flex items-start gap-4">
                       <div className="flex-1">
-                        <h4 className="text-sm font-semibold text-foreground mb-2">
-                          How to Disable Smart Account in MetaMask
+                        <h4 className="text-base font-medium text-foreground mb-4">
+                          Disable Smart Account in MetaMask
                         </h4>
-                        <p className="text-xs text-muted-foreground mb-3">
-                          Follow these steps to revert to a standard account:
-                        </p>
-                        <ol className="text-xs sm:text-sm text-muted-foreground list-decimal ml-5 space-y-2.5">
-                          {content.directivesMetaMask.map((s, i) => (
-                            <li key={i} className="leading-relaxed pl-1">
-                              {s}
+                        <ol className="space-y-4">
+                          {content.directivesMetaMask.map((step, i) => (
+                            <li
+                              key={i}
+                              className="flex gap-3 text-sm text-muted-foreground"
+                            >
+                              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-foreground">
+                                {i + 1}
+                              </span>
+                              <span className="pt-0.5 leading-relaxed">
+                                {step}
+                              </span>
                             </li>
                           ))}
                         </ol>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="w-full sm:flex-1"
-                      onClick={() =>
-                        window.open(
-                          metamaskDocsUrl,
-                          "_blank",
-                          "noopener,noreferrer"
-                        )
-                      }
-                    >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Open MetaMask Guide
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full sm:flex-1"
-                      onClick={recheckNow}
-                      disabled={isRechecking}
-                    >
-                      <RefreshCw
-                        className={cn(
-                          "w-4 h-4 mr-2",
-                          isRechecking && "animate-spin"
-                        )}
-                      />
-                      {isRechecking ? "Checking..." : "Recheck Now"}
-                    </Button>
+                    <div className="pt-4 flex flex-col sm:flex-row gap-3">
+                      <Button
+                        variant="outline"
+                        size="default"
+                        className="flex-1"
+                        onClick={() =>
+                          window.open(
+                            metamaskDocsUrl,
+                            "_blank",
+                            "noopener,noreferrer"
+                          )
+                        }
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Open MetaMask Guide
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Generic path (other wallets / connectors) */}
-            {!showMetaMaskPath && (
-              <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
-                <div className="bg-muted/40 px-4 py-3 border-b">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="w-4 h-4 text-primary flex-shrink-0" />
-                    <h3 className="text-sm font-semibold text-foreground">
-                      Resolution Steps
-                    </h3>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <ol className="text-xs sm:text-sm text-muted-foreground list-decimal ml-5 space-y-2.5">
-                    {content.directivesGeneric.map((s, i) => (
-                      <li key={i} className="leading-relaxed pl-1">
-                        {s}
+              ) : (
+                <div className="rounded-xl border border-border bg-card p-5">
+                  <ol className="space-y-4">
+                    {content.directivesGeneric.map((step, i) => (
+                      <li
+                        key={i}
+                        className="flex gap-3 text-sm text-muted-foreground"
+                      >
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-foreground">
+                          {i + 1}
+                        </span>
+                        <span className="pt-0.5 leading-relaxed">{step}</span>
                       </li>
                     ))}
                   </ol>
-                  <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="w-full sm:flex-1"
-                      onClick={recheckNow}
-                      disabled={isRechecking}
-                    >
-                      <RefreshCw
-                        className={cn(
-                          "w-4 h-4 mr-2",
-                          isRechecking && "animate-spin"
-                        )}
-                      />
-                      {isRechecking ? "Checking..." : "Recheck Now"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full sm:flex-1"
-                      onClick={() => {
-                        // If you have a wallet modal, trigger it here instead:
-                        // openConnectModal?.()
-                        toast.info("Tip", {
-                          description:
-                            "If you're using a contract/AA wallet, switch to a regular personal account (EOA).",
-                        });
-                      }}
-                    >
-                      <Wallet className="w-4 h-4 mr-2" />
-                      Switch Wallet
-                    </Button>
-                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
-        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 px-4 sm:px-6 py-4 border-t bg-muted/20">
+        <DialogFooter className="p-6 pt-4 border-t bg-muted/10 gap-3 sm:gap-0">
           <Button
             variant="ghost"
-            size="sm"
             onClick={() => handleClose(false)}
-            type="button"
             disabled={isRechecking}
-            className="w-full sm:w-auto"
+            className="sm:mr-auto text-muted-foreground hover:text-foreground"
           >
-            Dismiss
+            I'll do this later
+          </Button>
+
+          <Button
+            variant="default"
+            onClick={recheckNow}
+            disabled={isRechecking}
+            className="min-w-[140px] bg-glow-orange hover:bg-glow-orange/90 text-white"
+          >
+            {isRechecking ? (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                Verifying...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Recheck Wallet
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

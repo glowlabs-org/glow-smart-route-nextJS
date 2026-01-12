@@ -8,12 +8,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { type AuctionApplication } from "@/hooks/useMiningCenter";
+import { type AuctionApplication } from "@/hooks";
 import { formatUnits } from "viem";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { formatNumber } from "./utils";
-import { useActiveRegionsSummary } from "@/hooks/useActiveRegionsSummary";
-import { useRegions } from "@/hooks/useRegions";
+import { useActiveRegionsSummary, useRegions } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -121,9 +120,10 @@ export function MiningStatsDialog({
     () => [
       {
         id: "cost",
-        label: "Cost per Miner",
+        label: "Cost",
         value: costPerMiner > 0 ? `$${formatNumber(costPerMiner, 0)}` : "N/A",
         tooltip: "Upfront USDC payment for this miner.",
+        secondary: "per miner",
       },
       {
         id: "weekly-glw",
@@ -135,9 +135,10 @@ export function MiningStatsDialog({
       },
       {
         id: "duration",
-        label: "Weeks Remaining",
+        label: "Duration",
         value: formatNumber(weeksRemaining, 0),
-        tooltip: "Weeks remaining in the farm's GLW emission schedule.",
+        tooltip: "Remaining weeks in the farm's GLW emission schedule.",
+        secondary: "weeks",
       },
       {
         id: "apr",
@@ -180,7 +181,7 @@ export function MiningStatsDialog({
       },
       {
         id: "farms-on-deck",
-        label: "Farms Under Construction",
+        label: "Farms Pipeline",
         value:
           regionDetails?.solarFarmApplications != null
             ? formatNumber(farmsOnDeck, 0)

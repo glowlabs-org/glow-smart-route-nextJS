@@ -3,6 +3,7 @@
 import React from "react";
 import { useAccount, useChainId } from "wagmi";
 import { toast } from "sonner";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Card,
   CardContent,
@@ -33,7 +34,7 @@ import {
   useClaimableRewards,
   type ClaimableReward,
   type WeeklyClaimableRewards,
-} from "@/hooks/useClaimableRewards";
+} from "@/hooks";
 import {
   useRewardsKernelWrapper,
   type ClaimProgressUpdate,
@@ -101,7 +102,7 @@ const CLAIM_STAGE_META: Record<
   { label: string; icon: React.ReactNode }
 > = {
   inflation: {
-    label: "Inflation Rewards",
+    label: "Emission Rewards",
     icon: <Sparkles className="w-4 h-4" />,
   },
   protocolDeposits: {
@@ -237,32 +238,22 @@ function WeekClaimButton({
     });
   }, [claimType, isConnected, nonce, onInitiateClaim, userProof, weekData]);
 
-  const weekSeconds = React.useMemo(() => 7 * 86400, []);
   const hasProtocolDeposits = React.useMemo(
     () => weekData.rewards.some((reward) => reward.type === "protocolDeposit"),
     [weekData.rewards]
   );
 
   const weeksToWait = hasProtocolDeposits ? 4 : 3;
-  const targetTimestampMs = React.useMemo(
-    () =>
-      (GENESIS_TIMESTAMP + (weekData.week + weeksToWait) * weekSeconds) * 1000,
-    [weekData.week, weekSeconds, weeksToWait]
-  );
+  const targetTimestampMs = React.useMemo(() => {
+    const weekSeconds = 7 * 86_400;
+    return (
+      (GENESIS_TIMESTAMP + (weekData.week + weeksToWait) * weekSeconds) * 1000
+    );
+  }, [weekData.week, weeksToWait]);
 
-  const [nowMs, setNowMs] = React.useState<number>(() => Date.now());
-
-  React.useEffect(() => {
-    if (weekData.isFinalized) return;
-
-    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [weekData.isFinalized]);
-
-  const remainingMs = React.useMemo(
-    () => Math.max(0, targetTimestampMs - nowMs),
-    [nowMs, targetTimestampMs]
-  );
+  // Avoid any ticking state here (it causes visible “flicker” across many rows).
+  // This will update whenever the component re-renders for other reasons.
+  const remainingMs = Math.max(0, targetTimestampMs - Date.now());
 
   const showCountdown = remainingMs < 24 * 3600 * 1000;
 
@@ -275,8 +266,7 @@ function WeekClaimButton({
     const totalSeconds = Math.floor(remainingMs / 1000);
     const totalHours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = Math.floor(totalSeconds % 60);
-    return `${totalHours}h ${minutes}m ${seconds}s`;
+    return `${totalHours}h ${minutes}m`;
   }, [remainingMs, showCountdown]);
 
   const isDisabled =
@@ -345,7 +335,7 @@ function WeekClaimButton({
 
     return (
       <>
-        Claim Inflation
+        Claim Emissions
         <ChevronRight className="w-4 h-4 ml-2" />
       </>
     );
@@ -408,7 +398,7 @@ function ClaimButtonsWrapper({
   protocolClaimed,
   weekData,
 }: ClaimButtonsWrapperProps) {
-  const [isChecking, setIsChecking] = React.useState(true);
+  const [isChecking, setIsChecking] = React.useState(false);
   const isClaimingThisWeek = isClaimingWeek === weekData.week;
 
   const currentEpoch = getCurrentEpoch();
@@ -427,45 +417,21 @@ function ClaimButtonsWrapper({
     let cancelled = false;
 
     const run = async () => {
-      if (!address) {
-        onClaimStatusChange(weekData.week, {
-          glwClaimed: false,
-          protocolClaimed: false,
-        });
-        if (!cancelled) {
-          setIsChecking(false);
-        }
-        return;
-      }
+      if (!address) return;
 
       const shouldCheckGlw = hasGlwRewards && isGlwFinalized;
       const shouldCheckProtocol = hasProtocolDeposits && isPdFinalized;
 
       if (!shouldCheckGlw && !shouldCheckProtocol) {
-        onClaimStatusChange(weekData.week, {
-          glwClaimed: !hasGlwRewards,
-          protocolClaimed: !hasProtocolDeposits,
-        });
-        if (!cancelled) {
-          setIsChecking(false);
-        }
         return;
       }
 
-      const needsCheck =
+      // Only show a spinner if the UI currently believes something is unclaimed
+      // (we still check in the background to confirm claim status).
+      const shouldShowChecking =
         (shouldCheckGlw && !glwClaimed) ||
         (shouldCheckProtocol && !protocolClaimed);
-
-      if (!needsCheck) {
-        if (!cancelled) {
-          setIsChecking(false);
-        }
-        return;
-      }
-
-      if (!cancelled) {
-        setIsChecking(true);
-      }
+      if (shouldShowChecking && !cancelled) setIsChecking(true);
 
       try {
         const [glwStatus, protocolStatus] = await Promise.all([
@@ -480,7 +446,10 @@ function ClaimButtonsWrapper({
             : Promise.resolve(!hasProtocolDeposits),
         ]);
 
-        if (!cancelled) {
+        if (cancelled) return;
+
+        // Only update parent if status actually changed.
+        if (glwStatus !== glwClaimed || protocolStatus !== protocolClaimed) {
           onClaimStatusChange(weekData.week, {
             glwClaimed: glwStatus,
             protocolClaimed: protocolStatus,
@@ -491,9 +460,7 @@ function ClaimButtonsWrapper({
           console.error("Error checking claim status:", error);
         }
       } finally {
-        if (!cancelled) {
-          setIsChecking(false);
-        }
+        if (!cancelled) setIsChecking(false);
       }
     };
 
@@ -507,13 +474,11 @@ function ClaimButtonsWrapper({
     claimDialogStatus,
     checkIfClaimed,
     checkIfGlwClaimed,
-    glwClaimed,
     hasGlwRewards,
     hasProtocolDeposits,
     isGlwFinalized,
     isPdFinalized,
     onClaimStatusChange,
-    protocolClaimed,
     weekData.week,
   ]);
 
@@ -659,7 +624,7 @@ function WeekRewardsContent({
         if (txHash) {
           toast.success(
             `Successfully claimed ${
-              isInflation ? "Inflation" : "Protocol Deposit"
+              isInflation ? "emission" : "protocol deposit"
             } rewards for week ${weekData.week}`
           );
           trackEvent("wallet_claim_single_reward_result", {
@@ -683,7 +648,7 @@ function WeekRewardsContent({
         console.error("Claim error:", error);
         toast.error(
           `Failed to claim ${
-            isInflation ? "Inflation" : "Protocol Deposit"
+            isInflation ? "emission" : "protocol deposit"
           } rewards`,
           {
             description: error?.message || "Unknown error",
@@ -715,7 +680,7 @@ function WeekRewardsContent({
         const isInflation = reward.type === "glowInflation";
         const canClaim = isInflation ? !glwClaimed : !protocolClaimed;
         const rewardLabel = isInflation
-          ? "Inflation Rewards"
+          ? "Emission Rewards"
           : "Protocol Deposit";
 
         return (
@@ -778,40 +743,183 @@ function WeekRewardsContent({
                     Claiming...
                   </>
                 ) : (
-                  <>Claim {isInflation ? "Inflation" : "PD"}</>
+                  <>Claim {isInflation ? "Emissions" : "PD"}</>
                 )}
               </Button>
             )}
           </div>
         );
       })}
-
-      {/* Explanation about reward types */}
-      <div className="mt-3 p-3 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/50">
-        <p className="text-xs text-blue-900 dark:text-blue-100 space-y-1">
-          <span className="block">
-            <strong>Inflation Rewards:</strong> GLW tokens earned by solar farms
-            and split between Glow Miners and Glow Delegators. These are the
-            core mining rewards for operating competitive solar farms on the
-            protocol.
-          </span>
-          <span className="block mt-2">
-            <strong>Protocol Deposits:</strong> GLW rewards from Glow's
-            competitive redistribution mechanism, where high-performing farms
-            earn back deposits plus surplus captured from underperforming
-            competitors.
-          </span>
-        </p>
-      </div>
     </div>
   );
 }
 
 interface ClaimsPanelProps {
   onClaimSuccess?: () => void;
+  variant?: "dialog" | "card";
+  className?: string;
 }
 
-export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
+type CurrencyTotals = Record<string, number>;
+
+function formatCompactAmount(value: number): string {
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6,
+  });
+}
+
+function TotalsSummaryCard({
+  title,
+  subtitle,
+  icon,
+  totals,
+  className,
+}: {
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  totals: CurrencyTotals;
+  className?: string;
+}) {
+  const entries = Object.entries(totals)
+    .filter(([, amount]) => Number.isFinite(amount) && amount > 0)
+    .sort((a, b) => b[1] - a[1]);
+
+  const primary = entries[0] ?? null;
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border border-border bg-muted/20 p-4",
+        className
+      )}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {title}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">{subtitle}</div>
+        </div>
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-background">
+          {icon}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        {entries.length === 0 ? (
+          <div className="text-3xl font-bold tabular-nums">0</div>
+        ) : entries.length === 1 && primary ? (
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-3xl font-bold tabular-nums">
+                {formatCompactAmount(primary[1])}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {CURRENCY_CONFIG[primary[0] as CurrencyKey]?.label ??
+                  primary[0]}
+              </div>
+            </div>
+            <Badge variant="secondary" className="shrink-0">
+              {primary[0]}
+            </Badge>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {entries.slice(0, 3).map(([currency, amount]) => {
+              const config = CURRENCY_CONFIG[currency as CurrencyKey] || {
+                icon: <Coins className="w-4 h-4" />,
+                color: "text-gray-600",
+                bgColor: "bg-gray-50 dark:bg-gray-950/20",
+                label: currency,
+              };
+              return (
+                <div
+                  key={currency}
+                  className="flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className={cn(
+                        "rounded-full bg-background p-1.5",
+                        config.color
+                      )}
+                    >
+                      {config.icon}
+                    </div>
+                    <div className="text-sm font-semibold truncate">
+                      {config.label}
+                    </div>
+                  </div>
+                  <div className="text-sm font-bold tabular-nums">
+                    {formatCompactAmount(amount)}
+                  </div>
+                </div>
+              );
+            })}
+            {entries.length > 3 ? (
+              <div className="text-xs text-muted-foreground">
+                +{entries.length - 3} more
+              </div>
+            ) : null}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RewardTypesInfo() {
+  return (
+    <div className="rounded-xl border border-blue-200/50 bg-blue-50/50 p-4 text-sm text-blue-900 dark:border-blue-800/50 dark:bg-blue-950/20 dark:text-blue-100">
+      <div className="font-semibold">Reward types</div>
+      <div className="mt-2 space-y-2 text-blue-800 dark:text-blue-200">
+        <div>
+          <strong>Emission Rewards:</strong> GLW earned by solar farms and split
+          between Glow Miners and Glow Delegators.
+        </div>
+        <div>
+          <strong>Protocol Deposits:</strong> Rewards from Glow&apos;s
+          redistribution mechanism, where high-performing farms earn back
+          deposits plus surplus captured from underperforming competitors.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClaimsAboutInfo() {
+  return (
+    <div className="rounded-xl border bg-muted border-border p-4">
+      <div className="flex items-start gap-3">
+        <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
+        <div className="space-y-1 text-sm text-blue-900 dark:text-blue-100">
+          <div className="font-semibold">About claims</div>
+          <div className="text-blue-800 dark:text-blue-200">
+            Rewards become claimable after a 3-week finality period. Week 96 and
+            earlier are available to claim on the{" "}
+            <a
+              href="https://hub.glow.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium underline hover:no-underline"
+            >
+              Hub Dashboard
+            </a>{" "}
+            for V1 Solar Farms.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ClaimsPanel({
+  onClaimSuccess,
+  variant = "dialog",
+  className,
+}: ClaimsPanelProps = {}) {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const [v1ClaimedWeeks, setV1ClaimedWeeks] = React.useState<Set<number>>(
@@ -828,7 +936,6 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
   // Rewards claiming functionality
   const {
     claimWeekRewards,
-    claimAllRewards,
     isClaimingWeek,
     isClaimingAll,
     checkIfClaimed,
@@ -946,10 +1053,47 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
     return totals;
   }, [weeklyBreakdown, getWeekClaimState]);
 
+  const claimedTotals = React.useMemo(() => {
+    const totals: Record<string, number> = {};
+
+    weeklyBreakdown.forEach((weekData) => {
+      if (!weekData.isFinalized) return;
+      const { glwClaimed, protocolClaimed } = getWeekClaimState(weekData);
+
+      weekData.rewards.forEach((reward) => {
+        const isInflation = reward.type === "glowInflation";
+        const isRewardClaimed = isInflation ? glwClaimed : protocolClaimed;
+        if (!isRewardClaimed) return;
+
+        const amount = parseFloat(reward.amount);
+        if (!isNaN(amount)) {
+          totals[reward.currency] = (totals[reward.currency] || 0) + amount;
+        }
+      });
+    });
+
+    return totals;
+  }, [weeklyBreakdown, getWeekClaimState]);
+
   // Check if there are any claimable rewards (finalized totals)
   const hasClaimableRewards =
     Object.keys(actualClaimableTotals).length > 0 &&
     Object.values(actualClaimableTotals).some((amount) => amount > 0);
+
+  const totalClaimedWeeks = weeklyBreakdown.filter((weekData) => {
+    if (!weekData.isFinalized) return false;
+    const { glwClaimed, protocolClaimed } = getWeekClaimState(weekData);
+    const hasGlwRewards = weekData.rewards.some(
+      (reward) => reward.type === "glowInflation"
+    );
+    const hasProtocolRewards = weekData.rewards.some(
+      (reward) => reward.type === "protocolDeposit"
+    );
+
+    return (
+      (hasGlwRewards && glwClaimed) || (hasProtocolRewards && protocolClaimed)
+    );
+  }).length;
 
   // Calculate total number of claimable (finalized and not already optimistically claimed) weeks
   const totalClaimableWeeks = weeklyBreakdown.filter((week) => {
@@ -970,10 +1114,10 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
         ? payload.claimType === "v2Only"
           ? {
               status: "skipped",
-              message: "Inflation rewards already claimed.",
+              message: "Emission rewards already claimed.",
             }
           : { status: "pending" }
-        : { status: "skipped", message: "Inflation rewards already claimed." };
+        : { status: "skipped", message: "Emission rewards already claimed." };
 
       const protocolStage: ClaimStageState = hasProtocolDepositRewards
         ? { status: "pending" }
@@ -1004,60 +1148,63 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
     setClaimStageStatuses(initial);
   }, []);
 
-  const updateStageStatus = React.useCallback((update: ClaimProgressUpdate) => {
-    setClaimStageStatuses((prev) => {
-      const previousStage = prev[update.stage];
-      const fallbackMessage: Partial<Record<ClaimStageStatus, string>> = {
-        inProgress: "Submitting transaction...",
-        success: "Transaction confirmed",
-        error: "Unable to complete",
-      };
+  const updateStageStatus = React.useCallback(
+    (update: ClaimProgressUpdate) => {
+      setClaimStageStatuses((prev) => {
+        const previousStage = prev[update.stage];
+        const fallbackMessage: Partial<Record<ClaimStageStatus, string>> = {
+          inProgress: "Submitting transaction...",
+          success: "Transaction confirmed",
+          error: "Unable to complete",
+        };
 
-      const nextStage: ClaimStageState = {
-        status: update.status,
-        txHash:
-          update.txHash !== undefined ? update.txHash : previousStage.txHash,
-        message:
-          update.message ??
-          (update.status === "skipped"
-            ? previousStage.message
-            : fallbackMessage[update.status] ?? previousStage.message),
-      };
-
-      const next = {
-        ...prev,
-        [update.stage]: nextStage,
-      } as ClaimStageMap;
-
-      claimStageStatusesRef.current = next;
-      return next;
-    });
-
-    if (activeClaim) {
-      const key = `${activeClaim.weekData.week}:${update.stage}:${update.status}`;
-      if (!trackedStageUpdatesRef.current.has(key)) {
-        trackedStageUpdatesRef.current.add(key);
-        trackEvent("wallet_claim_stage_update", {
-          week: activeClaim.weekData.week,
-          stage: update.stage,
+        const nextStage: ClaimStageState = {
           status: update.status,
-          has_tx_hash: Boolean(update.txHash),
-        });
-      }
+          txHash:
+            update.txHash !== undefined ? update.txHash : previousStage.txHash,
+          message:
+            update.message ??
+            (update.status === "skipped"
+              ? previousStage.message
+              : fallbackMessage[update.status] ?? previousStage.message),
+        };
 
-      if (update.txHash) {
-        const txKey = `${activeClaim.weekData.week}:${update.stage}`;
-        if (!trackedStageTxRef.current.has(txKey)) {
-          trackedStageTxRef.current.add(txKey);
-          trackEvent("wallet_claim_tx_submitted", {
+        const next = {
+          ...prev,
+          [update.stage]: nextStage,
+        } as ClaimStageMap;
+
+        claimStageStatusesRef.current = next;
+        return next;
+      });
+
+      if (activeClaim) {
+        const key = `${activeClaim.weekData.week}:${update.stage}:${update.status}`;
+        if (!trackedStageUpdatesRef.current.has(key)) {
+          trackedStageUpdatesRef.current.add(key);
+          trackEvent("wallet_claim_stage_update", {
             week: activeClaim.weekData.week,
             stage: update.stage,
-            tx_hash: update.txHash,
+            status: update.status,
+            has_tx_hash: Boolean(update.txHash),
           });
         }
+
+        if (update.txHash) {
+          const txKey = `${activeClaim.weekData.week}:${update.stage}`;
+          if (!trackedStageTxRef.current.has(txKey)) {
+            trackedStageTxRef.current.add(txKey);
+            trackEvent("wallet_claim_tx_submitted", {
+              week: activeClaim.weekData.week,
+              stage: update.stage,
+              tx_hash: update.txHash,
+            });
+          }
+        }
       }
-    }
-  }, [activeClaim]);
+    },
+    [activeClaim]
+  );
 
   const handleInitiateClaim = React.useCallback(
     (payload: ClaimInitiationPayload) => {
@@ -1235,7 +1382,7 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
         0
       );
       details.push({
-        label: "Inflation Rewards",
+        label: "Emission Rewards",
         value: `${total.toFixed(4)} GLW`,
       });
     }
@@ -1311,7 +1458,7 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
               className="flex items-start justify-between gap-4 rounded-xl border border-border/60 bg-muted/30 p-4"
             >
               <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted shadow-sm">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
                   {meta.icon}
                 </div>
                 <div className="space-y-1">
@@ -1437,13 +1584,44 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
     </div>
   ) : undefined;
 
-  // Don't show panel if not connected
-  if (!isConnected || !address) {
-    return null;
-  }
+  const isDialog = variant === "dialog";
 
   // Loading state
   if (isLoading) {
+    if (isDialog) {
+      return (
+        <div
+          id="claims-panel"
+          className={cn("flex max-h-[85vh] flex-col p-6", className)}
+        >
+          <div className="flex items-start justify-between gap-4 border-b border-border/60 pb-4">
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-60" />
+              <Skeleton className="h-4 w-72" />
+            </div>
+            <Skeleton className="h-10 w-32 rounded-full" />
+          </div>
+          <div className="flex-1 overflow-hidden pt-4">
+            <ScrollArea className="h-full pr-2">
+              <div className="space-y-4 pr-4">
+                <Skeleton className="h-5 w-40" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {[0, 1, 2].map((i) => (
+                    <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                  ))}
+                </div>
+                <Skeleton className="h-5 w-44 mt-4" />
+                <div className="space-y-3">
+                  {[0, 1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                  ))}
+                </div>
+              </div>
+            </ScrollArea>
+          </div>
+        </div>
+      );
+    }
     return (
       <Card className="mb-8">
         <CardHeader>
@@ -1463,6 +1641,29 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
 
   // Error state
   if (isError) {
+    if (isDialog) {
+      return (
+        <div
+          id="claims-panel"
+          className={cn("flex max-h-[85vh] flex-col p-6", className)}
+        >
+          <div className="flex items-start justify-between gap-4 border-b border-border/60 pb-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xl font-semibold">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+                Error loading rewards
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Failed to load your claimable rewards. Please try again.
+              </div>
+            </div>
+            <Button onClick={() => refetch()} variant="outline">
+              Retry
+            </Button>
+          </div>
+        </div>
+      );
+    }
     return (
       <Card className="mb-8">
         <CardHeader>
@@ -1490,373 +1691,212 @@ export function ClaimsPanel({ onClaimSuccess }: ClaimsPanelProps = {}) {
       ? "1 week"
       : `${totalClaimableWeeks} weeks`;
 
+  const totalClaimedLabel =
+    totalClaimedWeeks === 0
+      ? "None yet"
+      : totalClaimedWeeks === 1
+      ? "1 week"
+      : `${totalClaimedWeeks} weeks`;
+
   const isEverythingClaimed = totalClaimableWeeks === 0;
+
+  // Don't show panel if not connected
+  if (!isConnected || !address) {
+    return null;
+  }
 
   // Don't show panel if there are no weeks at all (user never had any farm rewards)
   if (weeklyBreakdown.length === 0) {
     return null;
   }
 
-  // Handle claim all
-  const handleClaimAll = async () => {
-    if (!address || weeklyBreakdown.length === 0) return;
+  const content = (
+    <div className={cn("space-y-6", isDialog && "pr-4")}>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <TotalsSummaryCard
+          title="Total Claimable"
+          subtitle={totalClaimableLabel}
+          totals={actualClaimableTotals}
+          icon={<Gift className="h-4 w-4" />}
+          className={cn(!hasClaimableRewards && "opacity-70")}
+        />
+        <TotalsSummaryCard
+          title="Total Claimed"
+          subtitle={totalClaimedLabel}
+          totals={claimedTotals}
+          icon={<CheckCircle className="h-4 w-4" />}
+        />
+      </div>
 
-    trackEvent("wallet_claim_all_click", {
-      total_weeks: weeklyBreakdown.length,
-    });
+      <div className="space-y-3">
+        <div className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+          Weekly Breakdown
+        </div>
+        <div className="space-y-3">
+          {weeklyBreakdown.map((weekData) => {
+            const { isClaimed, glwClaimed, protocolClaimed } =
+              getWeekClaimState(weekData);
 
-    // Check for smart account before proceeding
-    const isSmartAccount = await checkSmartAccount();
-    if (isSmartAccount) {
-      trackEvent("wallet_claim_all_blocked", { reason: "smart_account" });
-      setShowSmartAccountWarning(true);
-      setTriggerSmartAccountCheck(true);
-      return;
-    }
+            const isClaimable = !isClaimed && weekData.isFinalized;
 
-    const hotWalletAddress = getHotWalletAddress();
+            const totalGlwNum = parseFloat(weekData.totalGlw || "0");
+            const totalProtocolNum = Array.from(
+              weekData.totalProtocolDeposit.entries()
+            ).reduce((sum, [, amount]) => sum + parseFloat(amount || "0"), 0);
+            const totalRewards = totalGlwNum + totalProtocolNum;
 
-    // Fetch all merkle proofs for unclaimed weeks
-    const weeklyDataPromises = weeklyBreakdown
-      .filter((week) => {
-        const { isClaimed } = getWeekClaimState(week);
-        return week.isFinalized && !isClaimed;
-      })
-      .map(async (weekData) => {
-        try {
-          const response = await fetch(
-            `https://pub-311748c72106476cbeabe0a22a59217d.r2.dev/weekly-report-week-${weekData.week}.json`
-          );
+            return (
+              <Collapsible
+                key={weekData.week}
+                defaultOpen={false}
+                className={cn(
+                  "rounded-xl border border-border/60 bg-background",
+                  isClaimed && "opacity-60 bg-muted/10"
+                )}
+              >
+                <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:gap-0">
+                  <CollapsibleTrigger className="flex flex-1 flex-col gap-3 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <div className="space-y-1">
+                        <div className="text-sm font-semibold md:text-base">
+                          Week {weekData.week}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatWeekDate(weekData.week)}
+                        </div>
+                      </div>
+                      <Badge
+                        variant={
+                          isClaimed
+                            ? "secondary"
+                            : weekData.isFinalized
+                            ? "default"
+                            : "outline"
+                        }
+                        className="text-xs"
+                      >
+                        {isClaimed ? (
+                          <>
+                            <CheckCircle className="mr-1 h-3 w-3" />
+                            Claimed
+                          </>
+                        ) : weekData.isFinalized ? (
+                          <>
+                            <Sparkles className="mr-1 h-3 w-3" />
+                            Ready to Claim
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="mr-1 h-3 w-3" />
+                            Pending
+                          </>
+                        )}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {totalRewards > 0 && (
+                        <Badge variant="secondary" className="text-xs">
+                          {totalRewards.toFixed(2)} GLW
+                        </Badge>
+                      )}
+                      <ChevronRight className="hidden h-4 w-4 text-muted-foreground sm:inline-block" />
+                    </div>
+                  </CollapsibleTrigger>
+                  <ClaimButtonsWrapper
+                    address={address}
+                    checkIfClaimed={checkIfClaimed}
+                    checkIfGlwClaimed={checkIfGlwClaimed}
+                    claimDialogStatus={claimDialogStatus}
+                    glwClaimed={glwClaimed}
+                    isClaimingAll={isClaimingAll}
+                    isClaimingWeek={isClaimingWeek}
+                    isConnected={isConnected}
+                    onClaimStatusChange={handleClaimStatusChange}
+                    onInitiateClaim={handleInitiateClaim}
+                    protocolClaimed={protocolClaimed}
+                    weekData={weekData}
+                  />
+                </div>
+                <CollapsibleContent className="px-4 pb-4 pt-1 md:px-5 md:pb-5">
+                  <WeekRewardsContent
+                    weekData={weekData}
+                    glwClaimed={glwClaimed}
+                    protocolClaimed={protocolClaimed}
+                    isClaimable={isClaimable}
+                    isClaimingWeek={isClaimingWeek}
+                    isClaimingAll={isClaimingAll}
+                    claimDialogStatus={claimDialogStatus}
+                    address={address}
+                    onInitiateClaim={handleInitiateClaim}
+                    onClaimSuccess={() => {
+                      refetch();
+                      if (onClaimSuccess) {
+                        onClaimSuccess();
+                      }
+                    }}
+                  />
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })}
+        </div>
+      </div>
 
-          if (!response.ok) return null;
-
-          const data = await response.json();
-          const userProof = data.readableLeaves?.find(
-            (leaf: any) => leaf.user.toLowerCase() === address.toLowerCase()
-          );
-
-          if (!userProof) return null;
-
-          return {
-            week: weekData.week,
-            rewards: weekData.rewards,
-            nonce: weekToNonce(weekData.week),
-            v1Proof: userProof.v1MerkleProof.map(
-              (p: string) => p as `0x${string}`
-            ),
-            v2Proof: userProof.v2MerkleProof.map(
-              (p: string) => p as `0x${string}`
-            ),
-            fromAddress: hotWalletAddress,
-            glwWeight: userProof.glowInflationEarnedLeafWeight,
-            onchainAssetsEarned: userProof.onchainAssetsEarned,
-          };
-        } catch (error) {
-          console.error(
-            `Failed to fetch proof for week ${weekData.week}:`,
-            error
-          );
-          return null;
-        }
-      });
-
-    const weeklyClaimData = (await Promise.all(weeklyDataPromises)).filter(
-      (data): data is NonNullable<typeof data> => data !== null
-    );
-
-    if (weeklyClaimData.length === 0) {
-      toast.error("No claimable rewards found");
-      trackEvent("wallet_claim_all_result", {
-        ok: false,
-        reason: "no_claimable_weeks",
-      });
-      return;
-    }
-
-    try {
-      const successfulTxHashes = await claimAllRewards(weeklyClaimData);
-
-      if (successfulTxHashes.length > 0) {
-        toast.success(
-          `Successfully claimed rewards from ${successfulTxHashes.length} weeks`
-        );
-        // Trigger refetch to update UI
-        refetch();
-        if (onClaimSuccess) {
-          onClaimSuccess();
-        }
-      }
-
-      trackEvent("wallet_claim_all_result", {
-        ok: successfulTxHashes.length > 0,
-        weeks_claimed: successfulTxHashes.length,
-      });
-    } catch (error) {
-      console.error("Claim all error:", error);
-      toast.error("Failed to claim rewards");
-      trackEvent("wallet_claim_all_result", {
-        ok: false,
-        error_name: error instanceof Error ? error.name : "unknown",
-      });
-    }
-  };
+      <RewardTypesInfo />
+      <ClaimsAboutInfo />
+    </div>
+  );
 
   return (
     <>
-      <Card id="claims-panel" className="mb-8">
-        <CardHeader className="pb-4 md:pb-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      {isDialog ? (
+        <div
+          id="claims-panel"
+          className={cn("flex max-h-[85vh] flex-col p-6", className)}
+        >
+          <div className="flex flex-col gap-4 border-b border-border/60 pb-4">
             <div className="flex-1">
-              <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
-                <Gift className="w-5 h-5 md:w-6 md:h-6" />
+              <div className="flex items-center gap-2 text-xl font-semibold md:text-2xl">
+                <Gift className="h-5 w-5 md:h-6 md:w-6" />
                 {isEverythingClaimed
                   ? "Farm Rewards"
                   : "Farm Rewards Available"}
-              </CardTitle>
-              <CardDescription className="mt-2 md:mt-3 text-sm md:text-base">
+              </div>
+              <div className="mt-2 text-sm text-muted-foreground md:text-base">
                 {isEverythingClaimed
                   ? "Your farm rewards history"
                   : "Claim your earned rewards from solar farm delegations"}
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handleClaimAll}
-                disabled={
-                  isClaimingAll ||
-                  totalClaimableWeeks === 0 ||
-                  claimDialogStatus === "processing"
-                }
-                size="lg"
-                className="gap-2 w-full md:w-auto"
-              >
-                {isClaimingAll ? (
-                  <>
-                    <Clock className="w-4 h-4 animate-spin" />
-                    Claiming...
-                  </>
-                ) : (
-                  <>
-                    Claim All
-                    <Badge variant="secondary" className="ml-1">
-                      {totalClaimableWeeks} weeks
-                    </Badge>
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {/* Aggregated Totals Section */}
-            {hasClaimableRewards && (
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Total Claimable
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Object.entries(actualClaimableTotals).map(
-                    ([currency, amount]) => {
-                      const config = CURRENCY_CONFIG[
-                        currency as CurrencyKey
-                      ] || {
-                        icon: <Coins className="w-4 h-4" />,
-                        color: "text-gray-600",
-                        bgColor: "bg-gray-50 dark:bg-gray-950/20",
-                        label: currency,
-                      };
-
-                      return (
-                        <div
-                          key={currency}
-                          className={cn(
-                            "flex items-center justify-between p-4 md:p-5 rounded-xl border shadow-sm transition-shadow hover:shadow-md",
-                            config.bgColor
-                          )}
-                        >
-                          <div className="flex items-center gap-2.5 md:gap-3">
-                            <div
-                              className={cn(
-                                "p-2 md:p-2.5 rounded-full bg-background shadow-sm flex-shrink-0",
-                                config.color
-                              )}
-                            >
-                              {config.icon}
-                            </div>
-                            <div className="space-y-0.5">
-                              <div className="font-semibold text-xs md:text-sm">
-                                {config.label}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {totalClaimableLabel}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-bold text-base md:text-xl tabular-nums">
-                              {amount.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 6,
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Weekly Breakdown Section */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Weekly Breakdown
-              </h3>
-              <div className="space-y-3">
-                {weeklyBreakdown.map((weekData) => {
-                  const { isClaimed, glwClaimed, protocolClaimed } =
-                    getWeekClaimState(weekData);
-
-                  const isClaimable = !isClaimed && weekData.isFinalized;
-
-                  // Calculate total rewards for the badge
-                  const totalGlwNum = parseFloat(weekData.totalGlw || "0");
-                  const totalProtocolNum = Array.from(
-                    weekData.totalProtocolDeposit.entries()
-                  ).reduce(
-                    (sum, [, amount]) => sum + parseFloat(amount || "0"),
-                    0
-                  );
-                  const totalRewards = totalGlwNum + totalProtocolNum;
-
-                  return (
-                    <Collapsible
-                      key={`${weekData.week}-${isClaimed}`}
-                      defaultOpen={false}
-                      className={cn(
-                        "border rounded-xl transition-all shadow-sm hover:shadow-md",
-                        isClaimed && "opacity-60 bg-muted/20"
-                      )}
-                    >
-                      <div className="flex flex-col md:flex-row md:items-center w-full p-4 md:p-5 hover:bg-muted/50 transition-colors gap-3 md:gap-0">
-                        <CollapsibleTrigger className="flex flex-1 flex-col sm:flex-row sm:items-center sm:justify-between text-left gap-3 sm:gap-4">
-                          <div className="flex items-center gap-3 sm:gap-4">
-                            <div className="text-left space-y-1">
-                              <div className="font-semibold text-sm md:text-base">
-                                Week {weekData.week}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {formatWeekDate(weekData.week)}
-                              </div>
-                            </div>
-                            <Badge
-                              variant={
-                                isClaimed
-                                  ? "secondary"
-                                  : weekData.isFinalized
-                                  ? "default"
-                                  : "outline"
-                              }
-                              className="text-xs flex-shrink-0"
-                            >
-                              {isClaimed ? (
-                                <>
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  Claimed
-                                </>
-                              ) : weekData.isFinalized ? (
-                                <>
-                                  <Sparkles className="w-3 h-3 mr-1" />
-                                  Ready to Claim
-                                </>
-                              ) : (
-                                <>
-                                  <Clock className="w-3 h-3 mr-1" />
-                                  Pending
-                                </>
-                              )}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {totalRewards > 0 && (
-                              <Badge
-                                variant="secondary"
-                                className="text-xs font-semibold"
-                              >
-                                {totalRewards.toFixed(2)} GLW
-                              </Badge>
-                            )}
-
-                            <ChevronRight className="w-4 h-4 text-muted-foreground ml-1 sm:ml-3 hidden sm:inline-block" />
-                          </div>
-                        </CollapsibleTrigger>
-                        <ClaimButtonsWrapper
-                          address={address}
-                          checkIfClaimed={checkIfClaimed}
-                          checkIfGlwClaimed={checkIfGlwClaimed}
-                          claimDialogStatus={claimDialogStatus}
-                          glwClaimed={glwClaimed}
-                          isClaimingAll={isClaimingAll}
-                          isClaimingWeek={isClaimingWeek}
-                          isConnected={isConnected}
-                          onClaimStatusChange={handleClaimStatusChange}
-                          onInitiateClaim={handleInitiateClaim}
-                          protocolClaimed={protocolClaimed}
-                          weekData={weekData}
-                        />
-                      </div>
-                      <CollapsibleContent className="px-4 md:px-5 pb-4 md:pb-5 pt-2">
-                        <WeekRewardsContent
-                          weekData={weekData}
-                          glwClaimed={glwClaimed}
-                          protocolClaimed={protocolClaimed}
-                          isClaimable={isClaimable}
-                          isClaimingWeek={isClaimingWeek}
-                          isClaimingAll={isClaimingAll}
-                          claimDialogStatus={claimDialogStatus}
-                          address={address}
-                          onInitiateClaim={handleInitiateClaim}
-                          onClaimSuccess={() => {
-                            refetch();
-                            if (onClaimSuccess) {
-                              onClaimSuccess();
-                            }
-                          }}
-                        />
-                      </CollapsibleContent>
-                    </Collapsible>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Info Section */}
-            <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/50">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-blue-900 dark:text-blue-100 space-y-1">
-                  <div className="font-semibold">About Claims</div>
-                  <div className="text-blue-800 dark:text-blue-200">
-                    Rewards become claimable after a 3-week finality period.
-                    Week 96 and earlier are available to claim on the{" "}
-                    <a
-                      href="https://hub.glow.org"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline hover:no-underline font-medium"
-                    >
-                      Hub Dashboard
-                    </a>{" "}
-                    for V1 Solar Farms.
-                  </div>
-                </div>
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          <div className="flex-1 overflow-hidden pt-4">
+            <ScrollArea className="h-full pr-2">{content}</ScrollArea>
+          </div>
+        </div>
+      ) : (
+        <Card id="claims-panel" className={cn("mb-8", className)}>
+          <CardHeader className="pb-4 md:pb-6">
+            <div className="flex flex-col gap-4">
+              <div className="flex-1">
+                <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
+                  <Gift className="w-5 h-5 md:w-6 md:h-6" />
+                  {isEverythingClaimed
+                    ? "Farm Rewards"
+                    : "Farm Rewards Available"}
+                </CardTitle>
+                <CardDescription className="mt-2 md:mt-3 text-sm md:text-base">
+                  {isEverythingClaimed
+                    ? "Your farm rewards history"
+                    : "Claim your earned rewards from solar farm delegations"}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>{content}</CardContent>
+        </Card>
+      )}
+
       <TransactionDialog
         open={isClaimDialogOpen && Boolean(activeClaim)}
         onOpenChange={handleDialogOpenChange}

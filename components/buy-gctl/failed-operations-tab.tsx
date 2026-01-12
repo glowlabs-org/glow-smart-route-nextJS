@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { formatUnits } from "viem";
 import { toast } from "sonner";
-import { useGctlApi } from "@/hooks/useGctlApi";
+import { useGctlApi } from "@/hooks";
 import { getCurrencyDecimals, getDisplayDecimals } from "@/lib/currency";
 import { FailedOperation } from "@glowlabs-org/utils/browser";
 

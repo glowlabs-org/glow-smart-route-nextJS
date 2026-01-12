@@ -18,8 +18,12 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { useActiveRegionsSummary } from "@/hooks/useActiveRegionsSummary";
+import { useActiveRegionsSummary } from "@/hooks";
 import { useToast } from "@/hooks/use-toast";
+import { useCompletedFarms } from "@/hooks/useCompletedFarms";
+import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
+import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
+import { formatUnits } from "viem";
 
 interface RegionData {
   id: string | number;
@@ -29,6 +33,8 @@ interface RegionData {
   glwPerWeek: number;
   stakedGctl: number;
   churnEpoch: number;
+  totalProtocolDepositsUsd: number;
+  solarFarmCount: number;
   history: Array<{
     timestamp: number;
     gctlStaked: number;
@@ -247,12 +253,51 @@ export function RegionsStaking({ shouldLoad = true }: RegionsStakingProps) {
     isError,
   } = useActiveRegionsSummary({ enabled: shouldLoad });
 
+  const { farms: completedFarms, isLoading: isCompletedLoading } =
+    useCompletedFarms({ enabled: shouldLoad });
+  const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
+
   const totalStakedGctl = activeSummary?.totalGctlStaked ?? 0;
-  const regions = React.useMemo(
-    () => activeSummary?.regions ?? [],
-    [activeSummary]
-  );
+  const baseRegions = activeSummary?.regions ?? [];
   const aggregate = activeSummary?.aggregate;
+
+  const pdsByRegionId = React.useMemo(() => {
+    const map = new Map<number, number>();
+    if (!completedFarms || completedFarms.length === 0) return map;
+
+    for (const farm of completedFarms) {
+      const regionId = farm.zone?.id;
+      if (!regionId) continue;
+
+      const currency = farm.paymentCurrency;
+      const amount = farm.paymentAmount;
+      if (!amount) continue;
+
+      try {
+        const decimals =
+          DECIMALS_BY_TOKEN[currency as keyof typeof DECIMALS_BY_TOKEN] ?? 6;
+        const numericAmount = parseFloat(formatUnits(BigInt(amount), decimals));
+
+        let usdValue = numericAmount;
+        if (currency === "GLW" && glwSpotPrice > 0) {
+          usdValue = numericAmount * glwSpotPrice;
+        }
+
+        map.set(regionId, (map.get(regionId) ?? 0) + usdValue);
+      } catch {
+        // skip invalid amounts
+      }
+    }
+
+    return map;
+  }, [completedFarms, glwSpotPrice]);
+
+  const regions = React.useMemo(() => {
+    return baseRegions.map((region) => ({
+      ...region,
+      totalProtocolDepositsUsd: pdsByRegionId.get(region.id) ?? 0,
+    }));
+  }, [baseRegions, pdsByRegionId]);
 
   React.useEffect(() => {
     if (!shouldLoad || !isError) return;
@@ -274,7 +319,7 @@ export function RegionsStaking({ shouldLoad = true }: RegionsStakingProps) {
         </div>
       </div>
 
-      {!shouldLoad || isLoading || isFetching ? (
+      {!shouldLoad || isLoading || isFetching || isCompletedLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="">
@@ -368,6 +413,35 @@ export function RegionsStaking({ shouldLoad = true }: RegionsStakingProps) {
                               (region.stakedGctl / totalStakedGctl) *
                               100
                             ).toFixed(1)}%`}
+                      </div>
+                    </div>
+                    <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                      <div className="text-xs text-muted-foreground mb-2">
+                        Total PDs
+                      </div>
+                      <div className="text-2xl font-bold">
+                        $
+                        {region.totalProtocolDepositsUsd.toLocaleString(
+                          undefined,
+                          {
+                            maximumFractionDigits: 0,
+                          }
+                        )}
+                      </div>
+                    </div>
+                    <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                      <div className="text-xs text-muted-foreground mb-2">
+                        GCTL/PD
+                      </div>
+                      <div className="text-2xl font-bold">
+                        {region.totalProtocolDepositsUsd === 0
+                          ? "—"
+                          : (
+                              region.stakedGctl /
+                              region.totalProtocolDepositsUsd
+                            ).toLocaleString(undefined, {
+                              maximumFractionDigits: 2,
+                            })}
                       </div>
                     </div>
                   </div>

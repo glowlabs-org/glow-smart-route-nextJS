@@ -28,8 +28,8 @@ importers:
         specifier: ^0.0.2
         version: 0.0.2
       '@glowlabs-org/utils':
-        specifier: ^0.2.167
-        version: 0.2.167(decimal.js@10.6.0)(ethers@6.5.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(merkletreejs@0.3.11)(viem@2.7.10(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76))
+        specifier: ^0.2.173
+        version: 0.2.173(decimal.js@10.6.0)(ethers@6.5.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(merkletreejs@0.3.11)(viem@2.7.10(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76))
       '@hookform/resolvers':
         specifier: ^3.3.4
         version: 3.10.0(react-hook-form@7.62.0(react@19.2.1))
@@ -147,6 +147,9 @@ importers:
       fs:
         specifier: ^0.0.1-security
         version: 0.0.1-security
+      html-to-image:
+        specifier: ^1.11.13
+        version: 1.11.13
       lucide-react:
         specifier: ^0.330.0
         version: 0.330.0(react@19.2.1)
@@ -1025,8 +1028,8 @@ packages:
     resolution: {integrity: sha512-nETd7D6ZCvTwFKdmtjIQMTsr6IQNK/tigTXLjimEblEb5mGsXrTucxIq0KVQwPPZl7p/w8kYov8MubRNfmG5yg==}
     engines: {node: '>=16'}
 
-  '@glowlabs-org/utils@0.2.167':
-    resolution: {integrity: sha512-byBWF9AohToVX5SkJvk3feyM5VnrTIENB8i82eQQrjvfT9GLGTbUGdN91ohDxKoa8QII9E82Ahr5o7r2CvMRyQ==}
+  '@glowlabs-org/utils@0.2.173':
+    resolution: {integrity: sha512-XYLJ20sanOMspLWgH6sEgdYkHkmtrsOnTXfmY2rtgQgs5yZ5Ig3eQor90jI1MBkvPe3VpPie3hA/KuGSBxCuFg==}
     engines: {node: '>=16'}
     peerDependencies:
       decimal.js: ^10.4.3
@@ -4832,6 +4835,9 @@ packages:
   html-parse-stringify@3.0.1:
     resolution: {integrity: sha512-KknJ50kTInJ7qIScF3jeaFRpMpE8/lfiTdzf/twXyPBLAGrLRTmkz3AdTnKeh40X8k9L2fdYwEp/42WGXIRGcg==}
 
+  html-to-image@1.11.13:
+    resolution: {integrity: sha512-cuOPoI7WApyhBElTTb9oqsawRvZ0rHhaHwghRLlTuffoD1B2aDemlCruLeZrUIIdvG7gs9xeELEPm6PhuASqrg==}
+
   http-errors@2.0.0:
     resolution: {integrity: sha512-FtwrG/euBzaEjYeRqOgly7G0qviiXoJWnvEH2Z1plBdXgbyjv34pHTSb9zoeHMyDy33+DWy5Wt9Wo+TURtOYSQ==}
     engines: {node: '>= 0.8'}
@@ -8314,7 +8320,7 @@ snapshots:
 
   '@glowlabs-org/guarded-launch-abis@0.0.2': {}
 
-  '@glowlabs-org/utils@0.2.167(decimal.js@10.6.0)(ethers@6.5.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(merkletreejs@0.3.11)(viem@2.7.10(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76))':
+  '@glowlabs-org/utils@0.2.173(decimal.js@10.6.0)(ethers@6.5.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(merkletreejs@0.3.11)(viem@2.7.10(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76))':
     dependencies:
       decimal.js: 10.6.0
       ethers: 6.5.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
@@ -13019,6 +13025,8 @@ snapshots:
   html-parse-stringify@3.0.1:
     dependencies:
       void-elements: 3.1.0
+
+  html-to-image@1.11.13: {}
 
   http-errors@2.0.0:
     dependencies:

@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { DECIMALS_BY_TOKEN, getAddresses } from "@glowlabs-org/utils/browser";
 import { publicClient } from "@/web3/web3/clients/publicClient";
+import { GlowCommit } from "@/components/glow-commit";
 
 const SDKAddresses = getAddresses(parseInt(process.env.NEXT_PUBLIC_CHAIN_ID!));
 
@@ -606,21 +607,21 @@ export default function TestView() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-6 text-center">
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div className="text-center">
           <h1 className="text-3xl font-bold mb-2">USDG/Glow Test Swap</h1>
           <p className="text-gray-600">Sepolia Testnet</p>
         </div>
 
         {!isOnSepolia && (
-          <div className="mb-4 p-4 border border-orange-500 bg-orange-50 rounded-lg">
+          <div className="p-4 border border-orange-500 bg-orange-50 rounded-lg">
             <p className="text-sm text-orange-800">
               Please switch to Sepolia testnet to use this page.
             </p>
           </div>
         )}
 
-        <div className="flex justify-between mb-4">
+        <div className="flex justify-between">
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
@@ -671,6 +672,8 @@ export default function TestView() {
           </div>
           <ConnectButton variant="default" />
         </div>
+
+        <GlowCommit walletAddress={address} />
 
         <Card>
           <CardHeader>

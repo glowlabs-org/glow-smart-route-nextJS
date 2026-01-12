@@ -5,12 +5,10 @@ import { TrendingUp, Users, DollarSign, Coins } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
 import { usePoolInfo } from "@/hooks/useLiquidityPositionsOptimized";
-import { useGctlApi } from "@/hooks/useGctlApi";
-import { useGctlHoldersCount } from "@/hooks/useGctlHoldersCount";
-import { useActiveRegionsSummary } from "@/hooks/useActiveRegionsSummary";
+import { useActiveRegionsSummary, useGctlApi, useGctlHoldersCount } from "@/hooks";
 import { useEndowmentLPPosition } from "@/hooks/useEndowmentLPPosition";
-import { useFractionsSummary } from "@/hooks/useFractionsSummary";
-import { parseFractionsSummary } from "@/lib/fractions";
+import { useWalletsActivity } from "@/hooks";
+import { formatUnits } from "viem";
 
 interface EconomyOverviewProps {
   shouldLoad?: boolean;
@@ -50,16 +48,29 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
     isLoading: isEndowmentLoading,
   } = useEndowmentLPPosition({ enabled: shouldLoad });
 
-  const { summary: fractionsSummary, isLoading: isFractionsSummaryLoading } =
-    useFractionsSummary({ enabled: shouldLoad });
+  // Fetch delegators leaderboard to get actively delegated GLW
+  const {
+    data: delegatorsData,
+    isLoading: isDelegatorsLoading,
+    isFetching: isDelegatorsFetching,
+  } = useWalletsActivity({
+    type: "delegator",
+    limit: 1000,
+    enabled: shouldLoad,
+  });
 
   const totalStakedAcrossRegions = activeSummary?.totalGctlStaked ?? 0;
 
-  const { totalDelegatedGlw } = React.useMemo(
-    () => parseFractionsSummary(fractionsSummary),
-    [fractionsSummary]
-  );
-  const totalGlwDelegated = totalDelegatedGlw;
+  // Calculate total actively delegated GLW from leaderboard
+  const totalGlwDelegated = React.useMemo(() => {
+    if (!delegatorsData?.wallets) return 0;
+
+    const totalActiveDelegatedWei = delegatorsData.wallets.reduce((sum, wallet) => {
+      return sum + BigInt(wallet.glwDelegated || "0");
+    }, BigInt(0));
+
+    return Number(formatUnits(totalActiveDelegatedWei, 18));
+  }, [delegatorsData]);
 
   const percentGlwDelegated = React.useMemo(() => {
     if (!circulatingSupply || circulatingSupply === 0) return 0;
@@ -68,7 +79,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
 
   const usdcLiquidity = poolReserves.usdg || 0;
   const isGlwDataLoading =
-    isCirculatingSupplyLoading || isPoolLoading || isFractionsSummaryLoading;
+    isCirculatingSupplyLoading || isPoolLoading || isDelegatorsLoading;
   const isGctlDataLoading =
     isGctlPriceLoading ||
     isGctlPriceFetching ||
@@ -80,7 +91,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
   const gctlMarketCap = gctlCirculatingSupplyNumber * gctlPriceNumber;
 
   const isInitialLoading =
-    (isGlwDataLoading && !circulatingSupply && !fractionsSummary) ||
+    (isGlwDataLoading && !circulatingSupply && !delegatorsData) ||
     (isGctlDataLoading && !gctlCirculatingSupplyNumber) ||
     (isEndowmentLoading && endowmentLpBalance === 0 && endowmentUsdg === 0);
 
@@ -140,7 +151,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm text-muted-foreground">
-                  % of GLW Delegated
+                  % of GLW Actively Delegated
                 </div>
                 <Users className="w-4 h-4 text-muted-foreground" />
               </div>
@@ -152,7 +163,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
                   ? "--"
                   : `${totalGlwDelegated.toLocaleString(undefined, {
                       maximumFractionDigits: 0,
-                    })} delegated / ${circulatingSupply.toLocaleString(
+                    })} actively delegated / ${circulatingSupply.toLocaleString(
                       undefined,
                       {
                         maximumFractionDigits: 0,
