@@ -409,7 +409,7 @@ function ImpactHero(props: {
   const selfLeaderboardRow = React.useMemo(() => {
     if (!normalizedAddress) return null;
     return rows.find(
-      (r) => r.walletAddress && r.walletAddress.toLowerCase() === normalizedAddress
+      (r) => r.walletAddress?.toLowerCase() === normalizedAddress
     );
   }, [rows, normalizedAddress]);
 
@@ -932,7 +932,14 @@ export function ImpactView() {
   const isLeaderboardRefreshing =
     leaderboardQuery.isFetching && !leaderboardQuery.isLoading;
 
-  const allRows = leaderboardQuery.data?.wallets ?? [];
+  const allRows = React.useMemo(() => {
+    const rawWallets = leaderboardQuery.data?.wallets ?? [];
+    return rawWallets.filter(
+      (row): row is ImpactGlowScoreLeaderboardRow =>
+        "walletAddress" in row && !("isSystemRow" in row)
+    );
+  }, [leaderboardQuery.data?.wallets]);
+
   const totalWalletCount =
     leaderboardQuery.data?.totalWalletCount ?? allRows.length;
   const totalWalletCountDisplay =
@@ -940,7 +947,7 @@ export function ImpactView() {
   const searchLower = search.trim().toLowerCase();
 
   const allWalletAddresses = React.useMemo(
-    () => allRows.filter((row) => row.walletAddress).map((row) => row.walletAddress),
+    () => allRows.map((row) => row.walletAddress),
     [allRows]
   );
 
@@ -952,17 +959,14 @@ export function ImpactView() {
   const globalRankByWallet = React.useMemo(() => {
     const map = new Map<string, number>();
     allRows.forEach((row, idx) => {
-      if (row.walletAddress) {
-        map.set(row.walletAddress.toLowerCase(), row.globalRank ?? idx + 1);
-      }
+      map.set(row.walletAddress.toLowerCase(), row.globalRank ?? idx + 1);
     });
     return map;
   }, [allRows]);
 
   const filteredRows = React.useMemo(() => {
-    const validRows = allRows.filter((row) => row.walletAddress);
-    if (!searchLower) return validRows;
-    return validRows.filter((row) => {
+    if (!searchLower) return allRows;
+    return allRows.filter((row) => {
       const address = row.walletAddress.toLowerCase();
       const ensName = allEnsNames[row.walletAddress]?.toLowerCase() || "";
       return address.includes(searchLower) || ensName.includes(searchLower);
@@ -1001,11 +1005,10 @@ export function ImpactView() {
   );
 
   const topWallet = React.useMemo(() => {
-    const validRows = allRows.filter((row) => row.walletAddress);
-    if (validRows.length === 0) return null;
-    let best = validRows[0]!;
+    if (allRows.length === 0) return null;
+    let best = allRows[0]!;
     let bestPoints = safeNumber(best.totalPoints);
-    for (const row of validRows) {
+    for (const row of allRows) {
       const p = safeNumber(row.totalPoints);
       if (p > bestPoints) {
         best = row;

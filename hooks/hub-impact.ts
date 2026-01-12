@@ -33,7 +33,7 @@ export interface ImpactGlowScoreLeaderboardRow {
 export interface ImpactGlowScoreLeaderboardResponse {
   weekRange: ImpactWeekRange;
   limit: number;
-  wallets: ImpactGlowScoreLeaderboardRow[];
+  wallets: (ImpactGlowScoreLeaderboardRow | { isSystemRow: true; globalRegionTotals?: Record<string, string> })[];
   totalWalletCount?: number;
 }
 
