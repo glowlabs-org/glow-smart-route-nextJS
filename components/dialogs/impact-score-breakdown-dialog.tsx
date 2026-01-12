@@ -204,6 +204,7 @@ function MultiplierCard({
 
 /**
  * A row for a Point Source (e.g. Steering, Emissions).
+ * Responsive: stacks vertically on mobile, horizontal on larger screens.
  */
 function SourceRow({
   icon: Icon,
@@ -256,64 +257,75 @@ function SourceRow({
     pendingValue && pendingValue !== "0" && pendingValue !== "—";
 
   return (
-    <div className="group flex items-center justify-between p-3 rounded-xl border border-transparent hover:border-border/50 hover:bg-muted/10 transition-all">
-      <div className="flex items-center gap-3">
+    <div className="group flex flex-col gap-3 p-3 rounded-xl border border-transparent hover:border-border/50 hover:bg-muted/10 transition-all sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      {/* Left: Icon + Label */}
+      <div className="flex items-center gap-3 min-w-0">
         <div
           className={cn(
-            "flex items-center justify-center w-10 h-10 rounded-xl border transition-colors",
+            "flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl border transition-colors shrink-0",
             themeStyles.icon
           )}
         >
-          <Icon className="w-5 h-5" />
+          <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
-        <div className="flex flex-col">
-          <span className="text-sm font-bold text-foreground">{label}</span>
-          <span className="text-[10px] text-muted-foreground font-mono">
+        <div className="flex flex-col min-w-0">
+          <span className="text-sm font-bold text-foreground truncate">
+            {label}
+          </span>
+          <span className="text-[10px] text-muted-foreground font-mono truncate">
             {subValue || "Passive income"}
           </span>
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="text-right">
-          {hasValue ? (
-            <>
-              <div
-                className={cn(
-                  "font-mono font-bold text-base",
-                  themeStyles.value
-                )}
-              >
-                +{value}
+      {/* Right: Values + CTA */}
+      <div className="flex items-center justify-between gap-3 pl-12 sm:pl-0 sm:gap-4 sm:justify-end">
+        {/* Values Container */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          {/* Finalized Value */}
+          <div className="text-left sm:text-right">
+            {hasValue ? (
+              <>
+                <div
+                  className={cn(
+                    "font-mono font-bold text-sm sm:text-base",
+                    themeStyles.value
+                  )}
+                >
+                  +{value}
+                </div>
+                <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">
+                  Finalized
+                </div>
+              </>
+            ) : (
+              <div className="text-xs sm:text-sm text-muted-foreground/50 font-mono">
+                0 pts
               </div>
-              <div className="text-[10px] text-muted-foreground uppercase font-medium">
-                Finalized
+            )}
+          </div>
+
+          {/* Pending Value */}
+          {hasPending && (
+            <div className="text-left sm:text-right border-l border-border/50 pl-3">
+              <div className="font-mono font-bold text-sm sm:text-base text-amber-500 dark:text-amber-400 flex items-center gap-1 sm:justify-end">
+                <Clock className="h-3 w-3 shrink-0" />
+                <span>+{pendingValue}</span>
               </div>
-            </>
-          ) : (
-            <div className="text-sm text-muted-foreground/50 font-mono">
-              0 pts
+              <div className="text-[9px] sm:text-[10px] text-amber-600/70 dark:text-amber-400/70 uppercase font-medium">
+                Pending
+              </div>
             </div>
           )}
         </div>
 
-        {hasPending && (
-          <div className="text-right border-l border-border/50 pl-3">
-            <div className="font-mono font-bold text-base text-amber-500 dark:text-amber-400 flex items-center justify-end gap-1">
-              <Clock className="h-3 w-3" />+{pendingValue}
-            </div>
-            <div className="text-[10px] text-amber-600/70 dark:text-amber-400/70 uppercase font-medium">
-              Pending
-            </div>
-          </div>
-        )}
-
+        {/* CTA Button */}
         {ctaLabel && (
           <Button
             size="sm"
             variant="outline"
             className={cn(
-              "h-8 text-xs font-medium border-dashed bg-transparent transition-all",
+              "h-7 sm:h-8 px-2.5 sm:px-3 text-[11px] sm:text-xs font-medium border-dashed bg-transparent transition-all shrink-0",
               themeStyles.btn
             )}
             onClick={onCta}

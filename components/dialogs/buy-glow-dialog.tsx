@@ -115,7 +115,7 @@ const TOKEN_ICON_SRC_BY_SYMBOL = {
 function TokenIcon({ symbol }: { symbol: "ETH" | "GLW" | "USDC" | "USDG" }) {
   if (symbol === "GLW") {
     return (
-      <div className="h-6 w-6 rounded-full bg-[color:var(--color-glow-green)]/10 border border-[color:var(--color-glow-green)]/30 flex items-center justify-center">
+      <div className="h-6 w-6 rounded-full bg-emerald-500/10 dark:bg-[color:var(--color-glow-green)]/10 border border-emerald-500/30 dark:border-[color:var(--color-glow-green)]/30 flex items-center justify-center">
         <GlowSymbol className="h-4 w-4" />
       </div>
     );
@@ -1077,7 +1077,7 @@ export function BuyGlowDialog({
             <div className="flex items-center justify-center mb-4">
               <GlowSymbol className="size-14" />
             </div>
-            <div className="text-4xl font-bold text-[color:var(--color-glow-green)]">
+            <div className="text-4xl font-bold text-emerald-700 dark:text-[color:var(--color-glow-green)]">
               +
               {Number(estimatedGlw).toLocaleString("en-US", {
                 maximumFractionDigits: 4,
@@ -1085,7 +1085,7 @@ export function BuyGlowDialog({
               GLW
             </div>
             <div className="mt-4 flex flex-col items-center gap-2">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--color-glow-green)]/30 bg-[color:var(--color-glow-green)]/10 px-3 py-1 text-xs font-medium text-[color:var(--color-glow-green)]">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 dark:border-[color:var(--color-glow-green)]/30 bg-emerald-500/10 dark:bg-[color:var(--color-glow-green)]/10 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-[color:var(--color-glow-green)]">
                 <TrendingUp className="h-3 w-3" />
                 Impact Score Boosted
               </div>
@@ -1130,7 +1130,7 @@ export function BuyGlowDialog({
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground text-sm">Received</span>
               <div className="text-right">
-                <span className="text-[color:var(--color-glow-green)] text-sm font-mono">
+                <span className="text-emerald-700 dark:text-[color:var(--color-glow-green)] text-sm font-mono">
                   {Number(estimatedGlw).toLocaleString("en-US", {
                     maximumFractionDigits: 4,
                   })}
@@ -1435,7 +1435,7 @@ export function BuyGlowDialog({
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="text-xl font-bold font-mono text-[color:var(--color-glow-green)]"
+                        className="text-xl font-bold font-mono text-emerald-700 dark:text-[color:var(--color-glow-green)]"
                       >
                         {estimatedGlw && Number(estimatedGlw) > 0
                           ? formatPrice(estimatedGlw, 2)
@@ -1443,7 +1443,7 @@ export function BuyGlowDialog({
                       </motion.span>
                     )}
                   </AnimatePresence>
-                  <span className="text-sm text-[color:var(--color-glow-green)]/70 font-medium">
+                  <span className="text-sm text-emerald-700/70 dark:text-[color:var(--color-glow-green)]/70 font-medium">
                     GLW
                   </span>
                 </div>
