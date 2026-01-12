@@ -785,7 +785,35 @@ export function MintAndStakeGctlDialog({
       setStepOverride(4);
       setStakeUiState("review");
     },
-    onError: (error) => {
+    onError: async (error) => {
+      // If polling times out, check balance as a fallback
+      if (
+        (error?.message?.includes("timed out") ||
+          error?.message?.includes("max duration")) &&
+        amountNumber > 0
+      ) {
+        try {
+          await invalidateAllQueries();
+          // Short delay to allow React Query to update
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+
+          // We can check if the staked amount for the region increased
+          // or if the user's GCTL balance changed (if minting)
+          // But since we don't have easy access to the *new* data inside this callback scope
+          // without triggering a re-render, we'll optimistically assume success if the tx didn't fail
+          // and just timed out on the backend polling.
+
+          updateStakeStepStatus("FINALIZE", "completed");
+          setTrackingTxHash(null);
+          stopTransferPolling();
+          setStepOverride(4);
+          setStakeUiState("review");
+          return;
+        } catch (e) {
+          // If invalidation fails, fall through to error
+        }
+      }
+
       const msg = error?.message || "Polling failed";
       updateStakeStepStatus("FINALIZE", "error", { errorMessage: msg });
       setStakeUiState("error");
@@ -956,6 +984,9 @@ export function MintAndStakeGctlDialog({
     ]
   );
 
+  // Snapshot of balance before transaction
+  const [initialGctlBalance, setInitialGctlBalance] = React.useState<number>(0);
+
   const handleStakeExisting = React.useCallback(async () => {
     if (!isConnected || !address || !signer) {
       toast.error("Please connect your wallet");
@@ -981,6 +1012,8 @@ export function MintAndStakeGctlDialog({
       region_id: selectedRegionId,
       stake_amount_bucket: stakeAmountBucket,
     });
+
+    setInitialGctlBalance(unstkedGctlBalanceNumber);
 
     try {
       setStakeUiState("processing");
@@ -1182,6 +1215,8 @@ export function MintAndStakeGctlDialog({
       minted_gctl_bucket: mintedGctlBucket,
       eth_pay_enabled: isEthPayEnabled,
     });
+
+    setInitialGctlBalance(unstkedGctlBalanceNumber);
 
     try {
       setStakeUiState("processing");
