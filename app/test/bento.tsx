@@ -34,8 +34,10 @@ import {
   useRefundableFractions,
   useGlowLaunchpad,
   useMiningCenter,
+  useWallets,
 } from "@/hooks";
 import { RefundClaimsPanel } from "@/app/wallet/refund-claims-panel";
+import { MigrationClaimPanel } from "@/app/wallet/migration-claim-panel";
 import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trackEvent } from "@/lib/telemetry";
@@ -64,6 +66,20 @@ function SectionHeader({ title }: { title: string }) {
 function formatGlw(amount: string): string {
   try {
     const formatted = formatUnits(BigInt(amount), 18);
+    const num = Number.parseFloat(formatted);
+    if (!Number.isFinite(num) || num <= 0) return "0";
+    return num.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  } catch {
+    return "0";
+  }
+}
+
+function formatGctl(amount: string): string {
+  try {
+    const formatted = formatUnits(BigInt(amount), 6);
     const num = Number.parseFloat(formatted);
     if (!Number.isFinite(num) || num <= 0) return "0";
     return num.toLocaleString("en-US", {
@@ -139,6 +155,8 @@ export default function GlowSoftDashboard({
   const [mintAndStakeForceStep1, setMintAndStakeForceStep1] =
     React.useState(false);
   const [isRefundDialogOpen, setIsRefundDialogOpen] = React.useState(false);
+  const [isMigrationDialogOpen, setIsMigrationDialogOpen] =
+    React.useState(false);
   const [isDepositDialogOpen, setIsDepositDialogOpen] = React.useState(false);
   const [isBuyGlowDialogOpen, setIsBuyGlowDialogOpen] = React.useState(false);
   const [selectedApplicationForDeposit, setSelectedApplicationForDeposit] =
@@ -147,12 +165,15 @@ export default function GlowSoftDashboard({
     LaunchpadRewardScore | MiningCenterScore | null
   >(null);
   const refundToastIdRef = React.useRef<string | number | null>(null);
+  const migrationToastIdRef = React.useRef<string | number | null>(null);
+  const prevHasMigrationClaimRef = React.useRef<boolean | null>(null);
   const didTrackViewRef = React.useRef(false);
   const queryClient = useQueryClient();
   const { spotPriceUsd: glwSpotPrice } = useGlowSpotPriceSummary();
 
   const hasAnyDialogOpen =
     isRefundDialogOpen ||
+    isMigrationDialogOpen ||
     isMintAndStakeOpen ||
     isDepositDialogOpen ||
     isBuyGlowDialogOpen;
@@ -236,6 +257,46 @@ export default function GlowSoftDashboard({
   const hasRefunds =
     hasWallet && !isLoading && !isError && refundableFractions.length > 0;
 
+  const { migrationData, isMigrationLoading, migrationError } = useWallets({
+    walletAddress: walletAddress ?? undefined,
+    enabled: hasWallet,
+  });
+
+  const hasPendingMigrationClaim = React.useMemo(() => {
+    if (!hasWallet || isMigrationLoading || migrationError) return false;
+    if (!migrationData || migrationData.claimed) return false;
+    try {
+      return BigInt(migrationData.migrationAmount || "0") > BigInt(0);
+    } catch {
+      return false;
+    }
+  }, [hasWallet, isMigrationLoading, migrationError, migrationData]);
+
+  // Handle migration toast inline during render to avoid useEffect
+  if (prevHasMigrationClaimRef.current !== hasPendingMigrationClaim) {
+    prevHasMigrationClaimRef.current = hasPendingMigrationClaim;
+
+    if (!hasPendingMigrationClaim) {
+      if (migrationToastIdRef.current != null) {
+        toast.dismiss(migrationToastIdRef.current);
+        migrationToastIdRef.current = null;
+      }
+      if (isMigrationDialogOpen) setIsMigrationDialogOpen(false);
+    } else if (migrationToastIdRef.current == null) {
+      const formattedAmount = formatGctl(migrationData?.migrationAmount || "0");
+      migrationToastIdRef.current = toast("GCTL allocation available", {
+        description: `${formattedAmount} GCTL available to claim`,
+        duration: Infinity,
+        dismissible: false,
+        closeButton: false,
+        action: {
+          label: "Claim GCTL",
+          onClick: () => setIsMigrationDialogOpen(true),
+        },
+      });
+    }
+  }
+
   React.useEffect(() => {
     const existingToastId = refundToastIdRef.current;
 
@@ -271,6 +332,17 @@ export default function GlowSoftDashboard({
     summary.totalRefundableAmount,
     summary.totalRefundableFractions,
   ]);
+
+  const handleMigrationClaimSuccess = React.useCallback(() => {
+    if (!walletAddress) return;
+    queryClient
+      .invalidateQueries({
+        queryKey: ["migration-amount", walletAddress],
+      })
+      .catch(() => {
+        // no-op
+      });
+  }, [queryClient, walletAddress]);
 
   const handleRefundClaimSuccess = React.useCallback(() => {
     if (!walletAddress) return;
@@ -605,6 +677,24 @@ export default function GlowSoftDashboard({
             variant="dialog"
             walletAddress={walletAddress ?? undefined}
             onClaimSuccess={handleRefundClaimSuccess}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isMigrationDialogOpen}
+        onOpenChange={setIsMigrationDialogOpen}
+      >
+        <DialogContent
+          className="bg-background rounded-2xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <MigrationClaimPanel
+            walletAddress={walletAddress ?? undefined}
+            migrationData={migrationData}
+            isLoading={isMigrationLoading}
+            isError={!!migrationError}
+            onClaim={handleMigrationClaimSuccess}
           />
         </DialogContent>
       </Dialog>

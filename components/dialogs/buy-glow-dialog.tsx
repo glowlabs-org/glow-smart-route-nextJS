@@ -41,7 +41,13 @@ import { cn } from "@/lib/utils";
 import { GlowSymbol } from "../glow-symbol";
 import { trackEvent } from "@/lib/telemetry";
 import { toFixedTruncate } from "@/utils/toFixedTruncate";
-import { useAccount, useBalance, useChainId } from "wagmi";
+import {
+  useAccount,
+  useBalance,
+  useChainId,
+  usePublicClient,
+  useWalletClient,
+} from "wagmi";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { useEthPrice } from "@/hooks/useEthPrice";
@@ -51,6 +57,8 @@ import {
   type TransactionStep,
   type StepStatus,
 } from "@/components/transaction-stepper";
+import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
+import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 const ONE_E18 = 1_000_000_000_000_000_000n;
@@ -214,6 +222,39 @@ export function BuyGlowDialog({
   const wasOpenRef = React.useRef(false);
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
+  const [isSmartAccountWarningOpen, setIsSmartAccountWarningOpen] =
+    React.useState(false);
+
+  const checkSmartAccountBeforeBuy =
+    React.useCallback(async (): Promise<boolean> => {
+      if (!address || !walletClient) return false;
+
+      try {
+        const status = await getSmartAccountStatus({
+          address: address as `0x${string}`,
+          walletClient,
+          getBytecode: publicClient?.getBytecode,
+        });
+
+        const isSmartAccount =
+          status &&
+          (status.isContractWallet ||
+            status.isEip7702Delegated ||
+            status.hasWalletAABatching);
+
+        if (isSmartAccount) {
+          setIsSmartAccountWarningOpen(true);
+          return true;
+        }
+
+        return false;
+      } catch (error) {
+        console.error("Smart account check failed:", error);
+        return false;
+      }
+    }, [address, walletClient, publicClient?.getBytecode]);
 
   const impactWeekRangeQuery = useQuery({
     queryKey: ["impact-week-range", address?.toLowerCase()],
@@ -498,8 +539,10 @@ export function BuyGlowDialog({
   ]);
 
   React.useEffect(() => {
-    if (open && !wasOpenRef.current) trackEvent("buy_glw_dialog_open", { source });
-    if (!open && wasOpenRef.current) trackEvent("buy_glw_dialog_close", { source });
+    if (open && !wasOpenRef.current)
+      trackEvent("buy_glw_dialog_open", { source });
+    if (!open && wasOpenRef.current)
+      trackEvent("buy_glw_dialog_close", { source });
     wasOpenRef.current = open;
   }, [open, source]);
 
@@ -615,6 +658,12 @@ export function BuyGlowDialog({
 
     if (inputAmount !== lastEstimatedAmount) {
       toast.error("Price estimate is updating. Please wait and try again.");
+      return;
+    }
+
+    const isBlocked = await checkSmartAccountBeforeBuy();
+    if (isBlocked) {
+      trackEvent("buy_glw_smart_account_blocked", { source });
       return;
     }
 
@@ -987,6 +1036,8 @@ export function BuyGlowDialog({
     isConnected,
     usdcBalanceWei,
     usdgBalanceWei,
+    checkSmartAccountBeforeBuy,
+    source,
   ]);
 
   const handleClose = React.useCallback(() => {
@@ -1533,7 +1584,7 @@ export function BuyGlowDialog({
             </ConnectKitButton.Custom>
           ) : (
             <Button
-              className="w-full h-12 rounded-xl text-base font-medium bg-foreground text-background hover:bg-foreground/90"
+              className="w-full"
               onClick={handleBuyGlow}
               disabled={
                 !inputAmount ||
@@ -1576,6 +1627,12 @@ export function BuyGlowDialog({
         <div className="flex-1 overflow-y-auto">{renderContent()}</div>
         {renderFooter()}
       </DialogContent>
+
+      <SmartAccountWarningDialog
+        open={isSmartAccountWarningOpen}
+        onOpenChange={setIsSmartAccountWarningOpen}
+        triggerCheck={false}
+      />
     </Dialog>
   );
 }

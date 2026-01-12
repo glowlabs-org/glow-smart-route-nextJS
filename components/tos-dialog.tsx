@@ -109,7 +109,7 @@ const tosEIP712Types = {
 export function TosDialog() {
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
-  const { signer } = useEthersSigner();
+  const { signer, isLoading: isSignerLoading } = useEthersSigner();
   const { latestNonce } = useGctlApi(address);
   const [isOpen, setIsOpen] = React.useState(false);
   const [isInitialized, setIsInitialized] = React.useState(false);
@@ -180,8 +180,13 @@ export function TosDialog() {
   }, [isConnected, address]);
 
   const handleAcceptTos = async () => {
-    if (!address || !signer) {
+    if (!address) {
       toast.error("Please ensure your wallet is connected");
+      return;
+    }
+
+    if (isSignerLoading || !signer) {
+      toast.error("Wallet is initializing, please try again in a moment");
       return;
     }
 
@@ -714,11 +719,19 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
           >
             Decline & Disconnect
           </Button>
-          <Button onClick={handleAcceptTos} disabled={isSigning}>
+          <Button
+            onClick={handleAcceptTos}
+            disabled={isSigning || isSignerLoading}
+          >
             {isSigning ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Signing...
+              </>
+            ) : isSignerLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Connecting...
               </>
             ) : (
               "Sign & Accept"
