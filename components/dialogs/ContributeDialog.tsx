@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useAccount, usePublicClient } from "wagmi";
+import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import { formatUnits } from "viem";
 import {
   DECIMALS_BY_TOKEN,
@@ -51,6 +51,7 @@ export function ContributeDialog({
 }: ContributeDialogProps) {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
   const { signer } = useEthersSigner();
   const {
     gctlBalance,
@@ -68,7 +69,8 @@ export function ContributeDialog({
   } = useForwarder(
     signer || undefined,
     Number(process.env.NEXT_PUBLIC_CHAIN_ID),
-    publicClient
+    publicClient,
+    walletClient
   );
 
   const { regions, isRegionsLoading } = useRegions();
