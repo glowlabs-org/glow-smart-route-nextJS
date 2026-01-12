@@ -793,25 +793,19 @@ export function MintAndStakeGctlDialog({
   });
 
   // Fallback timeout: if stuck at FINALIZE "confirming" for >60s, do an explicit check
-  const stuckCheckTimeoutRef = React.useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
-  React.useEffect(() => {
-    if (stuckCheckTimeoutRef.current) {
-      clearTimeout(stuckCheckTimeoutRef.current);
-      stuckCheckTimeoutRef.current = null;
-    }
+  // Uses a ref to store the txHash so the timeout callback always has the latest value
+  const trackingTxHashRef = React.useRef<string | null>(null);
+  trackingTxHashRef.current = trackingTxHash;
 
+  React.useEffect(() => {
     if (!trackingTxHash) return;
 
-    const finalizeStep = stakeSteps.find((s) => s.id === "FINALIZE");
-    if (!finalizeStep || finalizeStep.status !== "confirming") return;
-
-    stuckCheckTimeoutRef.current = setTimeout(async () => {
-      if (!trackingTxHash) return;
+    const timeoutId = setTimeout(async () => {
+      const currentTxHash = trackingTxHashRef.current;
+      if (!currentTxHash) return;
 
       try {
-        const res = await fetchTransferDetails(trackingTxHash);
+        const res = await fetchTransferDetails(currentTxHash);
         if (!res.ok) return;
 
         const data = res.val;
@@ -840,20 +834,10 @@ export function MintAndStakeGctlDialog({
       }
     }, 60_000);
 
-    return () => {
-      if (stuckCheckTimeoutRef.current) {
-        clearTimeout(stuckCheckTimeoutRef.current);
-        stuckCheckTimeoutRef.current = null;
-      }
-    };
-  }, [
-    trackingTxHash,
-    stakeSteps,
-    fetchTransferDetails,
-    updateStakeStepStatus,
-    stopTransferPolling,
-    invalidateAllQueries,
-  ]);
+    return () => clearTimeout(timeoutId);
+    // Only re-run when trackingTxHash changes (not on every stakeSteps update)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackingTxHash]);
 
   const handleSetPct = React.useCallback(
     (pct: number) => {
