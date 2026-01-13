@@ -37,6 +37,7 @@ import type {
 } from "@/app/marketplace/deposit-dialog";
 import { LaunchpadView } from "@/app/marketplace/launchpad-view";
 import type { TaggedAuctionApplication } from "@/app/marketplace/launchpad-view";
+import { GlowSymbol } from "@/components/glow-symbol";
 
 const DEFINED_POOL_ACTIVITY_URL =
   "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d";
@@ -522,34 +523,113 @@ export default function LaunchpadStatusWidget({
           )
         ) : effectiveIsApproaching ? (
           // --- APPROACHING STATE (within 1h of launch) ---
-          <div
-            className={cn(
-              "flex-1 flex flex-col items-center justify-center",
-              variant === "full-row" ? "py-8 px-6" : "py-6 px-5"
-            )}
-          >
-            <div className="flex flex-col items-center justify-center gap-4 py-8 px-10 bg-muted/10 rounded-2xl border border-border/50 w-full max-w-lg">
-              <div className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                New listings in
-              </div>
-              <div className="font-mono font-bold tracking-tighter tabular-nums text-foreground">
-                <div className="sm:hidden">
-                  <AnimatedCountdownDhms
-                    remainingMs={remainingMs}
-                    size="lg"
-                    showLabels
-                  />
+          variant === "full-row" ? (
+            // Full-row: show countdown hero
+            <div className="flex-1 flex flex-col items-center justify-center py-8 px-6">
+              <div className="flex flex-col items-center justify-center gap-4 py-8 px-10 bg-muted/10 rounded-2xl border border-border/50 w-full max-w-lg">
+                <GlowSymbol className="h-12 w-12" />
+                <div className="text-xl font-medium text-muted-foreground uppercase tracking-wider">
+                  New listings in
                 </div>
-                <div className="hidden sm:block">
-                  <AnimatedCountdownDhms
-                    remainingMs={remainingMs}
-                    size="xl"
-                    showLabels
-                  />
+                <div className="font-mono font-bold tracking-tighter tabular-nums text-foreground">
+                  <div className="sm:hidden">
+                    <AnimatedCountdownDhms
+                      remainingMs={remainingMs}
+                      size="lg"
+                      showLabels
+                    />
+                  </div>
+                  <div className="hidden sm:block">
+                    <AnimatedCountdownDhms
+                      remainingMs={remainingMs}
+                      size="xl"
+                      showLabels
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            // Non-full-row: show educational explainer cards
+            <div
+              className={cn(
+                "min-h-0 flex-1 flex flex-col",
+                isMobile ? "px-4 pb-6" : "px-5 pb-5"
+              )}
+            >
+              <div className="flex flex-col gap-4 h-full">
+                <Link
+                  href="https://glow.org/blog/guide-to-delegating-glow"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group rounded-xl border border-border bg-muted/10 p-5 text-left transition-colors hover:bg-muted/20 hover:border-delegation-purple/50 flex-1 flex flex-col justify-center"
+                  onClick={() => {
+                    trackEvent("dashboard_education_click", {
+                      source,
+                      wallet_connected: isConnected,
+                      wallet_address: walletAddress,
+                      topic: "delegation",
+                      url: "https://glow.org/blog/guide-to-delegating-glow",
+                    });
+                  }}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background/50 transition-colors group-hover:border-delegation-purple/30">
+                      <DelegationIcon className="h-6 w-6 text-foreground group-hover:text-delegation-purple transition-colors" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-lg font-semibold text-foreground transition-colors group-hover:text-delegation-purple">
+                        Guide to Delegation
+                      </div>
+                      <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                        Delegate your GLW to fund solar farms. Earn GLW
+                        emissions and gradually recover your delegated tokens
+                        over 100 weeks based on farm efficiency.
+                      </div>
+                      <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-delegation-purple/80 transition-colors flex items-center gap-1">
+                        Learn more <span aria-hidden="true">→</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+
+                <Link
+                  href="https://glow.org/blog/guide-to-glow-mining"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group rounded-xl border border-border bg-muted/10 p-5 text-left transition-colors hover:bg-muted/20 hover:border-[color:var(--color-miner)]/50 flex-1 flex flex-col justify-center"
+                  onClick={() => {
+                    trackEvent("dashboard_education_click", {
+                      source,
+                      wallet_connected: isConnected,
+                      wallet_address: walletAddress,
+                      topic: "mining",
+                      url: "https://glow.org/blog/guide-to-glow-mining",
+                    });
+                  }}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background/50 transition-colors group-hover:border-[color:var(--color-miner)]/30">
+                      <CashMinerIcon className="h-6 w-6 text-foreground group-hover:text-[color:var(--color-miner)] transition-colors" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-lg font-semibold text-foreground transition-colors group-hover:text-[color:var(--color-miner-contrast)]">
+                        How Miners Work
+                      </div>
+                      <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                        Buy "Solar Miners" with USDC. They earn GLW emissions
+                        tokens for 99 weeks based on real-world electricity
+                        generation.
+                      </div>
+                      <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-[color:var(--color-miner-contrast)]/80 transition-colors flex items-center gap-1">
+                        Learn more <span aria-hidden="true">→</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            </div>
+          )
         ) : (
           // --- COUNTDOWN STATE (not approaching, more than 1h away) ---
           <div
