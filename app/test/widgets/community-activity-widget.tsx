@@ -57,6 +57,7 @@ export default function CommunityActivityWidget({
               variant="widget"
               maxRows={5}
               showViewAll={false}
+              showKpis={false}
               className="h-full flex flex-col !p-0"
               constrainHeight={false}
             />
@@ -80,7 +81,11 @@ export default function CommunityActivityWidget({
             <DialogTitle>Recent Activity</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto p-6">
-            <SponsoredFarmsActivity variant="full" constrainHeight={false} />
+            <SponsoredFarmsActivity
+              variant="full"
+              constrainHeight={false}
+              showKpis={false}
+            />
           </div>
         </DialogContent>
       </Dialog>

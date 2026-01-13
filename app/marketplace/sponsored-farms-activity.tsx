@@ -44,6 +44,7 @@ interface SponsoredFarmsActivityProps {
   maxRows?: number;
   showViewAll?: boolean;
   onViewAllClick?: () => void;
+  showKpis?: boolean;
 }
 
 function formatCompactNumber(value: number, maximumFractionDigits: number) {
@@ -124,6 +125,7 @@ export function SponsoredFarmsActivity({
   maxRows,
   showViewAll,
   onViewAllClick,
+  showKpis = true,
 }: SponsoredFarmsActivityProps) {
   const isWidget = variant === "widget";
 
@@ -202,33 +204,35 @@ export function SponsoredFarmsActivity({
     return (
       <div className={cn(isWidget ? "w-full min-w-0" : "p-4 w-full min-w-0", className)}>
         {/* Summary Stats Skeleton */}
-        <div
-          className={cn(isWidget ? "mb-4 grid gap-3 w-full min-w-0 grid-cols-3" : "mb-6 grid gap-4 w-full min-w-0", !isWidget && kpiGridClassName)}
-        >
-          {showRewardScore && (
+        {showKpis && (
+          <div
+            className={cn(isWidget ? "mb-4 grid gap-3 w-full min-w-0 grid-cols-3" : "mb-6 grid gap-4 w-full min-w-0", !isWidget && kpiGridClassName)}
+          >
+            {showRewardScore && (
+              <div className={cn("rounded-xl p-3", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 p-4")}>
+                <Skeleton className="h-3 w-16 mb-2" />
+                <Skeleton className="h-6 w-12" />
+                {isWidget && <Skeleton className="h-2 w-20 mt-1" />}
+              </div>
+            )}
+            {!isWidget && shouldShowContributorsKpi ? (
+              <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
+                <Skeleton className="h-4 w-20 mb-2" />
+                <Skeleton className="h-8 w-24" />
+              </div>
+            ) : null}
             <div className={cn("rounded-xl p-3", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 p-4")}>
-              <Skeleton className="h-3 w-16 mb-2" />
-              <Skeleton className="h-6 w-12" />
-              {isWidget && <Skeleton className="h-2 w-20 mt-1" />}
+              <Skeleton className="h-3 w-20 mb-2" />
+              <Skeleton className="h-6 w-16" />
+              {isWidget && <Skeleton className="h-2 w-16 mt-1" />}
             </div>
-          )}
-          {!isWidget && shouldShowContributorsKpi ? (
-            <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-              <Skeleton className="h-4 w-20 mb-2" />
-              <Skeleton className="h-8 w-24" />
+            <div className={cn("rounded-xl p-3", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 p-4")}>
+              <Skeleton className="h-3 w-12 mb-2" />
+              <Skeleton className="h-6 w-10" />
+              {isWidget && <Skeleton className="h-2 w-14 mt-1" />}
             </div>
-          ) : null}
-          <div className={cn("rounded-xl p-3", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 p-4")}>
-            <Skeleton className="h-3 w-20 mb-2" />
-            <Skeleton className="h-6 w-16" />
-            {isWidget && <Skeleton className="h-2 w-16 mt-1" />}
           </div>
-          <div className={cn("rounded-xl p-3", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 p-4")}>
-            <Skeleton className="h-3 w-12 mb-2" />
-            <Skeleton className="h-6 w-10" />
-            {isWidget && <Skeleton className="h-2 w-14 mt-1" />}
-          </div>
-        </div>
+        )}
 
         {/* Activity Table Skeleton */}
         {isWidget ? (
@@ -354,8 +358,9 @@ export function SponsoredFarmsActivity({
   return (
     <div className={cn(className, isWidget ? "w-full min-w-0" : "p-4 w-full min-w-0 overflow-hidden")}>
       {/* Summary Stats KPIs */}
-      <div className={cn(isWidget ? "mb-4 grid gap-3 w-full min-w-0 grid-cols-3" : "mb-6 grid gap-4 w-full min-w-0", !isWidget && kpiGridClassName)}>
-        {showRewardScore && (
+      {showKpis && (
+        <div className={cn(isWidget ? "mb-4 grid gap-3 w-full min-w-0 grid-cols-3" : "mb-6 grid gap-4 w-full min-w-0", !isWidget && kpiGridClassName)}>
+          {showRewardScore && (
           <div className={cn("rounded-xl p-3 min-w-0", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 md:p-4")}>
             <div className={cn("text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 min-w-0 truncate whitespace-nowrap", !isWidget && kpiLabelClassName)}>
               {isWidget ? "Avg Score" : "Avg Reward Score"}
@@ -510,7 +515,8 @@ export function SponsoredFarmsActivity({
             )}
           </div>
         )}
-      </div>
+        </div>
+      )}
 
       {/* Activity Content */}
       {isWidget ? (
