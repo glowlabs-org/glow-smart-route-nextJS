@@ -166,11 +166,11 @@ export default function LaunchpadStatusWidget({
 
   const handleCountdownComplete = React.useCallback(() => {
     refreshNextBatchAtMs();
-    void (async () => {
-      try {
-        await queryClient.refetchQueries({ queryKey: ["sponsor-listings"] });
-      } catch {}
-    })();
+    queryClient.invalidateQueries({
+      predicate: (query) =>
+        Array.isArray(query.queryKey) &&
+        query.queryKey[0] === "sponsor-listings",
+    });
   }, [queryClient, refreshNextBatchAtMs]);
 
   const remainingMs = useCountdownTo({
@@ -210,158 +210,169 @@ export default function LaunchpadStatusWidget({
         className
       )}
     >
-      <CardHeader
-        className={cn(
-          "pb-0",
-          isFullRow
-            ? "px-3 pt-3 pb-0 border-b border-border/40 [.border-b]:pb-2"
-            : "pt-4"
-        )}
-      >
-        <div
+      {/* Hide header for full-row approaching state (bento section header shows it) */}
+      {!(effectiveIsApproaching && isFullRow) && (
+        <CardHeader
           className={cn(
-            "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
-            !isLive ? "items-center" : "items-start",
-            isFullRow ? "min-h-0" : null
+            "pb-0",
+            isFullRow
+              ? "px-3 pt-3 pb-0 border-b border-border/40 [.border-b]:pb-2"
+              : "pt-4"
           )}
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <CardTitle
-              className={cn(
-                "tracking-tight text-foreground",
-                isFullRow
-                  ? "text-xl font-semibold"
-                  : "text-lg font-semibold tracking-tight text-foreground"
-              )}
-            >
-              {isLive
-                ? "Glow Launchpad"
-                : effectiveIsApproaching
-                ? "Get ready"
-                : "New Solar Farm Listing In..."}
-            </CardTitle>
-          </div>
-
-          {isLive && variant === "full-row" ? (
-            <Tabs
-              value={resolvedTab}
-              onValueChange={(v) => {
-                trackEvent("dashboard_launchpad_tab_change", {
-                  source,
-                  wallet_connected: isConnected,
-                  wallet_address: walletAddress,
-                  tab: v,
-                });
-                setLiveTypeFilter(v as ListTypeFilter);
-              }}
-              className="w-full shrink-0 sm:w-auto"
-            >
-              <TabsList
+          <div
+            className={cn(
+              "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
+              !isLive ? "items-center" : "items-start",
+              isFullRow ? "min-h-0" : null
+            )}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <CardTitle
                 className={cn(
-                  "rounded-full border border-border bg-muted/10 p-1",
-                  "h-10 sm:h-12",
-                  "w-full sm:w-auto",
-                  "justify-start overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                  "tracking-tight text-foreground",
+                  isFullRow
+                    ? "text-xl font-semibold"
+                    : "text-lg font-semibold tracking-tight text-foreground"
                 )}
               >
-                {shouldForceType ? (
-                  <TabsTrigger
-                    value={forcedType}
-                    className={cn(
-                      "rounded-full data-[state=active]:bg-background/40 data-[state=active]:text-foreground",
-                      isFullRow ? "px-2 h-5 text-[10px]" : "px-3 h-7 text-xs"
-                    )}
-                  >
-                    {forcedType === "delegations" ? "Delegations" : "Miners"}{" "}
-                    <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
-                      {forcedType === "delegations"
-                        ? isDelegationsLoading
-                          ? "…"
-                          : delegationsAvailableCount
-                        : isMinersLoading
-                        ? "…"
-                        : minersAvailableCount}
-                    </span>
-                  </TabsTrigger>
-                ) : (
-                  <>
+                {isLive
+                  ? "Glow Launchpad"
+                  : effectiveIsApproaching
+                  ? "Get ready"
+                  : "New Solar Farm Listing In..."}
+              </CardTitle>
+            </div>
+
+            {isLive && variant === "full-row" ? (
+              <Tabs
+                value={resolvedTab}
+                onValueChange={(v) => {
+                  trackEvent("dashboard_launchpad_tab_change", {
+                    source,
+                    wallet_connected: isConnected,
+                    wallet_address: walletAddress,
+                    tab: v,
+                  });
+                  setLiveTypeFilter(v as ListTypeFilter);
+                }}
+                className="w-full shrink-0 sm:w-auto"
+              >
+                <TabsList
+                  className={cn(
+                    "rounded-full border border-border bg-muted/10 p-1",
+                    "h-10 sm:h-12",
+                    "w-full sm:w-auto",
+                    "justify-start overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                  )}
+                >
+                  {shouldForceType ? (
                     <TabsTrigger
-                      value="all"
+                      value={forcedType}
                       className={cn(
                         "rounded-full data-[state=active]:bg-background/40 data-[state=active]:text-foreground",
                         isFullRow ? "px-2 h-5 text-[10px]" : "px-3 h-7 text-xs"
                       )}
                     >
-                      All{" "}
+                      {forcedType === "delegations" ? "Delegations" : "Miners"}{" "}
                       <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
-                        {isDelegationsLoading || isMinersLoading
+                        {forcedType === "delegations"
+                          ? isDelegationsLoading
+                            ? "…"
+                            : delegationsAvailableCount
+                          : isMinersLoading
                           ? "…"
-                          : delegationsAvailableCount + minersAvailableCount}
+                          : minersAvailableCount}
                       </span>
                     </TabsTrigger>
-                    <TabsTrigger
-                      value="delegations"
-                      className={cn(
-                        "rounded-full data-[state=active]:bg-delegation-purple/15 data-[state=active]:text-foreground",
-                        isFullRow ? "px-2 h-5 text-[10px]" : "px-3 h-7 text-xs"
-                      )}
-                    >
-                      Delegations{" "}
-                      <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
-                        {isDelegationsLoading ? "…" : delegationsAvailableCount}
-                      </span>
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="miners"
-                      className={cn(
-                        "rounded-full data-[state=active]:bg-primary/15 data-[state=active]:text-foreground",
-                        isFullRow ? "px-2 h-5 text-[10px]" : "px-3 h-7 text-xs"
-                      )}
-                    >
-                      Miners{" "}
-                      <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
-                        {isMinersLoading ? "…" : minersAvailableCount}
-                      </span>
-                    </TabsTrigger>
-                  </>
-                )}
-
-                <TabsTrigger
-                  value="activity"
-                  className={cn(
-                    "rounded-full data-[state=active]:bg-background/40 data-[state=active]:text-foreground",
-                    isFullRow ? "px-2 h-5 text-[10px]" : "px-3 h-7 text-xs"
+                  ) : (
+                    <>
+                      <TabsTrigger
+                        value="all"
+                        className={cn(
+                          "rounded-full data-[state=active]:bg-background/40 data-[state=active]:text-foreground",
+                          isFullRow
+                            ? "px-2 h-5 text-[10px]"
+                            : "px-3 h-7 text-xs"
+                        )}
+                      >
+                        All{" "}
+                        <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
+                          {isDelegationsLoading || isMinersLoading
+                            ? "…"
+                            : delegationsAvailableCount + minersAvailableCount}
+                        </span>
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="delegations"
+                        className={cn(
+                          "rounded-full data-[state=active]:bg-delegation-purple/15 data-[state=active]:text-foreground",
+                          isFullRow
+                            ? "px-2 h-5 text-[10px]"
+                            : "px-3 h-7 text-xs"
+                        )}
+                      >
+                        Delegations{" "}
+                        <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
+                          {isDelegationsLoading
+                            ? "…"
+                            : delegationsAvailableCount}
+                        </span>
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="miners"
+                        className={cn(
+                          "rounded-full data-[state=active]:bg-primary/15 data-[state=active]:text-foreground",
+                          isFullRow
+                            ? "px-2 h-5 text-[10px]"
+                            : "px-3 h-7 text-xs"
+                        )}
+                      >
+                        Miners{" "}
+                        <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
+                          {isMinersLoading ? "…" : minersAvailableCount}
+                        </span>
+                      </TabsTrigger>
+                    </>
                   )}
-                >
-                  Activity
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                trackEvent("launchpad_widget_buy_glw_click", {
-                  source,
-                  wallet_connected: isConnected,
-                  wallet_address: walletAddress,
-                });
-                setBuyGlowOpen(true);
-              }}
-              className={cn(
-                "shrink-0 rounded-full border-border ",
-                "h-9 px-4 text-sm"
-              )}
-            >
-              <ShoppingCart
-                className={cn("mr-1.5", isFullRow ? "h-3 w-3" : "h-4 w-4")}
-              />
-              Buy GLW
-            </Button>
-          )}
-        </div>
-      </CardHeader>
+
+                  <TabsTrigger
+                    value="activity"
+                    className={cn(
+                      "rounded-full data-[state=active]:bg-background/40 data-[state=active]:text-foreground",
+                      isFullRow ? "px-2 h-5 text-[10px]" : "px-3 h-7 text-xs"
+                    )}
+                  >
+                    Activity
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  trackEvent("launchpad_widget_buy_glw_click", {
+                    source,
+                    wallet_connected: isConnected,
+                    wallet_address: walletAddress,
+                  });
+                  setBuyGlowOpen(true);
+                }}
+                className={cn(
+                  "shrink-0 rounded-full border-border ",
+                  "h-9 px-4 text-sm"
+                )}
+              >
+                <ShoppingCart
+                  className={cn("mr-1.5", isFullRow ? "h-3 w-3" : "h-4 w-4")}
+                />
+                Buy GLW
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+      )}
 
       <CardContent
         className={cn(
@@ -526,7 +537,7 @@ export default function LaunchpadStatusWidget({
           variant === "full-row" ? (
             // Full-row: show countdown hero
             <div className="flex-1 flex flex-col items-center justify-center py-8 px-6">
-              <div className="flex flex-col items-center justify-center gap-4 py-8 px-10 bg-muted/10 rounded-2xl border border-border/50 w-full max-w-lg">
+              <div className="flex flex-col items-center justify-center gap-4 py-8 px-10  w-full max-w-lg">
                 <GlowSymbol className="h-12 w-12" />
                 <div className="text-xl font-medium text-muted-foreground uppercase tracking-wider">
                   New listings in
