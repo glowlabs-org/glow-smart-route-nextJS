@@ -29,6 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import {
   Tooltip as ShadTooltip,
   TooltipContent,
@@ -240,6 +241,331 @@ const CustomTooltip = ({
   return null;
 };
 
+interface PendingFarmData {
+  farmId: string;
+  farmName: string;
+  fractionType: "launchpad" | "mining-center";
+  totalAmount: bigint;
+  estimatedWeeklyGlw?: number;
+  progressPercent?: number;
+}
+
+interface InProgressFarmData {
+  applicationId: string;
+  farmName: string;
+  fractionType: "launchpad" | "mining-center";
+  estimatedUserWeeklyGlw?: number;
+  progressPercent?: number;
+  totalAmount?: bigint;
+}
+
+const PendingFarmRow = ({
+  data,
+  isPending,
+  onOpenDialog,
+}: {
+  data: PendingFarmData | InProgressFarmData;
+  isPending: boolean;
+  onOpenDialog?: () => void;
+}) => {
+  const isMiningCenter = data.fractionType === "mining-center";
+
+  const fmtGlw = (n: number) =>
+    new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: 0,
+    }).format(n);
+
+  const fmtUsd = (n: number) =>
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(n);
+
+  const amountValue = React.useMemo(() => {
+    if (!("totalAmount" in data) || !data.totalAmount) return null;
+
+    const amount = Number(data.totalAmount);
+    if (!Number.isFinite(amount) || amount <= 0) return null;
+
+    if (isMiningCenter) {
+      return amount / 1e6;
+    } else {
+      return amount / 1e18;
+    }
+  }, [data, isMiningCenter]);
+
+  const estimatedGlw = React.useMemo(() => {
+    if (
+      "estimatedUserWeeklyGlw" in data &&
+      typeof data.estimatedUserWeeklyGlw === "number" &&
+      data.estimatedUserWeeklyGlw > 0
+    ) {
+      return data.estimatedUserWeeklyGlw;
+    }
+    return null;
+  }, [data]);
+
+  const getIconContainerClass = () => {
+    if (isMiningCenter) {
+      return "bg-[color:var(--color-miner)]/12 border-[color:var(--color-miner)] text-[color:var(--color-miner-contrast)]";
+    }
+    return "bg-delegation-purple/12 border-delegation-purple text-delegation-purple dark:text-delegation-purple";
+  };
+
+  const ProgressDisplay = ({ className }: { className?: string }) => {
+    if (isPending) {
+      return (
+        <div
+          className={cn(
+            "text-xs font-bold font-mono text-muted-foreground",
+            className
+          )}
+        >
+          STARTS SOON
+        </div>
+      );
+    }
+    return (
+      <div
+        className={cn(
+          "text-xs font-bold font-mono text-muted-foreground",
+          className
+        )}
+      >
+        IN PROGRESS
+      </div>
+    );
+  };
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-border bg-muted/30 transition-colors cursor-pointer hover:bg-muted/40"
+      )}
+      onClick={() => onOpenDialog?.()}
+    >
+      {/* MOBILE CARD */}
+      <div className="sm:hidden p-3">
+        <div className="flex items-center gap-3">
+          <div
+            className={cn(
+              "h-9 w-9 shrink-0 rounded-lg flex items-center justify-center border",
+              getIconContainerClass()
+            )}
+          >
+            {isMiningCenter ? (
+              <CashMinerIcon className="w-5 h-5" />
+            ) : (
+              <DelegationIcon className="w-5 h-5" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-sm text-foreground leading-tight truncate">
+              {data.farmName}
+            </div>
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground mt-0.5">
+              <span className="uppercase tracking-wider">
+                {isPending ? "Pending" : "In Progress"}
+              </span>
+              {!isPending && typeof data.progressPercent === "number" && (
+                <>
+                  <span>•</span>
+                  <span className="tabular-nums">
+                    {Math.round(data.progressPercent)}% filled
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between text-xs font-mono">
+          <div className="flex flex-col">
+            <span className="text-[9px] uppercase tracking-wider text-muted-foreground mb-0.5">
+              {isMiningCenter ? "Cost" : "Delegated"}
+            </span>
+            {amountValue ? (
+              <span
+                className={cn(
+                  "font-bold tabular-nums",
+                  isMiningCenter
+                    ? "text-[color:var(--color-miner-contrast)]"
+                    : "text-delegation-purple"
+                )}
+              >
+                {isMiningCenter
+                  ? fmtUsd(amountValue)
+                  : `${fmtGlw(amountValue)} GLW`}
+              </span>
+            ) : (
+              <span className="font-bold text-muted-foreground">—</span>
+            )}
+          </div>
+          <div className="flex flex-col items-end">
+            <span className="text-[9px] uppercase tracking-wider text-muted-foreground mb-0.5">
+              Est. Weekly
+            </span>
+            {estimatedGlw ? (
+              <span
+                className={cn(
+                  "font-bold tabular-nums",
+                  isMiningCenter
+                    ? "text-[color:var(--color-miner-contrast)]"
+                    : "text-delegation-purple"
+                )}
+              >
+                {fmtGlw(estimatedGlw)} GLW
+              </span>
+            ) : (
+              <span className="font-bold text-muted-foreground">—</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* DESKTOP ROW */}
+      <div className="hidden sm:block">
+        <div className="grid grid-cols-12 items-center p-4 gap-4">
+          {/* COLUMN 1: IDENTITY */}
+          <div className="col-span-3 flex items-center gap-3">
+            <div
+              className={cn(
+                "h-10 w-10 shrink-0 rounded-xl flex items-center justify-center border",
+                getIconContainerClass()
+              )}
+            >
+              {isMiningCenter ? (
+                <CashMinerIcon className="w-6 h-6" />
+              ) : (
+                <DelegationIcon className="w-6 h-6" />
+              )}
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="font-bold text-base text-foreground leading-tight truncate">
+                {data.farmName}
+              </span>
+              <span className="text-sm font-mono text-muted-foreground truncate">
+                {isPending ? "Pending" : "In Progress"}
+              </span>
+            </div>
+          </div>
+
+          {/* COLUMN 2: LIFECYCLE BAR */}
+          <div className="col-span-3 px-2">
+            {!isPending && typeof data.progressPercent === "number" ? (
+              <div className="text-xs font-mono text-muted-foreground">
+                {Math.round(data.progressPercent ?? 0)}% filled
+              </div>
+            ) : (
+              <div className="text-xs font-mono text-muted-foreground">
+                Starts Soon
+              </div>
+            )}
+          </div>
+
+          {/* COLUMN 3: KEY METRICS */}
+          <div className="col-span-4 flex items-center justify-center gap-6">
+            {!isPending && typeof data.progressPercent === "number" ? (
+              <div className="flex items-center gap-4 w-full">
+                <div className="flex-1">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+                    Funding
+                  </div>
+                  <Progress
+                    value={Math.max(
+                      0,
+                      Math.min(100, data.progressPercent ?? 0)
+                    )}
+                  />
+                </div>
+                {estimatedGlw && (
+                  <div className="text-right">
+                    <div
+                      className={cn(
+                        "text-lg font-bold font-mono tabular-nums",
+                        isMiningCenter
+                          ? "text-[color:var(--color-miner-contrast)]"
+                          : "text-delegation-purple dark:text-delegation-purple"
+                      )}
+                    >
+                      {formatGlwPrecise(estimatedGlw)}
+                    </div>
+                    <div className="text-[10px] font-mono text-muted-foreground">
+                      GLW/wk est.
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="text-center min-w-[70px]">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
+                    {isMiningCenter ? "Cost" : "Delegated"}
+                  </div>
+                  <div className="flex items-baseline justify-center gap-1">
+                    {amountValue ? (
+                      <>
+                        <span className="text-lg font-bold font-mono text-foreground tabular-nums leading-tight">
+                          {isMiningCenter
+                            ? fmtUsd(amountValue)
+                            : fmtGlw(amountValue)}
+                        </span>
+                        {!isMiningCenter && (
+                          <span className="text-[10px] font-mono text-muted-foreground">
+                            GLW
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-lg font-bold font-mono text-muted-foreground tabular-nums leading-tight">
+                        —
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-center min-w-[70px]">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
+                    Est. Weekly
+                  </div>
+                  <div className="flex items-baseline justify-center gap-1">
+                    {estimatedGlw ? (
+                      <>
+                        <span
+                          className={cn(
+                            "text-lg font-bold font-mono tabular-nums leading-tight",
+                            isMiningCenter
+                              ? "text-[color:var(--color-miner-contrast)]"
+                              : "text-delegation-purple dark:text-delegation-purple"
+                          )}
+                        >
+                          {fmtGlw(estimatedGlw)}
+                        </span>
+                        <span className="text-[10px] font-mono text-muted-foreground">
+                          GLW
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-lg font-bold font-mono text-muted-foreground tabular-nums leading-tight">
+                        —
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* COLUMN 4: PROGRESS */}
+          <div className="col-span-2 flex items-center justify-end gap-2">
+            <ProgressDisplay />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- MAIN COMPONENT ---
 
 interface SolarFarmWidgetProps {
@@ -353,6 +679,91 @@ export default function SolarFarmWidget({
   const aggregatedEstimatedWeeklyGlwMiningCenter = React.useMemo(() => {
     return getAggregatedEstimatedWeeklyGlw(miningCenterInProgressWithEstimates);
   }, [miningCenterInProgressWithEstimates]);
+
+  const rewardedFarmTypeKeys = React.useMemo(() => {
+    if (!data) return new Set<string>();
+    return new Set(
+      data.farmDetails.map(
+        (f) =>
+          `${f.farmId}:${
+            f.type === "launchpad" ? "launchpad" : "mining-center"
+          }`
+      )
+    );
+  }, [data]);
+
+  const pendingStartRows = React.useMemo(() => {
+    if (!splitsActivity.length) return [];
+
+    const byFarm = new Map<
+      string,
+      {
+        farmId: string;
+        farmName: string;
+        fractionType: "launchpad" | "mining-center";
+        totalAmount: bigint;
+      }
+    >();
+
+    for (const evt of splitsActivity) {
+      const fractionType = evt.fractionType;
+      if (!fractionType) continue;
+      const status = (evt.fractionStatus ?? "").toLowerCase();
+
+      const isPendingStart =
+        (fractionType === "launchpad" && status === "filled") ||
+        (fractionType === "mining-center" &&
+          (status === "filled" || status === "expired"));
+      if (!isPendingStart) continue;
+
+      const farmId = evt.farmId ?? evt.applicationId;
+      if (!farmId) continue;
+      const farmTypeKey = `${farmId}:${fractionType}`;
+      if (rewardedFarmTypeKeys.has(farmTypeKey)) continue;
+
+      let amount = BigInt(0);
+      try {
+        amount = BigInt(evt.amount);
+      } catch {
+        amount = BigInt(0);
+      }
+
+      const existing = byFarm.get(farmTypeKey) ?? {
+        farmId,
+        farmName: evt.farmName || `Farm ${farmId.substring(0, 8)}`,
+        fractionType,
+        totalAmount: BigInt(0),
+      };
+      existing.totalAmount += amount;
+      byFarm.set(farmTypeKey, existing);
+    }
+
+    return Array.from(byFarm.values());
+  }, [rewardedFarmTypeKeys, splitsActivity]);
+
+  const inProgressAmountsByAppId = React.useMemo(() => {
+    const map = new Map<string, bigint>();
+
+    for (const evt of splitsActivity) {
+      const status = (evt.fractionStatus ?? "").toLowerCase();
+      if (status !== "committed") continue;
+
+      const appId = evt.applicationId;
+      if (!appId) continue;
+
+      let amount = BigInt(0);
+      try {
+        amount = BigInt(evt.amount);
+      } catch {
+        continue;
+      }
+
+      const existing = map.get(appId) ?? BigInt(0);
+      map.set(appId, existing + amount);
+    }
+
+    return map;
+  }, [splitsActivity]);
 
   const isWidgetLoading = isLoading || isSplitsActivityLoading;
   const isWidgetError = isError || isSplitsActivityError;
@@ -1032,13 +1443,104 @@ export default function SolarFarmWidget({
               </div>
             </div>
           ) : chartData.length === 0 ? (
-            <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-2 text-center">
-              <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                No weekly rewards data yet
+            <div className="flex-1 min-h-0 flex flex-col gap-3 p-3 sm:p-4 sm:gap-4">
+              <div className="text-center">
+                <div className="text-sm font-bold font-mono uppercase tracking-wider text-foreground mb-0.5">
+                  Farms Pending Rewards
+                </div>
+                <div className="text-[10px] font-mono text-muted-foreground">
+                  Rewards begin Soon
+                </div>
               </div>
-              <div className="text-[10px] font-mono text-muted-foreground">
-                Once you have miner/delegation rewards, your last 10 weeks will
-                appear here.
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {pendingStartRows.map((row) => (
+                  <DialogTrigger
+                    asChild
+                    key={`${row.farmId}-${row.fractionType}`}
+                  >
+                    <div>
+                      <PendingFarmRow
+                        data={row}
+                        isPending={true}
+                        onOpenDialog={() => {
+                          trackEvent("dashboard_pending_farm_click", {
+                            source,
+                            wallet_connected: hasWallet,
+                            wallet_address: normalizedWalletAddress,
+                            farm_id: row.farmId,
+                            farm_type: row.fractionType,
+                          });
+                        }}
+                      />
+                    </div>
+                  </DialogTrigger>
+                ))}
+                {sponsorshipsInProgressWithEstimates.map((item) => (
+                  <DialogTrigger
+                    asChild
+                    key={`${item.applicationId}-launchpad`}
+                  >
+                    <div>
+                      <PendingFarmRow
+                        data={{
+                          applicationId: item.applicationId,
+                          farmName:
+                            item.application?.farmName ||
+                            `Farm ${item.applicationId.substring(0, 8)}`,
+                          fractionType: "launchpad",
+                          estimatedUserWeeklyGlw: item.estimatedUserWeeklyGlw,
+                          progressPercent: item.progressPercent,
+                          totalAmount: inProgressAmountsByAppId.get(
+                            item.applicationId
+                          ),
+                        }}
+                        isPending={false}
+                        onOpenDialog={() => {
+                          trackEvent("dashboard_pending_farm_click", {
+                            source,
+                            wallet_connected: hasWallet,
+                            wallet_address: normalizedWalletAddress,
+                            farm_id: item.applicationId,
+                            farm_type: "launchpad",
+                          });
+                        }}
+                      />
+                    </div>
+                  </DialogTrigger>
+                ))}
+                {miningCenterInProgressWithEstimates.map((item) => (
+                  <DialogTrigger
+                    asChild
+                    key={`${item.applicationId}-mining-center`}
+                  >
+                    <div>
+                      <PendingFarmRow
+                        data={{
+                          applicationId: item.applicationId,
+                          farmName:
+                            item.application?.farmName ||
+                            `Farm ${item.applicationId.substring(0, 8)}`,
+                          fractionType: "mining-center",
+                          estimatedUserWeeklyGlw: item.estimatedUserWeeklyGlw,
+                          progressPercent: item.progressPercent,
+                          totalAmount: inProgressAmountsByAppId.get(
+                            item.applicationId
+                          ),
+                        }}
+                        isPending={false}
+                        onOpenDialog={() => {
+                          trackEvent("dashboard_pending_farm_click", {
+                            source,
+                            wallet_connected: hasWallet,
+                            wallet_address: normalizedWalletAddress,
+                            farm_id: item.applicationId,
+                            farm_type: "mining-center",
+                          });
+                        }}
+                      />
+                    </div>
+                  </DialogTrigger>
+                ))}
               </div>
             </div>
           ) : (

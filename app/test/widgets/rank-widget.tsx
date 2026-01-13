@@ -45,6 +45,7 @@ import {
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { formatTopPercentile } from "@/utils/impact";
+import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 
@@ -78,17 +79,28 @@ function safeNumber(value?: string) {
 function getIndicatorsStateFromImpactScore(
   impactScore: ImpactGlowScoreResponse
 ): ImpactIndicatorsState {
-  const latestWeek = impactScore?.weekly?.[impactScore.weekly.length - 1];
+  // Use currentWeekProjection for "what's active NOW" (current ongoing week)
+  const projection = impactScore?.currentWeekProjection;
 
-  // Use historical data from latestWeek (not projection, which is for current week potential)
-  const streakBonusMultiplier = latestWeek?.streakBonusMultiplier ?? 0;
-  const hasMiner = latestWeek?.hasCashMinerBonus ?? false;
+  // Fallback to last completed week if projection not available
+  const weeklyArray = impactScore?.weekly;
+  const latestWeek = weeklyArray?.length
+    ? weeklyArray[weeklyArray.length - 1]
+    : null;
+
+  // Prefer projection data (current week) over historical data
+  const streakBonusMultiplier =
+    projection?.streakBonusMultiplier ?? latestWeek?.streakBonusMultiplier ?? 0;
+  const hasMiner =
+    projection?.hasMinerMultiplier ?? latestWeek?.hasCashMinerBonus ?? false;
 
   return {
     hasMinerMultiplier: Boolean(hasMiner),
     hasImpactStreak: streakBonusMultiplier > 0,
     streakBonusMultiplier,
-    hasSteeringStake: safeNumber(impactScore.totals?.steeringPoints) > 0,
+    hasSteeringStake:
+      projection?.hasSteeringStake ??
+      safeNumber(impactScore.totals?.steeringPoints) > 0,
     hasEmissionsEarned: safeNumber(impactScore.totals?.inflationPoints) > 0,
     hasVaultBonus:
       safeBigInt(impactScore.glowWorth?.delegatedActiveGlwWei) > 0n,
@@ -396,8 +408,10 @@ export function RankWidget({
   const totalWalletCount = leaderboardQuery.data?.totalWalletCount ?? 0;
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? "";
 
+  const currentWeek = getCurrentEpoch();
+
   const impactScoreQuery = useQuery({
-    queryKey: ["impact-glow-score", walletAddress],
+    queryKey: ["impact-glow-score", walletAddress, currentWeek],
     enabled: Boolean(HUB_URL && hasWallet && isValidWalletAddress),
     staleTime: 60_000,
     gcTime: 10 * 60_000,
@@ -408,7 +422,10 @@ export function RankWidget({
         if (!HUB_URL) throw new Error("NEXT_PUBLIC_HUB_URL is not set");
         if (!walletAddress) throw new Error("Missing wallet address");
         return await hubGet<ImpactGlowScoreResponse>("/impact/glow-score", {
-          params: { walletAddress },
+          params: {
+            walletAddress,
+            endWeek: currentWeek,
+          },
         });
       } catch (error) {
         toast.error("Failed to load Impact Score", {
@@ -770,6 +787,7 @@ export function RankWidget({
           <ImpactScoreBreakdownDialogContent
             impactScore={impactScore}
             walletAddress={normalizedWalletAddress}
+            showCurrentWeekProjection
           />
         ) : null}
       </Dialog>

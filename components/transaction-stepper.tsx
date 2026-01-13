@@ -215,13 +215,13 @@ function TimelineItem({
           </p>
         )}
 
-        {/* Error message - simplified */}
+        {/* Error message */}
         {step.status === "error" && (
           <p className="text-xs text-left text-red-500">
             {step.errorMessage?.includes("User rejected") ||
             step.errorMessage?.includes("user rejected")
               ? "Transaction rejected"
-              : "Transaction failed"}
+              : step.errorMessage || "Transaction failed"}
           </p>
         )}
       </div>

@@ -114,7 +114,10 @@ function computeDerivedMetrics(data: PerformanceRowData) {
   const totalEarnedGlw = data.recovered + data.inflationGlw;
   const denom = data.type === "other" ? 1 : Math.max(data.initialCost, 1);
   const timePercent = Math.min((data.weeksActive / data.totalWeeks) * 100, 100);
-  const valuePercent = data.type === "other" ? 0 : (totalEarned / denom) * 100;
+  const valuePercent =
+    data.type === "other" || data.type === "miner"
+      ? timePercent
+      : (totalEarned / denom) * 100;
   const deltaPercent =
     data.type === "other" || data.initialCost === 0
       ? 0
@@ -241,7 +244,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             className
           )}
         >
-          STARTS NEXT THURSDAY
+          STARTS SOON
         </div>
       );
     }

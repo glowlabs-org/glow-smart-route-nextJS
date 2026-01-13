@@ -311,7 +311,7 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
               )}
             >
               <Clock className={isCompact ? "w-2.5 h-2.5" : "w-3 h-3"} />
-              Starts Next Thursday
+              Starts Soon
             </div>
           </div>
         )}

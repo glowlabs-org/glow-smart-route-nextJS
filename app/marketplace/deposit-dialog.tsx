@@ -4,7 +4,15 @@ import React from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { TransactionDetail } from "@/components/dialogs/transaction-dialog";
 import { Button } from "@/components/ui/button";
-import { Minus, Plus, Loader2, X, Coins, Share2 } from "lucide-react";
+import {
+  Minus,
+  Plus,
+  Loader2,
+  X,
+  Coins,
+  Share2,
+  RefreshCw,
+} from "lucide-react";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { cn } from "@/lib/utils";
 import { useAccount, useChainId } from "wagmi";
@@ -41,6 +49,58 @@ import {
 import { EmissionsIcon, VaultIcon } from "@/components/impact-icons";
 
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
+
+// User-friendly error messages for contract errors
+const CONTRACT_ERROR_MESSAGES: Record<
+  string,
+  { message: string; shouldRefresh?: boolean }
+> = {
+  InsufficientSharesAvailable: {
+    message:
+      "Not enough slots available. Someone else may have just purchased. Please refresh and try again.",
+    shouldRefresh: true,
+  },
+  Expired: {
+    message: "This offering has expired and is no longer accepting purchases.",
+    shouldRefresh: true,
+  },
+  AlreadyClosed: {
+    message: "This offering has been closed and is no longer available.",
+    shouldRefresh: true,
+  },
+  ZeroSteps: {
+    message: "Please select at least one unit to purchase.",
+  },
+  MinStepsToBuyCannotBeZero: {
+    message: "Please select at least one unit to purchase.",
+  },
+  InsufficientBalance: {
+    message: "Insufficient token balance. Please add funds to your wallet.",
+  },
+  AddressInsufficientBalance: {
+    message: "Insufficient token balance. Please add funds to your wallet.",
+  },
+  SafeERC20FailedOperation: {
+    message: "Token transfer failed. Please check your balance and try again.",
+  },
+  ReentrancyGuardReentrantCall: {
+    message: "Transaction in progress. Please wait and try again.",
+  },
+  FailedInnerCall: {
+    message: "Transaction failed. Please try again.",
+  },
+};
+
+function findErrorInMessage(
+  msg: string
+): { message: string; shouldRefresh?: boolean } | null {
+  for (const [errorName, config] of Object.entries(CONTRACT_ERROR_MESSAGES)) {
+    if (msg.includes(errorName)) {
+      return config;
+    }
+  }
+  return null;
+}
 import { useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -129,6 +189,8 @@ export function DepositDialog({
   const stepsRef = React.useRef<TransactionStep[]>([]);
   const [txHash, setTxHash] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [isInsufficientSharesError, setIsInsufficientSharesError] =
+    React.useState(false);
   const [successMetrics, setSuccessMetrics] =
     React.useState<SuccessMetrics | null>(null);
 
@@ -177,6 +239,7 @@ export function DepositDialog({
       stepsRef.current = [];
       setTxHash(null);
       setErrorMessage(null);
+      setIsInsufficientSharesError(false);
       setSuccessMetrics(null);
     }
   }, [open]);
@@ -804,7 +867,17 @@ export function DepositDialog({
       });
     } catch (e: any) {
       console.error(e);
-      const msg = e?.message || "Transaction failed";
+      const rawMsg = e?.message || "Transaction failed";
+
+      // Check multiple places where viem might store the custom error name
+      const errorName =
+        e?.cause?.data?.errorName || e?.cause?.name || e?.data?.errorName || "";
+
+      // Look up user-friendly error message from the mapping
+      const knownError = CONTRACT_ERROR_MESSAGES[errorName];
+      const errorConfig = knownError || findErrorInMessage(rawMsg);
+      const msg = errorConfig?.message || rawMsg;
+      const shouldRefresh = errorConfig?.shouldRefresh ?? false;
 
       // Mark the current active step as error (using ref to avoid stale closure)
       const currentSteps = stepsRef.current;
@@ -822,7 +895,9 @@ export function DepositDialog({
       }
 
       const isUserRejected =
-        msg.includes("User rejected") || msg.includes("user rejected");
+        rawMsg.includes("User rejected") || rawMsg.includes("user rejected");
+
+      const hasCustomMessage = Boolean(errorConfig);
 
       if (!isUserRejected) {
         trackEvent("marketplace_deposit_error", {
@@ -833,15 +908,17 @@ export function DepositDialog({
           fraction_id: application?.activeFraction?.id ?? null,
           quantity,
           failed_step: activeStep?.id ?? null,
-          error_message: msg.slice(0, 200),
+          error_message: rawMsg.slice(0, 200),
+          error_name: errorName || null,
         });
       }
 
       setPhase("error");
       setErrorMessage(msg);
+      setIsInsufficientSharesError(shouldRefresh);
       if (isUserRejected) {
         toast.error("Transaction rejected");
-      } else {
+      } else if (!hasCustomMessage) {
         toast.error(msg);
       }
     } finally {
@@ -1154,7 +1231,7 @@ export function DepositDialog({
               </div>
 
               {impactPointsBreakdown.total > 0 ? (
-                <div className="w-full rounded-2xl p-4 border bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-amber-500/20">
+                <div className="w-full rounded-2xl p-4 border bg-gradient-to-r from-glow-orange/10 via-glow-orange-500/10 to-glow-orange/20 border-glow-orange/30">
                   <div className="flex justify-between items-center mb-3">
                     <div className="text-xs font-medium text-left text-muted-foreground uppercase tracking-wider">
                       Est. Weekly Impact Points
@@ -1346,14 +1423,27 @@ export function DepositDialog({
               </Button>
               <Button
                 onClick={() => {
+                  if (isInsufficientSharesError) {
+                    queryClient.invalidateQueries({
+                      queryKey: QUERY_KEYS.listings.allSponsors,
+                    });
+                  }
                   setPhase("review");
                   setTransactionSteps([]);
                   stepsRef.current = [];
                   setErrorMessage(null);
+                  setIsInsufficientSharesError(false);
                 }}
                 className="flex-1"
               >
-                Try Again
+                {isInsufficientSharesError ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh & Retry
+                  </>
+                ) : (
+                  "Try Again"
+                )}
               </Button>
             </motion.div>
           )}
