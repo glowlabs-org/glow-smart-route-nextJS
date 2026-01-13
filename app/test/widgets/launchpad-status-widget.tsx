@@ -539,7 +539,7 @@ export default function LaunchpadStatusWidget({
             <div className="flex-1 flex flex-col items-center justify-center py-8 px-6">
               <div className="flex flex-col items-center justify-center gap-4 py-8 px-10  w-full max-w-lg">
                 <GlowSymbol className="h-12 w-12" />
-                <div className="text-xl font-medium text-muted-foreground uppercase tracking-wider">
+                <div className="text-lg md:text-xl font-medium text-muted-foreground uppercase tracking-wider">
                   New listings in
                 </div>
                 <div className="font-mono font-bold tracking-tighter tabular-nums text-foreground">

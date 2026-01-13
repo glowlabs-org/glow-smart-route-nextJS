@@ -1246,7 +1246,7 @@ export function DepositDialog({
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="text-2xl font-bold font-mono text-green-600 dark:text-[#D1FF4D]" // Glow Green-ish
+                      className="text-lg md:text-2xl font-bold font-mono text-green-600 dark:text-[#D1FF4D]" // Glow Green-ish
                     >
                       {estimatedRewards.toLocaleString(undefined, {
                         maximumFractionDigits: 2,
@@ -1379,11 +1379,6 @@ export function DepositDialog({
                   : "Confirm Purchase"}
               </Button>
             )}
-          </div>
-
-          <div className="mt-4 text-xs text-center text-muted-foreground/60 px-4 leading-relaxed">
-            By confirming, you agree to the Terms of Service. Rewards are
-            estimated and subject to network conditions.
           </div>
         </div>
       </>

@@ -72,13 +72,13 @@ export default function RecentActivityWidget({
               Expand
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md p-0">
-            <DialogHeader className="p-6 pb-2">
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md p-0 max-h-[85vh] flex flex-col overflow-hidden">
+            <DialogHeader className="px-4 pt-4 pb-2 sm:px-6 sm:pt-6 flex-shrink-0">
               <DialogTitle>Recent Activity</DialogTitle>
             </DialogHeader>
-            <div className="px-6 pb-6">
+            <div className="px-4 pb-4 sm:px-6 sm:pb-6 flex-1 min-h-0 overflow-hidden">
               <RecentActivity
-                className="lg:max-h-none h-[75vh] bg-transparent border-transparent"
+                className="max-h-full h-full bg-transparent border-transparent"
                 walletAddress={address}
                 splitsActivity={splitsActivity}
                 swapsActivity={swapsActivity}

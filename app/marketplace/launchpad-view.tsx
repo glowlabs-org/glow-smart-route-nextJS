@@ -2027,17 +2027,17 @@ function LaunchpadMarketplaceWidget({
             {/* Top Edge Highlight - Simulates light catching the glass surface */}
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent dark:via-white/30" />
 
-            <div className="relative p-6">
+            <div className="relative p-4 md:p-6">
               {/* Header: Title & Badges (moved above stats to free space) */}
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="flex flex-col gap-2 md:gap-3 md:flex-row md:items-start md:justify-between">
                 <h3
-                  className="text-3xl font-semibold tracking-tight"
+                  className="text-2xl md:text-3xl font-semibold tracking-tight"
                   style={{ fontFamily: "Söhne, sans-serif" }}
                 >
                   {application.farmName || "Unnamed Farm"}
                 </h3>
 
-                <div className="flex flex-wrap items-center gap-2 text-sm">
+                <div className="flex flex-wrap items-center gap-1.5 md:gap-2 text-xs md:text-sm">
                   <div className="flex items-center gap-1.5 rounded-full border border-black/10 bg-white/15 px-2.5 py-1 backdrop-blur-xl dark:border-white/10 dark:bg-white/10">
                     <MapPin className="w-3.5 h-3.5 opacity-80" />
                     <span className="text-foreground/80 dark:text-white/80">
@@ -2087,15 +2087,15 @@ function LaunchpadMarketplaceWidget({
               </div>
 
               {/* Stats & Action */}
-              <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-stretch">
+              <div className="mt-3 md:mt-5 flex flex-col gap-2 md:gap-3 md:flex-row md:items-stretch">
                 {/* Amount + Units row on mobile */}
-                <div className="flex flex-row gap-3 md:contents">
+                <div className="flex flex-row gap-2 md:gap-3 md:contents">
                   {/* Stat 1: Amount */}
-                  <div className="flex-1 min-w-0 md:min-w-[140px] p-3 rounded-2xl bg-white/10 border border-white10 flex flex-col justify-center dark:bg-white/5 dark:border-white/10">
-                    <span className="text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-1 dark:text-white/50">
+                  <div className="flex-1 min-w-0 md:min-w-[140px] p-2.5 md:p-3 rounded-2xl bg-white/10 border border-white10 flex flex-col justify-center dark:bg-white/5 dark:border-white/10">
+                    <span className="text-[9px] md:text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-0.5 md:mb-1 dark:text-white/50">
                       {isMiner ? "Price" : "Amount"}
                     </span>
-                    <span className="text-lg--xl font-semibold">
+                    <span className="text-base md:text-lg font-semibold">
                       {cost > 0 ? (
                         <>
                           {isMiner ? "$" : ""}
@@ -2105,20 +2105,20 @@ function LaunchpadMarketplaceWidget({
                         "Free"
                       )}
                     </span>
-                    <span className="text-[10px] text-foreground/50 dark:text-white/40">
+                    <span className="text-[9px] md:text-[10px] text-foreground/50 dark:text-white/40">
                       {isMiner ? "≈ 0.003 ETH" : "≈ $1,810 USD"}
                     </span>
                   </div>
 
                   {/* Stat 2: Units */}
-                  <div className="flex-1 min-w-0 md:min-w-[140px] p-3 rounded-2xl bg-white/10 border border-white10 flex flex-col justify-center dark:bg-white/5 dark:border-white/10">
-                    <span className="text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-1 dark:text-white/50">
+                  <div className="flex-1 min-w-0 md:min-w-[140px] p-2.5 md:p-3 rounded-2xl bg-white/10 border border-white10 flex flex-col justify-center dark:bg-white/5 dark:border-white/10">
+                    <span className="text-[9px] md:text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-0.5 md:mb-1 dark:text-white/50">
                       Units
                     </span>
-                    <span className="text-xl font-semibold">
+                    <span className="text-lg md:text-xl font-semibold">
                       {availability?.remaining}/{availability?.total}
                     </span>
-                    <span className="text-[10px] text-foreground/50 dark:text-white/40">
+                    <span className="text-[9px] md:text-[10px] text-foreground/50 dark:text-white/40">
                       Available
                     </span>
                   </div>
@@ -2127,14 +2127,14 @@ function LaunchpadMarketplaceWidget({
                 {/* Stat 3: Rewards */}
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="flex-1 min-w-[160px] p-3 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 border border-white flex flex-col justify-center dark:from-white/10 dark:to-transparent dark:border-white/10 cursor-help">
-                      <span className="text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-1 dark:text-white/50">
+                    <div className="flex-1 min-w-[140px] md:min-w-[160px] p-2.5 md:p-3 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 border border-white flex flex-col justify-center dark:from-white/10 dark:to-transparent dark:border-white/10 cursor-help">
+                      <span className="text-[9px] md:text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-0.5 md:mb-1 dark:text-white/50">
                         {isMiner ? "Weekly (99 wks)" : "Weekly (100 wks)"}
                       </span>
-                      <span className="text-sm font-semibold">
+                      <span className="text-xs md:text-sm font-semibold">
                         +{formatNumber(weeklyYield, 2)} GLW / wk
                       </span>
-                      <span className="text-[10px] text-foreground/50 dark:text-white/40">
+                      <span className="text-[9px] md:text-[10px] text-foreground/50 dark:text-white/40">
                         Estimated earnings are subject to change.
                       </span>
                     </div>
@@ -2197,7 +2197,7 @@ function LaunchpadMarketplaceWidget({
                     !row.scoreData
                   }
                   className={cn(
-                    "h-auto min-h-12 px-6 rounded-2xl font-medium border min-w-[140px]",
+                    "h-auto min-h-10 md:min-h-12 px-4 md:px-6 rounded-2xl font-medium border min-w-[120px] md:min-w-[140px] text-sm md:text-base",
                     "bg-white/30 text-foreground border-white/20 hover:bg-white/50 backdrop-blur-md",
                     "dark:bg-gradient-to-b dark:from-white/20 dark:to-white/5 dark:hover:from-white/30 dark:hover:to-white/10 dark:text-white dark:border-white/10"
                   )}
@@ -2304,12 +2304,12 @@ function LaunchpadMarketplaceWidget({
           subtitle="The next batch of farms will be available soon"
         />
       ) : resolvedLayout === "carousel" && isHeroCarousel && isMobile ? (
-        // Mobile hero: vertical stack
+        // Mobile hero: vertical stack - use explicit height for h-full children
         <div className="w-full space-y-4">
           {rows.map((row) => (
             <div
               key={row.application.id}
-              className="aspect-[4/5] w-full cursor-pointer transition-opacity hover:opacity-95"
+              className="h-[580px] w-full cursor-pointer transition-opacity hover:opacity-95"
               onClick={() => {
                 if (!row.scoreData) return;
                 onPayDeposit(row.application, row.scoreData);
