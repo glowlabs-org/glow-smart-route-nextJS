@@ -92,9 +92,6 @@ export function DepositDialog({
   onSuccess,
 }: DepositDialogProps) {
   const APP_DOMAIN_PLAIN_TEXT = "app.\u200Bglow.\u200Borg";
-  const isSmallScreen =
-    typeof window !== "undefined" &&
-    window.matchMedia("(max-width: 768px)").matches;
 
   const { isConnected, address } = useAccount();
   const chainId = useChainId();
@@ -902,6 +899,10 @@ export function DepositDialog({
     try {
       if (!shareUrl) return;
 
+      const isSmallScreen =
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(max-width: 768px)")?.matches;
+
       const shareTitle = farmLabelForShare
         ? `Glow • ${farmLabelForShare}`
         : "Glow";
@@ -1006,14 +1007,14 @@ export function DepositDialog({
   const renderContent = () => {
     if (phase === "success") {
       return (
-        <div className="px-6 py-8 text-center space-y-4">
+        <div className="px-5 py-6 sm:px-6 sm:py-8 text-center space-y-3 sm:space-y-4">
           <div className="text-center space-y-2">
-            <div className="text-2xl font-bold text-foreground">
+            <div className="text-xl sm:text-2xl font-bold text-foreground">
               {selectedCurrency === "USDC"
                 ? "Purchase Complete!"
                 : "Delegation Complete!"}
             </div>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs sm:text-sm text-muted-foreground">
               {selectedCurrency === "USDC"
                 ? "You helped accelerate real-world solar deployment."
                 : "You just activated real-world solar rewards."}
@@ -1034,7 +1035,7 @@ export function DepositDialog({
                 userColor={
                   selectedCurrency === "USDC" ? "var(--color-miner)" : "#4ADE80"
                 }
-                className="my-2"
+                className="my-1 sm:my-2 scale-[0.82] sm:scale-100 origin-top"
               />
               <div className="mt-4 flex items-center justify-center gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
@@ -1083,7 +1084,7 @@ export function DepositDialog({
                     <div className="flex items-baseline gap-1.5">
                       <span
                         className={cn(
-                          "text-2xl font-bold font-mono",
+                          "text-xl sm:text-2xl font-bold font-mono",
                           selectedCurrency === "USDC"
                             ? "text-blue-600 dark:text-cyan-400"
                             : "text-green-600 dark:text-[#D1FF4D]"
@@ -1123,11 +1124,11 @@ export function DepositDialog({
               {impactPointsBreakdown.total > 0 ? (
                 <div className="w-full rounded-2xl p-4 border bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-amber-500/20">
                   <div className="flex justify-between items-center mb-3">
-                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    <div className="text-xs font-medium text-left text-muted-foreground uppercase tracking-wider">
                       Est. Weekly Impact Points
                     </div>
                     <div className="flex items-baseline gap-1.5">
-                      <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
+                      <span className="text-lg md:text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
                         +
                         {impactPointsBreakdown.total.toLocaleString(undefined, {
                           maximumFractionDigits: 2,
@@ -1572,7 +1573,7 @@ export function DepositDialog({
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className="md:max-w-md p-0 gap-0 bg-background border-border text-foreground overflow-hidden shadow-2xl sm:rounded-3xl"
+        className="md:max-w-md p-0 gap-0 bg-background border-border text-foreground max-h-[90vh] overflow-y-auto overflow-x-hidden shadow-2xl sm:rounded-3xl"
         onInteractOutside={(e) => e.preventDefault()}
       >
         {renderContent()}
