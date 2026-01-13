@@ -60,6 +60,7 @@ export default function RecentActivityWidget({
       hideIfEmpty={hideIfEmpty}
       headerVariant="small"
       maxItems={4}
+      showKpis={false}
       headerRight={
         <Dialog>
           <DialogTrigger asChild>
@@ -85,6 +86,7 @@ export default function RecentActivityWidget({
                 isSwapsActivityLoading={isSwapsActivityLoading}
                 hideIfEmpty={hideIfEmpty}
                 showHeader={false}
+                showKpis={false}
               />
             </div>
           </DialogContent>

@@ -259,18 +259,26 @@ export function useWalletPortfolio(params: { walletAddress?: string | null }) {
     if (!hasWallet) return MOCK_WEEKLY_ACCUMULATED;
 
     const weekly = impactScore?.weekly ?? [];
-    if (weekly.length < 2) {
-      // Only one data point (current week) - accumulated = current glowWorth
-      return glowWorthGlw;
+    if (weekly.length === 0) return 0;
+
+    // Use actual earnings (inflation + protocol deposit) from the most recent week
+    // with finalized data. This avoids false "accumulation" from:
+    // 1. Claims moving GLW between buckets (unclaimed → liquid)
+    // 2. Stale TWAB snapshots creating artificial deltas
+    // 3. Current week using fresh data vs previous week using stale snapshots
+    for (let i = weekly.length - 1; i >= 0; i--) {
+      const row = weekly[i];
+      if (!row) continue;
+
+      const inflation = parseGlwFromWei(row.inflationGlwWei);
+      const protocolDeposit = parseGlwFromWei(row.protocolDepositRecoveredGlwWei);
+      const totalEarnings = inflation + protocolDeposit;
+
+      if (totalEarnings > 0) return totalEarnings;
     }
 
-    const currentGlw = glowWorthGlw;
-    const previousWeekRow = weekly[weekly.length - 2];
-    const previousGlw = parseGlwFromWei(previousWeekRow?.glowWorthGlwWei);
-
-    const accumulated = currentGlw - previousGlw;
-    return Math.max(0, accumulated);
-  }, [hasWallet, impactScore?.weekly, glowWorthGlw]);
+    return 0;
+  }, [hasWallet, impactScore?.weekly]);
 
   const chartData = React.useMemo<GlowWorthPoint[]>(() => {
     if (!hasWallet) return MOCK_CHART_DATA as GlowWorthPoint[];

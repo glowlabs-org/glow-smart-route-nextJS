@@ -63,6 +63,7 @@ interface RecentActivityProps {
   showHeader?: boolean;
   className?: string;
   maxItems?: number;
+  showKpis?: boolean;
 }
 
 function formatCompactNumber(value: number, maximumFractionDigits: number) {
@@ -358,6 +359,7 @@ export function RecentActivity({
   showHeader = true,
   className,
   maxItems,
+  showKpis = true,
 }: RecentActivityProps) {
   const { isConnecting, isReconnecting } = useAccount();
   const isWalletConnecting =
@@ -532,7 +534,7 @@ export function RecentActivity({
         </CardHeader>
       ) : null}
 
-      {!isLoading && activities.length > 0 && (
+      {showKpis && !isLoading && activities.length > 0 && (
         <div className="px-4 pb-3">
           <div className="grid grid-cols-4 gap-3">
             <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
