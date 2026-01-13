@@ -1128,7 +1128,7 @@ export function DepositDialog({
                       Est. Weekly Impact Points
                     </div>
                     <div className="flex items-baseline gap-1.5">
-                      <span className="text-lg md:text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
+                      <span className="text-base md:text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
                         +
                         {impactPointsBreakdown.total.toLocaleString(undefined, {
                           maximumFractionDigits: 2,
@@ -1215,7 +1215,7 @@ export function DepositDialog({
           <div className="space-y-3 pt-4">
             {shareUrl ? (
               <Button className="w-full" onClick={handleShare}>
-                <Share2 className="w-4 h-4" />
+                <Share2 className="w-4 h-4 mr-2" />
                 Share
               </Button>
             ) : null}
