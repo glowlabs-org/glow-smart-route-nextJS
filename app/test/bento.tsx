@@ -50,6 +50,8 @@ import {
 import type { TaggedAuctionApplication } from "@/app/marketplace/launchpad-view";
 import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
+import ImpactAccumulatorWidget from "./widgets/impact-accumulator-widget";
+import SolarCollectorWidget from "./widgets/solar-collector";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
@@ -422,6 +424,10 @@ export default function GlowSoftDashboard({
                 </section>
               )}
 
+              <SolarCollectorWidget
+                walletAddress={walletAddress}
+                variant="minimal"
+              />
               {/* Dashboard Header Band */}
               <section className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-4 lg:p-8">
                 <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
