@@ -388,6 +388,43 @@ export function RecentActivity({
     }
   );
 
+  // Calculate KPIs from activities
+  const kpis = React.useMemo(() => {
+    let totalTransactions = 0;
+    let delegationsCount = 0;
+    let minersCount = 0;
+    let totalClaimed = 0;
+
+    splitsActivity.forEach((split) => {
+      totalTransactions++;
+      if (split.fractionType === "mining-center") {
+        minersCount += split.stepsPurchased ?? 0;
+      } else {
+        delegationsCount++;
+      }
+    });
+
+    claims.forEach((claim) => {
+      const decimals =
+        DECIMALS_BY_TOKEN[
+          getTokenSymbol(claim.token) as keyof typeof DECIMALS_BY_TOKEN
+        ] ?? 18;
+      totalClaimed += safeFormatUnits(claim.amount, decimals);
+    });
+
+    totalTransactions += mintedEvents.length;
+    totalTransactions += stakeEvents.length;
+    totalTransactions += swapsActivity.length;
+    totalTransactions += claims.length > 0 ? 1 : 0; // Claims grouped by tx
+
+    return {
+      totalTransactions,
+      delegationsCount,
+      minersCount,
+      totalClaimed,
+    };
+  }, [claims, mintedEvents, stakeEvents, splitsActivity, swapsActivity]);
+
   // Combine and format all activities
   const activities = React.useMemo(() => {
     const all: ActivityItem[] = [];
@@ -494,6 +531,57 @@ export function RecentActivity({
           </div>
         </CardHeader>
       ) : null}
+
+      {!isLoading && activities.length > 0 && (
+        <div className="px-4 pb-3">
+          <div className="grid grid-cols-4 gap-3">
+            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Total
+              </div>
+              <div className="mt-1.5 text-xl font-bold tabular-nums text-foreground">
+                {kpis.totalTransactions}
+              </div>
+              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                transactions
+              </div>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Delegations
+              </div>
+              <div className="mt-1.5 text-xl font-bold tabular-nums text-foreground">
+                {kpis.delegationsCount}
+              </div>
+              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                made
+              </div>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Miners
+              </div>
+              <div className="mt-1.5 text-xl font-bold tabular-nums text-foreground">
+                {kpis.minersCount}
+              </div>
+              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                purchased
+              </div>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Claimed
+              </div>
+              <div className="mt-1.5 text-xl font-bold tabular-nums text-foreground">
+                {formatCompactNumber(kpis.totalClaimed, 0)}
+              </div>
+              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                GLW
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <CardContent className="min-h-0 flex-1 p-4 py-0">
         {isLoading ? (

@@ -200,52 +200,53 @@ export function SponsoredFarmsActivity({
 
   if (isLoading) {
     return (
-      <div className={cn("p-4 w-full min-w-0", className)}>
+      <div className={cn(isWidget ? "w-full min-w-0" : "p-4 w-full min-w-0", className)}>
         {/* Summary Stats Skeleton */}
-        {!isWidget && (
-          <div
-            className={cn("mb-6 grid gap-4 w-full min-w-0", kpiGridClassName)}
-          >
-            {showRewardScore && (
-              <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-                <Skeleton className="h-4 w-32 mb-2" />
-                <Skeleton className="h-8 w-20" />
-              </div>
-            )}
-            {shouldShowContributorsKpi ? (
-              <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-                <Skeleton className="h-4 w-20 mb-2" />
-                <Skeleton className="h-8 w-24" />
-              </div>
-            ) : null}
-            <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-              <Skeleton className="h-4 w-40 mb-2" />
-              <Skeleton className="h-8 w-32" />
+        <div
+          className={cn(isWidget ? "mb-4 grid gap-3 w-full min-w-0 grid-cols-3" : "mb-6 grid gap-4 w-full min-w-0", !isWidget && kpiGridClassName)}
+        >
+          {showRewardScore && (
+            <div className={cn("rounded-xl p-3", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 p-4")}>
+              <Skeleton className="h-3 w-16 mb-2" />
+              <Skeleton className="h-6 w-12" />
+              {isWidget && <Skeleton className="h-2 w-20 mt-1" />}
             </div>
+          )}
+          {!isWidget && shouldShowContributorsKpi ? (
             <div className="bg-muted dark:bg-muted/30 rounded-xl p-4">
-              <Skeleton className="h-4 w-24 mb-2" />
-              <Skeleton className="h-8 w-20" />
+              <Skeleton className="h-4 w-20 mb-2" />
+              <Skeleton className="h-8 w-24" />
             </div>
+          ) : null}
+          <div className={cn("rounded-xl p-3", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 p-4")}>
+            <Skeleton className="h-3 w-20 mb-2" />
+            <Skeleton className="h-6 w-16" />
+            {isWidget && <Skeleton className="h-2 w-16 mt-1" />}
           </div>
-        )}
+          <div className={cn("rounded-xl p-3", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 p-4")}>
+            <Skeleton className="h-3 w-12 mb-2" />
+            <Skeleton className="h-6 w-10" />
+            {isWidget && <Skeleton className="h-2 w-14 mt-1" />}
+          </div>
+        </div>
 
         {/* Activity Table Skeleton */}
         {isWidget ? (
-          <div className="space-y-3">
+          <div className="space-y-3 w-full min-w-0">
             {Array.from({ length: 5 }).map((_, i) => (
               <div
                 key={i}
                 className="flex items-center gap-3 rounded-xl border border-border bg-muted/10 p-3"
               >
                 <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
-                <div className="space-y-2 flex-1">
-                  <div className="flex justify-between">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <div className="flex justify-between gap-2">
                     <Skeleton className="h-3 w-24 rounded-xl" />
-                    <Skeleton className="h-3 w-12 rounded-xl" />
+                    <Skeleton className="h-3 w-12 rounded-xl shrink-0" />
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between gap-2">
                     <Skeleton className="h-3 w-32 rounded-xl" />
-                    <Skeleton className="h-3 w-20 rounded-xl" />
+                    <Skeleton className="h-3 w-20 rounded-xl shrink-0" />
                   </div>
                 </div>
               </div>
@@ -322,7 +323,7 @@ export function SponsoredFarmsActivity({
 
   if (isError) {
     return (
-      <div className={className}>
+      <div className={cn(isWidget ? "w-full min-w-0" : "", className)}>
         <div className="text-center py-8">
           <p className="text-destructive text-sm">
             Error loading purchase activity: {error?.message}
@@ -337,7 +338,7 @@ export function SponsoredFarmsActivity({
 
   if (activity.length === 0) {
     return (
-      <div className={className}>
+      <div className={cn(isWidget ? "w-full min-w-0" : "", className)}>
         <div className="text-center py-8">
           <p className="text-muted-foreground text-sm">
             No purchase activity found.
@@ -351,116 +352,69 @@ export function SponsoredFarmsActivity({
   }
 
   return (
-    <div className={cn(className, "p-4 w-full min-w-0 overflow-hidden")}>
-      {/* Summary Stats - Only show in full mode or if explicitly enabled */}
-      {!isWidget && (
-        <div className={cn("mb-6 grid gap-4 w-full min-w-0", kpiGridClassName)}>
-          {showRewardScore && (
-            <div className="bg-muted dark:bg-muted/30 rounded-xl p-3 md:p-4 min-w-0">
-              <div className={kpiLabelClassName}>Avg Reward Score</div>
-              <div className={kpiValueClassName}>
-                {(() => {
-                  const validRewardScores = activity.filter(
-                    (purchase) =>
-                      purchase.rewardScore !== null &&
-                      purchase.rewardScore !== undefined
-                  );
-                  if (validRewardScores.length === 0) return "—";
+    <div className={cn(className, isWidget ? "w-full min-w-0" : "p-4 w-full min-w-0 overflow-hidden")}>
+      {/* Summary Stats KPIs */}
+      <div className={cn(isWidget ? "mb-4 grid gap-3 w-full min-w-0 grid-cols-3" : "mb-6 grid gap-4 w-full min-w-0", !isWidget && kpiGridClassName)}>
+        {showRewardScore && (
+          <div className={cn("rounded-xl p-3 min-w-0", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 md:p-4")}>
+            <div className={cn("text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 min-w-0 truncate whitespace-nowrap", !isWidget && kpiLabelClassName)}>
+              {isWidget ? "Avg Score" : "Avg Reward Score"}
+            </div>
+            <div className={cn("font-semibold text-foreground tabular-nums min-w-0", isWidget ? "text-xl leading-none" : kpiValueClassName)}>
+              {(() => {
+                const validRewardScores = activity.filter(
+                  (purchase) =>
+                    purchase.rewardScore !== null &&
+                    purchase.rewardScore !== undefined
+                );
+                if (validRewardScores.length === 0) return "—";
 
-                  const totalRewardScore = validRewardScores.reduce(
-                    (sum, purchase) => sum + (purchase.rewardScore || 0),
-                    0
-                  );
-                  const avgRewardScore =
-                    totalRewardScore / validRewardScores.length;
-                  return formatNumber(avgRewardScore, 0);
-                })()}
-              </div>
+                const totalRewardScore = validRewardScores.reduce(
+                  (sum, purchase) => sum + (purchase.rewardScore || 0),
+                  0
+                );
+                const avgRewardScore =
+                  totalRewardScore / validRewardScores.length;
+                return formatNumber(avgRewardScore, 0);
+              })()}
             </div>
-          )}
-          {shouldShowContributorsKpi ? (
-            <div className="bg-muted dark:bg-muted/30 rounded-xl p-3 md:p-4 min-w-0">
-              <div className={kpiLabelClassName}>
-                {fractionType === "mining-center"
-                  ? "Buyers"
-                  : fractionType === "launchpad"
-                  ? "Delegators"
-                  : "Contributors"}
+            {isWidget && (
+              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                reward score
               </div>
-              <div className={kpiValueClassName}>
-                {fractionType === "mining-center"
-                  ? formatNumber(miningCenterContributors, 0)
-                  : fractionType === "launchpad"
-                  ? formatNumber(launchpadContributors, 0)
-                  : formatNumber(
-                      launchpadContributors + miningCenterContributors,
-                      0
-                    )}
-              </div>
-            </div>
-          ) : null}
+            )}
+          </div>
+        )}
+        {!isWidget && shouldShowContributorsKpi ? (
           <div className="bg-muted dark:bg-muted/30 rounded-xl p-3 md:p-4 min-w-0">
             <div className={kpiLabelClassName}>
               {fractionType === "mining-center"
-                ? "Total USDC Spent"
-                : "Total GLW Delegated"}
+                ? "Buyers"
+                : fractionType === "launchpad"
+                ? "Delegators"
+                : "Contributors"}
             </div>
-            <div className={cn(kpiValueClassName, "flex items-baseline gap-2")}>
-              {fractionType === "mining-center" ? (
-                <>
-                  <span className="min-w-0 truncate">
-                    {isWidget
-                      ? formatCompactNumber(totalMiningCenterValue, 1)
-                      : formatNumber(totalMiningCenterValue, 0)}
-                  </span>
-                  <span
-                    className={cn(
-                      "shrink-0 font-normal",
-                      isWidget ? "text-sm" : "text-lg"
-                    )}
-                  >
-                    USDC
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="min-w-0 truncate">
-                    {isWidget
-                      ? formatCompactNumber(totalDelegatedGlw, 1)
-                      : formatNumber(totalDelegatedGlw, 0)}
-                  </span>
-                  <span
-                    className={cn(
-                      "shrink-0 font-normal",
-                      isWidget ? "text-sm" : "text-lg"
-                    )}
-                  >
-                    GLW
-                  </span>
-                </>
-              )}
+            <div className={kpiValueClassName}>
+              {fractionType === "mining-center"
+                ? formatNumber(miningCenterContributors, 0)
+                : fractionType === "launchpad"
+                ? formatNumber(launchpadContributors, 0)
+                : formatNumber(
+                    launchpadContributors + miningCenterContributors,
+                    0
+                  )}
             </div>
           </div>
-          {fractionType === "mining-center" ? (
-            <div className="bg-muted dark:bg-muted/30 rounded-xl p-3 md:p-4 min-w-0">
-              <div className={kpiLabelClassName}>Miners</div>
-              <div className={kpiValueClassName}>
-                {formatNumber(summary.uniqueFractions, 0)}
-              </div>
-            </div>
-          ) : fractionType === "launchpad" ? (
-            <div className="bg-muted dark:bg-muted/30 rounded-xl p-3 md:p-4 min-w-0">
-              <div className={kpiLabelClassName}>Farms</div>
-              <div className={kpiValueClassName}>
-                {formatNumber(summary.uniqueFractions, 0)}
-              </div>
-            </div>
-          ) : (
-            <div className="bg-muted dark:bg-muted/30 rounded-xl p-3 md:p-4 min-w-0">
-              <div className={kpiLabelClassName}>USDC Spent by Miners</div>
-              <div
-                className={cn(kpiValueClassName, "flex items-baseline gap-2")}
-              >
+        ) : null}
+        <div className={cn("rounded-xl p-3 min-w-0", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 md:p-4")}>
+          <div className={cn("text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 min-w-0 truncate whitespace-nowrap", !isWidget && kpiLabelClassName)}>
+            {fractionType === "mining-center"
+              ? isWidget ? "USDC Spent" : "Total USDC Spent"
+              : isWidget ? "GLW Delegated" : "Total GLW Delegated"}
+          </div>
+          <div className={cn("flex items-baseline gap-1.5", isWidget ? "font-semibold text-foreground tabular-nums min-w-0 text-xl leading-none" : kpiValueClassName)}>
+            {fractionType === "mining-center" ? (
+              <>
                 <span className="min-w-0 truncate">
                   {isWidget
                     ? formatCompactNumber(totalMiningCenterValue, 1)
@@ -474,15 +428,93 @@ export function SponsoredFarmsActivity({
                 >
                   USDC
                 </span>
-              </div>
+              </>
+            ) : (
+              <>
+                <span className="min-w-0 truncate">
+                  {isWidget
+                    ? formatCompactNumber(totalDelegatedGlw, 1)
+                    : formatNumber(totalDelegatedGlw, 0)}
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 font-normal",
+                    isWidget ? "text-sm" : "text-lg"
+                  )}
+                >
+                  GLW
+                </span>
+              </>
+            )}
+          </div>
+          {isWidget && (
+            <div className="mt-0.5 text-[10px] text-muted-foreground">
+              total volume
             </div>
           )}
         </div>
-      )}
+        {fractionType === "mining-center" ? (
+          <div className={cn("rounded-xl p-3 min-w-0", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 md:p-4")}>
+            <div className={cn("text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 min-w-0 truncate whitespace-nowrap", !isWidget && kpiLabelClassName)}>
+              Miners
+            </div>
+            <div className={cn("font-semibold text-foreground tabular-nums min-w-0", isWidget ? "text-xl leading-none" : kpiValueClassName)}>
+              {formatNumber(summary.uniqueFractions, 0)}
+            </div>
+            {isWidget && (
+              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                purchased
+              </div>
+            )}
+          </div>
+        ) : fractionType === "launchpad" ? (
+          <div className={cn("rounded-xl p-3 min-w-0", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 md:p-4")}>
+            <div className={cn("text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 min-w-0 truncate whitespace-nowrap", !isWidget && kpiLabelClassName)}>
+              Farms
+            </div>
+            <div className={cn("font-semibold text-foreground tabular-nums min-w-0", isWidget ? "text-xl leading-none" : kpiValueClassName)}>
+              {formatNumber(summary.uniqueFractions, 0)}
+            </div>
+            {isWidget && (
+              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                funded
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className={cn("rounded-xl p-3 min-w-0", isWidget ? "bg-muted/30 border border-border/60" : "bg-muted dark:bg-muted/30 md:p-4")}>
+            <div className={cn("text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 min-w-0 truncate whitespace-nowrap", !isWidget && kpiLabelClassName)}>
+              {isWidget ? "Miners USDC" : "USDC Spent by Miners"}
+            </div>
+            <div
+              className={cn("flex items-baseline gap-1.5", isWidget ? "font-semibold text-foreground tabular-nums min-w-0 text-xl leading-none" : kpiValueClassName)}
+            >
+              <span className="min-w-0 truncate">
+                {isWidget
+                  ? formatCompactNumber(totalMiningCenterValue, 1)
+                  : formatNumber(totalMiningCenterValue, 0)}
+              </span>
+              <span
+                className={cn(
+                  "shrink-0 font-normal",
+                  isWidget ? "text-sm" : "text-lg"
+                )}
+              >
+                USDC
+              </span>
+            </div>
+            {isWidget && (
+              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                miner volume
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Activity Content */}
       {isWidget ? (
-        <div className="space-y-3">
+        <div className="space-y-3 w-full min-w-0">
           {displayedActivity.map((purchase) => {
             // Mining centers use USDC (6 decimals), launchpad uses GLW (18 decimals)
             const decimals = purchase.fractionType === "mining-center" ? 6 : 18;

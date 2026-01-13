@@ -2,13 +2,19 @@
 
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Sparkles, ShoppingCart } from "lucide-react";
+import { Sparkles, ShoppingCart, ArrowUpRight } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   AnimatedCountdownDhms,
@@ -31,6 +37,9 @@ import type {
 } from "@/app/marketplace/deposit-dialog";
 import { LaunchpadView } from "@/app/marketplace/launchpad-view";
 import type { TaggedAuctionApplication } from "@/app/marketplace/launchpad-view";
+
+const DEFINED_POOL_ACTIVITY_URL =
+  "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d";
 
 function formatUsdPrice(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "$—";
@@ -132,30 +141,15 @@ export default function LaunchpadStatusWidget({
   );
   const hasDelegationsAvailable = delegationsAvailableCount > 0;
   const hasMinersAvailable = minersAvailableCount > 0;
-  const availableTypesCount =
-    Number(hasDelegationsAvailable) + Number(hasMinersAvailable);
-  const shouldShowAllTab = availableTypesCount > 1;
+  const hasAnyListings = hasDelegationsAvailable || hasMinersAvailable;
 
   const resolvedTab = React.useMemo((): ListTypeFilter => {
     if (!isLive) return liveTypeFilter;
     if (liveTypeFilter === "activity") return "activity";
     if (shouldForceType) return forcedType!;
-    if (liveTypeFilter === "all" && !shouldShowAllTab)
-      return hasDelegationsAvailable ? "delegations" : "miners";
-    if (liveTypeFilter === "delegations" && !hasDelegationsAvailable)
-      return hasMinersAvailable ? "miners" : "all";
-    if (liveTypeFilter === "miners" && !hasMinersAvailable)
-      return hasDelegationsAvailable ? "delegations" : "all";
+    // Always allow the selected tab - don't auto-switch
     return liveTypeFilter;
-  }, [
-    forcedType,
-    hasDelegationsAvailable,
-    hasMinersAvailable,
-    isLive,
-    liveTypeFilter,
-    shouldForceType,
-    shouldShowAllTab,
-  ]);
+  }, [forcedType, isLive, liveTypeFilter, shouldForceType]);
 
   const launchpadTypeFilter = React.useMemo(():
     | "all"
@@ -167,6 +161,7 @@ export default function LaunchpadStatusWidget({
   }, [hasDelegationsAvailable, resolvedTab]);
 
   const [buyGlowOpen, setBuyGlowOpen] = React.useState(false);
+  const [activityDialogOpen, setActivityDialogOpen] = React.useState(false);
 
   const handleCountdownComplete = React.useCallback(() => {
     refreshNextBatchAtMs();
@@ -206,9 +201,9 @@ export default function LaunchpadStatusWidget({
           : isFlow
           ? "bg-card/30 border-foreground/5 min-h-[380px]"
           : isFullRow
-          ? "bg-card dark:bg-muted/20 border-foreground/10 dark:border-border"
+          ? "bg-card dark:bg-muted/20 border-foreground/5 dark:border-border"
           : cn(
-              "bg-card dark:bg-muted/20 border-foreground/10 dark:border-border",
+              "bg-card dark:bg-muted/20 border-foreground/5 dark:border-border",
               isMobile ? "min-h-[620px]" : "h-full"
             ),
         className
@@ -289,58 +284,44 @@ export default function LaunchpadStatusWidget({
                   </TabsTrigger>
                 ) : (
                   <>
-                    {shouldShowAllTab ? (
-                      <TabsTrigger
-                        value="all"
-                        className={cn(
-                          "rounded-full data-[state=active]:bg-background/40 data-[state=active]:text-foreground",
-                          isFullRow
-                            ? "px-2 h-5 text-[10px]"
-                            : "px-3 h-7 text-xs"
-                        )}
-                      >
-                        All{" "}
-                        <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
-                          {isDelegationsLoading || isMinersLoading
-                            ? "…"
-                            : delegationsAvailableCount + minersAvailableCount}
-                        </span>
-                      </TabsTrigger>
-                    ) : null}
-                    {hasDelegationsAvailable ? (
-                      <TabsTrigger
-                        value="delegations"
-                        className={cn(
-                          "rounded-full data-[state=active]:bg-delegation-purple/15 data-[state=active]:text-foreground",
-                          isFullRow
-                            ? "px-2 h-5 text-[10px]"
-                            : "px-3 h-7 text-xs"
-                        )}
-                      >
-                        Delegations{" "}
-                        <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
-                          {isDelegationsLoading
-                            ? "…"
-                            : delegationsAvailableCount}
-                        </span>
-                      </TabsTrigger>
-                    ) : null}
-                    {hasMinersAvailable ? (
-                      <TabsTrigger
-                        value="miners"
-                        className={cn(
-                          "rounded-full data-[state=active]:bg-primary/15 data-[state=active]:text-foreground",
-                          isFullRow
-                            ? "px-2 h-5 text-[10px]"
-                            : "px-3 h-7 text-xs"
-                        )}
-                      >
-                        Miners{" "}
-                        <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
-                          {isMinersLoading ? "…" : minersAvailableCount}
-                        </span>
-                      </TabsTrigger>
-                    ) : null}
+                    <TabsTrigger
+                      value="all"
+                      className={cn(
+                        "rounded-full data-[state=active]:bg-background/40 data-[state=active]:text-foreground",
+                        isFullRow ? "px-2 h-5 text-[10px]" : "px-3 h-7 text-xs"
+                      )}
+                    >
+                      All{" "}
+                      <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
+                        {isDelegationsLoading || isMinersLoading
+                          ? "…"
+                          : delegationsAvailableCount + minersAvailableCount}
+                      </span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="delegations"
+                      className={cn(
+                        "rounded-full data-[state=active]:bg-delegation-purple/15 data-[state=active]:text-foreground",
+                        isFullRow ? "px-2 h-5 text-[10px]" : "px-3 h-7 text-xs"
+                      )}
+                    >
+                      Delegations{" "}
+                      <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
+                        {isDelegationsLoading ? "…" : delegationsAvailableCount}
+                      </span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="miners"
+                      className={cn(
+                        "rounded-full data-[state=active]:bg-primary/15 data-[state=active]:text-foreground",
+                        isFullRow ? "px-2 h-5 text-[10px]" : "px-3 h-7 text-xs"
+                      )}
+                    >
+                      Miners{" "}
+                      <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
+                        {isMinersLoading ? "…" : minersAvailableCount}
+                      </span>
+                    </TabsTrigger>
                   </>
                 )}
 
@@ -417,11 +398,36 @@ export default function LaunchpadStatusWidget({
           resolvedTab === "activity" ? (
             <div
               className={cn(
-                "min-w-0 w-full overflow-y-auto overflow-x-hidden",
-                isMobile ? "h-[min(55vh,520px)]" : "min-h-0 flex-1"
+                "min-h-0 flex-1 flex flex-col gap-4",
+                variant === "full-row" ? "px-4 pt-3 pb-4" : "px-5 pb-5 pt-4"
               )}
             >
-              <SponsoredFarmsActivity variant="widget" />
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                <SponsoredFarmsActivity
+                  variant="widget"
+                  maxRows={5}
+                  showViewAll={false}
+                  className="h-full flex flex-col !p-0"
+                  constrainHeight={false}
+                />
+              </div>
+
+              <div className="shrink-0 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    trackEvent("launchpad_widget_activity_see_all_click", {
+                      source,
+                      wallet_connected: isConnected,
+                      wallet_address: walletAddress,
+                    });
+                    setActivityDialogOpen(true);
+                  }}
+                  className="w-full h-12 font-mono font-bold text-base"
+                >
+                  See All Activity
+                </Button>
+              </div>
             </div>
           ) : variant === "full-row" ? (
             <div className="min-h-0 flex-1">
@@ -465,9 +471,9 @@ export default function LaunchpadStatusWidget({
                         Guide to Delegation
                       </div>
                       <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                        Delegate your GLW tokens to specific solar farms. If the
-                        farm is efficient, you earn yield. If it underperforms,
-                        you may forfeit tokens.
+                        Delegate your GLW to fund solar farms. Earn GLW
+                        emissions and gradually recover your delegated tokens
+                        over 100 weeks based on farm efficiency.
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-delegation-purple/80 transition-colors flex items-center gap-1">
                         Learn more <span aria-hidden="true">→</span>
@@ -497,12 +503,12 @@ export default function LaunchpadStatusWidget({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-lg font-semibold text-foreground transition-colors group-hover:text-[color:var(--color-miner-contrast)]">
-                        How Mining Works
+                        How Miners Work
                       </div>
                       <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                        Buy "miners" (digital solar representations) with USDC.
-                        They produce GLW tokens for 99 weeks based on real-world
-                        electricity generation.
+                        Buy "Solar Miners" with USDC. They earn GLW emissions
+                        tokens for 99 weeks based on real-world electricity
+                        generation.
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-[color:var(--color-miner-contrast)]/80 transition-colors flex items-center gap-1">
                         Learn more <span aria-hidden="true">→</span>
@@ -567,9 +573,9 @@ export default function LaunchpadStatusWidget({
                         Guide to Delegation
                       </div>
                       <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                        Delegate your GLW tokens to specific solar farms. If the
-                        farm is efficient, you earn yield. If it underperforms,
-                        you may forfeit tokens.
+                        Delegate your GLW to fund solar farms. Earn GLW
+                        emissions and gradually recover your delegated tokens
+                        over 100 weeks based on farm efficiency.
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-delegation-purple/80 transition-colors flex items-center gap-1">
                         Learn more <span aria-hidden="true">→</span>
@@ -599,12 +605,12 @@ export default function LaunchpadStatusWidget({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-lg font-semibold text-foreground transition-colors group-hover:text-[color:var(--color-miner-contrast)]">
-                        How Mining Works
+                        How Miners Work
                       </div>
                       <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                        Buy "miners" (digital solar representations) with USDC.
-                        They produce GLW tokens for 99 weeks based on real-world
-                        electricity generation.
+                        Buy "Solar Miners" with USDC. They earn GLW emissions
+                        tokens for 99 weeks based on real-world electricity
+                        generation.
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-[color:var(--color-miner-contrast)]/80 transition-colors flex items-center gap-1">
                         Learn more <span aria-hidden="true">→</span>
@@ -647,9 +653,9 @@ export default function LaunchpadStatusWidget({
                         Guide to Delegation
                       </div>
                       <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                        Delegate your GLW tokens to specific solar farms. If the
-                        farm is efficient, you earn yield. If it underperforms,
-                        you may forfeit tokens.
+                        Delegate your GLW to fund solar farms. Earn GLW
+                        emissions and gradually recover your delegated tokens
+                        over 100 weeks based on farm efficiency.
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-delegation-purple/80 transition-colors flex items-center gap-1">
                         Learn more <span aria-hidden="true">→</span>
@@ -679,12 +685,12 @@ export default function LaunchpadStatusWidget({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-lg font-semibold text-foreground transition-colors group-hover:text-[color:var(--color-miner-contrast)]">
-                        How Mining Works
+                        How Miners Work
                       </div>
                       <div className="mt-1.5 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                        Buy "miners" (digital solar representations) with USDC.
-                        They produce GLW tokens for 99 weeks based on real-world
-                        electricity generation.
+                        Buy "Solar Miners" with USDC. They earn GLW emissions
+                        tokens for 99 weeks based on real-world electricity
+                        generation.
                       </div>
                       <div className="mt-3 text-xs font-medium text-muted-foreground group-hover:text-[color:var(--color-miner-contrast)]/80 transition-colors flex items-center gap-1">
                         Learn more <span aria-hidden="true">→</span>
@@ -726,15 +732,24 @@ export default function LaunchpadStatusWidget({
             {/* Prep Section */}
             <div className="mt-auto space-y-4">
               <div className="bg-muted/20 rounded-xl p-4 flex gap-4 border border-border/50 flex-col sm:flex-row text-center sm:text-left">
-                {/* GLW Price - styled like the icon box in gctl widget */}
-                <div className="shrink-0 flex flex-col items-center justify-center p-3 rounded-xl bg-background/50 border border-border/60 min-w-[100px] gap-0.5">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                {/* GLW Price - links to Defined pool activity */}
+                <a
+                  href={DEFINED_POOL_ACTIVITY_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 flex flex-col items-center justify-center p-3 rounded-xl bg-background/50 border border-border/60 min-w-[100px] gap-0.5 hover:bg-muted/50 hover:border-border transition-colors group"
+                >
+                  <span className="text-[10px] translate-x-2 font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                     GLW
+                    <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </span>
                   <span className="text-xl font-mono font-bold text-foreground tabular-nums tracking-tight">
                     {priceLabel}
                   </span>
-                </div>
+                  <span className="text-xs text-muted-foreground leading-relaxed underline">
+                    defined.fi
+                  </span>
+                </a>
 
                 <div className="flex-1 space-y-1 py-0.5">
                   <p className="text-base font-semibold text-foreground">
@@ -768,6 +783,17 @@ export default function LaunchpadStatusWidget({
             })();
           }}
         />
+
+        <Dialog open={activityDialogOpen} onOpenChange={setActivityDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-hidden p-0">
+            <DialogHeader className="p-6 pb-4 border-b">
+              <DialogTitle>Recent Activity</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto p-6">
+              <SponsoredFarmsActivity variant="full" constrainHeight={false} />
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

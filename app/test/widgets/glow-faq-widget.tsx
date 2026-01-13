@@ -85,7 +85,7 @@ const faqItems: FaqItem[] = [
           installation.
         </p>
         <p>
-          Purchasable with USDC, it produces GLW tokens for{" "}
+          Purchasable with USDC, it earns GLW emissions tokens for{" "}
           <span className="text-primary font-mono">99 weeks</span> based on the
           electricity the physical farm generates. It bridges DeFi liquidity
           with physical infrastructure.

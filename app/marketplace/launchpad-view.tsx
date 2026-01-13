@@ -96,6 +96,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 
 function countActiveListings(
   applications: Array<{
@@ -1599,6 +1600,7 @@ function LaunchpadMarketplaceWidget({
       | null
     >(null);
 
+  // --- Data Fetching Hooks (Unchanged) ---
   const {
     applications: launchpadApplications,
     isLoading: isLoadingLaunchpad,
@@ -1644,6 +1646,7 @@ function LaunchpadMarketplaceWidget({
     enabled: taggedMiners.length > 0,
   });
 
+  // --- Metrics Calculation (Unchanged) ---
   const rows = React.useMemo(() => {
     const filter = typeFilter ?? "all";
     const listAll =
@@ -1791,7 +1794,8 @@ function LaunchpadMarketplaceWidget({
   const isLoading = isLoadingLaunchpad || isLoadingMiners;
   const isError = isErrorLaunchpad || isErrorMiners;
   const error = (errorLaunchpad || errorMiners) as Error | null;
-  // Default to carousel on mobile, but honor an explicit `layout` override.
+
+  // --- Carousel Logic (Unchanged) ---
   const resolvedLayout = layout ?? (isMobile ? "carousel" : "stack");
   const resolvedCarouselVariant = carouselVariant ?? "compact";
   const isHeroCarousel =
@@ -1870,9 +1874,11 @@ function LaunchpadMarketplaceWidget({
     return () => ro.disconnect();
   }, [isHeroCarousel, resolvedLayout, rows.length, updateCarouselMeta]);
 
+  // Glassy Carousel Controls
   const carouselControls = React.useMemo(() => {
     if (resolvedLayout !== "carousel") return null;
     if (!isLoading && rows.length <= 1) return null;
+    if (!isLoading && isHeroCarousel && rows.length <= 2) return null;
 
     const dotsCount = isLoading ? 3 : Math.max(1, rows.length);
     const isDisabled = isLoading || rows.length <= 1;
@@ -1881,19 +1887,19 @@ function LaunchpadMarketplaceWidget({
     const activeIndex = Math.max(0, Math.min(dotsCount - 1, carouselIndex));
 
     return (
-      <div className="mt-2 flex items-center justify-center gap-3">
+      <div className="mt-4 flex items-center justify-center gap-3">
         <Button
-          variant="outline"
+          variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-full"
+          className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 text-foreground"
           onClick={() => scrollCarouselBy(-1)}
           disabled={!canPrev}
           aria-label="Previous"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-5 w-5" />
         </Button>
 
-        <div className="flex items-center justify-center gap-2">
+        <div className="flex items-center justify-center gap-2 px-4 py-2 bg-white/5 backdrop-blur-xl rounded-full border border-white/5">
           {Array.from({ length: dotsCount }).map((_, i) => (
             <button
               key={i}
@@ -1905,9 +1911,9 @@ function LaunchpadMarketplaceWidget({
               }}
               disabled={isDisabled}
               className={cn(
-                "h-1.5 w-1.5 rounded-full transition-colors",
+                "h-2 w-2 rounded-full transition-all duration-300",
                 i === activeIndex
-                  ? "bg-foreground"
+                  ? "bg-foreground scale-110 shadow-[0_0_8px_rgba(255,255,255,0.5)]"
                   : "bg-muted-foreground/30 hover:bg-muted-foreground/50",
                 isDisabled
                   ? "cursor-not-allowed hover:bg-muted-foreground/30"
@@ -1918,14 +1924,14 @@ function LaunchpadMarketplaceWidget({
         </div>
 
         <Button
-          variant="outline"
+          variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-full"
+          className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 text-foreground"
           onClick={() => scrollCarouselBy(1)}
           disabled={!canNext}
           aria-label="Next"
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
     );
@@ -1933,12 +1939,282 @@ function LaunchpadMarketplaceWidget({
     carouselCanNext,
     carouselCanPrev,
     carouselIndex,
+    isHeroCarousel,
     isLoading,
     resolvedLayout,
     rows.length,
     scrollCarouselBy,
     scrollCarouselTo,
   ]);
+
+  // --- Inline Hero Card Implementation (Apple Liquid Glass Style) ---
+  const renderHeroCard = (row: (typeof rows)[0]) => {
+    const { application, score, cost, weeklyYield, availability, scoreData } =
+      row;
+    const isMiner = application._type === "miners";
+    const currency = isMiner ? "USDC" : "GLW";
+
+    const rewardsBreakdown = (() => {
+      if (isMiner) return null;
+      if (!application.activeFraction?.totalSteps) return null;
+      if (!scoreData || !("userWeeklyGlwRewards" in scoreData)) return null;
+      try {
+        const totalShares = application.activeFraction.totalSteps;
+        const glwRewards = parseFloat(
+          formatUnits(
+            BigInt(scoreData.userWeeklyGlwRewards || "0"),
+            DECIMALS_BY_TOKEN.GLW
+          )
+        );
+        const pdRewards = parseFloat(
+          formatUnits(
+            BigInt(scoreData.userWeeklyPdRewards || "0"),
+            DECIMALS_BY_TOKEN.GLW
+          )
+        );
+        return {
+          inflationPerShare: totalShares > 0 ? glwRewards / totalShares : 0,
+          pdPerShare: totalShares > 0 ? pdRewards / totalShares : 0,
+        };
+      } catch {
+        return null;
+      }
+    })();
+
+    return (
+      <div className="relative w-full h-full rounded-[2rem] overflow-hidden group">
+        {/* Full Background Image */}
+        <div className="absolute inset-0">
+          {application.afterInstallPictures?.[0]?.url ? (
+            <FallbackImage
+              src={application.afterInstallPictures[0].url}
+              widthForProxy={1200}
+              quality={90}
+              alt={application.farmName || "Farm Image"}
+              className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+            />
+          ) : (
+            <div className="w-full h-full bg-muted/20" />
+          )}
+        </div>
+
+        {/* Top Right: Advanced Stats Pill */}
+        <div className="absolute top-4 right-4 z-10">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedApplicationForStats(application);
+              setSelectedScoreDataForStats(row.scoreData ?? null);
+              setStatsDialogOpen(true);
+            }}
+            className="backdrop-blur-xl bg-white/60 hover:bg-white/55 border border-black/10 text-foreground rounded-full px-4 h-8 text-xs font-medium transition-all dark:bg-black/30 dark:hover:bg-black/50 dark:border-white/10 dark:text-white"
+          >
+            Advanced Stats <ArrowUpRight className="ml-1 w-3 h-3" />
+          </Button>
+        </div>
+
+        {/* Bottom Overlay: Apple Liquid Glass Panel */}
+        <div className="absolute bottom-4 left-4 right-4 z-10">
+          <div className="relative overflow-hidden rounded-3xl bg-white/60 text-foreground backdrop-blur-sm shadow-[0_4px_12px_rgba(0,0,0,0.15)] dark:bg-black/40 dark:text-white">
+            {/* Liquid Glass Material Layer - Adaptive tint for light/dark */}
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/40 via-white/20 to-transparent dark:from-white/10 dark:via-transparent dark:to-transparent" />
+
+            {/* Specular Rim Light (1-2px inner bright stroke, 40-60% opacity) */}
+            <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/50 dark:ring-white/40" />
+
+            {/* Top Edge Highlight - Simulates light catching the glass surface */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent dark:via-white/30" />
+
+            <div className="relative p-6">
+              {/* Header: Title & Badges (moved above stats to free space) */}
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <h3
+                  className="text-3xl font-semibold tracking-tight"
+                  style={{ fontFamily: "Söhne, sans-serif" }}
+                >
+                  {application.farmName || "Unnamed Farm"}
+                </h3>
+
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <div className="flex items-center gap-1.5 rounded-full border border-black/10 bg-white/15 px-2.5 py-1 backdrop-blur-xl dark:border-white/10 dark:bg-white/10">
+                    <MapPin className="w-3.5 h-3.5 opacity-80" />
+                    <span className="text-foreground/80 dark:text-white/80">
+                      {application.zone.name}
+                    </span>
+                  </div>
+                  <div
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full border px-2.5 py-1 backdrop-blur-md",
+                      isMiner
+                        ? "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/15 text-miner"
+                        : "border-purple-500/30 bg-purple-500/15 text-purple-700 dark:text-purple-200"
+                    )}
+                  >
+                    {isMiner ? (
+                      <CashMinerIcon className="w-3.5 h-3.5" />
+                    ) : (
+                      <DelegationIcon className="w-3.5 h-3.5" />
+                    )}
+                    <span>{isMiner ? "Miner" : "Delegation"}</span>
+                  </div>
+                  {application._type === "delegations" && score > 0 ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-1 text-indigo-800 dark:text-indigo-200 backdrop-blur-md cursor-help">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                          <span>Score: {score.toFixed(0)}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[300px]">
+                        <div className="text-xs">
+                          <div className="font-semibold mb-1.5">
+                            Reward Score
+                          </div>
+                          <div className="text-primary-foreground/80 leading-relaxed">
+                            The Reward Score combines both revenue streams
+                            (deposit recovery and GLW inflation) into a single
+                            metric representing expected rewards per dollar
+                            delegated. Higher scores generally indicate better
+                            opportunities, but do not guarantee performance.
+                          </div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Stats & Action */}
+              <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-stretch">
+                {/* Amount + Units row on mobile */}
+                <div className="flex flex-row gap-3 md:contents">
+                  {/* Stat 1: Amount */}
+                  <div className="flex-1 min-w-0 md:min-w-[140px] p-3 rounded-2xl bg-white/10 border border-white10 flex flex-col justify-center dark:bg-white/5 dark:border-white/10">
+                    <span className="text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-1 dark:text-white/50">
+                      {isMiner ? "Price" : "Amount"}
+                    </span>
+                    <span className="text-lg--xl font-semibold">
+                      {cost > 0 ? (
+                        <>
+                          {isMiner ? "$" : ""}
+                          {formatNumber(cost, 0)} {currency}
+                        </>
+                      ) : (
+                        "Free"
+                      )}
+                    </span>
+                    <span className="text-[10px] text-foreground/50 dark:text-white/40">
+                      {isMiner ? "≈ 0.003 ETH" : "≈ $1,810 USD"}
+                    </span>
+                  </div>
+
+                  {/* Stat 2: Units */}
+                  <div className="flex-1 min-w-0 md:min-w-[140px] p-3 rounded-2xl bg-white/10 border border-white10 flex flex-col justify-center dark:bg-white/5 dark:border-white/10">
+                    <span className="text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-1 dark:text-white/50">
+                      Units
+                    </span>
+                    <span className="text-xl font-semibold">
+                      {availability?.remaining}/{availability?.total}
+                    </span>
+                    <span className="text-[10px] text-foreground/50 dark:text-white/40">
+                      Available
+                    </span>
+                  </div>
+                </div>
+
+                {/* Stat 3: Rewards */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex-1 min-w-[160px] p-3 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 border border-white flex flex-col justify-center dark:from-white/10 dark:to-transparent dark:border-white/10 cursor-help">
+                      <span className="text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-1 dark:text-white/50">
+                        {isMiner ? "Weekly (99 wks)" : "Weekly (100 wks)"}
+                      </span>
+                      <span className="text-sm font-semibold">
+                        +{formatNumber(weeklyYield, 2)} GLW / wk
+                      </span>
+                      <span className="text-[10px] text-foreground/50 dark:text-white/40">
+                        Estimated earnings are subject to change.
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[280px] p-3">
+                    <div className="text-xs">
+                      <div className="font-semibold mb-1.5">
+                        Estimated Rewards
+                      </div>
+                      <div className="text-primary-foreground/80 leading-relaxed">
+                        {isMiner
+                          ? "Estimated weekly rewards per miner, paid weekly for 99 weeks. May decrease as new farms join the region and dilute emissions."
+                          : "Expected weekly rewards per delegation, paid weekly for 100 weeks. May vary with network changes."}
+                      </div>
+                      {!isMiner && rewardsBreakdown ? (
+                        <>
+                          <div className="h-px bg-primary-foreground/15 my-2" />
+                          <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-[11px]">
+                            <div className="text-primary-foreground/80">
+                              GLW from PDs
+                            </div>
+                            <div className="font-mono tabular-nums text-primary-foreground">
+                              {rewardsBreakdown.pdPerShare.toLocaleString(
+                                undefined,
+                                {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                }
+                              )}
+                            </div>
+                            <div className="text-primary-foreground/80">
+                              GLW from Inflation
+                            </div>
+                            <div className="font-mono tabular-nums text-primary-foreground">
+                              {rewardsBreakdown.inflationPerShare.toLocaleString(
+                                undefined,
+                                {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                }
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+
+                {/* CTA Button */}
+                <Button
+                  size="lg"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPayDeposit(application, row.scoreData);
+                  }}
+                  disabled={
+                    availability.isSoldOut ||
+                    (isMiner ? isMiningScoresLoading : isRewardScoresLoading) ||
+                    !row.scoreData
+                  }
+                  className={cn(
+                    "h-auto min-h-12 px-6 rounded-2xl font-medium border min-w-[140px]",
+                    "bg-white/30 text-foreground border-white/20 hover:bg-white/50 backdrop-blur-md",
+                    "dark:bg-gradient-to-b dark:from-white/20 dark:to-white/5 dark:hover:from-white/30 dark:hover:to-white/10 dark:text-white dark:border-white/10"
+                  )}
+                >
+                  {availability.isSoldOut
+                    ? "Sold Out"
+                    : isMiner
+                    ? "Buy Miners"
+                    : "Delegate GLW"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="w-full">
@@ -1978,7 +2254,7 @@ function LaunchpadMarketplaceWidget({
               <div
                 className={cn(
                   "flex",
-                  isHeroCarousel ? "w-full gap-4 pr-0" : "gap-3 pr-6"
+                  isHeroCarousel ? "w-full gap-4 pr-0" : "gap-4 pr-6"
                 )}
               >
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -1989,15 +2265,10 @@ function LaunchpadMarketplaceWidget({
                       "snap-start shrink-0",
                       isHeroCarousel
                         ? "w-full max-w-full"
-                        : "w-[520px] max-w-[86vw]"
+                        : "w-[400px] max-w-[85vw]"
                     )}
                   >
-                    <div
-                      className={cn(
-                        "w-full rounded-2xl border border-border bg-muted/10",
-                        isHeroCarousel ? "h-[420px] sm:h-[340px]" : "h-[168px]"
-                      )}
-                    />
+                    <Skeleton className="w-full h-[500px] rounded-[2rem] bg-white/5" />
                   </div>
                 ))}
               </div>
@@ -2008,18 +2279,16 @@ function LaunchpadMarketplaceWidget({
           <div
             className={
               resolvedLayout === "grid"
-                ? "grid grid-cols-1 xl:grid-cols-2 gap-3"
-                : "space-y-3"
+                ? "grid grid-cols-1 md:grid-cols-2 gap-4"
+                : "space-y-4"
             }
           >
-            {Array.from({ length: resolvedLayout === "grid" ? 2 : 4 }).map(
-              (_, i) => (
-                <div
-                  key={i}
-                  className="h-[168px] w-full rounded-2xl border border-border bg-muted/10"
-                />
-              )
-            )}
+            {Array.from({ length: 2 }).map((_, i) => (
+              <Skeleton
+                key={i}
+                className="h-[400px] w-full rounded-[2rem] bg-white/5"
+              />
+            ))}
           </div>
         )
       ) : isError ? (
@@ -2035,49 +2304,32 @@ function LaunchpadMarketplaceWidget({
           subtitle="The next batch of farms will be available soon"
         />
       ) : resolvedLayout === "carousel" && isHeroCarousel && isMobile ? (
-        // Mobile hero: vertical stack, no carousel controls
+        // Mobile hero: vertical stack
         <div className="w-full space-y-4">
           {rows.map((row) => (
             <div
               key={row.application.id}
-              className="cursor-pointer transition-opacity hover:opacity-95"
+              className="aspect-[4/5] w-full cursor-pointer transition-opacity hover:opacity-95"
               onClick={() => {
+                if (!row.scoreData) return;
                 onPayDeposit(row.application, row.scoreData);
               }}
             >
-              <LaunchpadWidgetHeroCarouselCard
-                row={row}
-                isScoresLoading={
-                  row.application._type === "delegations"
-                    ? isRewardScoresLoading
-                    : isMiningScoresLoading
-                }
-                glwSpotPrice={glwSpotPrice}
-                ethPrice={ethPrice}
-                onPayDeposit={onPayDeposit}
-                onOpenStats={(application, scoreData) => {
-                  setSelectedApplicationForStats(application);
-                  setSelectedScoreDataForStats(scoreData ?? null);
-                  setStatsDialogOpen(true);
-                }}
-              />
+              {renderHeroCard(row)}
             </div>
           ))}
         </div>
       ) : resolvedLayout === "carousel" ? (
         <div className="w-full">
           {!isHeroCarousel ? (
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <div className="text-xs text-muted-foreground">
-                {rows.length} {rows.length === 1 ? "listing" : "listings"}
+            <div className="mb-4 flex items-center justify-between gap-3 px-2">
+              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                {rows.length}{" "}
+                {rows.length === 1 ? "Active Listing" : "Active Listings"}
               </div>
             </div>
           ) : null}
 
-          {/*
-            When there is only one item, render it full-width (no "peeking"/clipping)
-            and remove end padding so the right edge is fully visible.
-          */}
           <div
             ref={carouselScrollRef}
             onScroll={updateCarouselMeta}
@@ -2087,13 +2339,13 @@ function LaunchpadMarketplaceWidget({
               if (e.key === "ArrowRight") scrollCarouselBy(1);
             }}
             tabIndex={0}
-            className="w-full overflow-x-auto overflow-y-hidden pb-2 snap-x snap-mandatory scroll-smooth touch-pan-x overscroll-x-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            className="w-full overflow-x-auto overflow-y-hidden pb-4 snap-x snap-mandatory scroll-smooth touch-pan-x overscroll-x-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
           >
             <div
               className={cn(
                 "flex",
-                isHeroCarousel ? "w-full gap-4 pr-0" : "gap-3",
-                rows.length <= 1 ? "w-full pr-0" : "pr-6"
+                isHeroCarousel ? "w-full gap-6 pr-0" : "gap-4",
+                rows.length <= 1 ? "w-full pr-0" : "pr-6 pl-1"
               )}
             >
               {rows.map((row) => (
@@ -2101,36 +2353,22 @@ function LaunchpadMarketplaceWidget({
                   key={row.application.id}
                   data-carousel-item
                   className={cn(
-                    "snap-start shrink-0 cursor-pointer transition-opacity hover:opacity-95",
+                    "snap-start shrink-0 cursor-pointer transition-transform hover:scale-[1.01] duration-300",
                     rows.length <= 1
-                      ? "w-full max-w-full"
+                      ? "w-full max-w-full h-[500px]"
                       : isHeroCarousel
-                      ? "w-[calc(50%-8px)]"
-                      : "w-[520px] max-w-[86vw]"
+                      ? "w-[calc(50%-12px)] min-w-[600px] h-[500px]"
+                      : "w-[380px] max-w-[85vw]"
                   )}
                   onClick={() => {
+                    if (!row.scoreData) return;
                     onPayDeposit(row.application, row.scoreData);
                   }}
                 >
                   {isHeroCarousel ? (
-                    <LaunchpadWidgetHeroCarouselCard
-                      row={row}
-                      isScoresLoading={
-                        row.application._type === "delegations"
-                          ? isRewardScoresLoading
-                          : isMiningScoresLoading
-                      }
-                      glwSpotPrice={glwSpotPrice}
-                      ethPrice={ethPrice}
-                      onPayDeposit={onPayDeposit}
-                      onOpenStats={(application, scoreData) => {
-                        setSelectedApplicationForStats(application);
-                        setSelectedScoreDataForStats(scoreData ?? null);
-                        setStatsDialogOpen(true);
-                      }}
-                    />
+                    renderHeroCard(row)
                   ) : (
-                    <LaunchpadWidgetAssetCard
+                    <LaunchpadWidgetAssetCard /* Keeping the non-hero variant as standard component for now unless requested */
                       row={row}
                       isScoresLoading={
                         row.application._type === "delegations"
@@ -2157,28 +2395,14 @@ function LaunchpadMarketplaceWidget({
         <div
           className={
             resolvedLayout === "grid"
-              ? "grid grid-cols-1 xl:grid-cols-2 gap-3"
-              : "space-y-3"
+              ? "grid grid-cols-1 md:grid-cols-2 gap-4"
+              : "space-y-4"
           }
         >
           {rows.map((row) => (
-            <LaunchpadWidgetAssetCard
-              key={row.application.id}
-              row={row}
-              isScoresLoading={
-                row.application._type === "delegations"
-                  ? isRewardScoresLoading
-                  : isMiningScoresLoading
-              }
-              glwSpotPrice={glwSpotPrice}
-              ethPrice={ethPrice}
-              onPayDeposit={onPayDeposit}
-              onOpenStats={(application, scoreData) => {
-                setSelectedApplicationForStats(application);
-                setSelectedScoreDataForStats(scoreData ?? null);
-                setStatsDialogOpen(true);
-              }}
-            />
+            <div key={row.application.id} className="h-[500px]">
+              {renderHeroCard(row)}
+            </div>
           ))}
         </div>
       )}
@@ -2380,9 +2604,9 @@ function LaunchpadWidgetAssetCard({
             <div className="flex flex-col gap-2 shrink-0">
               <Button
                 className="h-10 rounded-full px-4 text-sm whitespace-nowrap"
-                disabled={isSoldOut}
+                disabled={isSoldOut || isScoresLoading || !scoreData}
                 onClick={() => {
-                  if (isSoldOut) return;
+                  if (isSoldOut || !scoreData) return;
                   onPayDeposit(application, scoreData);
                 }}
               >
@@ -2548,12 +2772,16 @@ function HeroStatColumn({
 }) {
   return (
     <div className={cn("px-3 py-2")}>
-      <div className="text-[9px] font-mono uppercase tracking-widest text-white/65">
+      <div className="text-[9px] font-mono uppercase tracking-widest text-foreground/65 dark:text-white/65">
         {label}
       </div>
-      <div className="mt-1.5 text-sm font-semibold text-white">{value}</div>
+      <div className="mt-1.5 text-sm font-semibold text-foreground dark:text-white">
+        {value}
+      </div>
       {subValue ? (
-        <div className="mt-1 text-[11px] text-white/60">{subValue}</div>
+        <div className="mt-1 text-[11px] text-foreground/60 dark:text-white/60">
+          {subValue}
+        </div>
       ) : null}
     </div>
   );
@@ -2650,7 +2878,7 @@ function LaunchpadWidgetHeroCarouselCard({
   }, [isDelegation, isScoresLoading, row.rewardScore?.rewardScore]);
 
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl border border-border bg-muted/10">
+    <div className="relative w-full overflow-hidden rounded-3xl border border-border bg-muted/10">
       <FallbackImage
         src={imageSrc}
         widthForProxy={1400}
@@ -2660,31 +2888,33 @@ function LaunchpadWidgetHeroCarouselCard({
         loading="lazy"
         decoding="async"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/5" />
+      <div className="absolute inset-0 bg-gradient-to-t from-white/90 via-white/40 to-transparent dark:from-black/75 dark:via-black/25 dark:to-black/5" />
 
       <div className="relative h-[420px] sm:h-[340px]">
         <div className="absolute inset-x-4 bottom-4 flex flex-col gap-4 sm:inset-x-6 sm:bottom-6 sm:flex-row sm:items-end sm:justify-between">
           <div className="w-full min-w-0 sm:w-auto">
             <div className="mb-2 min-w-0">
-              <div className="truncate text-2xl font-semibold text-white sm:text-3xl">
+              <div className="truncate text-2xl font-semibold text-foreground dark:text-white sm:text-3xl">
                 {title}
               </div>
               <div className="mt-1 flex max-w-full flex-wrap items-center gap-2">
-                <div className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-xs text-white/80 backdrop-blur-md">
+                <div className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-white/40 bg-white/30 px-2.5 py-1 text-xs text-foreground/80 backdrop-blur-3xl shadow-lg dark:border-white/10 dark:bg-black/30 dark:text-white/80">
                   <MapPin className="h-3.5 w-3.5" />
                   <span className="truncate">{application.zone.name}</span>
                 </div>
                 <div
                   className={cn(
-                    "inline-flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-xs font-medium backdrop-blur-md",
-                    isDelegation ? "text-purple-300" : "text-miner"
+                    "inline-flex shrink-0 items-center gap-1 rounded-full border border-white/40 bg-white/30 px-2.5 py-1 text-xs font-medium backdrop-blur-3xl shadow-lg dark:border-white/10 dark:bg-black/30",
+                    isDelegation
+                      ? "text-purple-700 dark:text-purple-300"
+                      : "text-miner"
                   )}
                 >
                   <span
                     className={cn(
                       "h-1.5 w-1.5 rounded-full",
                       isDelegation
-                        ? "bg-purple-300"
+                        ? "bg-purple-700 dark:bg-purple-300"
                         : "bg-[color:var(--color-miner)]"
                     )}
                   />
@@ -2693,12 +2923,12 @@ function LaunchpadWidgetHeroCarouselCard({
                 {isDelegation && rewardScoreValue && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-purple-400/30 bg-purple-500/20 px-2.5 py-1 text-xs font-medium backdrop-blur-md cursor-help">
-                        <Sparkles className="h-3 w-3 text-purple-300" />
-                        <span className="text-purple-200/80">
+                      <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/40 bg-white/30 px-2.5 py-1 text-xs font-medium backdrop-blur-3xl shadow-lg cursor-help dark:border-purple-400/30 dark:bg-purple-500/20">
+                        <Sparkles className="h-3 w-3 text-purple-700 dark:text-purple-300" />
+                        <span className="text-purple-900/80 dark:text-purple-200/80">
                           Reward Score:
                         </span>
-                        <span className="font-bold text-purple-200 tabular-nums">
+                        <span className="font-bold text-purple-900 dark:text-purple-200 tabular-nums">
                           {rewardScoreValue}
                         </span>
                       </div>
@@ -2724,15 +2954,15 @@ function LaunchpadWidgetHeroCarouselCard({
             </div>
 
             <div
-              className="w-full max-w-full overflow-hidden rounded-2xl border border-white/10 bg-black/25 backdrop-blur-xl sm:w-auto cursor-pointer hover:bg-black/35 transition-colors"
+              className="w-full max-w-full overflow-hidden rounded-3xl border border-white/40 bg-white/30 backdrop-blur-3xl sm:w-auto cursor-pointer hover:bg-white/40 transition-colors shadow-lg dark:border-white/10 dark:bg-black/30 dark:hover:bg-black/40"
               onClick={(e) => {
                 e.stopPropagation();
                 onOpenStats(application, scoreData);
               }}
             >
-              <div className="grid w-full grid-cols-2 overflow-hidden rounded-xl border border-white/10 bg-white/5 sm:grid-cols-3">
+              <div className="grid w-full grid-cols-2 sm:grid-cols-3">
                 {/* First column: Delegation Amount OR Price per Miner */}
-                <div className="border-b border-white/10 sm:border-b-0 sm:border-r sm:border-white/10">
+                <div className="border-b border-white/20 sm:border-b-0 sm:border-r sm:border-white/20 dark:border-white/10 dark:sm:border-white/10">
                   <HeroStatColumn
                     label={
                       isDelegation ? "Delegation Amount" : "Price per Miner"
@@ -2743,18 +2973,18 @@ function LaunchpadWidgetHeroCarouselCard({
                 </div>
 
                 {/* Second column: Units with progress bar */}
-                <div className="border-b border-white/10 sm:border-b-0 sm:border-r sm:border-white/10">
+                <div className="border-b border-white/20 sm:border-b-0 sm:border-r sm:border-white/20 dark:border-white/10 dark:sm:border-white/10">
                   <div className="px-3 py-2">
-                    <div className="text-[9px] font-mono uppercase tracking-widest text-white/65">
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-foreground/65 dark:text-white/65">
                       Units
                     </div>
-                    <div className="mt-1.5 text-sm font-semibold text-white">
+                    <div className="mt-1.5 text-sm font-semibold text-foreground dark:text-white">
                       {unitsValue}
                     </div>
-                    <div className="mt-1 text-[11px] text-white/60">
+                    <div className="mt-1 text-[11px] text-foreground/60 dark:text-white/60">
                       {unitsSubValue}
                     </div>
-                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
                       <div
                         className={cn("h-full rounded-full", "bg-primary/70")}
                         style={{ width: `${unitsRemainingPct}%` }}
@@ -2770,7 +3000,7 @@ function LaunchpadWidgetHeroCarouselCard({
                     value={rewardsMain}
                     subValue={rewardsSub}
                   />
-                  <div className="px-3 pb-2 text-[9px] text-white/40 leading-tight -mt-1">
+                  <div className="px-3 pb-2 text-[9px] text-foreground/40 leading-tight -mt-1 dark:text-white/40">
                     Weekly earnings are subject to change.
                   </div>
                 </div>
@@ -2780,10 +3010,10 @@ function LaunchpadWidgetHeroCarouselCard({
 
           <div className="w-full shrink-0 sm:w-auto">
             <Button
-              className="h-10 w-full rounded-full bg-white/10 px-6 text-white hover:bg-white/20 hover:text-white backdrop-blur-md border border-white/10 sm:w-auto sm:px-8 shadow-lg"
-              disabled={isSoldOut}
+              className="h-full w-full rounded-3xl bg-white/30 px-8 text-lg font-medium text-foreground hover:bg-white/40 backdrop-blur-3xl border border-white/40 sm:w-auto shadow-lg dark:bg-white/10 dark:text-white dark:hover:bg-white/20 dark:border-white/10"
+              disabled={isSoldOut || isScoresLoading || !scoreData}
               onClick={() => {
-                if (isSoldOut) return;
+                if (isSoldOut || !scoreData) return;
                 onPayDeposit(application, scoreData);
               }}
             >
@@ -2798,7 +3028,7 @@ function LaunchpadWidgetHeroCarouselCard({
       </div>
       <Button
         variant="ghost"
-        className="absolute top-4 right-4 h-7 rounded-full bg-black/40 px-3 !text-xs font-medium text-white/90 hover:bg-black/60 hover:text-white backdrop-blur-md border border-white/10 transition-colors"
+        className="absolute top-4 right-4 h-8 rounded-full bg-white/30 px-4 text-xs font-medium text-foreground/90 hover:bg-white/40 backdrop-blur-3xl border border-white/40 transition-colors shadow-lg dark:bg-black/30 dark:text-white/90 dark:hover:bg-black/40 dark:border-white/10"
         onClick={(e) => {
           e.stopPropagation();
           onOpenStats(application, scoreData);
@@ -3772,9 +4002,9 @@ function LaunchpadAssetCard({
           <Button
             variant={isSoldOut ? "ghost" : "default"}
             className="h-11 w-full sm:flex-1 rounded-full"
-            disabled={isSoldOut}
+            disabled={isSoldOut || isScoresLoading || !scoreData}
             onClick={() => {
-              if (isSoldOut) return;
+              if (isSoldOut || !scoreData) return;
               onPayDeposit(application, scoreData);
             }}
           >

@@ -163,7 +163,7 @@ const CustomTooltip = ({
             <div className="flex items-center gap-1.5">
               <div
                 className="w-2 h-2 rounded-full"
-                style={{ background: "var(--color-glow-yellow)" }}
+                style={{ background: "var(--color-miner)" }}
               />
               <span className="text-xs text-muted-foreground font-mono">
                 Miners
@@ -833,7 +833,7 @@ export default function SolarFarmWidget({
                         <Bar
                           dataKey="minerReward"
                           stackId="a"
-                          fill="var(--color-glow-yellow)"
+                          fill="var(--color-miner)"
                           radius={[0, 0, 4, 4]}
                           animationDuration={1500}
                         />
@@ -1163,7 +1163,7 @@ export default function SolarFarmWidget({
                     <Bar
                       dataKey="minerReward"
                       stackId="a"
-                      fill="var(--color-glow-yellow)"
+                      fill="var(--color-miner)"
                       radius={[0, 0, 4, 4]}
                       animationDuration={1500}
                     />

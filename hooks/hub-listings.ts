@@ -384,8 +384,19 @@ export function useSponsorApplication() {
       };
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["sponsor-listings"] });
-      queryClient.invalidateQueries({ queryKey: ["splits-activity"] });
+      // Invalidate all sponsor listings (launchpad + mining center)
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.listings.allSponsors,
+      });
+      // Also invalidate with predicate to catch all filter variations
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          query.queryKey[0] === "sponsor-listings",
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.activity.allSplits,
+      });
       queryClient.invalidateQueries({ queryKey: ["rewards-breakdown"] });
       queryClient.invalidateQueries({ queryKey: ["mining-scores"] });
       queryClient.invalidateQueries({ queryKey: ["reward-scores"] });

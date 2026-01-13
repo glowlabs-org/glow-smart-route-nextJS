@@ -38,8 +38,11 @@ import {
   type TransactionStep,
   type StepStatus,
 } from "@/components/transaction-stepper";
+import { EmissionsIcon, VaultIcon } from "@/components/impact-icons";
 
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
+import { useQueryClient } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/hooks/query-keys";
 
 export type LaunchpadRewardScore = {
   userWeeklyGlwRewards: string;
@@ -92,6 +95,7 @@ export function DepositDialog({
   const chainId = useChainId();
   const { signer } = useEthersSigner();
   const { data: walletClient } = useWalletClient();
+  const queryClient = useQueryClient();
   const { spotPriceUsd: glwSpotPrice } = useGlowSpotPriceSummary();
   const { ethPrice: ethSpotPrice } = useEthPrice();
   const {
@@ -263,11 +267,62 @@ export function DepositDialog({
     return weeklyGlw * quantity;
   }, [quantity, application, rewardScore]);
 
+  // Estimated weekly impact points based on GLOW-IMPACT-SCORE.md rules:
+  // - Emissions: +1 point per GLW earned in emission rewards
+  // - Vault bonus: +0.005 points per week per GLW delegated (launchpad only)
+  const impactPointsBreakdown = React.useMemo(() => {
+    if (!application?.activeFraction || !rewardScore) {
+      return { emissionPoints: 0, vaultBonusPoints: 0, total: 0 };
+    }
+
+    const totalShares = application.activeFraction.totalSteps || 1;
+
+    if ("userWeeklyGlwRewards" in rewardScore) {
+      // Launchpad (delegation) - earns both emission points and vault bonus
+      const emissionGlw = parseFloat(
+        formatUnits(BigInt(rewardScore.userWeeklyGlwRewards), 18)
+      );
+      const emissionPointsPerStep = emissionGlw / totalShares;
+      const emissionPoints = emissionPointsPerStep * quantity;
+
+      // Vault bonus: +0.005 points per week per GLW delegated
+      const delegatedGlw = calculateCostInGLW(quantity);
+      const vaultBonusPoints = delegatedGlw * 0.005;
+
+      return {
+        emissionPoints,
+        vaultBonusPoints,
+        total: emissionPoints + vaultBonusPoints,
+      };
+    } else if ("miningScore" in rewardScore) {
+      // Mining Center - only emission points (no vault bonus)
+      // Note: Cash miners get 3× base multiplier at rollover
+      if (rewardScore.weeklyGlwRewards) {
+        const emissionGlw = parseFloat(
+          formatUnits(BigInt(rewardScore.weeklyGlwRewards), 18)
+        );
+        const emissionPoints = emissionGlw * quantity;
+        return { emissionPoints, vaultBonusPoints: 0, total: emissionPoints };
+      }
+    }
+
+    return { emissionPoints: 0, vaultBonusPoints: 0, total: 0 };
+  }, [quantity, application, rewardScore]);
+
   const maxQuantity = application?.activeFraction?.remainingSteps ?? 0;
 
   // Handlers
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => Math.max(1, Math.min(maxQuantity, prev + delta)));
+  };
+
+  const handleQuantityInput = (value: string) => {
+    const num = parseInt(value, 10);
+    if (!isNaN(num)) {
+      setQuantity(Math.max(1, Math.min(maxQuantity, num)));
+    } else if (value === "") {
+      setQuantity(1);
+    }
   };
 
   const handleSmartAccountCheck = async () => {
@@ -615,6 +670,38 @@ export function DepositDialog({
               ? "Miners purchased!"
               : "Delegation successful!"
           );
+
+          // Invalidate wallet-specific queries to refresh user data
+          queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.fractions.rewardsBreakdown({
+              walletAddress: address,
+            }),
+          });
+          queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.wallets.farms(address),
+          });
+          queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.fractions.splits(address, activeFraction.id),
+          });
+          queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.wallets.rewards(address),
+          });
+          queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.impact.score(address),
+          });
+          queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.impact.glowWorth(address),
+          });
+          queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.impact.scoreBreakdown(address),
+          });
+          queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.impact.leaderboard(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.balances.tokens(chainId, address),
+          });
+
           onSuccess?.();
         },
       });
@@ -688,7 +775,7 @@ export function DepositDialog({
           "",
           `Every miner I own earns me GLW weekly for the next 100 weeks.`,
           "",
-          `app.glow.org/marketplace`,
+          `app.glow.org`,
         ].join("\n");
         return `https://twitter.com/intent/tweet?text=${encodeURIComponent(
           text
@@ -756,13 +843,11 @@ export function DepositDialog({
                 userSteps={successMetrics.userSteps}
                 otherColor={
                   selectedCurrency === "USDC"
-                    ? "rgba(255,255,255,0.18)"
+                    ? "rgba(32, 129, 226, 0.75)"
                     : "#C084FC"
                 }
                 userColor={
-                  selectedCurrency === "USDC"
-                    ? "var(--color-miner-yellow)"
-                    : "#4ADE80"
+                  selectedCurrency === "USDC" ? "var(--color-miner)" : "#4ADE80"
                 }
                 className="my-2"
               />
@@ -773,7 +858,7 @@ export function DepositDialog({
                     style={{
                       backgroundColor:
                         selectedCurrency === "USDC"
-                          ? "rgba(255,255,255,0.25)"
+                          ? "rgba(32, 129, 226, 0.75)"
                           : "#C084FC",
                     }}
                   />
@@ -785,13 +870,141 @@ export function DepositDialog({
                     style={{
                       backgroundColor:
                         selectedCurrency === "USDC"
-                          ? "var(--color-miner-yellow)"
+                          ? "var(--color-miner)"
                           : "#4ADE80",
                     }}
                   />
                   <span>Your contribution</span>
                 </div>
               </div>
+            </div>
+          ) : null}
+
+          {estimatedRewards > 0 ? (
+            <div className="space-y-3">
+              <div
+                className={cn(
+                  "w-full rounded-2xl p-4 border",
+                  selectedCurrency === "USDC"
+                    ? "bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-blue-500/10 border-blue-500/20"
+                    : "bg-gradient-to-r from-green-500/10 via-[#D1FF4D]/10 to-green-500/10 border-green-500/20"
+                )}
+              >
+                <div className="flex justify-between items-center">
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                      Projected Weekly Rewards
+                    </div>
+                    <div className="flex items-baseline gap-1.5">
+                      <span
+                        className={cn(
+                          "text-2xl font-bold font-mono",
+                          selectedCurrency === "USDC"
+                            ? "text-blue-600 dark:text-cyan-400"
+                            : "text-green-600 dark:text-[#D1FF4D]"
+                        )}
+                      >
+                        {estimatedRewards.toLocaleString(undefined, {
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-sm font-medium",
+                          selectedCurrency === "USDC"
+                            ? "text-blue-600/70 dark:text-cyan-400/70"
+                            : "text-green-600/70 dark:text-[#D1FF4D]/70"
+                        )}
+                      >
+                        GLW
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-muted-foreground/80 mb-1">
+                      ≈ Value
+                    </div>
+                    <div className="text-sm text-foreground/80 font-mono">
+                      $
+                      {(estimatedRewards * (glwSpotPrice || 0)).toLocaleString(
+                        undefined,
+                        { maximumFractionDigits: 2 }
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {impactPointsBreakdown.total > 0 ? (
+                <div className="w-full rounded-2xl p-4 border bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-amber-500/20">
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Est. Weekly Impact Points
+                    </div>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
+                        +
+                        {impactPointsBreakdown.total.toLocaleString(undefined, {
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                      <span className="text-sm font-medium text-amber-600/70 dark:text-amber-400/70">
+                        pts
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {/* Emissions Row */}
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center w-6 h-6 rounded-md bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]">
+                          <EmissionsIcon className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-muted-foreground">Emissions</span>
+                      </div>
+                      <span className="font-mono font-medium text-[color:var(--color-miner)]">
+                        +
+                        {impactPointsBreakdown.emissionPoints.toLocaleString(
+                          undefined,
+                          { maximumFractionDigits: 2 }
+                        )}
+                      </span>
+                    </div>
+
+                    {/* Vault Bonus Row (only for delegations) */}
+                    {impactPointsBreakdown.vaultBonusPoints > 0 ? (
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-center w-6 h-6 rounded-md bg-[color:var(--delegation-purple)]/10 text-[color:var(--delegation-purple)]">
+                            <VaultIcon className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-muted-foreground">
+                            Vault Bonus
+                          </span>
+                        </div>
+                        <span className="font-mono font-medium text-[color:var(--delegation-purple)]">
+                          +
+                          {impactPointsBreakdown.vaultBonusPoints.toLocaleString(
+                            undefined,
+                            { maximumFractionDigits: 2 }
+                          )}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Miner bonus note */}
+                  {selectedCurrency === "USDC" ? (
+                    <div className="mt-3 pt-2 border-t border-amber-500/20 text-[11px] text-muted-foreground/80">
+                      <span className="text-[color:var(--color-miner)] font-medium">
+                        3× miner bonus
+                      </span>{" "}
+                      applies at weekly rollover
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -815,14 +1028,12 @@ export function DepositDialog({
 
           <div className="space-y-3 pt-4">
             {shareUrl ? (
-              <Button
-                className="w-full bg-white text-black hover:bg-white/90 flex gap-2"
-                asChild
-              >
+              <Button className="w-full" asChild>
                 <a
                   target="_blank"
                   rel="noopener noreferrer"
                   href={shareUrl}
+                  className="w-full flex items-center justify-center gap-2"
                   onClick={() => {
                     trackEvent("marketplace_deposit_share_x_click", {
                       currency: selectedCurrency,
@@ -969,9 +1180,18 @@ export function DepositDialog({
               <label className="text-sm font-medium text-foreground/80">
                 Quantity
               </label>
-              <span className="text-xs text-muted-foreground">
-                {maxQuantity} available
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {maxQuantity} available
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity(maxQuantity)}
+                  className="text-xs font-medium text-glow-orange hover:text-glow-orange/80 transition-colors px-2 py-0.5 rounded-md hover:bg-glow-orange/10"
+                >
+                  Max
+                </button>
+              </div>
             </div>
             <div className="flex items-center gap-3 p-1 rounded-xl bg-muted/50 border border-border/50">
               <Button
@@ -983,9 +1203,22 @@ export function DepositDialog({
               >
                 <Minus className="h-4 w-4" />
               </Button>
-              <div className="flex-1 text-center font-mono text-xl font-medium">
-                {quantity}
-              </div>
+              <input
+                type="number"
+                value={quantity}
+                onChange={(e) => handleQuantityInput(e.target.value)}
+                onBlur={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (isNaN(val) || val < 1) {
+                    setQuantity(1);
+                  } else if (val > maxQuantity) {
+                    setQuantity(maxQuantity);
+                  }
+                }}
+                min={1}
+                max={maxQuantity}
+                className="flex-1 text-center font-mono text-xl font-medium bg-transparent border-none outline-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
               <Button
                 variant="ghost"
                 size="icon"
@@ -1132,7 +1365,7 @@ export function DepositDialog({
               <ConnectButton size="medium" variant="default" />
             ) : (
               <Button
-                className="w-full h-12 rounded-xl text-base font-medium bg-foreground text-background hover:bg-foreground/90"
+                className="w-full"
                 onClick={handleConfirm}
                 disabled={isSubmitting}
               >
@@ -1200,8 +1433,8 @@ function PaymentOption({
       className={cn(
         "flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all duration-200",
         selected
-          ? "bg-foreground/5 border-foreground/10 shadow-sm"
-          : "bg-transparent border-border hover:bg-foreground/5 hover:border-foreground/5"
+          ? "bg-glow-orange/5 border-glow-orange/50 "
+          : "bg-transparent border-border hover:bg-glow-orange/5 hover:border-glow-orange/50"
       )}
     >
       <div className="flex items-center gap-3">
