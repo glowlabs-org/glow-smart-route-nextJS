@@ -91,6 +91,11 @@ export function DepositDialog({
   rewardScore,
   onSuccess,
 }: DepositDialogProps) {
+  const APP_DOMAIN_PLAIN_TEXT = "app.\u200Bglow.\u200Borg";
+  const isSmallScreen =
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 768px)").matches;
+
   const { isConnected, address } = useAccount();
   const chainId = useChainId();
   const { signer } = useEthersSigner();
@@ -238,6 +243,99 @@ export function DepositDialog({
     const usdcCost = calculateCostInUSDC(qty);
     return ethSpotPrice > 0 ? usdcCost / ethSpotPrice : 0;
   };
+
+  const affordability = React.useMemo(() => {
+    const activeFraction = application?.activeFraction;
+    const qty = BigInt(Math.max(0, Math.floor(quantity)));
+
+    const balances = {
+      GLW: glwBalance ?? 0n,
+      USDC: usdcBalance ?? 0n,
+      ETH: ethBalance ?? 0n,
+    } as const;
+
+    const requiredByMethod: Record<PaymentMethod, bigint | null> = {
+      GLW: null,
+      USDC: null,
+      ETH: null,
+    };
+
+    if (!activeFraction || qty <= 0n) {
+      return {
+        requiredByMethod,
+        balances,
+        hasEnoughByMethod: { GLW: false, USDC: false, ETH: false } as Record<
+          PaymentMethod,
+          boolean
+        >,
+        canSubmit: false,
+      };
+    }
+
+    // GLW required (delegate directly)
+    requiredByMethod.GLW = BigInt(activeFraction.step) * qty;
+
+    // USDC required:
+    // - miners: pay stepPrice
+    // - delegations (swap): buy GLW via USDC with a 5% buffer (same as handleConfirm)
+    if (selectedCurrency === "USDC") {
+      requiredByMethod.USDC = BigInt(activeFraction.stepPrice) * qty;
+    } else {
+      if (Number.isFinite(glwSpotPrice) && glwSpotPrice > 0) {
+        const glwNeeded = BigInt(activeFraction.step) * qty; // 18 decimals
+        const glwPrice = parseUnits(glwSpotPrice.toFixed(6), 6); // USDC price (6 decimals)
+        const rawUsdcCost = (glwNeeded * glwPrice) / BigInt(1e18); // 6 decimals
+        requiredByMethod.USDC = (rawUsdcCost * 105n) / 100n;
+      } else {
+        requiredByMethod.USDC = null;
+      }
+    }
+
+    // ETH required (approx): convert required USDC -> ETH with a small buffer.
+    // We keep it conservative so the button disables when the tx is guaranteed to fail.
+    if (Number.isFinite(ethSpotPrice) && ethSpotPrice > 0) {
+      const requiredUsdc =
+        selectedCurrency === "USDC"
+          ? BigInt(activeFraction.stepPrice) * qty
+          : requiredByMethod.USDC;
+
+      if (requiredUsdc != null) {
+        const requiredUsdcFloat = parseFloat(formatUnits(requiredUsdc, 6));
+        const requiredEthFloat = requiredUsdcFloat / ethSpotPrice;
+        const requiredEthWithBuffer = requiredEthFloat * 1.03; // +3% buffer
+
+        requiredByMethod.ETH =
+          Number.isFinite(requiredEthWithBuffer) && requiredEthWithBuffer > 0
+            ? parseUnits(requiredEthWithBuffer.toFixed(18), 18)
+            : null;
+      } else {
+        requiredByMethod.ETH = null;
+      }
+    } else {
+      requiredByMethod.ETH = null;
+    }
+
+    const hasEnoughByMethod: Record<PaymentMethod, boolean> = {
+      GLW: requiredByMethod.GLW != null && balances.GLW >= requiredByMethod.GLW,
+      USDC:
+        requiredByMethod.USDC != null && balances.USDC >= requiredByMethod.USDC,
+      ETH: requiredByMethod.ETH != null && balances.ETH >= requiredByMethod.ETH,
+    };
+
+    const canSubmit = hasEnoughByMethod[selectedPaymentMethod];
+
+    return { requiredByMethod, balances, hasEnoughByMethod, canSubmit };
+  }, [
+    application?.activeFraction,
+    quantity,
+    selectedCurrency,
+    selectedPaymentMethod,
+    glwSpotPrice,
+    ethSpotPrice,
+    glwBalance,
+    usdcBalance,
+    ethBalance,
+  ]);
 
   const estimatedRewards = React.useMemo(() => {
     if (!application?.activeFraction || !rewardScore) return 0;
@@ -762,6 +860,10 @@ export function DepositDialog({
     return application.zone?.name ?? null;
   }, [application]);
 
+  const farmImageUrlForShare = React.useMemo(() => {
+    return application?.afterInstallPictures?.[0]?.url ?? null;
+  }, [application]);
+
   const shareUrl = React.useMemo(() => {
     try {
       if (!farmLabelForShare) return null;
@@ -773,9 +875,9 @@ export function DepositDialog({
             quantity > 1 ? "s" : ""
           } from ${farmLabelForShare} on @glowFND`,
           "",
-          `Every miner I own earns me GLW weekly for the next 100 weeks.`,
+          `Every miner I own earns me GLW weekly for the next 99 weeks.`,
           "",
-          `app.glow.org`,
+          APP_DOMAIN_PLAIN_TEXT,
         ].join("\n");
         return `https://twitter.com/intent/tweet?text=${encodeURIComponent(
           text
@@ -785,7 +887,7 @@ export function DepositDialog({
       const text = [
         `I just helped fund ${farmLabelForShare} by delegating GLW tokens.`,
         "",
-        `You can do the same and start earning GLW weekly for 100 weeks here: app.glow.org`,
+        `You can do the same and start earning GLW weekly for 100 weeks here: ${APP_DOMAIN_PLAIN_TEXT}`,
       ].join("\n");
 
       return `https://twitter.com/intent/tweet?text=${encodeURIComponent(
@@ -795,6 +897,89 @@ export function DepositDialog({
       return null;
     }
   }, [selectedCurrency, farmLabelForShare, successMetrics, quantity]);
+
+  const handleShare = async () => {
+    try {
+      if (!shareUrl) return;
+
+      const shareTitle = farmLabelForShare
+        ? `Glow • ${farmLabelForShare}`
+        : "Glow";
+
+      const shareText =
+        selectedCurrency === "USDC"
+          ? `I just bought ${quantity} miner${quantity > 1 ? "s" : ""} from ${
+              farmLabelForShare ?? "a solar farm"
+            } on @glowFND\n\n${APP_DOMAIN_PLAIN_TEXT}`
+          : `I just helped fund ${
+              farmLabelForShare ?? "a solar farm"
+            } by delegating GLW tokens.\n\nYou can do the same on ${APP_DOMAIN_PLAIN_TEXT}`;
+
+      const canNativeShare =
+        typeof navigator !== "undefined" &&
+        typeof navigator.share === "function";
+
+      if (isSmallScreen && canNativeShare) {
+        trackEvent("marketplace_deposit_share_native_click", {
+          currency: selectedCurrency,
+          application_id: application?.id ?? null,
+          fraction_id: application?.activeFraction?.id ?? null,
+          steps_to_buy: quantity,
+          tx_hash: txHash ?? null,
+          has_image: Boolean(farmImageUrlForShare),
+        });
+
+        if (farmImageUrlForShare && typeof navigator.canShare === "function") {
+          try {
+            const response = await fetch(farmImageUrlForShare);
+            const blob = await response.blob();
+            const fileExt =
+              blob.type === "image/png"
+                ? "png"
+                : blob.type === "image/webp"
+                ? "webp"
+                : "jpg";
+
+            const file = new File([blob], `glow-farm.${fileExt}`, {
+              type: blob.type || "image/jpeg",
+            });
+
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({
+                title: shareTitle,
+                text: shareText,
+                files: [file],
+              });
+              return;
+            }
+          } catch {
+            // fall through to sharing without files
+          }
+        }
+
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+        });
+        return;
+      }
+
+      trackEvent("marketplace_deposit_share_x_click", {
+        currency: selectedCurrency,
+        application_id: application?.id ?? null,
+        fraction_id: application?.activeFraction?.id ?? null,
+        steps_to_buy: quantity,
+        tx_hash: txHash ?? null,
+      });
+
+      if (typeof window !== "undefined") {
+        window.open(shareUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Unable to share right now");
+    }
+  };
 
   const successDetails: TransactionDetail[] = application?.activeFraction
     ? [
@@ -1028,25 +1213,9 @@ export function DepositDialog({
 
           <div className="space-y-3 pt-4">
             {shareUrl ? (
-              <Button className="w-full" asChild>
-                <a
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  href={shareUrl}
-                  className="w-full flex items-center justify-center gap-2"
-                  onClick={() => {
-                    trackEvent("marketplace_deposit_share_x_click", {
-                      currency: selectedCurrency,
-                      application_id: application?.id ?? null,
-                      fraction_id: application?.activeFraction?.id ?? null,
-                      steps_to_buy: quantity,
-                      tx_hash: txHash ?? null,
-                    });
-                  }}
-                >
-                  <Share2 className="w-4 h-4 " />
-                  Share on X
-                </a>
+              <Button className="w-full" onClick={handleShare}>
+                <Share2 className="w-4 h-4" />
+                Share
               </Button>
             ) : null}
             <Button variant="outline" onClick={handleClose} className="w-full">
@@ -1297,6 +1466,11 @@ export function DepositDialog({
                   selected={selectedPaymentMethod === "GLW"}
                   onSelect={() => setSelectedPaymentMethod("GLW")}
                   disabled={selectedCurrency === "USDC"} // Can't pay miners with GLW
+                  isBalanceInsufficient={
+                    isConnected &&
+                    selectedPaymentMethod === "GLW" &&
+                    !affordability.canSubmit
+                  }
                   pricePreview={
                     calculateCostInGLW(quantity).toLocaleString() + " GLW"
                   }
@@ -1316,6 +1490,11 @@ export function DepositDialog({
                 icon={<TokenIcon symbol="USDC" />}
                 selected={selectedPaymentMethod === "USDC"}
                 onSelect={() => setSelectedPaymentMethod("USDC")}
+                isBalanceInsufficient={
+                  isConnected &&
+                  selectedPaymentMethod === "USDC" &&
+                  !affordability.canSubmit
+                }
                 pricePreview={
                   calculateCostInUSDC(quantity).toLocaleString() + " USDC"
                 }
@@ -1334,6 +1513,11 @@ export function DepositDialog({
                 icon={<TokenIcon symbol="ETH" />}
                 selected={selectedPaymentMethod === "ETH"}
                 onSelect={() => setSelectedPaymentMethod("ETH")}
+                isBalanceInsufficient={
+                  isConnected &&
+                  selectedPaymentMethod === "ETH" &&
+                  !affordability.canSubmit
+                }
                 pricePreview={calculateCostInETH(quantity).toFixed(4) + " ETH"}
               />
             </div>
@@ -1367,7 +1551,7 @@ export function DepositDialog({
               <Button
                 className="w-full"
                 onClick={handleConfirm}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !affordability.canSubmit}
               >
                 {isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1410,15 +1594,17 @@ function PaymentOption({
   selected,
   onSelect,
   disabled,
+  isBalanceInsufficient,
   pricePreview,
 }: {
-  value: string;
+  value: PaymentMethod;
   label: string;
   balance: string;
   icon: React.ReactNode;
   selected: boolean;
   onSelect: () => void;
   disabled?: boolean;
+  isBalanceInsufficient?: boolean;
   pricePreview: string;
 }) {
   if (disabled) return null;
@@ -1438,7 +1624,12 @@ function PaymentOption({
         </div>
         <div>
           <div className="text-sm font-medium text-foreground">{label}</div>
-          <div className="text-xs text-muted-foreground">
+          <div
+            className={cn(
+              "text-xs",
+              isBalanceInsufficient ? "text-red-500" : "text-muted-foreground"
+            )}
+          >
             Balance: {balance}
           </div>
         </div>

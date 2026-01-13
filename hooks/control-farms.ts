@@ -23,6 +23,7 @@ import type { AuctionApplication, PaymentCurrency } from "@/hooks/hub-listings";
 import { calculateProtocolDepositAmount } from "@/hooks/hub-listings";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
+import { useMemo } from "react";
 
 export function useWalletFarms(params: {
   walletAddress?: string;
@@ -365,11 +366,13 @@ export function useRewardScore(params: RewardScoreParams) {
     },
   });
 
-  const rewardScoreMap = new Map<string, ApplicationRewardScore>();
-  if (query.data)
-    query.data.forEach((score) =>
-      rewardScoreMap.set(score.applicationId, score)
-    );
+  const rewardScoreMap = useMemo(() => {
+    const map = new Map<string, ApplicationRewardScore>();
+    if (query.data) {
+      query.data.forEach((score) => map.set(score.applicationId, score));
+    }
+    return map;
+  }, [query.data]);
 
   return {
     rewardScores: query.data || [],
@@ -514,11 +517,13 @@ export function useMiningScore(params: UseMiningScoreParams) {
     },
   });
 
-  const miningScoreMap = new Map<string, ApplicationMiningScore>();
-  if (query.data)
-    query.data.forEach((score) =>
-      miningScoreMap.set(score.applicationId, score)
-    );
+  const miningScoreMap = useMemo(() => {
+    const map = new Map<string, ApplicationMiningScore>();
+    if (query.data) {
+      query.data.forEach((score) => map.set(score.applicationId, score));
+    }
+    return map;
+  }, [query.data]);
 
   return {
     miningScores: query.data || [],
