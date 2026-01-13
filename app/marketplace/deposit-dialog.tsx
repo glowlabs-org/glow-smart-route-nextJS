@@ -43,6 +43,7 @@ import { EmissionsIcon, VaultIcon } from "@/components/impact-icons";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/hooks/query-keys";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export type LaunchpadRewardScore = {
   userWeeklyGlwRewards: string;
@@ -94,6 +95,7 @@ export function DepositDialog({
   const APP_DOMAIN_PLAIN_TEXT = "app.\u200Bglow.\u200Borg";
 
   const { isConnected, address } = useAccount();
+  const isMobile = useIsMobile();
   const chainId = useChainId();
   const { signer } = useEthersSigner();
   const { data: walletClient } = useWalletClient();
@@ -1006,6 +1008,24 @@ export function DepositDialog({
 
   const renderContent = () => {
     if (phase === "success") {
+      const ringSize = isMobile ? 168 : 200;
+      const ringStrokeWidth = isMobile ? 10 : 12;
+
+      const filledAfterSteps = successMetrics
+        ? Math.min(
+            Math.max(0, Math.floor(successMetrics.totalSteps)),
+            Math.max(
+              0,
+              Math.floor(successMetrics.filledBeforeSteps) +
+                Math.floor(successMetrics.userSteps)
+            )
+          )
+        : 0;
+
+      const leftAfterSteps = successMetrics
+        ? Math.max(0, Math.floor(successMetrics.totalSteps) - filledAfterSteps)
+        : 0;
+
       return (
         <div className="px-5 py-6 sm:px-6 sm:py-8 text-center space-y-3 sm:space-y-4">
           <div className="text-center space-y-2">
@@ -1027,6 +1047,18 @@ export function DepositDialog({
                 totalSteps={successMetrics.totalSteps}
                 filledBeforeSteps={successMetrics.filledBeforeSteps}
                 userSteps={successMetrics.userSteps}
+                size={ringSize}
+                strokeWidth={ringStrokeWidth}
+                label={
+                  <span className="text-3xl sm:text-4xl font-bold tracking-tight font-mono">
+                    {filledAfterSteps}/{successMetrics.totalSteps}
+                  </span>
+                }
+                sublabel={
+                  <span className="text-[11px] sm:text-xs text-muted-foreground">
+                    {leftAfterSteps} left
+                  </span>
+                }
                 otherColor={
                   selectedCurrency === "USDC"
                     ? "rgba(32, 129, 226, 0.75)"
@@ -1035,9 +1067,9 @@ export function DepositDialog({
                 userColor={
                   selectedCurrency === "USDC" ? "var(--color-miner)" : "#4ADE80"
                 }
-                className="my-1 sm:my-2 scale-[0.82] sm:scale-100 origin-top"
+                className="my-1 sm:my-2"
               />
-              <div className="mt-4 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+              <div className="mt-2 sm:mt-4 flex items-center justify-center gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <span
                     className="h-2.5 w-2.5 rounded-full"
