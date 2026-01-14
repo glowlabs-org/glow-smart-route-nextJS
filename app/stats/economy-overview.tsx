@@ -13,6 +13,7 @@ import {
 import { useEndowmentLPPosition } from "@/hooks/useEndowmentLPPosition";
 import { useTotalActivelyDelegated } from "@/hooks";
 import { formatUnits } from "viem";
+import { DelegationIcon } from "@/components/impact-icons";
 
 interface EconomyOverviewProps {
   shouldLoad?: boolean;
@@ -152,7 +153,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
                 <div className="text-sm text-muted-foreground">
                   % of GLW Actively Delegated
                 </div>
-                <Users className="w-4 h-4 text-muted-foreground" />
+                <DelegationIcon className="w-4 h-4 text-muted-foreground" />
               </div>
               <div className="text-3xl font-bold mb-2">
                 {isGlwDataLoading ? "--" : `${percentGlwDelegated.toFixed(1)}%`}

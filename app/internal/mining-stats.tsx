@@ -1468,7 +1468,7 @@ function DelegationMetricsCard({ delegation }: DelegationMetricsCardProps) {
             {delegation.totalDelegated.toLocaleString("en-US", {
               maximumFractionDigits: 0,
             })}{" "}
-            GLW delegated
+            GLW actively delegated
           </p>
         </div>
         <div className="text-sm text-muted-foreground">

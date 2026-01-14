@@ -41,6 +41,7 @@ import {
   PaymentCurrency,
 } from "@glowlabs-org/utils/browser";
 import { formatUnits } from "viem";
+import { DelegationIcon } from "@/components/impact-icons";
 
 interface ProtocolMetricsWidgetProps {
   className?: string;
@@ -58,10 +59,8 @@ export default function ProtocolMetricsWidget({
     isLoading: isSupplyLoading,
   } = useGlowCirculatingSupply();
 
-  const {
-    data: totalActivelyDelegatedData,
-    isLoading: isDelegatorsLoading,
-  } = useTotalActivelyDelegated();
+  const { data: totalActivelyDelegatedData, isLoading: isDelegatorsLoading } =
+    useTotalActivelyDelegated();
 
   const { farms: completedFarms, isLoading: isFarmsLoading } =
     useCompletedFarms();
@@ -292,9 +291,9 @@ export default function ProtocolMetricsWidget({
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-muted-foreground">
-                GLW Delegated
+                GLW Actively Delegated
               </span>
-              <Users className="w-4 h-4 text-muted-foreground" />
+              <DelegationIcon className="w-4 h-4 text-muted-foreground" />
             </div>
             <div className="text-2xl font-bold">
               {isMetricsLoading ? (
