@@ -10,6 +10,7 @@ import {
   Grid3x3,
   List,
   Image as ImageIcon,
+  ExternalLink,
 } from "lucide-react";
 import { useAccount } from "wagmi";
 import { cn } from "@/lib/utils";
@@ -111,7 +112,13 @@ function parsePdRewardsUsd(params: { value: string; asset: string | null }) {
   return num / (is6Decimals ? 1e6 : 1e18);
 }
 
+function getAuditUrl(params: { id: string | null | undefined }) {
+  if (!params.id) return null;
+  return `https://glow.org/audits/${params.id}`;
+}
+
 interface FarmCardData {
+  farmKey: string;
   farmId: string;
   farmName: string;
   regionName: string;
@@ -194,9 +201,15 @@ interface FarmCardProps {
   farm: FarmCardData;
   onClick: () => void;
   isCompact?: boolean;
+  showAuditButton?: boolean;
 }
 
-function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
+function FarmCard({
+  farm,
+  onClick,
+  isCompact = false,
+  showAuditButton = false,
+}: FarmCardProps) {
   const isInProgress = farm.type === "in-progress";
   const isMiner = farm.type === "miner";
   const isDelegation = farm.type === "delegation";
@@ -204,6 +217,7 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
   const isPendingStart = Boolean(farm.isPendingStart);
   const inProgressIsMiningCenter =
     isInProgress && farm.inProgressKind === "mining-center";
+  const auditUrl = showAuditButton ? getAuditUrl({ id: farm.farmId }) : null;
 
   const totalValue = farm.recovered + farm.inflation;
   const timeBasedProgress =
@@ -297,22 +311,53 @@ function FarmCard({ farm, onClick, isCompact = false }: FarmCardProps) {
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-        {isPendingStart && (
+        {(auditUrl || isPendingStart) && (
           <div
             className={cn(
-              "absolute z-10",
+              "absolute z-10 flex items-center justify-end gap-2",
               isCompact ? "top-2 right-2" : "top-3 right-3"
             )}
           >
-            <div
-              className={cn(
-                "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border bg-background/80 text-foreground border-border backdrop-blur-xl",
-                isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]"
-              )}
-            >
-              <Clock className={isCompact ? "w-2.5 h-2.5" : "w-3 h-3"} />
-              Starts Soon
-            </div>
+            {isPendingStart && (
+              <div
+                className={cn(
+                  "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border bg-background/80 text-foreground border-border backdrop-blur-xl",
+                  isCompact
+                    ? "px-1.5 py-0.5 text-[9px]"
+                    : "px-2 py-1 text-[10px]"
+                )}
+              >
+                <Clock className={isCompact ? "w-2.5 h-2.5" : "w-3 h-3"} />
+                Starts Soon
+              </div>
+            )}
+
+            {auditUrl && (
+              <a
+                href={auditUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-xl font-bold font-mono tracking-wider border bg-background/80 text-foreground border-border backdrop-blur-xl hover:bg-background/90 transition-colors",
+                  isCompact
+                    ? "px-1.5 py-0.5 text-[9px]"
+                    : "px-2 py-1 text-[10px]"
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  trackEvent("dashboard_my_farm_audit_click", {
+                    source: "my_farms_grid_section",
+                    farm_id: farm.farmId,
+                    farm_type: farm.type,
+                  });
+                }}
+              >
+                <ExternalLink
+                  className={isCompact ? "w-2.5 h-2.5" : "w-3 h-3"}
+                />
+                See audit
+              </a>
+            )}
           </div>
         )}
         <div
@@ -1168,6 +1213,7 @@ export default function MyFarmsGridSection({
         const recovered = parseGlwFromWei(farm.totalProtocolDepositRewards);
         const inflation = parseGlwFromWei(farm.totalInflationRewards);
         cards.push({
+          farmKey: `${farm.farmId}:delegation`,
           farmId: farm.farmId,
           farmName: displayName,
           regionName,
@@ -1192,6 +1238,7 @@ export default function MyFarmsGridSection({
             : 0;
 
         cards.push({
+          farmKey: `${farm.farmId}:miner`,
           farmId: farm.farmId,
           farmName: displayName,
           regionName,
@@ -1245,6 +1292,7 @@ export default function MyFarmsGridSection({
           : Math.max(weeksActive, 1);
 
       cards.push({
+        farmKey: `${farm.farmId}:other`,
         farmId: farm.farmId,
         farmName: displayName,
         regionName: "Clean Grid Project",
@@ -1334,6 +1382,7 @@ export default function MyFarmsGridSection({
       if (item.fractionType === "launchpad") {
         const initialCost = parseGlwFromWei(item.totalAmount.toString());
         cards.push({
+          farmKey: `${item.farmId}:delegation:pending-start`,
           farmId: item.farmId,
           farmName: item.farmName,
           regionName: "Launchpad",
@@ -1355,6 +1404,7 @@ export default function MyFarmsGridSection({
           item.totalAmount.toString()
         );
         cards.push({
+          farmKey: `${item.farmId}:miner:pending-start`,
           farmId: item.farmId,
           farmName: item.farmName,
           regionName: "Miner",
@@ -1388,6 +1438,7 @@ export default function MyFarmsGridSection({
       }
 
       cards.push({
+        farmKey: `${item.applicationId}:in-progress:${item.fractionType}`,
         farmId: item.applicationId,
         farmName: displayName,
         regionName: zoneName,
@@ -1667,7 +1718,7 @@ export default function MyFarmsGridSection({
 
                 return (
                   <TableRow
-                    key={farm.farmId}
+                    key={farm.farmKey}
                     className="cursor-pointer border-border/50 hover:bg-muted/40 transition-colors group"
                     onClick={() => {
                       trackEvent("dashboard_my_farm_click", {
@@ -1824,7 +1875,7 @@ export default function MyFarmsGridSection({
           {farmCards.map((farm) =>
             viewMode === "mosaic" ? (
               <FarmMosaicCard
-                key={farm.farmId}
+                key={farm.farmKey}
                 farm={farm}
                 onClick={() => {
                   trackEvent("dashboard_my_farm_click", {
@@ -1839,7 +1890,7 @@ export default function MyFarmsGridSection({
               />
             ) : (
               <FarmCard
-                key={farm.farmId}
+                key={farm.farmKey}
                 farm={farm}
                 onClick={() => {
                   trackEvent("dashboard_my_farm_click", {
@@ -1852,6 +1903,7 @@ export default function MyFarmsGridSection({
                   setSelectedFarm(farm);
                 }}
                 isCompact={viewMode === "compact"}
+                showAuditButton={viewMode === "default"}
               />
             )
           )}
