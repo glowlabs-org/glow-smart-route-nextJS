@@ -420,39 +420,101 @@ function ImpactHero(props: {
   const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
   const [isBuyGlowOpen, setIsBuyGlowOpen] = React.useState(false);
 
-  const selfGlobalRank = normalizedAddress
-    ? globalRankByWallet.get(normalizedAddress) ?? null
-    : null;
-  const selfPercentile =
-    selfGlobalRank && totalWalletCount > 0
-      ? (selfGlobalRank / totalWalletCount) * 100
-      : NaN;
-
   const isSelfLoading =
     Boolean(address) && (selfScoreQuery.isLoading || selfScoreQuery.isFetching);
 
-  const selfPoints = selfLeaderboardRow
+  // Prioritize current week data from selfScoreQuery over cached leaderboard data
+  const selfPoints = selfScoreQuery.data?.totals?.totalPoints
+    ? safeNumber(selfScoreQuery.data.totals.totalPoints)
+    : selfLeaderboardRow
     ? safeNumber(selfLeaderboardRow.totalPoints)
-    : safeNumber(selfScoreQuery.data?.totals?.totalPoints);
+    : 0;
   const isZeroScore =
     Boolean(address) &&
     !isSelfLoading &&
     !selfScoreQuery.isError &&
     (!Number.isFinite(selfPoints) || selfPoints <= 0);
+
+  // Calculate estimated current rank based on current points vs cached leaderboard
+  const estimatedCurrentRank = React.useMemo(() => {
+    if (!normalizedAddress || !selfPoints || selfPoints <= 0) return null;
+
+    // Find how many people in cached leaderboard have MORE points than current score
+    const ranksAhead = rows.filter(
+      (row: ImpactGlowScoreLeaderboardRow) =>
+        safeNumber(row.totalPoints) > selfPoints
+    ).length;
+
+    return ranksAhead + 1;
+  }, [normalizedAddress, selfPoints, rows]);
+
+  const selfGlobalRank = normalizedAddress
+    ? globalRankByWallet.get(normalizedAddress) ?? null
+    : null;
+
+  // Use estimated rank if current points suggest a better position
+  const displayRank =
+    estimatedCurrentRank &&
+    selfGlobalRank &&
+    estimatedCurrentRank < selfGlobalRank
+      ? estimatedCurrentRank
+      : selfGlobalRank;
+
+  const selfPercentile =
+    displayRank && totalWalletCount > 0
+      ? (displayRank / totalWalletCount) * 100
+      : NaN;
   const listThresholdPercentile =
     totalWalletCount > 0
       ? (Math.min(rows.length, totalWalletCount) / totalWalletCount) * 100
       : NaN;
 
-  const targetRank = selfGlobalRank
-    ? Math.max(1, selfGlobalRank - 1)
-    : Math.min(200, rows.length);
-  const targetRow = rows[targetRank - 1] ?? null;
+  // Find the next rank with MORE points than current score (since current score is live, not cached)
+  const targetRank = React.useMemo(() => {
+    if (!selfPoints || selfPoints <= 0) {
+      return selfGlobalRank
+        ? Math.max(1, selfGlobalRank - 1)
+        : Math.min(200, rows.length);
+    }
+
+    // Use estimated rank to find target (one rank better)
+    if (estimatedCurrentRank && estimatedCurrentRank > 1) {
+      return estimatedCurrentRank - 1;
+    }
+
+    // Fallback: use cached global rank
+    if (selfGlobalRank && selfGlobalRank > 1) {
+      return selfGlobalRank - 1;
+    }
+
+    // Already at or near rank 1
+    return 1;
+  }, [selfPoints, estimatedCurrentRank, selfGlobalRank]);
+
+  // Find the target row from the cached leaderboard
+  const targetRow = React.useMemo(() => {
+    // Try to find by rank (targetRank - 1 because array is 0-indexed)
+    if (targetRank > 0 && targetRank <= rows.length) {
+      return rows[targetRank - 1] ?? null;
+    }
+
+    // If target rank is outside cached rows, find first row with more points
+    const higherRankRow = rows.find(
+      (row) => safeNumber(row.totalPoints) > selfPoints
+    );
+
+    return higherRankRow ?? null;
+  }, [rows, targetRank, selfPoints]);
+
   const targetPoints = safeNumber(targetRow?.totalPoints);
   const pointsToTarget =
-    targetPoints > 0 ? Math.max(targetPoints - selfPoints, 0) : null;
+    targetPoints > selfPoints ? targetPoints - selfPoints : null;
   const progressToTarget =
-    targetPoints > 0 ? Math.min(selfPoints / targetPoints, 1) : 0;
+    targetPoints > 0 && targetPoints > selfPoints
+      ? Math.min(selfPoints / targetPoints, 1)
+      : targetPoints > 0 && selfPoints >= targetPoints
+      ? 1
+      : 0;
   const progressPercent = Math.min(
     100,
     Math.max(0, Math.round(progressToTarget * 100))
@@ -565,8 +627,8 @@ function ImpactHero(props: {
                       Ranking
                     </div>
                     <div className="font-mono text-2xl md:text-3xl font-bold tracking-tight tabular-nums">
-                      {selfGlobalRank ? (
-                        <>#{selfGlobalRank.toLocaleString("en-US")}</>
+                      {displayRank ? (
+                        <>#{displayRank.toLocaleString("en-US")}</>
                       ) : (
                         <>
                           Below Top{" "}
@@ -575,8 +637,17 @@ function ImpactHero(props: {
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground font-mono">
-                      {selfGlobalRank ? (
-                        <>Top {formatTopPercentile(selfPercentile)}</>
+                      {displayRank ? (
+                        <>
+                          Top {formatTopPercentile(selfPercentile)}
+                          {estimatedCurrentRank &&
+                          selfGlobalRank &&
+                          estimatedCurrentRank < selfGlobalRank ? (
+                            <span className="ml-1 text-[color:var(--color-glow-green)]">
+                              ↑
+                            </span>
+                          ) : null}
+                        </>
                       ) : (
                         <>Rank not available outside current list</>
                       )}
@@ -621,7 +692,7 @@ function ImpactHero(props: {
             !selfScoreQuery.isError &&
             !isZeroScore ? (
               <div className="space-y-3">
-                {pointsToTarget !== null && targetRank > 0 ? (
+                {targetRank > 0 && targetRow && targetPoints > 0 ? (
                   <div className="space-y-2">
                     <div className="text-sm font-semibold">Progress</div>
                     <div className="relative h-14 rounded-xl border border-border bg-muted/20 overflow-hidden">
@@ -646,10 +717,19 @@ function ImpactHero(props: {
                     </div>
                     <div className="flex items-center justify-between gap-3">
                       <div className="text-sm text-muted-foreground font-mono">
-                        {new Intl.NumberFormat("en-US", {
-                          maximumFractionDigits: 0,
-                        }).format(pointsToTarget)}{" "}
-                        pts to reach Rank #{targetRank.toLocaleString("en-US")}
+                        {pointsToTarget && pointsToTarget > 0 ? (
+                          <>
+                            {new Intl.NumberFormat("en-US", {
+                              maximumFractionDigits: 0,
+                            }).format(pointsToTarget)}{" "}
+                            pts to reach Rank #
+                            {targetRank.toLocaleString("en-US")}
+                          </>
+                        ) : targetRank === 1 ? (
+                          <>You're on track for Rank #1! 🏆</>
+                        ) : (
+                          <>On track for higher rank</>
+                        )}
                       </div>
                       {weekRange ? (
                         <Button
@@ -662,6 +742,27 @@ function ImpactHero(props: {
                         </Button>
                       ) : null}
                     </div>
+                    {estimatedCurrentRank &&
+                    selfGlobalRank &&
+                    estimatedCurrentRank < selfGlobalRank ? (
+                      <div className="text-xs text-muted-foreground font-mono">
+                        <span className="text-[color:var(--color-glow-green)]">
+                          ↑ Climbing
+                        </span>{" "}
+                        · Official rank updates weekly on Sunday at 01:00 UTC
+                      </div>
+                    ) : null}
+                  </div>
+                ) : weekRange ? (
+                  <div className="flex items-center justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 rounded-2xl px-4"
+                      onClick={() => onOpenBreakdown(address)}
+                    >
+                      See details
+                    </Button>
                   </div>
                 ) : null}
               </div>
@@ -919,10 +1020,14 @@ export function ImpactView() {
   });
 
   const weekRange = leaderboardQuery.data?.weekRange ?? null;
+  const currentWeek = React.useMemo(() => getCurrentEpoch(), []);
 
+  // Fetch current week data for live score (not cached)
   const selfScoreQuery = useImpactScoreQuery({
     walletAddress: address ?? null,
-    weekRange,
+    weekRange: weekRange
+      ? { startWeek: weekRange.startWeek, endWeek: currentWeek }
+      : null,
     enabled: Boolean(address && weekRange),
     toastTitle: "Failed to load your Impact Score",
   });

@@ -344,71 +344,50 @@ function DelegationTrendChart({
       .map(Number)
       .sort((a, b) => a - b);
 
+    if (epochs.length === 0) return [];
+
     const maxEpoch = Math.max(...epochs);
-    let cumulativeAmount = 0;
 
-    const historicalData = epochs
-      .filter((epoch) => epoch !== maxEpoch)
-      .map((epoch) => {
-        const weekAmount = Number(
-          formatUnits(BigInt(glwDelegationByEpoch[epoch] || "0"), 18)
-        );
-
-        cumulativeAmount += weekAmount;
-
-        const percentOfCirculating =
-          circulatingSupply > 0
-            ? (cumulativeAmount / circulatingSupply) * 100
-            : 0;
-
-        const WEEK_SECONDS = 86400 * 7;
-        const epochEndTimestamp =
-          GENESIS_TIMESTAMP + (epoch + 1) * WEEK_SECONDS;
-        const epochDate = new Date(epochEndTimestamp * 1000);
-
-        const formattedDate = epochDate.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
-
-        return {
-          epoch,
-          amount: cumulativeAmount,
-          percentOfCirculating,
-          displayDate: formattedDate,
-          fullDate: epochDate.toLocaleDateString("en-US", {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          }),
-          isCurrent: false,
-        };
-      });
-
-    if (currentTotalGlwDelegated) {
-      const currentAmount = Number(
-        formatUnits(BigInt(currentTotalGlwDelegated), 18)
+    // All data points now use actively delegated amounts (not cumulative)
+    const historicalData = epochs.map((epoch) => {
+      const amount = Number(
+        formatUnits(BigInt(glwDelegationByEpoch[epoch] || "0"), 18)
       );
-      const currentPercentOfCirculating =
-        circulatingSupply > 0 ? (currentAmount / circulatingSupply) * 100 : 0;
 
-      const now = new Date();
-      const formattedDate = now.toLocaleDateString("en-US", {
+      const percentOfCirculating =
+        circulatingSupply > 0 ? (amount / circulatingSupply) * 100 : 0;
+
+      const WEEK_SECONDS = 86400 * 7;
+      const epochEndTimestamp = GENESIS_TIMESTAMP + (epoch + 1) * WEEK_SECONDS;
+      const epochDate = new Date(epochEndTimestamp * 1000);
+
+      const formattedDate = epochDate.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
       });
 
-      historicalData.push({
-        epoch: maxEpoch,
-        amount: currentAmount,
-        percentOfCirculating: currentPercentOfCirculating,
-        displayDate: "Current",
-        fullDate: formattedDate,
-        isCurrent: true,
-      });
-    }
+      const isCurrent = epoch === maxEpoch;
+
+      return {
+        epoch,
+        amount,
+        percentOfCirculating,
+        displayDate: isCurrent ? "Current" : formattedDate,
+        fullDate: isCurrent
+          ? new Date().toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            })
+          : epochDate.toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            }),
+        isCurrent,
+      };
+    });
 
     return historicalData;
   }, [glwDelegationByEpoch, circulatingSupply, currentTotalGlwDelegated]);
@@ -419,14 +398,6 @@ function DelegationTrendChart({
       color: "#dcc4ff",
     },
   } satisfies ChartConfig;
-
-  if (chartData.length === 0) {
-    return (
-      <div className="h-80 flex items-center justify-center text-muted-foreground text-sm">
-        No delegation data available
-      </div>
-    );
-  }
 
   return (
     <ChartContainer config={chartConfig} className="h-80 w-full">
@@ -473,10 +444,10 @@ function DelegationTrendChart({
                       {numValue.toFixed(2)}% of supply
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {formattedAmount} GLW cumulative
+                      {formattedAmount} GLW actively delegated
                     </div>
                   </div>,
-                  "Cumulative Delegation",
+                  "Active Delegation",
                 ];
               }}
             />
@@ -503,7 +474,9 @@ interface WalletsViewProps {
   type: "delegator" | "miner";
   glwSpotPrice: number;
   networkTotalGlwDelegated?: string;
+  isLoadingNetworkTotal?: boolean;
   glwDelegationByEpoch?: Record<number, string>;
+  isLoadingDelegationByEpoch?: boolean;
   walletCountByEpoch?: Record<number, number>;
   totalContributors?: number;
   glwHolderCount?: number;
@@ -514,7 +487,9 @@ export function WalletsView({
   type,
   glwSpotPrice,
   networkTotalGlwDelegated,
+  isLoadingNetworkTotal = false,
   glwDelegationByEpoch,
+  isLoadingDelegationByEpoch = false,
   walletCountByEpoch,
   totalContributors,
   glwHolderCount,
@@ -863,15 +838,31 @@ export function WalletsView({
 
     const combinedCapitalRaw = baseCapitalRaw + newCapitalRaw;
 
-    const totalCapitalNumber =
-      type === "delegator"
-        ? Number(formatUnits(combinedCapitalRaw, 18))
-        : Number(formatUnits(combinedCapitalRaw, 6));
+    // For delegators, prefer network total from new endpoint (vault ownership model)
+    // Shows current week (112) instead of last completed week (111) from leaderboard
+    // While loading network total, avoid showing stale table data
+    const hasNetworkTotal =
+      type === "delegator" &&
+      networkTotalGlwDelegated &&
+      networkTotalGlwDelegated !== "0";
 
-    const totalCapitalDisplay =
-      type === "delegator"
-        ? formatGLW(combinedCapitalRaw.toString())
-        : formatUSDC(combinedCapitalRaw.toString());
+    const totalCapitalRaw = hasNetworkTotal
+      ? BigInt(networkTotalGlwDelegated!)
+      : combinedCapitalRaw;
+
+    const isCapitalLoading = type === "delegator" && isLoadingNetworkTotal;
+
+    const totalCapitalNumber = isCapitalLoading
+      ? undefined
+      : type === "delegator"
+      ? Number(formatUnits(totalCapitalRaw, 18))
+      : Number(formatUnits(combinedCapitalRaw, 6));
+
+    const totalCapitalDisplay = isCapitalLoading
+      ? undefined
+      : type === "delegator"
+      ? formatGLW(totalCapitalRaw.toString())
+      : formatUSDC(combinedCapitalRaw.toString());
 
     const miningScores = wallets
       .map((wallet) =>
@@ -1000,7 +991,15 @@ export function WalletsView({
       newWallets: newWalletHighlights,
       weeklyRewardsMetric,
     };
-  }, [wallets, type, summary?.totalWallets, glwSpotPrice, weekRange]);
+  }, [
+    wallets,
+    type,
+    summary?.totalWallets,
+    glwSpotPrice,
+    weekRange,
+    networkTotalGlwDelegated,
+    isLoadingNetworkTotal,
+  ]);
 
   const isEmptyState = !isInitialLoading && wallets.length === 0;
 
@@ -1058,7 +1057,9 @@ export function WalletsView({
           title={capitalLabel}
           value={
             type === "delegator"
-              ? `${analytics.totalCapitalDisplay} GLW`
+              ? isLoadingNetworkTotal || !analytics.totalCapitalDisplay
+                ? "--"
+                : `${analytics.totalCapitalDisplay} GLW`
               : `$${analytics.totalCapitalDisplay}`
           }
           icon={<Zap className="h-5 w-5" />}
@@ -1117,28 +1118,39 @@ export function WalletsView({
           </MetricCard>
         )}
       </div>
-      {type === "delegator" &&
-        glwDelegationByEpoch &&
-        Object.keys(glwDelegationByEpoch).length > 0 && (
-          <Card className="border-border/60">
-            <CardHeader className="pb-4">
-              <div className="flex flex-col gap-1">
-                <CardTitle>GLW Delegation as % of Circulating Supply</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Track how much of the circulating GLW supply is delegated over
-                  time
-                </p>
+      {type === "delegator" && (
+        <Card className="border-border/60">
+          <CardHeader className="pb-4">
+            <div className="flex flex-col gap-1">
+              <CardTitle>GLW Delegation as % of Circulating Supply</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Track how much of the circulating GLW supply is delegated over
+                time
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {isLoadingDelegationByEpoch ||
+            !glwDelegationByEpoch ||
+            Object.keys(glwDelegationByEpoch).length === 0 ? (
+              <div className="h-80 flex items-center justify-center">
+                <div className="space-y-3 w-full">
+                  <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
+                  <div className="h-4 bg-muted rounded w-1/2 animate-pulse" />
+                  <div className="h-4 bg-muted rounded w-5/6 animate-pulse" />
+                  <div className="h-64 bg-muted/50 rounded animate-pulse" />
+                </div>
               </div>
-            </CardHeader>
-            <CardContent className="pt-0">
+            ) : (
               <DelegationTrendChart
                 glwDelegationByEpoch={glwDelegationByEpoch}
                 circulatingSupply={circulatingSupply}
                 currentTotalGlwDelegated={networkTotalGlwDelegated}
               />
-            </CardContent>
-          </Card>
-        )}
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-border/60">
         <CardHeader>

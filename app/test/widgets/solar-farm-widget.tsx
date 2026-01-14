@@ -20,6 +20,7 @@ import {
   useRewardScore,
   useSponsorListings,
   useSplitsActivity,
+  useWalletFarms,
 } from "@/hooks";
 import { useAccount } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
@@ -247,6 +248,7 @@ interface PendingFarmData {
   fractionType: "launchpad" | "mining-center";
   totalAmount: bigint;
   estimatedWeeklyGlw?: number;
+  estimatedUserWeeklyGlw?: number;
   progressPercent?: number;
 }
 
@@ -302,6 +304,13 @@ const PendingFarmRow = ({
       data.estimatedUserWeeklyGlw > 0
     ) {
       return data.estimatedUserWeeklyGlw;
+    }
+    if (
+      "estimatedWeeklyGlw" in data &&
+      typeof data.estimatedWeeklyGlw === "number" &&
+      data.estimatedWeeklyGlw > 0
+    ) {
+      return data.estimatedWeeklyGlw;
     }
     return null;
   }, [data]);
@@ -457,11 +466,7 @@ const PendingFarmRow = ({
               <div className="text-xs font-mono text-muted-foreground">
                 {Math.round(data.progressPercent ?? 0)}% filled
               </div>
-            ) : (
-              <div className="text-xs font-mono text-muted-foreground">
-                Starts Soon
-              </div>
-            )}
+            ) : null}
           </div>
 
           {/* COLUMN 3: KEY METRICS */}
@@ -591,6 +596,15 @@ export default function SolarFarmWidget({
 
   const { data, isLoading, isError, refetch } = useRewardsBreakdown({
     walletAddress: walletAddress ?? null,
+    enabled: hasWallet,
+  });
+
+  const {
+    farms: purchasedFarms,
+    isLoading: isFarmsLoading,
+    isError: isFarmsError,
+  } = useWalletFarms({
+    walletAddress: walletAddress ?? undefined,
     enabled: hasWallet,
   });
 
@@ -738,8 +752,40 @@ export default function SolarFarmWidget({
       byFarm.set(farmTypeKey, existing);
     }
 
-    return Array.from(byFarm.values());
-  }, [rewardedFarmTypeKeys, splitsActivity]);
+    return Array.from(byFarm.values()).map((item) => {
+      const farmData = purchasedFarms.find((f) => f.farmId === item.farmId);
+      
+      let estimatedUserWeeklyGlw: number | undefined = undefined;
+      if (farmData?.userWeeklyRewards) {
+        // Use source-specific breakdown if available (prevents double-counting for farms with both delegation + miner)
+        const isMiningCenter = item.fractionType === "mining-center";
+        
+        if (isMiningCenter && farmData.userWeeklyRewards.glwInflationRewardsFromMiner) {
+          // Miner: only inflation from mining-center splits (no PD recovery)
+          estimatedUserWeeklyGlw = parseGlwFromWei(farmData.userWeeklyRewards.glwInflationRewardsFromMiner);
+        } else if (!isMiningCenter && farmData.userWeeklyRewards.glwInflationRewardsFromDelegation) {
+          // Delegation: inflation from delegation splits + PD recovery
+          const delegationInflationGlw = parseGlwFromWei(farmData.userWeeklyRewards.glwInflationRewardsFromDelegation);
+          const pdGlw = parseGlwFromWei(farmData.userWeeklyRewards.protocolDepositRewards);
+          estimatedUserWeeklyGlw = delegationInflationGlw + pdGlw;
+        } else {
+          // Fallback for old API response (no breakdown fields)
+          const inflationGlw = parseGlwFromWei(farmData.userWeeklyRewards.glwInflationRewards);
+          const pdAsset = farmData.userWeeklyRewards.protocolDepositAsset;
+          const isPdGlw = pdAsset === "GLW";
+          const pdGlw = isPdGlw 
+            ? parseGlwFromWei(farmData.userWeeklyRewards.protocolDepositRewards)
+            : 0;
+          estimatedUserWeeklyGlw = inflationGlw + pdGlw;
+        }
+      }
+
+      return {
+        ...item,
+        estimatedUserWeeklyGlw,
+      };
+    });
+  }, [purchasedFarms, rewardedFarmTypeKeys, splitsActivity]);
 
   const inProgressAmountsByAppId = React.useMemo(() => {
     const map = new Map<string, bigint>();
@@ -765,8 +811,8 @@ export default function SolarFarmWidget({
     return map;
   }, [splitsActivity]);
 
-  const isWidgetLoading = isLoading || isSplitsActivityLoading;
-  const isWidgetError = isError || isSplitsActivityError;
+  const isWidgetLoading = isLoading || isSplitsActivityLoading || isFarmsLoading;
+  const isWidgetError = isError || isSplitsActivityError || isFarmsError;
 
   const activeDelegationsListingsCount = React.useMemo(() => {
     return countActiveListings(launchpadApplications);
@@ -858,17 +904,36 @@ export default function SolarFarmWidget({
 
   const chartData = React.useMemo<HistoryDataPoint[]>(() => {
     const base = [...rewardsHistoryData];
+    
+    // Only show estimated bar if user has NO historical rewards yet
+    if (base.length > 0) return base;
+    
+    // Aggregate pending farms estimated rewards
+    const totalPendingEstimated = pendingStartRows.reduce((sum, row) => {
+      return sum + (row.estimatedUserWeeklyGlw ?? 0);
+    }, 0);
+    
+    const pendingMinerEstimated = pendingStartRows
+      .filter(row => row.fractionType === "mining-center")
+      .reduce((sum, row) => sum + (row.estimatedUserWeeklyGlw ?? 0), 0);
+    
+    const pendingDelegationEstimated = pendingStartRows
+      .filter(row => row.fractionType === "launchpad")
+      .reduce((sum, row) => sum + (row.estimatedUserWeeklyGlw ?? 0), 0);
+    
     const totalInProgress =
       aggregatedEstimatedWeeklyGlwLaunchpad +
-      aggregatedEstimatedWeeklyGlwMiningCenter;
+      aggregatedEstimatedWeeklyGlwMiningCenter +
+      totalPendingEstimated;
+    
     if (totalInProgress <= 0) return base;
 
     const nextWeekNumber = (base.at(-1)?.weekNumber ?? 0) + 1;
     base.push({
       weekNumber: nextWeekNumber,
-      week: "In progress",
-      minerReward: aggregatedEstimatedWeeklyGlwMiningCenter,
-      delegationReward: aggregatedEstimatedWeeklyGlwLaunchpad,
+      week: "Estimated",
+      minerReward: aggregatedEstimatedWeeklyGlwMiningCenter + pendingMinerEstimated,
+      delegationReward: aggregatedEstimatedWeeklyGlwLaunchpad + pendingDelegationEstimated,
       otherReward: 0,
       protocolDepositUsd: 0,
       total: totalInProgress,
@@ -877,6 +942,7 @@ export default function SolarFarmWidget({
   }, [
     aggregatedEstimatedWeeklyGlwLaunchpad,
     aggregatedEstimatedWeeklyGlwMiningCenter,
+    pendingStartRows,
     rewardsHistoryData,
   ]);
 
@@ -1440,107 +1506,6 @@ export default function SolarFarmWidget({
                   open={isLaunchpadOpen}
                   onOpenChange={setIsLaunchpadOpen}
                 />
-              </div>
-            </div>
-          ) : chartData.length === 0 ? (
-            <div className="flex-1 min-h-0 flex flex-col gap-3 p-3 sm:p-4 sm:gap-4">
-              <div className="text-center">
-                <div className="text-sm font-bold font-mono uppercase tracking-wider text-foreground mb-0.5">
-                  Farms Pending Rewards
-                </div>
-                <div className="text-[10px] font-mono text-muted-foreground">
-                  Rewards begin Soon
-                </div>
-              </div>
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {pendingStartRows.map((row) => (
-                  <DialogTrigger
-                    asChild
-                    key={`${row.farmId}-${row.fractionType}`}
-                  >
-                    <div>
-                      <PendingFarmRow
-                        data={row}
-                        isPending={true}
-                        onOpenDialog={() => {
-                          trackEvent("dashboard_pending_farm_click", {
-                            source,
-                            wallet_connected: hasWallet,
-                            wallet_address: normalizedWalletAddress,
-                            farm_id: row.farmId,
-                            farm_type: row.fractionType,
-                          });
-                        }}
-                      />
-                    </div>
-                  </DialogTrigger>
-                ))}
-                {sponsorshipsInProgressWithEstimates.map((item) => (
-                  <DialogTrigger
-                    asChild
-                    key={`${item.applicationId}-launchpad`}
-                  >
-                    <div>
-                      <PendingFarmRow
-                        data={{
-                          applicationId: item.applicationId,
-                          farmName:
-                            item.application?.farmName ||
-                            `Farm ${item.applicationId.substring(0, 8)}`,
-                          fractionType: "launchpad",
-                          estimatedUserWeeklyGlw: item.estimatedUserWeeklyGlw,
-                          progressPercent: item.progressPercent,
-                          totalAmount: inProgressAmountsByAppId.get(
-                            item.applicationId
-                          ),
-                        }}
-                        isPending={false}
-                        onOpenDialog={() => {
-                          trackEvent("dashboard_pending_farm_click", {
-                            source,
-                            wallet_connected: hasWallet,
-                            wallet_address: normalizedWalletAddress,
-                            farm_id: item.applicationId,
-                            farm_type: "launchpad",
-                          });
-                        }}
-                      />
-                    </div>
-                  </DialogTrigger>
-                ))}
-                {miningCenterInProgressWithEstimates.map((item) => (
-                  <DialogTrigger
-                    asChild
-                    key={`${item.applicationId}-mining-center`}
-                  >
-                    <div>
-                      <PendingFarmRow
-                        data={{
-                          applicationId: item.applicationId,
-                          farmName:
-                            item.application?.farmName ||
-                            `Farm ${item.applicationId.substring(0, 8)}`,
-                          fractionType: "mining-center",
-                          estimatedUserWeeklyGlw: item.estimatedUserWeeklyGlw,
-                          progressPercent: item.progressPercent,
-                          totalAmount: inProgressAmountsByAppId.get(
-                            item.applicationId
-                          ),
-                        }}
-                        isPending={false}
-                        onOpenDialog={() => {
-                          trackEvent("dashboard_pending_farm_click", {
-                            source,
-                            wallet_connected: hasWallet,
-                            wallet_address: normalizedWalletAddress,
-                            farm_id: item.applicationId,
-                            farm_type: "mining-center",
-                          });
-                        }}
-                      />
-                    </div>
-                  </DialogTrigger>
-                ))}
               </div>
             </div>
           ) : (

@@ -318,20 +318,6 @@ function FarmCard({
               isCompact ? "top-2 right-2" : "top-3 right-3"
             )}
           >
-            {isPendingStart && (
-              <div
-                className={cn(
-                  "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border bg-background/80 text-foreground border-border backdrop-blur-xl",
-                  isCompact
-                    ? "px-1.5 py-0.5 text-[9px]"
-                    : "px-2 py-1 text-[10px]"
-                )}
-              >
-                <Clock className={isCompact ? "w-2.5 h-2.5" : "w-3 h-3"} />
-                Starts Soon
-              </div>
-            )}
-
             {auditUrl && (
               <a
                 href={auditUrl}
@@ -429,7 +415,7 @@ function FarmCard({
                   )}
                 >
                   {isPendingStart
-                    ? "Pending"
+                    ? "Starts Soon"
                     : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
                 </div>
               </div>
@@ -440,7 +426,9 @@ function FarmCard({
                     isCompact ? "text-[9px]" : "text-[10px]"
                   )}
                 >
-                  Earned
+                  {isPendingStart && farm.estimatedUserWeeklyGlw
+                    ? "Est. Weekly"
+                    : "Earned"}
                 </div>
                 <div
                   className={cn(
@@ -456,7 +444,9 @@ function FarmCard({
                   )}
                 >
                   {isPendingStart
-                    ? "Pending"
+                    ? farm.estimatedUserWeeklyGlw
+                      ? `~${fmtGlw(farm.estimatedUserWeeklyGlw)} GLW/wk`
+                      : "Pending"
                     : `${fmtGlw(farm.recovered + farm.inflationGlw)} GLW`}
                 </div>
               </div>
@@ -544,6 +534,7 @@ function FarmDetailDialog({
   const isInProgress = farm.type === "in-progress";
   const isMiner = farm.type === "miner";
   const isOther = farm.type === "other";
+  const isPendingStart = Boolean(farm.isPendingStart);
 
   const totalEarned = farm.recovered + farm.inflation;
   const totalEarnedGlw = farm.recovered + farm.inflationGlw;
@@ -556,7 +547,7 @@ function FarmDetailDialog({
   })();
 
   const earnedLabel = (() => {
-    if (isInProgress)
+    if (isInProgress || isPendingStart)
       return `~${fmtGlw(farm.estimatedUserWeeklyGlw ?? 0)} GLW/wk`;
     if (isMiner) return `${fmtGlw(farm.inflationGlw)} GLW`;
     if (isOther && farm.isProtocolDepositUsd) {
@@ -711,7 +702,7 @@ function FarmDetailDialog({
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Invested / Delegated */}
-              {!isInProgress && !isOther && (
+              {!isInProgress && !isPendingStart && !isOther && (
                 <Card className="bg-card/50 border-border/60 backdrop-blur-sm">
                   <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
                     <div className="flex items-center gap-2 text-muted-foreground">
@@ -737,7 +728,7 @@ function FarmDetailDialog({
               <Card
                 className={cn(
                   "bg-card/50 border-border/60 backdrop-blur-sm relative overflow-hidden",
-                  (isInProgress || isOther) && "md:col-span-2"
+                  (isInProgress || isPendingStart || isOther) && "md:col-span-2"
                 )}
               >
                 {/* Subtle gradient glow */}
@@ -763,12 +754,12 @@ function FarmDetailDialog({
                         <Gift className="w-4 h-4" />
                       </div>
                       <div className="text-[11px] font-bold font-mono uppercase tracking-wider">
-                        {isInProgress
+                        {isInProgress || isPendingStart
                           ? "Est. Weekly Rewards"
                           : "Lifetime Earnings"}
                       </div>
                     </div>
-                    {!isInProgress && !isOther && (
+                    {!isInProgress && !isPendingStart && !isOther && (
                       <div className="text-xs font-mono font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-xl">
                         {farm.initialCost > 0
                           ? `${Math.round(
@@ -798,7 +789,7 @@ function FarmDetailDialog({
               </Card>
 
               {/* Time Progress */}
-              {!isInProgress && (
+              {!isInProgress && !isPendingStart && (
                 <Card className="bg-card/50 border-border/60 backdrop-blur-sm">
                   <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
                     <div className="flex items-center justify-between">
@@ -862,10 +853,29 @@ function FarmDetailDialog({
                   </CardContent>
                 </Card>
               )}
+
+              {/* Pending Start Status */}
+              {isPendingStart && (
+                <Card className="bg-card/50 border-border/60 backdrop-blur-sm">
+                  <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <div className="p-1.5 rounded-xl bg-muted/50">
+                        <Clock className="w-6 h-6" />
+                      </div>
+                      <div className="text-[11px] font-bold font-mono uppercase tracking-wider">
+                        Status
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold font-mono tracking-tight text-foreground">
+                      Starts Soon
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Breakdown Section */}
-            {!isInProgress && (
+            {!isInProgress && !isPendingStart && (
               <div className="space-y-4">
                 <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-muted-foreground px-1">
                   Rewards Breakdown
@@ -930,82 +940,86 @@ function FarmDetailDialog({
             )}
 
             {/* Weekly Rewards Table */}
-            {!isInProgress && farm.weeklyBreakdown.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-muted-foreground px-1">
-                  Weekly History
-                </h3>
-                <div className="rounded-xl border border-border/50 bg-card/50 overflow-hidden backdrop-blur-sm">
-                  <div className="custom-scrollbar">
-                    <table className="w-full text-sm border-collapse">
-                      <thead className="sticky top-0 bg-muted/90 backdrop-blur-md z-10">
-                        <tr className="border-b border-border/50">
-                          <th className="text-left py-3.5 px-6 font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-24">
-                            Week
-                          </th>
-                          {!isMiner && (
-                            <th className="text-right py-3.5 px-6 font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                              PD
+            {!isInProgress &&
+              !isPendingStart &&
+              farm.weeklyBreakdown.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-muted-foreground px-1">
+                    Weekly History
+                  </h3>
+                  <div className="rounded-xl border border-border/50 bg-card/50 overflow-hidden backdrop-blur-sm">
+                    <div className="custom-scrollbar">
+                      <table className="w-full text-sm border-collapse">
+                        <thead className="sticky top-0 bg-muted/90 backdrop-blur-md z-10">
+                          <tr className="border-b border-border/50">
+                            <th className="text-left py-3.5 px-6 font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-24">
+                              Week
                             </th>
-                          )}
-                          <th className="text-right py-3.5 px-6 font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                            Emission
-                          </th>
-                          <th className="text-right py-3.5 px-6 font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                            Total
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border/30">
-                        {farm.weeklyBreakdown
-                          .slice()
-                          .reverse()
-                          .map((week) => {
-                            const pdGlw = parseGlwFromWei(
-                              week.protocolDepositRewards
-                            );
-                            const inflationGlw = parseGlwFromWei(
-                              week.inflationRewards
-                            );
-                            const totalGlw = parseGlwFromWei(week.totalRewards);
+                            {!isMiner && (
+                              <th className="text-right py-3.5 px-6 font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                PD
+                              </th>
+                            )}
+                            <th className="text-right py-3.5 px-6 font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                              Emission
+                            </th>
+                            <th className="text-right py-3.5 px-6 font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                              Total
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/30">
+                          {farm.weeklyBreakdown
+                            .slice()
+                            .reverse()
+                            .map((week) => {
+                              const pdGlw = parseGlwFromWei(
+                                week.protocolDepositRewards
+                              );
+                              const inflationGlw = parseGlwFromWei(
+                                week.inflationRewards
+                              );
+                              const totalGlw = parseGlwFromWei(
+                                week.totalRewards
+                              );
 
-                            return (
-                              <tr
-                                key={week.weekNumber}
-                                className="hover:bg-muted/40 transition-colors group"
-                              >
-                                <td className="py-3.5 px-6 font-mono text-muted-foreground text-xs group-hover:text-foreground transition-colors">
-                                  #{week.weekNumber}
-                                </td>
-                                {!isMiner && (
-                                  <td className="py-3.5 px-6 text-right font-mono text-delegation-purple text-sm tabular-nums">
-                                    {fmtGlw(pdGlw)}
+                              return (
+                                <tr
+                                  key={week.weekNumber}
+                                  className="hover:bg-muted/40 transition-colors group"
+                                >
+                                  <td className="py-3.5 px-6 font-mono text-muted-foreground text-xs group-hover:text-foreground transition-colors">
+                                    #{week.weekNumber}
+                                  </td>
+                                  {!isMiner && (
+                                    <td className="py-3.5 px-6 text-right font-mono text-delegation-purple text-sm tabular-nums">
+                                      {fmtGlw(pdGlw)}
+                                      <span className="text-[10px] font-normal text-muted-foreground ml-1">
+                                        GLW
+                                      </span>
+                                    </td>
+                                  )}
+                                  <td className="py-3.5 px-6 text-right font-mono text-[color:var(--color-miner-contrast)] text-sm tabular-nums">
+                                    {fmtGlw(inflationGlw)}
                                     <span className="text-[10px] font-normal text-muted-foreground ml-1">
                                       GLW
                                     </span>
                                   </td>
-                                )}
-                                <td className="py-3.5 px-6 text-right font-mono text-[color:var(--color-miner-contrast)] text-sm tabular-nums">
-                                  {fmtGlw(inflationGlw)}
-                                  <span className="text-[10px] font-normal text-muted-foreground ml-1">
-                                    GLW
-                                  </span>
-                                </td>
-                                <td className="py-3.5 px-6 text-right font-mono font-bold text-sm tabular-nums text-foreground">
-                                  {fmtGlw(totalGlw)}
-                                  <span className="text-[10px] font-normal text-muted-foreground ml-1">
-                                    GLW
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                      </tbody>
-                    </table>
+                                  <td className="py-3.5 px-6 text-right font-mono font-bold text-sm tabular-nums text-foreground">
+                                    {fmtGlw(totalGlw)}
+                                    <span className="text-[10px] font-normal text-muted-foreground ml-1">
+                                      GLW
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
         </div>
       </DialogContent>
@@ -1379,6 +1393,47 @@ export default function MyFarmsGridSection({
         imageUrls.push("/images/sections/residential.jpg");
       }
 
+      let estimatedUserWeeklyGlw: number | undefined = undefined;
+      if (farmMetadata?.userWeeklyRewards) {
+        // Use source-specific breakdown if available (prevents double-counting for farms with both delegation + miner)
+        const isMiningCenter = item.fractionType === "mining-center";
+
+        if (
+          isMiningCenter &&
+          farmMetadata.userWeeklyRewards.glwInflationRewardsFromMiner
+        ) {
+          // Miner: only inflation from mining-center splits (no PD recovery)
+          estimatedUserWeeklyGlw = parseGlwFromWei(
+            farmMetadata.userWeeklyRewards.glwInflationRewardsFromMiner
+          );
+        } else if (
+          !isMiningCenter &&
+          farmMetadata.userWeeklyRewards.glwInflationRewardsFromDelegation
+        ) {
+          // Delegation: inflation from delegation splits + PD recovery
+          const delegationInflationGlw = parseGlwFromWei(
+            farmMetadata.userWeeklyRewards.glwInflationRewardsFromDelegation
+          );
+          const pdGlw = parseGlwFromWei(
+            farmMetadata.userWeeklyRewards.protocolDepositRewards
+          );
+          estimatedUserWeeklyGlw = delegationInflationGlw + pdGlw;
+        } else {
+          // Fallback for old API response (no breakdown fields)
+          const inflationGlw = parseGlwFromWei(
+            farmMetadata.userWeeklyRewards.glwInflationRewards
+          );
+          const pdAsset = farmMetadata.userWeeklyRewards.protocolDepositAsset;
+          const isPdGlw = pdAsset === "GLW";
+          const pdGlw = isPdGlw
+            ? parseGlwFromWei(
+                farmMetadata.userWeeklyRewards.protocolDepositRewards
+              )
+            : 0;
+          estimatedUserWeeklyGlw = inflationGlw + pdGlw;
+        }
+      }
+
       if (item.fractionType === "launchpad") {
         const initialCost = parseGlwFromWei(item.totalAmount.toString());
         cards.push({
@@ -1398,6 +1453,7 @@ export default function MyFarmsGridSection({
           weeksActive: 0,
           totalWeeks: 100,
           weeklyBreakdown: [],
+          estimatedUserWeeklyGlw,
         });
       } else {
         const initialCostUsd = parseUsdcFromBaseUnits(
@@ -1420,6 +1476,7 @@ export default function MyFarmsGridSection({
           weeksActive: 0,
           totalWeeks: 99,
           weeklyBreakdown: [],
+          estimatedUserWeeklyGlw,
         });
       }
     });
@@ -1820,7 +1877,9 @@ export default function MyFarmsGridSection({
                           )}
                         >
                           {isPendingStart
-                            ? "Pending"
+                            ? farm.estimatedUserWeeklyGlw
+                              ? `~${fmtGlw(farm.estimatedUserWeeklyGlw)} GLW/wk`
+                              : "Pending"
                             : `${fmtGlw(
                                 farm.recovered + farm.inflationGlw
                               )} GLW`}

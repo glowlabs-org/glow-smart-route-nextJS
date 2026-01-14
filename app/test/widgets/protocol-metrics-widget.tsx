@@ -31,7 +31,7 @@ import {
 
 import { useGlowPrices } from "@/hooks/useGlowPrices";
 import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
-import { useWalletsActivity } from "@/hooks";
+import { useTotalActivelyDelegated } from "@/hooks";
 import {
   useCompletedFarms,
   CompletedApplication,
@@ -58,28 +58,21 @@ export default function ProtocolMetricsWidget({
     isLoading: isSupplyLoading,
   } = useGlowCirculatingSupply();
 
-  const { data: delegatorsData, isLoading: isDelegatorsLoading } =
-    useWalletsActivity({
-      type: "delegator",
-      limit: 1000,
-    });
+  const {
+    data: totalActivelyDelegatedData,
+    isLoading: isDelegatorsLoading,
+  } = useTotalActivelyDelegated();
 
   const { farms: completedFarms, isLoading: isFarmsLoading } =
     useCompletedFarms();
 
-  // 2. Derived Data Calculation - actively delegated GLW from leaderboard
+  // 2. Derived Data Calculation - actively delegated GLW from vault ownership endpoint
   const totalGlwDelegated = React.useMemo(() => {
-    if (!delegatorsData?.wallets) return 0;
-
-    const totalActiveDelegatedWei = delegatorsData.wallets.reduce(
-      (sum, wallet) => {
-        return sum + BigInt(wallet.glwDelegated || "0");
-      },
-      BigInt(0)
+    if (!totalActivelyDelegatedData?.totalGlwDelegatedWei) return 0;
+    return Number(
+      formatUnits(BigInt(totalActivelyDelegatedData.totalGlwDelegatedWei), 18)
     );
-
-    return Number(formatUnits(totalActiveDelegatedWei, 18));
-  }, [delegatorsData]);
+  }, [totalActivelyDelegatedData]);
 
   const percentGlwDelegated = React.useMemo(() => {
     if (!circulatingSupply || circulatingSupply === 0) return 0;
