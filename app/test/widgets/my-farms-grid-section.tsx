@@ -159,6 +159,7 @@ function FarmMosaicCard({ farm, onClick }: FarmMosaicCardProps) {
 
   return (
     <Card
+      data-farm-id={farm.farmId}
       className="group relative overflow-hidden cursor-pointer bg-muted/30 hover:bg-muted/10 transition-all duration-300 hover:-translate-y-1 border-border p-0 gap-0 h-full"
       onClick={onClick}
     >
@@ -294,6 +295,7 @@ function FarmCard({
 
   return (
     <Card
+      data-farm-id={farm.farmId}
       className="group relative overflow-hidden cursor-pointer  bg-muted/30 hover:bg-muted/10 transition-all duration-300 hover:-translate-y-1 border-border p-0 gap-0"
       onClick={onClick}
     >
@@ -1776,6 +1778,7 @@ export default function MyFarmsGridSection({
                 return (
                   <TableRow
                     key={farm.farmKey}
+                    data-farm-id={farm.farmId}
                     className="cursor-pointer border-border/50 hover:bg-muted/40 transition-colors group"
                     onClick={() => {
                       trackEvent("dashboard_my_farm_click", {

@@ -2,175 +2,108 @@
 
 import * as React from "react";
 import { useChainId } from "wagmi";
-import { ArrowUpRight, Flame, Globe, Info, Zap } from "lucide-react";
-import { motion, useSpring, useTransform } from "framer-motion";
+import {
+  ArrowUpRight,
+  ChevronRight,
+  HelpCircle,
+  Info,
+  Leaf,
+  Zap,
+  PieChart as PieChartIcon,
+  TrendingUp,
+  Activity,
+} from "lucide-react";
 
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+} from "recharts";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { NumberTicker } from "@/components/ui/number-ticker";
 import { ConnectButton } from "@/components/connect-button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/telemetry";
-
-/**
- * Solar Collector Widget
- * - Designed to slot as a full-width section (Proposal 1)
- * - Uses the same layout principles as NetWorthWidget:
- *   - Card -> Header actions -> big mono numbers -> “juicy” visual area
- *   - Minimal/Default variants
- *   - Wallet connect blur overlay
- *   - Skeleton state
- *
- * NOTE: Data here is mocked; replace `useSolarCollectorMock` with your real hook.
- */
+import { useSolarCollectorQuery } from "@/hooks/hub-solar-collector";
+import { useRegions } from "@/hooks/control-regions";
 
 const SOLAR_ORANGE = "#ffb472";
 const SOLAR_YELLOW = "#ffd37a";
-
 const WATTS_PER_PANEL = 400;
 
-function LiquidWave({ color }: { color: string }) {
-  return (
-    <motion.svg
-      className="absolute top-0 left-0 w-[200%] h-10 -translate-y-[80%]"
-      viewBox="0 0 1200 120"
-      preserveAspectRatio="none"
-      style={{ filter: "drop-shadow(0 -4px 10px rgba(255,180,114,0.35))" }}
-      animate={{
-        x: ["-25%", "0%", "-25%"],
-      }}
-      transition={{
-        duration: 4,
-        repeat: Infinity,
-        ease: "easeInOut",
-      }}
-    >
-      <motion.path
-        fill={color}
-        animate={{
-          d: [
-            "M0,40 C100,70 200,20 400,50 C600,80 800,20 1000,50 C1100,65 1150,35 1200,50 L1200,120 L0,120 Z",
-            "M0,50 C100,20 200,70 400,40 C600,10 800,70 1000,40 C1100,25 1150,55 1200,40 L1200,120 L0,120 Z",
-            "M0,40 C100,70 200,20 400,50 C600,80 800,20 1000,50 C1100,65 1150,35 1200,50 L1200,120 L0,120 Z",
-          ],
-        }}
-        transition={{
-          duration: 2.5,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
-      />
-      {/* second wave layer for depth */}
-      <motion.path
-        fill={color}
-        opacity={0.6}
-        animate={{
-          d: [
-            "M0,55 C150,30 300,70 500,45 C700,20 900,65 1200,55 L1200,120 L0,120 Z",
-            "M0,45 C150,70 300,30 500,55 C700,80 900,35 1200,45 L1200,120 L0,120 Z",
-            "M0,55 C150,30 300,70 500,45 C700,20 900,65 1200,55 L1200,120 L0,120 Z",
-          ],
-        }}
-        transition={{
-          duration: 3,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 0.3,
-        }}
-      />
-    </motion.svg>
-  );
-}
+const GENESIS_TIMESTAMP = 1700352000;
 
-function Bubble({
-  delay,
-  left,
-  size,
-  drift,
-}: {
-  delay: number;
-  left: string;
-  size: number;
-  drift: number;
-}) {
-  return (
-    <motion.div
-      className="absolute rounded-full bg-white/30"
-      style={{
-        width: size,
-        height: size,
-        left,
-        bottom: 0,
-      }}
-      animate={{
-        y: [0, -80, -120],
-        x: [0, drift, drift * 1.5],
-        opacity: [0.6, 0.4, 0],
-        scale: [0.5, 1, 0.8],
-      }}
-      transition={{
-        duration: 2.5 + delay * 0.3,
-        repeat: Infinity,
-        delay,
-        ease: "easeOut",
-      }}
-    />
-  );
-}
-
-function useLiquidFill(targetPercent: number) {
-  const springValue = useSpring(0, {
-    stiffness: 60,
-    damping: 20,
-    mass: 1,
-  });
-
-  React.useEffect(() => {
-    springValue.set(targetPercent);
-  }, [targetPercent, springValue]);
-
-  return springValue;
-}
-
-function formatCompact(value: number) {
-  if (!Number.isFinite(value)) return "0";
-  if (value >= 1e9) return `${(value / 1e9).toFixed(1)}b`;
-  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}m`;
-  if (value >= 1e3) return `${(value / 1e3).toFixed(1)}k`;
-  return value.toLocaleString("en-US", { maximumFractionDigits: 0 });
-}
-
-function formatWattsWithUnit(watts: number): { value: string; unit: string } {
-  if (!Number.isFinite(watts) || watts === 0) return { value: "0", unit: "W" };
-  if (watts >= 1_000_000) {
-    return { value: (watts / 1_000_000).toFixed(2), unit: "MW" };
-  }
-  if (watts >= 1_000) {
-    return { value: (watts / 1_000).toFixed(1), unit: "kW" };
-  }
-  return {
-    value: watts.toLocaleString("en-US", { maximumFractionDigits: 0 }),
-    unit: "W",
-  };
-}
-
-function formatEnergyWithUnit(kwh: number): { value: string; unit: string } {
-  if (!Number.isFinite(kwh) || kwh === 0) return { value: "0", unit: "kWh" };
-  if (kwh >= 1_000_000) {
-    return { value: (kwh / 1_000_000).toFixed(2), unit: "GWh" };
-  }
-  if (kwh >= 1_000) {
-    return { value: (kwh / 1_000).toFixed(1), unit: "MWh" };
-  }
-  return {
-    value: kwh.toLocaleString("en-US", { maximumFractionDigits: 0 }),
-    unit: "kWh",
-  };
+function weekToDate(week: number) {
+  // Add 1 to the week to get the timestamp for the end of that protocol week
+  return new Date((GENESIS_TIMESTAMP + (week + 1) * 604800) * 1000);
 }
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
+}
+
+function formatEnergyValue(kwh: number): string {
+  if (!Number.isFinite(kwh) || kwh === 0) return "0";
+  if (kwh < 1000) return Math.round(kwh).toLocaleString();
+  const mwh = kwh / 1000;
+  if (mwh >= 1000) return `${(mwh / 1000).toFixed(1)}`;
+  if (mwh >= 100) return mwh.toFixed(0);
+  if (mwh >= 10) return mwh.toFixed(1);
+  return mwh.toFixed(2);
+}
+
+function getEnergyUnit(kwh: number): string {
+  if (!Number.isFinite(kwh) || kwh === 0) return "MWh";
+  if (kwh < 1000) return "kWh";
+  const mwh = kwh / 1000;
+  if (mwh >= 1000) return "GWh";
+  return "MWh";
+}
+
+function formatCaptureValue(watts: number): string {
+  if (watts < 1000) return Math.round(watts).toLocaleString();
+  return (watts / 1000).toFixed(2);
+}
+
+function getCaptureUnit(watts: number): string {
+  return watts < 1000 ? "Watts" : "kW";
+}
+
+function getRegionLabel(
+  regionId: number | null,
+  regions: Array<{ id: number; code: string }> | undefined
+): string {
+  if (!regionId) return "";
+  const region = regions?.find((r) => r.id === regionId);
+  if (!region) return "";
+  const code = region.code;
+  if (code === "*") return "Global";
+  if (code.startsWith("US-")) return code.slice(3);
+  return code;
 }
 
 function getGhostState(totalWatts: number) {
@@ -181,299 +114,43 @@ function getGhostState(totalWatts: number) {
   return { completedPanels, currentGhostWatts, fillPercentage };
 }
 
-type SolarCollectorVariant = "default" | "minimal";
-
 interface SolarCollectorWidgetProps {
   walletAddress?: string | null;
-  variant?: SolarCollectorVariant;
   onViewGridClick?: () => void;
   onHowItWorksClick?: () => void;
   onShareClick?: () => void;
+  onFarmClick?: (farmId: string) => void;
 }
 
-type RegionKey = "CO" | "UT" | "IN";
-
-type SolarCollectorModel = {
-  hasWallet: boolean;
-  shouldShowSkeleton: boolean;
-  showEmptyState: boolean;
-
-  totalWatts: number;
-  totalPanels: number; // derived or backend-provided
-  currentPanelIndex: number; // 1-based “Panel #12”
-  wattsToNextPanel: number;
-
-  capturePower: number;
-  powerPercentile: number; // 0..100 where 90 => “Top 10%”
-  streakWeeks: number;
-  multiplier: number;
-
-  strongholdRegion: RegionKey;
-  recentDrop: {
-    farmName: string;
-    region: RegionKey;
-    wattsCaptured: number;
-    whenLabel: string; // "Yesterday", "Jan 10"
-    farmSizeWatts: number;
-  };
-
-  // Meaningful impact stats
-  impact: {
-    annualEnergyKwh: number; // Total energy generated per year
-    treesEquivalent: number; // CO2 offset equivalent in trees
-  };
-};
-
-/**
- * Mock data following the Solar Collector API spec:
- * - 1 Panel = 400 Watts
- * - ghostProgress = (totalWatts % 400) / 400 * 100
- * - Capture Power = directPoints + glowWorthPoints (user's share of network)
- * - WattsReceived = FarmCapacity × (UserPower / TotalNetworkPower)
- * - Multiplier based on streak weeks (e.g., 4 weeks = 3.0x)
- */
-function useSolarCollectorMock(
-  walletAddress?: string | null
-): SolarCollectorModel {
-  const hasWallet = Boolean(walletAddress);
-  const [ready, setReady] = React.useState(false);
-  React.useEffect(() => {
-    const t = setTimeout(() => setReady(true), 350);
-    return () => clearTimeout(t);
-  }, []);
-
-  const emptyModel: SolarCollectorModel = {
-    hasWallet,
-    shouldShowSkeleton: false,
-    showEmptyState: false,
-    totalWatts: 0,
-    totalPanels: 0,
-    currentPanelIndex: 1,
-    wattsToNextPanel: WATTS_PER_PANEL,
-    capturePower: 0,
-    powerPercentile: 0,
-    streakWeeks: 0,
-    multiplier: 1,
-    strongholdRegion: "CO",
-    recentDrop: {
-      farmName: "",
-      region: "CO",
-      wattsCaptured: 0,
-      whenLabel: "—",
-      farmSizeWatts: 0,
-    },
-    impact: { annualEnergyKwh: 0, treesEquivalent: 0 },
-  };
-
-  if (!ready) {
-    return { ...emptyModel, shouldShowSkeleton: true };
-  }
-
-  if (!hasWallet) {
-    return { ...emptyModel, showEmptyState: true };
-  }
-
-  // User's capture power in their stronghold region (directPoints + glowWorthPoints)
-  const capturePower = 45_000;
-  // Total network power in the region (sum of all users' power)
-  const networkTotalPower = 2_100_000;
-  // User's share of network power
-  const userPowerShare = capturePower / networkTotalPower; // ~2.14%
-
-  // Recent farm drop: 100kW farm finalized last week
-  const recentFarmCapacityWatts = 100_000;
-  // Watts captured = farmCapacity × (userPower / networkPower)
-  const recentWattsCaptured = Math.round(
-    recentFarmCapacityWatts * userPowerShare
-  ); // ~214W
-
-  // Total watts accumulated from all past farm drops
-  // This represents ~12 farm drops averaging 10kW each over the user's history
-  const totalWatts = 4_860;
-
-  const ghost = getGhostState(totalWatts);
-  const totalPanels = ghost.completedPanels; // 12 panels
-  const currentPanelIndex = totalPanels + 1; // Working on Panel #13
-  const wattsToNextPanel = WATTS_PER_PANEL - ghost.currentGhostWatts; // 340W to go
-
-  // Streak: 4 consecutive weeks of impact actions (increased delegation or miner purchase)
-  // Multiplier scales with streak: base 1.0x + 0.5x per week, capped
-  const streakWeeks = 4;
-  const multiplier = 1 + streakWeeks * 0.25; // 2.0x
-
-  // Percentile: user is in top 10% of power holders in their region
-  const powerPercentile = 90;
-
-  // Impact: environmental estimates based on total watts
-  // Solar capacity running for a year at ~18% capacity factor (US avg for solar)
-  const annualEnergyKwh = Math.round((totalWatts * 8760 * 0.18) / 1000);
-  // Each kWh of solar offsets ~0.42 kg CO2 (US grid avg)
-  // A mature tree absorbs ~22 kg CO2/year
-  const treesEquivalent = Math.round((annualEnergyKwh * 0.42) / 22);
-  const impact = { annualEnergyKwh, treesEquivalent };
-
-  return {
-    hasWallet,
-    shouldShowSkeleton: false,
-    showEmptyState: false,
-
-    totalWatts,
-    totalPanels,
-    currentPanelIndex,
-    wattsToNextPanel,
-
-    capturePower,
-    powerPercentile,
-    streakWeeks,
-    multiplier,
-
-    strongholdRegion: "CO",
-    recentDrop: {
-      farmName: "Effervescent Hollow",
-      region: "CO",
-      wattsCaptured: recentWattsCaptured,
-      whenLabel: "Last Week",
-      farmSizeWatts: recentFarmCapacityWatts,
-    },
-
-    impact,
-  };
-}
-
-function RingGauge({
-  value,
-  labelTop,
-  labelBottom,
-}: {
-  value: number; // 0..100
-  labelTop: React.ReactNode;
-  labelBottom: React.ReactNode;
-}) {
-  const v = clamp(value, 0, 100);
-  const r = 18;
-  const c = 2 * Math.PI * r;
-  const dash = (v / 100) * c;
-
+function ImpactSummarySkeleton() {
   return (
-    <div className="flex items-center gap-2">
-      <svg width="44" height="44" viewBox="0 0 44 44" className="shrink-0">
-        <circle
-          cx="22"
-          cy="22"
-          r={r}
-          fill="none"
-          stroke="var(--border)"
-          strokeOpacity="0.35"
-          strokeWidth="4"
-        />
-        <circle
-          cx="22"
-          cy="22"
-          r={r}
-          fill="none"
-          stroke={SOLAR_ORANGE}
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeDasharray={`${dash} ${c - dash}`}
-          transform="rotate(-90 22 22)"
-          style={{
-            filter: "drop-shadow(0 0 10px rgba(255,180,114,0.35))",
-            transition: "stroke-dasharray 700ms cubic-bezier(.2,.8,.2,1)",
-          }}
-        />
-      </svg>
-      <div className="leading-tight">
-        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-          {labelTop}
+    <Card className="overflow-hidden w-full py-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border mb-6">
+      <CardContent className="p-4 md:p-5">
+        <div className="flex items-center justify-between mb-4">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-5 w-24 rounded-full" />
         </div>
-        <div className="font-mono text-xs text-foreground">{labelBottom}</div>
-      </div>
-    </div>
-  );
-}
-
-function SolarCollectorSkeleton({ isMinimal }: { isMinimal: boolean }) {
-  return (
-    <Card
-      className={cn(
-        "overflow-hidden flex flex-col w-full py-0",
-        isMinimal
-          ? "bg-transparent border-transparent h-full"
-          : "h-full bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
-      )}
-    >
-      <CardContent className="flex flex-col gap-3 p-4 md:p-5">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(240px,1fr)_minmax(320px,1.5fr)_minmax(200px,1fr)] gap-4">
-          {/* Column 1 skeleton */}
-          <div className="rounded-2xl border border-border bg-muted/20 p-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+          <div className="space-y-2">
             <Skeleton className="h-3 w-24" />
-            <div className="mt-3 flex items-baseline gap-2">
-              <Skeleton className="h-14 w-32 rounded-xl" />
-              <Skeleton className="h-5 w-8 rounded" />
-            </div>
-            <div className="mt-4 flex items-center gap-2">
-              <Skeleton className="h-7 w-20 rounded-xl" />
-              <Skeleton className="h-7 w-24 rounded-xl" />
-            </div>
-            <div className="mt-6 pt-4 border-t border-border/50">
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-11 w-11 rounded-full" />
-                <div className="space-y-1.5">
-                  <Skeleton className="h-3 w-16" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 pt-4 border-t border-border/50">
-              <Skeleton className="h-3 w-28" />
-              <div className="mt-2 flex gap-4">
-                <Skeleton className="h-4 w-16" />
-                <Skeleton className="h-4 w-16" />
-                <Skeleton className="h-4 w-20" />
-              </div>
-            </div>
+            <Skeleton className="h-8 w-28" />
           </div>
-
-          {/* Column 2 skeleton */}
-          <div className="rounded-2xl border border-border bg-muted/20 p-5">
-            <div className="flex items-start justify-between">
-              <div>
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="mt-2 h-8 w-40" />
-              </div>
-              <Skeleton className="h-8 w-20 rounded-full" />
-            </div>
-            <div className="mt-4">
-              <div className="flex items-center justify-between mb-2">
-                <Skeleton className="h-3 w-32" />
-                <Skeleton className="h-4 w-10" />
-              </div>
-              <Skeleton className="h-36 w-full rounded-2xl" />
-            </div>
-            <div className="mt-3 flex items-center justify-between">
-              <Skeleton className="h-7 w-28 rounded-xl" />
-              <Skeleton className="h-4 w-36" />
-            </div>
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-8 w-20" />
           </div>
-
-          {/* Column 3 skeleton */}
-          <div className="rounded-2xl border border-border bg-muted/20 p-5">
-            <div className="flex items-center justify-between">
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="h-6 w-14 rounded-lg" />
-            </div>
-            <Skeleton className="mt-3 h-5 w-full" />
-            <Skeleton className="mt-1 h-3 w-28" />
-            <div className="mt-4 rounded-xl border border-border bg-muted/10 p-4">
-              <Skeleton className="h-3 w-20" />
-              <div className="mt-2 flex items-baseline gap-2">
-                <Skeleton className="h-10 w-20" />
-                <Skeleton className="h-4 w-6" />
-              </div>
-              <Skeleton className="mt-2 h-3 w-32" />
-            </div>
-            <Skeleton className="mt-3 h-10 w-full rounded-xl" />
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-8 w-32" />
           </div>
+        </div>
+        <div className="mt-4 pt-4 border-t border-border/50 flex flex-col md:flex-row gap-4">
+          <Skeleton className="h-16 flex-1 rounded-xl" />
+          <Skeleton className="h-16 w-full md:w-64 rounded-xl" />
         </div>
       </CardContent>
     </Card>
@@ -482,99 +159,207 @@ function SolarCollectorSkeleton({ isMinimal }: { isMinimal: boolean }) {
 
 export default function SolarCollectorWidget({
   walletAddress,
-  variant = "default",
   onViewGridClick,
   onHowItWorksClick,
   onShareClick,
+  onFarmClick,
 }: SolarCollectorWidgetProps) {
   const chainId = useChainId();
-  const isMinimal = variant === "minimal";
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
-  const source = "solar_collector_widget";
+  const source = "impact_summary_widget";
 
-  const model = useSolarCollectorMock(walletAddress);
+  const { model } = useSolarCollectorQuery({
+    walletAddress: normalizedWalletAddress,
+    enabled: true,
+  });
+
+  const { regions } = useRegions();
+
   const ghost = React.useMemo(
     () => getGhostState(model.totalWatts),
     [model.totalWatts]
   );
 
-  // “Juice”: animate the fill surge on change
-  const [displayWatts, setDisplayWatts] = React.useState(model.totalWatts);
-  const [surgeKey, setSurgeKey] = React.useState(0);
-
-  React.useEffect(() => {
-    if (!Number.isFinite(model.totalWatts)) return;
-    if (model.totalWatts === displayWatts) return;
-    setDisplayWatts(model.totalWatts);
-    setSurgeKey((k) => k + 1);
-  }, [model.totalWatts, displayWatts]);
-
-  // All hooks must be called before any conditional returns
   const fill = clamp(ghost.fillPercentage, 0, 100);
-  const liquidFill = useLiquidFill(fill);
-  const liquidHeight = useTransform(liquidFill, (v) => `${v}%`);
 
-  const topPercent = clamp(model.powerPercentile, 0, 100);
-  const topLabel =
-    topPercent >= 50 ? `Top ${100 - topPercent}%` : `Top ${100 - topPercent}%`;
+  const regionColors: Record<number, string> = {
+    2: "#3b82f6", // Blue - UT
+    3: "#10b981", // Green - MO
+    4: "#f59e0b", // Amber - CO
+  };
 
-  if (model.shouldShowSkeleton)
-    return <SolarCollectorSkeleton isMinimal={isMinimal} />;
+  const chartConfig = {
+    region2: { label: "Utah (UT)", color: "#3b82f6" },
+    region3: { label: "Missouri (MO)", color: "#10b981" },
+    region4: { label: "Colorado (CO)", color: "#f59e0b" },
+    total: { label: "Total Watts", color: "#f59e0b" },
+    share: { label: "Network Share", color: "#10b981" },
+  } satisfies ChartConfig;
 
-  const showConnectOverlay = !model.hasWallet && !model.showEmptyState;
+  const distributionData = React.useMemo(() => {
+    return Object.entries(model.wattsByRegion)
+      .map(([rid, watts]) => ({
+        regionId: Number(rid),
+        name: `region${rid}`,
+        value: watts,
+        fill: regionColors[Number(rid)] || "#6b7280",
+      }))
+      .filter((d) => d.value > 0);
+  }, [model.wattsByRegion]);
 
-  if (model.showEmptyState) {
+  const growthData = React.useMemo(() => {
+    return model.weeklyHistory.map((item) => ({
+      week: item.weekNumber,
+      date: weekToDate(item.weekNumber),
+      watts: item.cumulativeWatts,
+      panels: (item.cumulativeWatts / WATTS_PER_PANEL).toFixed(1),
+    }));
+  }, [model.weeklyHistory]);
+
+  const shareTrendData = React.useMemo(() => {
+    // Get unique regions across history
+    const allRids = new Set<number>();
+    model.weeklyHistory.forEach((item) => {
+      Object.keys(item.regionalShare).forEach((rid) =>
+        allRids.add(Number(rid))
+      );
+    });
+
+    return model.weeklyHistory.map((item) => {
+      const row: any = {
+        week: item.weekNumber,
+        date: weekToDate(item.weekNumber),
+      };
+      Array.from(allRids).forEach((rid) => {
+        row[`region${rid}`] = item.regionalShare[rid]?.sharePercent || 0;
+      });
+      return row;
+    });
+  }, [model.weeklyHistory]);
+
+  const maxGrowthWatts = React.useMemo(() => {
+    if (!growthData.length) return 0;
+    return Math.max(...growthData.map((d) => d.watts));
+  }, [growthData]);
+
+  const growthYAxisFormatter = React.useCallback(
+    (value: number) => {
+      if (value === 0) return "0";
+      if (maxGrowthWatts >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+      if (maxGrowthWatts >= 1000) return `${(value / 1000).toFixed(1)}k`;
+      return `${value}W`;
+    },
+    [maxGrowthWatts]
+  );
+
+  const strongholdLabel = getRegionLabel(model.strongholdRegionId, regions);
+  const recentDropRegionLabel = model.recentDrop
+    ? getRegionLabel(model.recentDrop.regionId, regions)
+    : "";
+
+  const hasSignificantInfluence = React.useMemo(() => {
+    if (!shareTrendData.length) return false;
+    // Check if any region in any week has >= 1% share
+    return shareTrendData.some((row) =>
+      Object.keys(row).some((key) => {
+        if (key.startsWith("region")) {
+          return (row[key] as number) >= 1;
+        }
+        return false;
+      })
+    );
+  }, [shareTrendData]);
+
+  const topPercent = Math.max(0, 100 - model.powerPercentile);
+  const influenceLabel =
+    topPercent <= 1 ? "Top 1%" : `Top ${Math.round(topPercent)}%`;
+
+  const handleShare = async () => {
+    try {
+      const shareTitle = "My Solar Footprint on Glow";
+      const shareText = [
+        `I’ve captured ${model.totalWatts.toLocaleString()}W of verified solar capacity on @glowFND ☀️`,
+        "",
+        `That’s enough to power ${
+          model.impact.homesPowered
+        } homes and is equivalent to ${model.impact.treesEquivalent.toLocaleString()} mature trees.`,
+        "",
+        "View the solar grid and start your footprint at app.glow.org",
+      ].join("\n");
+
+      const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+        shareText
+      )}`;
+
+      const isSmallScreen =
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(max-width: 768px)")?.matches;
+
+      const canNativeShare =
+        typeof navigator !== "undefined" &&
+        typeof navigator.share === "function";
+
+      if (isSmallScreen && canNativeShare) {
+        trackEvent("impact_summary_share_native_click", {
+          source,
+          wallet_address: normalizedWalletAddress,
+          total_watts: model.totalWatts,
+        });
+
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+        });
+        return;
+      }
+
+      trackEvent("impact_summary_share_x_click", {
+        source,
+        wallet_address: normalizedWalletAddress,
+        total_watts: model.totalWatts,
+      });
+
+      if (typeof window !== "undefined") {
+        window.open(shareUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (e) {
+      console.error("Share failed", e);
+    }
+  };
+
+  if (model.shouldShowSkeleton) return <ImpactSummarySkeleton />;
+
+  // Don't show widget if no wallet or empty state
+  if (!model.hasWallet || model.showEmptyState) {
+    return null;
+  }
+
+  // If user has no watts captured yet, show minimal prompt
+  if (model.totalWatts === 0) {
     return (
-      <Card
-        className={cn(
-          "overflow-hidden flex flex-col w-full py-0",
-          isMinimal
-            ? "bg-transparent border-transparent h-full"
-            : "h-full bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
-        )}
-      >
-        <CardContent className="p-4 md:p-5 flex items-center justify-center min-h-[280px]">
-          <div className="rounded-2xl border border-border bg-muted/10 p-6 text-center max-w-md relative overflow-hidden">
-            {/* subtle grid */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle, currentColor 1px, transparent 1px)",
-                backgroundSize: "24px 24px",
-                opacity: 0.04,
-              }}
-            />
-
-            <div className="relative">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 mb-4">
-                <Zap className="h-6 w-6 text-orange-400" />
+      <Card className="overflow-hidden w-full py-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border mb-6">
+        <CardContent className="p-4 md:p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
+              <Zap className="h-5 w-5 text-orange-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-foreground">
+                Your solar footprint will appear here
               </div>
-
-              <div className="text-base font-semibold text-foreground">
-                Build your first panel
-              </div>
-              <div className="mt-2 text-sm text-muted-foreground max-w-xs mx-auto">
-                Connect your wallet to start capturing watts from new solar farm
-                drops.
-              </div>
-
-              <div className="mt-4 flex flex-col gap-2">
-                <ConnectButton
-                  className="w-full"
-                  variant="default"
-                  size="large"
-                />
-                <button
-                  type="button"
-                  className="h-9 inline-flex items-center justify-center gap-2 rounded-xl px-3 text-xs font-mono tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => onHowItWorksClick?.()}
-                >
-                  <Info className="h-3.5 w-3.5" />
-                  How it works
-                </button>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                When new farms onboard, your share of clean energy production
+                will be tracked.
               </div>
             </div>
+            <button
+              type="button"
+              className="shrink-0 h-8 inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-medium border border-border hover:bg-muted/50 transition-colors"
+              onClick={() => onHowItWorksClick?.()}
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              Learn more
+            </button>
           </div>
         </CardContent>
       </Card>
@@ -582,396 +367,497 @@ export default function SolarCollectorWidget({
   }
 
   return (
-    <Card
-      className={cn(
-        "overflow-hidden flex flex-col w-full py-0",
-        isMinimal
-          ? "bg-transparent border-transparent h-full"
-          : "h-full bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
-      )}
-    >
-      <CardContent className="flex flex-col flex-1 min-h-0 p-0">
-        <div
-          aria-hidden={showConnectOverlay}
-          className={cn(
-            "p-4 md:p-5",
-            showConnectOverlay &&
-              cn(
-                "pointer-events-none select-none blur-[5px] opacity-60",
-                isMinimal ? "bg-transparent" : ""
-              )
-          )}
-        >
-          {/* 3-COLUMN BENTO LAYOUT */}
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(240px,1fr)_minmax(320px,1.5fr)_minmax(200px,1fr)] gap-4">
-            {/* COLUMN 1: Total Output + Stats */}
-            <div className="rounded-2xl border border-border bg-muted/10 p-5 relative overflow-hidden flex flex-col">
-              {/* subtle grid dots */}
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(circle, currentColor 1px, transparent 1px)",
-                  backgroundSize: "24px 24px",
-                  opacity: 0.05,
-                }}
-              />
-
-              <div className="relative flex-1 flex flex-col">
-                {/* Hero Stats: 2-column grid */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  {/* Total Output */}
-                  <div>
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                      Total Output
-                    </div>
-                    {(() => {
-                      const formatted = formatWattsWithUnit(model.totalWatts);
-                      return (
-                        <div className="mt-2 flex items-baseline gap-1">
-                          <div className="font-mono text-4xl md:text-5xl font-bold tracking-tighter text-foreground tabular-nums leading-none">
-                            {formatted.value}
-                          </div>
-                          <span className="text-base md:text-lg font-mono font-medium text-zinc-500">
-                            {formatted.unit}
-                          </span>
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  {/* Panels Unlocked */}
-                  <div>
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                      Panels Unlocked
-                    </div>
-                    <div className="mt-2 flex items-baseline gap-1">
-                      <div className="font-mono text-4xl md:text-5xl font-bold tracking-tighter text-foreground tabular-nums leading-none">
-                        {model.totalPanels}
-                      </div>
-                      <span className="text-base md:text-lg font-mono font-medium text-zinc-500">
-                        {model.totalPanels === 1 ? "panel" : "panels"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Influence Ring */}
-                <div className="pt-4 border-t border-border/50">
-                  <RingGauge
-                    value={model.powerPercentile}
-                    labelTop="Influence"
-                    labelBottom={
-                      <span className="text-foreground">
-                        {topLabel} ·{" "}
-                        <span className="text-muted-foreground">region</span>
-                      </span>
-                    }
-                  />
-                </div>
-
-                {/* Meaningful Impact */}
-                <div className="mt-4 pt-4 border-t border-border/50">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                    Environmental Impact
-                  </div>
-                  <div className="mt-3 space-y-2">
-                    {/* Annual Energy Generated */}
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs text-muted-foreground">
-                        Energy generated / year
-                      </span>
-                      {(() => {
-                        const energy = formatEnergyWithUnit(
-                          model.impact.annualEnergyKwh
-                        );
-                        return (
-                          <span className="font-mono text-sm font-semibold text-foreground tabular-nums">
-                            {energy.value} {energy.unit}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                    {/* Trees Equivalent */}
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs text-muted-foreground">
-                        Trees equivalent
-                      </span>
-                      <span className="font-mono text-sm font-semibold text-foreground tabular-nums">
-                        {model.impact.treesEquivalent.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+    <Card className="overflow-hidden w-full py-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border mb-6">
+      <CardContent className="p-4 md:p-5">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
+              Verified Solar Footprint
             </div>
-
-            {/* COLUMN 2: Ghost Panel (Central Hero) */}
-            <div className="rounded-2xl border border-border bg-muted/10 p-5 overflow-hidden relative flex flex-col">
-              {/* sunbeam glow */}
-              <div
-                className="absolute -top-32 -right-32 h-80 w-80 rounded-full pointer-events-none"
-                style={{
-                  background:
-                    "radial-gradient(circle at center, rgba(255,180,114,0.18), rgba(255,180,114,0.00) 70%)",
-                }}
-              />
-
-              <div className="relative flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                    Current Goal
-                  </div>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <div className="font-mono text-2xl md:text-3xl font-bold text-foreground">
-                      Panel #{model.currentPanelIndex}
-                    </div>
-                    <div className="text-sm font-mono text-muted-foreground">
-                      ({formatCompact(ghost.currentGhostWatts)} /{" "}
-                      {WATTS_PER_PANEL}W)
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="h-8 inline-flex items-center gap-1.5 rounded-full px-3 text-[11px] font-mono tracking-wider border border-border hover:bg-muted/50 transition-colors shrink-0"
-                  onClick={() => {
-                    trackEvent("solar_collector_share_click", {
-                      source,
-                      wallet_connected: Boolean(normalizedWalletAddress),
-                      wallet_address: normalizedWalletAddress,
-                      chain_id: chainId,
-                    });
-                    onShareClick?.();
-                  }}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                  >
+                    <Info className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="bottom"
+                  className="max-w-xs text-xs leading-relaxed"
                 >
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                  Share
-                </button>
-              </div>
+                  <p>
+                    Your verified connection to physical solar infrastructure.
+                    Based on your participation in completed V2 farms across the
+                    network.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
 
-              {/* Ghost Panel Liquid */}
-              <div className="mt-4 flex-1 min-h-0 flex flex-col">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs font-mono text-muted-foreground">
-                    Ghost Panel Charge
-                  </div>
-                  <div className="font-mono text-sm font-semibold text-foreground tabular-nums">
-                    {Math.round(fill)}%
-                  </div>
-                </div>
+          {model.powerPercentile > 0 && strongholdLabel && (
+            <Badge
+              variant="secondary"
+              className="bg-muted/50 text-muted-foreground border-border/50 text-[10px] font-mono"
+            >
+              {influenceLabel} · {strongholdLabel}
+            </Badge>
+          )}
+        </div>
 
-                <div className="flex-1 min-h-[140px] rounded-2xl border border-foreground/10 dark:border-zinc-800 bg-muted/20 overflow-hidden relative">
-                  {/* wireframe grid */}
-                  <div
-                    className="absolute inset-0 opacity-[0.08] pointer-events-none"
-                    style={{
-                      backgroundImage:
-                        "linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px)",
-                      backgroundSize: "20px 20px",
-                    }}
-                  />
-
-                  {/* liquid fill with wave animation */}
-                  <motion.div
-                    key={surgeKey}
-                    className="absolute left-0 right-0 bottom-0 will-change-transform overflow-visible"
-                    style={{
-                      height: liquidHeight,
-                      background: `linear-gradient(180deg, ${SOLAR_YELLOW} 0%, ${SOLAR_ORANGE} 55%, rgba(255,180,114,0.55) 100%)`,
-                      filter: "drop-shadow(0 0 18px rgba(255,180,114,0.4))",
-                    }}
+        {/* Main Metrics Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          {/* Homes Powered */}
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                    >
+                      <Info className="h-3 w-3" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="bottom"
+                    className="max-w-xs text-xs leading-relaxed"
                   >
-                    {/* animated wave at top */}
-                    <LiquidWave color={SOLAR_YELLOW} />
-
-                    {/* floating bubbles */}
-                    <Bubble delay={0} left="15%" size={6} drift={-8} />
-                    <Bubble delay={0.5} left="35%" size={8} drift={5} />
-                    <Bubble delay={1} left="55%" size={5} drift={-6} />
-                    <Bubble delay={1.5} left="75%" size={7} drift={10} />
-                    <Bubble delay={0.8} left="25%" size={4} drift={-4} />
-                    <Bubble delay={1.2} left="65%" size={9} drift={7} />
-                    <Bubble delay={0.3} left="85%" size={5} drift={-10} />
-
-                    {/* shimmer sweep */}
-                    <motion.div
-                      className="absolute inset-0 opacity-40"
-                      style={{
-                        background:
-                          "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.4) 50%, rgba(255,255,255,0) 100%)",
-                      }}
-                      animate={{
-                        x: ["-100%", "100%"],
-                      }}
-                      transition={{
-                        duration: 2.5,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                      }}
-                    />
-
-                    {/* subtle internal glow */}
-                    <div
-                      className="absolute inset-0 opacity-30"
-                      style={{
-                        background:
-                          "radial-gradient(ellipse at 50% 20%, rgba(255,255,255,0.5), transparent 60%)",
-                      }}
-                    />
-                  </motion.div>
-
-                  {/* center label */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="rounded-full border border-foreground/10 bg-background/70 backdrop-blur-sm px-4 py-1.5 text-sm font-mono font-medium text-foreground shadow-sm">
-                      {formatCompact(model.wattsToNextPanel)}W to unlock
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom row */}
-                <div className="mt-3 flex items-center justify-between gap-3">
-                  <Badge
-                    className="h-7 px-2.5 rounded-xl font-mono text-xs font-bold border"
-                    style={{
-                      backgroundColor: "rgba(32,129,226,0.10)",
-                      borderColor: "rgba(32,129,226,0.22)",
-                      color: "rgba(130,190,255,1)",
-                    }}
-                  >
-                    Stronghold: {model.strongholdRegion}
-                  </Badge>
-
-                  <div className="text-xs font-mono text-muted-foreground">
-                    Power:{" "}
-                    <span className="text-foreground tabular-nums">
-                      {formatCompact(model.capturePower)}
-                    </span>{" "}
-                    · Multiplier:{" "}
-                    <span className="text-foreground tabular-nums">
-                      {model.multiplier.toFixed(1)}x
-                    </span>
-                  </div>
-                </div>
-              </div>
+                    <p>
+                      {model.impact.homesPowered < 1
+                        ? "Estimated number of LED lightbulbs (9W) that could be continuously powered by your solar capacity."
+                        : "Estimated number of U.S. homes that could be continuously powered by your solar capacity, assuming an 18% capacity factor and 1.17 kW average load per home."}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {model.impact.homesPowered < 1 ? "Lightbulbs" : "Homes Powered"}
             </div>
+            <div className="flex items-baseline gap-1">
+              <span className="font-mono text-2xl md:text-3xl font-bold tracking-tight text-foreground tabular-nums">
+                {model.impact.homesPowered < 1
+                  ? (model.impact.homesPowered * 40).toLocaleString(undefined, {
+                      maximumFractionDigits: 1,
+                    })
+                  : model.impact.homesPowered.toLocaleString()}
+              </span>
+              <span className="text-sm font-mono text-muted-foreground">
+                {model.impact.homesPowered < 1 ? "bulbs" : "homes"}
+              </span>
+            </div>
+          </div>
 
-            {/* COLUMN 3: Recent Drop */}
-            <div className="rounded-2xl border border-border bg-muted/10 p-5 flex flex-col relative overflow-hidden">
-              {/* Live pulse glow */}
-              <div
-                className="absolute top-4 right-4 h-16 w-16 rounded-full pointer-events-none"
-                style={{
-                  background:
-                    "radial-gradient(circle at center, rgba(255,180,114,0.25), transparent 70%)",
-                  animation: "pulse 2s ease-in-out infinite",
-                }}
-              />
+          {/* Energy Generated Per Year */}
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                    >
+                      <Info className="h-3 w-3" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="bottom"
+                    className="max-w-xs text-xs leading-relaxed"
+                  >
+                    <p>
+                      Estimated annual clean energy production based on the
+                      physical capacity of your captured panels and an estimated
+                      18% average capacity factor.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              Energy / Year
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="font-mono text-2xl md:text-3xl font-bold tracking-tight text-foreground tabular-nums">
+                {formatEnergyValue(model.impact.annualEnergyKwh)}
+              </span>
+              <span className="text-sm font-mono text-muted-foreground">
+                {getEnergyUnit(model.impact.annualEnergyKwh)}
+              </span>
+            </div>
+          </div>
 
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-xs font-mono text-muted-foreground">
-                  Recent Drop
-                </div>
-                <Badge className="h-6 px-2 rounded-lg font-mono text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                  <Zap className="h-3 w-3" />
-                  Live
-                </Badge>
+          {/* Trees Equivalent */}
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                    >
+                      <Info className="h-3 w-3" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="bottom"
+                    className="max-w-xs text-xs leading-relaxed"
+                  >
+                    <p>
+                      The number of mature trees required to sequester the same
+                      amount of CO₂ offset by your clean energy production
+                      (based on 1,000 lb CO₂/MWh and 0.022 tonnes/year per
+                      tree).
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              Trees Equivalent
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="font-mono text-2xl md:text-3xl font-bold tracking-tight text-foreground tabular-nums">
+                {model.impact.treesEquivalent.toLocaleString()}
+              </span>
+              <span className="text-sm font-mono text-muted-foreground">
+                trees
+              </span>
+            </div>
+          </div>
+
+          {/* Panel Progress */}
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5">
+              Panel #{model.currentPanelIndex}
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-3 rounded-full bg-muted/50 border border-border/50 overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${fill}%`,
+                    background: `linear-gradient(90deg, ${SOLAR_ORANGE} 0%, ${SOLAR_YELLOW} 100%)`,
+                  }}
+                />
               </div>
-
-              <div className="mt-3 font-mono text-base font-bold text-foreground leading-tight">
-                {model.recentDrop.farmName} ({model.recentDrop.region})
-              </div>
-              <div className="mt-1 text-xs font-mono text-muted-foreground">
-                {model.recentDrop.whenLabel} · Farm size{" "}
-                <span className="text-foreground tabular-nums">
-                  {(model.recentDrop.farmSizeWatts / 1000).toFixed(1)}kW
-                </span>
-              </div>
-
-              {/* Spacer */}
-              <div className="flex-1 min-h-3" />
-
-              {/* You Captured Section */}
-              <div className="rounded-xl border border-border bg-background/40 p-4">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                  You captured
-                </div>
-                <div className="mt-2 flex items-baseline gap-2">
-                  <div className="font-mono text-4xl font-bold tabular-nums text-foreground leading-none">
-                    <NumberTicker
-                      value={model.recentDrop.wattsCaptured}
-                      decimalPlaces={0}
-                    />
-                  </div>
-                  <span className="text-base font-mono font-medium text-zinc-500">
-                    W
-                  </span>
-                </div>
-
-                <div className="mt-2 text-xs font-mono text-muted-foreground">
-                  That's{" "}
-                  <span className="text-foreground font-semibold tabular-nums">
-                    {Math.round(
-                      (model.recentDrop.wattsCaptured / WATTS_PER_PANEL) * 100
-                    )}
-                    %
-                  </span>{" "}
-                  of a panel.
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className="mt-3 w-full h-10 inline-flex items-center justify-center gap-2 rounded-xl px-3 text-xs font-mono font-medium tracking-wider border border-border hover:bg-muted/50 transition-colors"
-                onClick={() => {
-                  trackEvent("solar_collector_recent_drop_view_grid_click", {
-                    source,
-                    wallet_connected: Boolean(normalizedWalletAddress),
-                    wallet_address: normalizedWalletAddress,
-                    chain_id: chainId,
-                  });
-                  onViewGridClick?.();
-                }}
-              >
-                <Globe className="h-4 w-4" />
-                View Solar Grid
-              </button>
-
-              <style jsx>{`
-                @keyframes pulse {
-                  0%,
-                  100% {
-                    opacity: 0.4;
-                    transform: scale(1);
-                  }
-                  50% {
-                    opacity: 0.7;
-                    transform: scale(1.1);
-                  }
-                }
-              `}</style>
+              <span className="font-mono text-sm font-bold tabular-nums text-foreground w-10 text-right">
+                {Math.round(fill)}%
+              </span>
+            </div>
+            <div className="mt-1 text-[10px] text-muted-foreground">
+              {model.totalPanels} panel{model.totalPanels !== 1 ? "s" : ""}{" "}
+              completed
             </div>
           </div>
         </div>
 
-        {/* Connect overlay */}
-        {showConnectOverlay ? (
-          <div className="px-4 pb-4">
-            <div className="rounded-xl border border-border bg-muted/20 p-4 text-center max-w-sm mx-auto">
-              <div className="text-sm text-muted-foreground">
-                Connect your wallet to begin capturing watts.
+        {/* Bottom Section: Latest Addition + Actions */}
+        <div className="mt-4 pt-4 border-t border-border/50 flex flex-col md:flex-row gap-4">
+          {/* Latest Verified Addition */}
+          {model.recentDrop ? (
+            <button
+              type="button"
+              className="flex-1 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 transition-colors p-3 text-left group"
+              onClick={() => {
+                trackEvent("impact_summary_recent_farm_click", {
+                  source,
+                  wallet_address: normalizedWalletAddress,
+                  chain_id: chainId,
+                  farm_id: model.recentDrop?.farmId,
+                });
+                if (model.recentDrop?.farmId) {
+                  onFarmClick?.(model.recentDrop.farmId);
+                }
+              }}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
+                    Latest Verified Addition
+                  </div>
+                  <div className="font-medium text-sm text-foreground truncate">
+                    {model.recentDrop.farmName}
+                    {recentDropRegionLabel && (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        ({recentDropRegionLabel})
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {model.recentDrop.whenLabel}
+                  </div>
+                </div>
+
+                <div className="hidden sm:flex items-center gap-8 px-6 border-x border-border/50 h-10">
+                  <div>
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground mb-0.5">
+                      Farm Size
+                    </div>
+                    <div className="text-xs font-mono font-medium text-foreground tabular-nums">
+                      {(model.recentDrop.farmSizeWatts / 1000).toFixed(1)} kW
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground mb-0.5">
+                      Your Share
+                    </div>
+                    <div className="text-xs font-mono font-medium text-foreground tabular-nums">
+                      {(
+                        (model.recentDrop.wattsCaptured /
+                          model.recentDrop.farmSizeWatts) *
+                        100
+                      ).toFixed(2)}
+                      %
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground mb-0.5">
+                      Capture
+                    </div>
+                    <div className="text-xs font-mono font-medium text-[color:var(--color-glow-orange)] tabular-nums">
+                      +{formatCaptureValue(model.recentDrop.wattsCaptured)}{" "}
+                      {getCaptureUnit(model.recentDrop.wattsCaptured)}
+                    </div>
+                  </div>
+                </div>
+
+                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform shrink-0" />
               </div>
-              <div className="mt-3">
-                <ConnectButton
-                  className="w-full"
-                  variant="default"
-                  size="large"
-                />
+            </button>
+          ) : (
+            <div className="flex-1 rounded-xl border border-border bg-muted/10 p-3">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
+                Latest Addition
+              </div>
+              <div className="text-sm text-muted-foreground">
+                No recent farm additions yet
               </div>
             </div>
+          )}
+
+          {/* Action Button - matches height of Latest Verified Addition */}
+          <button
+            type="button"
+            className="shrink-0 rounded-xl px-6 text-xs font-medium bg-foreground text-background hover:bg-foreground/90 transition-colors flex items-center justify-center gap-2 md:min-w-[100px]"
+            onClick={handleShare}
+          >
+            <ArrowUpRight className="h-4 w-4" />
+            Share
+          </button>
+        </div>
+
+        {/* Impact Charts Section */}
+        <div className="mt-8 pt-6 border-t border-border/50">
+          <div
+            className={cn(
+              "grid grid-cols-1 gap-8",
+              hasSignificantInfluence ? "lg:grid-cols-3" : "lg:grid-cols-2"
+            )}
+          >
+            {/* 1. Regional Distribution (Pie) */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <PieChartIcon className="h-4 w-4 text-muted-foreground" />
+                <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
+                  Regional Distribution
+                </div>
+              </div>
+              <ChartContainer
+                config={chartConfig}
+                className="h-[200px] w-full aspect-auto"
+              >
+                <PieChart>
+                  <ChartTooltip
+                    cursor={false}
+                    content={
+                      <ChartTooltipContent
+                        hideLabel
+                        formatter={(value) => (
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-medium tabular-nums text-foreground">
+                              {Number(value).toLocaleString()}
+                            </span>
+                            <span className="text-[10px] font-mono text-muted-foreground uppercase">
+                              Watts
+                            </span>
+                          </div>
+                        )}
+                      />
+                    }
+                  />
+                  <Pie
+                    data={distributionData}
+                    dataKey="value"
+                    nameKey="name"
+                    strokeWidth={5}
+                  >
+                    {distributionData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <ChartLegend
+                    content={<ChartLegendContent nameKey="name" />}
+                    className="-translate-y-2 flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center"
+                  />
+                </PieChart>
+              </ChartContainer>
+            </div>
+
+            {/* 2. Cumulative Growth (Area) */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
+                  Footprint Growth
+                </div>
+              </div>
+              <ChartContainer
+                config={chartConfig}
+                className="h-[200px] w-full aspect-auto"
+              >
+                <AreaChart
+                  data={growthData}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="date"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    minTickGap={32}
+                    tickFormatter={(value) =>
+                      value.toLocaleDateString("en-US", {
+                        month: "short",
+                      })
+                    }
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tickFormatter={growthYAxisFormatter}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value) => (
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-medium tabular-nums text-foreground">
+                              {Number(value).toLocaleString()}
+                            </span>
+                            <span className="text-[10px] font-mono text-muted-foreground uppercase">
+                              Watts
+                            </span>
+                          </div>
+                        )}
+                        labelFormatter={(value, payload) => {
+                          const date = payload?.[0]?.payload?.date;
+                          if (date instanceof Date) {
+                            return date.toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            });
+                          }
+                          return `Week ${value}`;
+                        }}
+                      />
+                    }
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="watts"
+                    stroke="#f59e0b"
+                    fill="#f59e0b"
+                    fillOpacity={0.1}
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ChartContainer>
+            </div>
+
+            {/* 3. Network Share Trend (Line) */}
+            {hasSignificantInfluence && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                  <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
+                    Regional Influence (%)
+                  </div>
+                </div>
+                <ChartContainer
+                  config={chartConfig}
+                  className="h-[200px] w-full aspect-auto"
+                >
+                  <LineChart
+                    data={shareTrendData}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="date"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      minTickGap={32}
+                      tickFormatter={(value) =>
+                        value.toLocaleDateString("en-US", {
+                          month: "short",
+                        })
+                      }
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      tickFormatter={(value) => `${value}%`}
+                    />
+                    <ChartTooltip
+                      content={
+                        <ChartTooltipContent
+                          formatter={(value) => (
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-medium tabular-nums text-foreground">
+                                {Number(value).toFixed(2)}%
+                              </span>
+                            </div>
+                          )}
+                          labelFormatter={(value, payload) => {
+                            const date = payload?.[0]?.payload?.date;
+                            if (date instanceof Date) {
+                              return date.toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              });
+                            }
+                            return `Week ${value}`;
+                          }}
+                        />
+                      }
+                    />
+                    {Object.keys(regionColors).map((rid) => (
+                      <Line
+                        key={rid}
+                        type="monotone"
+                        dataKey={`region${rid}`}
+                        name={`region${rid}`}
+                        stroke={regionColors[Number(rid)]}
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                        activeDot={{ r: 5 }}
+                      />
+                    ))}
+                  </LineChart>
+                </ChartContainer>
+              </div>
+            )}
           </div>
-        ) : null}
+        </div>
       </CardContent>
     </Card>
   );

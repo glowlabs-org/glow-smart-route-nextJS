@@ -35,6 +35,10 @@ export const QUERY_KEYS = {
     scoreBreakdown: (walletAddress?: string | null) =>
       ["impact-score-breakdown", walletAddress?.toLowerCase() ?? null] as const,
   },
+  solarCollector: {
+    stats: (walletAddress?: string | null) =>
+      ["solar-collector-stats", walletAddress?.toLowerCase() ?? null] as const,
+  },
   listings: {
     allSponsors: ["sponsor-listings"] as const,
     sponsor: (filters: Record<string, any>) =>

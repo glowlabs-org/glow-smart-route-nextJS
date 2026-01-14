@@ -17,7 +17,7 @@ import { useWalletPortfolio } from "./use-wallet-portfolio";
 import { Button } from "@/components/ui/button";
 
 // Standard definition of a panel for estimation purposes
-const WATTS_PER_PANEL = 300;
+const WATTS_PER_PANEL = 400;
 
 interface ImpactAccumulatorWidgetProps {
   walletAddress?: string | null;

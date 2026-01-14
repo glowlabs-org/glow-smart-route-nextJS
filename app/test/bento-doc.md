@@ -364,6 +364,11 @@ When `hasWallet = true`, the dashboard shows these vertical sections:
 #### Section 4: Your Journey
 
 - Section header: "Your Journey"
+- **Solar Impact Summary** (Impact Summary Card):
+  - Located directly above the My Farms grid.
+  - Reframes "Watts" into real-world impact: **Homes Powered**, **Energy / Year**, **Trees Equivalent**.
+  - Includes interactive charts for **Regional Distribution**, **Footprint Growth**, and **Regional Influence (%)**.
+  - Anchors to the **Latest Verified Addition**, linking directly to the newest farm capture.
 - Single card with two sub-sections:
   1. **Top sub-section** (three widgets in divided row):
      - `WeeklyActivityWidget(variant="minimal")` (lg:col-span-4)
@@ -727,6 +732,27 @@ The dashboard uses `framer-motion` for state transitions:
   - "Boost" button or "Mint & Stake GCTL" CTA triggers `onMintAndStakeClick`
   - Clicking empty stakes area triggers mint & stake
 - **File**: `app/test/widgets/gctl-heatmap-widget.tsx`
+
+#### `SolarCollectorWidget` (Solar Impact Summary)
+
+- **Purpose**: Display the user's verified solar footprint and environmental impact equivalents.
+- **Appears**: Connected state, Your Journey section (above the farm grid).
+- **What it shows**:
+  - **KPIs**: Homes Powered (continuous capacity), Energy / Year (MWh), Trees Equivalent (CO₂ offset).
+  - **Progress Bar**: Panel progress (400W per panel) with fill percentage.
+  - **Latest Verified Addition**: Details of the newest farm capture (name, region, date, kW added).
+  - **Impact Charts**:
+    - **Regional Distribution**: Pie chart of MO, CO, and UT capture.
+    - **Footprint Growth**: Cumulative area chart over months.
+    - **Regional Influence**: Line chart tracking % share of each region's power.
+- **Key Logic**:
+  - Uses `useSolarCollectorQuery` for live data.
+  - Calculates impact based on standard constants: 18% capacity factor, 1.17 kW avg home load, 0.022 tonnes CO₂/tree.
+  - Supports sharing to X (Twitter) with a pre-filled impact story.
+- **Interactions**:
+  - Clicking "Latest Addition" scrolls to and highlights the farm in the grid below.
+  - Hovering on charts shows detailed tooltips with dates and Watt values.
+- **File**: `app/test/widgets/solar-collector.tsx`
 
 #### `RecentActivityWidget`
 

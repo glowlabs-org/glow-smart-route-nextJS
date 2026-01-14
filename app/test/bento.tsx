@@ -424,10 +424,6 @@ export default function GlowSoftDashboard({
                 </section>
               )}
 
-              <SolarCollectorWidget
-                walletAddress={walletAddress}
-                variant="minimal"
-              />
               {/* Dashboard Header Band */}
               <section className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-4 lg:p-8">
                 <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
@@ -540,6 +536,27 @@ export default function GlowSoftDashboard({
                     <h3 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-6">
                       My Farms
                     </h3>
+                    <SolarCollectorWidget
+                      walletAddress={walletAddress}
+                      onFarmClick={(farmId) => {
+                        // Scroll to the farm card in the grid below
+                        const el = document.querySelector(
+                          `[data-farm-id="${farmId}"]`
+                        );
+                        if (el) {
+                          el.scrollIntoView({
+                            behavior: "smooth",
+                            block: "center",
+                          });
+                          el.classList.add("ring-2", "ring-primary");
+                          setTimeout(
+                            () =>
+                              el.classList.remove("ring-2", "ring-primary"),
+                            2000
+                          );
+                        }
+                      }}
+                    />
                     <MyFarmsGridSection walletAddress={walletAddress} />
                   </div>
                 </div>
