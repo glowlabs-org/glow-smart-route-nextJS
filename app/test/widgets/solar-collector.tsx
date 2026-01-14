@@ -275,6 +275,7 @@ export default function SolarCollectorWidget({
     topPercent <= 1 ? "Top 1%" : `Top ${Math.round(topPercent)}%`;
 
   const handleShare = async () => {
+    const APP_DOMAIN_PLAIN_TEXT = "app.\u200Bglow.\u200Borg";
     try {
       const shareTitle = "My Solar Footprint on Glow";
       const shareText = [
@@ -284,7 +285,7 @@ export default function SolarCollectorWidget({
           model.impact.homesPowered
         } homes and is equivalent to ${model.impact.treesEquivalent.toLocaleString()} mature trees.`,
         "",
-        "View the solar grid and start your footprint at app.glow.org",
+        `Start your footprint at ${APP_DOMAIN_PLAIN_TEXT}`,
       ].join("\n");
 
       const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
@@ -641,7 +642,7 @@ export default function SolarCollectorWidget({
           {/* Action Button - matches height of Latest Verified Addition */}
           <button
             type="button"
-            className="shrink-0 rounded-xl px-6 text-xs font-medium bg-foreground text-background hover:bg-foreground/90 transition-colors flex items-center justify-center gap-2 md:min-w-[100px]"
+            className="shrink-0 min-h-12 rounded-xl px-6 text-xs font-medium bg-foreground text-background hover:bg-foreground/90 transition-colors flex items-center justify-center gap-2 md:min-w-[100px]"
             onClick={handleShare}
           >
             <ArrowUpRight className="h-4 w-4" />
