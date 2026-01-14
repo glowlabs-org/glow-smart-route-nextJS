@@ -1434,7 +1434,7 @@ export function BuyGlowDialog({
                   }
                 }}
                 className={cn(
-                  "text-[42px] md:text-3xl font-bold border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0 flex-1 min-w-0 tabular-nums placeholder:text-muted-foreground/30",
+                  "text-lg md:text-3xl font-bold border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0 flex-1 min-w-0 tabular-nums placeholder:text-muted-foreground/30",
                   isConnected &&
                     Number(inputAmount) > Number(availablePayBalanceFormatted)
                     ? "text-destructive"

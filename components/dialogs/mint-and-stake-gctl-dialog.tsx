@@ -1880,7 +1880,7 @@ export function MintAndStakeGctlDialog({
                         <div className="p-4 border-b border-border/30 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="h-8 w-8 rounded-full bg-cyan-500/10 flex items-center justify-center">
-                              <Zap className="h-4 w-4 text-cyan-500" />
+                              <SteeringIcon className="h-4 w-4 text-cyan-500" />
                             </div>
                             <div>
                               <div className="text-sm font-medium">
@@ -2060,7 +2060,7 @@ function SuccessLevelUp(props: {
           Your Governance Power is now live and directing rewards.
         </div>
         <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1">
-          <Zap className="h-3.5 w-3.5 text-cyan-500" />
+          <SteeringIcon className="h-3.5 w-3.5 text-cyan-500" />
           <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
             Steering Score
           </span>

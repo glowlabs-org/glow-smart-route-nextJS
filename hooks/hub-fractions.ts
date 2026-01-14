@@ -327,6 +327,74 @@ interface DelegatorsLeaderboardResponse {
   wallets: DelegatorsLeaderboardRow[];
 }
 
+export interface TotalActivelyDelegatedResponse {
+  weekRange: { startWeek: number; endWeek: number };
+  totalGlwDelegatedWei: string;
+  totalWallets: number;
+}
+
+export function useTotalActivelyDelegated(options: { enabled?: boolean } = {}) {
+  const { enabled = true } = options;
+
+  const query = useQuery<TotalActivelyDelegatedResponse>({
+    queryKey: QUERY_KEYS.fractions.totalActivelyDelegated(),
+    enabled,
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
+    refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
+    queryFn: async () =>
+      await hubGet<TotalActivelyDelegatedResponse>(
+        "/fractions/total-actively-delegated"
+      ),
+  });
+
+  return {
+    data: query.data ?? null,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  } as const;
+}
+
+export interface ActivelyDelegatedByWeekResponse {
+  weekRange: { startWeek: number; endWeek: number };
+  byWeek: Record<number, string>;
+}
+
+export function useActivelyDelegatedByWeek(
+  params: {
+    startWeek?: number;
+    endWeek?: number;
+    enabled?: boolean;
+  } = {}
+) {
+  const { startWeek, endWeek, enabled = true } = params;
+
+  const query = useQuery<ActivelyDelegatedByWeekResponse>({
+    queryKey: QUERY_KEYS.fractions.activelyDelegatedByWeek(startWeek, endWeek),
+    enabled,
+    staleTime: QUERY_CONFIG.DEFAULT.staleTime * 2,
+    refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
+    queryFn: async () =>
+      await hubGet<ActivelyDelegatedByWeekResponse>(
+        "/fractions/actively-delegated-by-week",
+        {
+          params: { startWeek, endWeek },
+        }
+      ),
+  });
+
+  return {
+    data: query.data ?? null,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  } as const;
+}
+
 export function useWalletsActivity(
   params: {
     type?: "delegator" | "miner";

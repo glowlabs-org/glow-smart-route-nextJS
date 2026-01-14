@@ -5,10 +5,15 @@ import { TrendingUp, Users, DollarSign, Coins } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
 import { usePoolInfo } from "@/hooks/useLiquidityPositionsOptimized";
-import { useActiveRegionsSummary, useGctlApi, useGctlHoldersCount } from "@/hooks";
+import {
+  useActiveRegionsSummary,
+  useGctlApi,
+  useGctlHoldersCount,
+} from "@/hooks";
 import { useEndowmentLPPosition } from "@/hooks/useEndowmentLPPosition";
-import { useWalletsActivity } from "@/hooks";
+import { useTotalActivelyDelegated } from "@/hooks";
 import { formatUnits } from "viem";
+import { DelegationIcon } from "@/components/impact-icons";
 
 interface EconomyOverviewProps {
   shouldLoad?: boolean;
@@ -48,29 +53,24 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
     isLoading: isEndowmentLoading,
   } = useEndowmentLPPosition({ enabled: shouldLoad });
 
-  // Fetch delegators leaderboard to get actively delegated GLW
+  // Fetch total actively delegated GLW
   const {
-    data: delegatorsData,
-    isLoading: isDelegatorsLoading,
-    isFetching: isDelegatorsFetching,
-  } = useWalletsActivity({
-    type: "delegator",
-    limit: 1000,
+    data: totalActivelyDelegatedData,
+    isLoading: isTotalDelegatedLoading,
+    isFetching: isTotalDelegatedFetching,
+  } = useTotalActivelyDelegated({
     enabled: shouldLoad,
   });
 
   const totalStakedAcrossRegions = activeSummary?.totalGctlStaked ?? 0;
 
-  // Calculate total actively delegated GLW from leaderboard
+  // Calculate total actively delegated GLW
   const totalGlwDelegated = React.useMemo(() => {
-    if (!delegatorsData?.wallets) return 0;
-
-    const totalActiveDelegatedWei = delegatorsData.wallets.reduce((sum, wallet) => {
-      return sum + BigInt(wallet.glwDelegated || "0");
-    }, BigInt(0));
-
-    return Number(formatUnits(totalActiveDelegatedWei, 18));
-  }, [delegatorsData]);
+    if (!totalActivelyDelegatedData?.totalGlwDelegatedWei) return 0;
+    return Number(
+      formatUnits(BigInt(totalActivelyDelegatedData.totalGlwDelegatedWei), 18)
+    );
+  }, [totalActivelyDelegatedData]);
 
   const percentGlwDelegated = React.useMemo(() => {
     if (!circulatingSupply || circulatingSupply === 0) return 0;
@@ -79,7 +79,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
 
   const usdcLiquidity = poolReserves.usdg || 0;
   const isGlwDataLoading =
-    isCirculatingSupplyLoading || isPoolLoading || isDelegatorsLoading;
+    isCirculatingSupplyLoading || isPoolLoading || isTotalDelegatedLoading;
   const isGctlDataLoading =
     isGctlPriceLoading ||
     isGctlPriceFetching ||
@@ -91,7 +91,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
   const gctlMarketCap = gctlCirculatingSupplyNumber * gctlPriceNumber;
 
   const isInitialLoading =
-    (isGlwDataLoading && !circulatingSupply && !delegatorsData) ||
+    (isGlwDataLoading && !circulatingSupply && !totalActivelyDelegatedData) ||
     (isGctlDataLoading && !gctlCirculatingSupplyNumber) ||
     (isEndowmentLoading && endowmentLpBalance === 0 && endowmentUsdg === 0);
 
@@ -153,7 +153,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
                 <div className="text-sm text-muted-foreground">
                   % of GLW Actively Delegated
                 </div>
-                <Users className="w-4 h-4 text-muted-foreground" />
+                <DelegationIcon className="w-4 h-4 text-muted-foreground" />
               </div>
               <div className="text-3xl font-bold mb-2">
                 {isGlwDataLoading ? "--" : `${percentGlwDelegated.toFixed(1)}%`}

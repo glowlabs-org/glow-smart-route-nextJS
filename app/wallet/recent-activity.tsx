@@ -63,6 +63,7 @@ interface RecentActivityProps {
   showHeader?: boolean;
   className?: string;
   maxItems?: number;
+  showKpis?: boolean;
 }
 
 function formatCompactNumber(value: number, maximumFractionDigits: number) {
@@ -358,6 +359,7 @@ export function RecentActivity({
   showHeader = true,
   className,
   maxItems,
+  showKpis = true,
 }: RecentActivityProps) {
   const { isConnecting, isReconnecting } = useAccount();
   const isWalletConnecting =
@@ -532,7 +534,7 @@ export function RecentActivity({
         </CardHeader>
       ) : null}
 
-      {!isLoading && activities.length > 0 && (
+      {showKpis && !isLoading && activities.length > 0 && (
         <div className="px-4 pb-3">
           <div className="grid grid-cols-4 gap-3">
             <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
@@ -639,47 +641,47 @@ export function RecentActivity({
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold tracking-tight text-foreground truncate">
-                            {activity.title}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold tracking-tight text-foreground truncate">
+                              {activity.title}
+                            </span>
+                            {activity.pill ? (
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] font-mono uppercase flex-shrink-0"
+                              >
+                                {activity.pill}
+                              </Badge>
+                            ) : null}
                           </div>
-                          <div className="mt-1 text-[11px] font-mono text-muted-foreground flex items-center gap-2">
-                            <span className="tabular-nums">
+                          <div className="mt-1 text-[11px] font-mono text-muted-foreground">
+                            <span className="tabular-nums whitespace-nowrap">
                               {formatDateTime(activity.timestampMs)}
                             </span>
                             {activity.subtitle ? (
-                              <span className="truncate">
+                              <span className="hidden sm:inline ml-2 truncate">
                                 {activity.subtitle}
                               </span>
                             ) : null}
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {activity.pill ? (
-                            <Badge
-                              variant="secondary"
-                              className="text-[10px] font-mono uppercase"
-                            >
-                              {activity.pill}
-                            </Badge>
-                          ) : null}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className={cn(
-                              "h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity",
-                              !activity.txHash && "pointer-events-none"
-                            )}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleViewTransaction(activity);
-                            }}
-                            aria-label="View transaction"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            "h-8 w-8 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex",
+                            !activity.txHash && "pointer-events-none"
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewTransaction(activity);
+                          }}
+                          aria-label="View transaction"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -712,47 +714,47 @@ export function RecentActivity({
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="text-sm font-semibold tracking-tight text-foreground truncate">
-                              {activity.title}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold tracking-tight text-foreground truncate">
+                                {activity.title}
+                              </span>
+                              {activity.pill ? (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] font-mono uppercase flex-shrink-0"
+                                >
+                                  {activity.pill}
+                                </Badge>
+                              ) : null}
                             </div>
-                            <div className="mt-1 text-[11px] font-mono text-muted-foreground flex items-center gap-2">
-                              <span className="tabular-nums">
+                            <div className="mt-1 text-[11px] font-mono text-muted-foreground">
+                              <span className="tabular-nums whitespace-nowrap">
                                 {formatDateTime(activity.timestampMs)}
                               </span>
                               {activity.subtitle ? (
-                                <span className="truncate">
+                                <span className="hidden sm:inline ml-2 truncate">
                                   {activity.subtitle}
                                 </span>
                               ) : null}
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {activity.pill ? (
-                              <Badge
-                                variant="secondary"
-                                className="text-[10px] font-mono uppercase"
-                              >
-                                {activity.pill}
-                              </Badge>
-                            ) : null}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={cn(
-                                "h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity",
-                                !activity.txHash && "pointer-events-none"
-                              )}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleViewTransaction(activity);
-                              }}
-                              aria-label="View transaction"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "h-8 w-8 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex",
+                              !activity.txHash && "pointer-events-none"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewTransaction(activity);
+                            }}
+                            aria-label="View transaction"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     </div>

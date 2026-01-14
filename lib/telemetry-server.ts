@@ -66,6 +66,7 @@ export async function trackServerEvent(
   name: string,
   data?: Record<string, unknown>
 ) {
+  if (process.env.NEXT_PUBLIC_CHAIN_ID === "11155111") return; // Skip on Sepolia
   try {
     const eventName = sanitizeEventName(name);
     if (!eventName) return;

@@ -5,6 +5,9 @@ export const QUERY_KEYS = {
     availability: (type: "launchpad" | "mining-center" | "all") =>
       ["fractions", "available", type] as const,
     yieldPer100: () => ["yield-per-100"] as const,
+    totalActivelyDelegated: () => ["fractions", "total-actively-delegated"] as const,
+    activelyDelegatedByWeek: (startWeek?: number, endWeek?: number) =>
+      ["fractions", "actively-delegated-by-week", startWeek, endWeek] as const,
     rewardsBreakdown: (params: {
       walletAddress?: string | null;
       farmId?: string | null;

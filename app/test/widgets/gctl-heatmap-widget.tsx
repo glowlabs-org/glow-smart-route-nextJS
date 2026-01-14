@@ -244,7 +244,7 @@ export default function GctlControlWidget({
   );
   const totalBalanceGctl = walletBalanceGctl + stakedTotalGctl;
 
-  // Calculate shares for normalization (biggest stake = 100% bar width)
+  // Calculate shares for normalization (biggest stake = 75% bar width)
   const stakesWithNormalizedWidth = useMemo(() => {
     const shares = stakes.map((stake) => ({
       ...stake,
@@ -256,7 +256,7 @@ export default function GctlControlWidget({
     const maxShare = Math.max(...shares.map((s) => s.share), 0);
     return shares.map((stake) => ({
       ...stake,
-      normalizedWidth: maxShare > 0 ? (stake.share / maxShare) * 100 : 0,
+      normalizedWidth: maxShare > 0 ? (stake.share / maxShare) * 75 : 0,
     }));
   }, [stakes]);
   const hasLiquidGctl = walletBalanceGctl > 0.01;

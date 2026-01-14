@@ -114,7 +114,10 @@ function computeDerivedMetrics(data: PerformanceRowData) {
   const totalEarnedGlw = data.recovered + data.inflationGlw;
   const denom = data.type === "other" ? 1 : Math.max(data.initialCost, 1);
   const timePercent = Math.min((data.weeksActive / data.totalWeeks) * 100, 100);
-  const valuePercent = data.type === "other" ? 0 : (totalEarned / denom) * 100;
+  const valuePercent =
+    data.type === "other" || data.type === "miner"
+      ? timePercent
+      : (totalEarned / denom) * 100;
   const deltaPercent =
     data.type === "other" || data.initialCost === 0
       ? 0
@@ -241,7 +244,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             className
           )}
         >
-          STARTS NEXT THURSDAY
+          STARTS SOON
         </div>
       );
     }
@@ -392,7 +395,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
               </div>
               <div className="text-center">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
-                  Earned
+                  {isPendingStart && data.estimatedUserWeeklyGlw ? "Est. Weekly" : "Earned"}
                 </div>
                 <div className="flex items-baseline justify-center gap-1">
                   <span
@@ -406,14 +409,16 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     )}
                   >
                     {isPendingStart
-                      ? "—"
+                      ? data.estimatedUserWeeklyGlw
+                        ? `~${fmtGlw(data.estimatedUserWeeklyGlw)}`
+                        : "—"
                       : isMiner
                       ? fmtGlw(totalEarnedGlw)
                       : fmtGlw(totalEarnedGlw)}
                   </span>
-                  {!isPendingStart && (
+                  {(!isPendingStart || data.estimatedUserWeeklyGlw) && (
                     <span className="text-[10px] font-mono text-muted-foreground">
-                      GLW
+                      GLW{isPendingStart && data.estimatedUserWeeklyGlw ? "/wk" : ""}
                     </span>
                   )}
                 </div>
@@ -617,7 +622,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                 </div>
                 <div className="text-center min-w-[70px]">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
-                    Earned
+                    {isPendingStart && data.estimatedUserWeeklyGlw ? "Est. Weekly" : "Earned"}
                   </div>
                   <div className="flex items-baseline justify-center gap-1">
                     <span
@@ -631,14 +636,16 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                       )}
                     >
                       {isPendingStart
-                        ? "—"
+                        ? data.estimatedUserWeeklyGlw
+                          ? `~${fmtGlw(data.estimatedUserWeeklyGlw)}`
+                          : "—"
                         : isMiner
                         ? fmtGlw(totalEarnedGlw)
                         : fmtGlw(totalEarnedGlw)}
                     </span>
-                    {!isPendingStart && (
+                    {(!isPendingStart || data.estimatedUserWeeklyGlw) && (
                       <span className="text-[10px] font-mono text-muted-foreground">
-                        GLW
+                        GLW{isPendingStart && data.estimatedUserWeeklyGlw ? "/wk" : ""}
                       </span>
                     )}
                   </div>
@@ -1126,6 +1133,33 @@ export function FarmsPerformanceDialogContent({
     }
 
     return Array.from(byFarm.values()).map((item): PerformanceRowData => {
+      const farmData = purchasedFarms.find((f) => f.farmId === item.farmId);
+      
+      let estimatedUserWeeklyGlw: number | undefined = undefined;
+      if (farmData?.userWeeklyRewards) {
+        // Use source-specific breakdown if available (prevents double-counting for farms with both delegation + miner)
+        const isMiningCenter = item.fractionType === "mining-center";
+        
+        if (isMiningCenter && farmData.userWeeklyRewards.glwInflationRewardsFromMiner) {
+          // Miner: only inflation from mining-center splits (no PD recovery)
+          estimatedUserWeeklyGlw = parseGlwFromWei(farmData.userWeeklyRewards.glwInflationRewardsFromMiner);
+        } else if (!isMiningCenter && farmData.userWeeklyRewards.glwInflationRewardsFromDelegation) {
+          // Delegation: inflation from delegation splits + PD recovery
+          const delegationInflationGlw = parseGlwFromWei(farmData.userWeeklyRewards.glwInflationRewardsFromDelegation);
+          const pdGlw = parseGlwFromWei(farmData.userWeeklyRewards.protocolDepositRewards);
+          estimatedUserWeeklyGlw = delegationInflationGlw + pdGlw;
+        } else {
+          // Fallback for old API response (no breakdown fields)
+          const inflationGlw = parseGlwFromWei(farmData.userWeeklyRewards.glwInflationRewards);
+          const pdAsset = farmData.userWeeklyRewards.protocolDepositAsset;
+          const isPdGlw = pdAsset === "GLW";
+          const pdGlw = isPdGlw 
+            ? parseGlwFromWei(farmData.userWeeklyRewards.protocolDepositRewards)
+            : 0;
+          estimatedUserWeeklyGlw = inflationGlw + pdGlw;
+        }
+      }
+
       if (item.fractionType === "launchpad") {
         const investedGlw = parseGlwFromWei(item.totalAmount.toString());
         return {
@@ -1142,6 +1176,7 @@ export function FarmsPerformanceDialogContent({
           isProtocolDepositUsd: false,
           weeksActive: 0,
           totalWeeks: 100,
+          estimatedUserWeeklyGlw,
         };
       }
 
@@ -1160,9 +1195,10 @@ export function FarmsPerformanceDialogContent({
         isProtocolDepositUsd: true,
         weeksActive: 0,
         totalWeeks: 99,
+        estimatedUserWeeklyGlw,
       };
     });
-  }, [rewardFarmIds, splitsActivity]);
+  }, [purchasedFarms, rewardedFarmTypeKeys, splitsActivity]);
 
   const visibleRows = React.useMemo(() => {
     if (filter === "in-progress") return [] as PerformanceRowData[];

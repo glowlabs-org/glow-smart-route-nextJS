@@ -94,17 +94,31 @@ To avoid large wallets appearing “flat” for small weekly changes, the Y-axis
 
 ---
 
-## Weekly “accumulated this week” badge
+## Weekly "accumulated this week" badge
 
-The “accumulated this week” badge is a convenience indicator derived from
-`useRewardsBreakdown()`:
+The "accumulated this week" badge shows **actual GLW earnings** from the most recent
+week with finalized data:
 
-- For each farm, look at `farm.weeklyBreakdown`.
-- Find the **latest weekNumber** present across all farms and sum the
-  `totalRewards` for that week.
+```
+accumulated = inflationGlwWei + protocolDepositRecoveredGlwWei
+```
 
-This represents the most recent week’s on-record GLW rewards (not necessarily
-finalized or claimable yet).
+This uses the weekly breakdown from `/impact/glow-score` and searches backwards from
+the current week to find the most recent week with non-zero earnings (since Control API
+data is finalized with a ~1 week lag).
+
+**Why not use week-over-week deltas?**
+
+- Claims mid-week move GLW between buckets (unclaimed → liquid), creating artificial
+  changes in snapshots
+- TWAB data can be stale, making previous weeks appear artificially low
+- Current week uses fresh on-chain data while previous week uses older snapshots
+
+**What this means**:
+
+- **Claiming rewards**: Does NOT increase "accumulated" (claims don't create new GLW)
+- **Earning new rewards**: Shows up once finalized in the weekly breakdown (~1 week lag)
+- **Buying/receiving GLW**: Does NOT show in "accumulated" (not earnings from mining/staking)
 
 ---
 

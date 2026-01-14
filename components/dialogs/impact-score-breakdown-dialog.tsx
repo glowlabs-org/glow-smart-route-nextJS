@@ -447,8 +447,9 @@ export function ImpactScoreBreakdownDialogContent(
     weiToGlw(projection?.projectedPoints?.inflationGlwWei) ||
     weiToGlw(latestWeek?.inflationGlwWei);
 
-  // Delegation: use projection, or fallback to latest week's delegated amount
+  // Delegation: use glowWorth (current state), then projection, then fallback to latest week
   const pendingDelegatedGlw =
+    weiToGlw(impactScore?.glowWorth?.delegatedActiveGlwWei) ||
     weiToGlw(projection?.projectedPoints?.delegatedGlwWei) ||
     weiToGlw(latestWeek?.delegatedActiveGlwWei);
 
