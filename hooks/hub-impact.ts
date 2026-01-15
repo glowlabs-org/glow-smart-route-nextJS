@@ -99,6 +99,12 @@ export interface ImpactGlowScoreWeeklyRow {
   impactStreakWeeks?: number;
 }
 
+export interface RegionBreakdown {
+  regionId: number;
+  directPoints: string;
+  glowWorthPoints: string;
+}
+
 export interface ImpactGlowScoreResponse {
   walletAddress: string;
   weekRange: ImpactWeekRange;
@@ -109,6 +115,7 @@ export interface ImpactGlowScoreResponse {
   currentWeekProjection?: ImpactGlowScoreProjection;
   glowWorth?: ImpactGlowWorthResponse;
   weekly?: ImpactGlowScoreWeeklyRow[];
+  regionBreakdown?: RegionBreakdown[];
 }
 
 export interface UseImpactLeaderboardQueryArgs {

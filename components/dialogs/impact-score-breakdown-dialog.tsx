@@ -1,8 +1,9 @@
 "use client";
 
 import { formatUnits } from "viem";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, PieChart as PieChartIcon } from "lucide-react";
 import { useAccount } from "wagmi";
+import { Cell, Pie, PieChart } from "recharts";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import {
   CashMinerIcon,
@@ -23,6 +24,14 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
 import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
 import { MintAndStakeGctlDialog } from "@/components/dialogs/mint-and-stake-gctl-dialog";
@@ -526,6 +535,77 @@ export function ImpactScoreBreakdownDialogContent(
     { maximumFractionDigits: 0 }
   );
 
+  const regions = activeSummary?.regions;
+
+  const regionLabels: Record<number, string> = useMemo(() => {
+    const labels: Record<number, string> = {
+      1: "Global (CGP)",
+      2: "Utah (UT)",
+      3: "Missouri (MO)",
+      4: "Colorado (CO)",
+    };
+    if (regions) {
+      regions.forEach((r) => {
+        if (!labels[r.id]) {
+          labels[r.id] = r.name;
+        }
+      });
+    }
+    return labels;
+  }, [regions]);
+
+  const regionColors: Record<number, string> = {
+    1: "#6b7280", // Grey - Global
+    2: "#3b82f6", // Blue - UT
+    3: "#10b981", // Green - MO
+    4: "#f59e0b", // Amber - CO
+  };
+
+  // Calculate effective multiplier from totals
+  // rolloverPoints = (inflation + steering + vault) × multiplier
+  // So multiplier = rolloverPoints / (inflation + steering + vault)
+  const effectiveMultiplier = useMemo(() => {
+    const rollover = safePointsNumber(impactScore?.totals?.rolloverPoints);
+    const baseRollover =
+      safePointsNumber(impactScore?.totals?.inflationPoints) +
+      safePointsNumber(impactScore?.totals?.steeringPoints) +
+      safePointsNumber(impactScore?.totals?.vaultBonusPoints);
+    if (baseRollover <= 0) return 1;
+    return rollover / baseRollover;
+  }, [impactScore?.totals]);
+
+  const regionalChartData = useMemo(() => {
+    if (!impactScore.regionBreakdown) return [];
+    return impactScore.regionBreakdown
+      .map((r) => {
+        // Apply multiplier to directPoints (rollover components), but NOT to glowWorthPoints
+        const directMultiplied =
+          safePointsNumber(r.directPoints) * effectiveMultiplier;
+        const glowWorth = safePointsNumber(r.glowWorthPoints);
+        const total = directMultiplied + glowWorth;
+        return {
+          regionId: r.regionId,
+          name: `region${r.regionId}`,
+          label: regionLabels[r.regionId] || `Region ${r.regionId}`,
+          value: total,
+          fill: regionColors[r.regionId] || "#6b7280",
+        };
+      })
+      .filter((d) => d.value > 0)
+      .sort((a, b) => b.value - a.value);
+  }, [impactScore.regionBreakdown, regionLabels, effectiveMultiplier]);
+
+  const chartConfig = useMemo(() => {
+    const config: ChartConfig = {};
+    regionalChartData.forEach((d) => {
+      config[`region${d.regionId}`] = {
+        label: d.label,
+        color: d.fill,
+      };
+    });
+    return config;
+  }, [regionalChartData]);
+
   return (
     <>
       <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-[24px] bg-background border shadow-2xl">
@@ -614,6 +694,85 @@ export function ImpactScoreBreakdownDialogContent(
             </div>
 
             <Separator />
+
+            {/* REGIONAL BREAKDOWN CHART */}
+            {regionalChartData.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 px-1">
+                  <PieChartIcon className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    Regional Distribution
+                  </h3>
+                </div>
+                <div className="relative">
+                  <ChartContainer
+                    config={chartConfig}
+                    className="h-[220px] w-full aspect-auto"
+                  >
+                    <PieChart>
+                      <ChartTooltip
+                        cursor={false}
+                        content={
+                          <ChartTooltipContent
+                            hideLabel
+                            formatter={(value) => (
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-medium tabular-nums text-foreground">
+                                  {Number(value).toLocaleString(undefined, {
+                                    maximumFractionDigits: 0,
+                                  })}
+                                </span>
+                                <span className="text-[10px] font-mono text-muted-foreground uppercase">
+                                  Points
+                                </span>
+                              </div>
+                            )}
+                          />
+                        }
+                      />
+                      <Pie
+                        data={regionalChartData}
+                        dataKey="value"
+                        nameKey="name"
+                        paddingAngle={2}
+                        strokeWidth={0}
+                      >
+                        {regionalChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <ChartLegend
+                        content={
+                          <div className="flex flex-wrap justify-center gap-x-6 gap-y-3 mt-6">
+                            {regionalChartData.map((entry) => (
+                              <div
+                                key={entry.regionId}
+                                className="flex items-center gap-2"
+                              >
+                                <div
+                                  className="h-2.5 w-2.5 rounded-full shrink-0"
+                                  style={{ backgroundColor: entry.fill }}
+                                />
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-foreground leading-none mb-1">
+                                    {entry.label}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-muted-foreground leading-none">
+                                    {Math.round(entry.value).toLocaleString()}{" "}
+                                    pts
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        }
+                      />
+                    </PieChart>
+                  </ChartContainer>
+                </div>
+                <Separator />
+              </div>
+            )}
 
             {/* SECTION 2: POINT SOURCES */}
             <div className="space-y-3">
