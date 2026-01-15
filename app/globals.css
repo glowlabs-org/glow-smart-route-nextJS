@@ -406,6 +406,14 @@
   * {
     @apply border-border outline-ring/50;
   }
+  *::selection {
+    background-color: revert !important;
+    color: revert !important;
+  }
+  *::-moz-selection {
+    background-color: revert !important;
+    color: revert !important;
+  }
   html {
     @apply scroll-smooth;
   }

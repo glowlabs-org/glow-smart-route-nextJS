@@ -98,6 +98,7 @@ interface PerformanceRowData {
   recovered: number;
   inflation: number;
   inflationGlw: number;
+  lastWeekRewardsGlw?: number;
   protocolDepositAsset: string | null;
   isProtocolDepositUsd: boolean;
   weeksActive: number;
@@ -211,6 +212,15 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
     !isOther && !isInProgress && valuePercent < timePercent - 10;
 
   const weeksRemaining = data.totalWeeks - data.weeksActive;
+  const lastWeekLabel =
+    typeof data.lastWeekRewardsGlw === "number"
+      ? `${fmtGlw(data.lastWeekRewardsGlw)} GLW`
+      : "—";
+  const lastWeekValue = isPendingStart
+    ? "Pending"
+    : isInProgress
+    ? "—"
+    : lastWeekLabel;
 
   const getIconElement = () => {
     if (data.type === "miner" || (isInProgress && inProgressIsMiningCenter)) {
@@ -244,7 +254,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             className
           )}
         >
-          STARTS SOON
+          PENDING
         </div>
       );
     }
@@ -395,7 +405,9 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
               </div>
               <div className="text-center">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
-                  {isPendingStart && data.estimatedUserWeeklyGlw ? "Est. Weekly" : "Earned"}
+                  {isPendingStart && data.estimatedUserWeeklyGlw
+                    ? "Est. Weekly"
+                    : "Earned"}
                 </div>
                 <div className="flex items-baseline justify-center gap-1">
                   <span
@@ -418,7 +430,10 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   </span>
                   {(!isPendingStart || data.estimatedUserWeeklyGlw) && (
                     <span className="text-[10px] font-mono text-muted-foreground">
-                      GLW{isPendingStart && data.estimatedUserWeeklyGlw ? "/wk" : ""}
+                      GLW
+                      {isPendingStart && data.estimatedUserWeeklyGlw
+                        ? "/wk"
+                        : ""}
                     </span>
                   )}
                 </div>
@@ -563,7 +578,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
           </div>
 
           {/* COLUMN 3: KEY METRICS (INVESTED / EARNED) */}
-          <div className="col-span-4 flex items-center justify-center gap-6">
+          <div className="col-span-5 flex items-center justify-center gap-6">
             {isInProgress ? (
               <div className="flex items-center gap-4 w-full">
                 <div className="flex-1">
@@ -622,7 +637,9 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                 </div>
                 <div className="text-center min-w-[70px]">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
-                    {isPendingStart && data.estimatedUserWeeklyGlw ? "Est. Weekly" : "Earned"}
+                    {isPendingStart && data.estimatedUserWeeklyGlw
+                      ? "Est. Weekly"
+                      : "Earned"}
                   </div>
                   <div className="flex items-baseline justify-center gap-1">
                     <span
@@ -645,9 +662,20 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                     </span>
                     {(!isPendingStart || data.estimatedUserWeeklyGlw) && (
                       <span className="text-[10px] font-mono text-muted-foreground">
-                        GLW{isPendingStart && data.estimatedUserWeeklyGlw ? "/wk" : ""}
+                        GLW
+                        {isPendingStart && data.estimatedUserWeeklyGlw
+                          ? "/wk"
+                          : ""}
                       </span>
                     )}
+                  </div>
+                </div>
+                <div className="text-center min-w-[70px]">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
+                    Last week
+                  </div>
+                  <div className="text-sm font-mono font-semibold text-foreground tabular-nums">
+                    {lastWeekValue}
                   </div>
                 </div>
               </>
@@ -655,7 +683,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
           </div>
 
           {/* COLUMN 4: PROGRESS */}
-          <div className="col-span-2 flex items-center justify-end gap-2">
+          <div className="col-span-1 flex items-center justify-end gap-2">
             <ProgressDisplay />
             {!isInProgress && (
               <ChevronDown
@@ -986,6 +1014,7 @@ export function FarmsPerformanceDialogContent({
             recovered,
             inflation,
             inflationGlw: inflation,
+            lastWeekRewardsGlw: parseGlwFromWei(farm.lastWeekRewards ?? "0"),
             protocolDepositAsset: "GLW",
             isProtocolDepositUsd: false,
             weeksActive: farm.totalWeeksEarned,
@@ -1009,6 +1038,7 @@ export function FarmsPerformanceDialogContent({
           recovered: 0,
           inflation: inflationUsd,
           inflationGlw,
+          lastWeekRewardsGlw: parseGlwFromWei(farm.lastWeekRewards ?? "0"),
           protocolDepositAsset: "USDC",
           isProtocolDepositUsd: true,
           weeksActive: farm.totalWeeksEarned,
@@ -1054,6 +1084,7 @@ export function FarmsPerformanceDialogContent({
         recovered,
         inflation,
         inflationGlw,
+        lastWeekRewardsGlw: parseGlwFromWei(farm.lastWeekRewards ?? "0"),
         protocolDepositAsset: farm.asset,
         isProtocolDepositUsd,
         weeksActive,
@@ -1134,26 +1165,40 @@ export function FarmsPerformanceDialogContent({
 
     return Array.from(byFarm.values()).map((item): PerformanceRowData => {
       const farmData = purchasedFarms.find((f) => f.farmId === item.farmId);
-      
+
       let estimatedUserWeeklyGlw: number | undefined = undefined;
       if (farmData?.userWeeklyRewards) {
         // Use source-specific breakdown if available (prevents double-counting for farms with both delegation + miner)
         const isMiningCenter = item.fractionType === "mining-center";
-        
-        if (isMiningCenter && farmData.userWeeklyRewards.glwInflationRewardsFromMiner) {
+
+        if (
+          isMiningCenter &&
+          farmData.userWeeklyRewards.glwInflationRewardsFromMiner
+        ) {
           // Miner: only inflation from mining-center splits (no PD recovery)
-          estimatedUserWeeklyGlw = parseGlwFromWei(farmData.userWeeklyRewards.glwInflationRewardsFromMiner);
-        } else if (!isMiningCenter && farmData.userWeeklyRewards.glwInflationRewardsFromDelegation) {
+          estimatedUserWeeklyGlw = parseGlwFromWei(
+            farmData.userWeeklyRewards.glwInflationRewardsFromMiner
+          );
+        } else if (
+          !isMiningCenter &&
+          farmData.userWeeklyRewards.glwInflationRewardsFromDelegation
+        ) {
           // Delegation: inflation from delegation splits + PD recovery
-          const delegationInflationGlw = parseGlwFromWei(farmData.userWeeklyRewards.glwInflationRewardsFromDelegation);
-          const pdGlw = parseGlwFromWei(farmData.userWeeklyRewards.protocolDepositRewards);
+          const delegationInflationGlw = parseGlwFromWei(
+            farmData.userWeeklyRewards.glwInflationRewardsFromDelegation
+          );
+          const pdGlw = parseGlwFromWei(
+            farmData.userWeeklyRewards.protocolDepositRewards
+          );
           estimatedUserWeeklyGlw = delegationInflationGlw + pdGlw;
         } else {
           // Fallback for old API response (no breakdown fields)
-          const inflationGlw = parseGlwFromWei(farmData.userWeeklyRewards.glwInflationRewards);
+          const inflationGlw = parseGlwFromWei(
+            farmData.userWeeklyRewards.glwInflationRewards
+          );
           const pdAsset = farmData.userWeeklyRewards.protocolDepositAsset;
           const isPdGlw = pdAsset === "GLW";
-          const pdGlw = isPdGlw 
+          const pdGlw = isPdGlw
             ? parseGlwFromWei(farmData.userWeeklyRewards.protocolDepositRewards)
             : 0;
           estimatedUserWeeklyGlw = inflationGlw + pdGlw;
@@ -1176,6 +1221,7 @@ export function FarmsPerformanceDialogContent({
           isProtocolDepositUsd: false,
           weeksActive: 0,
           totalWeeks: 100,
+          lastWeekRewardsGlw: 0,
           estimatedUserWeeklyGlw,
         };
       }
@@ -1191,6 +1237,7 @@ export function FarmsPerformanceDialogContent({
         recovered: 0,
         inflation: 0,
         inflationGlw: 0,
+        lastWeekRewardsGlw: 0,
         protocolDepositAsset: "USDC",
         isProtocolDepositUsd: true,
         weeksActive: 0,
@@ -1254,6 +1301,7 @@ export function FarmsPerformanceDialogContent({
         recovered: 0,
         inflation: 0,
         inflationGlw: 0,
+        lastWeekRewardsGlw: 0,
         protocolDepositAsset: "GLW",
         isProtocolDepositUsd: false,
         weeksActive: 0,

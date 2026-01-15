@@ -695,85 +695,6 @@ export function ImpactScoreBreakdownDialogContent(
 
             <Separator />
 
-            {/* REGIONAL BREAKDOWN CHART */}
-            {regionalChartData.length > 0 && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 px-1">
-                  <PieChartIcon className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    Regional Distribution
-                  </h3>
-                </div>
-                <div className="relative">
-                  <ChartContainer
-                    config={chartConfig}
-                    className="h-[220px] w-full aspect-auto"
-                  >
-                    <PieChart>
-                      <ChartTooltip
-                        cursor={false}
-                        content={
-                          <ChartTooltipContent
-                            hideLabel
-                            formatter={(value) => (
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-mono font-medium tabular-nums text-foreground">
-                                  {Number(value).toLocaleString(undefined, {
-                                    maximumFractionDigits: 0,
-                                  })}
-                                </span>
-                                <span className="text-[10px] font-mono text-muted-foreground uppercase">
-                                  Points
-                                </span>
-                              </div>
-                            )}
-                          />
-                        }
-                      />
-                      <Pie
-                        data={regionalChartData}
-                        dataKey="value"
-                        nameKey="name"
-                        paddingAngle={2}
-                        strokeWidth={0}
-                      >
-                        {regionalChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Pie>
-                      <ChartLegend
-                        content={
-                          <div className="flex flex-wrap justify-center gap-x-6 gap-y-3 mt-6">
-                            {regionalChartData.map((entry) => (
-                              <div
-                                key={entry.regionId}
-                                className="flex items-center gap-2"
-                              >
-                                <div
-                                  className="h-2.5 w-2.5 rounded-full shrink-0"
-                                  style={{ backgroundColor: entry.fill }}
-                                />
-                                <div className="flex flex-col">
-                                  <span className="text-[11px] font-bold text-foreground leading-none mb-1">
-                                    {entry.label}
-                                  </span>
-                                  <span className="text-[10px] font-mono text-muted-foreground leading-none">
-                                    {Math.round(entry.value).toLocaleString()}{" "}
-                                    pts
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        }
-                      />
-                    </PieChart>
-                  </ChartContainer>
-                </div>
-                <Separator />
-              </div>
-            )}
-
             {/* SECTION 2: POINT SOURCES */}
             <div className="space-y-3">
               <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
@@ -904,11 +825,89 @@ export function ImpactScoreBreakdownDialogContent(
                 />
               </div>
             </div>
+            <Separator />
+            {/* REGIONAL BREAKDOWN CHART */}
+            {regionalChartData.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center gap-2 px-1">
+                  <PieChartIcon className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    Regional Points Distribution
+                  </h3>
+                </div>
+                <div className="relative">
+                  <ChartContainer
+                    config={chartConfig}
+                    className="h-[220px] w-full aspect-auto"
+                  >
+                    <PieChart>
+                      <ChartTooltip
+                        cursor={false}
+                        content={
+                          <ChartTooltipContent
+                            hideLabel
+                            formatter={(value) => (
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-medium tabular-nums text-foreground">
+                                  {Number(value).toLocaleString(undefined, {
+                                    maximumFractionDigits: 0,
+                                  })}
+                                </span>
+                                <span className="text-[10px] font-mono text-muted-foreground uppercase">
+                                  Points
+                                </span>
+                              </div>
+                            )}
+                          />
+                        }
+                      />
+                      <Pie
+                        data={regionalChartData}
+                        dataKey="value"
+                        nameKey="name"
+                        paddingAngle={2}
+                        minAngle={4}
+                        strokeWidth={0}
+                      >
+                        {regionalChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <ChartLegend
+                        content={
+                          <div className="flex flex-wrap justify-center gap-x-6 gap-y-3 mt-6">
+                            {regionalChartData.map((entry) => (
+                              <div
+                                key={entry.regionId}
+                                className="flex items-center gap-2"
+                              >
+                                <div
+                                  className="h-2.5 w-2.5 rounded-full shrink-0"
+                                  style={{ backgroundColor: entry.fill }}
+                                />
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-foreground leading-none mb-1">
+                                    {entry.label}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-muted-foreground leading-none">
+                                    {Math.round(entry.value).toLocaleString()}{" "}
+                                    pts
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        }
+                      />
+                    </PieChart>
+                  </ChartContainer>
+                </div>
+                <Separator />
+              </div>
+            )}
 
             {/* SCORE EXPLAINER */}
             <div className="space-y-3">
-              <Separator />
-
               <div className="space-y-3 px-1">
                 <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                   How Scores Update

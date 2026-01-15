@@ -57,6 +57,26 @@ interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
 }
 
+function subscribeToNothing() {
+  return () => {};
+}
+
+function getClientSnapshot() {
+  return true;
+}
+
+function getServerSnapshot() {
+  return false;
+}
+
+function useIsClient() {
+  return React.useSyncExternalStore(
+    subscribeToNothing,
+    getClientSnapshot,
+    getServerSnapshot
+  );
+}
+
 function SectionHeader({ title }: { title: string }) {
   return (
     <h2 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-4">
@@ -169,7 +189,10 @@ export default function GlowSoftDashboard({
   const refundToastIdRef = React.useRef<string | number | null>(null);
   const migrationToastIdRef = React.useRef<string | number | null>(null);
   const prevHasMigrationClaimRef = React.useRef<boolean | null>(null);
-  const didTrackViewRef = React.useRef(false);
+  const prevTrackedWalletRef = React.useRef<string | null | undefined>(
+    undefined
+  );
+  const prevHasRefundsRef = React.useRef<boolean | null>(null);
   const queryClient = useQueryClient();
   const { spotPriceUsd: glwSpotPrice } = useGlowSpotPriceSummary();
 
@@ -180,28 +203,23 @@ export default function GlowSoftDashboard({
     isDepositDialogOpen ||
     isBuyGlowDialogOpen;
 
-  const [isMounted, setIsMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
+  const isClient = useIsClient();
   const isWalletSettling =
-    isMounted &&
+    isClient &&
     !walletAddressOverride &&
     !hasWallet &&
     (isConnecting || isReconnecting) &&
     !hasAnyDialogOpen;
 
-  React.useEffect(() => {
-    if (didTrackViewRef.current) return;
-    didTrackViewRef.current = true;
+  const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
+  if (prevTrackedWalletRef.current !== normalizedWalletAddress) {
+    prevTrackedWalletRef.current = normalizedWalletAddress;
     trackEvent("dashboard_view", {
       source: "bento",
       wallet_connected: Boolean(walletAddress),
-      wallet_address: walletAddress?.toLowerCase() ?? null,
+      wallet_address: normalizedWalletAddress,
     });
-  }, [walletAddress]);
+  }
 
   const {
     isLive: isLaunchpadLive,
@@ -299,41 +317,31 @@ export default function GlowSoftDashboard({
     }
   }
 
-  React.useEffect(() => {
+  if (prevHasRefundsRef.current !== hasRefunds) {
+    prevHasRefundsRef.current = hasRefunds;
     const existingToastId = refundToastIdRef.current;
 
     if (!hasRefunds) {
       if (existingToastId != null) toast.dismiss(existingToastId);
       refundToastIdRef.current = null;
-      setIsRefundDialogOpen(false);
-      return;
+      if (isRefundDialogOpen) setIsRefundDialogOpen(false);
+    } else if (existingToastId == null) {
+      const toastId = toast("You have refunds available", {
+        description: `${
+          summary.totalRefundableFractions
+        } listings · ${formatGlw(summary.totalRefundableAmount)} GLW`,
+        duration: Infinity,
+        dismissible: false,
+        closeButton: false,
+        action: {
+          label: "Claim refunds",
+          onClick: () => setIsRefundDialogOpen(true),
+        },
+      });
+
+      refundToastIdRef.current = toastId;
     }
-
-    if (existingToastId != null) return;
-
-    const toastId = toast("You have refunds available", {
-      description: `${summary.totalRefundableFractions} listings · ${formatGlw(
-        summary.totalRefundableAmount
-      )} GLW`,
-      duration: Infinity,
-      dismissible: false,
-      closeButton: false,
-      action: {
-        label: "Claim refunds",
-        onClick: () => setIsRefundDialogOpen(true),
-      },
-    });
-
-    refundToastIdRef.current = toastId;
-
-    return () => {
-      toast.dismiss(toastId);
-    };
-  }, [
-    hasRefunds,
-    summary.totalRefundableAmount,
-    summary.totalRefundableFractions,
-  ]);
+  }
 
   const handleMigrationClaimSuccess = React.useCallback(() => {
     if (!walletAddress) return;
@@ -365,7 +373,7 @@ export default function GlowSoftDashboard({
       trackEvent("dashboard_launchpad_deposit_open_click", {
         source: "bento",
         wallet_connected: isConnected,
-        wallet_address: walletAddress?.toLowerCase() ?? null,
+        wallet_address: normalizedWalletAddress,
         application_id: application.id,
         listing_type: application._type,
         payment_currency: application._type === "miners" ? "USDC" : "GLW",
@@ -388,7 +396,7 @@ export default function GlowSoftDashboard({
     trackEvent("dashboard_buy_glw_click", {
       source: "bento",
       wallet_connected: isConnected,
-      wallet_address: walletAddress?.toLowerCase() ?? null,
+      wallet_address: normalizedWalletAddress,
     });
     setIsBuyGlowDialogOpen(true);
   }, [isConnected, walletAddress]);
@@ -550,8 +558,7 @@ export default function GlowSoftDashboard({
                           });
                           el.classList.add("ring-2", "ring-primary");
                           setTimeout(
-                            () =>
-                              el.classList.remove("ring-2", "ring-primary"),
+                            () => el.classList.remove("ring-2", "ring-primary"),
                             2000
                           );
                         }

@@ -139,6 +139,7 @@ interface FarmCardData {
     protocolDepositRewards: string;
     totalRewards: string;
   }>;
+  lastWeekRewardsGlw?: number;
   inProgressPercent?: number;
   estimatedUserWeeklyGlw?: number;
   isPendingStart?: boolean;
@@ -230,6 +231,10 @@ function FarmCard({
       ? (totalValue / farm.initialCost) * 100
       : 0;
   const isProfitable = roiPercent >= 100;
+  const lastWeekLabel =
+    typeof farm.lastWeekRewardsGlw === "number"
+      ? `${fmtGlw(farm.lastWeekRewardsGlw)} GLW`
+      : "—";
 
   const getTypeBadge = () => {
     // For pending start, we still want to show the type (Miner/Delegation)
@@ -399,7 +404,10 @@ function FarmCard({
         ) : (
           <div className={cn("space-y-4", isCompact && "space-y-2.5")}>
             <div
-              className={cn("grid grid-cols-2", isCompact ? "gap-2" : "gap-4")}
+              className={cn(
+                "grid",
+                isCompact ? "grid-cols-2 gap-2" : "grid-cols-3 gap-4"
+              )}
             >
               <div>
                 <div
@@ -421,7 +429,24 @@ function FarmCard({
                     : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
                 </div>
               </div>
-              <div className="text-right">
+              {!isCompact && (
+                <div className="text-center">
+                  <div
+                    className={cn(
+                      "uppercase tracking-wider text-muted-foreground font-semibold mb-1",
+                      "text-[10px]"
+                    )}
+                  >
+                    Last Week
+                  </div>
+                  <div className="font-mono font-medium text-sm">
+                    {isPendingStart
+                      ? "Pending"
+                      : `${fmtGlw(farm.lastWeekRewardsGlw ?? 0)} GLW`}
+                  </div>
+                </div>
+              )}
+              <div className={cn(isCompact ? "text-right" : "text-right")}>
                 <div
                   className={cn(
                     "uppercase tracking-wider text-muted-foreground font-semibold mb-1",
@@ -451,6 +476,19 @@ function FarmCard({
                       : "Pending"
                     : `${fmtGlw(farm.recovered + farm.inflationGlw)} GLW`}
                 </div>
+                {isCompact && !isPendingStart && (
+                  <div
+                    className={cn(
+                      "text-[10px] font-mono text-muted-foreground mt-1",
+                      isCompact && "text-[9px]"
+                    )}
+                  >
+                    Last week:{" "}
+                    <span className="font-semibold text-foreground">
+                      {lastWeekLabel}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
             <div className={cn("space-y-1.5", isCompact && "space-y-1")}>
@@ -1244,6 +1282,7 @@ export default function MyFarmsGridSection({
           weeksActive: farm.totalWeeksEarned,
           totalWeeks: 100,
           weeklyBreakdown: farm.weeklyBreakdown,
+          lastWeekRewardsGlw: parseGlwFromWei(farm.lastWeekRewards ?? "0"),
         });
       } else {
         const initialCostUsd = parseUsdcFromBaseUnits(farm.amountInvested);
@@ -1269,6 +1308,7 @@ export default function MyFarmsGridSection({
           weeksActive: farm.totalWeeksEarned,
           totalWeeks: 99,
           weeklyBreakdown: farm.weeklyBreakdown,
+          lastWeekRewardsGlw: parseGlwFromWei(farm.lastWeekRewards ?? "0"),
         });
       }
     });
@@ -1323,6 +1363,7 @@ export default function MyFarmsGridSection({
         weeksActive,
         totalWeeks,
         weeklyBreakdown: farm.weeklyBreakdown,
+        lastWeekRewardsGlw: parseGlwFromWei(farm.lastWeekRewards ?? "0"),
       });
     });
 
@@ -1455,6 +1496,7 @@ export default function MyFarmsGridSection({
           weeksActive: 0,
           totalWeeks: 100,
           weeklyBreakdown: [],
+          lastWeekRewardsGlw: 0,
           estimatedUserWeeklyGlw,
         });
       } else {
@@ -1478,6 +1520,7 @@ export default function MyFarmsGridSection({
           weeksActive: 0,
           totalWeeks: 99,
           weeklyBreakdown: [],
+          lastWeekRewardsGlw: 0,
           estimatedUserWeeklyGlw,
         });
       }
@@ -1515,6 +1558,7 @@ export default function MyFarmsGridSection({
         weeklyBreakdown: [],
         inProgressPercent: item.progressPercent ?? 0,
         estimatedUserWeeklyGlw: item.estimatedUserWeeklyGlw ?? 0,
+        lastWeekRewardsGlw: 0,
       });
     });
 
@@ -1752,6 +1796,9 @@ export default function MyFarmsGridSection({
                   Earned
                 </TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider font-mono font-bold text-right">
+                  Last Week
+                </TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider font-mono font-bold text-right">
                   Progress
                 </TableHead>
               </TableRow>
@@ -1886,6 +1933,17 @@ export default function MyFarmsGridSection({
                             : `${fmtGlw(
                                 farm.recovered + farm.inflationGlw
                               )} GLW`}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {isInProgress || isPendingStart ? (
+                        <span className="text-muted-foreground text-xs font-mono">
+                          —
+                        </span>
+                      ) : (
+                        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                          {fmtGlw(farm.lastWeekRewardsGlw ?? 0)} GLW
                         </span>
                       )}
                     </TableCell>
