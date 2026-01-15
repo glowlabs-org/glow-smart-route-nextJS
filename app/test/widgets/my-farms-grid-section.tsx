@@ -1674,6 +1674,9 @@ export default function MyFarmsGridSection({
 
   return (
     <>
+      <h3 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-6">
+        My Farms
+      </h3>
       <div className="flex flex-row items-center justify-between gap-2 sm:gap-4 mb-6">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider hidden sm:block">

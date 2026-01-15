@@ -578,7 +578,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
           </div>
 
           {/* COLUMN 3: KEY METRICS (INVESTED / EARNED) */}
-          <div className="col-span-5 flex items-center justify-center gap-6">
+          <div className="col-span-4 flex items-center justify-center gap-6">
             {isInProgress ? (
               <div className="flex items-center gap-4 w-full">
                 <div className="flex-1">
@@ -683,7 +683,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
           </div>
 
           {/* COLUMN 4: PROGRESS */}
-          <div className="col-span-1 flex items-center justify-end gap-2">
+          <div className="col-span-2 flex items-center justify-end gap-2">
             <ProgressDisplay />
             {!isInProgress && (
               <ChevronDown

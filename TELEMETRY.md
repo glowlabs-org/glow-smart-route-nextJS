@@ -262,6 +262,18 @@ All events below follow `snake_case` and use `dashboard_*` (dashboard surface ar
     - props: `source`, `wallet_connected`, `wallet_address`, `view_mode` (`default|grid|list`)
     - emitted by: `app/test/widgets/my-farms-grid-section.tsx`
 
+- **Solar Collector (Impact Summary)**
+
+  - `impact_summary_share_x_click`: user shared their solar footprint on X/Twitter
+    - props: `source`, `wallet_address`, `total_watts`
+  - `impact_summary_share_native_click`: user shared via native mobile share API
+    - props: `source`, `wallet_address`, `total_watts`
+  - `impact_summary_recent_farm_click`: clicked on the latest verified farm addition
+    - props: `source`, `wallet_address`, `chain_id`, `farm_id`
+  - `solar_collector_learn_more_open`: opened "How Solar Footprint Works" dialog
+    - props: `source`, `wallet_address`
+    - emitted by: `app/test/widgets/solar-collector.tsx`
+
 - **Education**
 
   - `dashboard_education_click`: clicked educational outbound link

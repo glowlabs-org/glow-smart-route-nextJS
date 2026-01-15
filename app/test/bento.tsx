@@ -189,9 +189,7 @@ export default function GlowSoftDashboard({
   const refundToastIdRef = React.useRef<string | number | null>(null);
   const migrationToastIdRef = React.useRef<string | number | null>(null);
   const prevHasMigrationClaimRef = React.useRef<boolean | null>(null);
-  const prevTrackedWalletRef = React.useRef<string | null | undefined>(
-    undefined
-  );
+  const trackedWalletsRef = React.useRef(new Set<string | null>());
   const prevHasRefundsRef = React.useRef<boolean | null>(null);
   const queryClient = useQueryClient();
   const { spotPriceUsd: glwSpotPrice } = useGlowSpotPriceSummary();
@@ -212,8 +210,12 @@ export default function GlowSoftDashboard({
     !hasAnyDialogOpen;
 
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
-  if (prevTrackedWalletRef.current !== normalizedWalletAddress) {
-    prevTrackedWalletRef.current = normalizedWalletAddress;
+
+  // Track dashboard view once per unique wallet address using a Set.
+  // Sets are idempotent - even if React calls render multiple times
+  // (Strict Mode, Concurrent Mode), each wallet is only tracked once.
+  if (!trackedWalletsRef.current.has(normalizedWalletAddress)) {
+    trackedWalletsRef.current.add(normalizedWalletAddress);
     trackEvent("dashboard_view", {
       source: "bento",
       wallet_connected: Boolean(walletAddress),
@@ -542,7 +544,7 @@ export default function GlowSoftDashboard({
                   </div>
                   <div>
                     <h3 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-6">
-                      My Farms
+                      My Impact
                     </h3>
                     <SolarCollectorWidget
                       walletAddress={walletAddress}
