@@ -5,7 +5,8 @@ export const QUERY_KEYS = {
     availability: (type: "launchpad" | "mining-center" | "all") =>
       ["fractions", "available", type] as const,
     yieldPer100: () => ["yield-per-100"] as const,
-    totalActivelyDelegated: () => ["fractions", "total-actively-delegated"] as const,
+    totalActivelyDelegated: () =>
+      ["fractions", "total-actively-delegated"] as const,
     activelyDelegatedByWeek: (startWeek?: number, endWeek?: number) =>
       ["fractions", "actively-delegated-by-week", startWeek, endWeek] as const,
     rewardsBreakdown: (params: {
@@ -36,8 +37,12 @@ export const QUERY_KEYS = {
       ["impact-score-breakdown", walletAddress?.toLowerCase() ?? null] as const,
   },
   solarCollector: {
-    stats: (walletAddress?: string | null) =>
-      ["solar-collector-stats", walletAddress?.toLowerCase() ?? null] as const,
+    stats: (walletAddress?: string | null, includeCurrentWeekPower?: boolean) =>
+      [
+        "solar-collector-stats",
+        walletAddress?.toLowerCase() ?? null,
+        includeCurrentWeekPower ?? false,
+      ] as const,
   },
   listings: {
     allSponsors: ["sponsor-listings"] as const,

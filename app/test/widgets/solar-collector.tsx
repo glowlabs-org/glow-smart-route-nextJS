@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useChainId } from "wagmi";
 import {
   ArrowUpRight,
@@ -17,10 +18,10 @@ import {
 import {
   Area,
   AreaChart,
-  Bar,
-  BarChart,
   CartesianGrid,
   Cell,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   XAxis,
@@ -55,6 +56,7 @@ import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/telemetry";
 import { useSolarCollectorQuery } from "@/hooks/hub-solar-collector";
 import { useRegions } from "@/hooks/control-regions";
+import { hubGet } from "@/lib/api/hub-client";
 
 const SOLAR_ORANGE = "#ffb472";
 const SOLAR_YELLOW = "#ffd37a";
@@ -337,6 +339,7 @@ export default function SolarCollectorWidget({
   const { model } = useSolarCollectorQuery({
     walletAddress: normalizedWalletAddress,
     enabled: true,
+    includeCurrentWeekPower: true,
   });
 
   const { regions } = useRegions();
@@ -349,12 +352,14 @@ export default function SolarCollectorWidget({
   const fill = clamp(ghost.fillPercentage, 0, 100);
 
   const regionColors: Record<number, string> = {
+    1: "#6b7280", // Grey - CGP
     2: "#3b82f6", // Blue - UT
     3: "#10b981", // Green - MO
     4: "#f59e0b", // Amber - CO
   };
 
   const chartConfig = {
+    region1: { label: "Clean Grid (CGP)", color: "#6b7280" },
     region2: { label: "Utah (UT)", color: "#3b82f6" },
     region3: { label: "Missouri (MO)", color: "#10b981" },
     region4: { label: "Colorado (CO)", color: "#f59e0b" },
@@ -384,7 +389,16 @@ export default function SolarCollectorWidget({
 
   const impactPowerTrendData = React.useMemo(() => {
     const allRids = new Set<number>();
-    const rowsByWeek = new Map<number, Record<string, number | Date>>();
+    interface WeekRow {
+      week: number;
+      date: Date;
+      rolloverMultiplier: number;
+      hasCashMinerBonus: boolean;
+      streakBonusMultiplier: number;
+      impactStreakWeeks: number;
+      [key: string]: number | Date | boolean;
+    }
+    const rowsByWeek = new Map<number, WeekRow>();
 
     model.weeklyPowerHistory.forEach((item) => {
       allRids.add(item.regionId);
@@ -392,17 +406,33 @@ export default function SolarCollectorWidget({
         rowsByWeek.set(item.weekNumber, {
           week: item.weekNumber,
           date: weekToDate(item.weekNumber),
+          rolloverMultiplier: item.rolloverMultiplier ?? 1,
+          hasCashMinerBonus: item.hasCashMinerBonus ?? false,
+          streakBonusMultiplier: item.streakBonusMultiplier ?? 0,
+          impactStreakWeeks: item.impactStreakWeeks ?? 0,
         });
       }
-      rowsByWeek.get(item.weekNumber)![`region${item.regionId}`] =
-        item.userPower;
+      // Points from backend are already post-multiplier (stored in power_by_region_by_week with multipliers applied)
+      const points = item.directPoints + item.glowWorthPoints;
+      rowsByWeek.get(item.weekNumber)![`region${item.regionId}`] = points;
     });
 
     const sortedWeeks = Array.from(rowsByWeek.keys()).sort((a, b) => a - b);
+    const regionIds = Array.from(allRids);
+
+    // Track cumulative totals per region
+    const cumulativeByRegion = new Map<number, number>();
+    regionIds.forEach((rid) => cumulativeByRegion.set(rid, 0));
+
     return sortedWeeks.map((week) => {
       const row = rowsByWeek.get(week)!;
-      Array.from(allRids).forEach((rid) => {
-        if (row[`region${rid}`] == null) row[`region${rid}`] = 0;
+      // Add this week's points to cumulative totals and store cumulative values
+      regionIds.forEach((rid) => {
+        const weeklyPoints = Number(row[`region${rid}`] ?? 0);
+        const prevCumulative = cumulativeByRegion.get(rid) || 0;
+        const newCumulative = prevCumulative + weeklyPoints;
+        cumulativeByRegion.set(rid, newCumulative);
+        row[`region${rid}`] = newCumulative;
       });
       return row;
     });
@@ -995,20 +1025,20 @@ export default function SolarCollectorWidget({
                 </ChartContainer>
               </div>
 
-              {/* 3. Regional Impact Power (Stacked Bar) */}
+              {/* 3. Regional Impact Power (Line) - Cumulative */}
               {hasSignificantInfluence && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <Activity className="h-4 w-4 text-muted-foreground" />
                     <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
-                      Regional Impact Power
+                      Cumulative Regional Impact
                     </div>
                   </div>
                   <ChartContainer
                     config={chartConfig}
                     className="h-[200px] w-full aspect-auto"
                   >
-                    <BarChart
+                    <LineChart
                       data={impactPowerTrendData}
                       margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
                     >
@@ -1032,47 +1062,108 @@ export default function SolarCollectorWidget({
                         tickFormatter={impactPowerYAxisFormatter}
                       />
                       <ChartTooltip
-                        content={
-                          <ChartTooltipContent
-                            formatter={(value, name) => {
-                              const regionCode = getRegionCodeFromName(
-                                name,
-                                regions
-                              );
-                              return (
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-mono font-medium tabular-nums text-foreground">
-                                    {regionCode ? `${regionCode} ` : ""}Impact{" "}
-                                    {Number(value).toLocaleString()}
-                                  </span>
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload || payload.length === 0)
+                            return null;
+                          const data = payload[0]?.payload;
+                          const date = data?.date;
+                          const rolloverMultiplier =
+                            data?.rolloverMultiplier ?? 1;
+                          const hasCashMinerBonus =
+                            data?.hasCashMinerBonus ?? false;
+                          const streakBonusMultiplier =
+                            data?.streakBonusMultiplier ?? 0;
+                          const impactStreakWeeks =
+                            data?.impactStreakWeeks ?? 0;
+
+                          return (
+                            <div className="rounded-lg border bg-background p-2 shadow-md min-w-[180px]">
+                              <div className="text-xs font-medium text-muted-foreground mb-2">
+                                {date instanceof Date
+                                  ? date.toLocaleDateString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    })
+                                  : `Week ${label}`}
+                              </div>
+                              <div className="space-y-1">
+                                {payload.map((entry, idx: number) => {
+                                  const regionCode = getRegionCodeFromName(
+                                    String(entry.name ?? ""),
+                                    regions
+                                  );
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className="flex items-center justify-between gap-3"
+                                    >
+                                      <div className="flex items-center gap-1.5">
+                                        <div
+                                          className="h-2 w-2 rounded-full"
+                                          style={{
+                                            backgroundColor: entry.color,
+                                          }}
+                                        />
+                                        <span className="text-xs text-muted-foreground">
+                                          {regionCode ||
+                                            String(entry.name ?? "")}
+                                        </span>
+                                      </div>
+                                      <span className="font-mono text-xs font-medium tabular-nums">
+                                        {Number(
+                                          entry.value ?? 0
+                                        ).toLocaleString(undefined, {
+                                          maximumFractionDigits: 0,
+                                        })}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              {rolloverMultiplier > 1 && (
+                                <div className="mt-2 pt-2 border-t border-border/50">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] text-muted-foreground">
+                                      Multiplier
+                                    </span>
+                                    <span className="text-[10px] font-mono font-bold text-[color:var(--color-miner)]">
+                                      {rolloverMultiplier.toFixed(2)}×
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {hasCashMinerBonus && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]">
+                                        Miner 3×
+                                      </span>
+                                    )}
+                                    {streakBonusMultiplier > 0 && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-[color:var(--delegation-purple)]/10 text-[color:var(--delegation-purple)]">
+                                        Streak +
+                                        {streakBonusMultiplier.toFixed(2)}× (
+                                        {impactStreakWeeks}w)
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                              );
-                            }}
-                            labelFormatter={(value, payload) => {
-                              const date = payload?.[0]?.payload?.date;
-                              if (date instanceof Date) {
-                                return date.toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                });
-                              }
-                              return `Week ${value}`;
-                            }}
-                          />
-                        }
+                              )}
+                            </div>
+                          );
+                        }}
                       />
                       {Object.keys(regionColors).map((rid) => (
-                        <Bar
+                        <Line
                           key={rid}
+                          type="monotone"
                           dataKey={`region${rid}`}
                           name={`region${rid}`}
-                          fill={regionColors[Number(rid)]}
-                          stackId="impactPower"
-                          radius={[2, 2, 0, 0]}
+                          stroke={regionColors[Number(rid)]}
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                          activeDot={{ r: 5 }}
                         />
                       ))}
-                    </BarChart>
+                    </LineChart>
                   </ChartContainer>
                 </div>
               )}

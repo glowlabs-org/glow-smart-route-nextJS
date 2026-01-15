@@ -49,12 +49,13 @@ Assume for a given week:
 - Bought a miner with cash this week: **Yes** (affects base multiplier only)
 - Impact Streak: **4 weeks active** (Max streak)
 
-Weekly rollover points (pre-multiplier):
+Calculate base points (pre-multiplier):
 
 - Emissions: \(100 × 1 = 100\)
 - Steering: \(200 × 3 = 600\)
 - Delegated (vault): \(10,000 × 0.005 = 50\)
-- Total rollover points: \(100 + 600 + 50 = 750\)
+- GLW Worth: \(50,000 × 0.001 = 50\)
+- **Total base points**: \(100 + 600 + 50 + 50 = 800\)
 
 Calculate Total Multiplier:
 
@@ -62,10 +63,13 @@ Calculate Total Multiplier:
 - Streak Bonus (4 weeks): **+1.0×**
 - Total Multiplier: **4.0×**
 
-Apply Multiplier:
+Apply Multiplier to ALL points:
 
-- Weekly rollover points: \(750 × 4.0 = 3,000\)
+- **Total weekly points**: \(800 × 4.0 = 3,200\)
 
-Continuous rate:
+Breakdown after multiplier:
 
-- GLW Worth: \(50,000 × 0.001 = 50\) points per week (continuous)
+- Emissions points: \(100 × 4.0 = 400\)
+- Steering points: \(600 × 4.0 = 2,400\)
+- Vault points: \(50 × 4.0 = 200\)
+- Worth points: \(50 × 4.0 = 200\)

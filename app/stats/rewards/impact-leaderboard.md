@@ -13,8 +13,8 @@ This doc captures the **current behavior, constraints, and design decisions** fo
 ## Core UX rules (must preserve)
 
 - **No shadows**: do not use `shadow-*` utilities anywhere in the feature.
-- **Theme-aware**: use tokens (`bg-background`, `bg-muted`, `border-border`, etc.) and avoid hard-coded “dark-only” palettes unless behind `dark:` and intentionally scoped.
-- **Border radii**: keep existing rounded sizes as-is (don’t change the overall rounding language).
+- **Theme-aware**: use tokens (`bg-background`, `bg-muted`, `border-border`, etc.) and avoid hard-coded "dark-only" palettes unless behind `dark:` and intentionally scoped.
+- **Border radii**: keep existing rounded sizes as-is (don't change the overall rounding language).
 - **Rank display rule**:
   - Only **Top 3** show numeric rank (`#1`, `#2`, `#3`).
   - Everyone else shows **percentile only** (e.g. `Top 5%`).
@@ -37,14 +37,16 @@ This doc captures the **current behavior, constraints, and design decisions** fo
 
 For each week in the requested range:
 
-- Rollover points:
+- Base points:
   - **Inflation earned**: +1.0 per GLW
-  - **Steering (GCTL)**: +3.0 per GLW “steered”
+  - **Steering (GCTL)**: +3.0 per GLW "steered"
   - **Vault bonus**: +0.005 per week per GLW in delegated active GLW
-- Weekly multiplier:
+  - **GLW Worth**: +0.001 per week per GLW of GlowWorth
+- Weekly multiplier (applied on rollover, Sunday 00:00 UTC):
   - **Cash miner bonus**: 3× multiplier if miner purchase that week
-- Continuous points:
-  - +0.001 per week per GLW of GlowWorth
+  - **Streak bonus**: +0.25× per consecutive week (caps at +1.0×)
+  - **Multipliers apply to ALL base points** (Inflation, Steering, Vault, AND GLW Worth)
+- Formula: `Total = (Inflation + Steering + Vault + GlowWorth) × Multiplier`
 
 ### Endpoints
 
@@ -60,7 +62,7 @@ Fields used by the UI:
 - `walletAddress`
 - `totalPoints`
 - `glowWorthWei`
-- `lastWeekPoints` (table column “Last week”)
+- `lastWeekPoints` (table column "Last week")
 - `hasMinerMultiplier` (Cash Miner indicator)
 - `hasSteeringStake` (Steering indicator)
 - `hasVaultBonus` (Vault bonus indicator)
@@ -69,7 +71,7 @@ Fields used by the UI:
 - `totalWalletCount` (shown in header + used for percentile math)
 
 **2) Single wallet** (`walletAddress=0x...`)  
-Used for the “See details” modal and for the scorecard/projection.
+Used for the "See details" modal and for the scorecard/projection.
 
 Fields used by the UI:
 
@@ -86,7 +88,7 @@ Fields used by the UI:
 - List mode supports **backend sorting**:
   - `sort`: `totalPoints | lastWeekPoints | glowWorth` (default: `totalPoints`)
   - `dir`: `asc | desc` (default: `desc`)
-- UI uses `globalRank` for “rank/percentile” rendering; `globalRank` remains stable even when sorting by other fields.
+- UI uses `globalRank` for "rank/percentile" rendering; `globalRank` remains stable even when sorting by other fields.
 
 ## Current UI structure (Impact tab)
 
@@ -97,24 +99,24 @@ Fields used by the UI:
 Component: `ImpactHero`
 
 - Header shows:
-  - “Weekly scorecard”
+  - "Weekly scorecard"
   - Week range (if present)
-  - “status-only” badge
+  - "status-only" badge
   - **Next rollover** countdown pill (moved here from KPI cards)
 - Left card: **Current ranking**
   - **Primary KPI is points** (largest typography)
-  - Shows rank/percentile as secondary meta (or “Below Top Y%” if the wallet is outside the returned leaderboard slice)
+  - Shows rank/percentile as secondary meta (or "Below Top Y%" if the wallet is outside the returned leaderboard slice)
   - Shows a single progress module:
     - Big progress bar with emerald fill + striped remainder + percent badge
-    - Text: “X pts to reach Rank #Y”
-    - “See details” button placed in the bottom row next to the progress text
+    - Text: "X pts to reach Rank #Y"
+    - "See details" button placed in the bottom row next to the progress text
 - Right card: **Active multipliers & bonuses**
-  - Shows “3× Cash Miner Multiplier” status from `currentWeekProjection.hasMinerMultiplier`
-  - Shows “Steering Power (sGCTL)” status from `currentWeekProjection.hasSteeringStake`
+  - Shows "3× Cash Miner Multiplier" status from `currentWeekProjection.hasMinerMultiplier`
+  - Shows "Steering Power (sGCTL)" status from `currentWeekProjection.hasSteeringStake`
   - Shows a **Delegate GLW** CTA row (same UI pattern as the miner multiplier row)
     - Opens `LaunchpadDialog` (same dialog used in `QuickActionsWidget`)
     - Status is derived from `currentWeekProjection.projectedPoints.delegatedGlwWei` (non-zero = ACTIVE)
-  - CTAs live here (Stake GCTL / Buy Miner / Delegate GLW). We intentionally removed them from the “Current ranking” card.
+  - CTAs live here (Stake GCTL / Buy Miner / Delegate GLW). We intentionally removed them from the "Current ranking" card.
     - **Buy Miner** opens `LaunchpadDialog`
     - **Stake GCTL** opens `MintAndStakeGctlDialog`
 
@@ -169,7 +171,7 @@ Component: `ImpactHero`
 - Hook: `hooks/useEnsNames.ts`
 - We fetch ENS for all wallets returned by the leaderboard list so:
   - Search can match ENS
-  - Table render doesn’t shift by page
+  - Table render doesn't shift by page
 
 ### Breakdown modal (shared)
 
@@ -184,14 +186,14 @@ Caching / prefetch:
 
 - The breakdown dialog query key is normalized and shared via `hooks/useImpactGlowScore.ts`:
   - `["impact-score-breakdown", walletAddressLower, startWeek, endWeek]`
-- The hero’s “self” query uses the **same key** (via `useImpactScoreQuery`), so clicking **See details** is effectively instant (data is already in react-query cache).
+- The hero's "self" query uses the **same key** (via `useImpactScoreQuery`), so clicking **See details** is effectively instant (data is already in react-query cache).
 
 ## Loading UX / skeletons
 
 Goals:
 
 - Keep layout stable while loading.
-- Avoid flashing incorrect “INACTIVE” states while the wallet breakdown is still fetching.
+- Avoid flashing incorrect "INACTIVE" states while the wallet breakdown is still fetching.
 
 Current approach:
 
@@ -205,7 +207,7 @@ Current approach:
 
 - **Global rank for wallets outside the returned list**:
   - We only know exact global rank for wallets included in the list response.
-  - For a connected wallet outside the list window, we show “Below Top X%” where \(X = \\frac{listLength}{totalWalletCount} \\times 100\).
+  - For a connected wallet outside the list window, we show "Below Top X%" where \(X = \\frac{listLength}{totalWalletCount} \\times 100\).
   - If we need exact rank for arbitrary wallets, the router would need to expose it (or accept a wallet and return its global rank).
 - **Leaderboard list limit**:
   - The UI calls `/impact/glow-score` list with `limit=200`.

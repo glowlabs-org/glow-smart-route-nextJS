@@ -108,194 +108,6 @@ function getIndicatorsStateFromImpactScore(
   };
 }
 
-function ImpactScoreHelp(props: {
-  source: string;
-  walletAddress: string | null;
-  walletConnected: boolean;
-}) {
-  const label = "How Glow Impact Score works";
-  const { source, walletAddress, walletConnected } = props;
-
-  return (
-    <>
-      <span className="hidden md:inline-flex">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              aria-label={label}
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full"
-              type="button"
-              onClick={() => {
-                trackEvent("dashboard_impact_help_open_click", {
-                  source,
-                  wallet_connected: walletConnected,
-                  wallet_address: walletAddress,
-                  ui: "tooltip",
-                });
-              }}
-            >
-              <Info className="h-4 w-4 text-muted-foreground" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent
-            side="top"
-            align="center"
-            sideOffset={8}
-            className="max-w-[360px] p-3"
-          >
-            <div className="space-y-2">
-              <div className="text-xs font-semibold text-primary-foreground">
-                Glow Impact Score
-              </div>
-
-              <div className="text-[11px] leading-snug text-primary-foreground/80">
-                Points reward actions that grow onchain climate
-                impact—especially steering via staked GCTL (sGCTL).
-              </div>
-
-              <div className="h-px bg-primary-foreground/15" />
-
-              <div className="space-y-1">
-                <div className="text-[11px] font-semibold text-primary-foreground">
-                  Weekly rollover points
-                </div>
-                <ul className="list-disc space-y-1 pl-4 text-[11px] leading-snug text-primary-foreground/80">
-                  <li>+1 / GLW earned in emissions rewards</li>
-                  <li>+3 / GLW steered via staked GCTL (sGCTL)</li>
-                  <li>+0.005 / week / GLW delegated (vault bonus)</li>
-                </ul>
-              </div>
-
-              <div className="space-y-1">
-                <div className="text-[11px] font-semibold text-primary-foreground">
-                  Weekly multiplier
-                </div>
-                <ul className="list-disc space-y-1 pl-4 text-[11px] leading-snug text-primary-foreground/80">
-                  <li>
-                    Base: 1× (or 3× if you bought a miner with cash that week)
-                  </li>
-                  <li>
-                    Streak: +0.25× per consecutive week you increase delegation
-                    (caps +1.0×, resets on miss)
-                  </li>
-                </ul>
-              </div>
-
-              <div className="space-y-1">
-                <div className="text-[11px] font-semibold text-primary-foreground">
-                  Continuous
-                </div>
-                <ul className="list-disc space-y-1 pl-4 text-[11px] leading-snug text-primary-foreground/80">
-                  <li>+0.001 / week / GLW in “GLW Worth”</li>
-                </ul>
-              </div>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      </span>
-
-      <span className="md:hidden">
-        <Drawer direction="bottom">
-          <DrawerTrigger asChild>
-            <Button
-              aria-label={label}
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full"
-              type="button"
-              onClick={() => {
-                trackEvent("dashboard_impact_help_open_click", {
-                  source,
-                  wallet_connected: walletConnected,
-                  wallet_address: walletAddress,
-                  ui: "drawer",
-                });
-              }}
-            >
-              <Info className="h-4 w-4 text-muted-foreground" />
-            </Button>
-          </DrawerTrigger>
-          <DrawerContent className="md:hidden max-h-[85vh]">
-            <DrawerHeader className="border-b border-border/60 text-left">
-              <div className="flex items-center justify-between gap-3">
-                <DrawerTitle className="text-base">
-                  Glow Impact Score
-                </DrawerTitle>
-                <DrawerClose asChild>
-                  <Button
-                    aria-label="Close"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </DrawerClose>
-              </div>
-              <DrawerDescription className="text-left">
-                Points reward actions that grow onchain climate
-                impact—especially steering via staked GCTL (sGCTL).
-              </DrawerDescription>
-            </DrawerHeader>
-
-            <div className="overflow-y-auto p-4 text-sm">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="text-sm font-semibold">Weekly rollover</div>
-                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                    <li>
-                      Emissions earned: +1 point per GLW earned in emissions
-                    </li>
-                    <li>
-                      Steering (sGCTL): +3 points per GLW steered by staking
-                      GCTL
-                    </li>
-                    <li>
-                      Vault bonus: +0.005 points per week per GLW currently
-                      delegated
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-sm font-semibold">Weekly multiplier</div>
-                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                    <li>
-                      Base: 1× standard, or 3× if you bought a miner with cash
-                      that week
-                    </li>
-                    <li>
-                      Streak: +0.25× per consecutive week you increase delegated
-                      GLW (caps at +1.0× after 4 weeks; resets on miss)
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-sm font-semibold">Continuous</div>
-                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                    <li>
-                      GLW Worth: +0.001 points per week per GLW in “GLW Worth”
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="rounded-xl border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
-                  Delegated GLW intentionally counts twice: it contributes to
-                  “GLW Worth” (continuous) and also earns the vault bonus on
-                  rollover.
-                </div>
-              </div>
-            </div>
-          </DrawerContent>
-        </Drawer>
-      </span>
-    </>
-  );
-}
-
 interface RankWidgetProps {
   walletAddress?: string | null;
   onMintAndStakeClick?: (forceStep1?: boolean) => void;
@@ -446,6 +258,8 @@ export function RankWidget({
     return num;
   }, [totalsPoints]);
 
+  const isMillionPlusScore = totalPointsNumber >= 1_000_000;
+
   const hasPositiveScore = React.useMemo(() => {
     return Math.round(totalPointsNumber) > 0;
   }, [totalPointsNumber]);
@@ -571,15 +385,10 @@ export function RankWidget({
         )}
       >
         <CardHeader className="py-0 px-4">
-          <div className="flex items-center  justify-center gap-2 translate-x-[12px]">
+          <div className="flex items-center  justify-center gap-2 ">
             <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
               Impact Score
             </div>
-            <ImpactScoreHelp
-              source={source}
-              walletAddress={normalizedWalletAddress}
-              walletConnected={hasWallet}
-            />
           </div>
         </CardHeader>
         <CardContent
@@ -635,7 +444,13 @@ export function RankWidget({
                 <div
                   className={cn(
                     "mt-1 font-mono font-bold tracking-tighter text-foreground tabular-nums",
-                    isHero ? "text-5xl md:text-6xl" : "text-4xl md:text-5xl"
+                    isHero
+                      ? isMillionPlusScore
+                        ? "text-4xl md:text-5xl"
+                        : "text-5xl md:text-6xl"
+                      : isMillionPlusScore
+                      ? "text-3xl md:text-4xl"
+                      : "text-4xl md:text-5xl"
                   )}
                 >
                   {pointsHeroText}

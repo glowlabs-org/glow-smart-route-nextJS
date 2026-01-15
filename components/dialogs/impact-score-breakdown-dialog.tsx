@@ -431,7 +431,7 @@ export function ImpactScoreBreakdownDialogContent(
     : latestWeek?.streakBonusMultiplier ?? 0;
   const hasStreak = streakMultiplier > 0;
 
-  // Locked Point Values (historical/finalized)
+  // Point values from totals (post-multiplier) - these add up to the total score
   const steeringPoints = formatPoints(impactScore?.totals?.steeringPoints, {
     maximumFractionDigits: 2,
   });
@@ -521,16 +521,37 @@ export function ImpactScoreBreakdownDialogContent(
       : undefined;
 
   // Calculate Bonus Points (The "Extra" earned from multipliers)
-  const basePoints =
-    safePointsNumber(impactScore?.totals?.steeringPoints) +
-    safePointsNumber(impactScore?.totals?.inflationPoints) +
-    safePointsNumber(impactScore?.totals?.vaultBonusPoints);
-  const totalRollover = safePointsNumber(impactScore?.totals?.rolloverPoints);
-  const bonusPoints = Math.max(0, totalRollover - basePoints);
+  // We compute this from the weekly breakdown by calculating what points would be
+  // without multipliers and comparing to actual post-multiplier points
+  const bonusPoints = useMemo(() => {
+    if (!impactScore?.weekly?.length) return 0;
+
+    let totalBonus = 0;
+    for (const week of impactScore.weekly) {
+      const multiplier = week.rolloverMultiplier ?? 1;
+      if (multiplier <= 1) continue;
+
+      // Get post-multiplier points for this week (what we actually earned)
+      const postMultiplierPoints =
+        safePointsNumber(week.inflationPoints) +
+        safePointsNumber(week.steeringPoints) +
+        safePointsNumber(week.vaultBonusPoints) +
+        safePointsNumber(week.continuousPoints);
+
+      // Calculate what we would have earned without the multiplier
+      const preMultiplierPoints = postMultiplierPoints / multiplier;
+
+      // The bonus is the difference
+      totalBonus += postMultiplierPoints - preMultiplierPoints;
+    }
+
+    return Math.max(0, totalBonus);
+  }, [impactScore?.weekly]);
 
   const totalScore = formatPoints(
     String(
-      totalRollover + safePointsNumber(impactScore?.totals?.continuousPoints)
+      safePointsNumber(impactScore?.totals?.rolloverPoints) +
+        safePointsNumber(impactScore?.totals?.continuousPoints)
     ),
     { maximumFractionDigits: 0 }
   );
@@ -561,28 +582,14 @@ export function ImpactScoreBreakdownDialogContent(
     4: "#f59e0b", // Amber - CO
   };
 
-  // Calculate effective multiplier from totals
-  // rolloverPoints = (inflation + steering + vault) × multiplier
-  // So multiplier = rolloverPoints / (inflation + steering + vault)
-  const effectiveMultiplier = useMemo(() => {
-    const rollover = safePointsNumber(impactScore?.totals?.rolloverPoints);
-    const baseRollover =
-      safePointsNumber(impactScore?.totals?.inflationPoints) +
-      safePointsNumber(impactScore?.totals?.steeringPoints) +
-      safePointsNumber(impactScore?.totals?.vaultBonusPoints);
-    if (baseRollover <= 0) return 1;
-    return rollover / baseRollover;
-  }, [impactScore?.totals]);
-
   const regionalChartData = useMemo(() => {
     if (!impactScore.regionBreakdown) return [];
     return impactScore.regionBreakdown
       .map((r) => {
-        // Apply multiplier to directPoints (rollover components), but NOT to glowWorthPoints
-        const directMultiplied =
-          safePointsNumber(r.directPoints) * effectiveMultiplier;
+        // Values from API already include multipliers - display as-is
+        const directPoints = safePointsNumber(r.directPoints);
         const glowWorth = safePointsNumber(r.glowWorthPoints);
-        const total = directMultiplied + glowWorth;
+        const total = directPoints + glowWorth;
         return {
           regionId: r.regionId,
           name: `region${r.regionId}`,
@@ -593,7 +600,7 @@ export function ImpactScoreBreakdownDialogContent(
       })
       .filter((d) => d.value > 0)
       .sort((a, b) => b.value - a.value);
-  }, [impactScore.regionBreakdown, regionLabels, effectiveMultiplier]);
+  }, [impactScore.regionBreakdown, regionLabels]);
 
   const chartConfig = useMemo(() => {
     const config: ChartConfig = {};
@@ -644,12 +651,25 @@ export function ImpactScoreBreakdownDialogContent(
                 <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Active Multipliers
                 </h3>
-                {bonusPoints > 0 && (
-                  <span className="text-[10px] font-mono text-[color:var(--color-miner)]">
-                    +{formatPoints(String(bonusPoints))} pts bonus
-                  </span>
-                )}
               </div>
+
+              {bonusPoints > 0 && (
+                <div className="rounded-lg bg-gradient-to-r from-[color:var(--color-miner)]/10 to-[color:var(--delegation-purple)]/10 border border-[color:var(--color-miner)]/30 p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs text-muted-foreground">
+                        Bonus from Multipliers
+                      </span>
+                      <span className="text-[10px] text-muted-foreground/60">
+                        Included in point sources below
+                      </span>
+                    </div>
+                    <span className="text-lg font-mono font-bold text-[color:var(--color-miner)]">
+                      +{formatPoints(String(bonusPoints))} pts
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <MultiplierCard
@@ -918,14 +938,14 @@ export function ImpactScoreBreakdownDialogContent(
                     <div className="flex items-start gap-2">
                       <div className="space-y-0.5">
                         <p className="font-semibold text-foreground">
-                          Continuous Updates
+                          Base Point Calculation
                         </p>
                         <p className="text-muted-foreground text-[11px] leading-relaxed">
+                          All point sources (
                           <span className="font-medium text-foreground">
-                            Glow Worth
-                          </span>{" "}
-                          points update in real-time as you hold GLW (+0.001
-                          pts/week per GLW).
+                            Emissions, Steering, Vault Bonus, and Glow Worth
+                          </span>
+                          ) are calculated based on your holdings and activity.
                         </p>
                       </div>
                     </div>
@@ -938,12 +958,16 @@ export function ImpactScoreBreakdownDialogContent(
                           Weekly Rollover (Sundays 00:00 UTC)
                         </p>
                         <p className="text-muted-foreground text-[11px] leading-relaxed">
+                          On weekly rollover, your{" "}
                           <span className="font-medium text-foreground">
-                            Emissions, Steering, and Vault Bonus
+                            Total Multiplier
                           </span>{" "}
-                          points are calculated and locked in each week.
-                          Multipliers (Miner 3×, Streak up to +1×) are applied
-                          to these rollover points.
+                          (Miner 3× + Streak up to +1×) is applied to{" "}
+                          <span className="font-medium text-foreground">
+                            ALL point sources
+                          </span>
+                          , including Glow Worth. The points displayed above
+                          already include these multipliers.
                         </p>
                       </div>
                     </div>

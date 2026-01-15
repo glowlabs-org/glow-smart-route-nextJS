@@ -53,7 +53,12 @@ interface SolarCollectorStatsResponse {
   weeklyPowerHistory: Array<{
     weekNumber: number;
     regionId: number;
-    userPower: number;
+    directPoints: number;
+    glowWorthPoints: number;
+    rolloverMultiplier: number;
+    hasCashMinerBonus: boolean;
+    streakBonusMultiplier: number;
+    impactStreakWeeks: number;
   }>;
 }
 
@@ -147,12 +152,20 @@ function calculateImpact(totalWatts: number) {
 export function useSolarCollectorQuery(args: {
   walletAddress: string | null | undefined;
   enabled?: boolean;
+  includeCurrentWeekPower?: boolean;
 }) {
-  const { walletAddress, enabled = true } = args;
+  const {
+    walletAddress,
+    enabled = true,
+    includeCurrentWeekPower = false,
+  } = args;
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
 
   const query = useQuery({
-    queryKey: QUERY_KEYS.solarCollector.stats(normalizedWalletAddress),
+    queryKey: QUERY_KEYS.solarCollector.stats(
+      normalizedWalletAddress,
+      includeCurrentWeekPower
+    ),
     enabled: Boolean(enabled && normalizedWalletAddress),
     staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
@@ -165,6 +178,7 @@ export function useSolarCollectorQuery(args: {
         {
           params: {
             walletAddress: normalizedWalletAddress,
+            includeCurrentWeekPower: includeCurrentWeekPower ? "1" : "0",
           },
         }
       );
