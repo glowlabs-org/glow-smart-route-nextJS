@@ -128,7 +128,7 @@ export default function WalletWidget({
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
   const source = "wallet_widget";
 
-  const { hasWallet, headlineStats, ethPriceInUSD, holdings } =
+  const { hasWallet, glowPriceUsd, marketCapUsd, ethPriceInUSD, holdings } =
     useWalletPortfolio({ walletAddress });
 
   const holdingsRows = React.useMemo(() => {
@@ -237,7 +237,8 @@ export default function WalletWidget({
       <SwapDialog
         open={isSwapOpen}
         onOpenChange={handleSwapOpenChange}
-        headlineStats={headlineStats}
+        glowPriceUsd={glowPriceUsd}
+        marketCapUsd={marketCapUsd}
         ethPriceInUSD={ethPriceInUSD}
       />
       <SendDialog open={isSendOpen} onOpenChange={setIsSendOpen} />

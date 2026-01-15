@@ -269,6 +269,7 @@ export function BuyGlowDialog({
         if (!HUB_URL || !address) return null;
         const url = new URL("/impact/glow-score", HUB_URL);
         url.searchParams.set("walletAddress", address.toLowerCase());
+        url.searchParams.set("includeWeekly", "0");
         const res = await fetch(url.toString());
         if (!res.ok) return null;
         const json = (await res.json()) as {

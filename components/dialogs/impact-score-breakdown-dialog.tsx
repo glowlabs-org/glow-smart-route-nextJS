@@ -30,7 +30,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
   ChartLegend,
-  ChartLegendContent,
 } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
 import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
@@ -111,6 +110,40 @@ function formatMultiplier(value: number | undefined) {
 }
 
 // --- Components ---
+
+interface RegionalLegendEntry {
+  regionId: number;
+  label: string;
+  value: number;
+  fill: string;
+}
+
+interface RegionalPointsLegendProps {
+  entries: RegionalLegendEntry[];
+}
+
+function RegionalPointsLegend({ entries }: RegionalPointsLegendProps) {
+  return (
+    <div className="flex flex-wrap justify-center gap-x-6 gap-y-3 mt-6">
+      {entries.map((entry) => (
+        <div key={entry.regionId} className="flex items-center gap-2">
+          <div
+            className="h-2.5 w-2.5 rounded-full shrink-0"
+            style={{ backgroundColor: entry.fill }}
+          />
+          <div className="flex flex-col">
+            <span className="text-[11px] font-bold text-foreground leading-none mb-1">
+              {entry.label}
+            </span>
+            <span className="text-[10px] font-mono text-muted-foreground leading-none">
+              {Math.round(entry.value).toLocaleString()} pts
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /**
  * A "Slot" card for Multipliers.
@@ -895,28 +928,7 @@ export function ImpactScoreBreakdownDialogContent(
                       </Pie>
                       <ChartLegend
                         content={
-                          <div className="flex flex-wrap justify-center gap-x-6 gap-y-3 mt-6">
-                            {regionalChartData.map((entry) => (
-                              <div
-                                key={entry.regionId}
-                                className="flex items-center gap-2"
-                              >
-                                <div
-                                  className="h-2.5 w-2.5 rounded-full shrink-0"
-                                  style={{ backgroundColor: entry.fill }}
-                                />
-                                <div className="flex flex-col">
-                                  <span className="text-[11px] font-bold text-foreground leading-none mb-1">
-                                    {entry.label}
-                                  </span>
-                                  <span className="text-[10px] font-mono text-muted-foreground leading-none">
-                                    {Math.round(entry.value).toLocaleString()}{" "}
-                                    pts
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                          <RegionalPointsLegend entries={regionalChartData} />
                         }
                       />
                     </PieChart>
@@ -1020,6 +1032,7 @@ export function ImpactScoreBreakdownDialog(
     weekRange,
     enabled: open,
     toastTitle: "Failed to load Impact breakdown",
+    includeWeekly: true,
   });
 
   return (

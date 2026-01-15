@@ -353,6 +353,7 @@ export const UsdcToTokenDialog: FC<{
           const recomputeRes = await getSmartBalancingAmounts({
             amountUsdgIn: usdgEquivalent,
             earlyLiquidityCurrentPrice: priceCandidate,
+            useEarlyLiquidity: false,
           });
           if (recomputeRes.ok) {
             effectiveSmartBalancingAmounts = recomputeRes.val;

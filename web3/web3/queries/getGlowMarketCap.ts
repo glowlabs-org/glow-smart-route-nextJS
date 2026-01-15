@@ -1,5 +1,7 @@
-import { addresses } from "@/web3/constants/addresses";
-
+import { addresses, SDKAddresses } from "@/web3/constants/addresses";
+import { hubGet } from "@/lib/api/hub-client";
+import { getCurrentWeekNumber } from "@/lib/rewards/weekly-delegations";
+import { getTotalMinerClaimed } from "@/web3/web3/queries/getTotalMinerClaimed";
 import { formatUnits, parseAbi, PublicClient } from "viem";
 const erc20Abi = parseAbi([
   "function balanceOf(address owner) view returns (uint256)",
@@ -15,6 +17,8 @@ const erc20Abi = parseAbi([
  *  4. balance of miner pool and gca contract
  *  5. the total amount of staked / locked tokens in the glow contract
  *  6. Early liquidity balance
+ *  7. Vault balance (from CRM)
+ *  8. Endowment balance
  * @param glowPrice - The current price of glow in USD ($2.70) as an example
  *
  */
@@ -66,6 +70,13 @@ export async function getGlowMarketCap(
     args: [addresses.earlyLiquidity],
   };
 
+  const endowmentBalanceCall = {
+    address: addresses.glow,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: [SDKAddresses.ENDOWMENT_WALLET],
+  };
+
   const calls = [
     totalSupplyCall,
     carbonCreditAuctionBalanceCall,
@@ -74,18 +85,47 @@ export async function getGlowMarketCap(
     minerPoolAndGcaContractBalanceCall,
     glowStakedOrLockedBalanceCall,
     earlyLiquidityBalanceCall,
+    endowmentBalanceCall,
   ];
 
-  const multicall = await publicClient.multicall({
-    contracts: calls,
-  });
+  let multicall: Awaited<ReturnType<typeof publicClient.multicall>>;
+  try {
+    multicall = await publicClient.multicall({
+      contracts: calls,
+    });
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error(String(error));
+  }
 
-  const results = multicall.map((result, index) => {
-    return {
-      result: result.result as bigint,
-      call: calls[index],
-    };
-  });
+  let vaultBalanceResponse: { totalGlwDelegatedWei: string };
+  try {
+    vaultBalanceResponse = await hubGet<{ totalGlwDelegatedWei: string }>(
+      "/fractions/total-actively-delegated"
+    );
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error(String(error));
+  }
+
+  let totalMinerClaimedResponse: Awaited<
+    ReturnType<typeof getTotalMinerClaimed>
+  >;
+  try {
+    totalMinerClaimedResponse = await getTotalMinerClaimed();
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error(String(error));
+  }
+
+  const results = (multicall as Array<{ result: unknown }>).map(
+    (result, index) => {
+      return {
+        result: result.result as bigint,
+        call: calls[index],
+      };
+    }
+  );
 
   const [
     totalSupply,
@@ -95,16 +135,35 @@ export async function getGlowMarketCap(
     minerPoolAndGcaContractBalance,
     glowStakedOrLockedBalance,
     earlyLiquidityBalance,
+    endowmentBalance,
   ] = results;
+
+  const vaultBalanceWei = BigInt(
+    vaultBalanceResponse?.totalGlwDelegatedWei ?? "0"
+  );
+
+  const totalMinerClaimedGlow = BigInt(
+    totalMinerClaimedResponse?.data?.totalGlowPayouts?.totalGlowPayouts ?? "0"
+  );
+
+  const currentWeek = getCurrentWeekNumber();
+  const inflationToMinerPerWeek = 175_000;
+  const totalAllocatedToMiners =
+    BigInt(currentWeek * inflationToMinerPerWeek) * BigInt(1e18);
+  const yetToBeClaimedFromMiners =
+    totalAllocatedToMiners - totalMinerClaimedGlow;
 
   const circulatingSupply =
     totalSupply.result -
     carbonCreditAuctionBalance.result -
     grantsContractBalance.result -
     vetoCouncilContractBalance.result -
-    minerPoolAndGcaContractBalance.result -
+    minerPoolAndGcaContractBalance.result +
+    yetToBeClaimedFromMiners -
     glowStakedOrLockedBalance.result -
-    earlyLiquidityBalance.result;
+    earlyLiquidityBalance.result -
+    vaultBalanceWei -
+    endowmentBalance.result;
   const formattedTotalSupplyMinusRest = Number(
     formatUnits(circulatingSupply, 18)
   );

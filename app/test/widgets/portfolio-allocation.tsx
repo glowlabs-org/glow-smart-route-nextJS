@@ -135,7 +135,8 @@ export default function PortfolioAllocationWidget({
     shouldShowSkeleton,
     showEmptyState,
     allocationItems,
-    headlineStats,
+    glowPriceUsd,
+    marketCapUsd,
     ethPriceInUSD,
   } = useWalletPortfolio({ walletAddress });
 
@@ -339,7 +340,8 @@ export default function PortfolioAllocationWidget({
         <SwapDialog
           open={isSwapDialogOpen}
           onOpenChange={setIsSwapDialogOpen}
-          headlineStats={headlineStats}
+          glowPriceUsd={glowPriceUsd}
+          marketCapUsd={marketCapUsd}
           ethPriceInUSD={ethPriceInUSD}
         />
       </CardContent>

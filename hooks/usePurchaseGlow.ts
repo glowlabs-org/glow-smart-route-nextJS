@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { estimateGlowFromUSDG } from "@/utils/math/estimateGlowFromUSDG";
 import { formatEther, formatUnits, parseAbi, parseUnits } from "viem";
 import { getOptimalUSDGAmounts } from "@/utils/glowSmartBalancing";
+import { getAmountOut } from "@/utils/uniswapv2/getAmountOut";
 import { getReserves } from "@/utils/uniswapv2/getReserves";
 import { addresses } from "@/web3/constants/addresses";
 import { publicClient } from "@/web3/web3/clients/publicClient";
@@ -341,9 +342,11 @@ export function usePurchaseGlow() {
   async function getSmartBalancingAmounts({
     amountUsdgIn,
     earlyLiquidityCurrentPrice,
+    useEarlyLiquidity = true,
   }: {
     amountUsdgIn: number | string;
     earlyLiquidityCurrentPrice: number;
+    useEarlyLiquidity?: boolean;
   }): Promise<Result<SmartBalancingAmounts, string>> {
     let amountUsdgInNumber: number;
     try {
@@ -398,6 +401,34 @@ export function usePurchaseGlow() {
     const reservesUsdg = Number(formatUnits(reserveTokenA, 6));
 
     const reservesGlow = Number(formatUnits(reserveTokenB, 18));
+
+    if (!useEarlyLiquidity) {
+      const amountInUni = BigInt(
+        new Decimal(amountUsdgInNumber)
+          .mul(new Decimal(10).pow(6))
+          .toFixed(0, Decimal.ROUND_DOWN)
+      );
+      const amountOutRes = getAmountOut({
+        amountIn: amountInUni,
+        reserveIn: reserveTokenA,
+        reserveOut: reserveTokenB,
+      });
+      if (!amountOutRes.ok) return new Err(amountOutRes.val);
+
+      const amountOutUni = Number(formatUnits(amountOutRes.val, 18));
+      return new Ok({
+        amount_in_uni: amountInUni,
+        amount_in_glow_bonding_curve: BigInt(0),
+        amount_out_uni: amountOutUni.toFixed(4),
+        amount_out_glow: "0",
+        uniswapUSDGReserves: reservesUsdg,
+        uniswapGlowReserves: reservesGlow,
+        expectedEndingPriceEarlyLiquidity: 0,
+        expectedEndingPriceUniswap: reservesUsdg / reservesGlow,
+        earlyLiquidityCurrentPrice: earlyLiquidityCurrentPrice,
+        usdgToSpend: amountUsdgInNumber,
+      });
+    }
 
     const {
       amountUSDGToSpendInUniswap,

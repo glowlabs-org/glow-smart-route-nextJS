@@ -167,13 +167,24 @@ function formatPointsScaled6(pointsScaled6: bigint, maxFractionDigits = 2) {
 
 function getErrorMessage(error: unknown) {
   if (!error) return "Unknown error";
-  if (error instanceof Error) return error.message;
+  if (error instanceof Error) {
+    const message = error.message ?? "";
+    if (message.includes("0xe450d38c")) {
+      return "Insufficient balance to complete this transaction.";
+    }
+    return message;
+  }
   const possible: any = error;
-  return possible?.shortMessage ?? possible?.message ?? "Unknown error";
+  const shortMessage = possible?.shortMessage ?? possible?.message ?? "";
+  if (shortMessage.includes("0xe450d38c")) {
+    return "Insufficient balance to complete this transaction.";
+  }
+  return shortMessage || "Unknown error";
 }
 
 function toAtomic6(amount: number) {
-  return BigInt(new Decimal(amount).mul(1_000_000).ceil().toFixed(0));
+  if (!Number.isFinite(amount) || amount <= 0) return 0n;
+  return BigInt(new Decimal(amount).mul(1_000_000).floor().toFixed(0));
 }
 
 function toWholeNumberString(value: number) {
@@ -335,6 +346,7 @@ export function MintAndStakeGctlDialog({
         if (!HUB_URL || !address) return null;
         const url = new URL("/impact/glow-score", HUB_URL);
         url.searchParams.set("walletAddress", address.toLowerCase());
+        url.searchParams.set("includeWeekly", "0");
         const res = await fetch(url.toString());
         if (!res.ok) return null;
         const json = (await res.json()) as {
@@ -367,13 +379,18 @@ export function MintAndStakeGctlDialog({
   }, [walletDetails?.regions]);
 
   const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
-  const { checkTokenAllowance, approveToken, mintGCTLAndStake, isProcessing } =
-    useForwarder(
-      signer || undefined,
-      chainId,
-      publicClient,
-      walletClient ?? undefined
-    );
+  const {
+    checkTokenAllowance,
+    checkTokenBalance,
+    approveToken,
+    mintGCTLAndStake,
+    isProcessing,
+  } = useForwarder(
+    signer || undefined,
+    chainId,
+    publicClient,
+    walletClient ?? undefined
+  );
 
   const [selectedRegionId, setSelectedRegionId] = React.useState<number | null>(
     null
@@ -1307,6 +1324,19 @@ export function MintAndStakeGctlDialog({
         updateStakeStepStatus("SWAP_ETH_TO_USDC", "completed");
       }
 
+      if (amountAtomic <= 0n) {
+        throw new Error("Please enter a valid amount.");
+      }
+      if (selectedCurrency !== "ETH") {
+        const tokenBalance = await checkTokenBalance(
+          address as string,
+          mintCurrency
+        );
+        if (tokenBalance < amountAtomic) {
+          throw new Error("Insufficient balance to complete this transaction.");
+        }
+      }
+
       setIsApproving(true);
       updateStakeStepStatus("CHECK_ALLOWANCE", "confirming");
       const allowance = await checkTokenAllowance(
@@ -1406,6 +1436,7 @@ export function MintAndStakeGctlDialog({
     approveToken,
     chainId,
     checkTokenAllowance,
+    checkTokenBalance,
     estimatedGctl,
     handleStakeExisting,
     isConnected,
@@ -1805,17 +1836,24 @@ export function MintAndStakeGctlDialog({
                             onChange={(e) => {
                               const v = e.target.value;
                               if (!isValidDecimalInput(v)) return;
-                              setAmountInput(v);
+                              const decimals =
+                                selectedCurrency === "ETH"
+                                  ? ETH_DECIMALS
+                                  : selectedCurrency === "GCTL"
+                                  ? DECIMALS_BY_TOKEN.GCTL
+                                  : 6;
+                              const normalized = trimToDecimals(v, decimals);
+                              setAmountInput(normalized);
                               if (
                                 stakeMode === "stake" ||
                                 selectedCurrency !== "ETH"
                               )
                                 return;
-                              if (!v || Number(v) <= 0) {
+                              if (!normalized || Number(normalized) <= 0) {
                                 setEthUsdcQuoteWei(null);
                                 return;
                               }
-                              runEthUsdcQuote(v);
+                              runEthUsdcQuote(normalized);
                             }}
                             className="flex-1 border-0 bg-transparent p-0 text-2xl font-mono tabular-nums focus-visible:ring-0 placeholder:text-muted-foreground/30 h-auto"
                           />

@@ -10,7 +10,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog } from "@/components/ui/dialog";
+import { ImpactScoreBreakdownDialog } from "@/components/dialogs/impact-score-breakdown-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Drawer,
@@ -26,7 +26,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ImpactScoreBreakdownDialogContent } from "@/components/dialogs/impact-score-breakdown-dialog";
 import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
 import { MintAndStakeGctlDialog } from "@/components/dialogs/mint-and-stake-gctl-dialog";
@@ -223,7 +222,7 @@ export function RankWidget({
   const currentWeek = getCurrentEpoch();
 
   const impactScoreQuery = useQuery({
-    queryKey: ["impact-glow-score", walletAddress, currentWeek],
+    queryKey: ["impact-glow-score", walletAddress, currentWeek, "no-weekly"],
     enabled: Boolean(HUB_URL && hasWallet && isValidWalletAddress),
     staleTime: 60_000,
     gcTime: 10 * 60_000,
@@ -237,6 +236,7 @@ export function RankWidget({
           params: {
             walletAddress,
             endWeek: currentWeek,
+            includeWeekly: "0",
           },
         });
       } catch (error) {
@@ -592,20 +592,13 @@ export function RankWidget({
         </CardContent>
       </Card>
 
-      {/* --- BREAKDOWN MODAL --- */}
-      <Dialog
-        key={isBreakdownOpen ? "breakdown-open" : "breakdown-closed"}
+      <ImpactScoreBreakdownDialog
         open={isBreakdownOpen}
         onOpenChange={setIsBreakdownOpen}
-      >
-        {hasWallet && impactScore ? (
-          <ImpactScoreBreakdownDialogContent
-            impactScore={impactScore}
-            walletAddress={normalizedWalletAddress}
-            showCurrentWeekProjection
-          />
-        ) : null}
-      </Dialog>
+        walletAddress={normalizedWalletAddress}
+        weekRange={impactScore?.weekRange ?? null}
+        showCurrentWeekProjection
+      />
 
       <LaunchpadDialog
         key={isLaunchpadOpen ? "launchpad-open" : "launchpad-closed"}

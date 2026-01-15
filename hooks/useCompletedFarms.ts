@@ -35,8 +35,7 @@ interface UseCompletedFarmsParams {
   enabled?: boolean;
 }
 
-const COMPLETED_FARMS_URL =
-  "https://gca-crm-backend-production-1f2a.up.railway.app/applications/completed";
+const COMPLETED_FARMS_URL = `${process.env.NEXT_PUBLIC_HUB_URL}/applications/completed/summary`;
 
 export function useCompletedFarms(params: UseCompletedFarmsParams = {}) {
   const { enabled = true } = params;

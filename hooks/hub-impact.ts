@@ -33,7 +33,10 @@ export interface ImpactGlowScoreLeaderboardRow {
 export interface ImpactGlowScoreLeaderboardResponse {
   weekRange: ImpactWeekRange;
   limit: number;
-  wallets: (ImpactGlowScoreLeaderboardRow | { isSystemRow: true; globalRegionTotals?: Record<string, string> })[];
+  wallets: (
+    | ImpactGlowScoreLeaderboardRow
+    | { isSystemRow: true; globalRegionTotals?: Record<string, string> }
+  )[];
   totalWalletCount?: number;
 }
 
@@ -180,6 +183,7 @@ export interface UseImpactScoreQueryArgs {
   weekRange: ImpactWeekRange | null | undefined;
   enabled?: boolean;
   toastTitle?: string;
+  includeWeekly?: boolean;
 }
 
 export function useImpactScoreQuery(args: UseImpactScoreQueryArgs) {
@@ -188,12 +192,16 @@ export function useImpactScoreQuery(args: UseImpactScoreQueryArgs) {
     weekRange,
     enabled = true,
     toastTitle = "Failed to load Impact Score",
+    includeWeekly = false,
   } = args;
 
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
 
   return useQuery({
-    queryKey: getImpactScoreQueryKey({ walletAddress, weekRange }),
+    queryKey: [
+      ...getImpactScoreQueryKey({ walletAddress, weekRange }),
+      includeWeekly ? "weekly" : "no-weekly",
+    ],
     enabled: Boolean(enabled && normalizedWalletAddress && weekRange),
     staleTime: 60_000,
     retry: 0,
@@ -207,6 +215,7 @@ export function useImpactScoreQuery(args: UseImpactScoreQueryArgs) {
             walletAddress: normalizedWalletAddress,
             startWeek: weekRange.startWeek,
             endWeek: weekRange.endWeek,
+            includeWeekly: includeWeekly ? "1" : "0",
           },
         });
       } catch (error) {

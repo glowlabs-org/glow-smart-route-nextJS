@@ -113,13 +113,17 @@ function computeAllocations(params: {
   return { totalUsd, items: withPercent };
 }
 
-export function useWalletPortfolio(params: { walletAddress?: string | null }) {
+export function useWalletPortfolio(params: {
+  walletAddress?: string | null;
+  includeWeeklyHistory?: boolean;
+}) {
   const walletAddress = params.walletAddress ?? null;
+  const includeWeeklyHistory = params.includeWeeklyHistory ?? false;
   const { isConnecting, isReconnecting } = useAccount();
   const hasWallet = Boolean(walletAddress);
   const isWalletConnecting = isConnecting || isReconnecting;
 
-  const { headlineStats, ethPriceInUSD } = useSwapDialogData({
+  const { ethPriceInUSD } = useSwapDialogData({
     enabled: hasWallet,
   });
 
@@ -174,6 +178,7 @@ export function useWalletPortfolio(params: { walletAddress?: string | null }) {
     weekRange,
     enabled: hasWallet,
     toastTitle: "Failed to load Glow Worth history",
+    includeWeekly: includeWeeklyHistory,
   });
 
   const liquidGlw = React.useMemo(
@@ -271,7 +276,9 @@ export function useWalletPortfolio(params: { walletAddress?: string | null }) {
       if (!row) continue;
 
       const inflation = parseGlwFromWei(row.inflationGlwWei);
-      const protocolDeposit = parseGlwFromWei(row.protocolDepositRecoveredGlwWei);
+      const protocolDeposit = parseGlwFromWei(
+        row.protocolDepositRecoveredGlwWei
+      );
       const totalEarnings = inflation + protocolDeposit;
 
       if (totalEarnings > 0) return totalEarnings;
@@ -283,7 +290,20 @@ export function useWalletPortfolio(params: { walletAddress?: string | null }) {
   const chartData = React.useMemo<GlowWorthPoint[]>(() => {
     if (!hasWallet) return MOCK_CHART_DATA as GlowWorthPoint[];
     const weekly = impactScore?.weekly ?? [];
-    if (weekly.length === 0) return [];
+    if (weekly.length === 0) {
+      const currentWeek = getCurrentWeekNumber();
+      const currentGlw = parseGlwFromWei(impactGlowWorth?.glowWorthWei);
+      return [
+        {
+          glw: currentGlw,
+          week: currentWeek,
+          isCurrent: true,
+          liquidGlw: impactLiquidGlw,
+          delegatedActiveGlw: impactDelegatedActiveGlw,
+          unclaimedGlwRewards: impactUnclaimedGlwRewards,
+        },
+      ];
+    }
 
     return weekly.map((row, idx) => {
       const isCurrent = idx === weekly.length - 1;
@@ -371,7 +391,6 @@ export function useWalletPortfolio(params: { walletAddress?: string | null }) {
     showEmptyState,
     hasWorthDataError,
 
-    headlineStats,
     ethPriceInUSD: ethPriceInUSD ?? null,
     glowPriceUsd: Number.isFinite(glowPrice) ? glowPrice : 0,
     marketCapUsd: Number.isFinite(marketCap) ? marketCap : 0,

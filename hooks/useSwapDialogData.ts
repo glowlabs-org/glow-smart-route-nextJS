@@ -1,11 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useChainId } from "wagmi";
-import { getHeadlineStats } from "@/web3/web3/queries/getHeadlineStats";
 import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
-
-export type HeadlineStats = Awaited<ReturnType<typeof getHeadlineStats>>;
 
 interface UseSwapDialogDataOptions {
   enabled?: boolean;
@@ -13,15 +9,6 @@ interface UseSwapDialogDataOptions {
 
 export function useSwapDialogData(options?: UseSwapDialogDataOptions) {
   const { enabled = true } = options ?? {};
-  const chainId = useChainId();
-
-  const headlineStatsQuery = useQuery({
-    queryKey: ["headline-stats", chainId] as const,
-    queryFn: getHeadlineStats,
-    enabled,
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
 
   const ethPriceQuery = useQuery({
     queryKey: ["eth-price"],
@@ -32,17 +19,11 @@ export function useSwapDialogData(options?: UseSwapDialogDataOptions) {
   });
 
   return {
-    headlineStats: headlineStatsQuery.data,
     ethPriceInUSD: ethPriceQuery.data ?? null,
-
-    isHeadlineStatsLoading: headlineStatsQuery.isLoading,
     isEthPriceLoading: ethPriceQuery.isLoading,
-    isLoading: headlineStatsQuery.isLoading || ethPriceQuery.isLoading,
+    isLoading: ethPriceQuery.isLoading,
 
-    headlineStatsError: headlineStatsQuery.error,
     ethPriceError: ethPriceQuery.error,
-
-    refetchHeadlineStats: headlineStatsQuery.refetch,
     refetchEthPrice: ethPriceQuery.refetch,
   };
 }

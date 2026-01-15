@@ -128,6 +128,7 @@ export const QUERY_KEYS = {
         ? (["glow-spot-price", refreshKey] as const)
         : (["glow-spot-price"] as const),
     headline: (chainId?: number) => ["headline-stats", chainId] as const,
+    marketCap: () => ["glow-market-cap"] as const,
   },
   unclaimed: {
     all: ["unclaimed-glw-rewards"] as const,

@@ -19,17 +19,13 @@ import { formatUnits } from "viem";
 
 export default function View({
   glowPrice,
-  earlyLiquidityCurrentPrice,
   marketCap,
   ethPriceInUSD,
-  usdcRewardPool,
   isDialog = false, // Kept for backward compatibility if needed, though likely unused now
 }: {
   glowPrice: string;
-  earlyLiquidityCurrentPrice: string;
   marketCap: string;
   ethPriceInUSD: number | null;
-  usdcRewardPool: string;
   isDialog?: boolean;
 }) {
   const router = useRouter();
@@ -107,10 +103,8 @@ export default function View({
             <TabsContent value="swap">
               <SwapInterface
                 glowPrice={glowPrice}
-                earlyLiquidityCurrentPrice={earlyLiquidityCurrentPrice}
                 marketCap={marketCap}
                 ethPriceInUSD={ethPriceInUSD}
-                usdcRewardPool={usdcRewardPool}
                 isDialog={isDialog}
               />
             </TabsContent>

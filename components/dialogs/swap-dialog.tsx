@@ -2,7 +2,6 @@
 
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useChainId } from "wagmi";
 import {
   Dialog,
   DialogContent,
@@ -10,39 +9,41 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SwapInterface } from "@/app/buy/swap-interface";
-import { getHeadlineStats } from "@/web3/web3/queries/getHeadlineStats";
 import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import type { HeadlineStats } from "@/hooks/useSwapDialogData";
+import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
 
 interface SwapDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  headlineStats?: HeadlineStats;
+  glowPriceUsd?: number;
+  marketCapUsd?: number;
   ethPriceInUSD?: number | null;
 }
 
 export function SwapDialog({
   open,
   onOpenChange,
-  headlineStats,
+  glowPriceUsd,
+  marketCapUsd,
   ethPriceInUSD,
 }: SwapDialogProps) {
-  const chainId = useChainId();
-  const shouldFetchInternally = open && !headlineStats;
+  const shouldFetchMarketData =
+    open &&
+    (!Number.isFinite(glowPriceUsd ?? NaN) ||
+      (glowPriceUsd ?? 0) <= 0 ||
+      !Number.isFinite(marketCapUsd ?? NaN) ||
+      (marketCapUsd ?? 0) <= 0);
 
   const {
-    data: fetchedStats,
-    isLoading: isStatsLoading,
-    isError: isStatsError,
-    refetch: refetchStats,
-  } = useQuery({
-    queryKey: ["headline-stats", chainId] as const,
-    queryFn: getHeadlineStats,
-    enabled: shouldFetchInternally,
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
+    glowPrice,
+    marketCap,
+    isLoading: isMarketLoading,
+    error: marketError,
+    refetchMarketCap,
+  } = useGlowCirculatingSupply({
+    enabled: shouldFetchMarketData,
   });
 
   const {
@@ -53,16 +54,31 @@ export function SwapDialog({
   } = useQuery({
     queryKey: ["eth-price"],
     queryFn: getEthPriceInUSD,
-    enabled: shouldFetchInternally && ethPriceInUSD === undefined,
+    enabled: open && ethPriceInUSD === undefined,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
 
-  const resolvedStats = headlineStats ?? fetchedStats;
+  const resolvedGlowPrice =
+    Number.isFinite(glowPriceUsd ?? NaN) && (glowPriceUsd ?? 0) > 0
+      ? (glowPriceUsd as number)
+      : glowPrice;
+  const resolvedMarketCap =
+    Number.isFinite(marketCapUsd ?? NaN) && (marketCapUsd ?? 0) > 0
+      ? (marketCapUsd as number)
+      : marketCap;
   const resolvedEthPrice = ethPriceInUSD ?? fetchedEthPrice ?? null;
 
-  const isLoading = !resolvedStats && isStatsLoading;
-  const hasError = !resolvedStats && (isStatsError || isEthPriceError);
+  const hasMarketData =
+    Number.isFinite(resolvedGlowPrice) &&
+    resolvedGlowPrice > 0 &&
+    Number.isFinite(resolvedMarketCap) &&
+    resolvedMarketCap > 0;
+  const isLoading = !hasMarketData && isMarketLoading;
+  const hasError =
+    !hasMarketData &&
+    !isMarketLoading &&
+    (isEthPriceError || Boolean(marketError));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -80,26 +96,24 @@ export function SwapDialog({
               <Button
                 size="sm"
                 variant="outline"
-                disabled={isStatsLoading || isEthPriceLoading}
+                disabled={isMarketLoading || isEthPriceLoading}
                 onClick={async () => {
-                  await Promise.all([refetchStats(), refetchEthPrice()]);
+                  await Promise.all([refetchMarketCap(), refetchEthPrice()]);
                 }}
               >
                 Retry
               </Button>
             </div>
-          ) : isLoading || !resolvedStats ? (
+          ) : isLoading || !hasMarketData ? (
             <div className="space-y-4">
               <Skeleton className="h-[400px] w-full rounded-2xl" />
             </div>
           ) : (
             <SwapInterface
               isDialog
-              glowPrice={resolvedStats.lowestGlowPrice.toString()}
-              earlyLiquidityCurrentPrice={resolvedStats.earlyLiquidityPrice.toString()}
-              marketCap={resolvedStats.marketCap.toString()}
+              glowPrice={resolvedGlowPrice.toString()}
+              marketCap={resolvedMarketCap.toString()}
               ethPriceInUSD={resolvedEthPrice}
-              usdcRewardPool={resolvedStats.usdcRewardPool}
             />
           )}
         </div>

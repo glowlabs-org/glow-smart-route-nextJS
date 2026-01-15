@@ -257,7 +257,7 @@ export default function NetWorthWidget({
     weeklyAccumulatedGlw,
     chartData,
     yDomain,
-  } = useWalletPortfolio({ walletAddress });
+  } = useWalletPortfolio({ walletAddress, includeWeeklyHistory: true });
 
   const monthTicks = React.useMemo(() => {
     const ticks: number[] = [];

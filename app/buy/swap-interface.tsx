@@ -71,6 +71,8 @@ const defaultTokensEstimate = {
   ETH: "",
 };
 
+const GLOW_PRICE_HARD_CAP = 3.9794;
+
 const swapTokens = {
   USDC: tokens.USDC,
   USDG: tokens.USDG,
@@ -113,17 +115,13 @@ function formatEthMaxFromWei(valueWei: bigint) {
 
 export function SwapInterface({
   glowPrice,
-  earlyLiquidityCurrentPrice,
   marketCap,
   ethPriceInUSD,
-  usdcRewardPool,
   isDialog = false,
 }: {
   glowPrice: string;
-  earlyLiquidityCurrentPrice: string;
   marketCap: string;
   ethPriceInUSD: number | null;
-  usdcRewardPool: string;
   isDialog?: boolean;
 }) {
   const [estimatedOutputAmount, setEstimatedOutputAmount] = useState<
@@ -315,6 +313,33 @@ export function SwapInterface({
 
   const currentTokenEstimatedOutputAmount =
     estimatedOutputAmount[selectedTokenBuy.label];
+  const isEstimateLoading =
+    estimateQueueAmount !== 0 && amountToSell ? true : false;
+  const pricePerGlow =
+    !isEstimateLoading &&
+    (selectedTokenSell.label === "USDC" ||
+      selectedTokenSell.label === "USDG") &&
+    selectedTokenBuy.label === "GLOW"
+      ? (() => {
+          const usdIn = Number(amountToSell);
+          const glowOut = Number(currentTokenEstimatedOutputAmount);
+          if (!Number.isFinite(usdIn) || !Number.isFinite(glowOut)) return null;
+          if (usdIn <= 0 || glowOut <= 0) return null;
+          return usdIn / glowOut;
+        })()
+      : null;
+  const exceedsGlowPriceCap =
+    pricePerGlow !== null && pricePerGlow > GLOW_PRICE_HARD_CAP;
+  const isGlowPriceHardCapped =
+    selectedTokenBuy.label === "GLOW" &&
+    (Number(glowPrice) >= GLOW_PRICE_HARD_CAP || exceedsGlowPriceCap);
+  const glowLiquidityDisabledMessage =
+    exceedsGlowPriceCap && pricePerGlow !== null
+      ? `$${toFixedTruncate(
+          pricePerGlow,
+          6
+        )} per GLW would require Early Liquidity, which is disabled right now.`
+      : null;
 
   function handleResponseMessage(data: Result<boolean, string>) {
     if (data.ok) {
@@ -355,6 +380,12 @@ export function SwapInterface({
   }
 
   function computeButtonProps() {
+    if (isGlowPriceHardCapped) {
+      return {
+        label: "Early liquidity disabled",
+        disabled: true,
+      };
+    }
     if (hasNetworkIssues) {
       return {
         label: `Reconnect Wallet`,
@@ -867,7 +898,8 @@ export function SwapInterface({
         const usdgEquivalent = formatUnits(ethQuoteRes.val.amountOutUsdc, 6);
         const smartBalancingAmountsRes = await getSmartBalancingAmounts({
           amountUsdgIn: usdgEquivalent,
-          earlyLiquidityCurrentPrice: Number(earlyLiquidityCurrentPrice),
+          earlyLiquidityCurrentPrice: Number(glowPrice),
+          useEarlyLiquidity: false,
         });
         if (!smartBalancingAmountsRes.ok) {
           console.error(smartBalancingAmountsRes.val);
@@ -1022,7 +1054,8 @@ export function SwapInterface({
         });
         const smartBalancingAmountsRes = await getSmartBalancingAmounts({
           amountUsdgIn: Number(amountStr),
-          earlyLiquidityCurrentPrice: Number(earlyLiquidityCurrentPrice),
+          earlyLiquidityCurrentPrice: Number(glowPrice),
+          useEarlyLiquidity: false,
         });
         if (!smartBalancingAmountsRes.ok) {
           console.error(smartBalancingAmountsRes.val);
@@ -1395,9 +1428,6 @@ export function SwapInterface({
     fetchUsdcInRedemption();
   }, [isConnected, isWalletLoading]);
 
-  const isEstimateLoading =
-    estimateQueueAmount !== 0 && amountToSell ? true : false;
-
   useEffect(() => {
     async function estimate() {
       if (!usdgWithdrawAmount || Number(usdgWithdrawAmount) <= 0) {
@@ -1651,6 +1681,12 @@ export function SwapInterface({
                     disabled={!isConnected || isWalletLoading}
                     readOnly
                   />
+                )}
+                {pricePerGlow !== null && !isEstimateLoading && (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    {glowLiquidityDisabledMessage ??
+                      `$${toFixedTruncate(pricePerGlow, 6)} per GLW`}
+                  </div>
                 )}
               </div>
               <Select

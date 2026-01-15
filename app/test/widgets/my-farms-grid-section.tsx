@@ -64,7 +64,7 @@ import {
   useMiningScore,
 } from "@/hooks";
 import { useQuery } from "@tanstack/react-query";
-import { getFarmsRouter } from "@/lib/api/control-routers";
+import { getRegionRouter } from "@/lib/api/control-routers";
 import type { SponsoredFarm } from "@glowlabs-org/utils/browser";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import {
@@ -1103,22 +1103,37 @@ export default function MyFarmsGridSection({
     enabled: hasWallet,
   });
 
+  const { regions, isRegionsLoading } = useRegions();
+
   const otherFarmIds = React.useMemo(() => {
     return (
       rewardsBreakdown?.otherFarmsWithRewards?.farms?.map((f) => f.farmId) ?? []
     );
   }, [rewardsBreakdown]);
 
+  const shouldFetchSponsoredFarms =
+    hasWallet && otherFarmIds.length > 0 && regions.length > 0;
+
   const { data: allSponsoredFarms, isLoading: isSponsoredFarmsLoading } =
     useQuery<SponsoredFarm[]>({
-      queryKey: ["sponsored-farms-for-other"],
-      enabled: hasWallet && otherFarmIds.length > 0,
+      queryKey: [
+        "sponsored-farms-for-other",
+        regions.map((region) => region.id).join(","),
+      ],
+      enabled: shouldFetchSponsoredFarms,
       staleTime: 5 * 60_000,
       queryFn: async () => {
         try {
-          return await (getFarmsRouter() as any).fetchSponsoredFarms();
-        } catch (error) {
-          console.error("Error fetching sponsored farms:", error);
+          const regionIds = regions
+            .map((region) => region.id)
+            .filter((id) => Number.isFinite(id));
+          const sponsoredFarmsByRegion = await Promise.all(
+            regionIds.map((regionId) =>
+              getRegionRouter().fetchRegionSolarFarms(regionId)
+            )
+          );
+          return sponsoredFarmsByRegion.flat();
+        } catch {
           return [];
         }
       },
@@ -1135,7 +1150,6 @@ export default function MyFarmsGridSection({
     return map;
   }, [allSponsoredFarms, otherFarmIds]);
 
-  const { regions, isRegionsLoading } = useRegions();
   const { spotPrice: glwSpotPriceUsd, isLoading: isSpotPriceLoading } =
     useGlowSpotPrice();
 

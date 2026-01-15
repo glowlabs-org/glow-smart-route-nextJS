@@ -183,7 +183,7 @@ export default function WeeklyActivityWidget({
     Boolean(walletAddress) && isAddress(walletAddress as string);
 
   const impactScoreQuery = useQuery({
-    queryKey: ["impact-glow-score", walletAddress],
+    queryKey: ["impact-glow-score", walletAddress, "no-weekly"],
     enabled: Boolean(HUB_URL && hasWallet && isValidWalletAddress),
     staleTime: 60_000,
     gcTime: 10 * 60_000,
@@ -193,7 +193,7 @@ export default function WeeklyActivityWidget({
       if (!HUB_URL) throw new Error("NEXT_PUBLIC_HUB_URL is not set");
       if (!walletAddress) throw new Error("Missing wallet address");
       return await hubGet<ImpactGlowScoreResponse>("/impact/glow-score", {
-        params: { walletAddress },
+        params: { walletAddress, includeWeekly: "0" },
       });
     },
   });
@@ -201,14 +201,12 @@ export default function WeeklyActivityWidget({
   const currentMultiplier = React.useMemo(() => {
     const impactScore = impactScoreQuery.data;
 
-    if (impactScore?.weekly?.length) {
-      const latestWeek = impactScore.weekly[impactScore.weekly.length - 1];
-      const hasCashMinerBonus = latestWeek?.hasCashMinerBonus ?? false;
-      const streakBonusMultiplier = latestWeek?.streakBonusMultiplier ?? 0;
-
+    const projection = impactScore?.currentWeekProjection ?? null;
+    if (projection) {
+      const hasCashMinerBonus = projection.hasMinerMultiplier;
+      const streakBonusMultiplier = projection.streakBonusMultiplier ?? 0;
       const baseMultiplier = hasCashMinerBonus ? 3 : 1;
       const totalMultiplier = baseMultiplier + streakBonusMultiplier;
-
       return {
         base: baseMultiplier,
         streakBonus: streakBonusMultiplier,
