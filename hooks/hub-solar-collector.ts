@@ -50,6 +50,11 @@ interface SolarCollectorStatsResponse {
       }
     >;
   }>;
+  weeklyPowerHistory: Array<{
+    weekNumber: number;
+    regionId: number;
+    userPower: number;
+  }>;
 }
 
 // UI-friendly model
@@ -86,6 +91,7 @@ export interface SolarCollectorModel {
     homesPowered: number;
   };
   weeklyHistory: SolarCollectorStatsResponse["weeklyHistory"];
+  weeklyPowerHistory: SolarCollectorStatsResponse["weeklyPowerHistory"];
   wattsByRegion: Record<number, number>;
 }
 
@@ -124,12 +130,16 @@ function calculateImpact(totalWatts: number) {
 
   // 3. Metric: Homes Powered
   // Formula: averageContinuousPower(kW) / homeConsumption(kW)
-  const homesPowered = Math.round((avgContinuousPowerKw / US_HOME_KW_CONTINUOUS) * 10) / 10;
+  const homesPowered =
+    Math.round((avgContinuousPowerKw / US_HOME_KW_CONTINUOUS) * 10) / 10;
 
   // 4. Metric: Trees Equivalent
   // Formula: annualTonnesCO2 / 0.022
-  const annualTonnesCO2 = annualEnergyMwh * LB_CO2_PER_MWH_FALLBACK * LB_TO_TONNES;
-  const treesEquivalent = Math.round(annualTonnesCO2 / TONNES_CO2_PER_YEAR_PER_TREE);
+  const annualTonnesCO2 =
+    annualEnergyMwh * LB_CO2_PER_MWH_FALLBACK * LB_TO_TONNES;
+  const treesEquivalent = Math.round(
+    annualTonnesCO2 / TONNES_CO2_PER_YEAR_PER_TREE
+  );
 
   return { annualEnergyKwh, treesEquivalent, homesPowered };
 }
@@ -186,6 +196,7 @@ export function useSolarCollectorQuery(args: {
         recentDrop: null,
         impact: { annualEnergyKwh: 0, treesEquivalent: 0, homesPowered: 0 },
         weeklyHistory: [],
+        weeklyPowerHistory: [],
         wattsByRegion: {},
       };
     }
@@ -209,6 +220,7 @@ export function useSolarCollectorQuery(args: {
         recentDrop: null,
         impact: { annualEnergyKwh: 0, treesEquivalent: 0, homesPowered: 0 },
         weeklyHistory: [],
+        weeklyPowerHistory: [],
         wattsByRegion: {},
       };
     }
@@ -258,6 +270,7 @@ export function useSolarCollectorQuery(args: {
       recentDrop,
       impact,
       weeklyHistory: data.weeklyHistory,
+      weeklyPowerHistory: data.weeklyPowerHistory,
       wattsByRegion: data.wattsByRegion,
     };
   })();

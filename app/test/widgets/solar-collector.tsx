@@ -17,13 +17,12 @@ import {
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   Cell,
-  Line,
-  LineChart,
   Pie,
   PieChart,
-  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
@@ -383,31 +382,47 @@ export default function SolarCollectorWidget({
     }));
   }, [model.weeklyHistory]);
 
-  const shareTrendData = React.useMemo(() => {
-    // Get unique regions across history
+  const impactPowerTrendData = React.useMemo(() => {
     const allRids = new Set<number>();
-    model.weeklyHistory.forEach((item) => {
-      Object.keys(item.regionalShare).forEach((rid) =>
-        allRids.add(Number(rid))
-      );
+    const rowsByWeek = new Map<number, Record<string, number | Date>>();
+
+    model.weeklyPowerHistory.forEach((item) => {
+      allRids.add(item.regionId);
+      if (!rowsByWeek.has(item.weekNumber)) {
+        rowsByWeek.set(item.weekNumber, {
+          week: item.weekNumber,
+          date: weekToDate(item.weekNumber),
+        });
+      }
+      rowsByWeek.get(item.weekNumber)![`region${item.regionId}`] =
+        item.userPower;
     });
 
-    return model.weeklyHistory.map((item) => {
-      const row: any = {
-        week: item.weekNumber,
-        date: weekToDate(item.weekNumber),
-      };
+    const sortedWeeks = Array.from(rowsByWeek.keys()).sort((a, b) => a - b);
+    return sortedWeeks.map((week) => {
+      const row = rowsByWeek.get(week)!;
       Array.from(allRids).forEach((rid) => {
-        row[`region${rid}`] = item.regionalShare[rid]?.sharePercent || 0;
+        if (row[`region${rid}`] == null) row[`region${rid}`] = 0;
       });
       return row;
     });
-  }, [model.weeklyHistory]);
+  }, [model.weeklyPowerHistory]);
 
   const maxGrowthWatts = React.useMemo(() => {
     if (!growthData.length) return 0;
     return Math.max(...growthData.map((d) => d.watts));
   }, [growthData]);
+
+  const maxImpactPower = React.useMemo(() => {
+    if (!impactPowerTrendData.length) return 0;
+    return Math.max(
+      ...impactPowerTrendData.flatMap((row) =>
+        Object.keys(row)
+          .filter((key) => key.startsWith("region"))
+          .map((key) => Number(row[key] ?? 0))
+      )
+    );
+  }, [impactPowerTrendData]);
 
   const growthYAxisFormatter = React.useCallback(
     (value: number) => {
@@ -419,22 +434,31 @@ export default function SolarCollectorWidget({
     [maxGrowthWatts]
   );
 
+  const impactPowerYAxisFormatter = React.useCallback(
+    (value: number) => {
+      if (value === 0) return "0";
+      if (maxImpactPower >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+      if (maxImpactPower >= 1000) return `${(value / 1000).toFixed(1)}k`;
+      return value.toFixed(0);
+    },
+    [maxImpactPower]
+  );
+
   const recentDropRegionLabel = model.recentDrop
     ? getRegionLabel(model.recentDrop.regionId, regions)
     : "";
 
   const hasSignificantInfluence = React.useMemo(() => {
-    if (!shareTrendData.length) return false;
-    // Check if any region in any week has >= 1% share
-    return shareTrendData.some((row) =>
+    if (!impactPowerTrendData.length) return false;
+    return impactPowerTrendData.some((row) =>
       Object.keys(row).some((key) => {
         if (key.startsWith("region")) {
-          return (row[key] as number) >= 1;
+          return (row[key] as number) > 0;
         }
         return false;
       })
     );
-  }, [shareTrendData]);
+  }, [impactPowerTrendData]);
 
   const handleShare = async () => {
     const APP_DOMAIN_PLAIN_TEXT = "app.\u200Bglow.\u200Borg";
@@ -971,21 +995,21 @@ export default function SolarCollectorWidget({
                 </ChartContainer>
               </div>
 
-              {/* 3. Network Share Trend (Line) */}
+              {/* 3. Regional Impact Power (Stacked Bar) */}
               {hasSignificantInfluence && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <Activity className="h-4 w-4 text-muted-foreground" />
                     <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
-                      Regional Influence (%)
+                      Regional Impact Power
                     </div>
                   </div>
                   <ChartContainer
                     config={chartConfig}
                     className="h-[200px] w-full aspect-auto"
                   >
-                    <LineChart
-                      data={shareTrendData}
+                    <BarChart
+                      data={impactPowerTrendData}
                       margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
                     >
                       <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -1005,7 +1029,7 @@ export default function SolarCollectorWidget({
                         tickLine={false}
                         axisLine={false}
                         tickMargin={8}
-                        tickFormatter={(value) => `${value}%`}
+                        tickFormatter={impactPowerYAxisFormatter}
                       />
                       <ChartTooltip
                         content={
@@ -1018,8 +1042,8 @@ export default function SolarCollectorWidget({
                               return (
                                 <div className="flex items-center gap-1.5">
                                   <span className="font-mono font-medium tabular-nums text-foreground">
-                                    {regionCode ? `${regionCode} ` : ""}
-                                    {Number(value).toFixed(2)}%
+                                    {regionCode ? `${regionCode} ` : ""}Impact{" "}
+                                    {Number(value).toLocaleString()}
                                   </span>
                                 </div>
                               );
@@ -1039,18 +1063,16 @@ export default function SolarCollectorWidget({
                         }
                       />
                       {Object.keys(regionColors).map((rid) => (
-                        <Line
+                        <Bar
                           key={rid}
-                          type="monotone"
                           dataKey={`region${rid}`}
                           name={`region${rid}`}
-                          stroke={regionColors[Number(rid)]}
-                          strokeWidth={2}
-                          dot={{ r: 3 }}
-                          activeDot={{ r: 5 }}
+                          fill={regionColors[Number(rid)]}
+                          stackId="impactPower"
+                          radius={[2, 2, 0, 0]}
                         />
                       ))}
-                    </LineChart>
+                    </BarChart>
                   </ChartContainer>
                 </div>
               )}
