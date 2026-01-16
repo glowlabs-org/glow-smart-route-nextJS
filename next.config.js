@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "recharts",
+      "@radix-ui/react-icons",
+      "framer-motion",
+    ],
+  },
   eslint: {
     // Next's ESLint rules have been crashing on route handlers in CI/Vercel.
     // Keep `pnpm lint` for local usage; don't fail production builds on linter runtime errors.

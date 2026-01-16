@@ -67,6 +67,100 @@ interface HistoryDataPoint {
   total: number;
 }
 
+// Static placeholder data hoisted to module scope to avoid recreation on every render
+const PLACEHOLDER_HISTORY_DATA: HistoryDataPoint[] = [
+  {
+    weekNumber: 1,
+    week: "Wk 1",
+    minerReward: 1200,
+    delegationReward: 800,
+    otherReward: 250,
+    protocolDepositUsd: 125,
+    total: 2250,
+  },
+  {
+    weekNumber: 2,
+    week: "Wk 2",
+    minerReward: 900,
+    delegationReward: 1000,
+    otherReward: 200,
+    protocolDepositUsd: 80,
+    total: 2100,
+  },
+  {
+    weekNumber: 3,
+    week: "Wk 3",
+    minerReward: 1400,
+    delegationReward: 700,
+    otherReward: 300,
+    protocolDepositUsd: 140,
+    total: 2400,
+  },
+  {
+    weekNumber: 4,
+    week: "Wk 4",
+    minerReward: 800,
+    delegationReward: 900,
+    otherReward: 150,
+    protocolDepositUsd: 60,
+    total: 1850,
+  },
+  {
+    weekNumber: 5,
+    week: "Wk 5",
+    minerReward: 1500,
+    delegationReward: 1100,
+    otherReward: 400,
+    protocolDepositUsd: 160,
+    total: 3000,
+  },
+  {
+    weekNumber: 6,
+    week: "Wk 6",
+    minerReward: 1100,
+    delegationReward: 950,
+    otherReward: 225,
+    protocolDepositUsd: 95,
+    total: 2275,
+  },
+  {
+    weekNumber: 7,
+    week: "Wk 7",
+    minerReward: 1300,
+    delegationReward: 900,
+    otherReward: 275,
+    protocolDepositUsd: 110,
+    total: 2475,
+  },
+  {
+    weekNumber: 8,
+    week: "Wk 8",
+    minerReward: 1000,
+    delegationReward: 850,
+    otherReward: 180,
+    protocolDepositUsd: 75,
+    total: 2030,
+  },
+  {
+    weekNumber: 9,
+    week: "Wk 9",
+    minerReward: 1600,
+    delegationReward: 900,
+    otherReward: 420,
+    protocolDepositUsd: 190,
+    total: 2920,
+  },
+  {
+    weekNumber: 10,
+    week: "Wk 10",
+    minerReward: 1250,
+    delegationReward: 1050,
+    otherReward: 260,
+    protocolDepositUsd: 105,
+    total: 2560,
+  },
+];
+
 function formatGlwCompact(value: number) {
   if (!Number.isFinite(value)) return "—";
   return value.toLocaleString("en-US", {
@@ -754,26 +848,40 @@ export default function SolarFarmWidget({
 
     return Array.from(byFarm.values()).map((item) => {
       const farmData = purchasedFarms.find((f) => f.farmId === item.farmId);
-      
+
       let estimatedUserWeeklyGlw: number | undefined = undefined;
       if (farmData?.userWeeklyRewards) {
         // Use source-specific breakdown if available (prevents double-counting for farms with both delegation + miner)
         const isMiningCenter = item.fractionType === "mining-center";
-        
-        if (isMiningCenter && farmData.userWeeklyRewards.glwInflationRewardsFromMiner) {
+
+        if (
+          isMiningCenter &&
+          farmData.userWeeklyRewards.glwInflationRewardsFromMiner
+        ) {
           // Miner: only inflation from mining-center splits (no PD recovery)
-          estimatedUserWeeklyGlw = parseGlwFromWei(farmData.userWeeklyRewards.glwInflationRewardsFromMiner);
-        } else if (!isMiningCenter && farmData.userWeeklyRewards.glwInflationRewardsFromDelegation) {
+          estimatedUserWeeklyGlw = parseGlwFromWei(
+            farmData.userWeeklyRewards.glwInflationRewardsFromMiner
+          );
+        } else if (
+          !isMiningCenter &&
+          farmData.userWeeklyRewards.glwInflationRewardsFromDelegation
+        ) {
           // Delegation: inflation from delegation splits + PD recovery
-          const delegationInflationGlw = parseGlwFromWei(farmData.userWeeklyRewards.glwInflationRewardsFromDelegation);
-          const pdGlw = parseGlwFromWei(farmData.userWeeklyRewards.protocolDepositRewards);
+          const delegationInflationGlw = parseGlwFromWei(
+            farmData.userWeeklyRewards.glwInflationRewardsFromDelegation
+          );
+          const pdGlw = parseGlwFromWei(
+            farmData.userWeeklyRewards.protocolDepositRewards
+          );
           estimatedUserWeeklyGlw = delegationInflationGlw + pdGlw;
         } else {
           // Fallback for old API response (no breakdown fields)
-          const inflationGlw = parseGlwFromWei(farmData.userWeeklyRewards.glwInflationRewards);
+          const inflationGlw = parseGlwFromWei(
+            farmData.userWeeklyRewards.glwInflationRewards
+          );
           const pdAsset = farmData.userWeeklyRewards.protocolDepositAsset;
           const isPdGlw = pdAsset === "GLW";
-          const pdGlw = isPdGlw 
+          const pdGlw = isPdGlw
             ? parseGlwFromWei(farmData.userWeeklyRewards.protocolDepositRewards)
             : 0;
           estimatedUserWeeklyGlw = inflationGlw + pdGlw;
@@ -811,7 +919,8 @@ export default function SolarFarmWidget({
     return map;
   }, [splitsActivity]);
 
-  const isWidgetLoading = isLoading || isSplitsActivityLoading || isFarmsLoading;
+  const isWidgetLoading =
+    isLoading || isSplitsActivityLoading || isFarmsLoading;
   const isWidgetError = isError || isSplitsActivityError || isFarmsError;
 
   const activeDelegationsListingsCount = React.useMemo(() => {
@@ -904,36 +1013,38 @@ export default function SolarFarmWidget({
 
   const chartData = React.useMemo<HistoryDataPoint[]>(() => {
     const base = [...rewardsHistoryData];
-    
+
     // Only show estimated bar if user has NO historical rewards yet
     if (base.length > 0) return base;
-    
+
     // Aggregate pending farms estimated rewards
     const totalPendingEstimated = pendingStartRows.reduce((sum, row) => {
       return sum + (row.estimatedUserWeeklyGlw ?? 0);
     }, 0);
-    
+
     const pendingMinerEstimated = pendingStartRows
-      .filter(row => row.fractionType === "mining-center")
+      .filter((row) => row.fractionType === "mining-center")
       .reduce((sum, row) => sum + (row.estimatedUserWeeklyGlw ?? 0), 0);
-    
+
     const pendingDelegationEstimated = pendingStartRows
-      .filter(row => row.fractionType === "launchpad")
+      .filter((row) => row.fractionType === "launchpad")
       .reduce((sum, row) => sum + (row.estimatedUserWeeklyGlw ?? 0), 0);
-    
+
     const totalInProgress =
       aggregatedEstimatedWeeklyGlwLaunchpad +
       aggregatedEstimatedWeeklyGlwMiningCenter +
       totalPendingEstimated;
-    
+
     if (totalInProgress <= 0) return base;
 
     const nextWeekNumber = (base.at(-1)?.weekNumber ?? 0) + 1;
     base.push({
       weekNumber: nextWeekNumber,
       week: "Estimated",
-      minerReward: aggregatedEstimatedWeeklyGlwMiningCenter + pendingMinerEstimated,
-      delegationReward: aggregatedEstimatedWeeklyGlwLaunchpad + pendingDelegationEstimated,
+      minerReward:
+        aggregatedEstimatedWeeklyGlwMiningCenter + pendingMinerEstimated,
+      delegationReward:
+        aggregatedEstimatedWeeklyGlwLaunchpad + pendingDelegationEstimated,
       otherReward: 0,
       protocolDepositUsd: 0,
       total: totalInProgress,
@@ -1074,102 +1185,6 @@ export default function SolarFarmWidget({
     onComplete: handleBatchCountdownComplete,
   });
 
-  const placeholderHistoryData = React.useMemo<HistoryDataPoint[]>(
-    () => [
-      {
-        weekNumber: 1,
-        week: "Wk 1",
-        minerReward: 1200,
-        delegationReward: 800,
-        otherReward: 250,
-        protocolDepositUsd: 125,
-        total: 2250,
-      },
-      {
-        weekNumber: 2,
-        week: "Wk 2",
-        minerReward: 900,
-        delegationReward: 1000,
-        otherReward: 200,
-        protocolDepositUsd: 80,
-        total: 2100,
-      },
-      {
-        weekNumber: 3,
-        week: "Wk 3",
-        minerReward: 1400,
-        delegationReward: 700,
-        otherReward: 300,
-        protocolDepositUsd: 140,
-        total: 2400,
-      },
-      {
-        weekNumber: 4,
-        week: "Wk 4",
-        minerReward: 800,
-        delegationReward: 900,
-        otherReward: 150,
-        protocolDepositUsd: 60,
-        total: 1850,
-      },
-      {
-        weekNumber: 5,
-        week: "Wk 5",
-        minerReward: 1500,
-        delegationReward: 1100,
-        otherReward: 400,
-        protocolDepositUsd: 160,
-        total: 3000,
-      },
-      {
-        weekNumber: 6,
-        week: "Wk 6",
-        minerReward: 1100,
-        delegationReward: 950,
-        otherReward: 225,
-        protocolDepositUsd: 95,
-        total: 2275,
-      },
-      {
-        weekNumber: 7,
-        week: "Wk 7",
-        minerReward: 1300,
-        delegationReward: 900,
-        otherReward: 275,
-        protocolDepositUsd: 110,
-        total: 2475,
-      },
-      {
-        weekNumber: 8,
-        week: "Wk 8",
-        minerReward: 1000,
-        delegationReward: 850,
-        otherReward: 180,
-        protocolDepositUsd: 75,
-        total: 2030,
-      },
-      {
-        weekNumber: 9,
-        week: "Wk 9",
-        minerReward: 1600,
-        delegationReward: 900,
-        otherReward: 420,
-        protocolDepositUsd: 190,
-        total: 2920,
-      },
-      {
-        weekNumber: 10,
-        week: "Wk 10",
-        minerReward: 1250,
-        delegationReward: 1050,
-        otherReward: 260,
-        protocolDepositUsd: 105,
-        total: 2560,
-      },
-    ],
-    []
-  );
-
   return (
     <Dialog>
       {/* --- DASHBOARD CARD --- */}
@@ -1289,7 +1304,7 @@ export default function SolarFarmWidget({
                   {/* Chart (placeholder) */}
                   <div className="mt-6 h-[190px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={placeholderHistoryData} barSize={24}>
+                      <BarChart data={PLACEHOLDER_HISTORY_DATA} barSize={24}>
                         <CartesianGrid
                           strokeDasharray="3 3"
                           vertical={false}

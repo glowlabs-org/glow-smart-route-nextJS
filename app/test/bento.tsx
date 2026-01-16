@@ -52,6 +52,7 @@ import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import ImpactAccumulatorWidget from "./widgets/impact-accumulator-widget";
 import SolarCollectorWidget from "./widgets/solar-collector";
+import { WidgetErrorBoundary } from "@/components/widget-error-boundary";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
@@ -384,7 +385,7 @@ export default function GlowSoftDashboard({
       setSelectedRewardScore(scoreData ?? null);
       setIsDepositDialogOpen(true);
     },
-    [isConnected, walletAddress]
+    [isConnected, normalizedWalletAddress]
   );
 
   const handleDepositOpenChange = React.useCallback((nextOpen: boolean) => {
@@ -401,7 +402,7 @@ export default function GlowSoftDashboard({
       wallet_address: normalizedWalletAddress,
     });
     setIsBuyGlowDialogOpen(true);
-  }, [isConnected, walletAddress]);
+  }, [isConnected, normalizedWalletAddress]);
 
   return (
     <div className="min-h-screen bg-muted dark:bg-background text-foreground p-6  selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
@@ -438,29 +439,35 @@ export default function GlowSoftDashboard({
               <section className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-4 lg:p-8">
                 <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
                   <div className="lg:col-span-3 flex">
-                    <RankWidget
-                      walletAddress={walletAddress}
-                      variant="hero"
-                      onMintAndStakeClick={(forceStep1) => {
-                        setMintAndStakeForceStep1(Boolean(forceStep1));
-                        setIsMintAndStakeOpen(true);
-                      }}
-                    />
+                    <WidgetErrorBoundary>
+                      <RankWidget
+                        walletAddress={walletAddress}
+                        variant="hero"
+                        onMintAndStakeClick={(forceStep1) => {
+                          setMintAndStakeForceStep1(Boolean(forceStep1));
+                          setIsMintAndStakeOpen(true);
+                        }}
+                      />
+                    </WidgetErrorBoundary>
                   </div>
 
                   <div className="lg:col-span-5 flex">
-                    <NetWorthWidget
-                      walletAddress={walletAddress}
-                      variant="minimal"
-                      onBuyGlowClick={handleBuyGlowClick}
-                    />
+                    <WidgetErrorBoundary>
+                      <NetWorthWidget
+                        walletAddress={walletAddress}
+                        variant="minimal"
+                        onBuyGlowClick={handleBuyGlowClick}
+                      />
+                    </WidgetErrorBoundary>
                   </div>
 
                   <div className="lg:col-span-2 flex">
-                    <WalletWidget
-                      walletAddress={walletAddress}
-                      variant="minimal"
-                    />
+                    <WidgetErrorBoundary>
+                      <WalletWidget
+                        walletAddress={walletAddress}
+                        variant="minimal"
+                      />
+                    </WidgetErrorBoundary>
                   </div>
                 </div>
               </section>
@@ -474,17 +481,21 @@ export default function GlowSoftDashboard({
                       id="bento-solar-farm"
                       className="pb-6 lg:pb-0 lg:pr-8 lg:col-span-2 flex min-h-[320px]"
                     >
-                      <SolarFarmWidget
-                        walletAddress={walletAddress ?? undefined}
-                        variant="minimal"
-                      />
+                      <WidgetErrorBoundary>
+                        <SolarFarmWidget
+                          walletAddress={walletAddress ?? undefined}
+                          variant="minimal"
+                        />
+                      </WidgetErrorBoundary>
                     </div>
                     <div className="pt-6 lg:pt-0 lg:pl-8 flex">
-                      <RewardsWidget
-                        walletAddress={walletAddress}
-                        hideIfEmpty={false}
-                        variant="minimal"
-                      />
+                      <WidgetErrorBoundary>
+                        <RewardsWidget
+                          walletAddress={walletAddress}
+                          hideIfEmpty={false}
+                          variant="minimal"
+                        />
+                      </WidgetErrorBoundary>
                     </div>
                   </div>
                 </div>
@@ -499,17 +510,23 @@ export default function GlowSoftDashboard({
                       id="bento-launchpad-status"
                       className="pb-6 lg:pb-0 lg:pr-8 flex"
                     >
-                      <LaunchpadStatusWidget
-                        variant="minimal"
-                        onPayDeposit={handlePayDeposit}
-                      />
+                      <WidgetErrorBoundary>
+                        <LaunchpadStatusWidget
+                          variant="minimal"
+                          onPayDeposit={handlePayDeposit}
+                        />
+                      </WidgetErrorBoundary>
                     </div>
                     <div className="pt-6 lg:pt-0 lg:pl-8 flex">
-                      <GctlHeatmapWidget
-                        walletAddress={walletAddress}
-                        variant="minimal"
-                        onMintAndStakeClick={() => setIsMintAndStakeOpen(true)}
-                      />
+                      <WidgetErrorBoundary>
+                        <GctlHeatmapWidget
+                          walletAddress={walletAddress}
+                          variant="minimal"
+                          onMintAndStakeClick={() =>
+                            setIsMintAndStakeOpen(true)
+                          }
+                        />
+                      </WidgetErrorBoundary>
                     </div>
                   </div>
                 </div>
@@ -521,52 +538,63 @@ export default function GlowSoftDashboard({
                 <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch pb-8 mb-8 border-b border-border/50">
                     <div className="pb-6 lg:pb-0 lg:pr-8 flex lg:col-span-4">
-                      <WeeklyActivityWidget
-                        walletAddress={walletAddress}
-                        hideIfEmpty={false}
-                        variant="minimal"
-                      />
+                      <WidgetErrorBoundary>
+                        <WeeklyActivityWidget
+                          walletAddress={walletAddress}
+                          hideIfEmpty={false}
+                          variant="minimal"
+                        />
+                      </WidgetErrorBoundary>
                     </div>
 
                     <div className="pt-6 lg:pt-0 lg:pl-8 flex lg:col-span-5">
-                      <RecentActivityWidget
-                        walletAddress={walletAddress}
-                        hideIfEmpty={false}
-                        variant="minimal"
-                      />
+                      <WidgetErrorBoundary>
+                        <RecentActivityWidget
+                          walletAddress={walletAddress}
+                          hideIfEmpty={false}
+                          variant="minimal"
+                        />
+                      </WidgetErrorBoundary>
                     </div>
                     <div className="py-6 lg:py-0 lg:px-8 flex lg:col-span-3">
-                      <PortfolioSummaryWidget
-                        walletAddress={walletAddress}
-                        variant="minimal"
-                      />
+                      <WidgetErrorBoundary>
+                        <PortfolioSummaryWidget
+                          walletAddress={walletAddress}
+                          variant="minimal"
+                        />
+                      </WidgetErrorBoundary>
                     </div>
                   </div>
                   <div>
                     <h3 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-6">
                       My Impact
                     </h3>
-                    <SolarCollectorWidget
-                      walletAddress={walletAddress}
-                      onFarmClick={(farmId) => {
-                        // Scroll to the farm card in the grid below
-                        const el = document.querySelector(
-                          `[data-farm-id="${farmId}"]`
-                        );
-                        if (el) {
-                          el.scrollIntoView({
-                            behavior: "smooth",
-                            block: "center",
-                          });
-                          el.classList.add("ring-2", "ring-primary");
-                          setTimeout(
-                            () => el.classList.remove("ring-2", "ring-primary"),
-                            2000
+                    <WidgetErrorBoundary>
+                      <SolarCollectorWidget
+                        walletAddress={walletAddress}
+                        onFarmClick={(farmId) => {
+                          // Scroll to the farm card in the grid below
+                          const el = document.querySelector(
+                            `[data-farm-id="${farmId}"]`
                           );
-                        }
-                      }}
-                    />
-                    <MyFarmsGridSection walletAddress={walletAddress} />
+                          if (el) {
+                            el.scrollIntoView({
+                              behavior: "smooth",
+                              block: "center",
+                            });
+                            el.classList.add("ring-2", "ring-primary");
+                            setTimeout(
+                              () =>
+                                el.classList.remove("ring-2", "ring-primary"),
+                              2000
+                            );
+                          }
+                        }}
+                      />
+                    </WidgetErrorBoundary>
+                    <WidgetErrorBoundary>
+                      <MyFarmsGridSection walletAddress={walletAddress} />
+                    </WidgetErrorBoundary>
                   </div>
                 </div>
               </section>
@@ -612,18 +640,22 @@ export default function GlowSoftDashboard({
               <section className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-0  items-stretch">
                   <div className="pb-6 lg:pb-0 lg:pr-8 flex min-h-[340px]">
-                    <OnboardingHeroWidget
-                      className="w-full h-full"
-                      variant="minimal"
-                      onBuyGlowClick={handleBuyGlowClick}
-                    />
+                    <WidgetErrorBoundary>
+                      <OnboardingHeroWidget
+                        className="w-full h-full"
+                        variant="minimal"
+                        onBuyGlowClick={handleBuyGlowClick}
+                      />
+                    </WidgetErrorBoundary>
                   </div>
                   <div className="pt-6 lg:pt-0 lg:pl-8 flex min-h-[340px]">
-                    <LaunchpadStatusWidget
-                      className="w-full h-full"
-                      variant="minimal"
-                      onPayDeposit={handlePayDeposit}
-                    />
+                    <WidgetErrorBoundary>
+                      <LaunchpadStatusWidget
+                        className="w-full h-full"
+                        variant="minimal"
+                        onPayDeposit={handlePayDeposit}
+                      />
+                    </WidgetErrorBoundary>
                   </div>
                 </div>
               </section>
@@ -634,16 +666,20 @@ export default function GlowSoftDashboard({
                 <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch">
                     <div className="pb-6 lg:pb-0 lg:pr-8 lg:col-span-8 flex min-h-[400px]">
-                      <CommunityActivityWidget
-                        className="w-full h-full"
-                        variant="minimal"
-                      />
+                      <WidgetErrorBoundary>
+                        <CommunityActivityWidget
+                          className="w-full h-full"
+                          variant="minimal"
+                        />
+                      </WidgetErrorBoundary>
                     </div>
                     <div className="pt-6 lg:pt-0 lg:pl-8 lg:col-span-4 flex min-h-[400px]">
-                      <GlobalLeaderboardWidget
-                        className="h-full w-full"
-                        variant="minimal"
-                      />
+                      <WidgetErrorBoundary>
+                        <GlobalLeaderboardWidget
+                          className="h-full w-full"
+                          variant="minimal"
+                        />
+                      </WidgetErrorBoundary>
                     </div>
                   </div>
                 </div>
@@ -653,7 +689,9 @@ export default function GlowSoftDashboard({
               <section className="flex flex-col gap-4">
                 <SectionHeader title="Protocol Metrics" />
                 <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
-                  <ProtocolMetricsWidget />
+                  <WidgetErrorBoundary>
+                    <ProtocolMetricsWidget />
+                  </WidgetErrorBoundary>
                 </div>
               </section>
 
@@ -663,13 +701,17 @@ export default function GlowSoftDashboard({
                 <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch">
                     <div className="pb-6 lg:pb-0 lg:pr-8 lg:col-span-7 flex min-h-[400px]">
-                      <GlowFaqWidget
-                        className="w-full h-full"
-                        variant="minimal"
-                      />
+                      <WidgetErrorBoundary>
+                        <GlowFaqWidget
+                          className="w-full h-full"
+                          variant="minimal"
+                        />
+                      </WidgetErrorBoundary>
                     </div>
                     <div className="pt-6 lg:pt-0 lg:pl-8 lg:col-span-5 flex min-h-[400px]">
-                      <BlogFeaturedWidget className="w-full h-full" />
+                      <WidgetErrorBoundary>
+                        <BlogFeaturedWidget className="w-full h-full" />
+                      </WidgetErrorBoundary>
                     </div>
                   </div>
                 </div>
@@ -681,16 +723,20 @@ export default function GlowSoftDashboard({
                 <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch">
                     <div className="pb-6 lg:pb-0 lg:pr-8 lg:col-span-5 flex min-h-[340px]">
-                      <NewsletterWidget
-                        className="w-full h-full"
-                        variant="minimal"
-                      />
+                      <WidgetErrorBoundary>
+                        <NewsletterWidget
+                          className="w-full h-full"
+                          variant="minimal"
+                        />
+                      </WidgetErrorBoundary>
                     </div>
                     <div className="pt-6 lg:pt-0 lg:pl-8 lg:col-span-7 flex min-h-[340px]">
-                      <DiscordWidget
-                        className="w-full h-full"
-                        variant="minimal"
-                      />
+                      <WidgetErrorBoundary>
+                        <DiscordWidget
+                          className="w-full h-full"
+                          variant="minimal"
+                        />
+                      </WidgetErrorBoundary>
                     </div>
                   </div>
                 </div>
