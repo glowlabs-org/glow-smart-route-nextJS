@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { SponsoredFarmsActivity } from "@/app/marketplace/sponsored-farms-activity";
 import {
   Dialog,
@@ -15,9 +15,42 @@ import { useSplitsActivity, type SplitActivity } from "@/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { getFarmsRouter } from "@/lib/api/control-routers";
 import { FallbackImage } from "@/components/ui/fallback-image";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatUnits } from "viem";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
+
+interface FarmImageWithSkeletonProps {
+  src: string;
+  alt: string;
+}
+
+function FarmImageWithSkeleton({ src, alt }: FarmImageWithSkeletonProps) {
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  const handleLoad = useCallback(() => {
+    setIsLoaded(true);
+  }, []);
+
+  return (
+    <>
+      {!isLoaded && <Skeleton className="absolute inset-0 rounded-xl" />}
+      <FallbackImage
+        src={src}
+        widthForProxy={200}
+        quality={80}
+        alt={alt}
+        className={cn(
+          "w-full h-full object-cover transition-all duration-300 group-hover:scale-105",
+          isLoaded ? "opacity-100" : "opacity-0"
+        )}
+        onLoad={handleLoad}
+        loading="lazy"
+        decoding="async"
+      />
+    </>
+  );
+}
 
 interface CommunityActivityWidgetProps {
   className?: string;
@@ -215,7 +248,7 @@ export default function CommunityActivityWidget({
               onClick={() => setIsOpen(true)}
               className="text-xs font-mono text-muted-foreground hover:text-foreground px-2 h-7"
             >
-              See All
+              See All Activity
               <ChevronRight className="w-3 h-3 ml-1" />
             </Button>
           </div>
@@ -265,46 +298,38 @@ export default function CommunityActivityWidget({
                   >
                     {/* Farm Image - Takes full height */}
                     <div className="relative w-24 h-full min-h-[80px] rounded-xl overflow-hidden shrink-0 border border-border/50">
-                      <FallbackImage
+                      <FarmImageWithSkeleton
                         src={imageUrl}
-                        widthForProxy={200}
-                        quality={80}
                         alt={farm.farmName}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     </div>
 
                     {/* Farm Info */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                      <h3 className="font-bold text-lg truncate text-foreground group-hover:text-glow-orange transition-colors mb-1.5">
-                        {farm.farmName}
-                      </h3>
-
-                      <div className="flex items-center gap-3 text-sm">
-                        {/* Total Delegated */}
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-muted-foreground">
-                            Delegated:
-                          </span>
-                          <span className="font-mono font-semibold text-delegation-purple">
-                            {formatCompactNumber(farm.totalDelegatedGlw)} GLW
-                          </span>
+                    <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
+                      {/* Left: Name + Delegated */}
+                      <div className="min-w-0 flex flex-col justify-center">
+                        <h3 className="font-bold text-lg truncate text-foreground group-hover:text-glow-orange transition-colors">
+                          {farm.farmName}
+                        </h3>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          Delegated
+                        </div>
+                        <div className="font-mono text-xl font-bold text-delegation-purple">
+                          {formatCompactNumber(farm.totalDelegatedGlw)} GLW
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4 mt-1.5 text-sm text-muted-foreground">
-                        {/* Reward Score */}
+                      {/* Right: Reward Score & Funded in */}
+                      <div className="flex flex-col items-end justify-center gap-1 text-sm shrink-0">
                         {farm.rewardScore !== null && (
-                          <div className="flex items-center gap-1.5">
-                            <span>Score:</span>
-                            <span className="font-mono font-medium text-foreground">
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <span>Reward Score:</span>
+                            <span className="font-mono font-semibold text-foreground">
                               {formatNumber(farm.rewardScore, 0)}
                             </span>
                           </div>
                         )}
-
-                        {/* Funding Duration */}
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
                           <span>Funded in:</span>
                           <span className="font-mono font-medium text-foreground">
                             {formatDuration(farm.fundingDurationMs)}
