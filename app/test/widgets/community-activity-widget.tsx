@@ -11,10 +11,62 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useSplitsActivity, type SplitActivity } from "@/hooks";
+import { useQuery } from "@tanstack/react-query";
+import { getFarmsRouter } from "@/lib/api/control-routers";
+import { FallbackImage } from "@/components/ui/fallback-image";
+import { formatUnits } from "viem";
+import { ChevronRight } from "lucide-react";
+import Link from "next/link";
 
 interface CommunityActivityWidgetProps {
   className?: string;
   variant?: "default" | "minimal";
+}
+
+interface AggregatedFarm {
+  farmId: string;
+  farmName: string;
+  totalDelegatedGlw: number;
+  rewardScore: number | null;
+  fundingDurationMs: number;
+  firstPurchaseDate: Date;
+  lastPurchaseDate: Date;
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 0) ms = 0;
+
+  const minutes = Math.floor(ms / (1000 * 60));
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+
+  if (days >= 1) {
+    return days === 1 ? "1 day" : `${days} days`;
+  }
+  if (hours >= 1) {
+    return hours === 1 ? "1 hour" : `${hours} hours`;
+  }
+  if (minutes >= 1) {
+    return minutes === 1 ? "1 min" : `${minutes} mins`;
+  }
+  return "<1 min";
+}
+
+function formatNumber(n: number, decimals = 0): string {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: decimals,
+  }).format(n);
+}
+
+function formatCompactNumber(n: number): string {
+  if (n >= 1_000_000) {
+    return `${(n / 1_000_000).toFixed(1)}M`;
+  }
+  if (n >= 1_000) {
+    return `${(n / 1_000).toFixed(1)}K`;
+  }
+  return formatNumber(n, 0);
 }
 
 export default function CommunityActivityWidget({
@@ -23,6 +75,123 @@ export default function CommunityActivityWidget({
 }: CommunityActivityWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const isMinimal = variant === "minimal";
+
+  // Fetch activity data for launchpad (delegation) only
+  const { activity, isLoading } = useSplitsActivity({
+    limit: 200,
+    fractionType: "launchpad",
+    enabled: true,
+  });
+
+  // Aggregate farms that are fully funded
+  const aggregatedFarms = React.useMemo<AggregatedFarm[]>(() => {
+    if (!activity || activity.length === 0) return [];
+
+    // Group by farmId, only include filled farms
+    const farmMap = new Map<
+      string,
+      {
+        farmId: string;
+        farmName: string;
+        totalDelegatedWei: bigint;
+        rewardScore: number | null;
+        timestamps: number[];
+      }
+    >();
+
+    for (const purchase of activity) {
+      // Only include launchpad (delegation) and filled farms
+      if (purchase.fractionType !== "launchpad") continue;
+      if (!purchase.isFilled && purchase.fractionStatus !== "filled") continue;
+
+      const farmId = purchase.farmId ?? purchase.applicationId;
+      if (!farmId) continue;
+
+      const existing = farmMap.get(farmId);
+      const amountWei = BigInt(purchase.amount || "0");
+      const timestamp = purchase.timestamp * 1000;
+
+      if (existing) {
+        existing.totalDelegatedWei += amountWei;
+        existing.timestamps.push(timestamp);
+        // Use the first non-null reward score
+        if (existing.rewardScore === null && purchase.rewardScore !== null) {
+          existing.rewardScore = purchase.rewardScore;
+        }
+      } else {
+        farmMap.set(farmId, {
+          farmId,
+          farmName: purchase.farmName,
+          totalDelegatedWei: amountWei,
+          rewardScore: purchase.rewardScore,
+          timestamps: [timestamp],
+        });
+      }
+    }
+
+    // Convert to array and calculate funding duration
+    const farms: AggregatedFarm[] = [];
+    for (const [, data] of farmMap) {
+      if (data.timestamps.length === 0) continue;
+
+      const sortedTimestamps = data.timestamps.sort((a, b) => a - b);
+      const firstPurchaseDate = new Date(sortedTimestamps[0]);
+      const lastPurchaseDate = new Date(
+        sortedTimestamps[sortedTimestamps.length - 1]
+      );
+      const fundingDurationMs =
+        lastPurchaseDate.getTime() - firstPurchaseDate.getTime();
+
+      // Convert from wei (18 decimals) to GLW
+      const totalDelegatedGlw = Number(formatUnits(data.totalDelegatedWei, 18));
+
+      farms.push({
+        farmId: data.farmId,
+        farmName: data.farmName,
+        totalDelegatedGlw,
+        rewardScore: data.rewardScore,
+        fundingDurationMs,
+        firstPurchaseDate,
+        lastPurchaseDate,
+      });
+    }
+
+    // Sort by most recently funded (last purchase date)
+    farms.sort(
+      (a, b) => b.lastPurchaseDate.getTime() - a.lastPurchaseDate.getTime()
+    );
+
+    // Return top 3
+    return farms.slice(0, 3);
+  }, [activity]);
+
+  // Collect farm IDs for image fetch
+  const farmIds = React.useMemo(() => {
+    return aggregatedFarms.map((f) => f.farmId);
+  }, [aggregatedFarms]);
+
+  // Fetch farm images
+  const { data: farmImagesData } = useQuery({
+    queryKey: ["farm-images-batch", farmIds],
+    queryFn: async () => {
+      if (farmIds.length === 0) return { results: {} };
+      return getFarmsRouter().fetchFarmImagesBatch({ farmIds });
+    },
+    enabled: farmIds.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
+  const farmImageMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    if (farmImagesData?.results) {
+      for (const [farmId, data] of Object.entries(farmImagesData.results)) {
+        if (data.imageUrl) {
+          map.set(farmId, data.imageUrl);
+        }
+      }
+    }
+    return map;
+  }, [farmImagesData]);
 
   return (
     <>
@@ -38,40 +207,118 @@ export default function CommunityActivityWidget({
         <CardHeader className={cn("pb-3", isMinimal && "px-0 pt-0")}>
           <div className="flex items-center justify-between">
             <CardTitle className="tracking-tight text-lg">
-              Latest Launchpad Activity
+              Recently Funded Farms
             </CardTitle>
-            <span className="text-[10px] font-mono uppercase text-muted-foreground bg-muted px-2 py-1 rounded">
-              Recent
-            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsOpen(true)}
+              className="text-xs font-mono text-muted-foreground hover:text-foreground px-2 h-7"
+            >
+              See All
+              <ChevronRight className="w-3 h-3 ml-1" />
+            </Button>
           </div>
         </CardHeader>
 
         <CardContent
           className={cn(
-            "min-h-0 flex-1 flex flex-col gap-4 pt-0",
+            "min-h-0 flex-1 flex flex-col gap-3 pt-0",
             isMinimal && "px-0"
           )}
         >
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-            <SponsoredFarmsActivity
-              variant="widget"
-              maxRows={5}
-              showViewAll={false}
-              showKpis={false}
-              className="h-full flex flex-col !p-0"
-              constrainHeight={false}
-            />
-          </div>
+          {isLoading ? (
+            <div className="flex-1 flex flex-col gap-3">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="flex-1 flex items-center gap-4 p-4 rounded-xl border border-border bg-muted/10 animate-pulse"
+                >
+                  <div className="w-24 h-full min-h-[80px] rounded-xl bg-muted shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-5 w-32 bg-muted rounded" />
+                    <div className="h-4 w-28 bg-muted rounded" />
+                    <div className="h-3 w-24 bg-muted rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : aggregatedFarms.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+              No recently funded farms
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col gap-3">
+              {aggregatedFarms.map((farm) => {
+                const imageUrl =
+                  farmImageMap.get(farm.farmId) ??
+                  "/images/sections/residential.jpg";
+                const auditUrl = `https://glow.org/audits/${farm.farmId}`;
 
-          <div className="shrink-0 pt-2">
-            <Button
-              variant="outline"
-              onClick={() => setIsOpen(true)}
-              className="w-full h-12 font-mono font-bold text-base"
-            >
-              See All Activity
-            </Button>
-          </div>
+                return (
+                  <Link
+                    key={farm.farmId}
+                    href={auditUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 flex items-center gap-4 p-4 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 transition-colors group"
+                  >
+                    {/* Farm Image - Takes full height */}
+                    <div className="relative w-24 h-full min-h-[80px] rounded-xl overflow-hidden shrink-0 border border-border/50">
+                      <FallbackImage
+                        src={imageUrl}
+                        widthForProxy={200}
+                        quality={80}
+                        alt={farm.farmName}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    </div>
+
+                    {/* Farm Info */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      <h3 className="font-bold text-lg truncate text-foreground group-hover:text-glow-orange transition-colors mb-1.5">
+                        {farm.farmName}
+                      </h3>
+
+                      <div className="flex items-center gap-3 text-sm">
+                        {/* Total Delegated */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-muted-foreground">
+                            Delegated:
+                          </span>
+                          <span className="font-mono font-semibold text-delegation-purple">
+                            {formatCompactNumber(farm.totalDelegatedGlw)} GLW
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 mt-1.5 text-sm text-muted-foreground">
+                        {/* Reward Score */}
+                        {farm.rewardScore !== null && (
+                          <div className="flex items-center gap-1.5">
+                            <span>Score:</span>
+                            <span className="font-mono font-medium text-foreground">
+                              {formatNumber(farm.rewardScore, 0)}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Funding Duration */}
+                        <div className="flex items-center gap-1.5">
+                          <span>Funded in:</span>
+                          <span className="font-mono font-medium text-foreground">
+                            {formatDuration(farm.fundingDurationMs)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 

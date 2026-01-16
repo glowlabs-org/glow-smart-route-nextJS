@@ -593,7 +593,7 @@ export function ImpactScoreBreakdownDialogContent(
 
   const regionLabels: Record<number, string> = useMemo(() => {
     const labels: Record<number, string> = {
-      1: "Global (CGP)",
+      1: "Clean Grid Project (CGP)",
       2: "Utah (UT)",
       3: "Missouri (MO)",
       4: "Colorado (CO)",

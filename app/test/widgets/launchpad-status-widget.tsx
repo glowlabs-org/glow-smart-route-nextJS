@@ -693,7 +693,7 @@ export default function LaunchpadStatusWidget({
 
                 <div className="flex-1 space-y-1 py-0.5">
                   <p className="text-base font-semibold text-foreground">
-                    Have your GLW ready to delegate.
+                    Have your GLW ready to delegate on the launchpad.
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     Every Tuesday at 1 PM EST, Glow lists at least one new solar

@@ -24,9 +24,12 @@ import { parseFractionsSummary } from "@/lib/fractions";
 import { cn } from "@/lib/utils";
 import { useEnsNames } from "@/hooks/useEnsNames";
 import { shortAddress } from "@/utils/impact";
+import { useQuery } from "@tanstack/react-query";
+import { getFarmsRouter } from "@/lib/api/control-routers";
 
 import { Button } from "@/components/ui/button";
 import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
+import { FallbackImage } from "@/components/ui/fallback-image";
 
 function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -162,6 +165,40 @@ export function SponsoredFarmsActivity({
     () => parseFractionsSummary(fractionsSummary),
     [fractionsSummary]
   );
+
+  // Collect unique farm IDs from activity for batch image fetch
+  const farmIdsForImages = React.useMemo(() => {
+    const ids = new Set<string>();
+    for (const purchase of activity) {
+      if (purchase.farmId) ids.add(purchase.farmId);
+      if (purchase.applicationId) ids.add(purchase.applicationId);
+    }
+    return Array.from(ids);
+  }, [activity]);
+
+  // Fetch farm images in batch from control API
+  const { data: farmImagesData } = useQuery({
+    queryKey: ["farm-images-batch", farmIdsForImages],
+    queryFn: async () => {
+      if (farmIdsForImages.length === 0) return { results: {} };
+      return getFarmsRouter().fetchFarmImagesBatch({ farmIds: farmIdsForImages });
+    },
+    enabled: farmIdsForImages.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
+  // Create a map from farmId/applicationId to first image URL
+  const farmImageMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    if (farmImagesData?.results) {
+      for (const [farmId, data] of Object.entries(farmImagesData.results)) {
+        if (data.imageUrl) {
+          map.set(farmId, data.imageUrl);
+        }
+      }
+    }
+    return map;
+  }, [farmImagesData]);
 
   // Determine if we should show reward scores (only for launchpad)
   const showRewardScore = !fractionType || fractionType === "launchpad";
@@ -545,6 +582,12 @@ export function SponsoredFarmsActivity({
               ? `https://glow.org/audits/${purchase.farmId}`
               : "#";
 
+            // Get farm image from the map using applicationId or farmId
+            const farmImageUrl =
+              farmImageMap.get(purchase.applicationId) ||
+              farmImageMap.get(purchase.farmId ?? "") ||
+              null;
+
             return (
               <Link
                 key={`${purchase.transactionHash}-${purchase.fractionId}`}
@@ -553,20 +596,22 @@ export function SponsoredFarmsActivity({
                 rel={purchase.farmId ? "noopener noreferrer" : undefined}
                 className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 transition-colors group"
               >
-                {/* Thumbnail / Icon */}
+                {/* Thumbnail / Farm Image */}
                 <div
                   className={cn(
-                    "relative h-10 w-10 rounded-xl overflow-hidden shrink-0 border flex items-center justify-center",
+                    "relative h-10 w-10 rounded-xl overflow-hidden shrink-0 border",
                     isMiningCenter
-                      ? "border-[color:var(--color-miner)]/90 bg-[color:var(--color-miner)]/15 text-[color:var(--color-miner)]"
-                      : "border-delegation-purple/90 bg-delegation-purple/25 text-delegation-purple"
+                      ? "border-[color:var(--color-miner)]/50"
+                      : "border-delegation-purple/50"
                   )}
                 >
-                  {isMiningCenter ? (
-                    <CashMinerIcon className="w-6 h-6" />
-                  ) : (
-                    <DelegationIcon className="w-6 h-6" />
-                  )}
+                  <FallbackImage
+                    src={farmImageUrl ?? "/images/sections/residential.jpg"}
+                    widthForProxy={100}
+                    quality={70}
+                    alt={purchase.farmName}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
 
                 <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
@@ -633,6 +678,12 @@ export function SponsoredFarmsActivity({
                 ? `https://glow.org/audits/${purchase.farmId}`
                 : "#";
 
+              // Get farm image from the map using applicationId or farmId
+              const farmImageUrl =
+                farmImageMap.get(purchase.applicationId) ||
+                farmImageMap.get(purchase.farmId ?? "") ||
+                null;
+
               return (
                 <Link
                   key={`mobile-${purchase.transactionHash}-${purchase.fractionId}`}
@@ -645,17 +696,19 @@ export function SponsoredFarmsActivity({
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div
                         className={cn(
-                          "h-9 w-9 rounded-xl flex items-center justify-center shrink-0 border",
+                          "h-9 w-9 rounded-xl overflow-hidden shrink-0 border",
                           isMiningCenter
-                            ? "border-[color:var(--color-miner)]/50 bg-[color:var(--color-miner)]/15 text-[color:var(--color-miner)]"
-                            : "border-delegation-purple/50 bg-delegation-purple/15 text-delegation-purple"
+                            ? "border-[color:var(--color-miner)]/50"
+                            : "border-delegation-purple/50"
                         )}
                       >
-                        {isMiningCenter ? (
-                          <CashMinerIcon className="w-5 h-5" />
-                        ) : (
-                          <DelegationIcon className="w-5 h-5" />
-                        )}
+                        <FallbackImage
+                          src={farmImageUrl ?? "/images/sections/residential.jpg"}
+                          widthForProxy={100}
+                          quality={70}
+                          alt={purchase.farmName}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                       <div className="min-w-0">
                         <div className="font-semibold text-sm truncate text-foreground">

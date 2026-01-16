@@ -208,8 +208,8 @@ function SolarFootprintDialog({
             </div>
             <div className="text-sm text-muted-foreground leading-relaxed">
               Each time a farm is funded, its physical capacity is distributed
-              across the network. Your share is based on your impact power in
-              that farm’s region.
+              across the network. Your share is based on your Impact Power in
+              that farm’s region for the given week.
             </div>
             <div className="pt-1">
               <div className="p-3 bg-glow-orange/5 border border-glow-orange/10 rounded-lg">
@@ -217,9 +217,9 @@ function SolarFootprintDialog({
                   Impact Power
                 </div>
                 <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                  Direct Points + Glow Worth Points. Direct points ( emissions
-                  rewards, steering, and vault participation). Glow worth is
-                  distributed by each region’s emission share.
+                  Direct Points + Glow Worth Points. Direct points come from
+                  emissions rewards, steering, and vault participation. Glow
+                  Worth is distributed by each region’s emission share.
                 </p>
               </div>
             </div>
@@ -248,8 +248,8 @@ function SolarFootprintDialog({
                     Regional share matters
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    Your influence is measured per region at the week the farm
-                    is funded .
+                    Your influence is measured per region based on the week the
+                    farm is funded.
                   </div>
                 </div>
               </div>
@@ -260,8 +260,7 @@ function SolarFootprintDialog({
                     Completed weeks only
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    Current-week farms appear once the protocol week is
-                    completed.
+                    New farms appear once the protocol week is completed.
                   </div>
                 </div>
               </div>
@@ -359,7 +358,7 @@ export default function SolarCollectorWidget({
   };
 
   const chartConfig = {
-    region1: { label: "Clean Grid (CGP)", color: "#6b7280" },
+    region1: { label: "Clean Grid Project (CGP)", color: "#6b7280" },
     region2: { label: "Utah (UT)", color: "#3b82f6" },
     region3: { label: "Missouri (MO)", color: "#10b981" },
     region4: { label: "Colorado (CO)", color: "#f59e0b" },
