@@ -123,12 +123,12 @@ export default function LaunchpadStatusWidget({
     applications: delegationApplications,
     isLoading: isDelegationsLoading,
   } = useGlowLaunchpad({
-    filters: { paymentCurrency: "GLW" },
+    filters: { paymentCurrency: "GLW", includeFilled: true },
     enabled: delegationsEnabled,
   });
   const { applications: minerApplications, isLoading: isMinersLoading } =
     useMiningCenter({
-      filters: { paymentCurrency: "USDC" },
+      filters: { paymentCurrency: "USDC", includeFilled: true },
       enabled: minersEnabled,
     });
 
@@ -142,7 +142,8 @@ export default function LaunchpadStatusWidget({
   );
   const hasDelegationsAvailable = delegationsAvailableCount > 0;
   const hasMinersAvailable = minersAvailableCount > 0;
-  const hasAnyListings = hasDelegationsAvailable || hasMinersAvailable;
+  const totalAvailable = delegationsAvailableCount + minersAvailableCount;
+  const hasAnyListings = totalAvailable > 0;
 
   const resolvedTab = React.useMemo((): ListTypeFilter => {
     if (!isLive) return liveTypeFilter;

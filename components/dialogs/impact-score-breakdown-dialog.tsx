@@ -12,7 +12,12 @@ import {
   EmissionsIcon,
   VaultIcon,
   GlwWorthIcon,
+  ReferralIcon,
+  ReferralBonusIcon,
+  ActivationBonusIcon,
 } from "@/components/impact-icons";
+import { ReferralNetworkDialog } from "@/components/dialogs/referral-network-dialog";
+import { ChangeReferrerDialog } from "@/components/referral/change-referrer-dialog";
 
 import {
   Dialog,
@@ -44,6 +49,7 @@ import {
 } from "@/hooks";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
+import { useReferral } from "@/hooks/use-referral";
 import { useMemo, useState } from "react";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -399,6 +405,10 @@ export function ImpactScoreBreakdownDialogContent(
   const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(false);
   const [isMintAndStakeOpen, setIsMintAndStakeOpen] = useState(false);
   const [isBuyGlowOpen, setIsBuyGlowOpen] = useState(false);
+  const [isReferralNetworkOpen, setIsReferralNetworkOpen] = useState(false);
+  const [isChangeReferrerOpen, setIsChangeReferrerOpen] = useState(false);
+
+  const { status: referralStatus } = useReferral();
 
   // --- Client-Side Optimistic Data (Steering) ---
   const { walletDetails } = useWallets({
@@ -477,6 +487,38 @@ export function ImpactScoreBreakdownDialogContent(
   const worthPoints = formatPoints(impactScore?.totals?.continuousPoints, {
     maximumFractionDigits: 2,
   });
+  const referralPoints = formatPoints(
+    impactScore?.composition?.referralPoints,
+    {
+      maximumFractionDigits: 2,
+    }
+  );
+  const referralBonusPoints = formatPoints(
+    impactScore?.composition?.referralBonusPoints,
+    {
+      maximumFractionDigits: 2,
+    }
+  );
+  const referrerStats = impactScore?.referral?.asReferrer;
+  const activeReferees = referrerStats?.activeRefereeCount ?? 0;
+  const pendingReferees = referrerStats?.pendingRefereeCount ?? 0;
+  const hasReferrals = activeReferees + pendingReferees > 0;
+  const hasReferralPoints =
+    safePointsNumber(impactScore?.composition?.referralPoints) > 0;
+  const showReferralNetwork =
+    isOwnWallet || hasReferrals || hasReferralPoints;
+  const referralSubValue = hasReferrals
+    ? pendingReferees > 0
+      ? `${activeReferees} active · ${pendingReferees} pending`
+      : `${activeReferees} active referrals`
+    : isOwnWallet
+    ? "No referrals yet"
+    : "0 active referrals";
+  const referralCtaLabel = isOwnWallet
+    ? hasReferrals || hasReferralPoints
+      ? "Manage"
+      : "Share"
+    : "Manage";
 
   // Weekly GLW amounts for point calculations
   // Use projection if available, otherwise fall back to latest week's data
@@ -526,6 +568,14 @@ export function ImpactScoreBreakdownDialogContent(
   const delegationWeeklyRate =
     pendingDelegatedGlw > 0
       ? formatPoints(String(pendingDelegatedGlw * 0.005), {
+          maximumFractionDigits: 2,
+        })
+      : undefined;
+
+  const referralWeeklyRate =
+    impactScore?.referral?.asReferrer?.thisWeekPointsScaled6 &&
+    safePointsNumber(impactScore.referral.asReferrer.thisWeekPointsScaled6) > 0
+      ? formatPoints(impactScore.referral.asReferrer.thisWeekPointsScaled6, {
           maximumFractionDigits: 2,
         })
       : undefined;
@@ -876,9 +926,127 @@ export function ImpactScoreBreakdownDialogContent(
                   }
                   themeColor="green"
                 />
+
+                {showReferralNetwork && (
+                  <SourceRow
+                    icon={ReferralIcon}
+                    label="Referral Network"
+                    subValue={referralSubValue}
+                    value={referralPoints}
+                    weeklyRate={referralWeeklyRate}
+                    ctaLabel={referralCtaLabel}
+                    onCta={() => setIsReferralNetworkOpen(true)}
+                    themeColor="cyan"
+                  />
+                )}
               </div>
             </div>
             <Separator />
+            {/* SECTION 3: BONUSES (REFEEES) */}
+            {(impactScore?.referral?.asReferee?.bonusIsActive ||
+              impactScore?.referral?.asReferee?.activationBonus?.awarded ||
+              impactScore?.referral?.asReferee?.activationBonus?.pending) && (
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
+                  Referral Bonuses
+                </h3>
+                <div className="space-y-2">
+                  {impactScore.referral.asReferee.bonusIsActive && (
+                    <div className="flex items-center justify-between p-3 rounded-xl border bg-emerald-500/5 border-emerald-500/20">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600">
+                          <ReferralBonusIcon className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-foreground">
+                            +10% Referral Bonus
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {
+                                impactScore.referral.asReferee
+                                  .bonusWeeksRemaining
+                              }{" "}
+                              weeks remaining
+                            </span>
+                            {referralStatus?.referrer?.canChangeReferrer && (
+                              <button
+                                type="button"
+                                onClick={() => setIsChangeReferrerOpen(true)}
+                                className="text-[10px] font-bold text-primary hover:underline uppercase tracking-wider"
+                              >
+                                Change
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                          +{referralBonusPoints} pts
+                        </div>
+                        <div className="text-[10px] text-muted-foreground uppercase font-medium">
+                          Total Earned
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {impactScore.referral.asReferee.activationBonus?.awarded && (
+                    <div className="flex items-center justify-between p-3 rounded-xl border bg-amber-500/5 border-amber-500/20">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600">
+                          <ActivationBonusIcon className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-foreground">
+                            Activation Bonus
+                          </span>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            One-time award (≥100 pts)
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                          +100 pts
+                        </div>
+                        <div className="text-[10px] text-muted-foreground uppercase font-medium">
+                          Awarded
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {impactScore.referral.asReferee.activationBonus?.pending && (
+                    <div className="flex items-center justify-between p-3 rounded-xl border bg-amber-500/5 border-amber-500/20">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600">
+                          <ActivationBonusIcon className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-foreground">
+                            Activation Bonus
+                          </span>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            Threshold met — activates at week end
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                          +100 pts
+                        </div>
+                        <div className="text-[10px] text-muted-foreground uppercase font-medium">
+                          Pending
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <Separator />
+              </div>
+            )}
             {/* REGIONAL BREAKDOWN CHART */}
             {regionalChartData.length > 0 && (
               <div className="space-y-4">
@@ -1009,6 +1177,19 @@ export function ImpactScoreBreakdownDialogContent(
         glowSpotPrice={glowSpotPrice || 0}
         source="impact_breakdown_dialog"
         defaultUsdcAmount="20"
+      />
+
+      <ReferralNetworkDialog
+        open={isReferralNetworkOpen}
+        onOpenChange={setIsReferralNetworkOpen}
+        walletAddress={walletAddress || ""}
+      />
+
+      <ChangeReferrerDialog
+        open={isChangeReferrerOpen}
+        onOpenChange={setIsChangeReferrerOpen}
+        currentReferrerEns={impactScore?.referral?.asReferee?.referrerEns}
+        currentReferrerWallet={impactScore?.referral?.asReferee?.referrerWallet}
       />
     </>
   );

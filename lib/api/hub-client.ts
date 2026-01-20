@@ -52,3 +52,63 @@ export async function hubGet<T>(
     throw new Error(String(error));
   }
 }
+
+export async function hubPost<T>(
+  path: string,
+  body: unknown,
+  options: HubGetOptions<T> = {}
+): Promise<T> {
+  const url = buildHubUrl(path, options.params);
+
+  try {
+    const res = await fetch(url, {
+      ...options.init,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...options.init?.headers,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Hub POST ${path} failed: ${res.status} - ${text}`);
+    }
+
+    return (await res.json()) as T;
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error(String(error));
+  }
+}
+
+export async function hubPut<T>(
+  path: string,
+  body: unknown,
+  options: HubGetOptions<T> = {}
+): Promise<T> {
+  const url = buildHubUrl(path, options.params);
+
+  try {
+    const res = await fetch(url, {
+      ...options.init,
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...options.init?.headers,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Hub PUT ${path} failed: ${res.status} - ${text}`);
+    }
+
+    return (await res.json()) as T;
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error(String(error));
+  }
+}

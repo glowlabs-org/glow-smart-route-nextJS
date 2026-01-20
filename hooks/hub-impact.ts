@@ -14,6 +14,8 @@ export interface ImpactGlowScoreComposition {
   inflationPoints: string;
   worthPoints: string;
   vaultPoints: string;
+  referralPoints?: string;
+  referralBonusPoints?: string;
 }
 
 export interface ImpactGlowScoreLeaderboardRow {
@@ -49,6 +51,7 @@ export interface ImpactGlowScoreTotals {
   vaultBonusPoints?: string;
   totalInflationGlwWei?: string;
   totalSteeringGlwWei?: string;
+  basePointsPreMultiplierScaled6?: string;
 }
 
 export interface ImpactGlowScoreProjection {
@@ -64,6 +67,7 @@ export interface ImpactGlowScoreProjection {
     inflationGlwWei: string;
     delegatedGlwWei: string;
     glowWorthWei: string;
+    basePointsPreMultiplierScaled6?: string;
     totalProjectedScore: string;
   };
 }
@@ -119,6 +123,38 @@ export interface ImpactGlowScoreResponse {
   glowWorth?: ImpactGlowWorthResponse;
   weekly?: ImpactGlowScoreWeeklyRow[];
   regionBreakdown?: RegionBreakdown[];
+  referral?: {
+    asReferrer?: {
+      totalPointsEarnedScaled6: string;
+      thisWeekPointsScaled6: string;
+      activeRefereeCount: number;
+      pendingRefereeCount: number;
+      currentTier: {
+        name: "Seed" | "Grow" | "Scale" | "Legend";
+        percent: number;
+      };
+      nextTier?: {
+        name: string;
+        referralsNeeded: number;
+        percent: number;
+      };
+    };
+    asReferee?: {
+      referrerWallet: string;
+      referrerEns?: string;
+      bonusIsActive: boolean;
+      bonusEndsAt?: string;
+      bonusWeeksRemaining?: number;
+      bonusPointsThisWeekScaled6: string;
+      lifetimeBonusPointsScaled6: string;
+      activationBonus: {
+        awarded: boolean;
+        awardedAt?: string;
+        pending?: boolean;
+        pointsAwarded: number;
+      };
+    };
+  };
 }
 
 export interface UseImpactLeaderboardQueryArgs {

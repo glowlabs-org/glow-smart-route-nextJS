@@ -3,7 +3,7 @@
 import * as React from "react";
 
 import { useQuery } from "@tanstack/react-query";
-import { Info, X } from "lucide-react";
+import { Info, X, Users, Trophy } from "lucide-react";
 import Link from "next/link";
 import { isAddress } from "viem";
 import { toast } from "sonner";
@@ -29,6 +29,7 @@ import {
 import { BuyGlowDialog } from "@/components/dialogs/buy-glow-dialog";
 import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
 import { MintAndStakeGctlDialog } from "@/components/dialogs/mint-and-stake-gctl-dialog";
+import { ReferralNetworkDialog } from "@/components/dialogs/referral-network-dialog";
 import {
   ImpactIndicatorsRow,
   type ImpactIndicatorsState,
@@ -104,6 +105,7 @@ function getIndicatorsStateFromImpactScore(
     hasVaultBonus:
       safeBigInt(impactScore.glowWorth?.delegatedActiveGlwWei) > 0n,
     hasGlwWorth: safeBigInt(impactScore.glowWorth?.glowWorthWei) > 0n,
+    hasReferralPoints: safeNumber(impactScore.composition?.referralPoints) > 0,
   };
 }
 
@@ -129,16 +131,20 @@ function RankWidgetSkeleton({
           : "h-full bg-card dark:bg-muted/30 border-foreground/10 dark:border-border gap-3 pt-4"
       )}
     >
-      <CardHeader className="py-0 px-4">
+      <CardHeader className="py-0 px-4 relative">
         <div className="flex items-center justify-center gap-2">
           <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
             Impact Score
           </div>
+        </div>
+        <div className="absolute right-4 top-0">
           <Skeleton className="h-8 w-8 rounded-full" />
         </div>
       </CardHeader>
 
-      <CardContent className={cn("flex flex-col flex-1 min-h-0 gap-3", "py-0")}>
+      <CardContent
+        className={cn("flex flex-col flex-1 min-h-0 gap-3 px-4", "py-0")}
+      >
         <div className="flex flex-col gap-3">
           <div className="flex flex-1 min-h-0 flex-col items-center justify-center text-center px-1">
             <Skeleton className="h-4 w-24 rounded-xl" />
@@ -202,6 +208,8 @@ export function RankWidget({
   const [isLaunchpadOpen, setIsLaunchpadOpen] = React.useState(false);
   const [isBuyGlowOpen, setIsBuyGlowOpen] = React.useState(false);
   const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
+  const [isReferralNetworkOpen, setIsReferralNetworkOpen] =
+    React.useState(false);
 
   const isValidWalletAddress =
     Boolean(walletAddress) && isAddress(walletAddress as string);
@@ -257,6 +265,10 @@ export function RankWidget({
     if (!Number.isFinite(num)) return 0;
     return num;
   }, [totalsPoints]);
+
+  const referralPointsThisWeek = React.useMemo(() => {
+    return safeNumber(impactScore?.referral?.asReferrer?.thisWeekPointsScaled6);
+  }, [impactScore]);
 
   const isMillionPlusScore = totalPointsNumber >= 1_000_000;
 
@@ -335,7 +347,14 @@ export function RankWidget({
 
   const handleIndicatorClick = React.useCallback(
     (
-      key: "miner" | "streak" | "steering" | "vault" | "emissions" | "worth"
+      key:
+        | "miner"
+        | "streak"
+        | "steering"
+        | "vault"
+        | "emissions"
+        | "worth"
+        | "referral"
     ) => {
       trackEvent("dashboard_impact_indicator_click", {
         source,
@@ -343,6 +362,11 @@ export function RankWidget({
         wallet_address: normalizedWalletAddress,
         indicator: key,
       });
+
+      if (key === "referral") {
+        setIsReferralNetworkOpen(true);
+        return;
+      }
 
       if (key === "steering") {
         if (onMintAndStakeClick) return onMintAndStakeClick(!hasPositiveScore);
@@ -384,15 +408,38 @@ export function RankWidget({
             : "h-full bg-card dark:bg-muted/30 border-foreground/10 dark:border-border gap-3 pt-4"
         )}
       >
-        <CardHeader className="py-0 px-4">
+        <CardHeader className="py-0 px-4 relative">
           <div className="flex items-center  justify-center gap-2 ">
             <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
               Impact Score
             </div>
           </div>
+          {hasWallet && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-4 top-0 h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-transparent"
+              asChild
+            >
+              <Link
+                href="/stats/rewards"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  trackEvent("dashboard_leaderboard_open_click", {
+                    source,
+                    wallet_connected: hasWallet,
+                    wallet_address: normalizedWalletAddress,
+                  });
+                }}
+              >
+                <Trophy className="w-4 h-4" />
+              </Link>
+            </Button>
+          )}
         </CardHeader>
         <CardContent
-          className={cn("flex flex-col flex-1 min-h-0 gap-3", "py-0")}
+          className={cn("flex flex-col flex-1 min-h-0 gap-3 px-4", "py-0")}
         >
           {!hasWallet ? (
             <div className="flex flex-col gap-3">
@@ -492,7 +539,7 @@ export function RankWidget({
               {impactScore ? (
                 <div
                   className={cn(
-                    "rounded-xl border border-border bg-card w-fit mx-auto",
+                    "rounded-xl border border-border bg-card w-fit max-w-full mx-auto overflow-hidden",
                     isHero ? "p-2 mb-2" : "p-3"
                   )}
                 >
@@ -507,7 +554,7 @@ export function RankWidget({
                 {shouldShowMintAndStakeCta ? (
                   onMintAndStakeClick ? (
                     <Button
-                      className={cn("font-mono font-bold", "h-12 text-base")}
+                      className={cn("font-mono font-bold", "h-12 text-xs")}
                       type="button"
                       onClick={() => {
                         trackEvent("dashboard_gctl_mint_stake_open_click", {
@@ -524,7 +571,7 @@ export function RankWidget({
                     <Button
                       className={cn(
                         "font-mono font-bold",
-                        isHero ? "h-10 text-sm" : "h-12 text-base"
+                        isHero ? "h-10 text-xs" : "h-12 text-xs"
                       )}
                       asChild
                     >
@@ -544,34 +591,11 @@ export function RankWidget({
                     </Button>
                   )
                 ) : null}
-                <Button
-                  variant={
-                    shouldShowMintAndStakeCta && onMintAndStakeClick
-                      ? "outline"
-                      : "default"
-                  }
-                  className={cn("font-mono font-bold")}
-                  asChild
-                >
-                  <Link
-                    href="/stats/rewards"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => {
-                      trackEvent("dashboard_leaderboard_open_click", {
-                        source,
-                        wallet_connected: hasWallet,
-                        wallet_address: normalizedWalletAddress,
-                      });
-                    }}
-                  >
-                    Leaderboard
-                  </Link>
-                </Button>
+
                 {shouldShowBreakdownButton ? (
                   <Button
                     variant="outline"
-                    className={cn("font-mono font-bold")}
+                    className={cn("font-mono font-bold w-full h-12 text-xs")}
                     type="button"
                     onClick={() => {
                       trackEvent("dashboard_impact_breakdown_open_click", {
@@ -586,6 +610,26 @@ export function RankWidget({
                     Breakdown
                   </Button>
                 ) : null}
+
+                <Button
+                  variant={
+                    shouldShowMintAndStakeCta && onMintAndStakeClick
+                      ? "outline"
+                      : "default"
+                  }
+                  className={cn(
+                    "font-mono font-bold w-full h-12 text-xs gap-1.5 px-2"
+                  )}
+                  type="button"
+                  onClick={() => setIsReferralNetworkOpen(true)}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  {referralPointsThisWeek > 0
+                    ? `Invites (+${formatPoints(
+                        String(referralPointsThisWeek)
+                      )})`
+                    : "Invite Friends"}
+                </Button>
               </div>
             </>
           )}
@@ -627,6 +671,12 @@ export function RankWidget({
         glowSpotPrice={glowSpotPrice || 0}
         source="rank_widget"
         defaultUsdcAmount="20"
+      />
+
+      <ReferralNetworkDialog
+        open={isReferralNetworkOpen}
+        onOpenChange={setIsReferralNetworkOpen}
+        walletAddress={normalizedWalletAddress}
       />
     </>
   );

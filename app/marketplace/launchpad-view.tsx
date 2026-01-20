@@ -112,6 +112,49 @@ function countActiveListings(
   }, 0);
 }
 
+// Image component with skeleton loading state for SSR-friendly progressive loading
+function FarmImageWithSkeleton({
+  src,
+  alt,
+  className,
+  widthForProxy,
+  quality,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+  widthForProxy?: number;
+  quality?: number;
+}) {
+  const [isLoaded, setIsLoaded] = React.useState(false);
+
+  const handleLoad = React.useCallback(() => {
+    setIsLoaded(true);
+  }, []);
+
+  return (
+    <>
+      {!isLoaded && (
+        <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-800 animate-pulse" />
+      )}
+      <FallbackImage
+        src={src}
+        widthForProxy={widthForProxy}
+        quality={quality}
+        alt={alt}
+        className={cn(
+          className,
+          "transition-opacity duration-300",
+          isLoaded ? "opacity-100" : "opacity-0"
+        )}
+        onLoad={handleLoad}
+        loading="lazy"
+        decoding="async"
+      />
+    </>
+  );
+}
+
 // Extended type for applications with type tagging
 export type TaggedAuctionApplication = AuctionApplication & {
   _type: "miners" | "delegations";
@@ -777,10 +820,16 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                   ? getMiningScoreForApplication(miningScoreMap, application.id)
                   : null;
 
+              const availability = getActiveFractionAvailability(application);
+              const isSoldOut = availability.isSoldOut;
+
               return (
                 <Card
                   key={application.id}
-                  className="overflow-hidden pt-0 bg-muted"
+                  className={cn(
+                    "overflow-hidden pt-0 bg-muted transition-opacity",
+                    isSoldOut && "opacity-50"
+                  )}
                 >
                   <CardContent className="p-0">
                     {/* Images */}
@@ -794,8 +843,8 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
 
                       {application.afterInstallPictures.length > 0 ? (
                         <div className="grid grid-cols-2 gap-1">
-                          <div className="col-span-2 relative">
-                            <FallbackImage
+                          <div className="col-span-2 relative h-56 overflow-hidden">
+                            <FarmImageWithSkeleton
                               src={
                                 application.afterInstallPictures[0]?.url ||
                                 "/images/sections/residential.jpg"
@@ -804,35 +853,33 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                               quality={70}
                               alt={`${application.zone.name} main`}
                               className="w-full h-56 object-cover"
-                              loading="lazy"
-                              decoding="async"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
                           </div>
-                          <FallbackImage
-                            src={
-                              application.afterInstallPictures[1]?.url ||
-                              "/images/sections/residential.jpg"
-                            }
-                            widthForProxy={450}
-                            quality={65}
-                            alt={`${application.zone.name} alt 1`}
-                            className="w-full h-28 object-cover"
-                            loading="lazy"
-                            decoding="async"
-                          />
-                          <FallbackImage
-                            src={
-                              application.afterInstallPictures[2]?.url ||
-                              "/images/sections/residential.jpg"
-                            }
-                            widthForProxy={450}
-                            quality={65}
-                            alt={`${application.zone.name} alt 2`}
-                            className="w-full h-28 object-cover"
-                            loading="lazy"
-                            decoding="async"
-                          />
+                          <div className="relative h-28 overflow-hidden">
+                            <FarmImageWithSkeleton
+                              src={
+                                application.afterInstallPictures[1]?.url ||
+                                "/images/sections/residential.jpg"
+                              }
+                              widthForProxy={450}
+                              quality={65}
+                              alt={`${application.zone.name} alt 1`}
+                              className="w-full h-28 object-cover"
+                            />
+                          </div>
+                          <div className="relative h-28 overflow-hidden">
+                            <FarmImageWithSkeleton
+                              src={
+                                application.afterInstallPictures[2]?.url ||
+                                "/images/sections/residential.jpg"
+                              }
+                              widthForProxy={450}
+                              quality={65}
+                              alt={`${application.zone.name} alt 2`}
+                              className="w-full h-28 object-cover"
+                            />
+                          </div>
                         </div>
                       ) : (
                         <div className="grid grid-cols-2 gap-1">
@@ -964,7 +1011,12 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
 
                       <div className="grid md:grid-cols-2 gap-3">
                         {/* Amount per Delegation/Miner - Left Column */}
-                        <div className="bg-muted/50 border border-border rounded-xl p-4 flex flex-col">
+                        <div
+                          className={cn(
+                            "bg-muted/50 border border-border rounded-xl p-4 flex flex-col",
+                            isSoldOut && "md:col-span-2"
+                          )}
+                        >
                           <div
                             className="text-xs uppercase tracking-wider text-muted-foreground mb-3"
                             style={{
@@ -1119,9 +1171,10 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                         </div>
 
                         {/* Weekly Rewards - Right Column */}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="bg-muted/50 border border-border rounded-xl p-4 cursor-help flex flex-col">
+                        {!isSoldOut && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="bg-muted/50 border border-border rounded-xl p-4 cursor-help flex flex-col">
                               <div className="flex items-center gap-2 mb-3">
                                 <div
                                   className="text-xs uppercase tracking-wider text-muted-foreground"
@@ -1401,6 +1454,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                             )}
                           </TooltipContent>
                         </Tooltip>
+                        )}
                       </div>
 
                       {/* Owned Fractions Display */}
@@ -1452,36 +1506,38 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                               : "Delegate GLW"}
                           </span>
                         </Button>
-                        <Button
-                          variant="outline"
-                          className="w-full rounded-full h-11"
-                          onClick={() => {
-                            trackEvent(
-                              "marketplace_launchpad_advanced_stats_open",
-                              {
-                                application_id: application.id,
-                                app_type: application._type,
-                                zone_id: application.zone?.id ?? null,
-                              }
-                            );
-                            setSelectedApplicationForStats(application);
-                            setSelectedRewardScoreForStats(
-                              application._type === "miners"
-                                ? miningScore || null
-                                : rewardScore || null
-                            );
-                            setStatsDialogOpen(true);
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontFamily: "Söhne, sans-serif",
-                              fontWeight: 400,
+                        {!isSoldOut && (
+                          <Button
+                            variant="outline"
+                            className="w-full rounded-full h-11"
+                            onClick={() => {
+                              trackEvent(
+                                "marketplace_launchpad_advanced_stats_open",
+                                {
+                                  application_id: application.id,
+                                  app_type: application._type,
+                                  zone_id: application.zone?.id ?? null,
+                                }
+                              );
+                              setSelectedApplicationForStats(application);
+                              setSelectedRewardScoreForStats(
+                                application._type === "miners"
+                                  ? miningScore || null
+                                  : rewardScore || null
+                              );
+                              setStatsDialogOpen(true);
                             }}
                           >
-                            Advanced Stats
-                          </span>
-                        </Button>
+                            <span
+                              style={{
+                                fontFamily: "Söhne, sans-serif",
+                                fontWeight: 400,
+                              }}
+                            >
+                              Advanced Stats
+                            </span>
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -1569,6 +1625,24 @@ function getFarmEfficiency(application: AuctionApplication) {
   }
 }
 
+function formatTimeToSellOut(createdAt: string, filledAt: string | null) {
+  if (!filledAt) return "—";
+  const start = new Date(createdAt).getTime();
+  const end = new Date(filledAt).getTime();
+  const diffMs = end - start;
+  if (diffMs <= 0) return "Instant";
+
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffDays > 0) return `${diffDays}d ${diffHours % 24}h`;
+  if (diffHours > 0) return `${diffHours}h ${diffMinutes % 60}m`;
+  if (diffMinutes > 0) return `${diffMinutes}m ${diffSeconds % 60}s`;
+  return `${diffSeconds}s`;
+}
+
 interface LaunchpadMarketplaceWidgetProps {
   onPayDeposit: LaunchpadViewProps["onPayDeposit"];
   typeFilter?: LaunchpadViewProps["typeFilter"];
@@ -1607,7 +1681,7 @@ function LaunchpadMarketplaceWidget({
     isError: isErrorLaunchpad,
     error: errorLaunchpad,
   } = useGlowLaunchpad({
-    filters: { paymentCurrency: "GLW" },
+    filters: { paymentCurrency: "GLW", includeFilled: true },
   });
 
   const {
@@ -1616,7 +1690,7 @@ function LaunchpadMarketplaceWidget({
     isError: isErrorMiners,
     error: errorMiners,
   } = useMiningCenter({
-    filters: { paymentCurrency: "USDC" },
+    filters: { paymentCurrency: "USDC", includeFilled: true },
   });
 
   const taggedDelegations = React.useMemo<TaggedAuctionApplication[]>(
@@ -1748,6 +1822,28 @@ function LaunchpadMarketplaceWidget({
           ? (yieldUsdPerWeek / cost) * 1000
           : 0;
 
+      const amountRaised = application.activeFraction?.amountRaised
+        ? parseFloat(
+            formatUnits(
+              BigInt(application.activeFraction.amountRaised),
+              application._type === "miners"
+                ? DECIMALS_BY_TOKEN.USDC
+                : DECIMALS_BY_TOKEN.GLW
+            )
+          )
+        : 0;
+
+      const totalAmountNeeded = application.activeFraction?.totalAmountNeeded
+        ? parseFloat(
+            formatUnits(
+              BigInt(application.activeFraction.totalAmountNeeded),
+              application._type === "miners"
+                ? DECIMALS_BY_TOKEN.USDC
+                : DECIMALS_BY_TOKEN.GLW
+            )
+          )
+        : 0;
+
       return {
         application,
         availability,
@@ -1760,28 +1856,82 @@ function LaunchpadMarketplaceWidget({
         yieldPer1000Usd,
         rewardScore: application._type === "delegations" ? reward : null,
         miningScore: application._type === "miners" ? mining : null,
+        amountRaised,
+        totalAmountNeeded,
       };
     });
 
-    const delegations = withMetrics
-      .filter((r) => r.application._type === "delegations")
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-    const miners = withMetrics
-      .filter((r) => r.application._type === "miners")
-      .sort((a, b) => (b.yieldPer1000Usd ?? 0) - (a.yieldPer1000Usd ?? 0));
+    // Partition into active and filled
+    const activeRows = withMetrics.filter((r) => !r.availability.isSoldOut);
+    const filledRows = withMetrics
+      .filter((r) => r.availability.isSoldOut)
+      .sort((a, b) => {
+        const aTime = new Date(
+          a.application.activeFraction?.filledAt ||
+            a.application.activeFraction?.createdAt ||
+            0
+        ).getTime();
+        const bTime = new Date(
+          b.application.activeFraction?.filledAt ||
+            b.application.activeFraction?.createdAt ||
+            0
+        ).getTime();
+        return bTime - aTime;
+      });
 
-    if ((typeFilter ?? "all") === "delegations") return delegations;
-    if ((typeFilter ?? "all") === "miners") return miners;
+    let finalRows: typeof withMetrics = [];
 
-    const merged: Array<(typeof withMetrics)[number]> = [];
-    let i = 0;
-    let j = 0;
-    while (i < delegations.length || j < miners.length) {
-      if (i < delegations.length) merged.push(delegations[i++]);
-      if (j < miners.length) merged.push(miners[j++]);
+    if (filter === "delegations") {
+      const active = activeRows.filter(
+        (r) => r.application._type === "delegations"
+      );
+      active.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+      finalRows = active;
+
+      if (finalRows.length < 2) {
+        const extra = filledRows
+          .filter((r) => r.application._type === "delegations")
+          .slice(0, 2 - finalRows.length);
+        finalRows = [...finalRows, ...extra];
+      }
+    } else if (filter === "miners") {
+      const active = activeRows.filter(
+        (r) => r.application._type === "miners"
+      );
+      active.sort((a, b) => (b.yieldPer1000Usd ?? 0) - (a.yieldPer1000Usd ?? 0));
+      finalRows = active;
+
+      if (finalRows.length < 2) {
+        const extra = filledRows
+          .filter((r) => r.application._type === "miners")
+          .slice(0, 2 - finalRows.length);
+        finalRows = [...finalRows, ...extra];
+      }
+    } else {
+      // Merge active delegations and miners (alternating)
+      const activeDelegations = activeRows
+        .filter((r) => r.application._type === "delegations")
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+      const activeMiners = activeRows
+        .filter((r) => r.application._type === "miners")
+        .sort((a, b) => (b.yieldPer1000Usd ?? 0) - (a.yieldPer1000Usd ?? 0));
+
+      const mergedActive: typeof withMetrics = [];
+      let i = 0;
+      let j = 0;
+      while (i < activeDelegations.length || j < activeMiners.length) {
+        if (i < activeDelegations.length) mergedActive.push(activeDelegations[i++]);
+        if (j < activeMiners.length) mergedActive.push(activeMiners[j++]);
+      }
+      finalRows = mergedActive;
+
+      if (finalRows.length < 2) {
+        const extra = filledRows.slice(0, 2 - finalRows.length);
+        finalRows = [...finalRows, ...extra];
+      }
     }
 
-    return merged;
+    return finalRows;
   }, [
     glwSpotPrice,
     miningScoreMap,
@@ -1982,7 +2132,12 @@ function LaunchpadMarketplaceWidget({
     })();
 
     return (
-      <div className="relative w-full h-full rounded-[2rem] overflow-hidden group">
+      <div
+        className={cn(
+          "relative w-full h-full rounded-[2rem] overflow-hidden group transition-opacity",
+          availability.isSoldOut && "opacity-50"
+        )}
+      >
         {/* Full Background Image */}
         <div className="absolute inset-0">
           {application.afterInstallPictures?.[0]?.url ? (
@@ -1999,21 +2154,23 @@ function LaunchpadMarketplaceWidget({
         </div>
 
         {/* Top Right: Advanced Stats Pill */}
-        <div className="absolute top-4 right-4 z-10">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedApplicationForStats(application);
-              setSelectedScoreDataForStats(row.scoreData ?? null);
-              setStatsDialogOpen(true);
-            }}
-            className="backdrop-blur-xl bg-white/60 hover:bg-white/55 border border-black/10 text-foreground rounded-full px-4 h-8 text-xs font-medium transition-all dark:bg-black/30 dark:hover:bg-black/50 dark:border-white/10 dark:text-white"
-          >
-            Advanced Stats <ArrowUpRight className="ml-1 w-3 h-3" />
-          </Button>
-        </div>
+        {!availability.isSoldOut && (
+          <div className="absolute top-4 right-4 z-10">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedApplicationForStats(application);
+                setSelectedScoreDataForStats(row.scoreData ?? null);
+                setStatsDialogOpen(true);
+              }}
+              className="backdrop-blur-xl bg-white/60 hover:bg-white/55 border border-black/10 text-foreground rounded-full px-4 h-8 text-xs font-medium transition-all dark:bg-black/30 dark:hover:bg-black/50 dark:border-white/10 dark:text-white"
+            >
+              Advanced Stats <ArrowUpRight className="ml-1 w-3 h-3" />
+            </Button>
+          </div>
+        )}
 
         {/* Bottom Overlay: Apple Liquid Glass Panel */}
         <div className="absolute bottom-4 left-4 right-4 z-10">
@@ -2093,10 +2250,22 @@ function LaunchpadMarketplaceWidget({
                   {/* Stat 1: Amount */}
                   <div className="flex-1 min-w-0 md:min-w-[140px] p-2.5 md:p-3 rounded-2xl bg-white/10 border border-white10 flex flex-col justify-center dark:bg-white/5 dark:border-white/10">
                     <span className="text-[9px] md:text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-0.5 md:mb-1 dark:text-white/50">
-                      {isMiner ? "Price" : "Amount"}
+                      {availability.isSoldOut
+                        ? isMiner
+                          ? "Total Mined"
+                          : "Total Delegated"
+                        : isMiner
+                        ? "Price"
+                        : "Amount"}
                     </span>
                     <span className="text-base md:text-lg font-semibold">
-                      {cost > 0 ? (
+                      {availability.isSoldOut ? (
+                        <>
+                          {isMiner ? "$" : ""}
+                          {formatNumber(row.totalAmountNeeded || 0, 0)}{" "}
+                          {currency}
+                        </>
+                      ) : cost > 0 ? (
                         <>
                           {isMiner ? "$" : ""}
                           {formatNumber(cost, 0)} {currency}
@@ -2105,84 +2274,97 @@ function LaunchpadMarketplaceWidget({
                         "Free"
                       )}
                     </span>
-                    <span className="text-[9px] md:text-[10px] text-foreground/50 dark:text-white/40">
-                      {isMiner ? "≈ 0.003 ETH" : "≈ $1,810 USD"}
-                    </span>
+                    {!availability.isSoldOut && (
+                      <span className="text-[9px] md:text-[10px] text-foreground/50 dark:text-white/40">
+                        {isMiner ? "≈ 0.003 ETH" : "≈ $1,810 USD"}
+                      </span>
+                    )}
                   </div>
 
                   {/* Stat 2: Units */}
                   <div className="flex-1 min-w-0 md:min-w-[140px] p-2.5 md:p-3 rounded-2xl bg-white/10 border border-white10 flex flex-col justify-center dark:bg-white/5 dark:border-white/10">
                     <span className="text-[9px] md:text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-0.5 md:mb-1 dark:text-white/50">
-                      Units
+                      {availability.isSoldOut ? "Sell out time" : "Units"}
                     </span>
                     <span className="text-lg md:text-xl font-semibold">
-                      {availability?.remaining}/{availability?.total}
+                      {availability.isSoldOut ? (
+                        formatTimeToSellOut(
+                          application.publishedOnAuctionTimestamp,
+                          application.activeFraction?.filledAt || null
+                        )
+                      ) : (
+                        <>
+                          {availability?.remaining}/{availability?.total}
+                        </>
+                      )}
                     </span>
                     <span className="text-[9px] md:text-[10px] text-foreground/50 dark:text-white/40">
-                      Available
+                      {availability.isSoldOut ? "Completed" : "Available"}
                     </span>
                   </div>
                 </div>
 
                 {/* Stat 3: Rewards */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex-1 min-w-[140px] md:min-w-[160px] p-2.5 md:p-3 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 border border-white flex flex-col justify-center dark:from-white/10 dark:to-transparent dark:border-white/10 cursor-help">
-                      <span className="text-[9px] md:text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-0.5 md:mb-1 dark:text-white/50">
-                        {isMiner ? "Weekly (99 wks)" : "Weekly (100 wks)"}
-                      </span>
-                      <span className="text-xs md:text-sm font-semibold">
-                        +{formatNumber(weeklyYield, 2)} GLW / wk
-                      </span>
-                      <span className="text-[9px] md:text-[10px] text-foreground/50 dark:text-white/40">
-                        Estimated earnings are subject to change.
-                      </span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[280px] p-3">
-                    <div className="text-xs">
-                      <div className="font-semibold mb-1.5">
-                        Estimated Rewards
+                {!availability.isSoldOut && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex-1 min-w-[140px] md:min-w-[160px] p-2.5 md:p-3 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 border border-white flex flex-col justify-center dark:from-white/10 dark:to-transparent dark:border-white/10 cursor-help">
+                        <span className="text-[9px] md:text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-0.5 md:mb-1 dark:text-white/50">
+                          {isMiner ? "Weekly (99 wks)" : "Weekly (100 wks)"}
+                        </span>
+                        <span className="text-xs md:text-sm font-semibold">
+                          +{formatNumber(weeklyYield, 2)} GLW / wk
+                        </span>
+                        <span className="text-[9px] md:text-[10px] text-foreground/50 dark:text-white/40">
+                          Estimated earnings are subject to change.
+                        </span>
                       </div>
-                      <div className="text-primary-foreground/80 leading-relaxed">
-                        {isMiner
-                          ? "Estimated weekly rewards per miner, paid weekly for 99 weeks. May decrease as new farms join the region and dilute emissions."
-                          : "Expected weekly rewards per delegation, paid weekly for 100 weeks. May vary with network changes."}
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[280px] p-3">
+                      <div className="text-xs">
+                        <div className="font-semibold mb-1.5">
+                          Estimated Rewards
+                        </div>
+                        <div className="text-primary-foreground/80 leading-relaxed">
+                          {isMiner
+                            ? "Estimated weekly rewards per miner, paid weekly for 99 weeks. May decrease as new farms join the region and dilute emissions."
+                            : "Expected weekly rewards per delegation, paid weekly for 100 weeks. May vary with network changes."}
+                        </div>
+                        {!isMiner && rewardsBreakdown ? (
+                          <>
+                            <div className="h-px bg-primary-foreground/15 my-2" />
+                            <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-[11px]">
+                              <div className="text-primary-foreground/80">
+                                GLW from PDs
+                              </div>
+                              <div className="font-mono tabular-nums text-primary-foreground">
+                                {rewardsBreakdown.pdPerShare.toLocaleString(
+                                  undefined,
+                                  {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }
+                                )}
+                              </div>
+                              <div className="text-primary-foreground/80">
+                                GLW from Inflation
+                              </div>
+                              <div className="font-mono tabular-nums text-primary-foreground">
+                                {rewardsBreakdown.inflationPerShare.toLocaleString(
+                                  undefined,
+                                  {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        ) : null}
                       </div>
-                      {!isMiner && rewardsBreakdown ? (
-                        <>
-                          <div className="h-px bg-primary-foreground/15 my-2" />
-                          <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-[11px]">
-                            <div className="text-primary-foreground/80">
-                              GLW from PDs
-                            </div>
-                            <div className="font-mono tabular-nums text-primary-foreground">
-                              {rewardsBreakdown.pdPerShare.toLocaleString(
-                                undefined,
-                                {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                }
-                              )}
-                            </div>
-                            <div className="text-primary-foreground/80">
-                              GLW from Inflation
-                            </div>
-                            <div className="font-mono tabular-nums text-primary-foreground">
-                              {rewardsBreakdown.inflationPerShare.toLocaleString(
-                                undefined,
-                                {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                }
-                              )}
-                            </div>
-                          </div>
-                        </>
-                      ) : null}
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
 
                 {/* CTA Button */}
                 <Button
@@ -2264,7 +2446,7 @@ function LaunchpadMarketplaceWidget({
                     className={cn(
                       "snap-start shrink-0",
                       isHeroCarousel
-                        ? "w-full max-w-full"
+                        ? "w-[calc(50%-12px)] min-w-[600px] max-w-full"
                         : "w-[400px] max-w-[85vw]"
                     )}
                   >
@@ -2309,9 +2491,12 @@ function LaunchpadMarketplaceWidget({
           {rows.map((row) => (
             <div
               key={row.application.id}
-              className="h-[580px] w-full cursor-pointer transition-opacity hover:opacity-95"
+              className={cn(
+                "h-[580px] w-full cursor-pointer transition-opacity hover:opacity-95",
+                row.availability.isSoldOut && "cursor-default hover:opacity-100"
+              )}
               onClick={() => {
-                if (!row.scoreData) return;
+                if (!row.scoreData || row.availability.isSoldOut) return;
                 onPayDeposit(row.application, row.scoreData);
               }}
             >
@@ -2345,7 +2530,8 @@ function LaunchpadMarketplaceWidget({
               className={cn(
                 "flex",
                 isHeroCarousel ? "w-full gap-6 pr-0" : "gap-4",
-                rows.length <= 1 ? "w-full pr-0" : "pr-6 pl-1"
+                rows.length <= 1 && !isHeroCarousel ? "w-full pr-0" : "pr-6 pl-1",
+                rows.length === 1 && isHeroCarousel && "justify-center"
               )}
             >
               {rows.map((row) => (
@@ -2354,14 +2540,15 @@ function LaunchpadMarketplaceWidget({
                   data-carousel-item
                   className={cn(
                     "snap-start shrink-0 cursor-pointer transition-transform hover:scale-[1.01] duration-300",
-                    rows.length <= 1
-                      ? "w-full max-w-full h-[500px]"
-                      : isHeroCarousel
+                    row.availability.isSoldOut && "cursor-default hover:scale-100",
+                    isHeroCarousel
                       ? "w-[calc(50%-12px)] min-w-[600px] h-[500px]"
+                      : rows.length <= 1
+                      ? "w-full max-w-full h-[500px]"
                       : "w-[380px] max-w-[85vw]"
                   )}
                   onClick={() => {
-                    if (!row.scoreData) return;
+                    if (!row.scoreData || row.availability.isSoldOut) return;
                     onPayDeposit(row.application, row.scoreData);
                   }}
                 >
@@ -2436,6 +2623,8 @@ function LaunchpadWidgetAssetCard({
     miningScore: { miningScore: number } | null;
     yieldUsdPerWeek: number;
     yieldPer1000Usd: number;
+    amountRaised: number;
+    totalAmountNeeded: number;
   };
   isScoresLoading: boolean;
   glwSpotPrice: number;
@@ -2466,11 +2655,25 @@ function LaunchpadWidgetAssetCard({
   const title = application.farmName || "Unnamed Farm";
   const imageSrc = getDialogCardImageSrc(application);
 
-  const costLabel = isDelegation ? "Delegation Amount" : "Price / Miner";
-  const costMain = isDelegation
+  const costLabel = isSoldOut
+    ? isDelegation
+      ? "Total Delegated"
+      : "Total Mined"
+    : isDelegation
+    ? "Delegation Amount"
+    : "Price / Miner";
+
+  const costMain = isSoldOut
+    ? isDelegation
+      ? `${Math.round(row.totalAmountNeeded).toLocaleString()} GLW`
+      : `$${Math.round(row.totalAmountNeeded).toLocaleString()} USDC`
+    : isDelegation
     ? `${Math.round(cost).toLocaleString()} GLW`
     : `$${cost.toLocaleString(undefined, { maximumFractionDigits: 0 })} USDC`;
-  const costSub = isDelegation
+
+  const costSub = isSoldOut
+    ? null
+    : isDelegation
     ? glwSpotPrice > 0
       ? `≈ $${Math.round(cost * glwSpotPrice).toLocaleString()} USD`
       : "—"
@@ -2548,7 +2751,12 @@ function LaunchpadWidgetAssetCard({
       };
 
   return (
-    <div className="w-full overflow-hidden rounded-2xl border border-border bg-muted/10 p-4">
+    <div
+      className={cn(
+        "w-full overflow-hidden rounded-2xl border border-border bg-muted/10 p-4 transition-opacity",
+        isSoldOut && "opacity-50"
+      )}
+    >
       <div className="flex min-w-0 gap-3">
         <div className="relative overflow-hidden rounded-xl border border-border/60 bg-muted/20 h-24 w-24 shrink-0">
           <FallbackImage
@@ -2594,9 +2802,17 @@ function LaunchpadWidgetAssetCard({
                   />
                 </div>
                 <div className="mt-1.5 text-xs font-mono font-medium tabular-nums text-foreground/80">
-                  {isSoldOut
-                    ? "SOLD OUT"
-                    : `${availability.remaining} / ${availability.total} Left`}
+                  {isSoldOut ? (
+                    <>
+                      SOLD OUT IN{" "}
+                      {formatTimeToSellOut(
+                        application.publishedOnAuctionTimestamp,
+                        application.activeFraction?.filledAt || null
+                      )}
+                    </>
+                  ) : (
+                    `${availability.remaining} / ${availability.total} Left`
+                  )}
                 </div>
               </div>
             </div>
@@ -2616,13 +2832,15 @@ function LaunchpadWidgetAssetCard({
                   ? "Delegate GLW"
                   : "Buy Miners"}
               </Button>
-              <Button
-                variant="outline"
-                className="h-10 rounded-full px-4 text-sm whitespace-nowrap"
-                onClick={() => onOpenStats(application, scoreData)}
-              >
-                Advanced Stats
-              </Button>
+              {!isSoldOut && (
+                <Button
+                  variant="outline"
+                  className="h-10 rounded-full px-4 text-sm whitespace-nowrap"
+                  onClick={() => onOpenStats(application, scoreData)}
+                >
+                  Advanced Stats
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -2630,7 +2848,7 @@ function LaunchpadWidgetAssetCard({
 
       <div className="mt-4 min-w-0">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-border bg-background/30 p-4">
+          <div className={cn("rounded-xl border border-border bg-background/30 p-4", isSoldOut && "sm:col-span-2")}>
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
               {costLabel}
             </div>
@@ -2639,110 +2857,112 @@ function LaunchpadWidgetAssetCard({
             </div>
             <div className="mt-1 text-xs text-muted-foreground">{costSub}</div>
           </div>
-          <div className="rounded-xl border border-border bg-background/30 p-4">
-            {isDelegation ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="inline-flex cursor-help items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                    Est. Rewards (100 weeks)
-                    <Info className="h-3.5 w-3.5 opacity-70" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="top"
-                  align="start"
-                  sideOffset={8}
-                  className="max-w-[280px] p-3"
-                >
-                  <div className="space-y-2">
-                    <div className="text-xs font-semibold text-primary-foreground">
-                      Estimated rewards
+          {!isSoldOut && (
+            <div className="rounded-xl border border-border bg-background/30 p-4">
+              {isDelegation ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="inline-flex cursor-help items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                      Est. Rewards (100 weeks)
+                      <Info className="h-3.5 w-3.5 opacity-70" />
                     </div>
-                    <div className="text-[11px] leading-snug text-primary-foreground/80">
-                      Weekly estimate per delegation, paid weekly for 100 weeks.
-                      Can decrease as regions fill. See Advanced Stats for
-                      details.
-                    </div>
-                    <div className="h-px bg-primary-foreground/15" />
-                    {delegationRewardsBreakdown ? (
-                      <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-[11px]">
-                        <div className="text-primary-foreground/80">
-                          GLW from PDs
-                        </div>
-                        <div className="font-mono tabular-nums text-primary-foreground">
-                          {delegationRewardsBreakdown.pdPerShare.toLocaleString(
-                            undefined,
-                            {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }
-                          )}
-                        </div>
-                        <div className="text-primary-foreground/80">
-                          GLW from Inflation
-                        </div>
-                        <div className="font-mono tabular-nums text-primary-foreground">
-                          {delegationRewardsBreakdown.inflationPerShare.toLocaleString(
-                            undefined,
-                            {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }
-                          )}
-                        </div>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    align="start"
+                    sideOffset={8}
+                    className="max-w-[280px] p-3"
+                  >
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-primary-foreground">
+                        Estimated rewards
                       </div>
-                    ) : (
-                      <div className="text-[11px] text-primary-foreground/70">
-                        Calculating breakdown…
+                      <div className="text-[11px] leading-snug text-primary-foreground/80">
+                        Weekly estimate per delegation, paid weekly for 100 weeks.
+                        Can decrease as regions fill. See Advanced Stats for
+                        details.
                       </div>
-                    )}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="inline-flex cursor-help items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                    Weekly Rewards (99 weeks)
-                    <Info className="h-3.5 w-3.5 opacity-70" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="top"
-                  align="start"
-                  sideOffset={8}
-                  className="max-w-[280px] p-3"
-                >
-                  <div className="space-y-2">
-                    <div className="text-xs font-semibold text-primary-foreground">
-                      Estimated rewards
+                      <div className="h-px bg-primary-foreground/15" />
+                      {delegationRewardsBreakdown ? (
+                        <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-[11px]">
+                          <div className="text-primary-foreground/80">
+                            GLW from PDs
+                          </div>
+                          <div className="font-mono tabular-nums text-primary-foreground">
+                            {delegationRewardsBreakdown.pdPerShare.toLocaleString(
+                              undefined,
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }
+                            )}
+                          </div>
+                          <div className="text-primary-foreground/80">
+                            GLW from Inflation
+                          </div>
+                          <div className="font-mono tabular-nums text-primary-foreground">
+                            {delegationRewardsBreakdown.inflationPerShare.toLocaleString(
+                              undefined,
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-primary-foreground/70">
+                          Calculating breakdown…
+                        </div>
+                      )}
                     </div>
-                    <div className="text-[11px] leading-snug text-primary-foreground/80">
-                      Estimated weekly rewards per miner for 99 weeks. These
-                      estimates may decrease as new farms join the region and
-                      dilute the regional GLW allocation. See Advanced Stats for
-                      detailed information.
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="inline-flex cursor-help items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                      Weekly Rewards (99 weeks)
+                      <Info className="h-3.5 w-3.5 opacity-70" />
                     </div>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            )}
-            <div className="mt-2 text-base font-semibold text-foreground">
-              {rewardsMain}
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    align="start"
+                    sideOffset={8}
+                    className="max-w-[280px] p-3"
+                  >
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-primary-foreground">
+                        Estimated rewards
+                      </div>
+                      <div className="text-[11px] leading-snug text-primary-foreground/80">
+                        Estimated weekly rewards per miner for 99 weeks. These
+                        estimates may decrease as new farms join the region and
+                        dilute the regional GLW allocation. See Advanced Stats for
+                        detailed information.
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              <div className="mt-2 text-base font-semibold text-foreground">
+                {rewardsMain}
+              </div>
+              {isDelegation ? (
+                <div className="mt-1 text-xs">
+                  <span className="text-muted-foreground">Score:</span>{" "}
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {delegationScoreLabel}
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {rewardsSub}
+                </div>
+              )}
             </div>
-            {isDelegation ? (
-              <div className="mt-1 text-xs">
-                <span className="text-muted-foreground">Score:</span>{" "}
-                <span className="font-semibold tabular-nums text-foreground">
-                  {delegationScoreLabel}
-                </span>
-              </div>
-            ) : (
-              <div className="mt-1 text-xs text-muted-foreground">
-                {rewardsSub}
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -2813,6 +3033,8 @@ function LaunchpadWidgetHeroCarouselCard({
     miningScore: { miningScore: number } | null;
     yieldUsdPerWeek: number;
     yieldPer1000Usd: number;
+    amountRaised: number;
+    totalAmountNeeded: number;
   };
   isScoresLoading: boolean;
   glwSpotPrice: number;
@@ -2837,10 +3059,17 @@ function LaunchpadWidgetHeroCarouselCard({
   const title = application.farmName || "Unnamed Farm";
   const imageSrc = getDialogCardImageSrc(application);
 
-  const priceValue = isDelegation
+  const priceValue = isSoldOut
+    ? isDelegation
+      ? `${Math.round(row.totalAmountNeeded).toLocaleString()} GLW`
+      : `$${Math.round(row.totalAmountNeeded).toLocaleString()} USDC`
+    : isDelegation
     ? `${Math.round(cost).toLocaleString()} GLW`
     : `$${Math.round(cost).toLocaleString()} USDC`;
-  const priceSubValue = isDelegation
+
+  const priceSubValue = isSoldOut
+    ? null
+    : isDelegation
     ? glwSpotPrice > 0
       ? `≈ $${Math.round(cost * glwSpotPrice).toLocaleString()} USD`
       : "—"
@@ -2850,8 +3079,14 @@ function LaunchpadWidgetHeroCarouselCard({
       })} ETH`
     : "Stable price";
 
-  const unitsValue = `${availability.remaining.toLocaleString()} / ${availability.total.toLocaleString()}`;
-  const unitsSubValue = isSoldOut ? "Sold out" : "Available";
+  const unitsValue = isSoldOut
+    ? formatTimeToSellOut(
+        application.publishedOnAuctionTimestamp,
+        application.activeFraction?.filledAt || null
+      )
+    : `${availability.remaining.toLocaleString()} / ${availability.total.toLocaleString()}`;
+
+  const unitsSubValue = isSoldOut ? "Sell out time" : "Available";
   const unitsRemainingPct = React.useMemo(() => {
     const total = availability.total || 0;
     const remaining = availability.remaining || 0;
@@ -2954,18 +3189,33 @@ function LaunchpadWidgetHeroCarouselCard({
             </div>
 
             <div
-              className="w-full max-w-full overflow-hidden rounded-3xl border border-white/40 bg-white/30 backdrop-blur-3xl sm:w-auto cursor-pointer hover:bg-white/40 transition-colors shadow-lg dark:border-white/10 dark:bg-black/30 dark:hover:bg-black/40"
+              className={cn(
+                "w-full max-w-full overflow-hidden rounded-3xl border border-white/40 bg-white/30 backdrop-blur-3xl sm:w-auto transition-colors shadow-lg dark:border-white/10 dark:bg-black/30",
+                !isSoldOut && "cursor-pointer hover:bg-white/40 dark:hover:bg-black/40"
+              )}
               onClick={(e) => {
+                if (isSoldOut) return;
                 e.stopPropagation();
                 onOpenStats(application, scoreData);
               }}
             >
-              <div className="grid w-full grid-cols-2 sm:grid-cols-3">
+              <div
+                className={cn(
+                  "grid w-full grid-cols-2",
+                  !isSoldOut && "sm:grid-cols-3"
+                )}
+              >
                 {/* First column: Delegation Amount OR Price per Miner */}
                 <div className="border-b border-white/20 sm:border-b-0 sm:border-r sm:border-white/20 dark:border-white/10 dark:sm:border-white/10">
                   <HeroStatColumn
                     label={
-                      isDelegation ? "Delegation Amount" : "Price per Miner"
+                      isSoldOut
+                        ? isDelegation
+                          ? "Total Delegated"
+                          : "Total Mined"
+                        : isDelegation
+                        ? "Delegation Amount"
+                        : "Price per Miner"
                     }
                     value={priceValue}
                     subValue={priceSubValue}
@@ -2973,7 +3223,12 @@ function LaunchpadWidgetHeroCarouselCard({
                 </div>
 
                 {/* Second column: Units with progress bar */}
-                <div className="border-b border-white/20 sm:border-b-0 sm:border-r sm:border-white/20 dark:border-white/10 dark:sm:border-white/10">
+                <div
+                  className={cn(
+                    "border-b border-white/20 sm:border-b-0 dark:border-white/10",
+                    !isSoldOut && "sm:border-r sm:border-white/20 dark:sm:border-white/10"
+                  )}
+                >
                   <div className="px-3 py-2">
                     <div className="text-[9px] font-mono uppercase tracking-widest text-foreground/65 dark:text-white/65">
                       Units
@@ -2994,16 +3249,18 @@ function LaunchpadWidgetHeroCarouselCard({
                 </div>
 
                 {/* Third column: Weekly Rewards */}
-                <div className="col-span-2 sm:col-span-1">
-                  <HeroStatColumn
-                    label="Est. Weekly Rewards"
-                    value={rewardsMain}
-                    subValue={rewardsSub}
-                  />
-                  <div className="px-3 pb-2 text-[9px] text-foreground/40 leading-tight -mt-1 dark:text-white/40">
-                    Weekly earnings are subject to change.
+                {!isSoldOut && (
+                  <div className="col-span-2 sm:col-span-1">
+                    <HeroStatColumn
+                      label="Est. Weekly Rewards"
+                      value={rewardsMain}
+                      subValue={rewardsSub}
+                    />
+                    <div className="px-3 pb-2 text-[9px] text-foreground/40 leading-tight -mt-1 dark:text-white/40">
+                      Weekly earnings are subject to change.
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -3026,17 +3283,19 @@ function LaunchpadWidgetHeroCarouselCard({
           </div>
         </div>
       </div>
-      <Button
-        variant="ghost"
-        className="absolute top-4 right-4 h-8 rounded-full bg-white/30 px-4 text-xs font-medium text-foreground/90 hover:bg-white/40 backdrop-blur-3xl border border-white/40 transition-colors shadow-lg dark:bg-black/30 dark:text-white/90 dark:hover:bg-black/40 dark:border-white/10"
-        onClick={(e) => {
-          e.stopPropagation();
-          onOpenStats(application, scoreData);
-        }}
-      >
-        <span>Advanced Stats</span>
-        <ArrowUpRight className="ml-1.5 h-3 w-3 opacity-70" />
-      </Button>
+      {!isSoldOut && (
+        <Button
+          variant="ghost"
+          className="absolute top-4 right-4 h-8 rounded-full bg-white/30 px-4 text-xs font-medium text-foreground/90 hover:bg-white/40 backdrop-blur-3xl border border-white/40 transition-colors shadow-lg dark:bg-black/30 dark:text-white/90 dark:hover:bg-black/40 dark:border-white/10"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenStats(application, scoreData);
+          }}
+        >
+          <span>Advanced Stats</span>
+          <ArrowUpRight className="ml-1.5 h-3 w-3 opacity-70" />
+        </Button>
+      )}
     </div>
   );
 }
@@ -3290,6 +3549,28 @@ function LaunchpadMarketplaceDialog({
           ? (yieldUsdPerWeek / cost) * 1000
           : 0;
 
+      const amountRaised = application.activeFraction?.amountRaised
+        ? parseFloat(
+            formatUnits(
+              BigInt(application.activeFraction.amountRaised),
+              application._type === "miners"
+                ? DECIMALS_BY_TOKEN.USDC
+                : DECIMALS_BY_TOKEN.GLW
+            )
+          )
+        : 0;
+
+      const totalAmountNeeded = application.activeFraction?.totalAmountNeeded
+        ? parseFloat(
+            formatUnits(
+              BigInt(application.activeFraction.totalAmountNeeded),
+              application._type === "miners"
+                ? DECIMALS_BY_TOKEN.USDC
+                : DECIMALS_BY_TOKEN.GLW
+            )
+          )
+        : 0;
+
       return {
         application,
         availability,
@@ -3302,6 +3583,8 @@ function LaunchpadMarketplaceDialog({
         miningScore,
         yieldUsdPerWeek,
         yieldPer1000Usd,
+        amountRaised,
+        totalAmountNeeded,
       };
     });
 
@@ -3782,6 +4065,8 @@ function LaunchpadAssetCard({
     rewardScore: { rewardScore: number } | null;
     miningScore: { miningScore: number } | null;
     yieldUsdPerWeek: number;
+    amountRaised: number;
+    totalAmountNeeded: number;
   };
   isScoresLoading: boolean;
   glwSpotPrice: number;
@@ -3827,12 +4112,25 @@ function LaunchpadAssetCard({
   const title = application.farmName || "Unnamed Farm";
   const imageSrc = getDialogCardImageSrc(application);
 
-  const costLabel = isDelegation ? "Delegation Amount" : "PRICE / MINER";
-  const costMain = isDelegation
+  const costLabel = isSoldOut
+    ? isDelegation
+      ? "Total Delegated"
+      : "Total Mined"
+    : isDelegation
+    ? "Delegation Amount"
+    : "PRICE / MINER";
+
+  const costMain = isSoldOut
+    ? isDelegation
+      ? `${Math.round(row.totalAmountNeeded).toLocaleString()} GLW`
+      : `$${Math.round(row.totalAmountNeeded).toLocaleString()} USDC`
+    : isDelegation
     ? `${Math.round(cost).toLocaleString()} GLW`
     : `$${cost.toLocaleString(undefined, { maximumFractionDigits: 0 })} USDC`;
 
-  const costSub = isDelegation
+  const costSub = isSoldOut
+    ? null
+    : isDelegation
     ? glwSpotPrice > 0
       ? `≈ $${Math.round(cost * glwSpotPrice).toLocaleString()} USD`
       : "—"
@@ -3861,8 +4159,9 @@ function LaunchpadAssetCard({
   return (
     <div
       className={cn(
-        "w-full overflow-hidden rounded-2xl border border-border bg-muted/10 p-4 transition-colors",
-        "hover:bg-muted/20"
+        "w-full overflow-hidden rounded-2xl border border-border bg-muted/10 p-4 transition-all",
+        "hover:bg-muted/20",
+        isSoldOut && "opacity-50"
       )}
     >
       <div className="flex flex-col gap-4">
@@ -3916,15 +4215,23 @@ function LaunchpadAssetCard({
                   />
                 </div>
                 <div className="mt-1.5 text-xs font-medium text-muted-foreground text-right">
-                  {isSoldOut
-                    ? "SOLD OUT"
-                    : `${availability.remaining} / ${availability.total} Left`}
+                  {isSoldOut ? (
+                    <>
+                      SOLD OUT IN{" "}
+                      {formatTimeToSellOut(
+                        application.publishedOnAuctionTimestamp,
+                        application.activeFraction?.filledAt || null
+                      )}
+                    </>
+                  ) : (
+                    `${availability.remaining} / ${availability.total} Left`
+                  )}
                 </div>
               </div>
             </div>
 
             <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-border bg-background/30 p-4">
+              <div className={cn("rounded-xl border border-border bg-background/30 p-4", isSoldOut && "sm:col-span-2")}>
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
                   {costLabel}
                 </div>
@@ -3936,64 +4243,66 @@ function LaunchpadAssetCard({
                 </div>
               </div>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="rounded-xl border border-border bg-background/30 p-4 cursor-help">
-                    <div className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                      {isDelegation
-                        ? "EST. REWARDS (100 WEEKS)"
-                        : "WEEKLY REWARDS (99 WEEKS)"}
-                      <Info className="h-3.5 w-3.5 opacity-70" />
-                    </div>
-                    <div
-                      className={cn(
-                        "mt-2 text-lg font-semibold",
-                        accent.reward
-                      )}
-                    >
-                      {rewardsMain}
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {isDelegation ? (
-                        <span>{rewardsSub}</span>
-                      ) : (
-                        <span>{rewardsSub}</span>
-                      )}
-                    </div>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="top"
-                  align="start"
-                  sideOffset={8}
-                  className="max-w-[280px] p-3"
-                >
-                  {isDelegation ? (
-                    <div className="space-y-2">
-                      <div className="text-xs font-semibold text-primary-foreground">
-                        Estimated rewards
+              {!isSoldOut && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="rounded-xl border border-border bg-background/30 p-4 cursor-help">
+                      <div className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                        {isDelegation
+                          ? "EST. REWARDS (100 WEEKS)"
+                          : "WEEKLY REWARDS (99 WEEKS)"}
+                        <Info className="h-3.5 w-3.5 opacity-70" />
                       </div>
-                      <div className="text-[11px] leading-snug text-primary-foreground/80">
-                        Weekly estimate per delegation, paid weekly for 100
-                        weeks. Can decrease as regions fill. See Advanced Stats
-                        for details.
+                      <div
+                        className={cn(
+                          "mt-2 text-lg font-semibold",
+                          accent.reward
+                        )}
+                      >
+                        {rewardsMain}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {isDelegation ? (
+                          <span>{rewardsSub}</span>
+                        ) : (
+                          <span>{rewardsSub}</span>
+                        )}
                       </div>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="text-xs font-semibold text-primary-foreground">
-                        Estimated rewards
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    align="start"
+                    sideOffset={8}
+                    className="max-w-[280px] p-3"
+                  >
+                    {isDelegation ? (
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold text-primary-foreground">
+                          Estimated rewards
+                        </div>
+                        <div className="text-[11px] leading-snug text-primary-foreground/80">
+                          Weekly estimate per delegation, paid weekly for 100
+                          weeks. Can decrease as regions fill. See Advanced Stats
+                          for details.
+                        </div>
                       </div>
-                      <div className="text-[11px] leading-snug text-primary-foreground/80">
-                        Estimated weekly rewards per miner for 99 weeks. These
-                        estimates may decrease as new farms join the region and
-                        dilute the regional GLW allocation. See Advanced Stats
-                        for detailed information.
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold text-primary-foreground">
+                          Estimated rewards
+                        </div>
+                        <div className="text-[11px] leading-snug text-primary-foreground/80">
+                          Estimated weekly rewards per miner for 99 weeks. These
+                          estimates may decrease as new farms join the region and
+                          dilute the regional GLW allocation. See Advanced Stats
+                          for detailed information.
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </TooltipContent>
-              </Tooltip>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
           </div>
         </div>
@@ -4015,13 +4324,15 @@ function LaunchpadAssetCard({
               : "Buy Miners"}
           </Button>
 
-          <Button
-            variant="outline"
-            className="h-11 w-full sm:flex-1 rounded-full"
-            onClick={() => onOpenStats(application, scoreData)}
-          >
-            Advanced Stats
-          </Button>
+          {!isSoldOut && (
+            <Button
+              variant="outline"
+              className="h-11 w-full sm:flex-1 rounded-full"
+              onClick={() => onOpenStats(application, scoreData)}
+            >
+              Advanced Stats
+            </Button>
+          )}
         </div>
       </div>
     </div>

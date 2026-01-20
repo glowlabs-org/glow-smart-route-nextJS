@@ -79,6 +79,7 @@ export interface ActiveFraction {
   sponsorSplitPercent: number;
   createdAt: string;
   expirationAt: string | null;
+  filledAt: string | null;
   isCommittedOnChain: boolean;
   isFilled: boolean;
   totalSteps: number;
@@ -126,6 +127,7 @@ export interface SponsorListingsFilters {
   sortBy?: SortBy;
   sortOrder?: SortOrder;
   paymentCurrency?: PaymentCurrency;
+  includeFilled?: boolean;
 }
 
 export interface UseSponsorListingsParams {
@@ -142,7 +144,8 @@ export function useSponsorListings(params: UseSponsorListingsParams = {}) {
     staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
     queryFn: async (): Promise<AuctionApplication[]> => {
-      const searchParams: Record<string, string | number | undefined> = {};
+      const searchParams: Record<string, string | number | boolean | undefined> =
+        {};
 
       // Backwards compatibility with the existing API behavior:
       // - launchpad listings are returned when `type` is omitted
@@ -153,6 +156,8 @@ export function useSponsorListings(params: UseSponsorListingsParams = {}) {
       if (filters.sortOrder) searchParams.sortOrder = filters.sortOrder;
       if (filters.paymentCurrency)
         searchParams.paymentCurrency = filters.paymentCurrency;
+      if (filters.includeFilled)
+        searchParams.includeFilled = String(filters.includeFilled);
 
       return await hubGet<AuctionApplication[]>(
         "/applications/sponsor-listings-applications",
@@ -175,6 +180,7 @@ export interface GlowLaunchpadFilters {
   sortBy?: SortBy;
   sortOrder?: SortOrder;
   paymentCurrency?: PaymentCurrency;
+  includeFilled?: boolean;
 }
 
 export interface UseGlowLaunchpadParams {
@@ -196,6 +202,7 @@ export interface MiningCenterFilters {
   sortBy?: SortBy;
   sortOrder?: SortOrder;
   paymentCurrency?: PaymentCurrency;
+  includeFilled?: boolean;
 }
 
 export interface UseMiningCenterParams {

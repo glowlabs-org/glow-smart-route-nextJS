@@ -53,6 +53,7 @@ import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import ImpactAccumulatorWidget from "./widgets/impact-accumulator-widget";
 import SolarCollectorWidget from "./widgets/solar-collector";
 import { WidgetErrorBoundary } from "@/components/widget-error-boundary";
+import { FeatureLaunchModal } from "@/components/referral/feature-launch-modal";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
@@ -405,8 +406,9 @@ export default function GlowSoftDashboard({
   }, [isConnected, normalizedWalletAddress]);
 
   return (
-    <div className="min-h-screen bg-muted dark:bg-background text-foreground p-6  selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
-      <div className="max-w-screen-2xl mx-auto">
+    <div className="min-h-screen bg-muted dark:bg-background text-foreground selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
+      <FeatureLaunchModal />
+      <div className="max-w-screen-2xl mx-auto p-6">
         <AnimatePresence mode="wait" initial={false}>
           {hasWallet ? (
             <motion.div

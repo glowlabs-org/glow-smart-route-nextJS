@@ -155,10 +155,13 @@ export function LaunchpadStatsDialog({
 
   // Calculate APY (Annual Percentage Yield)
   const costPerFraction = totalGlwPerFraction * glwSpotPrice;
-  const apy =
+  const totalRewardsOverPeriod = totalWeeklyGlw * weeksRemaining;
+  const totalRewardsUsd = totalRewardsOverPeriod * glwSpotPrice;
+  const roi =
     costPerFraction > 0
-      ? ((totalWeeklyGlw * glwSpotPrice * 52.18) / costPerFraction) * 100
+      ? (totalRewardsUsd / costPerFraction - 1) * 100
       : 0;
+  const apy = roi * (weeksPerYear / weeksRemaining);
 
   const carbonCreditsPerFraction =
     totalFractionSteps > 0 ? totalCCsOver30Years / totalFractionSteps : 0;

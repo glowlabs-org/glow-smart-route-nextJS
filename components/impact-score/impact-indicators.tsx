@@ -8,6 +8,7 @@ import {
   EmissionsIcon,
   VaultIcon,
   GlwWorthIcon,
+  ReferralIcon,
 } from "@/components/impact-icons";
 import {
   Tooltip,
@@ -24,10 +25,18 @@ export interface ImpactIndicatorsState {
   hasEmissionsEarned: boolean;
   hasVaultBonus: boolean;
   hasGlwWorth: boolean;
+  hasReferralPoints?: boolean;
 }
 
 interface IndicatorMeta {
-  key: "miner" | "streak" | "steering" | "vault" | "emissions" | "worth";
+  key:
+    | "miner"
+    | "streak"
+    | "steering"
+    | "vault"
+    | "emissions"
+    | "worth"
+    | "referral";
   label: string;
   howToGet: string;
   effect: string;
@@ -87,6 +96,10 @@ function getVariantStyles(
     // Worth: Green
     case "worth":
       return "border-green-400/30 bg-green-400/10 text-green-600 dark:text-green-400";
+
+    // Referral: Emerald/Teal
+    case "referral":
+      return "border-emerald-400/30 bg-emerald-400/10 text-emerald-600 dark:text-emerald-400";
 
     default:
       return "";
@@ -205,6 +218,13 @@ const POINT_SOURCES: IndicatorMeta[] = [
     effect: "+0.001 pts per GLW held",
     icon: GlwWorthIcon,
   },
+  {
+    key: "referral",
+    label: "Referral Network",
+    howToGet: "Invite friends",
+    effect: "5-20% share of their base points",
+    icon: ReferralIcon,
+  },
 ];
 
 function getMultipliersMeta(args: {
@@ -252,6 +272,8 @@ export function ImpactPointSourcesIcons(props: {
             ? props.state.hasEmissionsEarned
             : meta.key === "vault"
             ? props.state.hasVaultBonus
+            : meta.key === "referral"
+            ? !!props.state.hasReferralPoints
             : props.state.hasGlwWorth;
         return (
           <IndicatorIcon
