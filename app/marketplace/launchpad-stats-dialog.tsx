@@ -155,13 +155,10 @@ export function LaunchpadStatsDialog({
 
   // Calculate APY (Annual Percentage Yield)
   const costPerFraction = totalGlwPerFraction * glwSpotPrice;
-  const totalRewardsOverPeriod = totalWeeklyGlw * weeksRemaining;
-  const totalRewardsUsd = totalRewardsOverPeriod * glwSpotPrice;
-  const roi =
-    costPerFraction > 0
-      ? (totalRewardsUsd / costPerFraction - 1) * 100
+  const apy =
+    totalGlwPerFraction > 0
+      ? (totalWeeklyGlw * weeksPerYear * 100) / totalGlwPerFraction
       : 0;
-  const apy = roi * (weeksPerYear / weeksRemaining);
 
   const carbonCreditsPerFraction =
     totalFractionSteps > 0 ? totalCCsOver30Years / totalFractionSteps : 0;
@@ -230,7 +227,7 @@ export function LaunchpadStatsDialog({
         label: "Estimated APY",
         value: apy > 0 ? `${formatNumber(apy, 1)}%` : "N/A",
         tooltip:
-          "Annual percentage yield based on expected farm performance, current GLW price, and regional GLW per week.",
+          "Annualized return including deposit recovery and emissions, based on expected farm performance and regional competitiveness.",
         secondary: "Estimate only, changes weekly",
         highlight: true,
       },
