@@ -33,7 +33,7 @@ The Launchpad Stats Dialog (`launchpad-stats-dialog.tsx`) displays detailed anal
 ### `useGlowSpotPrice()`
 
 - Returns: Current GLW market price in USD
-- Used for: USD conversions, APR calculation
+- Used for: USD conversions (APY uses GLW-only values)
 
 ### `useQuery` - Region Details
 
@@ -48,22 +48,18 @@ The Launchpad Stats Dialog (`launchpad-stats-dialog.tsx`) displays detailed anal
 
 ### Opportunity Snapshot Section
 
-#### 1. **Estimated APR**
+#### 1. **Estimated APY**
 
 - **Calculation:**
   ```typescript
   totalWeeklyGlw = (weeklyGlwFromDeposit + weeklyGlwFromInflation) / totalSteps
-  totalRewardsOverPeriod = totalWeeklyGlw × 100
-  totalRewardsUsd = totalRewardsOverPeriod × glwSpotPrice
-  costPerFraction = totalGlwPerFraction × glwSpotPrice
-  roi = (totalRewardsUsd / costPerFraction - 1) × 100
-  apr = roi × (52 / 100)  // Annualize
+  apy = (totalWeeklyGlw × 52 / totalGlwPerFraction) × 100
   ```
 - **Data Sources:**
   - `rewardScore.userWeeklyPdRewards` (deposit recovery, 18 decimals)
   - `rewardScore.userWeeklyGlwRewards` (emission rewards, 18 decimals)
   - `application.activeFraction.step` (GLW to delegate, 18 decimals)
-  - `glwSpotPrice` from `useGlowSpotPrice()`
+  - `application.activeFraction.totalSteps`
 
 #### 2. **Weekly GLW (per fraction)**
 
@@ -349,13 +345,12 @@ Where:
 - Result = CCs per $100,000 of deposit per week
 ```
 
-### APR Annualization
+### APY Annualization
 
 ```
-ROI = (TotalRewardsUSD / CostUSD - 1) × 100
-APR = ROI × (52 weeks / 100 weeks)
+APY = (totalWeeklyGlw × 52 / totalGlwPerFraction) × 100
 
-This converts the 100-week total return to an annualized rate
+This annualizes weekly GLW rewards relative to the GLW deposit.
 ```
 
 ### Per-Fraction Division
@@ -489,26 +484,26 @@ Rewards distribution:
 
 ---
 
-## APR Assumptions & Limitations
+## APY Assumptions & Limitations
 
-### What APR Includes
+### What APY Includes
 
 ✅ Current weekly GLW emissions  
 ✅ Expected deposit recovery rate  
-✅ Current GLW spot price  
-✅ Annualization to yearly rate
+✅ Annualization to yearly rate  
+✅ Includes principal recovery (deposit)
 
-### What APR Doesn't Include
+### What APY Doesn't Include
 
 ❌ Future farm additions (dilution)  
-❌ GLW price appreciation/depreciation  
+❌ GLW price appreciation/depreciation (affects USD value, not GLW APY)  
 ❌ Changes in regional competitiveness  
 ❌ Network growth effects  
 ❌ GCTL staking changes (affects regional allocation)
 
 ### Conservative vs Optimistic
 
-The APR is **neither** - it's a snapshot:
+The APY is **neither** - it's a snapshot:
 
 - Uses current conditions
 - Assumes stasis (no change)
