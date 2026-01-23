@@ -54,10 +54,10 @@ function getVariantStyles(
   // Uses generic theme variables for Light/Dark compatibility
   if (!isActive) {
     return cn(
-      "border-border bg-muted/30 text-muted-foreground",
+      "border-border/70 bg-muted/20 text-muted-foreground/70",
       variant === "multiplier"
         ? "border-2 border-dashed shadow-inner"
-        : "border border-transparent bg-muted/50"
+        : "border border-dashed/40 bg-muted/30"
     );
   }
 
@@ -68,26 +68,26 @@ function getVariantStyles(
     // Miner: Blue
     case "miner":
       return cn(
-        "border-[color:var(--color-miner)] text-[color:var(--color-miner)]",
-        "bg-[color:var(--color-miner)]/10"
+        "border-[color:var(--color-miner)] text-[color:var(--color-miner-contrast)]",
+        "bg-[color:var(--color-miner)]/10 shadow-[0_0_18px_-12px_var(--color-miner)]"
       );
 
     // Streak: Purple (Same as Vault now)
     case "streak":
       return cn(
         "border-[color:var(--delegation-purple)] text-[color:var(--delegation-purple)]",
-        "bg-[color:var(--delegation-purple)]/10"
+        "bg-[color:var(--delegation-purple)]/10 shadow-[0_0_16px_-12px_var(--delegation-purple)]"
       );
 
     // --- Sources (Fuel) ---
 
     // Steering: Cyan
     case "steering":
-      return "border-cyan-400/30 bg-cyan-400/10 text-cyan-600 dark:text-cyan-400";
+      return "border-[#22D3EE]/30 bg-[#22D3EE]/10 text-[#22D3EE]";
 
     // Emissions: Miner Blue (Brand consistency)
     case "emissions":
-      return "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]";
+      return "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner-contrast)]";
 
     // Vault: Purple
     case "vault":
@@ -95,11 +95,11 @@ function getVariantStyles(
 
     // Worth: Green
     case "worth":
-      return "border-green-400/30 bg-green-400/10 text-green-600 dark:text-green-400";
+      return "border-[#4ADE80]/30 bg-[#4ADE80]/10 text-[#4ADE80]";
 
     // Referral: Emerald/Teal
     case "referral":
-      return "border-emerald-400/30 bg-emerald-400/10 text-emerald-600 dark:text-emerald-400";
+      return "border-[color:var(--color-glow-orange)]/30 bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]";
 
     default:
       return "";
@@ -121,8 +121,8 @@ function IndicatorIcon(props: {
       : "h-7 w-7 md:h-9 md:w-9 rounded-full";
 
   const baseClasses = cn(
-    "relative inline-flex items-center justify-center transition-all duration-300 ease-out",
-    "hover:scale-105 active:scale-95", // Tactile feedback
+    "group relative inline-flex items-center justify-center transition-all duration-300 ease-out",
+    "hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     sizeClasses,
     getVariantStyles(meta.key, isActive, variant)
   );

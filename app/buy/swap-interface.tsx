@@ -341,7 +341,7 @@ export function SwapInterface({
         )} per GLW would require Early Liquidity, which is disabled right now.`
       : null;
 
-  function handleResponseMessage(data: Result<boolean, string>) {
+  function handleResponseMessage(data: Result<unknown, string>) {
     if (data.ok) {
       toast.success(
         `$${selectedTokenSell.label} swaped successfully for ${toFixedTruncate(
@@ -730,6 +730,16 @@ export function SwapInterface({
         setIsGlowToUsdcDialogOpen(true);
         setPendingTx(false);
         return;
+      } else if (
+        selectedTokenSell.label === "ETH" &&
+        selectedTokenBuy.label === "USDC"
+      ) {
+        const slippageBps = slippagePctToBps(slippageTolerance, 100n);
+        const swapEthToUsdcRes = await swapEthToUsdc({
+          amountInWei: amountIn,
+          slippageBps,
+        });
+        handleResponseMessage(swapEthToUsdcRes);
       } else {
         const swapRes = await swap({ amount: amountIn });
         handleResponseMessage(swapRes);
@@ -855,12 +865,6 @@ export function SwapInterface({
 
     try {
       if (selectedTokenSell.label === "ETH") {
-        if (selectedTokenBuy.label !== "GLOW") {
-          if (signal.aborted) return;
-          setSmartBalancingAmounts(undefined);
-          setEstimatedOutputAmount(defaultTokensEstimate);
-          return;
-        }
         if (!amountStr || amountStr === "0") {
           if (signal.aborted) return;
           setSmartBalancingAmounts(undefined);
@@ -895,7 +899,25 @@ export function SwapInterface({
           return;
         }
 
-        const usdgEquivalent = formatUnits(ethQuoteRes.val.amountOutUsdc, 6);
+        const usdcOut = formatUnits(ethQuoteRes.val.amountOutUsdc, 6);
+        if (selectedTokenBuy.label === "USDC") {
+          if (signal.aborted) return;
+          setEstimateErrorMessage(null);
+          setSmartBalancingAmounts(undefined);
+          setEstimatedOutputAmount({
+            ...defaultTokensEstimate,
+            USDC: usdcOut,
+          });
+          return;
+        }
+        if (selectedTokenBuy.label !== "GLOW") {
+          if (signal.aborted) return;
+          setSmartBalancingAmounts(undefined);
+          setEstimatedOutputAmount(defaultTokensEstimate);
+          return;
+        }
+
+        const usdgEquivalent = usdcOut;
         const smartBalancingAmountsRes = await getSmartBalancingAmounts({
           amountUsdgIn: usdgEquivalent,
           earlyLiquidityCurrentPrice: Number(glowPrice),

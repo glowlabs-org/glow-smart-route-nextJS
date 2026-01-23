@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   Copy,
   Share2,
@@ -49,6 +49,10 @@ import {
   ActivationBonusIcon,
 } from "@/components/impact-icons";
 import { QRCodeDialog } from "@/components/referral/qr-code-dialog";
+import { SparklesIcon } from "@/components/ui/sparkles";
+import { SunMediumIcon } from "@/components/ui/sun-medium";
+import { SunIcon } from "@/components/ui/sun";
+import { SunMoonIcon } from "@/components/ui/sun-moon";
 
 interface ReferralStatusResponse {
   nonce: string;
@@ -79,6 +83,7 @@ interface ReferralNetworkResponse {
     totalReferees: number;
     activeReferees: number;
     pendingReferees: number;
+    activationPendingReferees?: number;
     totalPointsEarnedScaled6: string;
     thisWeekPointsScaled6: string;
     projectedThisWeekPointsScaled6: string;
@@ -113,6 +118,8 @@ interface ReferralNetworkDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   walletAddress: string;
+  mockData?: ReferralNetworkResponse;
+  mockStatus?: ReferralStatusResponse;
 }
 
 function formatPoints(val: string) {
@@ -122,12 +129,26 @@ function formatPoints(val: string) {
   );
 }
 
+const REFERRAL_TIER_LABELS: Record<string, string> = {
+  seed: "Aurora",
+  grow: "Solaris",
+  scale: "Zenith",
+  legend: "Eclipse Prime",
+};
+
+function formatTierName(name?: string) {
+  if (!name) return "";
+  const normalized = name.trim().toLowerCase();
+  return REFERRAL_TIER_LABELS[normalized] ?? name;
+}
+
 export function ReferralNetworkDialog({
   open,
   onOpenChange,
   walletAddress,
+  mockData,
+  mockStatus,
 }: ReferralNetworkDialogProps) {
-  const queryClient = useQueryClient();
   const [isLeaderboardOpen, setIsLeaderboardOpen] = React.useState(false);
   const [isQRCodeOpen, setIsQRCodeOpen] = React.useState(false);
   const [isCopied, setIsCopied] = React.useState(false);
@@ -138,7 +159,7 @@ export function ReferralNetworkDialog({
       hubGet<ReferralNetworkResponse>("/referral/network", {
         params: { walletAddress },
       }),
-    enabled: open && !!walletAddress,
+    enabled: open && !!walletAddress && !mockData,
   });
 
   const { data: statusData } = useQuery({
@@ -147,25 +168,36 @@ export function ReferralNetworkDialog({
       hubGet<ReferralStatusResponse>("/referral/status", {
         params: { walletAddress },
       }),
-    enabled: open && !!walletAddress,
+    enabled: open && !!walletAddress && !mockStatus,
   });
+  const resolvedData = mockData ?? data;
+  const resolvedStatus = mockStatus ?? statusData;
+  const resolvedIsLoading = mockData ? false : isLoading;
+  const resolvedIsError = mockData ? false : isError;
+  const activationPendingCount = React.useMemo(() => {
+    if (!resolvedData) return 0;
+    if (resolvedData.stats.activationPendingReferees != null) {
+      return resolvedData.stats.activationPendingReferees;
+    }
+    return resolvedData.referees.filter((r) => r.activationPending).length;
+  }, [resolvedData]);
 
   const copyLink = React.useCallback(() => {
-    if (!data?.shareableLink) return;
-    navigator.clipboard.writeText(data.shareableLink);
+    if (!resolvedData?.shareableLink) return;
+    navigator.clipboard.writeText(resolvedData.shareableLink);
     setIsCopied(true);
     toast.success("Referral link copied!");
     setTimeout(() => setIsCopied(false), 2000);
-  }, [data?.shareableLink]);
+  }, [resolvedData?.shareableLink]);
 
   const shareLink = React.useCallback(async () => {
-    if (!data?.shareableLink) return;
+    if (!resolvedData?.shareableLink) return;
     if (navigator.share) {
       try {
         await navigator.share({
           title: "Join me on Glow",
           text: "Help build the future of solar energy and earn Impact Points.",
-          url: data.shareableLink,
+          url: resolvedData.shareableLink,
         });
       } catch (e) {
         // user cancelled or failed
@@ -173,7 +205,7 @@ export function ReferralNetworkDialog({
     } else {
       copyLink();
     }
-  }, [data?.shareableLink, copyLink]);
+  }, [resolvedData?.shareableLink, copyLink]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -187,11 +219,13 @@ export function ReferralNetworkDialog({
             </DialogTitle>
 
             <div className="flex flex-col items-center">
-              <div className="text-6xl font-mono font-bold text-foreground tracking-tighter">
-                {isLoading ? (
+              <div className="text-6xl font-mono font-bold text-[#16a34a] dark:text-[#4ade80] tracking-tighter">
+                {resolvedIsLoading ? (
                   <Skeleton className="h-14 w-32 mx-auto" />
                 ) : (
-                  `+${formatPoints(data?.stats.lifetimePointsScaled6 || "0")}`
+                  `+${formatPoints(
+                    resolvedData?.stats.lifetimePointsScaled6 || "0"
+                  )}`
                 )}
               </div>
               <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wide mt-2">
@@ -202,12 +236,12 @@ export function ReferralNetworkDialog({
         </div>
 
         <ScrollArea className="max-h-[70vh]">
-          {isLoading ? (
+          {resolvedIsLoading ? (
             <div className="p-6 space-y-6">
               <Skeleton className="h-32 w-full rounded-2xl" />
               <Skeleton className="h-64 w-full rounded-2xl" />
             </div>
-          ) : isError || !data ? (
+          ) : resolvedIsError || !resolvedData ? (
             <div className="p-12 text-center text-muted-foreground">
               Failed to load referral network.
             </div>
@@ -222,7 +256,7 @@ export function ReferralNetworkDialog({
                 </div>
                 <div className="relative flex items-center gap-2 p-1.5 pl-4 rounded-2xl border bg-muted/20 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                   <div className="flex-1 font-mono text-xs truncate text-muted-foreground select-all">
-                    {data.shareableLink}
+                    {resolvedData.shareableLink}
                   </div>
                   <div className="flex gap-1">
                     <Button
@@ -233,6 +267,7 @@ export function ReferralNetworkDialog({
                       )}
                       onClick={copyLink}
                       title="Copy Link"
+                      aria-label="Copy referral link"
                     >
                       {isCopied ? (
                         <Check className="w-3.5 h-3.5" />
@@ -245,6 +280,7 @@ export function ReferralNetworkDialog({
                       variant="ghost"
                       onClick={() => setIsQRCodeOpen(true)}
                       title="Show QR Code"
+                      aria-label="Show referral QR code"
                     >
                       <QrCode className="w-3.5 h-3.5" />
                     </Button>
@@ -285,13 +321,13 @@ export function ReferralNetworkDialog({
               </div>
 
               {/* SECTION: YOUR REFERRER (if user is a referee) */}
-              {statusData?.hasReferrer && statusData.referrer && (
+              {resolvedStatus?.hasReferrer && resolvedStatus.referrer && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between px-1">
                     <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
                       Your Referrer
                     </h3>
-                    {statusData.referrer.canChangeReferrer && (
+                    {resolvedStatus.referrer.canChangeReferrer && (
                       <Badge
                         variant="outline"
                         className="font-mono text-[10px] bg-background border-yellow-500/30 text-yellow-600 dark:text-yellow-400"
@@ -309,13 +345,13 @@ export function ReferralNetworkDialog({
                         </div>
                         <div className="flex flex-col">
                           <span className="text-sm font-bold text-foreground">
-                            {statusData.referrer.ensName ||
-                              formatAddress(statusData.referrer.wallet)}
+                            {resolvedStatus.referrer.ensName ||
+                              formatAddress(resolvedStatus.referrer.wallet)}
                           </span>
                           <span className="text-[10px] text-muted-foreground font-mono">
                             Linked{" "}
                             {new Date(
-                              statusData.referrer.linkedAt
+                              resolvedStatus.referrer.linkedAt
                             ).toLocaleDateString(undefined, {
                               month: "short",
                               day: "numeric",
@@ -324,19 +360,19 @@ export function ReferralNetworkDialog({
                           </span>
                         </div>
                       </div>
-                      {statusData.bonus?.isActive && (
+                      {resolvedStatus.bonus?.isActive && (
                         <div className="text-right">
                           <div className="text-lg font-mono font-bold text-[#16a34a] dark:text-[#4ade80]">
-                            +{statusData.bonus.bonusPercent}%
+                            +{resolvedStatus.bonus.bonusPercent}%
                           </div>
                           <div className="text-[9px] text-muted-foreground uppercase font-medium">
-                            {statusData.bonus.weeksRemaining} weeks left
+                            {resolvedStatus.bonus.weeksRemaining} weeks left
                           </div>
                         </div>
                       )}
                     </div>
 
-                    {statusData.referrer.canChangeReferrer && (
+                    {resolvedStatus.referrer.canChangeReferrer && (
                       <div className="pt-3 border-t border-dashed space-y-3">
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground">
@@ -344,7 +380,7 @@ export function ReferralNetworkDialog({
                           </span>
                           <span className="font-mono font-bold text-foreground">
                             {new Date(
-                              statusData.referrer.gracePeriodEndsAt
+                              resolvedStatus.referrer.gracePeriodEndsAt
                             ).toLocaleDateString(undefined, {
                               month: "short",
                               day: "numeric",
@@ -361,7 +397,7 @@ export function ReferralNetworkDialog({
                       </div>
                     )}
 
-                    {!statusData.referrer.canChangeReferrer && (
+                    {!resolvedStatus.referrer.canChangeReferrer && (
                       <div className="pt-3 border-t border-dashed">
                         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                           <Lock className="w-3 h-3" />
@@ -385,7 +421,9 @@ export function ReferralNetworkDialog({
                     This Week (Projected)
                   </div>
                   <div className="text-3xl font-mono font-bold text-[#16a34a] dark:text-[#4ade80]">
-                    +{formatPoints(data.stats.thisWeekPointsScaled6 || "0")}
+                    +{formatPoints(
+                      resolvedData.stats.thisWeekPointsScaled6 || "0"
+                    )}
                   </div>
                   <div className="text-[9px] text-muted-foreground uppercase font-medium">
                     Finalizes Sunday
@@ -399,7 +437,7 @@ export function ReferralNetworkDialog({
                     Network Size
                   </div>
                   <div className="text-3xl font-mono font-bold text-foreground">
-                    {data.stats.activeReferees}
+                    {resolvedData.stats.activeReferees}
                   </div>
                   <div className="text-[9px] text-muted-foreground uppercase font-medium">
                     Active referring wallets
@@ -409,11 +447,8 @@ export function ReferralNetworkDialog({
 
               {/* SECTION: YOUR TIER */}
               {(() => {
-                const activatingCount = data.referees.filter(
-                  (r) => r.activationPending
-                ).length;
                 const projectedTotal =
-                  data.stats.activeReferees + activatingCount;
+                  resolvedData.stats.activeReferees + activationPendingCount;
 
                 return (
                   <div className="space-y-3">
@@ -426,11 +461,11 @@ export function ReferralNetworkDialog({
                         className="font-mono text-[10px] bg-background border-primary/20 text-primary"
                       >
                         LEVEL{" "}
-                        {data.stats.activeReferees >= 7
+                        {resolvedData.stats.activeReferees >= 7
                           ? 4
-                          : data.stats.activeReferees >= 4
+                          : resolvedData.stats.activeReferees >= 4
                           ? 3
-                          : data.stats.activeReferees >= 2
+                          : resolvedData.stats.activeReferees >= 2
                           ? 2
                           : 1}
                       </Badge>
@@ -441,20 +476,22 @@ export function ReferralNetworkDialog({
                       <div className="flex items-center justify-between">
                         <div className="flex flex-col">
                           <span className="text-2xl font-bold tracking-tight text-foreground">
-                            {data.stats.currentTier.name} Tier
+                            {formatTierName(resolvedData.stats.currentTier.name)} Tier
                           </span>
                           <span className="text-sm font-mono text-muted-foreground font-bold">
-                            {data.stats.currentTier.percent}% REWARD SHARE
+                            {resolvedData.stats.currentTier.percent}% REWARD SHARE
                           </span>
                         </div>
-                        {data.stats.currentTier.nextTier && (
+                        {resolvedData.stats.currentTier.nextTier && (
                           <div className="text-right p-2 rounded-xl bg-muted/30 border border-dashed">
                             <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
                               Up Next
                             </div>
                             <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                              {data.stats.currentTier.nextTier.name} (
-                              {data.stats.currentTier.nextTier.percent}%)
+                              {formatTierName(
+                                resolvedData.stats.currentTier.nextTier.name
+                              )}{" "}
+                              ({resolvedData.stats.currentTier.nextTier.percent}%)
                             </div>
                           </div>
                         )}
@@ -468,23 +505,23 @@ export function ReferralNetworkDialog({
                             style={{
                               width: `${Math.min(
                                 100,
-                                (data.stats.activeReferees / 7) * 100
+                                (resolvedData.stats.activeReferees / 7) * 100
                               )}%`,
                             }}
                           />
                           {/* Pending progress (striped) */}
-                          {activatingCount > 0 && (
+                          {activationPendingCount > 0 && (
                             <div
                               className="absolute inset-y-0 bg-[#16a34a]/30 dark:bg-[#4ade80]/30 transition-all duration-1000"
                               style={{
                                 left: `${Math.min(
                                   100,
-                                  (data.stats.activeReferees / 7) * 100
+                                  (resolvedData.stats.activeReferees / 7) * 100
                                 )}%`,
                                 width: `${Math.min(
                                   100 -
-                                    (data.stats.activeReferees / 7) * 100,
-                                  (activatingCount / 7) * 100
+                                    (resolvedData.stats.activeReferees / 7) * 100,
+                                  (activationPendingCount / 7) * 100
                                 )}%`,
                               }}
                             />
@@ -494,35 +531,35 @@ export function ReferralNetworkDialog({
                         <div className="flex justify-between text-[10px] font-bold text-muted-foreground/60 uppercase tracking-tighter">
                           {[
                             {
-                              name: "Seed",
+                              name: "Aurora",
                               count: 1,
-                              active: data.stats.activeReferees >= 1,
+                              active: resolvedData.stats.activeReferees >= 1,
                               pending:
-                                data.stats.activeReferees < 1 &&
+                                resolvedData.stats.activeReferees < 1 &&
                                 projectedTotal >= 1,
                             },
                             {
-                              name: "Grow",
+                              name: "Solaris",
                               count: 2,
-                              active: data.stats.activeReferees >= 2,
+                              active: resolvedData.stats.activeReferees >= 2,
                               pending:
-                                data.stats.activeReferees < 2 &&
+                                resolvedData.stats.activeReferees < 2 &&
                                 projectedTotal >= 2,
                             },
                             {
-                              name: "Scale",
+                              name: "Zenith",
                               count: 4,
-                              active: data.stats.activeReferees >= 4,
+                              active: resolvedData.stats.activeReferees >= 4,
                               pending:
-                                data.stats.activeReferees < 4 &&
+                                resolvedData.stats.activeReferees < 4 &&
                                 projectedTotal >= 4,
                             },
                             {
-                              name: "Legend",
+                              name: "Eclipse Prime",
                               count: 7,
-                              active: data.stats.activeReferees >= 7,
+                              active: resolvedData.stats.activeReferees >= 7,
                               pending:
-                                data.stats.activeReferees < 7 &&
+                                resolvedData.stats.activeReferees < 7 &&
                                 projectedTotal >= 7,
                             },
                           ].map((t) => (
@@ -554,20 +591,20 @@ export function ReferralNetworkDialog({
                       </div>
 
                       {/* Activating notice */}
-                      {activatingCount > 0 && (
+                      {activationPendingCount > 0 && (
                         <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-dashed">
                           <Sparkles className="w-3.5 h-3.5 text-muted-foreground" />
                           <p className="text-[11px] text-muted-foreground">
                             <span className="font-bold text-foreground">
-                              {activatingCount} referral
-                              {activatingCount > 1 ? "s" : ""}
+                              {activationPendingCount} referral
+                              {activationPendingCount > 1 ? "s" : ""}
                             </span>{" "}
                             activating Sunday
                           </p>
                         </div>
                       )}
 
-                      {data.stats.currentTier.nextTier && (
+                      {resolvedData.stats.currentTier.nextTier && (
                         <div className="flex items-center justify-center gap-2 pt-4 border-t border-dashed">
                           <div className="flex -space-x-1.5">
                             {[...Array(3)].map((_, i) => (
@@ -582,7 +619,10 @@ export function ReferralNetworkDialog({
                           <p className="text-[11px] text-muted-foreground">
                             Invite{" "}
                             <span className="font-bold text-foreground">
-                              {data.stats.currentTier.nextTier.referralsNeeded}{" "}
+                              {
+                                resolvedData.stats.currentTier.nextTier
+                                  .referralsNeeded
+                              }{" "}
                               more
                             </span>{" "}
                             active friends to level up
@@ -596,11 +636,8 @@ export function ReferralNetworkDialog({
 
               {/* SECTION: MILESTONES */}
               {(() => {
-                const activatingCount = data.referees.filter(
-                  (r) => r.activationPending
-                ).length;
                 const projectedTotal =
-                  data.stats.activeReferees + activatingCount;
+                  resolvedData.stats.activeReferees + activationPendingCount;
 
                 return (
                   <div className="space-y-3">
@@ -610,39 +647,39 @@ export function ReferralNetworkDialog({
                     <div className="grid grid-cols-4 gap-3">
                       {[
                         {
-                          name: "Seed",
-                          icon: "🌱",
+                          name: "Aurora",
+                          Icon: SparklesIcon,
                           count: 1,
-                          active: data.stats.activeReferees >= 1,
+                          active: resolvedData.stats.activeReferees >= 1,
                           pending:
-                            data.stats.activeReferees < 1 &&
+                            resolvedData.stats.activeReferees < 1 &&
                             projectedTotal >= 1,
                         },
                         {
-                          name: "Grow",
-                          icon: "🌿",
+                          name: "Solaris",
+                          Icon: SunMediumIcon,
                           count: 2,
-                          active: data.stats.activeReferees >= 2,
+                          active: resolvedData.stats.activeReferees >= 2,
                           pending:
-                            data.stats.activeReferees < 2 &&
+                            resolvedData.stats.activeReferees < 2 &&
                             projectedTotal >= 2,
                         },
                         {
-                          name: "Scale",
-                          icon: "🌳",
+                          name: "Zenith",
+                          Icon: SunIcon,
                           count: 4,
-                          active: data.stats.activeReferees >= 4,
+                          active: resolvedData.stats.activeReferees >= 4,
                           pending:
-                            data.stats.activeReferees < 4 &&
+                            resolvedData.stats.activeReferees < 4 &&
                             projectedTotal >= 4,
                         },
                         {
-                          name: "Legend",
-                          icon: "👑",
+                          name: "Eclipse Prime",
+                          Icon: SunMoonIcon,
                           count: 7,
-                          active: data.stats.activeReferees >= 7,
+                          active: resolvedData.stats.activeReferees >= 7,
                           pending:
-                            data.stats.activeReferees < 7 &&
+                            resolvedData.stats.activeReferees < 7 &&
                             projectedTotal >= 7,
                         },
                       ].map((m) => (
@@ -659,9 +696,12 @@ export function ReferralNetworkDialog({
                         >
                           <div className="text-3xl mb-2">
                             {m.active ? (
-                              m.icon
+                              <m.Icon className="text-foreground" size={28} />
                             ) : m.pending ? (
-                              <span className="opacity-50">{m.icon}</span>
+                              <m.Icon
+                                className="text-foreground/60"
+                                size={28}
+                              />
                             ) : (
                               <Lock className="w-6 h-6 text-muted-foreground/30" />
                             )}
@@ -693,10 +733,10 @@ export function ReferralNetworkDialog({
                     Your Network
                   </h3>
                   <div className="text-[10px] font-medium text-muted-foreground">
-                    {data.referees.length} Total
+                    {resolvedData.referees.length} Total
                   </div>
                 </div>
-                {data.referees.length === 0 ? (
+                {resolvedData.referees.length === 0 ? (
                   <div className="rounded-2xl border border-dashed p-10 text-center bg-muted/10">
                     <div className="inline-flex p-4 rounded-2xl bg-muted/50 mb-4">
                       <Users className="w-8 h-8 text-muted-foreground/30" />
@@ -711,7 +751,7 @@ export function ReferralNetworkDialog({
                       <Button
                         size="sm"
                         onClick={copyLink}
-                        disabled={!data.shareableLink}
+                        disabled={!resolvedData.shareableLink}
                       >
                         Copy Referral Link
                       </Button>
@@ -719,7 +759,7 @@ export function ReferralNetworkDialog({
                         size="sm"
                         variant="outline"
                         onClick={() => setIsQRCodeOpen(true)}
-                        disabled={!data.shareableLink}
+                        disabled={!resolvedData.shareableLink}
                       >
                         Show QR Code
                       </Button>
@@ -742,7 +782,7 @@ export function ReferralNetworkDialog({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {data.referees.map((ref) => (
+                        {resolvedData.referees.map((ref) => (
                           <TableRow
                             key={ref.refereeWallet}
                             className="group hover:bg-muted/10 border-b last:border-0"
@@ -798,7 +838,7 @@ export function ReferralNetworkDialog({
                             </TableCell>
                             <TableCell className="py-4 text-right">
                               <div className="flex flex-col items-end gap-0.5">
-                                <span className="text-sm font-mono font-bold text-foreground">
+                                <span className="text-sm font-mono font-bold text-[#16a34a] dark:text-[#4ade80]">
                                   +{formatPoints(ref.lifetimePointsScaled6)}
                                 </span>
                                 {parseFloat(ref.thisWeekPointsScaled6) > 0 && (
@@ -865,11 +905,11 @@ export function ReferralNetworkDialog({
         </ScrollArea>
 
         {/* QR Code Dialog */}
-        {data?.shareableLink && (
+        {resolvedData?.shareableLink && (
           <QRCodeDialog
             open={isQRCodeOpen}
             onOpenChange={setIsQRCodeOpen}
-            url={data.shareableLink}
+            url={resolvedData.shareableLink}
             title="Scan to Join Glow"
           />
         )}

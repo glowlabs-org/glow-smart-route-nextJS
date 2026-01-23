@@ -308,7 +308,9 @@ function FarmsChart({ farms, type }: FarmsChartProps) {
                 if (name === "rewards" || name === rewardsLabel) {
                   const formatted = formatNumber(numValue);
                   return [
-                    <span className="font-semibold">{formatted} GLW</span>,
+                    <span key="value" className="font-semibold">
+                      {formatted} GLW
+                    </span>,
                     rewardsLabel,
                   ];
                 }

@@ -2248,7 +2248,7 @@ function LaunchpadMarketplaceWidget({
                 {/* Amount + Units row on mobile */}
                 <div className="flex flex-row gap-2 md:gap-3 md:contents">
                   {/* Stat 1: Amount */}
-                  <div className="flex-1 min-w-0 md:min-w-[140px] p-2.5 md:p-3 rounded-2xl bg-white/10 border border-white10 flex flex-col justify-center dark:bg-white/5 dark:border-white/10">
+                  <div className="flex-1 min-w-0 md:min-w-[120px] p-2.5 md:p-3 rounded-2xl bg-white/10 border border-white10 flex flex-col justify-center dark:bg-white/5 dark:border-white/10">
                     <span className="text-[9px] md:text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-0.5 md:mb-1 dark:text-white/50">
                       {availability.isSoldOut
                         ? isMiner
@@ -2282,7 +2282,7 @@ function LaunchpadMarketplaceWidget({
                   </div>
 
                   {/* Stat 2: Units */}
-                  <div className="flex-1 min-w-0 md:min-w-[140px] p-2.5 md:p-3 rounded-2xl bg-white/10 border border-white10 flex flex-col justify-center dark:bg-white/5 dark:border-white/10">
+                  <div className="flex-1 min-w-0 md:min-w-[120px] p-2.5 md:p-3 rounded-2xl bg-white/10 border border-white10 flex flex-col justify-center dark:bg-white/5 dark:border-white/10">
                     <span className="text-[9px] md:text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-0.5 md:mb-1 dark:text-white/50">
                       {availability.isSoldOut ? "Sell out time" : "Units"}
                     </span>
@@ -2308,7 +2308,7 @@ function LaunchpadMarketplaceWidget({
                 {!availability.isSoldOut && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="flex-1 min-w-[140px] md:min-w-[160px] p-2.5 md:p-3 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 border border-white flex flex-col justify-center dark:from-white/10 dark:to-transparent dark:border-white/10 cursor-help">
+                      <div className="flex-1 min-w-[120px] md:min-w-[140px] p-2.5 md:p-3 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 border border-white flex flex-col justify-center dark:from-white/10 dark:to-transparent dark:border-white/10 cursor-help">
                         <span className="text-[9px] md:text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-0.5 md:mb-1 dark:text-white/50">
                           {isMiner ? "Weekly (99 wks)" : "Weekly (100 wks)"}
                         </span>
@@ -2379,7 +2379,7 @@ function LaunchpadMarketplaceWidget({
                     !row.scoreData
                   }
                   className={cn(
-                    "h-auto min-h-10 md:min-h-12 px-4 md:px-6 rounded-2xl font-medium border min-w-[120px] md:min-w-[140px] text-sm md:text-base",
+                    "h-auto min-h-10 md:min-h-12 px-4 md:px-6 rounded-2xl font-medium border min-w-[120px] md:min-w-[120px] text-sm md:text-base",
                     "bg-white/30 text-foreground border-white/20 hover:bg-white/50 backdrop-blur-md",
                     "dark:bg-gradient-to-b dark:from-white/20 dark:to-white/5 dark:hover:from-white/30 dark:hover:to-white/10 dark:text-white dark:border-white/10"
                   )}
@@ -2529,8 +2529,9 @@ function LaunchpadMarketplaceWidget({
             <div
               className={cn(
                 "flex",
-                isHeroCarousel ? "w-full gap-6 pr-0" : "gap-4",
-                rows.length <= 1 && !isHeroCarousel ? "w-full pr-0" : "pr-6 pl-1",
+                isHeroCarousel ? "w-full gap-6 pl-1 pr-0" : "gap-4",
+                !isHeroCarousel &&
+                  (rows.length <= 1 ? "w-full pr-0" : "pr-6 pl-1"),
                 rows.length === 1 && isHeroCarousel && "justify-center"
               )}
             >
@@ -3823,6 +3824,8 @@ function LaunchpadMarketplaceDialogContent({
     miningScore: { miningScore: number } | null;
     yieldUsdPerWeek: number;
     yieldPer1000Usd: number;
+    amountRaised: number;
+    totalAmountNeeded: number;
   }>;
   isRewardScoresLoading: boolean;
   isMiningScoresLoading: boolean;

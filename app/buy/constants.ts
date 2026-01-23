@@ -6,7 +6,7 @@ export const tokens = {
     // Native ETH (not an ERC20). Address is a placeholder; swaps use `useSwapETHToUSDC`.
     address: "0x0000000000000000000000000000000000000000" as `0x${string}`,
     decimals: 18,
-    allowedPairs: ["GLOW"],
+    allowedPairs: ["GLOW", "USDC"],
     toFixed: 6,
   },
   USDG: {

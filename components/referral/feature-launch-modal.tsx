@@ -14,7 +14,7 @@ import {
   Check,
   Users,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { trackEvent } from "@/lib/telemetry";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { hubPost } from "@/lib/api/hub-client";
@@ -27,11 +27,37 @@ interface SuccessReceipt {
   referrerEns?: string;
 }
 
-export function FeatureLaunchModal() {
-  const { status, linkReferrer, isLinking, linkError, validateCode } =
-    useReferral();
-  const { address } = useAccount();
+interface FeatureLaunchModalMock {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  status?: {
+    canClaim?: boolean;
+    hasReferrer?: boolean;
+    featureLaunchModal?: { seen?: boolean };
+  };
+  validateCode?: (code: string) => Promise<ValidateCodeResult>;
+  linkReferrer?: (code: string) => Promise<void>;
+  isLinking?: boolean;
+  linkError?: Error | null;
+  walletAddress?: string | null;
+  onSeen?: () => void;
+}
+
+interface FeatureLaunchModalProps {
+  mock?: FeatureLaunchModalMock;
+}
+
+export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
+  const referral = useReferral();
+  const { address: connectedAddress } = useAccount();
   const queryClient = useQueryClient();
+  const shouldReduceMotion = useReducedMotion();
+  const address = mock?.walletAddress ?? connectedAddress;
+  const status = mock?.status ?? referral.status;
+  const linkReferrer = mock?.linkReferrer ?? referral.linkReferrer;
+  const isLinking = mock?.isLinking ?? referral.isLinking;
+  const linkError = mock?.linkError ?? referral.linkError;
+  const validateCode = mock?.validateCode ?? referral.validateCode;
   const [code, setCode] = React.useState("");
   const [localError, setLocalError] = React.useState<string | null>(null);
   const [isDismissed, setIsDismissed] = React.useState(false);
@@ -44,11 +70,13 @@ export function FeatureLaunchModal() {
   const errorMessage = localError || (linkError as Error | null)?.message;
 
   const hasSeen = !!status?.featureLaunchModal?.seen || isDismissed;
+  const isControlled = mock?.open !== undefined;
 
   // Modal should show if: eligible + no referrer + not seen, OR in success state
-  const shouldShow =
+  const computedShouldShow =
     step === "success" ||
     (status?.canClaim && !status?.hasReferrer && !hasSeen);
+  const shouldShow = isControlled ? Boolean(mock?.open) : computedShouldShow;
 
   // Track modal view once
   if (shouldShow && step === "form" && !hasTrackedViewRef.current) {
@@ -57,6 +85,10 @@ export function FeatureLaunchModal() {
   }
 
   const markFeatureLaunchSeen = React.useCallback(async () => {
+    if (mock) {
+      mock.onSeen?.();
+      return;
+    }
     if (!address) return;
     try {
       await hubPost("/referral/feature-launch-seen", {
@@ -68,7 +100,7 @@ export function FeatureLaunchModal() {
     } catch {
       // No-op; modal can still be dismissed locally.
     }
-  }, [address, queryClient]);
+  }, [address, mock, queryClient]);
 
   const handleDismiss = React.useCallback(() => {
     setIsDismissed(true);
@@ -77,7 +109,8 @@ export function FeatureLaunchModal() {
     setSuccessReceipt(null);
     trackEvent("referral_feature_launch_modal_dismiss");
     markFeatureLaunchSeen();
-  }, [markFeatureLaunchSeen]);
+    if (mock?.onOpenChange) mock.onOpenChange(false);
+  }, [markFeatureLaunchSeen, mock?.onOpenChange]);
 
   const handleCodeChange = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -130,7 +163,8 @@ export function FeatureLaunchModal() {
     setSuccessReceipt(null);
     trackEvent("referral_feature_launch_success_done");
     markFeatureLaunchSeen();
-  }, [markFeatureLaunchSeen]);
+    if (mock?.onOpenChange) mock.onOpenChange(false);
+  }, [markFeatureLaunchSeen, mock?.onOpenChange]);
 
   return (
     <Dialog
@@ -143,6 +177,7 @@ export function FeatureLaunchModal() {
             handleDismiss();
           }
         }
+        if (mock?.onOpenChange) mock.onOpenChange(open);
       }}
     >
       <DialogContent
@@ -182,29 +217,79 @@ export function FeatureLaunchModal() {
             {/* Benefits Cards */}
             <div className="px-8 pb-6">
               <div className="grid grid-cols-2 gap-3">
-                <div className="group relative overflow-hidden p-4 rounded-2xl border border-[color:var(--color-glow-green)]/30 bg-[color:var(--color-glow-green)]/5 transition-all hover:border-[color:var(--color-glow-green)]/50">
-                  <div className="flex flex-col items-center text-center gap-2">
-                    <div className="p-2 rounded-xl bg-[color:var(--color-glow-green)]/20">
+                <motion.div
+                  className="group rounded-2xl border border-border/60 bg-background p-4 transition-colors hover:border-[color:var(--color-glow-green)]/40"
+                  initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={
+                    shouldReduceMotion ? { duration: 0 } : { delay: 0.05 }
+                  }
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--color-glow-green)]/25 bg-[color:var(--color-glow-green)]/5">
                       <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     </div>
-                    <div className="font-bold text-sm">+100 Points</div>
-                    <div className="text-[10px] text-muted-foreground leading-tight">
-                      At 100 pts milestone
+                    <div className="flex flex-col gap-0.5 text-left">
+                      <motion.div
+                        className="font-bold text-sm"
+                        initial={
+                          shouldReduceMotion ? false : { opacity: 0, y: 4 }
+                        }
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={
+                          shouldReduceMotion ? { duration: 0 } : { delay: 0.12 }
+                        }
+                      >
+                        <AnimatedStat
+                          value={100}
+                          prefix="+"
+                          suffix=" Points"
+                          className="font-mono text-lg font-bold tracking-tight text-foreground"
+                        />
+                      </motion.div>
+                      <div className="text-[10px] text-muted-foreground leading-tight">
+                        At 100 pts milestone
+                      </div>
                     </div>
                   </div>
-                </div>
+                </motion.div>
 
-                <div className="group relative overflow-hidden p-4 rounded-2xl border border-[color:var(--color-glow-purple)]/30 bg-[color:var(--color-glow-purple)]/5 transition-all hover:border-[color:var(--color-glow-purple)]/50">
-                  <div className="flex flex-col items-center text-center gap-2">
-                    <div className="p-2 rounded-xl bg-[color:var(--color-glow-purple)]/20">
+                <motion.div
+                  className="group rounded-2xl border border-border/60 bg-background p-4 transition-colors hover:border-[color:var(--color-glow-purple)]/40"
+                  initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={
+                    shouldReduceMotion ? { duration: 0 } : { delay: 0.1 }
+                  }
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--color-glow-purple)]/25 bg-[color:var(--color-glow-purple)]/5">
                       <TrendingUp className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                     </div>
-                    <div className="font-bold text-sm">+10% Boost</div>
-                    <div className="text-[10px] text-muted-foreground leading-tight">
-                      For 12 weeks
+                    <div className="flex flex-col gap-0.5 text-left">
+                      <motion.div
+                        className="font-bold text-sm"
+                        initial={
+                          shouldReduceMotion ? false : { opacity: 0, y: 4 }
+                        }
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={
+                          shouldReduceMotion ? { duration: 0 } : { delay: 0.18 }
+                        }
+                      >
+                        <AnimatedStat
+                          value={10}
+                          prefix="+"
+                          suffix="% Boost"
+                          className="font-mono text-lg font-bold tracking-tight text-foreground"
+                        />
+                      </motion.div>
+                      <div className="text-[10px] text-muted-foreground leading-tight">
+                        For 12 weeks
+                      </div>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               </div>
             </div>
 
@@ -220,7 +305,8 @@ export function FeatureLaunchModal() {
                   </label>
                   <Input
                     id="modal-ref-code"
-                    placeholder="alice.eth or 0x..."
+                    name="referralCode"
+                    placeholder="alice.eth or 0x…"
                     value={code}
                     onChange={handleCodeChange}
                     className={`h-12 rounded-xl font-mono text-center text-base transition-colors ${
@@ -228,6 +314,9 @@ export function FeatureLaunchModal() {
                         ? "border-destructive focus-visible:ring-destructive/30 focus-visible:border-destructive"
                         : "border-border/60 focus-visible:ring-[color:var(--color-glow-green)]/30 focus-visible:border-[color:var(--color-glow-green)]/50"
                     }`}
+                    autoComplete="off"
+                    spellCheck={false}
+                    autoCapitalize="off"
                     disabled={isLinking}
                     aria-invalid={!!errorMessage}
                     aria-describedby={
@@ -257,7 +346,7 @@ export function FeatureLaunchModal() {
                     ) : (
                       <CheckCircle2 className="w-4 h-4" />
                     )}
-                    {isLinking ? "Verifying..." : "Claim My Bonus"}
+                    {isLinking ? "Verifying…" : "Claim My Bonus"}
                   </Button>
 
                   <Button
@@ -275,13 +364,66 @@ export function FeatureLaunchModal() {
             {/* Footer */}
             <div className="px-8 py-4 border-t border-border/50 bg-muted/20">
               <p className="text-[10px] text-muted-foreground text-center leading-relaxed">
-                Existing users have 30 days to claim their initial referrer.
+                Existing users have 14 days to claim their initial referrer.
               </p>
             </div>
           </>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function AnimatedStat({
+  value,
+  prefix = "",
+  suffix = "",
+  duration = 900,
+  delay = 0,
+  className,
+}: {
+  value: number;
+  prefix?: string;
+  suffix?: string;
+  duration?: number;
+  delay?: number;
+  className?: string;
+}) {
+  const shouldReduceMotion = useReducedMotion();
+  const [displayValue, setDisplayValue] = React.useState(0);
+
+  React.useEffect(() => {
+    if (shouldReduceMotion) {
+      setDisplayValue(value);
+      return;
+    }
+    let rafId = 0;
+    const start = performance.now();
+
+    const tick = (now: number) => {
+      const elapsed = now - start - delay;
+      if (elapsed < 0) {
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayValue(Math.round(value * eased));
+      if (progress < 1) {
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [value, duration, delay, shouldReduceMotion]);
+
+  return (
+    <span className={`tabular-nums ${className ?? ""}`.trim()}>
+      {prefix}
+      {displayValue.toLocaleString()}
+      {suffix}
+    </span>
   );
 }
 
@@ -293,8 +435,13 @@ function SuccessScreen({
   onDone: () => void;
 }) {
   const [displayPercent, setDisplayPercent] = React.useState(0);
+  const shouldReduceMotion = useReducedMotion();
 
   React.useEffect(() => {
+    if (shouldReduceMotion) {
+      setDisplayPercent(100);
+      return;
+    }
     const duration = 1200;
     const startTime = Date.now();
     const tick = () => {
@@ -306,7 +453,22 @@ function SuccessScreen({
       if (progress < 1) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
-  }, []);
+  }, [shouldReduceMotion]);
+
+  const springIn = shouldReduceMotion
+    ? { duration: 0 }
+    : { type: "spring", stiffness: 200, damping: 15, delay: 0.1 };
+  const springInner = shouldReduceMotion
+    ? { duration: 0 }
+    : { delay: 0.3, type: "spring", stiffness: 300 };
+  const fadeUp = (delay: number) =>
+    shouldReduceMotion
+      ? { duration: 0 }
+      : { delay, duration: 0.2 };
+  const slideFill = (delay: number) =>
+    shouldReduceMotion
+      ? { duration: 0 }
+      : { delay, duration: 0.5, ease: "easeOut" };
 
   const referrerDisplay =
     receipt?.referrerEns ||
@@ -322,21 +484,16 @@ function SuccessScreen({
         {/* Success checkmark with pulse animation */}
         <motion.div
           className="relative"
-          initial={{ scale: 0, opacity: 0 }}
+          initial={shouldReduceMotion ? false : { scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{
-            type: "spring",
-            stiffness: 200,
-            damping: 15,
-            delay: 0.1,
-          }}
+          transition={springIn}
         >
           <div className="absolute -inset-4 rounded-full bg-emerald-500/20 blur-xl animate-pulse" />
           <div className="relative h-20 w-20 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
             <motion.div
-              initial={{ scale: 0 }}
+              initial={shouldReduceMotion ? false : { scale: 0 }}
               animate={{ scale: 1 }}
-              transition={{ delay: 0.3, type: "spring", stiffness: 300 }}
+              transition={springInner}
             >
               <Check className="h-10 w-10 text-white stroke-[3]" />
             </motion.div>
@@ -346,9 +503,9 @@ function SuccessScreen({
         {/* Title and subtitle */}
         <motion.div
           className="space-y-2"
-          initial={{ opacity: 0, y: 10 }}
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={fadeUp(0.2)}
         >
           <DialogTitle className="text-2xl sm:text-[1.7rem] font-bold tracking-tight">
             You're Connected!
@@ -362,9 +519,9 @@ function SuccessScreen({
         {referrerDisplay && (
           <motion.div
             className="w-full rounded-2xl border border-border/60 bg-muted/30 p-4"
-            initial={{ opacity: 0, y: 10 }}
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
+            transition={fadeUp(0.3)}
           >
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
@@ -385,9 +542,9 @@ function SuccessScreen({
         {/* Unlocked bonuses */}
         <motion.div
           className="w-full space-y-3"
-          initial={{ opacity: 0, y: 10 }}
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          transition={fadeUp(0.4)}
         >
           <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
             Bonus Details
@@ -396,9 +553,9 @@ function SuccessScreen({
             <div className="relative overflow-hidden p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10">
               <motion.div
                 className="absolute inset-0 bg-emerald-500/5"
-                initial={{ x: "-100%" }}
+                initial={shouldReduceMotion ? false : { x: "-100%" }}
                 animate={{ x: "0%" }}
-                transition={{ delay: 0.5, duration: 0.5, ease: "easeOut" }}
+                transition={slideFill(0.5)}
               />
               <div className="relative flex flex-col items-center text-center gap-1.5">
                 <Sparkles className="w-5 h-5 text-emerald-500" />
@@ -414,9 +571,9 @@ function SuccessScreen({
             <div className="relative overflow-hidden p-4 rounded-2xl border border-purple-500/30 bg-purple-500/10">
               <motion.div
                 className="absolute inset-0 bg-purple-500/5"
-                initial={{ x: "-100%" }}
+                initial={shouldReduceMotion ? false : { x: "-100%" }}
                 animate={{ x: "0%" }}
-                transition={{ delay: 0.6, duration: 0.5, ease: "easeOut" }}
+                transition={slideFill(0.6)}
               />
               <div className="relative flex flex-col items-center text-center gap-1.5">
                 <TrendingUp className="w-5 h-5 text-purple-500" />
@@ -434,9 +591,9 @@ function SuccessScreen({
         {/* Progress indicator */}
         <motion.div
           className="w-full space-y-2"
-          initial={{ opacity: 0 }}
+          initial={shouldReduceMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.7 }}
+          transition={fadeUp(0.7)}
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">Setup progress</span>
@@ -447,9 +604,9 @@ function SuccessScreen({
           <div className="h-2 rounded-full bg-muted overflow-hidden">
             <motion.div
               className="h-full rounded-full glow-gradient"
-              initial={{ width: "0%" }}
+              initial={shouldReduceMotion ? false : { width: "0%" }}
               animate={{ width: "100%" }}
-              transition={{ delay: 0.2, duration: 1.2, ease: "easeOut" }}
+              transition={shouldReduceMotion ? { duration: 0 } : { delay: 0.2, duration: 1.2, ease: "easeOut" }}
             />
           </div>
         </motion.div>
@@ -457,9 +614,9 @@ function SuccessScreen({
         {/* Done button */}
         <motion.div
           className="w-full pt-2"
-          initial={{ opacity: 0, y: 10 }}
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
+          transition={fadeUp(0.8)}
         >
           <Button onClick={onDone} className="w-full ">
             Start Earning

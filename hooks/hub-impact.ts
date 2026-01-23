@@ -130,7 +130,7 @@ export interface ImpactGlowScoreResponse {
       activeRefereeCount: number;
       pendingRefereeCount: number;
       currentTier: {
-        name: "Seed" | "Grow" | "Scale" | "Legend";
+        name: "Aurora" | "Solaris" | "Zenith" | "Eclipse Prime";
         percent: number;
       };
       nextTier?: {

@@ -36,6 +36,11 @@ import { Slider } from "../ui/slider";
 import { Checkbox } from "../ui/checkbox";
 import { Label } from "../ui/label";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "../ui/tooltip";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -1030,7 +1035,7 @@ export function MintAndStakeGctlDialog({
       return;
     }
     if (!isUnstakeAcknowledged) {
-      toast.error("Please acknowledge the unstaking rule");
+      toast.error("Please acknowledge the terms");
       return;
     }
 
@@ -1226,7 +1231,7 @@ export function MintAndStakeGctlDialog({
       return;
     }
     if (!isUnstakeAcknowledged) {
-      toast.error("Please acknowledge the unstaking rule");
+      toast.error("Please acknowledge the terms");
       return;
     }
 
@@ -1894,13 +1899,22 @@ export function MintAndStakeGctlDialog({
                             step={1}
                             className="w-full"
                           />
-                          <div className="flex justify-between mt-2">
+                          <div className="mt-2 flex items-center justify-between sm:relative sm:h-6 sm:block">
                             {[25, 50, 75, 100].map((p) => (
                               <button
                                 key={p}
+                                type="button"
                                 onClick={() => handleSetPct(p)}
                                 disabled={isBusy}
-                                className="text-[10px] font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted/50 transition-colors"
+                                style={{
+                                  left: `${p}%`,
+                                }}
+                                className={cn(
+                                  "text-[10px] font-medium text-muted-foreground hover:text-foreground px-1.5 py-1 rounded hover:bg-muted/50 transition-colors sm:absolute sm:top-0",
+                                  p === 100
+                                    ? "sm:-translate-x-full"
+                                    : "sm:-translate-x-1/2"
+                                )}
                               >
                                 {p}%
                               </button>
@@ -1921,11 +1935,29 @@ export function MintAndStakeGctlDialog({
                               <SteeringIcon className="h-4 w-4 text-cyan-500" />
                             </div>
                             <div>
-                              <div className="text-sm font-medium">
-                                Rewards Directed
+                              <div className="flex items-center gap-1 text-sm font-medium">
+                                <span>Rewards Redirected</span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      aria-label="How GCTL redirects rewards"
+                                      className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                      <Info className="h-3.5 w-3.5" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    GCTL does not create new GLW for you. It
+                                    redirects weekly emissions from other
+                                    regions to this one. The +GLW/week goes to
+                                    solar farms in the selected region, not to
+                                    your wallet.
+                                  </TooltipContent>
+                                </Tooltip>
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                to {selectedRegionLabel || "Region"}
+                                to farms in {selectedRegionLabel || "Region"}
                               </div>
                             </div>
                           </div>
@@ -1986,27 +2018,58 @@ export function MintAndStakeGctlDialog({
                     </div>
 
                     <div className="pt-2">
-                      <div className="flex items-start gap-2 mb-4 px-1">
-                        <Checkbox
-                          id="unstake-ack"
-                          checked={isUnstakeAcknowledged}
-                          disabled={isBusy}
-                          onCheckedChange={(v) =>
-                            setIsUnstakeAcknowledged(Boolean(v))
-                          }
-                          className="mt-0.5 border-muted-foreground/40"
-                        />
-                        <Label
-                          htmlFor="unstake-ack"
-                          className="text-xs text-muted-foreground leading-relaxed cursor-pointer select-none"
-                        >
-                          I understand that unstaking GCTL takes{" "}
-                          <span className="font-medium text-foreground">
-                            ~100 weeks
-                          </span>{" "}
-                          (1% release/week).
-                        </Label>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          !isBusy && setIsUnstakeAcknowledged((v) => !v)
+                        }
+                        disabled={isBusy}
+                        className={cn(
+                          "w-full rounded-xl border p-4 text-left transition-all mb-4",
+                          isUnstakeAcknowledged
+                            ? "border-primary/50 bg-primary/5"
+                            : "border-border bg-muted/5 hover:border-border/80"
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            id="ack-checkbox"
+                            checked={isUnstakeAcknowledged}
+                            disabled={isBusy}
+                            onCheckedChange={(v) =>
+                              setIsUnstakeAcknowledged(Boolean(v))
+                            }
+                            className="mt-0.5 border-muted-foreground/40"
+                          />
+                          <div className="space-y-2">
+                            <div className="text-sm font-medium text-foreground">
+                              I understand that:
+                            </div>
+                            <ul className="space-y-1.5 text-xs text-muted-foreground">
+                              <li className="flex items-start gap-2">
+                                <span className="text-muted-foreground/60 mt-px">•</span>
+                                <span>
+                                  GCTL{" "}
+                                  <span className="font-medium text-foreground">
+                                    redirects GLW emissions to farms
+                                  </span>{" "}
+                                  in the selected region — not to my wallet
+                                </span>
+                              </li>
+                              <li className="flex items-start gap-2">
+                                <span className="text-muted-foreground/60 mt-px">•</span>
+                                <span>
+                                  Unstaking takes{" "}
+                                  <span className="font-medium text-foreground">
+                                    ~100 weeks
+                                  </span>{" "}
+                                  (1% release per week)
+                                </span>
+                              </li>
+                            </ul>
+                          </div>
+                        </div>
+                      </button>
 
                       <Button
                         type="button"

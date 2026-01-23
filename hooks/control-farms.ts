@@ -25,6 +25,30 @@ import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
 import { useMemo } from "react";
 
+const MAX_FARMS_PER_BATCH = 100;
+
+function chunkFarmIds(farmIds: string[], chunkSize: number): string[][] {
+  if (chunkSize <= 0) return [farmIds];
+  const chunks: string[][] = [];
+  for (let i = 0; i < farmIds.length; i += chunkSize) {
+    chunks.push(farmIds.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
+function mergeBatchResults(responses: Array<{ results?: Record<string, any> }>) {
+  const mergedResults: Record<string, any> = {};
+  responses.forEach((response) => {
+    if (!response?.results) return;
+    Object.assign(mergedResults, response.results);
+  });
+  const firstResponse = responses.find((response) => response !== undefined);
+  if (firstResponse && "results" in firstResponse) {
+    return { ...firstResponse, results: mergedResults };
+  }
+  return { results: mergedResults };
+}
+
 export function useWalletFarms(params: {
   walletAddress?: string;
   enabled?: boolean;
@@ -161,11 +185,25 @@ export function useFarmWeeklyRewardsBatch(params: {
     queryFn: async () => {
       if (farmIds.length === 0) return null;
       try {
-        return await (getFarmsRouter() as any).fetchFarmWeeklyRewardsBatch({
-          farmIds,
-          startWeek,
-          endWeek,
-        });
+        const farmIdBatches = chunkFarmIds(farmIds, MAX_FARMS_PER_BATCH);
+        const responses = await Promise.all(
+          farmIdBatches.map(async (batch) => {
+            try {
+              return await (getFarmsRouter() as any).fetchFarmWeeklyRewardsBatch({
+                farmIds: batch,
+                startWeek,
+                endWeek,
+              });
+            } catch (error) {
+              console.error(
+                "Error fetching farm weekly rewards batch chunk:",
+                error
+              );
+              throw error;
+            }
+          })
+        );
+        return mergeBatchResults(responses);
       } catch (error) {
         console.error("Error fetching farm weekly rewards batch:", error);
         throw error;

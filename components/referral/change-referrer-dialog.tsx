@@ -19,6 +19,10 @@ interface ChangeReferrerDialogProps {
   onOpenChange: (open: boolean) => void;
   currentReferrerEns?: string;
   currentReferrerWallet?: string;
+  mock?: {
+    changeReferrer?: (code: string) => Promise<void>;
+    isChanging?: boolean;
+  };
 }
 
 export function ChangeReferrerDialog({
@@ -26,8 +30,11 @@ export function ChangeReferrerDialog({
   onOpenChange,
   currentReferrerEns,
   currentReferrerWallet,
+  mock,
 }: ChangeReferrerDialogProps) {
-  const { changeReferrer, isChanging } = useReferral();
+  const referral = useReferral();
+  const changeReferrer = mock?.changeReferrer ?? referral.changeReferrer;
+  const isChanging = mock?.isChanging ?? referral.isChanging;
   const [newCode, setNewCode] = React.useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,12 +81,15 @@ export function ChangeReferrerDialog({
               <label htmlFor="new-ref-code" className="text-xs font-bold uppercase tracking-widest pl-1">New Referral Code</label>
               <Input
                 id="new-ref-code"
-                placeholder="e.g. bob.eth or b2x4y9"
+                name="newReferralCode"
+                placeholder="e.g. bob.eth or b2x4y9…"
                 value={newCode}
                 onChange={(e) => setNewCode(e.target.value)}
                 className="h-12 rounded-xl font-mono"
+                autoComplete="off"
+                spellCheck={false}
+                autoCapitalize="off"
                 disabled={isChanging}
-                autoFocus
               />
             </div>
             <Button 
@@ -88,7 +98,7 @@ export function ChangeReferrerDialog({
               disabled={isChanging || !newCode.trim()}
             >
               {isChanging ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-              {isChanging ? "Updating..." : "Update Referrer"}
+              {isChanging ? "Updating…" : "Update Referrer"}
             </Button>
           </form>
         </div>

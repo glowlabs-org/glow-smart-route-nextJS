@@ -54,6 +54,7 @@ import ImpactAccumulatorWidget from "./widgets/impact-accumulator-widget";
 import SolarCollectorWidget from "./widgets/solar-collector";
 import { WidgetErrorBoundary } from "@/components/widget-error-boundary";
 import { FeatureLaunchModal } from "@/components/referral/feature-launch-modal";
+import { ActivationCelebrationModal } from "@/components/referral/activation-celebration-modal";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
@@ -407,6 +408,7 @@ export default function GlowSoftDashboard({
 
   return (
     <div className="min-h-screen bg-muted dark:bg-background text-foreground selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
+      <ActivationCelebrationModal />
       <FeatureLaunchModal />
       <div className="max-w-screen-2xl mx-auto p-6">
         <AnimatePresence mode="wait" initial={false}>
