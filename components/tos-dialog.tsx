@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 type TosErrorType =
   | "smart_wallet"
   | "deadline_expired"
+  | "deadline_invalid"
   | "signature_rejected"
   | "network_error"
   | "unknown";
@@ -69,6 +70,28 @@ function parseApiError(error: unknown): TosError {
       title: "Signature Expired",
       message: "The signature request timed out.",
       suggestion: "Please try signing again. Make sure to complete the signing process promptly.",
+      canRetry: true,
+    };
+  }
+
+  // Deadline in milliseconds (developer error)
+  if (lowerMessage.includes("deadline") && lowerMessage.includes("milliseconds")) {
+    return {
+      type: "deadline_invalid",
+      title: "Invalid Signature Request",
+      message: "There was a technical issue with the signature request.",
+      suggestion: "Please try again. If the issue persists, try refreshing the page.",
+      canRetry: true,
+    };
+  }
+
+  // Deadline too far in future
+  if (lowerMessage.includes("deadline") && lowerMessage.includes("too far")) {
+    return {
+      type: "deadline_invalid",
+      title: "Invalid Signature Request",
+      message: "The signature deadline was set too far in the future.",
+      suggestion: "Please try again. If the issue persists, try refreshing the page.",
       canRetry: true,
     };
   }
