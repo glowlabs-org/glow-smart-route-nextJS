@@ -2,6 +2,49 @@
 
 This document defines the design system and rules for the Glow frontend. Follow these guidelines to maintain visual coherence across the application.
 
+---
+
+## Critical: Code Quality Requirements
+
+**These rules are mandatory for ALL frontend changes:**
+
+### 1. Always Run the Linter
+
+After making ANY change to frontend code, run the linter before considering the task complete:
+
+```bash
+pnpm lint
+# Or for a specific file:
+pnpm lint --file path/to/file.tsx
+```
+
+Fix all errors and warnings before proceeding. Common issues:
+- React hooks called conditionally (move all hooks before early returns)
+- Missing dependencies in useEffect/useCallback/useMemo
+- Unused imports or variables
+
+### 2. Never Push Without a Working Build
+
+Before pushing ANY changes, verify the build succeeds:
+
+```bash
+pnpm build
+```
+
+A failed build means broken production. Do not push until:
+- `pnpm lint` passes with no errors
+- `pnpm build` completes successfully
+
+### 3. Verification Order
+
+For every frontend change:
+1. Make the change
+2. Run `pnpm lint` → fix any errors
+3. Run `pnpm build` → fix any errors
+4. Only then consider the task complete
+
+---
+
 ## Design Philosophy
 
 The Glow dashboard follows a **premium, Series B-ready aesthetic** inspired by exactly.ai. Key principles:

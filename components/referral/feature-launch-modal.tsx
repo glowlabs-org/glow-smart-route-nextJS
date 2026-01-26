@@ -71,24 +71,15 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
   // Derive error message from linkError or localError
   const errorMessage = localError || (linkError as Error | null)?.message;
 
-  const hasSeen = !!status?.featureLaunchModal?.seen || isDismissed;
+  const hasSeen = !!status?.featureLaunchModal?.seen;
   const isControlled = mock?.open !== undefined;
 
-  if (!isReferralLive) {
-    return null;
-  }
-
-  // Modal should show if: eligible + no referrer + not seen, OR in success state
+  // Modal should show if: eligible + no referrer + not seen (backend), OR in success state
+  // isDismissed is session-only (resets on page refresh) - allows closing without permanent dismiss
   const computedShouldShow =
     step === "success" ||
-    (status?.canClaim && !status?.hasReferrer && !hasSeen);
+    (status?.canClaim && !status?.hasReferrer && !hasSeen && !isDismissed);
   const shouldShow = isControlled ? Boolean(mock?.open) : computedShouldShow;
-
-  // Track modal view once
-  if (shouldShow && step === "form" && !hasTrackedViewRef.current) {
-    hasTrackedViewRef.current = true;
-    trackEvent("referral_feature_launch_modal_view");
-  }
 
   const markFeatureLaunchSeen = React.useCallback(async () => {
     if (mock) {
@@ -108,23 +99,60 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
     }
   }, [address, mock, queryClient]);
 
-  const handleDismiss = React.useCallback(() => {
+  // Close modal without marking as seen (click outside, X button)
+  const handleClose = React.useCallback(() => {
     setIsDismissed(true);
     setLocalError(null);
     setStep("form");
     setSuccessReceipt(null);
-    trackEvent("referral_feature_launch_modal_dismiss");
+    trackEvent("referral_feature_launch_modal_close");
+    mock?.onOpenChange?.(false);
+  }, [mock]);
+
+  // Permanently dismiss - user explicitly clicked "I wasn't referred"
+  const handleSkip = React.useCallback(() => {
+    setIsDismissed(true);
+    setLocalError(null);
+    setStep("form");
+    setSuccessReceipt(null);
+    trackEvent("referral_feature_launch_modal_skip");
     markFeatureLaunchSeen();
-    if (mock?.onOpenChange) mock.onOpenChange(false);
-  }, [markFeatureLaunchSeen, mock?.onOpenChange]);
+    mock?.onOpenChange?.(false);
+  }, [markFeatureLaunchSeen, mock]);
 
   const handleCodeChange = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setCode(e.target.value);
       if (localError) setLocalError(null);
     },
-    [localError]
+    [localError],
   );
+
+  const handleSuccessDone = React.useCallback(() => {
+    setIsDismissed(true);
+    setStep("form");
+    setSuccessReceipt(null);
+    trackEvent("referral_feature_launch_success_done");
+    markFeatureLaunchSeen();
+    mock?.onOpenChange?.(false);
+  }, [markFeatureLaunchSeen, mock]);
+
+  // Track modal view once
+  React.useEffect(() => {
+    if (
+      isReferralLive &&
+      shouldShow &&
+      step === "form" &&
+      !hasTrackedViewRef.current
+    ) {
+      hasTrackedViewRef.current = true;
+      trackEvent("referral_feature_launch_modal_view");
+    }
+  }, [isReferralLive, shouldShow, step]);
+
+  if (!isReferralLive) {
+    return null;
+  }
 
   const handleClaim = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,15 +191,6 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
     }
   };
 
-  const handleSuccessDone = React.useCallback(() => {
-    setIsDismissed(true);
-    setStep("form");
-    setSuccessReceipt(null);
-    trackEvent("referral_feature_launch_success_done");
-    markFeatureLaunchSeen();
-    if (mock?.onOpenChange) mock.onOpenChange(false);
-  }, [markFeatureLaunchSeen, mock?.onOpenChange]);
-
   return (
     <Dialog
       open={shouldShow}
@@ -180,27 +199,26 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
           if (step === "success") {
             handleSuccessDone();
           } else {
-            handleDismiss();
+            handleClose();
           }
         }
         if (mock?.onOpenChange) mock.onOpenChange(open);
       }}
     >
       <DialogContent
-        className="sm:max-w-sm p-0 overflow-hidden border border-border/50 gap-0"
+        className="sm:max-w-sm p-0 overflow-hidden border border-border/20 dark:border-border/40 bg-card gap-0 rounded-[24px]"
         showCloseButton={step !== "success"}
       >
         {step === "success" ? (
           <SuccessScreen receipt={successReceipt} onDone={handleSuccessDone} />
         ) : (
           <>
-            {/* Hero Section with Glow Gradient */}
+            {/* Hero Section */}
             <div className="relative overflow-hidden">
               <div className="relative px-8 pt-10 pb-8 text-center space-y-5">
                 <div className="inline-flex relative">
-                  <div className="absolute -inset-3 rounded-full glow-gradient opacity-60 blur-xl" />
-                  <div className="relative p-5 rounded-full glow-gradient">
-                    <GlowSymbol className="w-9 h-9 !text-glow-black" />
+                  <div className="relative p-5 rounded-full bg-muted/50 dark:bg-muted/60 border border-border/20 dark:border-border/40">
+                    <GlowSymbol className="w-9 h-9 text-foreground" />
                   </div>
                 </div>
 
@@ -224,7 +242,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
             <div className="px-8 pb-6">
               <div className="grid grid-cols-2 gap-3">
                 <motion.div
-                  className="group rounded-2xl border border-border/60 bg-background p-4 transition-colors hover:border-[color:var(--color-glow-green)]/40"
+                  className="group rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-4 transition-colors hover:border-border/40 dark:hover:border-border/60"
                   initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={
@@ -232,12 +250,11 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                   }
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--color-glow-green)]/25 bg-[color:var(--color-glow-green)]/5">
-                      <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#4ADE80]/10">
+                      <Sparkles className="w-4 h-4 text-[#4ADE80]" />
                     </div>
                     <div className="flex flex-col gap-0.5 text-left">
                       <motion.div
-                        className="font-bold text-sm"
                         initial={
                           shouldReduceMotion ? false : { opacity: 0, y: 4 }
                         }
@@ -249,11 +266,11 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                         <AnimatedStat
                           value={100}
                           prefix="+"
-                          suffix=" Points"
-                          className="font-mono text-lg font-bold tracking-tight text-foreground"
+                          suffix=" pts"
+                          className="font-mono text-lg font-semibold tracking-tight text-foreground"
                         />
                       </motion.div>
-                      <div className="text-[10px] text-muted-foreground leading-tight">
+                      <div className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 leading-tight">
                         At 100 pts milestone
                       </div>
                     </div>
@@ -261,7 +278,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                 </motion.div>
 
                 <motion.div
-                  className="group rounded-2xl border border-border/60 bg-background p-4 transition-colors hover:border-[color:var(--color-glow-purple)]/40"
+                  className="group rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-4 transition-colors hover:border-border/40 dark:hover:border-border/60"
                   initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={
@@ -269,12 +286,11 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                   }
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--color-glow-purple)]/25 bg-[color:var(--color-glow-purple)]/5">
-                      <TrendingUp className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[color:var(--delegation-purple)]/10">
+                      <TrendingUp className="w-4 h-4 text-[color:var(--delegation-purple)]" />
                     </div>
                     <div className="flex flex-col gap-0.5 text-left">
                       <motion.div
-                        className="font-bold text-sm"
                         initial={
                           shouldReduceMotion ? false : { opacity: 0, y: 4 }
                         }
@@ -287,10 +303,10 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                           value={10}
                           prefix="+"
                           suffix="% Boost"
-                          className="font-mono text-lg font-bold tracking-tight text-foreground"
+                          className="font-mono text-lg font-semibold tracking-tight text-foreground"
                         />
                       </motion.div>
-                      <div className="text-[10px] text-muted-foreground leading-tight">
+                      <div className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 leading-tight">
                         For 12 weeks
                       </div>
                     </div>
@@ -305,7 +321,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                 <div className="space-y-2">
                   <label
                     htmlFor="modal-ref-code"
-                    className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground pl-1"
+                    className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 pl-1"
                   >
                     Referral Code
                   </label>
@@ -318,7 +334,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                     className={`h-12 rounded-xl font-mono text-center text-base transition-colors ${
                       errorMessage
                         ? "border-destructive focus-visible:ring-destructive/30 focus-visible:border-destructive"
-                        : "border-border/60 focus-visible:ring-[color:var(--color-glow-green)]/30 focus-visible:border-[color:var(--color-glow-green)]/50"
+                        : "border-border/20 dark:border-border/40 focus-visible:ring-border/30 focus-visible:border-border/40"
                     }`}
                     autoComplete="off"
                     spellCheck={false}
@@ -355,21 +371,16 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                     {isLinking ? "Verifying…" : "Claim My Bonus"}
                   </Button>
 
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-9 text-muted-foreground hover:text-foreground text-xs font-medium"
-                    onClick={handleDismiss}
-                  >
-                    I wasn't referred · Skip
+                  <Button type="button" variant="outline" onClick={handleSkip}>
+                    I wasn't referred
                   </Button>
                 </div>
               </form>
             </div>
 
             {/* Footer */}
-            <div className="px-8 py-4 border-t border-border/50 bg-muted/20">
-              <p className="text-[10px] text-muted-foreground text-center leading-relaxed">
+            <div className="px-8 py-4 border-t border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
+              <p className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 text-center leading-relaxed">
                 Existing users have 14 days to claim their initial referrer.
               </p>
             </div>
@@ -468,40 +479,33 @@ function SuccessScreen({
     ? { duration: 0 }
     : { delay: 0.3, type: "spring", stiffness: 300 };
   const fadeUp = (delay: number) =>
-    shouldReduceMotion
-      ? { duration: 0 }
-      : { delay, duration: 0.2 };
-  const slideFill = (delay: number) =>
-    shouldReduceMotion
-      ? { duration: 0 }
-      : { delay, duration: 0.5, ease: "easeOut" };
+    shouldReduceMotion ? { duration: 0 } : { delay, duration: 0.2 };
 
   const referrerDisplay =
     receipt?.referrerEns ||
     (receipt?.referrerWallet
       ? `${receipt.referrerWallet.slice(0, 6)}...${receipt.referrerWallet.slice(
-          -4
+          -4,
         )}`
       : receipt?.referralCode);
 
   return (
     <div className="relative overflow-hidden">
       <div className="relative px-8 py-10 flex flex-col items-center text-center space-y-6">
-        {/* Success checkmark with pulse animation */}
+        {/* Success checkmark */}
         <motion.div
           className="relative"
           initial={shouldReduceMotion ? false : { scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={springIn}
         >
-          <div className="absolute -inset-4 rounded-full bg-emerald-500/20 blur-xl animate-pulse" />
-          <div className="relative h-20 w-20 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+          <div className="relative h-20 w-20 rounded-full bg-[#4ADE80]/10 border border-[#4ADE80]/20 flex items-center justify-center">
             <motion.div
               initial={shouldReduceMotion ? false : { scale: 0 }}
               animate={{ scale: 1 }}
               transition={springInner}
             >
-              <Check className="h-10 w-10 text-white stroke-[3]" />
+              <Check className="h-10 w-10 text-[#4ADE80] stroke-[2.5]" />
             </motion.div>
           </div>
         </motion.div>
@@ -513,10 +517,10 @@ function SuccessScreen({
           animate={{ opacity: 1, y: 0 }}
           transition={fadeUp(0.2)}
         >
-          <DialogTitle className="text-2xl sm:text-[1.7rem] font-bold tracking-tight">
+          <DialogTitle className="text-2xl sm:text-[1.7rem] font-semibold tracking-tight">
             You're Connected!
           </DialogTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
             Your 10% boost is active. +100 unlocks after you reach 100 points.
           </p>
         </motion.div>
@@ -524,17 +528,17 @@ function SuccessScreen({
         {/* Referrer info card */}
         {referrerDisplay && (
           <motion.div
-            className="w-full rounded-2xl border border-border/60 bg-muted/30 p-4"
+            className="w-full rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-4"
             initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={fadeUp(0.3)}
           >
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+              <div className="h-10 w-10 rounded-full bg-muted/50 dark:bg-muted/60 flex items-center justify-center shrink-0">
                 <Users className="h-5 w-5 text-muted-foreground" />
               </div>
               <div className="min-w-0 text-left">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                   Your Referrer
                 </div>
                 <div className="text-sm font-mono font-semibold truncate">
@@ -552,41 +556,33 @@ function SuccessScreen({
           animate={{ opacity: 1, y: 0 }}
           transition={fadeUp(0.4)}
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
             Bonus Details
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="relative overflow-hidden p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10">
-              <motion.div
-                className="absolute inset-0 bg-emerald-500/5"
-                initial={shouldReduceMotion ? false : { x: "-100%" }}
-                animate={{ x: "0%" }}
-                transition={slideFill(0.5)}
-              />
-              <div className="relative flex flex-col items-center text-center gap-1.5">
-                <Sparkles className="w-5 h-5 text-emerald-500" />
-                <div className="font-bold text-base text-emerald-600 dark:text-emerald-400">
+            <div className="p-4 rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
+              <div className="flex flex-col items-center text-center gap-1.5">
+                <div className="h-9 w-9 rounded-lg bg-[#4ADE80]/10 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-[#4ADE80]" />
+                </div>
+                <div className="font-mono font-semibold text-base text-foreground">
                   +100 pts
                 </div>
-                <div className="text-[10px] text-muted-foreground">
+                <div className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80">
                   Unlocks at 100 points
                 </div>
               </div>
             </div>
 
-            <div className="relative overflow-hidden p-4 rounded-2xl border border-purple-500/30 bg-purple-500/10">
-              <motion.div
-                className="absolute inset-0 bg-purple-500/5"
-                initial={shouldReduceMotion ? false : { x: "-100%" }}
-                animate={{ x: "0%" }}
-                transition={slideFill(0.6)}
-              />
-              <div className="relative flex flex-col items-center text-center gap-1.5">
-                <TrendingUp className="w-5 h-5 text-purple-500" />
-                <div className="font-bold text-base text-purple-600 dark:text-purple-400">
+            <div className="p-4 rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
+              <div className="flex flex-col items-center text-center gap-1.5">
+                <div className="h-9 w-9 rounded-lg bg-[color:var(--delegation-purple)]/10 flex items-center justify-center">
+                  <TrendingUp className="w-4 h-4 text-[color:var(--delegation-purple)]" />
+                </div>
+                <div className="font-mono font-semibold text-base text-foreground">
                   +10%
                 </div>
-                <div className="text-[10px] text-muted-foreground">
+                <div className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80">
                   12-week boost
                 </div>
               </div>
@@ -602,17 +598,23 @@ function SuccessScreen({
           transition={fadeUp(0.7)}
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Setup progress</span>
-            <span className="font-mono font-bold text-foreground tabular-nums">
+            <span className="font-mono text-muted-foreground/60 dark:text-muted-foreground/80">
+              Setup progress
+            </span>
+            <span className="font-mono font-semibold text-foreground tabular-nums">
               {displayPercent}%
             </span>
           </div>
-          <div className="h-2 rounded-full bg-muted overflow-hidden">
+          <div className="h-2 rounded-full bg-muted/50 dark:bg-muted/60 overflow-hidden">
             <motion.div
-              className="h-full rounded-full glow-gradient"
+              className="h-full rounded-full bg-foreground"
               initial={shouldReduceMotion ? false : { width: "0%" }}
               animate={{ width: "100%" }}
-              transition={shouldReduceMotion ? { duration: 0 } : { delay: 0.2, duration: 1.2, ease: "easeOut" }}
+              transition={
+                shouldReduceMotion
+                  ? { duration: 0 }
+                  : { delay: 0.2, duration: 1.2, ease: "easeOut" }
+              }
             />
           </div>
         </motion.div>
@@ -624,7 +626,7 @@ function SuccessScreen({
           animate={{ opacity: 1, y: 0 }}
           transition={fadeUp(0.8)}
         >
-          <Button onClick={onDone} className="w-full ">
+          <Button onClick={onDone} className="w-full">
             Start Earning
           </Button>
         </motion.div>
