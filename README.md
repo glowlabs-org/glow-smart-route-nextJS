@@ -1,26 +1,53 @@
-# NextJS Fullstack App For Purchasing Glow Ecosystem Tokens
+# Glow Smart Route (Next.js App)
 
+This repo powers the Glow dashboard and marketplace experiences for purchasing,
+delegating, and tracking Glow ecosystem tokens.
 
-## Setup environment variables
-There are two optional dependencies that can be set.
+## Environment variables
+
+### Required (client + server)
 
 ```bash
-MAINNET_RPC_URL="https://eth.merkle.io"
-DEPLOYMENT_CHAIN="1"
+# Wallet + chain configuration
+NEXT_PUBLIC_WALLET_CONNECT_ID="..."
+NEXT_PUBLIC_CHAIN_ID="1" # 1 (mainnet) or 11155111 (sepolia)
+NEXT_PUBLIC_MAINNET_RPC_URL="https://..."
+NEXT_PUBLIC_SEPOLIA_RPC_URL="https://..."
+
+# API backends
+NEXT_PUBLIC_HUB_URL="https://..."
+NEXT_PUBLIC_CONTROL_API_URL="https://..."
 ```
 
-The node should not be flooded with requests as NextJS will keep a cache
-consistent with `revalidate` in the root `page.tsx` of the project. The current revalidation period is set to `36`at the time of writing this.
+### Optional (server-only)
 
+```bash
+# Used by server utilities for ETH price + ENS resolution
+MAINNET_RPC_URL="https://eth.merkle.io"
 
+# Used by newsletter API route
+BREVO_API_TOKEN="..."
+```
+
+## Caching / revalidation
+
+The homepage uses Next.js ISR. `app/page.tsx` currently sets:
+
+```ts
+export const revalidate = 30;
+```
+
+API routes also send `Cache-Control` headers for short-lived edge caching.
 
 ## Running Locally
-`pnpm install`
-`pnpm run dev`
 
+`pnpm install`  
+`pnpm dev`
 
 ## Deployment
+
 This server is best deployed through Vercel, or any PaaS that supports NextJS.
 
 ## Telemetry
+
 See `TELEMETRY.md`.

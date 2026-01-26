@@ -444,7 +444,7 @@ const PendingFarmRow = ({
   return (
     <div
       className={cn(
-        "rounded-xl border border-border bg-muted/30 transition-colors cursor-pointer hover:bg-muted/40"
+        "rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 transition-colors cursor-pointer hover:bg-muted/40 dark:hover:bg-muted/60"
       )}
       onClick={() => onOpenDialog?.()}
     >
@@ -1269,7 +1269,7 @@ export default function SolarFarmWidget({
                       </div>
                     </div>
 
-                    <div className="w-full sm:w-auto bg-muted/30 px-3 py-2 sm:px-4 rounded-xl border border-border">
+                    <div className="w-full sm:w-auto bg-muted/30 dark:bg-muted/50 px-3 py-2 sm:px-4 rounded-xl border border-border/20 dark:border-border/40">
                       <div className="grid grid-cols-3 divide-x divide-border">
                         <div className="flex flex-col items-center sm:items-end px-2 sm:px-3">
                           <div className="flex items-center gap-1.5">
@@ -1464,7 +1464,7 @@ export default function SolarFarmWidget({
                         href="https://glow.org/blog/guide-to-glow-mining"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-[color:var(--color-miner)]/50"
+                        className="group rounded-2xl border border-border/20 dark:border-border/40 bg-muted/10 dark:bg-muted/20 p-4 text-left transition-colors hover:bg-muted/20 dark:hover:bg-muted/30 hover:border-[color:var(--color-miner)]/50"
                         onClick={() => {
                           trackEvent("dashboard_education_click", {
                             source,
@@ -1494,7 +1494,7 @@ export default function SolarFarmWidget({
                         href="https://glow.org/blog/guide-to-delegating-glow"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group rounded-2xl border border-border bg-muted/10 p-4 text-left transition-colors hover:bg-muted/20 hover:border-delegation-purple/50"
+                        className="group rounded-2xl border border-border/20 dark:border-border/40 bg-muted/10 dark:bg-muted/20 p-4 text-left transition-colors hover:bg-muted/20 dark:hover:bg-muted/30 hover:border-delegation-purple/50"
                         onClick={() => {
                           trackEvent("dashboard_education_click", {
                             source,
@@ -1575,8 +1575,8 @@ export default function SolarFarmWidget({
                       });
                     }}
                     className={cn(
-                      "w-full sm:w-auto bg-muted/30 px-2 py-2 sm:px-3 rounded-xl border border-border transition-colors cursor-pointer",
-                      "hover:bg-muted/40 hover:border-border/80",
+                      "w-full sm:w-auto bg-muted/30 dark:bg-muted/50 px-2 py-2 sm:px-3 rounded-xl border border-border/20 dark:border-border/40 transition-colors cursor-pointer",
+                      "hover:bg-muted/40 dark:hover:bg-muted/60 hover:border-border/40 dark:hover:border-border/60",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     )}
                   >

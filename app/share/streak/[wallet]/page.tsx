@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { GlowCommit } from "@/components/glow-commit/glow-commit";
+import { buildPageMetadata, SEO } from "@/lib/seo";
 
 interface PageProps {
   params: Promise<{ wallet: string }>;
@@ -11,19 +12,18 @@ export async function generateMetadata({
   const { wallet } = await params;
   const shortAddress = `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
 
-  return {
+  const metadata = buildPageMetadata({
     title: `Glow Mining Streak - ${shortAddress}`,
-    description: `Check out this wallet's Glow mining streak on Glow.org`,
+    description: `Check out ${shortAddress}'s Glow mining streak on Glow.`,
+    path: `/share/streak/${wallet}`,
+    noIndex: true,
+  });
+
+  return {
+    ...metadata,
     openGraph: {
-      title: `Glow Mining Streak`,
-      description: `${shortAddress}'s mining streak on Glow`,
-      type: "website",
-      url: `https://app.glow.org/share/streak/${wallet}`,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: `Glow Mining Streak`,
-      description: `${shortAddress}'s mining streak on Glow`,
+      ...metadata.openGraph,
+      url: `${SEO.siteUrl}/share/streak/${wallet}`,
     },
   };
 }

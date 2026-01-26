@@ -5,11 +5,14 @@ import { WagmiWrapper } from "./providers/wagmiWrapper";
 import { ThemeProvider } from "./providers/theme-provider";
 import { Analytics } from "@vercel/analytics/next";
 import { Metadata } from "next";
+import { SEO } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Glow Mining - Solar Farm Sponsorship & GLW Token Rewards",
-  description:
-    "Participate in Glow's decentralized solar mining ecosystem. Sponsor solar farms through the Glow Launchpad, earn GLW tokens through the Mining Center, and support renewable energy infrastructure while earning rewards.",
+  title: {
+    default: SEO.defaultTitle,
+    template: `%s | ${SEO.siteName}`,
+  },
+  description: SEO.defaultDescription,
   keywords: [
     "Glow mining",
     "solar mining",
@@ -39,16 +42,24 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL("https://app.glow.org"),
+  metadataBase: new URL(SEO.siteUrl),
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "Glow Mining - Solar Farm Sponsorship & GLW Token Rewards",
+    title: SEO.defaultTitle,
     description:
       "Join Glow's decentralized solar mining ecosystem. Sponsor competitive solar farms, earn GLW tokens, and support renewable energy infrastructure through the Glow Launchpad and Mining Center.",
-    url: "https://app.glow.org",
-    siteName: "Glow Mining Platform",
+    url: SEO.siteUrl,
+    siteName: SEO.siteName,
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Glow Mining",
+      },
+    ],
     locale: "en_US",
     type: "website",
   },
@@ -57,6 +68,7 @@ export const metadata: Metadata = {
     title: "Glow Mining - Sponsor Solar Farms & Earn GLW Tokens",
     description:
       "Participate in decentralized solar mining. Sponsor solar farms through the Glow Launchpad, earn GLW tokens through the Mining Center, and support renewable energy while earning rewards.",
+    images: ["/twitter-image"],
   },
   robots: {
     index: true,

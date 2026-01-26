@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import { getAddress, isAddress } from "viem";
+import type { Metadata } from "next";
+import { buildPageMetadata } from "@/lib/seo";
 
 import GlowSoftDashboard from "../bento";
 
@@ -7,6 +9,30 @@ interface TestWalletPageProps {
   params: Promise<{
     wallet: string;
   }>;
+}
+
+export async function generateMetadata({
+  params,
+}: TestWalletPageProps): Promise<Metadata> {
+  const { wallet } = await params;
+  let rawWallet = wallet;
+  try {
+    rawWallet = decodeURIComponent(wallet ?? "");
+  } catch {
+    rawWallet = wallet ?? "";
+  }
+
+  const shortAddress =
+    rawWallet.length > 10
+      ? `${rawWallet.slice(0, 6)}...${rawWallet.slice(-4)}`
+      : rawWallet;
+
+  return buildPageMetadata({
+    title: `Dashboard Preview - ${shortAddress}`,
+    description: `Preview the Glow dashboard for ${shortAddress}.`,
+    path: `/test/${encodeURIComponent(wallet)}`,
+    noIndex: true,
+  });
 }
 
 export default async function TestWalletPage({ params }: TestWalletPageProps) {
