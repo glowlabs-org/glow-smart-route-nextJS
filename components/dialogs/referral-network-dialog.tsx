@@ -126,7 +126,7 @@ interface ReferralNetworkDialogProps {
 function formatPoints(val: string) {
   const num = parseFloat(val);
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(
-    num
+    num,
   );
 }
 
@@ -173,13 +173,11 @@ export function ReferralNetworkDialog({
     enabled: isReferralLive && open && !!walletAddress && !mockStatus,
   });
 
-  if (!isReferralLive) {
-    return null;
-  }
   const resolvedData = mockData ?? data;
   const resolvedStatus = mockStatus ?? statusData;
   const resolvedIsLoading = mockData ? false : isLoading;
   const resolvedIsError = mockData ? false : isError;
+
   const activationPendingCount = React.useMemo(() => {
     if (!resolvedData) return 0;
     if (resolvedData.stats.activationPendingReferees != null) {
@@ -213,28 +211,31 @@ export function ReferralNetworkDialog({
     }
   }, [resolvedData?.shareableLink, copyLink]);
 
+  if (!isReferralLive) {
+    return null;
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40">
-        {/* HERO HEADER - Following Impact Breakdown Style */}
-        <div className="relative overflow-hidden border-b border-border/40 pb-6 pt-8 px-6">
-
+      <DialogContent className="sm:max-w-[700px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/20 dark:border-border/40">
+        {/* HERO HEADER */}
+        <div className="relative overflow-hidden border-b border-border/20 dark:border-border/40 pb-5 pt-6 px-4 sm:pb-6 sm:pt-8 sm:px-6">
           <div className="relative z-10 flex flex-col items-center text-center space-y-2">
             <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
               Referral Rewards
             </DialogTitle>
 
             <div className="flex flex-col items-center">
-              <div className="text-6xl font-mono font-bold text-[#16a34a] dark:text-[#4ade80] tracking-tighter">
+              <div className="text-4xl sm:text-6xl font-mono font-semibold text-[#16a34a] dark:text-[#4ade80] tracking-tighter">
                 {resolvedIsLoading ? (
-                  <Skeleton className="h-14 w-32 mx-auto" />
+                  <Skeleton className="h-10 sm:h-14 w-24 sm:w-32 mx-auto" />
                 ) : (
                   `+${formatPoints(
-                    resolvedData?.stats.lifetimePointsScaled6 || "0"
+                    resolvedData?.stats.lifetimePointsScaled6 || "0",
                   )}`
                 )}
               </div>
-              <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wide mt-2">
+              <div className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-wide mt-2">
                 Lifetime Points Earned
               </div>
             </div>
@@ -252,7 +253,7 @@ export function ReferralNetworkDialog({
               Failed to load referral network.
             </div>
           ) : (
-            <div className="p-6 space-y-8">
+            <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
               {/* SECTION: YOUR LINK */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between px-1">
@@ -260,16 +261,17 @@ export function ReferralNetworkDialog({
                     Your Referral Link
                   </h3>
                 </div>
-                <div className="relative flex items-center gap-2 p-1.5 pl-4 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-                  <div className="flex-1 font-mono text-xs truncate text-muted-foreground select-all">
+                <div className="relative flex flex-col sm:flex-row sm:items-center gap-2 p-2 sm:p-1.5 sm:pl-4 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                  <div className="flex-1 font-mono text-xs truncate text-muted-foreground select-all px-2 sm:px-0 py-1 sm:py-0">
                     {resolvedData.shareableLink}
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 justify-end">
                     <Button
                       size="icon"
                       variant="ghost"
                       className={cn(
-                        isCopied && "bg-primary/10 text-primary"
+                        "shrink-0",
+                        isCopied && "bg-primary/10 text-primary",
                       )}
                       onClick={copyLink}
                       title="Copy Link"
@@ -284,6 +286,7 @@ export function ReferralNetworkDialog({
                     <Button
                       size="icon"
                       variant="ghost"
+                      className="shrink-0"
                       onClick={() => setIsQRCodeOpen(true)}
                       title="Show QR Code"
                       aria-label="Show referral QR code"
@@ -292,9 +295,11 @@ export function ReferralNetworkDialog({
                     </Button>
                     <Button
                       size="sm"
+                      className="gap-1.5 shrink-0"
                       onClick={shareLink}
                     >
-                      <Share2 className="w-3.5 h-3.5" /> Share
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span className="hidden xs:inline">Share</span>
                     </Button>
                   </div>
                 </div>
@@ -357,7 +362,7 @@ export function ReferralNetworkDialog({
                           <span className="text-[10px] text-muted-foreground font-mono">
                             Linked{" "}
                             {new Date(
-                              resolvedStatus.referrer.linkedAt
+                              resolvedStatus.referrer.linkedAt,
                             ).toLocaleDateString(undefined, {
                               month: "short",
                               day: "numeric",
@@ -386,7 +391,7 @@ export function ReferralNetworkDialog({
                           </span>
                           <span className="font-mono font-bold text-foreground">
                             {new Date(
-                              resolvedStatus.referrer.gracePeriodEndsAt
+                              resolvedStatus.referrer.gracePeriodEndsAt,
                             ).toLocaleDateString(undefined, {
                               month: "short",
                               day: "numeric",
@@ -407,9 +412,7 @@ export function ReferralNetworkDialog({
                       <div className="pt-3 border-t border-dashed">
                         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                           <Lock className="w-3 h-3" />
-                          <span>
-                            Referrer link is now permanent
-                          </span>
+                          <span>Referrer link is now permanent</span>
                         </div>
                       </div>
                     )}
@@ -418,35 +421,36 @@ export function ReferralNetworkDialog({
               )}
 
               {/* SECTION: STATS CARDS */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="group relative overflow-hidden rounded-2xl border bg-card p-4 space-y-1 transition-all hover:bg-muted/30">
-                  <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="group relative overflow-hidden rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 sm:p-4 space-y-1 transition-all hover:bg-muted/40 dark:hover:bg-muted/60">
+                  <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform hidden sm:block">
                     <Clock className="w-12 h-12" />
                   </div>
-                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                    This Week (Projected)
+                  <div className="text-[9px] sm:text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
+                    This Week
                   </div>
-                  <div className="text-3xl font-mono font-bold text-[#16a34a] dark:text-[#4ade80]">
-                    +{formatPoints(
-                      resolvedData.stats.thisWeekPointsScaled6 || "0"
+                  <div className="text-2xl sm:text-3xl font-mono font-semibold text-[#16a34a] dark:text-[#4ade80]">
+                    +
+                    {formatPoints(
+                      resolvedData.stats.thisWeekPointsScaled6 || "0",
                     )}
                   </div>
-                  <div className="text-[9px] text-muted-foreground uppercase font-medium">
+                  <div className="text-[8px] sm:text-[9px] text-muted-foreground/60 dark:text-muted-foreground/80 uppercase font-medium">
                     Finalizes Sunday
                   </div>
                 </div>
-                <div className="group relative overflow-hidden rounded-2xl border bg-card p-4 space-y-1 transition-all hover:bg-muted/30">
-                  <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform">
+                <div className="group relative overflow-hidden rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 sm:p-4 space-y-1 transition-all hover:bg-muted/40 dark:hover:bg-muted/60">
+                  <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform hidden sm:block">
                     <Users className="w-12 h-12" />
                   </div>
-                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                  <div className="text-[9px] sm:text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
                     Network Size
                   </div>
-                  <div className="text-3xl font-mono font-bold text-foreground">
+                  <div className="text-2xl sm:text-3xl font-mono font-semibold text-foreground">
                     {resolvedData.stats.activeReferees}
                   </div>
-                  <div className="text-[9px] text-muted-foreground uppercase font-medium">
-                    Active referring wallets
+                  <div className="text-[8px] sm:text-[9px] text-muted-foreground/60 dark:text-muted-foreground/80 uppercase font-medium">
+                    Active referrals
                   </div>
                 </div>
               </div>
@@ -470,48 +474,53 @@ export function ReferralNetworkDialog({
                         {resolvedData.stats.activeReferees >= 7
                           ? 4
                           : resolvedData.stats.activeReferees >= 4
-                          ? 3
-                          : resolvedData.stats.activeReferees >= 2
-                          ? 2
-                          : 1}
+                            ? 3
+                            : resolvedData.stats.activeReferees >= 2
+                              ? 2
+                              : 1}
                       </Badge>
                     </div>
 
-                    <div className="relative overflow-hidden rounded-2xl border bg-card p-6 space-y-6">
+                    <div className="relative overflow-hidden rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-4 sm:p-6 space-y-4 sm:space-y-6">
                       {/* Progress Line */}
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="flex flex-col">
-                          <span className="text-2xl font-bold tracking-tight text-foreground">
-                            {formatTierName(resolvedData.stats.currentTier.name)} Tier
+                          <span className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
+                            {formatTierName(
+                              resolvedData.stats.currentTier.name,
+                            )}{" "}
+                            Tier
                           </span>
-                          <span className="text-sm font-mono text-muted-foreground font-bold">
-                            {resolvedData.stats.currentTier.percent}% REWARD SHARE
+                          <span className="text-xs sm:text-sm font-mono text-muted-foreground/60 dark:text-muted-foreground/80 font-semibold">
+                            {resolvedData.stats.currentTier.percent}% REWARD
+                            SHARE
                           </span>
                         </div>
                         {resolvedData.stats.currentTier.nextTier && (
-                          <div className="text-right p-2 rounded-xl bg-muted/30 border border-dashed">
-                            <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
+                          <div className="text-left sm:text-right p-2 rounded-xl bg-muted/50 dark:bg-muted/60 border border-dashed border-border/20 dark:border-border/40">
+                            <div className="text-[9px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-wider mb-0.5">
                               Up Next
                             </div>
-                            <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                            <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
                               {formatTierName(
-                                resolvedData.stats.currentTier.nextTier.name
+                                resolvedData.stats.currentTier.nextTier.name,
                               )}{" "}
-                              ({resolvedData.stats.currentTier.nextTier.percent}%)
+                              ({resolvedData.stats.currentTier.nextTier.percent}
+                              %)
                             </div>
                           </div>
                         )}
                       </div>
 
-                      <div className="space-y-4">
-                        <div className="relative h-3 w-full bg-muted rounded-full overflow-hidden border">
+                      <div className="space-y-3 sm:space-y-4">
+                        <div className="relative h-2 sm:h-3 w-full bg-muted/50 dark:bg-muted/60 rounded-full overflow-hidden border border-border/20 dark:border-border/40">
                           {/* Active progress (solid) */}
                           <div
                             className="absolute inset-y-0 left-0 bg-[#16a34a] dark:bg-[#4ade80] transition-all duration-1000"
                             style={{
                               width: `${Math.min(
                                 100,
-                                (resolvedData.stats.activeReferees / 7) * 100
+                                (resolvedData.stats.activeReferees / 7) * 100,
                               )}%`,
                             }}
                           />
@@ -522,22 +531,24 @@ export function ReferralNetworkDialog({
                               style={{
                                 left: `${Math.min(
                                   100,
-                                  (resolvedData.stats.activeReferees / 7) * 100
+                                  (resolvedData.stats.activeReferees / 7) * 100,
                                 )}%`,
                                 width: `${Math.min(
                                   100 -
-                                    (resolvedData.stats.activeReferees / 7) * 100,
-                                  (activationPendingCount / 7) * 100
+                                    (resolvedData.stats.activeReferees / 7) *
+                                      100,
+                                  (activationPendingCount / 7) * 100,
                                 )}%`,
                               }}
                             />
                           )}
                         </div>
 
-                        <div className="flex justify-between text-[10px] font-bold text-muted-foreground/60 uppercase tracking-tighter">
+                        <div className="flex justify-between text-[8px] sm:text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-tighter">
                           {[
                             {
                               name: "Aurora",
+                              shortName: "1",
                               count: 1,
                               active: resolvedData.stats.activeReferees >= 1,
                               pending:
@@ -546,6 +557,7 @@ export function ReferralNetworkDialog({
                             },
                             {
                               name: "Solaris",
+                              shortName: "2",
                               count: 2,
                               active: resolvedData.stats.activeReferees >= 2,
                               pending:
@@ -554,6 +566,7 @@ export function ReferralNetworkDialog({
                             },
                             {
                               name: "Zenith",
+                              shortName: "4",
                               count: 4,
                               active: resolvedData.stats.activeReferees >= 4,
                               pending:
@@ -561,7 +574,8 @@ export function ReferralNetworkDialog({
                                 projectedTotal >= 4,
                             },
                             {
-                              name: "Eclipse Prime",
+                              name: "Eclipse",
+                              shortName: "7",
                               count: 7,
                               active: resolvedData.stats.activeReferees >= 7,
                               pending:
@@ -571,7 +585,7 @@ export function ReferralNetworkDialog({
                           ].map((t) => (
                             <div
                               key={t.name}
-                              className="flex flex-col items-center gap-1.5"
+                              className="flex flex-col items-center gap-1 sm:gap-1.5"
                             >
                               <div
                                 className={cn(
@@ -579,17 +593,27 @@ export function ReferralNetworkDialog({
                                   t.active
                                     ? "bg-[#16a34a] dark:bg-[#4ade80] border-[#16a34a] dark:border-[#4ade80]"
                                     : t.pending
-                                    ? "bg-[#16a34a]/30 dark:bg-[#4ade80]/30 border-[#16a34a]/50 dark:border-[#4ade80]/50"
-                                    : "bg-muted-foreground/20 border-transparent"
+                                      ? "bg-[#16a34a]/30 dark:bg-[#4ade80]/30 border-[#16a34a]/50 dark:border-[#4ade80]/50"
+                                      : "bg-muted-foreground/20 border-transparent",
                                 )}
                               />
                               <span
                                 className={cn(
-                                  t.active && "text-foreground font-bold",
-                                  t.pending && "text-foreground/60"
+                                  "hidden sm:inline",
+                                  t.active && "text-foreground font-semibold",
+                                  t.pending && "text-foreground/60",
                                 )}
                               >
                                 {t.name}
+                              </span>
+                              <span
+                                className={cn(
+                                  "sm:hidden",
+                                  t.active && "text-foreground font-semibold",
+                                  t.pending && "text-foreground/60",
+                                )}
+                              >
+                                {t.shortName}
                               </span>
                             </div>
                           ))}
@@ -650,7 +674,7 @@ export function ReferralNetworkDialog({
                     <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest px-1">
                       Badges Earned
                     </h3>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                       {[
                         {
                           name: "Aurora",
@@ -680,7 +704,7 @@ export function ReferralNetworkDialog({
                             projectedTotal >= 4,
                         },
                         {
-                          name: "Eclipse Prime",
+                          name: "Eclipse",
                           Icon: SunMoonIcon,
                           count: 7,
                           active: resolvedData.stats.activeReferees >= 7,
@@ -692,37 +716,37 @@ export function ReferralNetworkDialog({
                         <div
                           key={m.name}
                           className={cn(
-                            "relative flex flex-col items-center justify-center p-4 rounded-2xl border transition-all overflow-hidden",
+                            "relative flex flex-col items-center justify-center p-3 sm:p-4 rounded-2xl border transition-all overflow-hidden",
                             m.active
                               ? "bg-[#16a34a]/5 dark:bg-[#4ade80]/5 border-[#16a34a]/20 dark:border-[#4ade80]/20"
                               : m.pending
-                              ? "bg-[#16a34a]/5 dark:bg-[#4ade80]/5 border-[#16a34a]/10 dark:border-[#4ade80]/10 opacity-60"
-                              : "bg-muted/5 border-border grayscale opacity-50"
+                                ? "bg-[#16a34a]/5 dark:bg-[#4ade80]/5 border-[#16a34a]/10 dark:border-[#4ade80]/10 opacity-60"
+                                : "bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40 grayscale opacity-50",
                           )}
                         >
-                          <div className="text-3xl mb-2">
+                          <div className="mb-1.5 sm:mb-2">
                             {m.active ? (
-                              <m.Icon className="text-foreground" size={28} />
+                              <m.Icon className="text-foreground" size={24} />
                             ) : m.pending ? (
                               <m.Icon
                                 className="text-foreground/60"
-                                size={28}
+                                size={24}
                               />
                             ) : (
-                              <Lock className="w-6 h-6 text-muted-foreground/30" />
+                              <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground/30" />
                             )}
                           </div>
                           <div
                             className={cn(
-                              "text-[10px] font-bold",
+                              "text-[9px] sm:text-[10px] font-semibold",
                               m.active || m.pending
                                 ? "text-foreground"
-                                : "text-muted-foreground"
+                                : "text-muted-foreground",
                             )}
                           >
                             {m.name}
                           </div>
-                          <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider">
+                          <div className="text-[8px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-wider">
                             {m.pending ? "SUNDAY" : `${m.count} ACTIVE`}
                           </div>
                         </div>
@@ -772,133 +796,134 @@ export function ReferralNetworkDialog({
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-2xl border overflow-hidden bg-card">
-                    <Table>
-                      <TableHeader className="bg-muted/30">
-                        <TableRow className="hover:bg-transparent border-b">
-                          <TableHead className="h-10 text-[10px] font-bold uppercase tracking-wider">
-                            Referral
-                          </TableHead>
-                          <TableHead className="h-10 text-[10px] font-bold uppercase tracking-wider">
-                            Status
-                          </TableHead>
-                          <TableHead className="h-10 text-right text-[10px] font-bold uppercase tracking-wider">
-                            Earnings
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {resolvedData.referees.map((ref) => (
-                          <TableRow
-                            key={ref.refereeWallet}
-                            className="group hover:bg-muted/10 border-b last:border-0"
-                          >
-                            <TableCell className="py-4">
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-sm font-bold text-foreground">
-                                  {ref.ensName ||
-                                    formatAddress(ref.refereeWallet)}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground font-mono">
-                                  {new Date(ref.linkedAt).toLocaleDateString(
-                                    undefined,
-                                    {
-                                      month: "short",
-                                      day: "numeric",
-                                      year: "numeric",
-                                    }
-                                  )}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-4">
-                              <div className="flex flex-col gap-1">
-                                {ref.activationPending ? (
-                                  <Badge
-                                    variant="secondary"
-                                    className="bg-muted/50 text-foreground border-border hover:bg-muted/50 gap-1 rounded-lg h-6 font-bold"
-                                  >
-                                    <Sparkles className="w-3 h-3" /> Activating
-                                  </Badge>
-                                ) : ref.status === "active" ? (
-                                  <Badge
-                                    variant="secondary"
-                                    className="bg-[#16a34a]/10 text-[#16a34a] dark:bg-[#4ade80]/10 dark:text-[#4ade80] border-[#16a34a]/20 dark:border-[#4ade80]/20 hover:bg-[#16a34a]/10 dark:hover:bg-[#4ade80]/10 gap-1 rounded-lg h-6 font-bold"
-                                  >
-                                    <CheckCircle2 className="w-3 h-3" /> Active
-                                  </Badge>
-                                ) : (
-                                  <Badge
-                                    variant="secondary"
-                                    className="bg-muted/5 text-muted-foreground border-border hover:bg-muted/5 gap-1 rounded-lg h-6 font-bold"
-                                  >
-                                    <Clock className="w-3 h-3" /> Pending
-                                  </Badge>
-                                )}
-                                {ref.activationPending && (
-                                  <span className="text-[9px] uppercase font-semibold text-muted-foreground">
-                                    Activates Sunday
-                                  </span>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-4 text-right">
-                              <div className="flex flex-col items-end gap-0.5">
-                                <span className="text-sm font-mono font-bold text-[#16a34a] dark:text-[#4ade80]">
-                                  +{formatPoints(ref.lifetimePointsScaled6)}
-                                </span>
-                                {parseFloat(ref.thisWeekPointsScaled6) > 0 && (
-                                  <span className="text-[9px] uppercase font-bold text-muted-foreground">
-                                    +{formatPoints(ref.thisWeekPointsScaled6)}
-                                    /wk projected
-                                  </span>
-                                )}
-                              </div>
-                            </TableCell>
+                  <div className="rounded-2xl border border-border/20 dark:border-border/40 overflow-hidden bg-muted/30 dark:bg-muted/50">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader className="bg-muted/50 dark:bg-muted/60">
+                          <TableRow className="hover:bg-transparent border-b border-border/20 dark:border-border/40">
+                            <TableHead className="h-10 text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap">
+                              Referral
+                            </TableHead>
+                            <TableHead className="h-10 text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap">
+                              Status
+                            </TableHead>
+                            <TableHead className="h-10 text-right text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap">
+                              Earnings
+                            </TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {resolvedData.referees.map((ref) => (
+                            <TableRow
+                              key={ref.refereeWallet}
+                              className="group hover:bg-muted/40 dark:hover:bg-muted/60 border-b border-border/20 dark:border-border/40 last:border-0"
+                            >
+                              <TableCell className="py-3 sm:py-4">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">
+                                    {ref.ensName ||
+                                      formatAddress(ref.refereeWallet)}
+                                  </span>
+                                  <span className="text-[9px] sm:text-[10px] text-muted-foreground/60 dark:text-muted-foreground/80 font-mono whitespace-nowrap">
+                                    {new Date(ref.linkedAt).toLocaleDateString(
+                                      undefined,
+                                      {
+                                        month: "short",
+                                        day: "numeric",
+                                      },
+                                    )}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-3 sm:py-4">
+                                <div className="flex flex-col gap-1">
+                                  {ref.activationPending ? (
+                                    <Badge
+                                      variant="secondary"
+                                      className="bg-muted/50 dark:bg-muted/60 text-foreground border-border/20 dark:border-border/40 hover:bg-muted/50 dark:hover:bg-muted/60 gap-1 rounded-lg h-5 sm:h-6 text-[10px] font-semibold whitespace-nowrap"
+                                    >
+                                      <Sparkles className="w-3 h-3" />{" "}
+                                      Activating
+                                    </Badge>
+                                  ) : ref.status === "active" ? (
+                                    <Badge
+                                      variant="secondary"
+                                      className="bg-[#16a34a]/10 text-[#16a34a] dark:bg-[#4ade80]/10 dark:text-[#4ade80] border-[#16a34a]/20 dark:border-[#4ade80]/20 hover:bg-[#16a34a]/10 dark:hover:bg-[#4ade80]/10 gap-1 rounded-lg h-5 sm:h-6 text-[10px] font-semibold whitespace-nowrap"
+                                    >
+                                      <CheckCircle2 className="w-3 h-3" />{" "}
+                                      Active
+                                    </Badge>
+                                  ) : (
+                                    <Badge
+                                      variant="secondary"
+                                      className="bg-muted/30 dark:bg-muted/50 text-muted-foreground border-border/20 dark:border-border/40 hover:bg-muted/30 dark:hover:bg-muted/50 gap-1 rounded-lg h-5 sm:h-6 text-[10px] font-semibold whitespace-nowrap"
+                                    >
+                                      <Clock className="w-3 h-3" /> Pending
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-3 sm:py-4 text-right">
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <span className="text-xs sm:text-sm font-mono font-semibold text-[#16a34a] dark:text-[#4ade80] whitespace-nowrap">
+                                    +{formatPoints(ref.lifetimePointsScaled6)}
+                                  </span>
+                                  {parseFloat(ref.thisWeekPointsScaled6) >
+                                    0 && (
+                                    <span className="text-[8px] sm:text-[9px] uppercase font-semibold text-muted-foreground/60 dark:text-muted-foreground/80 whitespace-nowrap">
+                                      +{formatPoints(ref.thisWeekPointsScaled6)}
+                                      /wk
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
                 )}
               </div>
 
               {/* FOOTER TIPS */}
-              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 p-5 border border-border/20 dark:border-border/40 space-y-4">
+              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 p-4 sm:p-5 border border-border/20 dark:border-border/40 space-y-3 sm:space-y-4">
                 <div className="flex items-center gap-2">
                   <Info className="w-3.5 h-3.5 text-[#22D3EE]" />
                   <h4 className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
                     Quick Guide
                   </h4>
                 </div>
-                <ul className="space-y-3">
-                  <li className="flex items-start gap-3 text-xs text-muted-foreground">
-                    <div className="mt-1 h-1.5 w-1.5 rounded-full bg-[#22D3EE] shrink-0" />
+                <ul className="space-y-2 sm:space-y-3">
+                  <li className="flex items-start gap-2 sm:gap-3 text-[11px] sm:text-xs text-muted-foreground/60 dark:text-muted-foreground/80">
+                    <div className="mt-1.5 h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-[#22D3EE] shrink-0" />
                     <p className="leading-relaxed">
                       Referrals become{" "}
-                      <span className="text-foreground font-bold">Active</span>{" "}
+                      <span className="text-foreground font-semibold">
+                        Active
+                      </span>{" "}
                       once they earn{" "}
-                      <span className="text-primary font-bold">
+                      <span className="text-foreground font-semibold">
                         100 post-link base points
                       </span>
-                      . Activation finalizes at week end.
+                      .
                     </p>
                   </li>
-                  <li className="flex items-start gap-3 text-xs text-muted-foreground">
-                    <div className="mt-1 h-1.5 w-1.5 rounded-full bg-[#22D3EE] shrink-0" />
+                  <li className="flex items-start gap-2 sm:gap-3 text-[11px] sm:text-xs text-muted-foreground/60 dark:text-muted-foreground/80">
+                    <div className="mt-1.5 h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-[#22D3EE] shrink-0" />
                     <p className="leading-relaxed">
                       Your earnings are based on their{" "}
-                      <span className="text-foreground font-bold">
+                      <span className="text-foreground font-semibold">
                         Base Points
                       </span>{" "}
-                      (the points they earn before any multipliers apply).
+                      (before multipliers).
                     </p>
                   </li>
-                  <li className="flex items-start gap-3 text-xs text-muted-foreground">
-                    <div className="mt-1 h-1.5 w-1.5 rounded-full bg-[#22D3EE] shrink-0" />
+                  <li className="flex items-start gap-2 sm:gap-3 text-[11px] sm:text-xs text-muted-foreground/60 dark:text-muted-foreground/80">
+                    <div className="mt-1.5 h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-[#22D3EE] shrink-0" />
                     <p className="leading-relaxed">
-                      Rewards are calculated and finalized every{" "}
-                      <span className="text-foreground font-bold text-xs uppercase font-mono">
+                      Rewards finalize every{" "}
+                      <span className="text-foreground font-semibold font-mono uppercase">
                         Sunday 00:00 UTC
                       </span>
                       .
@@ -916,7 +941,7 @@ export function ReferralNetworkDialog({
             open={isQRCodeOpen}
             onOpenChange={setIsQRCodeOpen}
             url={resolvedData.shareableLink}
-            title="Scan to Join Glow"
+            title="Share Referral Code"
           />
         )}
       </DialogContent>

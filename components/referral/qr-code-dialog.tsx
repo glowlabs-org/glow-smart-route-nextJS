@@ -1,11 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Copy, Download } from "lucide-react";
 import { toast } from "sonner";
@@ -106,18 +102,11 @@ export function QRCodeDialog({
 
         {/* Actions */}
         <div className="p-4 bg-muted/20 border-t flex gap-2">
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={copyLink}
-          >
+          <Button variant="outline" className="flex-1 gap-2" onClick={copyLink}>
             <Copy className="w-4 h-4" />
             Copy Link
           </Button>
-          <Button
-            className="flex-1"
-            onClick={downloadQR}
-          >
+          <Button className="flex-1 gap-2" onClick={downloadQR}>
             <Download className="w-4 h-4" />
             Download
           </Button>

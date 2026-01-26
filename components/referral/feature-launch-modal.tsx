@@ -215,18 +215,18 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
           <>
             {/* Hero Section */}
             <div className="relative overflow-hidden">
-              <div className="relative px-8 pt-10 pb-8 text-center space-y-5">
+              <div className="relative px-5 sm:px-8 pt-8 sm:pt-10 pb-6 sm:pb-8 text-center space-y-4 sm:space-y-5">
                 <div className="inline-flex relative">
-                  <div className="relative p-5 rounded-full bg-muted/50 dark:bg-muted/60 border border-border/20 dark:border-border/40">
-                    <GlowSymbol className="w-9 h-9 text-foreground" />
+                  <div className="relative p-4 sm:p-5 rounded-full bg-muted/50 dark:bg-muted/60 border border-border/20 dark:border-border/40">
+                    <GlowSymbol className="w-7 h-7 sm:w-9 sm:h-9 text-foreground" />
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <DialogTitle className="text-2xl sm:text-[1.7rem] font-bold tracking-tight leading-tight">
+                <div className="space-y-2 sm:space-y-3">
+                  <DialogTitle className="text-xl sm:text-2xl font-bold tracking-tight leading-tight">
                     Referral Program is Live
                   </DialogTitle>
-                  <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
                     Were you invited by someone? Claim your referrer to unlock
                     bonus{" "}
                     <span className="font-semibold text-foreground">
@@ -239,21 +239,21 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
             </div>
 
             {/* Benefits Cards */}
-            <div className="px-8 pb-6">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="px-5 sm:px-8 pb-5 sm:pb-6">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <motion.div
-                  className="group rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-4 transition-colors hover:border-border/40 dark:hover:border-border/60"
+                  className="group rounded-xl sm:rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 sm:p-4 transition-colors hover:border-border/40 dark:hover:border-border/60"
                   initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={
                     shouldReduceMotion ? { duration: 0 } : { delay: 0.05 }
                   }
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#4ADE80]/10">
-                      <Sparkles className="w-4 h-4 text-[#4ADE80]" />
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-[#4ADE80]/10 shrink-0">
+                      <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#4ADE80]" />
                     </div>
-                    <div className="flex flex-col gap-0.5 text-left">
+                    <div className="flex flex-col gap-0.5 text-left min-w-0">
                       <motion.div
                         initial={
                           shouldReduceMotion ? false : { opacity: 0, y: 4 }
@@ -267,10 +267,10 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                           value={100}
                           prefix="+"
                           suffix=" pts"
-                          className="font-mono text-lg font-semibold tracking-tight text-foreground"
+                          className="font-mono text-base sm:text-lg font-semibold tracking-tight text-foreground"
                         />
                       </motion.div>
-                      <div className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 leading-tight">
+                      <div className="text-[9px] sm:text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 leading-tight">
                         At 100 pts milestone
                       </div>
                     </div>
@@ -278,18 +278,18 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                 </motion.div>
 
                 <motion.div
-                  className="group rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-4 transition-colors hover:border-border/40 dark:hover:border-border/60"
+                  className="group rounded-xl sm:rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 sm:p-4 transition-colors hover:border-border/40 dark:hover:border-border/60"
                   initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={
                     shouldReduceMotion ? { duration: 0 } : { delay: 0.1 }
                   }
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[color:var(--delegation-purple)]/10">
-                      <TrendingUp className="w-4 h-4 text-[color:var(--delegation-purple)]" />
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-[color:var(--delegation-purple)]/10 shrink-0">
+                      <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[color:var(--delegation-purple)]" />
                     </div>
-                    <div className="flex flex-col gap-0.5 text-left">
+                    <div className="flex flex-col gap-0.5 text-left min-w-0">
                       <motion.div
                         initial={
                           shouldReduceMotion ? false : { opacity: 0, y: 4 }
@@ -303,10 +303,10 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                           value={10}
                           prefix="+"
                           suffix="% Boost"
-                          className="font-mono text-lg font-semibold tracking-tight text-foreground"
+                          className="font-mono text-base sm:text-lg font-semibold tracking-tight text-foreground"
                         />
                       </motion.div>
-                      <div className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 leading-tight">
+                      <div className="text-[9px] sm:text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 leading-tight">
                         For 12 weeks
                       </div>
                     </div>
@@ -316,12 +316,12 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
             </div>
 
             {/* Form Section */}
-            <div className="px-8 pb-8">
-              <form onSubmit={handleClaim} className="space-y-4">
+            <div className="px-5 sm:px-8 pb-6 sm:pb-8">
+              <form onSubmit={handleClaim} className="space-y-3 sm:space-y-4">
                 <div className="space-y-2">
                   <label
                     htmlFor="modal-ref-code"
-                    className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 pl-1"
+                    className="text-[9px] sm:text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 pl-1"
                   >
                     Referral Code
                   </label>
@@ -331,7 +331,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                     placeholder="alice.eth or 0x…"
                     value={code}
                     onChange={handleCodeChange}
-                    className={`h-12 rounded-xl font-mono text-center text-base transition-colors ${
+                    className={`h-11 sm:h-12 rounded-xl font-mono text-center text-sm sm:text-base transition-colors ${
                       errorMessage
                         ? "border-destructive focus-visible:ring-destructive/30 focus-visible:border-destructive"
                         : "border-border/20 dark:border-border/40 focus-visible:ring-border/30 focus-visible:border-border/40"
@@ -348,10 +348,10 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                   {errorMessage && (
                     <div
                       id="ref-code-error"
-                      className="flex items-center gap-1.5 text-destructive text-xs pl-1"
+                      className="flex items-center gap-1.5 text-destructive text-[11px] sm:text-xs pl-1"
                       role="alert"
                     >
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <AlertCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
                       <span>{errorMessage}</span>
                     </div>
                   )}
@@ -360,7 +360,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                 <div className="flex flex-col gap-2 pt-1">
                   <Button
                     type="submit"
-                    className="relative h-12 rounded-xl font-bold text-base gap-2 overflow-hidden bg-foreground hover:bg-foreground/90 text-background transition-all hover:scale-[1.01] active:scale-[0.99]"
+                    className="relative h-11 sm:h-12 rounded-xl font-bold text-sm sm:text-base gap-2 overflow-hidden bg-foreground hover:bg-foreground/90 text-background transition-all hover:scale-[1.01] active:scale-[0.99]"
                     disabled={isLinking || !code.trim()}
                   >
                     {isLinking ? (
@@ -371,16 +371,16 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                     {isLinking ? "Verifying…" : "Claim My Bonus"}
                   </Button>
 
-                  <Button type="button" variant="outline" onClick={handleSkip}>
-                    I wasn't referred
+                  <Button type="button" variant="outline" className="h-10 sm:h-11 text-sm" onClick={handleSkip}>
+                    I wasn&apos;t referred
                   </Button>
                 </div>
               </form>
             </div>
 
             {/* Footer */}
-            <div className="px-8 py-4 border-t border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
-              <p className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 text-center leading-relaxed">
+            <div className="px-5 sm:px-8 py-3 sm:py-4 border-t border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
+              <p className="text-[9px] sm:text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 text-center leading-relaxed">
                 Existing users have 14 days to claim their initial referrer.
               </p>
             </div>
@@ -491,7 +491,7 @@ function SuccessScreen({
 
   return (
     <div className="relative overflow-hidden">
-      <div className="relative px-8 py-10 flex flex-col items-center text-center space-y-6">
+      <div className="relative px-5 sm:px-8 py-8 sm:py-10 flex flex-col items-center text-center space-y-5 sm:space-y-6">
         {/* Success checkmark */}
         <motion.div
           className="relative"
@@ -499,13 +499,13 @@ function SuccessScreen({
           animate={{ scale: 1, opacity: 1 }}
           transition={springIn}
         >
-          <div className="relative h-20 w-20 rounded-full bg-[#4ADE80]/10 border border-[#4ADE80]/20 flex items-center justify-center">
+          <div className="relative h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-[#4ADE80]/10 border border-[#4ADE80]/20 flex items-center justify-center">
             <motion.div
               initial={shouldReduceMotion ? false : { scale: 0 }}
               animate={{ scale: 1 }}
               transition={springInner}
             >
-              <Check className="h-10 w-10 text-[#4ADE80] stroke-[2.5]" />
+              <Check className="h-8 w-8 sm:h-10 sm:w-10 text-[#4ADE80] stroke-[2.5]" />
             </motion.div>
           </div>
         </motion.div>
@@ -517,10 +517,10 @@ function SuccessScreen({
           animate={{ opacity: 1, y: 0 }}
           transition={fadeUp(0.2)}
         >
-          <DialogTitle className="text-2xl sm:text-[1.7rem] font-semibold tracking-tight">
-            You're Connected!
+          <DialogTitle className="text-xl sm:text-2xl font-semibold tracking-tight">
+            You&apos;re Connected!
           </DialogTitle>
-          <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
+          <p className="text-xs sm:text-sm text-muted-foreground/60 dark:text-muted-foreground/80">
             Your 10% boost is active. +100 unlocks after you reach 100 points.
           </p>
         </motion.div>
@@ -528,20 +528,20 @@ function SuccessScreen({
         {/* Referrer info card */}
         {referrerDisplay && (
           <motion.div
-            className="w-full rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-4"
+            className="w-full rounded-xl sm:rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 sm:p-4"
             initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={fadeUp(0.3)}
           >
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-muted/50 dark:bg-muted/60 flex items-center justify-center shrink-0">
-                <Users className="h-5 w-5 text-muted-foreground" />
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-muted/50 dark:bg-muted/60 flex items-center justify-center shrink-0">
+                <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               </div>
               <div className="min-w-0 text-left">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                <div className="text-[9px] sm:text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                   Your Referrer
                 </div>
-                <div className="text-sm font-mono font-semibold truncate">
+                <div className="text-xs sm:text-sm font-mono font-semibold truncate">
                   {referrerDisplay}
                 </div>
               </div>
@@ -551,38 +551,38 @@ function SuccessScreen({
 
         {/* Unlocked bonuses */}
         <motion.div
-          className="w-full space-y-3"
+          className="w-full space-y-2 sm:space-y-3"
           initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={fadeUp(0.4)}
         >
-          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+          <div className="text-[9px] sm:text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
             Bonus Details
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-4 rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
-              <div className="flex flex-col items-center text-center gap-1.5">
-                <div className="h-9 w-9 rounded-lg bg-[#4ADE80]/10 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-[#4ADE80]" />
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
+              <div className="flex flex-col items-center text-center gap-1 sm:gap-1.5">
+                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-[#4ADE80]/10 flex items-center justify-center">
+                  <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#4ADE80]" />
                 </div>
-                <div className="font-mono font-semibold text-base text-foreground">
+                <div className="font-mono font-semibold text-sm sm:text-base text-foreground">
                   +100 pts
                 </div>
-                <div className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80">
+                <div className="text-[9px] sm:text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80">
                   Unlocks at 100 points
                 </div>
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
-              <div className="flex flex-col items-center text-center gap-1.5">
-                <div className="h-9 w-9 rounded-lg bg-[color:var(--delegation-purple)]/10 flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4 text-[color:var(--delegation-purple)]" />
+            <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
+              <div className="flex flex-col items-center text-center gap-1 sm:gap-1.5">
+                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-[color:var(--delegation-purple)]/10 flex items-center justify-center">
+                  <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[color:var(--delegation-purple)]" />
                 </div>
-                <div className="font-mono font-semibold text-base text-foreground">
+                <div className="font-mono font-semibold text-sm sm:text-base text-foreground">
                   +10%
                 </div>
-                <div className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80">
+                <div className="text-[9px] sm:text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80">
                   12-week boost
                 </div>
               </div>
@@ -597,7 +597,7 @@ function SuccessScreen({
           animate={{ opacity: 1 }}
           transition={fadeUp(0.7)}
         >
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between text-[11px] sm:text-xs">
             <span className="font-mono text-muted-foreground/60 dark:text-muted-foreground/80">
               Setup progress
             </span>
@@ -605,7 +605,7 @@ function SuccessScreen({
               {displayPercent}%
             </span>
           </div>
-          <div className="h-2 rounded-full bg-muted/50 dark:bg-muted/60 overflow-hidden">
+          <div className="h-1.5 sm:h-2 rounded-full bg-muted/50 dark:bg-muted/60 overflow-hidden">
             <motion.div
               className="h-full rounded-full bg-foreground"
               initial={shouldReduceMotion ? false : { width: "0%" }}
@@ -621,12 +621,12 @@ function SuccessScreen({
 
         {/* Done button */}
         <motion.div
-          className="w-full pt-2"
+          className="w-full pt-1 sm:pt-2"
           initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={fadeUp(0.8)}
         >
-          <Button onClick={onDone} className="w-full">
+          <Button onClick={onDone} className="w-full h-10 sm:h-11">
             Start Earning
           </Button>
         </motion.div>

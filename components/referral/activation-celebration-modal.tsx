@@ -54,17 +54,13 @@ export function ActivationCelebrationModal({
   const [isDismissed, setIsDismissed] = React.useState(false);
   const { isLive: isReferralLive } = useReferralLaunch();
 
-  if (!isReferralLive) {
-    return null;
-  }
-
   const shouldShow =
     mock?.open ??
     Boolean(
       address &&
-      !isDismissed &&
-      status?.activationBonus?.awarded &&
-      !status?.activationBonus?.celebrationSeen,
+        !isDismissed &&
+        status?.activationBonus?.awarded &&
+        !status?.activationBonus?.celebrationSeen
     );
 
   const markActivationSeen = React.useCallback(async () => {
@@ -88,8 +84,12 @@ export function ActivationCelebrationModal({
   const handleClose = React.useCallback(() => {
     setIsDismissed(true);
     markActivationSeen();
-    if (mock?.onOpenChange) mock.onOpenChange(false);
-  }, [markActivationSeen, mock?.onOpenChange]);
+    mock?.onOpenChange?.(false);
+  }, [markActivationSeen, mock]);
+
+  if (!isReferralLive) {
+    return null;
+  }
 
   return (
     <Dialog

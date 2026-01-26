@@ -103,16 +103,16 @@ export default function ReferralLandingPage() {
 
   if (!isReferralLive) {
     return (
-      <div className="min-h-screen bg-white">
-        <div className="min-h-screen flex items-center justify-center p-8">
-          <div className="max-w-md w-full rounded-3xl border border-gray-200 bg-white px-8 py-10 text-center space-y-4">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-gray-200 bg-white">
-              <GlowSymbol className="h-7 w-7" />
+      <div className="min-h-screen bg-white dark:bg-background">
+        <div className="min-h-screen flex items-center justify-center p-4 sm:p-8">
+          <div className="max-w-md w-full rounded-2xl sm:rounded-3xl border border-border/20 dark:border-border/40 bg-card px-6 py-8 sm:px-8 sm:py-10 text-center space-y-4">
+            <div className="mx-auto flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
+              <GlowSymbol className="h-6 w-6 sm:h-7 sm:w-7" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-black">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
               Referral Program Launching Soon
             </h1>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Referrals open on {REFERRAL_LAUNCH_LABEL}.
             </p>
             <Button
@@ -128,59 +128,59 @@ export default function ReferralLandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-background">
       <AnimatePresence mode="wait">
         {isSuccess ? (
           <motion.div
             key="success"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="min-h-screen flex items-center justify-center p-8"
+            className="min-h-screen flex items-center justify-center p-4 sm:p-8"
           >
             <div className="max-w-md w-full">
-              <div className="rounded-3xl border border-gray-200 bg-white px-8 py-10 text-center">
+              <div className="rounded-2xl sm:rounded-3xl border border-border/20 dark:border-border/40 bg-card px-6 py-8 sm:px-8 sm:py-10 text-center">
                 <motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ delay: 0.1, duration: 0.2, ease: "easeOut" }}
-                  className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-full border border-gray-200 bg-white"
+                  className="mx-auto mb-5 sm:mb-6 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50"
                 >
-                  <GlowSymbol className="h-7 w-7" />
+                  <GlowSymbol className="h-6 w-6 sm:h-7 sm:w-7" />
                 </motion.div>
 
-                <h1 className="mb-2 text-2xl font-bold tracking-tight text-black">
+                <h1 className="mb-2 text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                   Referral Linked
                 </h1>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Linked to{" "}
                   <span className="font-semibold text-[color:var(--color-glow-orange)]">
                     {referrerDisplayName}
                   </span>
                   .
                 </p>
-                <p className="mt-2 text-sm text-gray-600">
+                <p className="mt-2 text-sm text-muted-foreground">
                   {isChangeSuccess
                     ? "Your boost stays on its original schedule; +100 unlocks after you reach 100 points."
                     : "Your 12-week boost starts now; +100 unlocks after you reach 100 points."}
                 </p>
 
-                <div className="mt-8 rounded-2xl border border-gray-200">
-                  <div className="grid grid-cols-2 divide-x divide-gray-200">
-                    <div className="p-4 text-left">
-                      <div className="text-2xl font-bold text-black">+10%</div>
-                      <div className="text-xs text-gray-600">
+                <div className="mt-6 sm:mt-8 rounded-xl sm:rounded-2xl border border-border/20 dark:border-border/40">
+                  <div className="grid grid-cols-2 divide-x divide-border/20 dark:divide-border/40">
+                    <div className="p-3 sm:p-4 text-left">
+                      <div className="text-xl sm:text-2xl font-bold text-foreground">+10%</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground">
                         Weekly point boost
                       </div>
                     </div>
-                    <div className="p-4 text-left">
-                      <div className="text-2xl font-bold text-black">+100</div>
-                      <div className="text-xs text-gray-600">At 100 points</div>
+                    <div className="p-3 sm:p-4 text-left">
+                      <div className="text-xl sm:text-2xl font-bold text-foreground">+100</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground">At 100 points</div>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-8">
-                  <Button size="lg" onClick={() => router.push("/")}>
+                <div className="mt-6 sm:mt-8">
+                  <Button size="lg" className="w-full sm:w-auto" onClick={() => router.push("/")}>
                     Go to Dashboard
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
@@ -193,34 +193,34 @@ export default function ReferralLandingPage() {
             key="landing"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="min-h-screen flex flex-col lg:flex-row"
+            className="min-h-screen flex flex-col lg:flex-row bg-white dark:bg-background"
           >
             {/* Left Side - Content */}
-            <div className="flex-1 flex flex-col justify-between p-8 lg:p-16">
-              <div>
-                <GlowLockup className="h-8 w-auto" />
+            <div className="order-2 lg:order-1 lg:flex-1 flex flex-col lg:justify-between p-6 sm:p-8 lg:p-16 lg:min-h-screen">
+              <div className="hidden lg:block">
+                <GlowLockup className="h-6 sm:h-8 w-auto" />
               </div>
 
-              <div className="flex-1 flex flex-col justify-center max-w-md py-12 lg:py-0">
-                <div className="mb-4 text-xs font-semibold uppercase tracking-widest text-gray-500">
+              <div className="lg:flex-1 flex flex-col lg:justify-center max-w-md py-0 lg:py-0">
+                <div className="mb-3 sm:mb-4 text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Personal Invitation
                 </div>
 
-                <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-black mb-6">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-foreground mb-4 sm:mb-6">
                   {validateQuery.isLoading ? (
-                    <Skeleton className="h-10 w-72 bg-gray-200" />
+                    <Skeleton className="h-8 sm:h-10 w-48 sm:w-72 bg-muted" />
                   ) : (
                     <>
                       Join{" "}
-                      <span className="text-black">{referrerDisplayName}</span>
+                      <span className="text-foreground">{referrerDisplayName}</span>
                     </>
                   )}
                 </h1>
 
-                <p className="text-gray-600 mb-8 leading-relaxed">
-                  I'm supporting scaling solar where it's needed most and
+                <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8 leading-relaxed">
+                  I&apos;m supporting scaling solar where it&apos;s needed most and
                   earning rewards for doing so, and now you can too. Sign up
-                  below and let's build a brighter future together.
+                  below and let&apos;s build a brighter future together.
                 </p>
 
                 <div className="space-y-4">
@@ -228,26 +228,26 @@ export default function ReferralLandingPage() {
                     <ConnectButton
                       variant="default"
                       size="large"
-                      className="max-w-xs"
+                      className="w-full sm:max-w-xs"
                     />
                   ) : isValidationLoading ? (
-                    <Button disabled className="h-14 max-w-xs w-full ">
+                    <Button disabled className="h-12 sm:h-14 w-full sm:max-w-xs">
                       Checking link...
                     </Button>
                   ) : hasValidationError ? (
                     <Button
-                      className="h-14 max-w-xs w-full "
+                      className="h-12 sm:h-14 w-full sm:max-w-xs"
                       onClick={() => validateQuery.refetch()}
                     >
                       Retry Verification
                     </Button>
                   ) : isValid === false ? (
-                    <Button disabled className="h-14 max-w-xs w-full">
+                    <Button disabled className="h-12 sm:h-14 w-full sm:max-w-xs">
                       Invalid Link
                     </Button>
                   ) : canChangeReferrer ? (
                     <Button
-                      className="h-14 max-w-xs w-full "
+                      className="h-12 sm:h-14 w-full sm:max-w-xs"
                       onClick={handleChangeReferrer}
                       disabled={isChanging}
                     >
@@ -256,14 +256,14 @@ export default function ReferralLandingPage() {
                     </Button>
                   ) : isAlreadyLinked ? (
                     <Button
-                      className="h-14 max-w-xs w-full "
+                      className="h-12 sm:h-14 w-full sm:max-w-xs"
                       onClick={() => router.push("/")}
                     >
                       Already Linked | Go to Dashboard
                     </Button>
                   ) : (
                     <Button
-                      className="h-14 max-w-xs w-full "
+                      className="h-12 sm:h-14 w-full sm:max-w-xs"
                       onClick={handleLink}
                       disabled={
                         isLinking || canClaim === false || isEligibilityLoading
@@ -276,7 +276,7 @@ export default function ReferralLandingPage() {
                 </div>
               </div>
 
-              <div className="text-sm text-gray-400">
+              <div className="text-xs sm:text-sm text-muted-foreground/60">
                 {!isConnected
                   ? "Connect wallet to verify eligibility"
                   : isEligibilityLoading
@@ -291,9 +291,9 @@ export default function ReferralLandingPage() {
               </div>
             </div>
 
-            {/* Right Side - Hero Image */}
-            <div className="flex-1 p-4 lg:p-8 min-h-[400px] lg:min-h-screen">
-              <div className="relative h-full w-full rounded-2xl overflow-hidden">
+            {/* Right Side - Hero Image (shows first on mobile via order) */}
+            <div className="order-1 lg:order-2 h-[45vh] lg:h-auto lg:flex-1 p-3 sm:p-4 lg:p-8 lg:min-h-screen">
+              <div className="relative h-full w-full rounded-xl sm:rounded-2xl overflow-hidden">
                 <Image
                   src="/images/referral-hero.jpg"
                   alt="Solar panels with worker"
@@ -303,36 +303,47 @@ export default function ReferralLandingPage() {
                 />
 
                 {/* Gradient overlay for text readability */}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-transparent" />
+
+                {/* Mobile logo */}
+                <div className="absolute top-4 left-4 lg:hidden">
+                  <GlowLockup className="h-6 w-auto brightness-0 invert" />
+                </div>
 
                 {/* Bonus badges */}
-                <div className="absolute top-8 lg:top-12 left-0 right-0 px-8 lg:px-12">
-                  <div className="flex justify-center gap-12 lg:gap-24">
+                <div className="absolute top-12 sm:top-8 lg:top-12 left-0 right-0 px-4 sm:px-8 lg:px-12">
+                  <div className="flex justify-center gap-6 sm:gap-12 lg:gap-24">
                     <div className="text-center text-white">
-                      <div className="text-5xl lg:text-7xl font-bold tracking-tight">
+                      <div className="text-3xl sm:text-5xl lg:text-7xl font-bold tracking-tight">
                         +10%
                       </div>
-                      <div className="mt-2 text-sm lg:text-base font-semibold">
+                      <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold">
                         Impact Points Bonus
                       </div>
-                      <div className="text-xs lg:text-sm text-white/80">
+                      <div className="text-[10px] sm:text-xs lg:text-sm text-white/80 hidden sm:block">
                         Added to your base points
                         <br />
                         for 12 weeks
                       </div>
+                      <div className="text-[10px] text-white/80 sm:hidden">
+                        12 weeks
+                      </div>
                     </div>
 
                     <div className="text-center text-white">
-                      <div className="text-5xl lg:text-7xl font-bold tracking-tight">
+                      <div className="text-3xl sm:text-5xl lg:text-7xl font-bold tracking-tight">
                         +100
                       </div>
-                      <div className="mt-2 text-sm lg:text-base font-semibold">
+                      <div className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base font-semibold">
                         Bonus Points
                       </div>
-                      <div className="text-xs lg:text-sm text-white/80">
+                      <div className="text-[10px] sm:text-xs lg:text-sm text-white/80 hidden sm:block">
                         Unlocked after your first
                         <br />
                         100 post-link points
+                      </div>
+                      <div className="text-[10px] text-white/80 sm:hidden">
+                        At 100 points
                       </div>
                     </div>
                   </div>
