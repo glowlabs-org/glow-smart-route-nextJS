@@ -43,6 +43,15 @@ For every frontend change:
 3. Run `pnpm build` → fix any errors
 4. Only then consider the task complete
 
+### 4. Documentation Updates
+
+When adding observability code, update the corresponding documentation:
+
+- **Telemetry events** (`trackEvent`): Update `TELEMETRY.md` with the new event name, props, and emitting file
+- **Sentry errors** (`Sentry.captureException`): Update `SENTRY.md` with the new error case and tags
+
+This ensures the team can discover and query all tracked events/errors.
+
 ---
 
 ## Design Philosophy
