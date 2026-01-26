@@ -312,23 +312,23 @@ export function ContributeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="text-base">
+      <DialogContent className="sm:max-w-sm p-0 gap-0 bg-card border border-border/40 rounded-[24px] overflow-hidden">
+        <DialogHeader className="px-6 pt-8 pb-4 border-b border-border/40">
+          <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
             {selectedRegionLabel
               ? `Stake to ${selectedRegionLabel}`
               : "Stake GCTL"}
           </DialogTitle>
         </DialogHeader>
 
-        <div>
+        <div className="p-5">
           {contributionSuccess ? (
             // Success State
-            <div className="text-center py-8">
+            <div className="text-center py-4">
               <div className="mb-6">
-                <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-[#4ADE80]/10 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg
-                    className="w-10 h-10 text-green-500"
+                    className="w-8 h-8 text-[#4ADE80]"
                     fill="none"
                     strokeWidth="2"
                     stroke="currentColor"
@@ -341,10 +341,10 @@ export function ContributeDialog({
                     />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-foreground mb-2">
-                  Contribution Successful!
+                <h3 className="text-xl font-semibold text-foreground mb-2">
+                  Contribution Successful
                 </h3>
-                <p className="text-muted-foreground mb-4">
+                <p className="text-sm text-muted-foreground mb-4">
                   You've successfully contributed{" "}
                   {contributedAmount.toLocaleString("en-US", {
                     minimumFractionDigits: 0,
@@ -356,7 +356,7 @@ export function ContributeDialog({
               </div>
 
               {/* Success details - hide goal-related rows when there is no target */}
-              <div className="space-y-4 mb-8 text-left bg-muted/50 rounded-lg p-4">
+              <div className="space-y-4 mb-6 text-left bg-muted/30 dark:bg-muted/50 rounded-xl border border-border/20 dark:border-border/40 p-4">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">
                     Amount Contributed
@@ -428,7 +428,7 @@ export function ContributeDialog({
             <>
               {/* Region selection */}
               <div className="space-y-2 mb-4">
-                <div className="text-sm font-medium text-muted-foreground">
+                <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
                   Select region
                 </div>
                 <Select
@@ -458,7 +458,7 @@ export function ContributeDialog({
 
               {/* Amount selection (remove-liquidity style) */}
               <div className="space-y-4">
-                <h3 className="text-sm font-medium text-muted-foreground">
+                <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
                   Select stake amount
                 </h3>
 

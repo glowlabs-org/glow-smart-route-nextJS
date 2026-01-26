@@ -73,7 +73,7 @@ import { trackEvent } from "@/lib/telemetry";
 // Lazy-load RecentActivity to defer its network work off the critical path
 const RecentActivity = dynamic(
   () => import("./recent-activity").then((m) => m.RecentActivity),
-  { ssr: false }
+  { ssr: false },
 );
 
 // Image proxy helper for optimized caching with compression
@@ -211,7 +211,7 @@ export default function View() {
   const { applications: sponsorListings, isLoading: isSponsorListingsLoading } =
     useGlowLaunchpad({
       enabled: Boolean(
-        isConnected && address && splitsActivity && splitsActivity.length > 0
+        isConnected && address && splitsActivity && splitsActivity.length > 0,
       ),
     });
 
@@ -279,7 +279,7 @@ export default function View() {
   // Helper functions to format balances
   function formatBalance(
     balance: bigint | null,
-    decimals: number = 18
+    decimals: number = 18,
   ): string {
     if (!balance) return "0.00";
     try {
@@ -347,10 +347,10 @@ export default function View() {
     const recentPurchases =
       rewardsBreakdownData.recentPurchasesWithoutRewards ?? [];
     const totalGlwDelegatedAfter = Number(
-      rewardsBreakdownData.delegatedAfterWeekRange?.totalGlwDelegatedAfter ?? 0
+      rewardsBreakdownData.delegatedAfterWeekRange?.totalGlwDelegatedAfter ?? 0,
     );
     const totalUsdcSpentAfter = Number(
-      rewardsBreakdownData.delegatedAfterWeekRange?.totalUsdcSpentAfter ?? 0
+      rewardsBreakdownData.delegatedAfterWeekRange?.totalUsdcSpentAfter ?? 0,
     );
 
     const hasDelegations =
@@ -494,7 +494,7 @@ export default function View() {
     setIsCheckingSubscription(true);
     try {
       const res = await fetch(
-        `/api/newsletter?email=${encodeURIComponent(email)}`
+        `/api/newsletter?email=${encodeURIComponent(email)}`,
       );
       const data = await res.json().catch(() => ({}));
       setIsAlreadySubscribed(data?.subscribed === true);
@@ -613,7 +613,7 @@ export default function View() {
   }
 
   const handleNewsletterEmailChange = (
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const value = e.target.value;
     setNewsletterEmail(value);
@@ -795,7 +795,7 @@ export default function View() {
           <div className="mt-10 md:mt-14 mb-10 md:mb-14">
             <div className="rounded-3xl glow-gradient p-8 md:p-12 dark:hidden">
               <div className="max-w-[500px] mx-auto text-center text-black">
-                <p className="text-3xl md:text-4xl leading-tight">
+                <p className="text-3xl leading-tight">
                   If everyone in the world owned $20 of GLW, we could eliminate
                   fossil fuels by 2030.
                 </p>
@@ -809,7 +809,7 @@ export default function View() {
                         window.open(
                           "https://discord.gg/glowfnd",
                           "_blank",
-                          "noopener,noreferrer"
+                          "noopener,noreferrer",
                         )
                       }
                       className="rounded-full h-12 px-6"
@@ -829,7 +829,7 @@ export default function View() {
             </div>
             <div className="hidden dark:block rounded-3xl bg-muted p-8 md:p-12">
               <div className="max-w-[420px] mx-auto text-center">
-                <p className="text-3xl md:text-4xl leading-tight">
+                <p className="text-3xl  leading-tight">
                   If everyone in the world owned $20 of GLW, we could eliminate
                   fossil fuels by 2030.
                 </p>
@@ -843,7 +843,7 @@ export default function View() {
                         window.open(
                           "https://discord.gg/glowfnd",
                           "_blank",
-                          "noopener,noreferrer"
+                          "noopener,noreferrer",
                         )
                       }
                       className="rounded-full h-12 px-6"
@@ -924,8 +924,8 @@ export default function View() {
                   {isNewsletterSubmitting
                     ? "Signing up..."
                     : isCheckingSubscription
-                    ? "Checking..."
-                    : "Sign up"}
+                      ? "Checking..."
+                      : "Sign up"}
                 </Button>
               )}
             </form>
@@ -1231,7 +1231,7 @@ export default function View() {
                           window.open(
                             "https://impact.glow.org",
                             "_blank",
-                            "noopener,noreferrer"
+                            "noopener,noreferrer",
                           );
                         }}
                         className="w-full sm:w-auto"
@@ -1324,7 +1324,7 @@ export default function View() {
                     const totalSteps = app?.activeFraction?.totalSteps ?? null;
                     const progress = Math.max(
                       0,
-                      Math.min(100, Number(item.progressPercent || 0))
+                      Math.min(100, Number(item.progressPercent || 0)),
                     );
 
                     return (
@@ -1374,7 +1374,7 @@ export default function View() {
                                     const rewardScore =
                                       getRewardScoreForApplication(
                                         rewardScoreMap,
-                                        app.id
+                                        app.id,
                                       );
 
                                     if (
@@ -1391,19 +1391,19 @@ export default function View() {
                                       const glwRewards = parseFloat(
                                         formatUnitsViem(
                                           BigInt(
-                                            rewardScore.userWeeklyGlwRewards
+                                            rewardScore.userWeeklyGlwRewards,
                                           ),
-                                          DECIMALS_BY_TOKEN["GLW"]
-                                        )
+                                          DECIMALS_BY_TOKEN["GLW"],
+                                        ),
                                       );
 
                                       const pdRewards = parseFloat(
                                         formatUnitsViem(
                                           BigInt(
-                                            rewardScore.userWeeklyPdRewards
+                                            rewardScore.userWeeklyPdRewards,
                                           ),
-                                          DECIMALS_BY_TOKEN["GLW"]
-                                        )
+                                          DECIMALS_BY_TOKEN["GLW"],
+                                        ),
                                       );
 
                                       const totalRewards =
@@ -1420,7 +1420,7 @@ export default function View() {
                                         {
                                           minimumFractionDigits: 2,
                                           maximumFractionDigits: 2,
-                                        }
+                                        },
                                       )} GLW`;
                                     } catch {
                                       return "0 GLW";
@@ -1630,7 +1630,7 @@ export default function View() {
           <div className="space-y-3 max-h-[60vh] overflow-y-auto py-4">
             {walletDetails?.regions
               ?.filter(
-                (regionStake) => BigInt(regionStake.totalStaked) > BigInt(0)
+                (regionStake) => BigInt(regionStake.totalStaked) > BigInt(0),
               )
               .map((regionStake) => {
                 const regionName =

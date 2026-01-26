@@ -185,7 +185,7 @@ function SolarFootprintDialog({
 }: SolarFootprintDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-background backdrop-blur-sm rounded-2xl p-0 sm:max-w-md w-full border-border overflow-hidden flex flex-col gap-0">
+      <DialogContent className="bg-card rounded-2xl p-0 sm:max-w-md w-full border border-border/40 overflow-hidden flex flex-col gap-0">
         <DialogHeader className="px-5 py-4 border-b border-border/60">
           <DialogTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">
             How Solar Footprint Works
@@ -290,7 +290,7 @@ interface SolarCollectorWidgetProps {
 
 function ImpactSummarySkeleton() {
   return (
-    <Card className="overflow-hidden w-full py-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border mb-6">
+    <Card className="overflow-hidden w-full py-0 bg-card dark:bg-card border-border/20 mb-6">
       <CardContent className="p-4 md:p-5">
         <div className="flex items-center justify-between mb-4">
           <Skeleton className="h-4 w-40" />
@@ -575,7 +575,7 @@ export default function SolarCollectorWidget({
     return (
       <>
         {learnMoreDialog}
-        <Card className="overflow-hidden w-full py-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border mb-6">
+        <Card className="overflow-hidden w-full py-0 bg-card dark:bg-card border-border/20 mb-6">
           <CardContent className="p-4 md:p-5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
@@ -608,7 +608,7 @@ export default function SolarCollectorWidget({
   return (
     <>
       {learnMoreDialog}
-      <Card className="overflow-hidden w-full py-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border mb-6">
+      <Card className="overflow-hidden w-full py-0 bg-card dark:bg-card border-border/20 mb-6">
         <CardContent className="p-4 md:p-5">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">

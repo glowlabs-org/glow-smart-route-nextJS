@@ -11,7 +11,7 @@ interface CountdownClockParts {
   seconds: string;
 }
 
-type CountdownSize = "sm" | "md" | "lg" | "xl";
+type CountdownSize = "xs" | "sm" | "md" | "lg" | "xl";
 
 function formatHms(remainingMs: number): CountdownClockParts {
   const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
@@ -88,8 +88,11 @@ function AnimatedTimePart({
   size?: CountdownSize;
   minWidthCh?: number;
 }) {
+  const isXs = size === "xs";
   const heightClass =
-    size === "sm"
+    size === "xs"
+      ? "h-5"
+      : size === "sm"
       ? "h-7 w-10"
       : size === "md"
       ? "h-8 w-10"
@@ -99,13 +102,49 @@ function AnimatedTimePart({
       ? "h-14 w-16"
       : "h-12 w-12";
   const textClass =
-    size === "sm"
+    size === "xs"
+      ? "text-sm"
+      : size === "sm"
       ? "text-xl"
       : size === "md"
       ? "text-2xl"
       : size === "lg"
       ? "text-3xl"
       : "text-4xl";
+
+  // xs variant: inline text only, no box/background
+  if (isXs) {
+    return (
+      <span
+        className={cn(
+          "relative inline-flex items-center justify-center overflow-hidden",
+          heightClass
+        )}
+        style={{ minWidth: "2ch" }}
+      >
+        <AnimatePresence initial={false} mode="popLayout">
+          <motion.span
+            key={value}
+            initial={{ y: 8, opacity: 0, filter: "blur(4px)", scale: 0.98 }}
+            animate={{ y: 0, opacity: 1, filter: "blur(0px)", scale: 1 }}
+            exit={{ y: -8, opacity: 0, filter: "blur(4px)", scale: 0.98 }}
+            transition={{
+              type: "spring",
+              stiffness: 700,
+              damping: 45,
+              mass: 0.7,
+            }}
+            className={cn(
+              "absolute inset-0 flex items-center justify-center font-mono font-semibold tabular-nums text-foreground",
+              textClass
+            )}
+          >
+            {value}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+    );
+  }
 
   return (
     <span
@@ -153,7 +192,9 @@ export function AnimatedCountdown({
     [remainingMs]
   );
   const colonClass =
-    size === "sm"
+    size === "xs"
+      ? "text-sm"
+      : size === "sm"
       ? "text-lg"
       : size === "md"
       ? "text-xl"
@@ -262,7 +303,9 @@ export function AnimatedCountdownDhms({
   );
   const daysLabel = String(days).padStart(2, "0");
   const colonClass =
-    size === "sm"
+    size === "xs"
+      ? "text-sm"
+      : size === "sm"
       ? "text-lg"
       : size === "md"
       ? "text-xl"
@@ -270,10 +313,12 @@ export function AnimatedCountdownDhms({
       ? "text-2xl"
       : "text-3xl";
   const minWidthCh =
-    size === "sm" ? 2 : size === "md" ? 3 : size === "lg" ? 3 : 3;
+    size === "xs" ? 2 : size === "sm" ? 2 : size === "md" ? 3 : size === "lg" ? 3 : 3;
 
   const labelClass =
-    size === "sm"
+    size === "xs"
+      ? "text-[8px]"
+      : size === "sm"
       ? "text-[9px]"
       : size === "md"
       ? "text-[10px]"

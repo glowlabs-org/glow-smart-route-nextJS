@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronRight, Sparkles } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/telemetry";
 import { useAccount } from "wagmi";
@@ -133,22 +133,22 @@ export default function GlowFaqWidget({
       className={cn(
         "flex flex-col overflow-hidden h-full min-h-[350px]",
         isMinimal
-          ? "bg-transparent border-transparent"
-          : "bg-card dark:bg-muted/30 border-foreground/10 dark:border-border",
+          ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl"
+          : "bg-card dark:bg-card border-border/20 dark:border-border/40",
         className
       )}
     >
       <CardHeader
         className={cn(
           "pb-4 shrink-0",
-          isMinimal ? "border-b-0 px-0" : "border-b border-border/50"
+          isMinimal ? "border-b-0 px-4" : "border-b border-border/20 dark:border-border/40"
         )}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CardTitle className="tracking-tight text-lg">Glow FAQ</CardTitle>
+            <CardTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 font-semibold">Glow FAQ</CardTitle>
           </div>
-          <span className="text-[10px] font-mono uppercase text-muted-foreground bg-muted px-2 py-1 rounded">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 bg-muted/30 dark:bg-muted/50 px-2 py-1 rounded-lg">
             Documentation
           </span>
         </div>
@@ -156,7 +156,7 @@ export default function GlowFaqWidget({
 
       <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
         {/* Left Side: Questions List */}
-        <div className="w-full md:w-[40%] border-b md:border-b-0 md:border-r border-border/50 bg-background/20">
+        <div className="w-full md:w-[40%] border-b md:border-b-0 md:border-r border-border/20 dark:border-border/40 bg-muted/10 dark:bg-muted/20">
           <ScrollArea className="h-full">
             <div className="flex flex-col p-2 gap-1">
               {faqItems.map((item) => (
@@ -174,13 +174,13 @@ export default function GlowFaqWidget({
                   className={cn(
                     "relative text-left px-4 py-3 rounded-xl text-sm transition-all duration-200 group flex items-center justify-between",
                     activeId === item.id
-                      ? "bg-primary/10 text-primary font-medium"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      ? "bg-muted/50 dark:bg-muted/60 text-foreground font-medium"
+                      : "text-muted-foreground/60 dark:text-muted-foreground/80 hover:bg-muted/30 dark:hover:bg-muted/40 hover:text-foreground"
                   )}
                 >
                   <span className="line-clamp-2 pr-2">{item.q}</span>
                   {activeId === item.id && (
-                    <ChevronRight className="h-4 w-4 shrink-0 opacity-50" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/60 dark:text-muted-foreground/80" />
                   )}
                 </button>
               ))}
@@ -189,20 +189,20 @@ export default function GlowFaqWidget({
         </div>
 
         {/* Right Side: Answer Display */}
-        <div className="flex-1 bg-card/50 relative">
+        <div className="flex-1 relative">
           <ScrollArea className="h-full">
-            <div className="p-6 md:p-8 pt-2 md:pt-2">
+            <div className="p-6 md:p-8 pt-4 md:pt-4">
               {activeItem ? (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <h3 className="text-xl font-semibold mb-6 text-foreground tracking-tight">
+                  <h3 className="text-lg font-semibold mb-4 text-foreground tracking-tight">
                     {activeItem.q}
                   </h3>
-                  <div className="text-sm leading-relaxed text-muted-foreground/90">
+                  <div className="text-sm leading-relaxed text-muted-foreground/80 dark:text-muted-foreground">
                     {activeItem.a}
                   </div>
                 </div>
               ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground">
+                <div className="h-full flex items-center justify-center text-muted-foreground/60 dark:text-muted-foreground/80 text-xs font-mono uppercase tracking-widest">
                   Select a question
                 </div>
               )}

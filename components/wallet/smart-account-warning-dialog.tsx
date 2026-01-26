@@ -273,9 +273,9 @@ export function SmartAccountWarningDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[540px] md:max-w-[600px] lg:max-w-[680px] max-h-[85vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 border-0 shadow-2xl">
+      <DialogContent className="sm:max-w-[540px] md:max-w-[600px] lg:max-w-[680px] max-h-[85vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 rounded-[24px] bg-card border border-border/30 dark:border-border/40">
         {/* Header with Warning Accent */}
-        <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-6">
+        <div className="bg-amber-500/10 dark:bg-amber-500/5 border-b border-amber-500/20 dark:border-amber-500/30 px-6 py-6">
           <DialogHeader className="space-y-2">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
@@ -306,7 +306,7 @@ export function SmartAccountWarningDialog({
                   {content.why.map((reason, i) => (
                     <li
                       key={i}
-                      className="text-sm text-muted-foreground flex gap-2.5 items-start bg-muted/30 p-3 rounded-md"
+                      className="text-sm text-muted-foreground flex gap-2.5 items-start bg-muted/40 dark:bg-muted/50 p-3 rounded-md"
                     >
                       <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
                       <span className="leading-relaxed">{reason}</span>
@@ -324,7 +324,7 @@ export function SmartAccountWarningDialog({
               </h4>
 
               {showMetaMaskPath ? (
-                <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="rounded-xl border border-border/30 dark:border-border/40 bg-card overflow-hidden">
                   <div className="p-5 space-y-4">
                     <div className="flex items-start gap-4">
                       <div className="flex-1">
@@ -369,7 +369,7 @@ export function SmartAccountWarningDialog({
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl border border-border bg-card p-5">
+                <div className="rounded-xl border border-border/30 dark:border-border/40 bg-card p-5">
                   <ol className="space-y-4">
                     {content.directivesGeneric.map((step, i) => (
                       <li
@@ -389,7 +389,7 @@ export function SmartAccountWarningDialog({
           </div>
         </div>
 
-        <DialogFooter className="p-6 pt-4 border-t bg-muted/10 gap-3 sm:gap-0">
+        <DialogFooter className="p-6 pt-4 border-t border-border/30 dark:border-border/40 bg-muted/30 dark:bg-muted/20 gap-3 sm:gap-0">
           <Button
             variant="ghost"
             onClick={() => handleClose(false)}

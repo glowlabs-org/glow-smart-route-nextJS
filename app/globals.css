@@ -260,13 +260,14 @@
 }
 
 :root {
-  --radius: 0.5rem;
+  /* Premium radius - softer, more premium feel */
+  --radius: 1rem;
 
   /* Glow Brand Colors */
   --color-glow-black: #050505;
   --color-glow-white: #ffffff;
   --color-glow-light-grey: #fafafa;
-  --color-glow-medium-grey: #f3f3f3;
+  --color-glow-medium-grey: #f5f5f5;
   --color-glow-orange: #ffb472;
   --color-glow-yellow: #f7fcc4;
   --color-glow-green: #ccffd4;
@@ -287,12 +288,12 @@
   --container-4xl: 2200px;
   --container-max: 2400px;
 
-  /* Fluid Spacing Scale */
-  --space-section: clamp(2rem, 10vh, 12rem);
-  --space-section-sm: clamp(1rem, 6vh, 7rem);
-  --space-section-lg: clamp(4rem, 15vh, 18rem);
-  --space-content: clamp(1.5rem, 3vh, 4rem);
-  --space-element: clamp(1rem, 2vh, 2.5rem);
+  /* Fluid Spacing Scale - increased for premium feel */
+  --space-section: clamp(3rem, 12vh, 16rem);
+  --space-section-sm: clamp(1.5rem, 8vh, 10rem);
+  --space-section-lg: clamp(5rem, 18vh, 22rem);
+  --space-content: clamp(2rem, 4vh, 5rem);
+  --space-element: clamp(1.25rem, 2.5vh, 3rem);
 
   /* Fluid Typography Scale */
   --text-h1: clamp(3.5rem, 6vw, 8rem);
@@ -306,24 +307,25 @@
   --container-width: clamp(320px, 90vw, var(--container-max));
   --content-width: clamp(300px, 85vw, 1200px);
 
-  /* Light mode - Using Glow brand colors */
-  --background: var(--color-glow-white);
+  /* Light mode - Using Glow brand colors with premium adjustments */
+  /* Key contrast: background is gray (#f5f5f5), cards are white (#ffffff) */
+  --background: #f5f5f5;
   --foreground: var(--color-glow-black);
-  --card: var(--color-glow-white);
+  --card: #ffffff;
   --card-foreground: var(--color-glow-black);
-  --popover: var(--color-glow-white);
+  --popover: #ffffff;
   --popover-foreground: var(--color-glow-black);
   --primary: var(--color-glow-black);
   --primary-foreground: var(--color-glow-light-grey);
-  --secondary: var(--color-glow-medium-grey);
+  --secondary: #ebebeb;
   --secondary-foreground: var(--color-glow-black);
-  --muted: var(--color-glow-light-grey);
+  --muted: #f0f0f0;
   --muted-foreground: #71717a;
   --accent: var(--color-glow-orange);
   --accent-foreground: var(--color-glow-black);
   --destructive: #ef4444;
   --destructive-foreground: var(--color-glow-white);
-  --border: var(--color-glow-medium-grey);
+  --border: #e5e5e5;
   --input: var(--color-glow-medium-grey);
   --ring: var(--color-glow-black);
   --chart-1: #646cff;
@@ -351,7 +353,7 @@
   --color-glow-black: #050505;
   --color-glow-white: #ffffff;
   --color-glow-light-grey: #fafafa;
-  --color-glow-medium-grey: #f3f3f3;
+  --color-glow-medium-grey: #f5f5f5;
   --color-glow-orange: #ffb472;
   --color-glow-yellow: #f7fcc4;
   --color-glow-green: #ccffd4;
@@ -362,25 +364,26 @@
   --color-miner: #2081e2;
   --color-miner-contrast: #2081e2;
 
-  /* Dark mode - Inverted theme colors */
-  --background: var(--color-glow-black);
+  /* Dark mode - Premium dark with visible contrast */
+  /* Key contrast: background is darker (#09090b), cards are lighter (#141414) */
+  --background: #09090b;
   --foreground: var(--color-glow-light-grey);
-  --card: #0a0a0a;
+  --card: #141414;
   --card-foreground: var(--color-glow-light-grey);
-  --popover: #0a0a0a;
+  --popover: #141414;
   --popover-foreground: var(--color-glow-light-grey);
   --primary: var(--color-glow-light-grey);
   --primary-foreground: var(--color-glow-black);
-  --secondary: #27272a;
+  --secondary: #1c1c1c;
   --secondary-foreground: var(--color-glow-light-grey);
-  --muted: #27272a;
+  --muted: #0f0f0f;
   --muted-foreground: #a1a1aa;
   --accent: var(--color-glow-orange);
   --accent-foreground: var(--color-glow-black);
   --destructive: #dc2626;
   --destructive-foreground: var(--color-glow-light-grey);
-  --border: #27272a;
-  --input: #27272a;
+  --border: #262626;
+  --input: #1c1c1c;
   --ring: #d4d4d8;
   --chart-1: #2563eb;
   --chart-2: #dc2626;

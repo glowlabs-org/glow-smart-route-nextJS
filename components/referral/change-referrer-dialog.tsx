@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { UserPlus, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { trackEvent } from "@/lib/telemetry";
+import { useReferralLaunch } from "@/hooks/use-referral-launch";
 
 interface ChangeReferrerDialogProps {
   open: boolean;
@@ -36,6 +37,11 @@ export function ChangeReferrerDialog({
   const changeReferrer = mock?.changeReferrer ?? referral.changeReferrer;
   const isChanging = mock?.isChanging ?? referral.isChanging;
   const [newCode, setNewCode] = React.useState("");
+  const { isLive: isReferralLive } = useReferralLaunch();
+
+  if (!isReferralLive) {
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

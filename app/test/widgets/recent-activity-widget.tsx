@@ -45,12 +45,12 @@ export default function RecentActivityWidget({
   return (
     <RecentActivity
       className={cn(
-        "pt-0 w-full",
+        "w-full",
         isMinimal
           ? "bg-transparent border-transparent h-full"
           : isFlow
-          ? "bg-card/30 border-foreground/5"
-          : "bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+          ? "bg-card/30 border-border/20"
+          : "bg-card dark:bg-card border-border/20"
       )}
       walletAddress={address}
       splitsActivity={splitsActivity}
@@ -65,20 +65,20 @@ export default function RecentActivityWidget({
         <Dialog>
           <DialogTrigger asChild>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="h-8 rounded-full px-3 text-[11px] font-mono tracking-wider"
+              className="h-7 text-xs"
             >
-              Expand
+              View All
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md p-0 max-h-[85vh] flex flex-col overflow-hidden">
-            <DialogHeader className="px-4 pt-4 pb-2 sm:px-6 sm:pt-6 flex-shrink-0">
-              <DialogTitle>Recent Activity</DialogTitle>
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md p-0 max-h-[85vh] flex flex-col overflow-hidden bg-card border-border/20 dark:border-border/40 rounded-2xl">
+            <DialogHeader className="px-6 py-5 border-b border-border/20 dark:border-border/40 flex-shrink-0">
+              <DialogTitle className="text-lg font-semibold tracking-tight">Recent Activity</DialogTitle>
             </DialogHeader>
-            <div className="px-4 pb-4 sm:px-6 sm:pb-6 flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
               <RecentActivity
-                className="max-h-full h-full bg-transparent border-transparent"
+                className="h-auto lg:max-h-none bg-transparent border-transparent overflow-visible"
                 walletAddress={address}
                 splitsActivity={splitsActivity}
                 swapsActivity={swapsActivity}
@@ -87,6 +87,7 @@ export default function RecentActivityWidget({
                 hideIfEmpty={hideIfEmpty}
                 showHeader={false}
                 showKpis={false}
+                maxItems={50}
               />
             </div>
           </DialogContent>

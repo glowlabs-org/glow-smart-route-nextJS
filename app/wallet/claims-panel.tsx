@@ -55,24 +55,24 @@ import { getCurrentEpoch, GENESIS_TIMESTAMP } from "@/utils/getCurrentEpoch";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { trackEvent } from "@/lib/telemetry";
 
-// Currency configurations
+// Currency configurations - neutral containers, colored icons only when active
 const CURRENCY_CONFIG = {
   GLW: {
     icon: <Sparkles className="w-4 h-4" />,
-    color: "text-green-600",
-    bgColor: "bg-green-50 dark:bg-green-950/20",
+    color: "text-[#4ADE80]",
+    bgColor: "bg-muted/50",
     label: "GLOW",
   },
   USDC: {
     icon: <Coins className="w-4 h-4" />,
-    color: "text-blue-600",
-    bgColor: "bg-blue-50 dark:bg-blue-950/20",
+    color: "text-[#2081e2]",
+    bgColor: "bg-muted/50",
     label: "USDC",
   },
   USDG: {
     icon: <Coins className="w-4 h-4" />,
-    color: "text-purple-600",
-    bgColor: "bg-purple-50 dark:bg-purple-950/20",
+    color: "text-[color:var(--delegation-purple)]",
+    bgColor: "bg-muted/50",
     label: "USDG",
   },
 } as const;
@@ -120,10 +120,10 @@ const CLAIM_STATUS_LABELS: Record<ClaimStageStatus, string> = {
 };
 
 const CLAIM_STATUS_STYLES: Record<ClaimStageStatus, string> = {
-  pending: "bg-muted text-muted-foreground",
-  inProgress: "bg-primary/10 text-primary",
-  success: "bg-emerald-500/10 text-emerald-600",
-  skipped: "bg-muted text-muted-foreground",
+  pending: "bg-muted/50 text-muted-foreground",
+  inProgress: "bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]",
+  success: "bg-[#4ADE80]/10 text-[#4ADE80]",
+  skipped: "bg-muted/50 text-muted-foreground",
   error: "bg-destructive/10 text-destructive",
 };
 
@@ -668,12 +668,12 @@ function WeekRewardsContent({
   );
 
   return (
-    <div className="space-y-3 border-t border-border/50 pt-3 md:pt-4">
+    <div className="space-y-3 border-t border-border/20 dark:border-border/40 pt-3 md:pt-4">
       {weekData.rewards.map((reward, idx) => {
         const config = CURRENCY_CONFIG[reward.currency as CurrencyKey] || {
           icon: <Coins className="w-4 h-4" />,
-          color: "text-gray-600",
-          bgColor: "bg-gray-50 dark:bg-gray-950/20",
+          color: "text-muted-foreground",
+          bgColor: "bg-muted/50",
           label: reward.currency,
         };
 
@@ -686,12 +686,12 @@ function WeekRewardsContent({
         return (
           <div
             key={`${reward.currency}-${reward.type}-${idx}`}
-            className="flex flex-col sm:flex-row sm:items-center justify-between p-3 md:p-4 rounded-lg bg-muted/50 border border-border/30 gap-3"
+            className="flex flex-col sm:flex-row sm:items-center justify-between p-3 md:p-4 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 gap-3"
           >
             <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
               <div
                 className={cn(
-                  "p-1.5 md:p-2 rounded-full bg-background flex-shrink-0",
+                  "p-1.5 md:p-2 rounded-lg bg-muted/50 flex-shrink-0",
                   config.color
                 )}
               >
@@ -699,21 +699,21 @@ function WeekRewardsContent({
               </div>
               <div className="space-y-0.5 min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs md:text-sm font-semibold truncate">
+                  <div className="text-sm font-medium text-foreground truncate">
                     {config.label}
                   </div>
-                  <div className="text-sm md:text-base font-bold tabular-nums flex-shrink-0 sm:hidden">
+                  <div className="text-sm md:text-base font-semibold font-mono tabular-nums flex-shrink-0 sm:hidden text-foreground">
                     {parseFloat(reward.amount).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 6,
                     })}
                   </div>
                 </div>
-                <div className="text-xs text-muted-foreground truncate">
+                <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70 truncate">
                   {rewardLabel}
                 </div>
               </div>
-              <div className="text-sm md:text-base font-bold tabular-nums flex-shrink-0 hidden sm:block">
+              <div className="text-sm md:text-base font-semibold font-mono tabular-nums flex-shrink-0 hidden sm:block text-foreground">
                 {parseFloat(reward.amount).toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 6,
@@ -724,7 +724,7 @@ function WeekRewardsContent({
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full sm:w-auto flex-shrink-0"
+                className="w-full sm:w-auto flex-shrink-0 border-border/40 dark:border-border/60 hover:border-border/60 dark:hover:border-border/80 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleClaimReward(reward, isInflation);
@@ -791,37 +791,41 @@ function TotalsSummaryCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border bg-muted/20 p-4",
+        "rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4",
         className
       )}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
             {title}
           </div>
-          <div className="mt-1 text-xs text-muted-foreground">{subtitle}</div>
+          <div className="mt-1 text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70">
+            {subtitle}
+          </div>
         </div>
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-background">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/50 text-muted-foreground">
           {icon}
         </div>
       </div>
 
       <div className="mt-4">
         {entries.length === 0 ? (
-          <div className="text-3xl font-bold tabular-nums">0</div>
+          <div className="text-3xl font-semibold font-mono tabular-nums tracking-tight text-foreground">
+            0
+          </div>
         ) : entries.length === 1 && primary ? (
           <div className="flex items-end justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-3xl font-bold tabular-nums">
+              <div className="text-3xl font-semibold font-mono tabular-nums tracking-tight text-foreground">
                 {formatCompactAmount(primary[1])}
               </div>
-              <div className="mt-1 text-xs text-muted-foreground">
+              <div className="mt-1 text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70">
                 {CURRENCY_CONFIG[primary[0] as CurrencyKey]?.label ??
                   primary[0]}
               </div>
             </div>
-            <Badge variant="secondary" className="shrink-0">
+            <Badge variant="secondary" className="shrink-0 font-mono text-xs">
               {primary[0]}
             </Badge>
           </div>
@@ -830,8 +834,8 @@ function TotalsSummaryCard({
             {entries.slice(0, 3).map(([currency, amount]) => {
               const config = CURRENCY_CONFIG[currency as CurrencyKey] || {
                 icon: <Coins className="w-4 h-4" />,
-                color: "text-gray-600",
-                bgColor: "bg-gray-50 dark:bg-gray-950/20",
+                color: "text-muted-foreground",
+                bgColor: "bg-muted/50",
                 label: currency,
               };
               return (
@@ -842,24 +846,24 @@ function TotalsSummaryCard({
                   <div className="flex items-center gap-2 min-w-0">
                     <div
                       className={cn(
-                        "rounded-full bg-background p-1.5",
+                        "rounded-lg bg-muted/50 p-1.5",
                         config.color
                       )}
                     >
                       {config.icon}
                     </div>
-                    <div className="text-sm font-semibold truncate">
+                    <div className="text-sm font-medium text-foreground truncate">
                       {config.label}
                     </div>
                   </div>
-                  <div className="text-sm font-bold tabular-nums">
+                  <div className="text-sm font-semibold font-mono tabular-nums text-foreground">
                     {formatCompactAmount(amount)}
                   </div>
                 </div>
               );
             })}
             {entries.length > 3 ? (
-              <div className="text-xs text-muted-foreground">
+              <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70">
                 +{entries.length - 3} more
               </div>
             ) : null}
@@ -872,17 +876,21 @@ function TotalsSummaryCard({
 
 function RewardTypesInfo() {
   return (
-    <div className="rounded-xl border border-blue-200/50 bg-blue-50/50 p-4 text-sm text-blue-900 dark:border-blue-800/50 dark:bg-blue-950/20 dark:text-blue-100">
-      <div className="font-semibold">Reward types</div>
-      <div className="mt-2 space-y-2 text-blue-800 dark:text-blue-200">
+    <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+      <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+        Reward Types
+      </div>
+      <div className="mt-3 space-y-3 text-sm text-muted-foreground">
         <div>
-          <strong>Emission Rewards:</strong> GLW earned by solar farms and split
-          between Glow Miners and Glow Delegators.
+          <span className="font-medium text-foreground">Emission Rewards:</span>{" "}
+          GLW earned by solar farms and split between Glow Miners and Glow
+          Delegators.
         </div>
         <div>
-          <strong>Protocol Deposits:</strong> Rewards from Glow&apos;s
-          redistribution mechanism, where high-performing farms earn back
-          deposits plus surplus captured from underperforming competitors.
+          <span className="font-medium text-foreground">Protocol Deposits:</span>{" "}
+          Rewards from Glow&apos;s redistribution mechanism, where
+          high-performing farms earn back deposits plus surplus captured from
+          underperforming competitors.
         </div>
       </div>
     </div>
@@ -891,19 +899,23 @@ function RewardTypesInfo() {
 
 function ClaimsAboutInfo() {
   return (
-    <div className="rounded-xl border bg-muted border-border p-4">
+    <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
       <div className="flex items-start gap-3">
-        <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
-        <div className="space-y-1 text-sm text-blue-900 dark:text-blue-100">
-          <div className="font-semibold">About claims</div>
-          <div className="text-blue-800 dark:text-blue-200">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/50 shrink-0">
+          <AlertCircle className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <div className="space-y-1">
+          <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+            About Claims
+          </div>
+          <div className="text-sm text-muted-foreground">
             Rewards become claimable after a 3-week finality period. Week 96 and
             earlier are available to claim on the{" "}
             <a
               href="https://hub.glow.org"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium underline hover:no-underline"
+              className="font-medium text-foreground underline hover:no-underline transition-colors"
             >
               Hub Dashboard
             </a>{" "}
@@ -1455,21 +1467,21 @@ export function ClaimsPanel({
           return (
             <div
               key={stage}
-              className="flex items-start justify-between gap-4 rounded-xl border border-border/60 bg-muted/30 p-4"
+              className="flex items-start justify-between gap-4 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4"
             >
               <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/50 text-muted-foreground">
                   {meta.icon}
                 </div>
                 <div className="space-y-1">
-                  <div className="text-sm font-semibold">{meta.label}</div>
+                  <div className="text-sm font-medium text-foreground">{meta.label}</div>
                   {amountLabel && (
-                    <div className="text-xs text-muted-foreground font-medium">
+                    <div className="text-xs font-mono text-muted-foreground">
                       {amountLabel}
                     </div>
                   )}
                   {status.message && (
-                    <div className="mt-1.5 text-xs text-muted-foreground">
+                    <div className="mt-1.5 text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70">
                       {status.message}
                     </div>
                   )}
@@ -1478,7 +1490,7 @@ export function ClaimsPanel({
                       href={getEtherscanUrl(chainId, status.txHash)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-1.5 text-xs font-mono text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-muted/50 px-2 py-1 rounded inline-block underline hover:no-underline transition-colors"
+                      className="mt-1.5 text-xs font-mono text-foreground hover:text-muted-foreground bg-muted/50 px-2 py-1 rounded-lg inline-block underline hover:no-underline transition-colors"
                       onClick={(e) => e.stopPropagation()}
                     >
                       View on Etherscan:{" "}
@@ -1491,7 +1503,7 @@ export function ClaimsPanel({
               </div>
               <span
                 className={cn(
-                  "px-3 py-1.5 text-xs font-semibold rounded-full whitespace-nowrap",
+                  "px-3 py-1.5 text-xs font-medium font-mono rounded-full whitespace-nowrap",
                   CLAIM_STATUS_STYLES[status.status]
                 )}
               >
@@ -1507,19 +1519,23 @@ export function ClaimsPanel({
   const reviewContent =
     activeClaim && transactionDetails.length > 0 ? (
       <div className="space-y-6 text-left">
-        <div className="space-y-3 rounded-xl bg-muted/30 p-4 border border-border/50">
+        <div className="rounded-xl bg-muted/30 dark:bg-muted/50 p-4 border border-border/20 dark:border-border/40">
           {transactionDetails.map((detail, index) => (
             <div
               key={`${detail.label}-${index}`}
-              className="flex items-center justify-between py-2"
+              className={cn(
+                "flex items-center justify-between py-3",
+                index !== transactionDetails.length - 1 &&
+                  "border-b border-border/20 dark:border-border/40"
+              )}
             >
-              <span className="text-sm font-medium text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
                 {detail.label}
               </span>
               <div className="text-right text-sm font-mono font-semibold text-foreground">
                 {detail.value}
                 {detail.unit ? (
-                  <span className="ml-2 text-xs text-muted-foreground">
+                  <span className="ml-2 text-xs text-muted-foreground/50 dark:text-muted-foreground/70">
                     {detail.unit}
                   </span>
                 ) : null}
@@ -1563,20 +1579,22 @@ export function ClaimsPanel({
     <div className="space-y-4 text-left">
       {stageList}
       {hasTxHashes && (
-        <div className="p-4 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/50">
-          <div className="text-sm text-blue-900 dark:text-blue-100 space-y-2">
-            <div className="font-semibold">Need Help?</div>
-            <div className="text-blue-800 dark:text-blue-200">
+        <div className="p-4 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
+          <div className="space-y-2">
+            <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+              Need Help?
+            </div>
+            <div className="text-sm text-muted-foreground">
               Join our{" "}
               <a
                 href="https://discord.gg/glowfnd"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline hover:no-underline font-medium"
+                className="underline hover:no-underline font-medium text-foreground transition-colors"
               >
                 Discord server
               </a>{" "}
-              and ask for assistance in the <strong>#help</strong> channel.
+              and ask for assistance in the <span className="font-medium text-foreground">#help</span> channel.
             </div>
           </div>
         </div>
@@ -1594,23 +1612,23 @@ export function ClaimsPanel({
           id="claims-panel"
           className={cn("flex max-h-[85vh] flex-col p-6", className)}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-border/60 pb-4">
+          <div className="flex items-start justify-between gap-4 border-b border-border/20 dark:border-border/40 pb-4">
             <div className="space-y-2">
-              <Skeleton className="h-7 w-60" />
-              <Skeleton className="h-4 w-72" />
+              <Skeleton className="h-7 w-60 rounded-lg" />
+              <Skeleton className="h-4 w-72 rounded-lg" />
             </div>
-            <Skeleton className="h-10 w-32 rounded-full" />
+            <Skeleton className="h-10 w-32 rounded-xl" />
           </div>
           <div className="flex-1 overflow-hidden pt-4">
             <ScrollArea className="h-full pr-2">
               <div className="space-y-4 pr-4">
-                <Skeleton className="h-5 w-40" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {[0, 1, 2].map((i) => (
-                    <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                <Skeleton className="h-4 w-40 rounded-lg" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[0, 1].map((i) => (
+                    <Skeleton key={i} className="h-28 w-full rounded-xl" />
                   ))}
                 </div>
-                <Skeleton className="h-5 w-44 mt-4" />
+                <Skeleton className="h-4 w-44 mt-4 rounded-lg" />
                 <div className="space-y-3">
                   {[0, 1, 2, 3].map((i) => (
                     <Skeleton key={i} className="h-20 w-full rounded-xl" />
@@ -1623,15 +1641,15 @@ export function ClaimsPanel({
       );
     }
     return (
-      <Card className="mb-8">
+      <Card className="mb-8 border-border/20 dark:border-border/40">
         <CardHeader>
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-64 mt-2" />
+          <Skeleton className="h-6 w-48 rounded-lg" />
+          <Skeleton className="h-4 w-64 mt-2 rounded-lg" />
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-20 w-full rounded-lg" />
+              <Skeleton key={i} className="h-20 w-full rounded-xl" />
             ))}
           </div>
         </CardContent>
@@ -1647,17 +1665,19 @@ export function ClaimsPanel({
           id="claims-panel"
           className={cn("flex max-h-[85vh] flex-col p-6", className)}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-border/60 pb-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xl font-semibold">
-                <AlertCircle className="h-5 w-5 text-destructive" />
+          <div className="flex items-start justify-between gap-4 border-b border-border/20 dark:border-border/40 pb-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 text-xl font-semibold text-foreground">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+                  <AlertCircle className="h-5 w-5" />
+                </div>
                 Error loading rewards
               </div>
               <div className="text-sm text-muted-foreground">
                 Failed to load your claimable rewards. Please try again.
               </div>
             </div>
-            <Button onClick={() => refetch()} variant="outline">
+            <Button onClick={() => refetch()} variant="outline" className="border-border/40 dark:border-border/60">
               Retry
             </Button>
           </div>
@@ -1665,10 +1685,12 @@ export function ClaimsPanel({
       );
     }
     return (
-      <Card className="mb-8">
+      <Card className="mb-8 border-border/20 dark:border-border/40">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-destructive" />
+          <CardTitle className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+              <AlertCircle className="w-5 h-5" />
+            </div>
             Error Loading Rewards
           </CardTitle>
         </CardHeader>
@@ -1676,7 +1698,7 @@ export function ClaimsPanel({
           <p className="text-muted-foreground mb-4">
             Failed to load your claimable rewards. Please try again.
           </p>
-          <Button onClick={() => refetch()} variant="outline">
+          <Button onClick={() => refetch()} variant="outline" className="border-border/40 dark:border-border/60">
             Retry
           </Button>
         </CardContent>
@@ -1729,7 +1751,7 @@ export function ClaimsPanel({
       </div>
 
       <div className="space-y-3">
-        <div className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
           Weekly Breakdown
         </div>
         <div className="space-y-3">
@@ -1750,18 +1772,18 @@ export function ClaimsPanel({
                 key={weekData.week}
                 defaultOpen={false}
                 className={cn(
-                  "rounded-xl border border-border/60 bg-background",
-                  isClaimed && "opacity-60 bg-muted/10"
+                  "rounded-xl border border-border/20 dark:border-border/40 bg-card",
+                  isClaimed && "opacity-60"
                 )}
               >
                 <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:gap-0">
                   <CollapsibleTrigger className="flex flex-1 flex-col gap-3 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                     <div className="flex items-center gap-3 sm:gap-4">
                       <div className="space-y-1">
-                        <div className="text-sm font-semibold md:text-base">
+                        <div className="text-sm font-medium text-foreground md:text-base">
                           Week {weekData.week}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70">
                           {formatWeekDate(weekData.week)}
                         </div>
                       </div>
@@ -1795,11 +1817,11 @@ export function ClaimsPanel({
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {totalRewards > 0 && (
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant="secondary" className="text-xs font-mono tabular-nums">
                           {totalRewards.toFixed(2)} GLW
                         </Badge>
                       )}
-                      <ChevronRight className="hidden h-4 w-4 text-muted-foreground sm:inline-block" />
+                      <ChevronRight className="hidden h-4 w-4 text-muted-foreground/50 dark:text-muted-foreground/70 sm:inline-block" />
                     </div>
                   </CollapsibleTrigger>
                   <ClaimButtonsWrapper
@@ -1817,7 +1839,7 @@ export function ClaimsPanel({
                     weekData={weekData}
                   />
                 </div>
-                <CollapsibleContent className="px-4 pb-4 pt-1 md:px-5 md:pb-5">
+                <CollapsibleContent className="px-4 pb-4 pt-1 md:px-5 md:pb-5 border-t border-border/20 dark:border-border/40">
                   <WeekRewardsContent
                     weekData={weekData}
                     glwClaimed={glwClaimed}
@@ -1854,15 +1876,17 @@ export function ClaimsPanel({
           id="claims-panel"
           className={cn("flex max-h-[85vh] flex-col p-6", className)}
         >
-          <div className="flex flex-col gap-4 border-b border-border/60 pb-4">
+          <div className="flex flex-col gap-4 border-b border-border/20 dark:border-border/40 pb-4">
             <div className="flex-1">
-              <div className="flex items-center gap-2 text-xl font-semibold md:text-2xl">
-                <Gift className="h-5 w-5 md:h-6 md:w-6" />
+              <div className="flex items-center gap-3 text-xl font-semibold md:text-2xl text-foreground">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground">
+                  <Gift className="h-5 w-5" />
+                </div>
                 {isEverythingClaimed
                   ? "Farm Rewards"
                   : "Farm Rewards Available"}
               </div>
-              <div className="mt-2 text-sm text-muted-foreground md:text-base">
+              <div className="mt-3 text-sm text-muted-foreground">
                 {isEverythingClaimed
                   ? "Your farm rewards history"
                   : "Claim your earned rewards from solar farm delegations"}
@@ -1875,17 +1899,19 @@ export function ClaimsPanel({
           </div>
         </div>
       ) : (
-        <Card id="claims-panel" className={cn("mb-8", className)}>
+        <Card id="claims-panel" className={cn("mb-8 border-border/20 dark:border-border/40", className)}>
           <CardHeader className="pb-4 md:pb-6">
             <div className="flex flex-col gap-4">
               <div className="flex-1">
-                <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
-                  <Gift className="w-5 h-5 md:w-6 md:h-6" />
+                <CardTitle className="flex items-center gap-3 text-xl md:text-2xl text-foreground">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground">
+                    <Gift className="w-5 h-5" />
+                  </div>
                   {isEverythingClaimed
                     ? "Farm Rewards"
                     : "Farm Rewards Available"}
                 </CardTitle>
-                <CardDescription className="mt-2 md:mt-3 text-sm md:text-base">
+                <CardDescription className="mt-3 text-sm text-muted-foreground">
                   {isEverythingClaimed
                     ? "Your farm rewards history"
                     : "Claim your earned rewards from solar farm delegations"}

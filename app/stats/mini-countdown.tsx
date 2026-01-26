@@ -26,25 +26,25 @@ export function MiniCountdown({ target }: { target: Date }) {
 
   return (
     <div className="grid grid-cols-4 gap-2">
-      <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
+      <div className="rounded-lg border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 text-center">
         <div className="text-2xl font-bold">{days}</div>
         <div className="text-xs uppercase tracking-wider text-muted-foreground">
           Days
         </div>
       </div>
-      <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
+      <div className="rounded-lg border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 text-center">
         <div className="text-2xl font-bold">{pad2(hours)}</div>
         <div className="text-xs uppercase tracking-wider text-muted-foreground">
           Hours
         </div>
       </div>
-      <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
+      <div className="rounded-lg border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 text-center">
         <div className="text-2xl font-bold">{pad2(minutes)}</div>
         <div className="text-xs uppercase tracking-wider text-muted-foreground">
           Min
         </div>
       </div>
-      <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
+      <div className="rounded-lg border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 text-center">
         <div className="text-2xl font-bold">{pad2(seconds)}</div>
         <div className="text-xs uppercase tracking-wider text-muted-foreground">
           Sec

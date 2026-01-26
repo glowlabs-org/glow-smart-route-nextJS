@@ -161,7 +161,7 @@ function FarmMosaicCard({ farm, onClick }: FarmMosaicCardProps) {
   return (
     <Card
       data-farm-id={farm.farmId}
-      className="group relative overflow-hidden cursor-pointer bg-muted/30 hover:bg-muted/10 transition-all duration-300 hover:-translate-y-1 border-border p-0 gap-0 h-full"
+      className="group relative overflow-hidden cursor-pointer bg-muted/30 dark:bg-muted/50 hover:bg-muted/50 dark:hover:bg-muted/60 transition-colors border-border/20 dark:border-border/40 p-0 gap-0 h-full"
       onClick={onClick}
     >
       <div className="relative h-full aspect-square w-full overflow-hidden bg-muted/20">
@@ -176,7 +176,7 @@ function FarmMosaicCard({ farm, onClick }: FarmMosaicCardProps) {
 
         {isPendingStart && (
           <div className="absolute top-2 right-2 z-10">
-            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold font-mono uppercase tracking-wider border bg-background/80 text-foreground border-border backdrop-blur-xl">
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold font-mono uppercase tracking-wider border bg-background/90 text-foreground border-border/40">
               <Clock className="w-2.5 h-2.5" />
               Soon
             </div>
@@ -186,7 +186,7 @@ function FarmMosaicCard({ farm, onClick }: FarmMosaicCardProps) {
         <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
           <Badge
             variant="secondary"
-            className="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md border-0 text-[9px] px-1.5 h-4 mb-1.5 font-medium w-fit"
+            className="bg-white/20 hover:bg-white/30 text-white border-0 text-[9px] px-1.5 h-4 mb-1.5 font-medium w-fit"
           >
             {farm.regionName}
           </Badge>
@@ -228,8 +228,8 @@ function FarmCard({
     isMiner || isOther
       ? timeBasedProgress
       : farm.initialCost > 0
-      ? (totalValue / farm.initialCost) * 100
-      : 0;
+        ? (totalValue / farm.initialCost) * 100
+        : 0;
   const isProfitable = roiPercent >= 100;
   const lastWeekLabel =
     typeof farm.lastWeekRewardsGlw === "number"
@@ -243,11 +243,11 @@ function FarmCard({
       return (
         <div
           className={cn(
-            "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border backdrop-blur-xl",
+            "flex items-center gap-1.5 rounded-lg font-bold font-mono uppercase tracking-wider border",
             isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]",
             inProgressIsMiningCenter
-              ? "border-[color:var(--color-miner)] bg-[color:var(--color-miner)]/12 text-[color:var(--color-miner)]"
-              : "border-delegation-purple bg-delegation-purple/12 text-delegation-purple"
+              ? "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]"
+              : "border-delegation-purple/30 bg-delegation-purple/10 text-delegation-purple",
           )}
         >
           {inProgressIsMiningCenter ? (
@@ -263,8 +263,8 @@ function FarmCard({
       return (
         <div
           className={cn(
-            "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border border-[color:var(--color-miner)] bg-[color:var(--color-miner)]/12 text-[color:var(--color-miner)] backdrop-blur-xl",
-            isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]"
+            "flex items-center gap-1.5 rounded-lg font-bold font-mono uppercase tracking-wider border border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]",
+            isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]",
           )}
         >
           <CashMinerIcon className={"w-5 h-5"} />
@@ -276,8 +276,8 @@ function FarmCard({
       return (
         <div
           className={cn(
-            "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border border-delegation-purple bg-delegation-purple/12 text-delegation-purple backdrop-blur-xl",
-            isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]"
+            "flex items-center gap-1.5 rounded-lg font-bold font-mono uppercase tracking-wider border border-delegation-purple/30 bg-delegation-purple/10 text-delegation-purple",
+            isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]",
           )}
         >
           <DelegationIcon className={"w-5 h-5"} />
@@ -288,8 +288,8 @@ function FarmCard({
     return (
       <div
         className={cn(
-          "flex items-center gap-1.5 rounded-xl font-bold font-mono uppercase tracking-wider border border-[color:var(--color-glow-green)] bg-[color:var(--color-glow-green)]/10 text-emerald-700 dark:text-[color:var(--color-glow-green)] backdrop-blur-xl",
-          isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]"
+          "flex items-center gap-1.5 rounded-lg font-bold font-mono uppercase tracking-wider border border-[color:var(--color-glow-green)]/30 bg-[color:var(--color-glow-green)]/10 text-emerald-700 dark:text-[color:var(--color-glow-green)]",
+          isCompact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]",
         )}
       >
         <Gift className={isCompact ? "w-2.5 h-2.5" : "w-3 h-3"} />
@@ -301,13 +301,13 @@ function FarmCard({
   return (
     <Card
       data-farm-id={farm.farmId}
-      className="group relative overflow-hidden cursor-pointer  bg-muted/30 hover:bg-muted/10 transition-all duration-300 hover:-translate-y-1 border-border p-0 gap-0"
+      className="group relative overflow-hidden cursor-pointer bg-muted/30 dark:bg-muted/50 hover:bg-muted/50 dark:hover:bg-muted/60 transition-colors border-border/20 dark:border-border/40 p-0 gap-0"
       onClick={onClick}
     >
       <div
         className={cn(
           "relative overflow-hidden bg-muted/20 transition-all",
-          isCompact ? "h-32" : "h-48"
+          isCompact ? "h-32" : "h-48",
         )}
       >
         <FallbackImage
@@ -322,7 +322,7 @@ function FarmCard({
           <div
             className={cn(
               "absolute z-10 flex items-center justify-end gap-2",
-              isCompact ? "top-2 right-2" : "top-3 right-3"
+              isCompact ? "top-2 right-2" : "top-3 right-3",
             )}
           >
             {auditUrl && (
@@ -331,10 +331,10 @@ function FarmCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-xl font-bold font-mono tracking-wider border bg-background/80 text-foreground border-border backdrop-blur-xl hover:bg-background/90 transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-lg font-bold font-mono tracking-wider border bg-background/90 text-foreground border-border/40 hover:bg-background transition-colors",
                   isCompact
                     ? "px-1.5 py-0.5 text-[9px]"
-                    : "px-2 py-1 text-[10px]"
+                    : "px-2 py-1 text-[10px]",
                 )}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -356,15 +356,15 @@ function FarmCard({
         <div
           className={cn(
             "absolute z-10 left-4 right-4",
-            isCompact ? "bottom-2.5 left-3 right-3" : "bottom-4 left-4 right-4"
+            isCompact ? "bottom-2.5 left-3 right-3" : "bottom-4 left-4 right-4",
           )}
         >
           <div className="flex items-center gap-2 mb-1.5">
             <Badge
               variant="secondary"
               className={cn(
-                "bg-white/20 hover:bg-white/30 text-white backdrop-blur-md border-0 font-medium",
-                isCompact ? "text-[9px] px-1 h-4" : "text-[10px] px-1.5 h-5"
+                "bg-white/20 hover:bg-white/30 text-white border-0 font-medium",
+                isCompact ? "text-[9px] px-1 h-4" : "text-[10px] px-1.5 h-5",
               )}
             >
               {farm.regionName}
@@ -373,7 +373,7 @@ function FarmCard({
           <h3
             className={cn(
               "font-bold text-white leading-tight truncate",
-              isCompact ? "text-sm" : "text-xl"
+              isCompact ? "text-sm" : "text-xl",
             )}
           >
             {farm.farmName}
@@ -386,7 +386,7 @@ function FarmCard({
             <div
               className={cn(
                 "flex items-center justify-between",
-                isCompact ? "text-[10px]" : "text-xs"
+                isCompact ? "text-[10px]" : "text-xs",
               )}
             >
               <span className="text-muted-foreground font-medium">
@@ -406,14 +406,14 @@ function FarmCard({
             <div
               className={cn(
                 "grid",
-                isCompact ? "grid-cols-2 gap-2" : "grid-cols-3 gap-4"
+                isCompact ? "grid-cols-2 gap-2" : "grid-cols-3 gap-4",
               )}
             >
               <div>
                 <div
                   className={cn(
                     "uppercase tracking-wider text-muted-foreground font-semibold mb-1",
-                    isCompact ? "text-[9px]" : "text-[10px]"
+                    isCompact ? "text-[9px]" : "text-[10px]",
                   )}
                 >
                   Active
@@ -421,7 +421,7 @@ function FarmCard({
                 <div
                   className={cn(
                     "font-mono font-medium",
-                    isCompact ? "text-xs" : "text-sm"
+                    isCompact ? "text-xs" : "text-sm",
                   )}
                 >
                   {isPendingStart
@@ -434,7 +434,7 @@ function FarmCard({
                   <div
                     className={cn(
                       "uppercase tracking-wider text-muted-foreground font-semibold mb-1",
-                      "text-[10px]"
+                      "text-[10px]",
                     )}
                   >
                     Last Week
@@ -450,7 +450,7 @@ function FarmCard({
                 <div
                   className={cn(
                     "uppercase tracking-wider text-muted-foreground font-semibold mb-1",
-                    isCompact ? "text-[9px]" : "text-[10px]"
+                    isCompact ? "text-[9px]" : "text-[10px]",
                   )}
                 >
                   {isPendingStart && farm.estimatedUserWeeklyGlw
@@ -464,10 +464,10 @@ function FarmCard({
                     isPendingStart
                       ? "text-muted-foreground"
                       : isMiner
-                      ? "text-[color:var(--color-miner-contrast)]"
-                      : isDelegation
-                      ? "text-delegation-purple"
-                      : "text-emerald-700 dark:text-[color:var(--color-glow-green)]"
+                        ? "text-[color:var(--color-miner-contrast)]"
+                        : isDelegation
+                          ? "text-delegation-purple"
+                          : "text-emerald-700 dark:text-[color:var(--color-glow-green)]",
                   )}
                 >
                   {isPendingStart
@@ -480,7 +480,7 @@ function FarmCard({
                   <div
                     className={cn(
                       "text-[10px] font-mono text-muted-foreground mt-1",
-                      isCompact && "text-[9px]"
+                      isCompact && "text-[9px]",
                     )}
                   >
                     Last week:{" "}
@@ -495,7 +495,7 @@ function FarmCard({
               <div
                 className={cn(
                   "flex items-center justify-between font-medium text-muted-foreground",
-                  isCompact ? "text-[9px]" : "text-[10px]"
+                  isCompact ? "text-[9px]" : "text-[10px]",
                 )}
               >
                 <span>
@@ -503,8 +503,8 @@ function FarmCard({
                   {isOther
                     ? `${farm.weeksActive} / ${farm.totalWeeks} wks`
                     : isMiner
-                    ? fmtUsd(farm.initialCost)
-                    : `${fmtGlw(farm.initialCost)} GLW`}
+                      ? fmtUsd(farm.initialCost)
+                      : `${fmtGlw(farm.initialCost)} GLW`}
                 </span>
                 <span
                   className={cn(
@@ -512,8 +512,8 @@ function FarmCard({
                     isPendingStart
                       ? "text-muted-foreground"
                       : isProfitable
-                      ? "text-emerald-500"
-                      : "text-foreground"
+                        ? "text-emerald-500"
+                        : "text-foreground",
                   )}
                 >
                   {isPendingStart
@@ -526,21 +526,21 @@ function FarmCard({
                 className={cn(
                   "bg-muted",
                   isCompact ? "h-1" : "h-1.5",
-                  isProfitable && !isPendingStart && "[&>div]:bg-emerald-500"
+                  isProfitable && !isPendingStart && "[&>div]:bg-emerald-500",
                 )}
               />
             </div>
             <div
               className={cn(
-                "border-t border-border/50 flex justify-between items-center",
-                isCompact ? "pt-1.5" : "pt-2"
+                "border-t border-border/20 dark:border-border/40 flex justify-between items-center",
+                isCompact ? "pt-1.5" : "pt-2",
               )}
             >
               {getTypeBadge()}
               <div
                 className={cn(
                   "font-medium text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform",
-                  isCompact ? "text-[10px]" : "text-xs"
+                  isCompact ? "text-[10px]" : "text-xs",
                 )}
               >
                 {!isCompact && "View Details"}{" "}
@@ -593,7 +593,7 @@ function FarmDetailDialog({
     if (isOther && farm.isProtocolDepositUsd) {
       const asset = farm.protocolDepositAsset ?? "USD";
       return `${fmtGlw(farm.inflationGlw)} GLW + ${fmtUsdAmount(
-        farm.recovered
+        farm.recovered,
       )} ${asset}`;
     }
     return `${fmtGlw(totalEarnedGlw)} GLW`;
@@ -601,13 +601,13 @@ function FarmDetailDialog({
 
   const progressPercent = Math.min(
     (farm.weeksActive / Math.max(farm.totalWeeks, 1)) * 100,
-    100
+    100,
   );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] p-0 gap-0 flex flex-col overflow-hidden border-0 sm:border sm:rounded-2xl bg-background/95 backdrop-blur-xl">
-        <DialogHeader className="px-6 py-5 shrink-0 border-b border-border/50 bg-muted/10 backdrop-blur-sm z-20 relative">
+      <DialogContent className="max-w-4xl h-[90vh] p-0 gap-0 flex flex-col overflow-hidden border-0 sm:border sm:border-border/20 sm:rounded-2xl bg-card">
+        <DialogHeader className="px-6 py-5 shrink-0 border-b border-border/20 bg-muted/30 z-20 relative">
           <Button
             variant="ghost"
             size="icon"
@@ -633,19 +633,19 @@ function FarmDetailDialog({
             </div>
             <div className="flex items-center gap-2">
               {farm.type === "miner" && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-[color:var(--color-miner-contrast)] bg-[color:var(--color-miner)]/12 border-[color:var(--color-miner)]">
-                  <CashMinerIcon className="w-5 h-5" />
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-[color:var(--color-miner)] bg-[color:var(--color-miner)]/10 border-[color:var(--color-miner)]/30">
+                  <CashMinerIcon className="w-4 h-4" />
                   Miner
                 </div>
               )}
               {farm.type === "delegation" && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-delegation-purple bg-delegation-purple/12 border-delegation-purple">
-                  <DelegationIcon className="w-5 h-5" />
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-delegation-purple bg-delegation-purple/10 border-delegation-purple/30">
+                  <DelegationIcon className="w-4 h-4" />
                   Delegation
                 </div>
               )}
               {farm.type === "other" && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-emerald-700 dark:text-[color:var(--color-glow-green)] bg-[color:var(--color-glow-green)]/10 border-[color:var(--color-glow-green)]">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border text-emerald-700 dark:text-[color:var(--color-glow-green)] bg-[color:var(--color-glow-green)]/10 border-[color:var(--color-glow-green)]/30">
                   <Gift className="w-3.5 h-3.5" />
                   Rewards
                 </div>
@@ -655,14 +655,14 @@ function FarmDetailDialog({
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider border",
                     farm.inProgressKind === "mining-center"
-                      ? "text-[color:var(--color-miner-contrast)] bg-[color:var(--color-miner)]/12 border-[color:var(--color-miner)]"
-                      : "text-delegation-purple bg-delegation-purple/12 border-delegation-purple"
+                      ? "text-[color:var(--color-miner)] bg-[color:var(--color-miner)]/10 border-[color:var(--color-miner)]/30"
+                      : "text-delegation-purple bg-delegation-purple/10 border-delegation-purple/30",
                   )}
                 >
                   {farm.inProgressKind === "mining-center" ? (
-                    <CashMinerIcon className="w-5 h-5" />
+                    <CashMinerIcon className="w-4 h-4" />
                   ) : (
-                    <DelegationIcon className="w-5 h-5" />
+                    <DelegationIcon className="w-4 h-4" />
                   )}
                   In Progress
                 </div>
@@ -674,7 +674,7 @@ function FarmDetailDialog({
         <div className="flex-1 overflow-y-auto">
           <div className="p-6 md:p-8 space-y-8 max-w-4xl mx-auto w-full">
             {/* Farm Image Grid */}
-            <div className="rounded-2xl overflow-hidden border border-border/50">
+            <div className="rounded-2xl overflow-hidden border border-border/20">
               {farm.imageUrls.length >= 3 ? (
                 <div className="grid grid-cols-3 grid-rows-2 gap-1 h-[360px]">
                   <div className="col-span-2 row-span-2 relative">
@@ -743,21 +743,28 @@ function FarmDetailDialog({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Invested / Delegated */}
               {!isInProgress && !isPendingStart && !isOther && (
-                <Card className="bg-card/50 border-border/60 backdrop-blur-sm">
+                <Card className="bg-muted/30 border-border/20">
                   <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <div className="p-1.5 rounded-xl bg-muted/50">
+                      <div
+                        className={cn(
+                          "p-1.5 rounded-lg",
+                          isMiner
+                            ? "bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]"
+                            : "bg-delegation-purple/10 text-delegation-purple",
+                        )}
+                      >
                         {isMiner ? (
-                          <CashMinerIcon className="w-6 h-6" />
+                          <CashMinerIcon className="w-5 h-5" />
                         ) : (
-                          <DelegationIcon className="w-6 h-6" />
+                          <DelegationIcon className="w-5 h-5" />
                         )}
                       </div>
-                      <div className="text-[11px] font-bold font-mono uppercase tracking-wider">
+                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
                         {isMiner ? "Initial Cost" : "Total Delegated"}
                       </div>
                     </div>
-                    <div className="text-3xl font-bold font-mono tracking-tight text-foreground">
+                    <div className="text-3xl font-semibold font-mono tracking-tight text-foreground">
                       {investedLabel}
                     </div>
                   </CardContent>
@@ -767,40 +774,34 @@ function FarmDetailDialog({
               {/* Total Earned */}
               <Card
                 className={cn(
-                  "bg-card/50 border-border/60 backdrop-blur-sm relative overflow-hidden",
-                  (isInProgress || isPendingStart || isOther) && "md:col-span-2"
+                  "bg-muted/30 border-border/20 relative overflow-hidden",
+                  (isInProgress || isPendingStart || isOther) &&
+                    "md:col-span-2",
                 )}
               >
-                {/* Subtle gradient glow */}
-                <div
-                  className={cn(
-                    "absolute top-0 right-0 w-48 h-48 bg-gradient-to-br opacity-10 blur-3xl rounded-full translate-x-12 -translate-y-12",
-                    isMiner
-                      ? "from-[var(--color-miner)] to-transparent"
-                      : "from-delegation-purple to-transparent"
-                  )}
-                />
                 <CardContent className="p-6 flex flex-col h-full justify-between gap-4 relative z-10">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <div
                         className={cn(
-                          "p-1.5 rounded-xl bg-muted/50",
+                          "p-1.5 rounded-lg",
                           isMiner
-                            ? "text-[color:var(--color-miner-contrast)]"
-                            : "text-delegation-purple"
+                            ? "bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]"
+                            : farm.type === "delegation"
+                              ? "bg-delegation-purple/10 text-delegation-purple"
+                              : "bg-[#4ADE80]/10 text-[#4ADE80]",
                         )}
                       >
                         <Gift className="w-4 h-4" />
                       </div>
-                      <div className="text-[11px] font-bold font-mono uppercase tracking-wider">
+                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
                         {isInProgress || isPendingStart
                           ? "Est. Weekly Rewards"
                           : "Lifetime Earnings"}
                       </div>
                     </div>
                     {!isInProgress && !isPendingStart && !isOther && (
-                      <div className="text-xs font-mono font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-xl">
+                      <div className="text-xs font-mono font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-lg">
                         {farm.initialCost > 0
                           ? `${Math.round(
                               ((farm.recovered +
@@ -808,7 +809,7 @@ function FarmDetailDialog({
                                   ? farm.inflation
                                   : farm.inflationGlw)) /
                                 farm.initialCost) *
-                                100
+                                100,
                             )}%`
                           : "—"}
                       </div>
@@ -816,11 +817,11 @@ function FarmDetailDialog({
                   </div>
                   <div
                     className={cn(
-                      "text-3xl font-bold font-mono tracking-tight",
-                      isMiner && "text-[color:var(--color-miner-contrast)]",
+                      "text-3xl font-semibold font-mono tracking-tight",
+                      isMiner && "text-[color:var(--color-miner)]",
                       farm.type === "delegation" && "text-delegation-purple",
                       isOther &&
-                        "text-emerald-700 dark:text-[color:var(--color-glow-green)]"
+                        "text-emerald-700 dark:text-[color:var(--color-glow-green)]",
                     )}
                   >
                     {earnedLabel}
@@ -830,30 +831,30 @@ function FarmDetailDialog({
 
               {/* Time Progress */}
               {!isInProgress && !isPendingStart && (
-                <Card className="bg-card/50 border-border/60 backdrop-blur-sm">
+                <Card className="bg-muted/30 border-border/20">
                   <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-muted-foreground">
-                        <div className="p-1.5 rounded-xl bg-muted/50">
+                        <div className="p-1.5 rounded-lg bg-muted/50">
                           <Clock className="w-4 h-4" />
                         </div>
-                        <div className="text-[11px] font-bold font-mono uppercase tracking-wider">
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
                           Timeline
                         </div>
                       </div>
-                      <div className="text-xs font-mono font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-xl">
+                      <div className="text-xs font-mono font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-lg">
                         {Math.round(progressPercent)}%
                       </div>
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-baseline justify-between">
-                        <div className="text-2xl font-bold font-mono tracking-tight">
+                        <div className="text-2xl font-semibold font-mono tracking-tight">
                           {farm.weeksActive}
-                          <span className="text-muted-foreground text-sm ml-1 font-normal">
+                          <span className="text-muted-foreground/60 text-sm ml-1 font-normal">
                             wks
                           </span>
                         </div>
-                        <div className="text-sm font-mono text-muted-foreground">
+                        <div className="text-sm font-mono text-muted-foreground/60">
                           {farm.totalWeeks} wks total
                         </div>
                       </div>
@@ -868,24 +869,35 @@ function FarmDetailDialog({
 
               {/* In Progress Funding */}
               {isInProgress && (
-                <Card className="bg-card/50 border-border/60 backdrop-blur-sm">
+                <Card className="bg-muted/30 border-border/20">
                   <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <div className="p-1.5 rounded-xl bg-muted/50">
-                        <DelegationIcon className="w-6 h-6" />
+                      <div
+                        className={cn(
+                          "p-1.5 rounded-lg",
+                          farm.inProgressKind === "mining-center"
+                            ? "bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]"
+                            : "bg-delegation-purple/10 text-delegation-purple",
+                        )}
+                      >
+                        {farm.inProgressKind === "mining-center" ? (
+                          <CashMinerIcon className="w-5 h-5" />
+                        ) : (
+                          <DelegationIcon className="w-5 h-5" />
+                        )}
                       </div>
-                      <div className="text-[11px] font-bold font-mono uppercase tracking-wider">
+                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
                         Funding Progress
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <div className="text-3xl font-bold font-mono tracking-tight">
+                      <div className="text-3xl font-semibold font-mono tracking-tight">
                         {Math.round(farm.inProgressPercent ?? 0)}%
                       </div>
                       <Progress
                         value={Math.max(
                           0,
-                          Math.min(100, farm.inProgressPercent ?? 0)
+                          Math.min(100, farm.inProgressPercent ?? 0),
                         )}
                         className="h-2 bg-muted"
                       />
@@ -896,17 +908,17 @@ function FarmDetailDialog({
 
               {/* Pending Start Status */}
               {isPendingStart && (
-                <Card className="bg-card/50 border-border/60 backdrop-blur-sm">
+                <Card className="bg-muted/30 border-border/20">
                   <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <div className="p-1.5 rounded-xl bg-muted/50">
-                        <Clock className="w-6 h-6" />
+                      <div className="p-1.5 rounded-lg bg-muted/50">
+                        <Clock className="w-5 h-5" />
                       </div>
-                      <div className="text-[11px] font-bold font-mono uppercase tracking-wider">
+                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
                         Status
                       </div>
                     </div>
-                    <div className="text-2xl font-bold font-mono tracking-tight text-foreground">
+                    <div className="text-2xl font-semibold font-mono tracking-tight text-foreground">
                       Starts Soon
                     </div>
                   </CardContent>
@@ -917,11 +929,11 @@ function FarmDetailDialog({
             {/* Breakdown Section */}
             {!isInProgress && !isPendingStart && (
               <div className="space-y-4">
-                <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-muted-foreground px-1">
+                <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 px-1">
                   Rewards Breakdown
                 </h3>
-                <Card className="bg-card border-border/60 overflow-hidden py-0">
-                  <div className="divide-y divide-border/50">
+                <Card className="bg-muted/30 border-border/20 overflow-hidden py-0">
+                  <div className="divide-y divide-border/20">
                     {!isMiner && (
                       <div className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
                         <div className="flex items-center gap-3">
@@ -984,14 +996,14 @@ function FarmDetailDialog({
               !isPendingStart &&
               farm.weeklyBreakdown.length > 0 && (
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-muted-foreground px-1">
+                  <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 px-1">
                     Weekly History
                   </h3>
-                  <div className="rounded-xl border border-border/50 bg-card/50 overflow-hidden backdrop-blur-sm">
+                  <div className="rounded-xl border border-border/20 bg-muted/30 overflow-hidden">
                     <div className="custom-scrollbar">
                       <table className="w-full text-sm border-collapse">
-                        <thead className="sticky top-0 bg-muted/90 backdrop-blur-md z-10">
-                          <tr className="border-b border-border/50">
+                        <thead className="sticky top-0 bg-muted/80 z-10">
+                          <tr className="border-b border-border/20">
                             <th className="text-left py-3.5 px-6 font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-24">
                               Week
                             </th>
@@ -1008,19 +1020,19 @@ function FarmDetailDialog({
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-border/30">
+                        <tbody className="divide-y divide-border/20">
                           {farm.weeklyBreakdown
                             .slice()
                             .reverse()
                             .map((week) => {
                               const pdGlw = parseGlwFromWei(
-                                week.protocolDepositRewards
+                                week.protocolDepositRewards,
                               );
                               const inflationGlw = parseGlwFromWei(
-                                week.inflationRewards
+                                week.inflationRewards,
                               );
                               const totalGlw = parseGlwFromWei(
-                                week.totalRewards
+                                week.totalRewards,
                               );
 
                               return (
@@ -1079,7 +1091,7 @@ export default function MyFarmsGridSection({
   const source = "my_farms_grid_section";
 
   const [selectedFarm, setSelectedFarm] = React.useState<FarmCardData | null>(
-    null
+    null,
   );
   const [viewMode, setViewMode] = React.useState<
     "default" | "compact" | "list" | "mosaic"
@@ -1129,8 +1141,8 @@ export default function MyFarmsGridSection({
             .filter((id) => Number.isFinite(id));
           const sponsoredFarmsByRegion = await Promise.all(
             regionIds.map((regionId) =>
-              getRegionRouter().fetchRegionSolarFarms(regionId)
-            )
+              getRegionRouter().fetchRegionSolarFarms(regionId),
+            ),
           );
           return sponsoredFarmsByRegion.flat();
         } catch {
@@ -1247,8 +1259,8 @@ export default function MyFarmsGridSection({
         (f) =>
           `${f.farmId}:${
             f.type === "launchpad" ? "launchpad" : "mining-center"
-          }`
-      )
+          }`,
+      ),
     );
   }, [rewardsBreakdown]);
 
@@ -1461,7 +1473,7 @@ export default function MyFarmsGridSection({
         ) {
           // Miner: only inflation from mining-center splits (no PD recovery)
           estimatedUserWeeklyGlw = parseGlwFromWei(
-            farmMetadata.userWeeklyRewards.glwInflationRewardsFromMiner
+            farmMetadata.userWeeklyRewards.glwInflationRewardsFromMiner,
           );
         } else if (
           !isMiningCenter &&
@@ -1469,22 +1481,22 @@ export default function MyFarmsGridSection({
         ) {
           // Delegation: inflation from delegation splits + PD recovery
           const delegationInflationGlw = parseGlwFromWei(
-            farmMetadata.userWeeklyRewards.glwInflationRewardsFromDelegation
+            farmMetadata.userWeeklyRewards.glwInflationRewardsFromDelegation,
           );
           const pdGlw = parseGlwFromWei(
-            farmMetadata.userWeeklyRewards.protocolDepositRewards
+            farmMetadata.userWeeklyRewards.protocolDepositRewards,
           );
           estimatedUserWeeklyGlw = delegationInflationGlw + pdGlw;
         } else {
           // Fallback for old API response (no breakdown fields)
           const inflationGlw = parseGlwFromWei(
-            farmMetadata.userWeeklyRewards.glwInflationRewards
+            farmMetadata.userWeeklyRewards.glwInflationRewards,
           );
           const pdAsset = farmMetadata.userWeeklyRewards.protocolDepositAsset;
           const isPdGlw = pdAsset === "GLW";
           const pdGlw = isPdGlw
             ? parseGlwFromWei(
-                farmMetadata.userWeeklyRewards.protocolDepositRewards
+                farmMetadata.userWeeklyRewards.protocolDepositRewards,
               )
             : 0;
           estimatedUserWeeklyGlw = inflationGlw + pdGlw;
@@ -1515,7 +1527,7 @@ export default function MyFarmsGridSection({
         });
       } else {
         const initialCostUsd = parseUsdcFromBaseUnits(
-          item.totalAmount.toString()
+          item.totalAmount.toString(),
         );
         cards.push({
           farmKey: `${item.farmId}:miner:pending-start`,
@@ -1688,9 +1700,6 @@ export default function MyFarmsGridSection({
 
   return (
     <>
-      <h3 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-6">
-        My Farms
-      </h3>
       <div className="flex flex-row items-center justify-between gap-2 sm:gap-4 mb-6">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider hidden sm:block">
@@ -1720,7 +1729,7 @@ export default function MyFarmsGridSection({
           </Select>
         </div>
 
-        <div className="flex items-center bg-muted/50 p-1 rounded-lg border border-border/50">
+        <div className="flex items-center bg-muted/30 dark:bg-muted/50 p-1 rounded-lg border border-border/20 dark:border-border/40">
           <Button
             variant={viewMode === "default" ? "secondary" : "ghost"}
             size="sm"
@@ -1793,10 +1802,10 @@ export default function MyFarmsGridSection({
       </div>
 
       {viewMode === "list" ? (
-        <div className="rounded-xl border border-border/50 bg-card/50 overflow-hidden backdrop-blur-sm mb-8">
+        <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 overflow-hidden mb-8">
           <Table>
             <TableHeader>
-              <TableRow className="hover:bg-transparent border-border/50">
+              <TableRow className="hover:bg-transparent border-border/20 dark:border-border/40">
                 <TableHead className="w-[300px] text-[10px] uppercase tracking-wider font-mono font-bold">
                   Item
                 </TableHead>
@@ -1835,15 +1844,15 @@ export default function MyFarmsGridSection({
                   isMiner || isOther
                     ? timeBasedProgress
                     : farm.initialCost > 0
-                    ? ((farm.recovered + farm.inflation) / farm.initialCost) *
-                      100
-                    : 0;
+                      ? ((farm.recovered + farm.inflation) / farm.initialCost) *
+                        100
+                      : 0;
 
                 return (
                   <TableRow
                     key={farm.farmKey}
                     data-farm-id={farm.farmId}
-                    className="cursor-pointer border-border/50 hover:bg-muted/40 transition-colors group"
+                    className="cursor-pointer border-border/20 dark:border-border/40 hover:bg-muted/50 dark:hover:bg-muted/60 transition-colors group"
                     onClick={() => {
                       trackEvent("dashboard_my_farm_click", {
                         source,
@@ -1883,13 +1892,13 @@ export default function MyFarmsGridSection({
                             "inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-bold font-mono uppercase tracking-wider border",
                             inProgressIsMiningCenter
                               ? "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]"
-                              : "border-delegation-purple/30 bg-delegation-purple/10 text-delegation-purple"
+                              : "border-delegation-purple/30 bg-delegation-purple/10 text-delegation-purple",
                           )}
                         >
                           In Progress
                         </div>
                       ) : isPendingStart ? (
-                        <div className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-bold font-mono uppercase tracking-wider border bg-muted/50 text-muted-foreground border-border/50">
+                        <div className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-bold font-mono uppercase tracking-wider border bg-muted/50 text-muted-foreground border-border/40">
                           Starts Soon
                         </div>
                       ) : (
@@ -1899,15 +1908,15 @@ export default function MyFarmsGridSection({
                             isMiner
                               ? "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]"
                               : isDelegation
-                              ? "border-delegation-purple/30 bg-delegation-purple/10 text-delegation-purple"
-                              : "border-[color:var(--color-glow-green)]/30 bg-[color:var(--color-glow-green)]/10 text-emerald-700 dark:text-[color:var(--color-glow-green)]"
+                                ? "border-delegation-purple/30 bg-delegation-purple/10 text-delegation-purple"
+                                : "border-[color:var(--color-glow-green)]/30 bg-[color:var(--color-glow-green)]/10 text-emerald-700 dark:text-[color:var(--color-glow-green)]",
                           )}
                         >
                           {isMiner
                             ? "Miner"
                             : isDelegation
-                            ? "Delegation"
-                            : "Rewards"}
+                              ? "Delegation"
+                              : "Rewards"}
                         </div>
                       )}
                     </TableCell>
@@ -1915,15 +1924,15 @@ export default function MyFarmsGridSection({
                       {isPendingStart
                         ? "Pending"
                         : isInProgress
-                        ? "—"
-                        : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
+                          ? "—"
+                          : `${farm.weeksActive} / ${farm.totalWeeks} wks`}
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
                       {isInProgress
                         ? "—"
                         : isMiner
-                        ? fmtUsd(farm.initialCost)
-                        : `${fmtGlw(farm.initialCost)} GLW`}
+                          ? fmtUsd(farm.initialCost)
+                          : `${fmtGlw(farm.initialCost)} GLW`}
                     </TableCell>
                     <TableCell className="text-right">
                       {isInProgress ? (
@@ -1937,10 +1946,10 @@ export default function MyFarmsGridSection({
                             isPendingStart
                               ? "text-muted-foreground"
                               : isMiner
-                              ? "text-[color:var(--color-miner-contrast)]"
-                              : isDelegation
-                              ? "text-delegation-purple"
-                              : "text-emerald-700 dark:text-[color:var(--color-glow-green)]"
+                                ? "text-[color:var(--color-miner-contrast)]"
+                                : isDelegation
+                                  ? "text-delegation-purple"
+                                  : "text-emerald-700 dark:text-[color:var(--color-glow-green)]",
                           )}
                         >
                           {isPendingStart
@@ -1948,7 +1957,7 @@ export default function MyFarmsGridSection({
                               ? `~${fmtGlw(farm.estimatedUserWeeklyGlw)} GLW/wk`
                               : "Pending"
                             : `${fmtGlw(
-                                farm.recovered + farm.inflationGlw
+                                farm.recovered + farm.inflationGlw,
                               )} GLW`}
                         </span>
                       )}
@@ -1985,7 +1994,7 @@ export default function MyFarmsGridSection({
                             "font-mono text-xs font-bold",
                             roiPercent >= 100
                               ? "text-emerald-500"
-                              : "text-muted-foreground"
+                              : "text-muted-foreground",
                           )}
                         >
                           {roiPercent.toFixed(0)}%
@@ -2005,8 +2014,8 @@ export default function MyFarmsGridSection({
             viewMode === "mosaic"
               ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
               : viewMode === "compact"
-              ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-              : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+                : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
           )}
         >
           {farmCards.map((farm) =>
@@ -2042,7 +2051,7 @@ export default function MyFarmsGridSection({
                 isCompact={viewMode === "compact"}
                 showAuditButton={viewMode === "default"}
               />
-            )
+            ),
           )}
         </div>
       )}

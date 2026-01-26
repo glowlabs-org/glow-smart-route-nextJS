@@ -86,7 +86,7 @@ function getIndicatorsStateFromRow(
     | "endWeekMultiplier"
     | "glowWorthWei"
     | "composition"
-  >
+  >,
 ): ImpactIndicatorsState {
   const hasMinerMultiplier = Boolean(row.hasMinerMultiplier);
   const baseMultiplier = hasMinerMultiplier ? 3 : 1;
@@ -116,7 +116,7 @@ function getIndicatorsStateFromProjection(
       glowWorthWei: string;
       inflationGlwWei: string;
     };
-  } | null
+  } | null,
 ): ImpactIndicatorsState {
   if (!projection) {
     return {
@@ -174,62 +174,53 @@ function SortIcon(props: { dir: "asc" | "desc" }) {
 
 function ConnectWalletRankingEmptyState() {
   return (
-    <div className="relative rounded-xl border border-border bg-muted/10 p-4 overflow-hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none select-none blur-[10px] opacity-60"
-      >
-        <div className="flex items-start justify-between gap-6">
-          <div className="space-y-1">
-            <div className="font-mono text-3xl md:text-5xl font-bold tracking-tight tabular-nums">
-              12,345.67
+    <div className="rounded-xl border border-dashed border-border/60 bg-background dark:bg-muted/30 p-6 md:p-8">
+      <div className="flex flex-col items-center justify-center text-center gap-4">
+        {/* Decorative placeholder metrics */}
+        <div className="flex items-center gap-6 opacity-40">
+          <div className="text-center">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
+              Points
             </div>
-            <div className="text-xs text-muted-foreground font-mono">
-              0x1234…abcd
+            <div className="font-mono text-2xl font-semibold text-muted-foreground/60 tabular-nums">
+              —
             </div>
           </div>
+          <div className="h-8 w-px bg-border/60" />
+          <div className="text-center">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
+              Rank
+            </div>
+            <div className="font-mono text-2xl font-semibold text-muted-foreground/60 tabular-nums">
+              —
+            </div>
+          </div>
+          <div className="h-8 w-px bg-border/60" />
+          <div className="text-center">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
+              Percentile
+            </div>
+            <div className="font-mono text-2xl font-semibold text-muted-foreground/60 tabular-nums">
+              —
+            </div>
+          </div>
+        </div>
 
-          <div className="flex flex-col items-end gap-3">
-            <div className="rounded-full border border-border bg-background/60 dark:bg-muted/20 px-4 py-2 text-sm font-mono">
-              Top 12%
-            </div>
+        {/* CTA section */}
+        <div className="mt-2 space-y-3">
+          <div className="text-sm font-semibold text-foreground">
+            Connect to see your ranking
           </div>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          <div className="text-sm font-semibold">Progress</div>
-          <div className="relative h-14 rounded-xl border border-border bg-muted/20 overflow-hidden">
-            <div className="absolute inset-y-0 left-0 w-[58%] bg-[#4ADE80]" />
-            <div
-              className="absolute top-1/2 -translate-y-1/2"
-              style={{ left: "58%" }}
-            >
-              <div className="translate-x-[-100%] rounded-lg border border-[#4ADE80]/40 bg-background/70 px-2.5 py-1 text-xs font-mono tabular-nums text-foreground backdrop-blur-sm">
-                58%
-              </div>
-            </div>
+          <div className="text-xs text-muted-foreground max-w-[20rem]">
+            View your impact score, track your progress, and compete on the
+            leaderboard.
           </div>
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-sm text-muted-foreground font-mono">
-              1,234 pts to Top 25%
-            </div>
-            <div className="h-9 w-28 rounded-2xl border border-border bg-background/60 dark:bg-muted/20" />
-          </div>
+          <ConnectButton
+            variant="default"
+            size="medium"
+            className="w-full max-w-xs mt-2"
+          />
         </div>
-      </div>
-
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center gap-3 px-4">
-        <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          Connect your wallet
-        </div>
-        <div className="text-sm text-muted-foreground max-w-[28rem]">
-          Connect to see your rank and impact score.
-        </div>
-        <ConnectButton
-          variant="default"
-          size="medium"
-          className="w-full max-w-xs"
-        />
       </div>
     </div>
   );
@@ -244,7 +235,7 @@ function getNextCacheUpdateAtMs() {
       now.getUTCDate(),
       now.getUTCHours(),
       now.getUTCMinutes(),
-      now.getUTCSeconds()
+      now.getUTCSeconds(),
     );
 
     // Find next Sunday at 01:00 UTC
@@ -259,7 +250,7 @@ function getNextCacheUpdateAtMs() {
         now.getUTCDate(),
         1,
         0,
-        0
+        0,
       );
     }
 
@@ -275,7 +266,7 @@ function getNextCacheUpdateAtMs() {
       nextSundayDate.getUTCDate(),
       1,
       0,
-      0
+      0,
     );
   } catch {
     return Date.now() + 7 * 24 * 60 * 60 * 1000;
@@ -309,7 +300,7 @@ function ImpactHeroSkeleton(props: { remainingMsToCacheUpdate: number }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border-border/60 bg-background/60 dark:bg-muted/20 py-0">
+        <Card className="border-border/20 dark:border-border/40 bg-transparent dark:bg-muted/30 py-0">
           <CardContent className="px-6 py-6 space-y-5">
             <div className="flex items-start justify-between gap-6">
               <div className="space-y-3">
@@ -326,7 +317,7 @@ function ImpactHeroSkeleton(props: { remainingMsToCacheUpdate: number }) {
 
             <div className="space-y-3">
               <div className="text-sm font-semibold">Progress</div>
-              <div className="relative h-14 rounded-xl border border-border bg-muted/20 overflow-hidden">
+              <div className="relative h-14 rounded-xl border border-border/40 bg-background dark:bg-muted/20 overflow-hidden">
                 <div className="absolute inset-0 bg-[repeating-linear-gradient(135deg,rgba(0,0,0,0.06)_0,rgba(0,0,0,0.06)_10px,transparent_10px,transparent_20px)] dark:bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.08)_0,rgba(255,255,255,0.08)_10px,transparent_10px,transparent_20px)]" />
                 <div className="absolute top-1/2 -translate-y-1/2 right-4">
                   <Skeleton className="h-7 w-14 rounded-lg" />
@@ -340,7 +331,7 @@ function ImpactHeroSkeleton(props: { remainingMsToCacheUpdate: number }) {
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-background/60 dark:bg-muted/20 py-0">
+        <Card className="border-border/20 dark:border-border/40 bg-transparent dark:bg-muted/30 py-0">
           <CardContent className="px-6 py-6 space-y-4">
             <div className="inline-flex items-center gap-2 text-sm font-semibold">
               <Info className="h-4 w-4" />
@@ -348,7 +339,7 @@ function ImpactHeroSkeleton(props: { remainingMsToCacheUpdate: number }) {
             </div>
 
             <div className="space-y-2">
-              <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/10 p-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border/60 bg-background dark:bg-muted/30 p-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-56 rounded-md" />
                   <Skeleton className="h-3 w-72 rounded-md" />
@@ -356,7 +347,7 @@ function ImpactHeroSkeleton(props: { remainingMsToCacheUpdate: number }) {
                 <Skeleton className="h-9 w-full rounded-2xl sm:w-28" />
               </div>
 
-              <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/10 p-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border/60 bg-background dark:bg-muted/30 p-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-56 rounded-md" />
                   <Skeleton className="h-3 w-72 rounded-md" />
@@ -365,7 +356,7 @@ function ImpactHeroSkeleton(props: { remainingMsToCacheUpdate: number }) {
               </div>
             </div>
 
-            <div className="rounded-xl border border-border bg-muted/10 p-3 space-y-2">
+            <div className="rounded-xl border border-dashed border-border/60 bg-background dark:bg-muted/30 p-4 space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <Skeleton className="h-3 w-44 rounded-md" />
                 <Skeleton className="h-5 w-28 rounded-md" />
@@ -409,7 +400,7 @@ function ImpactHero(props: {
   const selfLeaderboardRow = React.useMemo(() => {
     if (!normalizedAddress) return null;
     return rows.find(
-      (r) => r.walletAddress?.toLowerCase() === normalizedAddress
+      (r) => r.walletAddress?.toLowerCase() === normalizedAddress,
     );
   }, [rows, normalizedAddress]);
 
@@ -427,8 +418,8 @@ function ImpactHero(props: {
   const selfPoints = selfScoreQuery.data?.totals?.totalPoints
     ? safeNumber(selfScoreQuery.data.totals.totalPoints)
     : selfLeaderboardRow
-    ? safeNumber(selfLeaderboardRow.totalPoints)
-    : 0;
+      ? safeNumber(selfLeaderboardRow.totalPoints)
+      : 0;
   const isZeroScore =
     Boolean(address) &&
     !isSelfLoading &&
@@ -442,14 +433,14 @@ function ImpactHero(props: {
     // Find how many people in cached leaderboard have MORE points than current score
     const ranksAhead = rows.filter(
       (row: ImpactGlowScoreLeaderboardRow) =>
-        safeNumber(row.totalPoints) > selfPoints
+        safeNumber(row.totalPoints) > selfPoints,
     ).length;
 
     return ranksAhead + 1;
   }, [normalizedAddress, selfPoints, rows]);
 
   const selfGlobalRank = normalizedAddress
-    ? globalRankByWallet.get(normalizedAddress) ?? null
+    ? (globalRankByWallet.get(normalizedAddress) ?? null)
     : null;
 
   // Use estimated rank if current points suggest a better position
@@ -500,7 +491,7 @@ function ImpactHero(props: {
 
     // If target rank is outside cached rows, find first row with more points
     const higherRankRow = rows.find(
-      (row) => safeNumber(row.totalPoints) > selfPoints
+      (row) => safeNumber(row.totalPoints) > selfPoints,
     );
 
     return higherRankRow ?? null;
@@ -513,11 +504,11 @@ function ImpactHero(props: {
     targetPoints > 0 && targetPoints > selfPoints
       ? Math.min(selfPoints / targetPoints, 1)
       : targetPoints > 0 && selfPoints >= targetPoints
-      ? 1
-      : 0;
+        ? 1
+        : 0;
   const progressPercent = Math.min(
     100,
-    Math.max(0, Math.round(progressToTarget * 100))
+    Math.max(0, Math.round(progressToTarget * 100)),
   );
   const progressBadgeLeft = Math.min(98, Math.max(12, progressPercent));
 
@@ -550,38 +541,36 @@ function ImpactHero(props: {
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            Weekly scorecard
-          </div>
-          <div className="text-xl font-semibold">Glow Impact Leaderboard</div>
+          <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
+            Glow Impact Leaderboard
+          </h2>
           {weekRange ? (
-            <div className="text-xs text-muted-foreground font-mono">
-              Weeks {weekRange.startWeek}–{weekRange.endWeek} · Updates weekly
-              on Sunday at 01:00 UTC
+            <div className="text-sm text-muted-foreground font-mono">
+              Weeks {weekRange.startWeek}–{weekRange.endWeek}
             </div>
           ) : null}
         </div>
-        <div className="flex flex-col items-start gap-2 sm:items-end">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 dark:bg-muted/20 px-3 py-2">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-              Next update
-            </div>
-            <AnimatedCountdownDhms
-              remainingMs={remainingMsToCacheUpdate}
-              size="sm"
-              showLabels
-            />
-          </div>
+        <div className="flex items-center gap-2">
           {isRefreshing ? (
-            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground animate-pulse">
               Updating…
             </div>
-          ) : null}
+          ) : (
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/30 dark:border-border/50 bg-muted/50 dark:bg-muted/60 px-3 py-1.5">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                Next update
+              </span>
+              <AnimatedCountdownDhms
+                remainingMs={remainingMsToCacheUpdate}
+                size="xs"
+              />
+            </div>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border-border/60 bg-background/60 dark:bg-muted/20 py-0">
+        <Card className="border-border/20 dark:border-border/40 bg-transparent dark:bg-muted/30 py-0">
           <CardContent className="px-6 py-6 space-y-4">
             <div className="space-y-2">
               <div className="inline-flex items-center gap-2 text-sm font-semibold">
@@ -591,66 +580,74 @@ function ImpactHero(props: {
               {!address ? (
                 <ConnectWalletRankingEmptyState />
               ) : isSelfLoading ? (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-20 rounded-md" />
-                    <Skeleton className="h-12 w-40 rounded-xl" />
-                    <Skeleton className="h-4 w-32 rounded-md" />
-                  </div>
-                  <div className="space-y-2 sm:text-right">
-                    <Skeleton className="h-4 w-20 rounded-md sm:ml-auto" />
-                    <Skeleton className="h-12 w-44 rounded-xl sm:ml-auto" />
-                    <Skeleton className="h-4 w-28 rounded-md sm:ml-auto" />
+                <div className="rounded-xl border border-dashed border-border/60 bg-background dark:bg-muted/30 p-6">
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Skeleton className="h-3 w-16 rounded-md" />
+                      <Skeleton className="h-10 w-36 rounded-xl" />
+                      <Skeleton className="h-3 w-24 rounded-md" />
+                    </div>
+                    <div className="space-y-2 sm:text-right">
+                      <Skeleton className="h-3 w-16 rounded-md sm:ml-auto" />
+                      <Skeleton className="h-10 w-32 rounded-xl sm:ml-auto" />
+                      <Skeleton className="h-3 w-20 rounded-md sm:ml-auto" />
+                    </div>
                   </div>
                 </div>
               ) : selfScoreQuery.isError ? (
-                <div className="text-sm text-muted-foreground">
-                  Unable to load your score.
+                <div className="rounded-xl border border-dashed border-border/60 bg-background dark:bg-muted/30 p-6 text-center">
+                  <div className="text-sm text-muted-foreground">
+                    Unable to load your score.
+                  </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="min-w-0 space-y-1">
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                      Points
+                <div className="rounded-xl border border-border/40 bg-background dark:bg-muted/30 p-6">
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div className="min-w-0 space-y-1">
+                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                        Points
+                      </div>
+                      <div className="font-mono text-3xl md:text-4xl font-semibold tracking-tight tabular-nums">
+                        {formatNumber(selfPoints, { maximumFractionDigits: 2 })}{" "}
+                        <span className="text-sm text-muted-foreground font-normal">
+                          pts
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        {shortAddress(address)}
+                      </div>
                     </div>
-                    <div className="font-mono text-3xl md:text-5xl font-bold tracking-tight tabular-nums">
-                      {formatNumber(selfPoints, { maximumFractionDigits: 2 })}{" "}
-                      <span className="text-xs text-muted-foreground">pts</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground font-mono">
-                      {shortAddress(address)}
-                    </div>
-                  </div>
 
-                  <div className="min-w-0 space-y-1 sm:text-right">
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                      Ranking
-                    </div>
-                    <div className="font-mono text-2xl md:text-3xl font-bold tracking-tight tabular-nums">
-                      {displayRank ? (
-                        <>#{displayRank.toLocaleString("en-US")}</>
-                      ) : (
-                        <>
-                          Below Top{" "}
-                          {formatTopPercentile(listThresholdPercentile)}
-                        </>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted-foreground font-mono">
-                      {displayRank ? (
-                        <>
-                          Top {formatTopPercentile(selfPercentile)}
-                          {estimatedCurrentRank &&
-                          selfGlobalRank &&
-                          estimatedCurrentRank < selfGlobalRank ? (
-                            <span className="ml-1 text-[color:var(--color-glow-green)]">
-                              ↑
-                            </span>
-                          ) : null}
-                        </>
-                      ) : (
-                        <>Rank not available outside current list</>
-                      )}
+                    <div className="min-w-0 space-y-1 sm:text-right">
+                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                        Ranking
+                      </div>
+                      <div className="font-mono text-2xl md:text-3xl font-semibold tracking-tight tabular-nums">
+                        {displayRank ? (
+                          <>#{displayRank.toLocaleString("en-US")}</>
+                        ) : (
+                          <>
+                            Below Top{" "}
+                            {formatTopPercentile(listThresholdPercentile)}
+                          </>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        {displayRank ? (
+                          <>
+                            Top {formatTopPercentile(selfPercentile)}
+                            {estimatedCurrentRank &&
+                            selfGlobalRank &&
+                            estimatedCurrentRank < selfGlobalRank ? (
+                              <span className="ml-1 text-[color:var(--color-glow-green)]">
+                                ↑
+                              </span>
+                            ) : null}
+                          </>
+                        ) : (
+                          <>Rank not available outside current list</>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -658,7 +655,7 @@ function ImpactHero(props: {
             </div>
 
             {isZeroScore ? (
-              <div className="rounded-2xl border border-border bg-muted/10 p-6 md:p-7">
+              <div className="rounded-2xl border border-border/40 bg-background dark:bg-muted/30 p-6 md:p-7">
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-2">
                     <div className="text-sm font-mono uppercase tracking-wider text-muted-foreground">
@@ -695,7 +692,7 @@ function ImpactHero(props: {
                 {targetRank > 0 && targetRow && targetPoints > 0 ? (
                   <div className="space-y-2">
                     <div className="text-sm font-semibold">Progress</div>
-                    <div className="relative h-14 rounded-xl border border-border bg-muted/20 overflow-hidden">
+                    <div className="relative h-14 rounded-xl border border-border/40 bg-background dark:bg-muted/20 overflow-hidden">
                       <div
                         className="absolute inset-y-0 left-0 bg-[#4ADE80]"
                         style={{ width: `${progressPercent}%` }}
@@ -772,7 +769,7 @@ function ImpactHero(props: {
               <div className="space-y-3">
                 <div className="space-y-2">
                   <div className="text-sm font-semibold">Progress</div>
-                  <div className="relative h-14 rounded-xl border border-border bg-muted/20 overflow-hidden">
+                  <div className="relative h-14 rounded-xl border border-border/40 bg-background dark:bg-muted/20 overflow-hidden">
                     <div className="absolute inset-0 bg-[repeating-linear-gradient(135deg,rgba(0,0,0,0.06)_0,rgba(0,0,0,0.06)_10px,transparent_10px,transparent_20px)] dark:bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.08)_0,rgba(255,255,255,0.08)_10px,transparent_10px,transparent_20px)]" />
                     <div className="absolute top-1/2 -translate-y-1/2 right-4">
                       <Skeleton className="h-7 w-14 rounded-lg" />
@@ -788,7 +785,7 @@ function ImpactHero(props: {
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-background/60 dark:bg-muted/20 py-0">
+        <Card className="border-border/20 dark:border-border/40 bg-transparent dark:bg-muted/30 py-0">
           <CardContent className="px-6 py-6 space-y-4">
             <div className="inline-flex items-center gap-2 text-sm font-semibold">
               <Info className="h-4 w-4" />
@@ -798,20 +795,20 @@ function ImpactHero(props: {
             <div className="space-y-2">
               <div
                 className={cn(
-                  "flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-start sm:justify-between transition-colors",
+                  "flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-start sm:justify-between transition-colors",
                   hasMinerMultiplier
                     ? "border-[color:var(--color-miner)]/30 bg-[color:var(--color-miner)]/10"
-                    : "border-border bg-muted/10 opacity-60"
+                    : "border-dashed border-border/60 bg-background dark:bg-muted/30",
                 )}
               >
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <CashMinerIcon
                       className={cn(
                         "h-6 w-6",
                         hasMinerMultiplier
                           ? "text-[color:var(--color-miner)]"
-                          : "text-muted-foreground"
+                          : "text-muted-foreground",
                       )}
                     />
                     <div className="text-sm font-semibold">
@@ -822,10 +819,10 @@ function ImpactHero(props: {
                     ) : (
                       <span
                         className={cn(
-                          "ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono",
+                          "ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider",
                           hasMinerMultiplier
                             ? "border-[color:var(--color-miner)]/35 bg-[color:var(--color-miner)]/15 text-foreground"
-                            : "border-border bg-muted/20 text-muted-foreground"
+                            : "border-border/60 bg-muted/50 dark:bg-muted/60 text-muted-foreground",
                         )}
                       >
                         {hasMinerMultiplier ? "ACTIVE" : "INACTIVE"}
@@ -838,7 +835,7 @@ function ImpactHero(props: {
                 </div>
                 <Button
                   variant={hasMinerMultiplier ? "outline" : "default"}
-                  className="h-9 w-full rounded-2xl px-4 sm:w-auto"
+                  className="h-9 w-full rounded-2xl px-4 sm:w-auto shrink-0"
                   type="button"
                   onClick={() => setIsLaunchpadOpen(true)}
                 >
@@ -848,20 +845,20 @@ function ImpactHero(props: {
 
               <div
                 className={cn(
-                  "flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-start sm:justify-between transition-colors",
+                  "flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-start sm:justify-between transition-colors",
                   hasSteeringStake
                     ? "border-[#22D3EE]/30 bg-[#22D3EE]/10"
-                    : "border-border bg-muted/10 opacity-60"
+                    : "border-dashed border-border/60 bg-background dark:bg-muted/30",
                 )}
               >
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <SteeringIcon
                       className={cn(
                         "h-6 w-6",
                         hasSteeringStake
                           ? "text-[#22D3EE]"
-                          : "text-muted-foreground"
+                          : "text-muted-foreground",
                       )}
                     />
                     <div className="text-sm font-semibold">
@@ -872,10 +869,10 @@ function ImpactHero(props: {
                     ) : (
                       <span
                         className={cn(
-                          "ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono",
+                          "ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider",
                           hasSteeringStake
                             ? "border-[#22D3EE]/30 bg-[#22D3EE]/10 text-foreground"
-                            : "border-border bg-muted/20 text-muted-foreground"
+                            : "border-border/60 bg-muted/50 dark:bg-muted/60 text-muted-foreground",
                         )}
                       >
                         {hasSteeringStake ? "ACTIVE" : "INACTIVE"}
@@ -888,7 +885,7 @@ function ImpactHero(props: {
                 </div>
                 <Button
                   variant={hasSteeringStake ? "outline" : "default"}
-                  className="h-9 w-full rounded-2xl px-4 sm:w-auto"
+                  className="h-9 w-full rounded-2xl px-4 sm:w-auto shrink-0"
                   type="button"
                   onClick={() => setIsMintAndStakeOpen(true)}
                 >
@@ -899,20 +896,20 @@ function ImpactHero(props: {
 
             <div
               className={cn(
-                "flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-start sm:justify-between transition-colors",
+                "flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-start sm:justify-between transition-colors",
                 hasDelegations
                   ? "border-delegation-purple/30 bg-delegation-purple/10"
-                  : "border-border bg-muted/10 opacity-60"
+                  : "border-dashed border-border/60 bg-background dark:bg-muted/30",
               )}
             >
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <VaultIcon
                     className={cn(
                       "h-6 w-6",
                       hasDelegations
                         ? "text-delegation-purple"
-                        : "text-muted-foreground"
+                        : "text-muted-foreground",
                     )}
                   />
                   <div className="text-sm font-semibold">
@@ -920,19 +917,15 @@ function ImpactHero(props: {
                   </div>
                   {isSelfLoading ? (
                     <Skeleton className="h-5 w-20 rounded-full ml-2" />
-                  ) : address ? (
+                  ) : (
                     <span
                       className={cn(
-                        "ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono",
+                        "ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider",
                         hasDelegations
                           ? "border-delegation-purple/30 bg-delegation-purple/10 text-foreground"
-                          : "border-border bg-muted/20 text-muted-foreground"
+                          : "border-border/60 bg-muted/50 dark:bg-muted/60 text-muted-foreground",
                       )}
                     >
-                      {hasDelegations ? "ACTIVE" : "INACTIVE"}
-                    </span>
-                  ) : (
-                    <span className="ml-2 inline-flex items-center rounded-full border border-border bg-muted/20 px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
                       {hasDelegations ? "ACTIVE" : "INACTIVE"}
                     </span>
                   )}
@@ -948,7 +941,7 @@ function ImpactHero(props: {
               ) : (
                 <Button
                   variant={address && hasDelegations ? "outline" : "default"}
-                  className="h-9 w-full rounded-2xl px-4 sm:w-auto"
+                  className="h-9 w-full rounded-2xl px-4 sm:w-auto shrink-0"
                   type="button"
                   onClick={() => setIsLaunchpadOpen(true)}
                 >
@@ -998,11 +991,11 @@ export function ImpactView() {
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
   const [search, setSearch] = useQueryState(
     "search",
-    parseAsString.withDefault("")
+    parseAsString.withDefault(""),
   );
   const [sort, setSort] = useQueryState(
     "sort",
-    parseAsString.withDefault("totalPoints")
+    parseAsString.withDefault("totalPoints"),
   );
   const [dir, setDir] = useQueryState("dir", parseAsString.withDefault("desc"));
 
@@ -1041,7 +1034,7 @@ export function ImpactView() {
     const rawWallets = leaderboardQuery.data?.wallets ?? [];
     return rawWallets.filter(
       (row): row is ImpactGlowScoreLeaderboardRow =>
-        "walletAddress" in row && !("isSystemRow" in row)
+        "walletAddress" in row && !("isSystemRow" in row),
     );
   }, [leaderboardQuery.data?.wallets]);
 
@@ -1053,7 +1046,7 @@ export function ImpactView() {
 
   const allWalletAddresses = React.useMemo(
     () => allRows.map((row) => row.walletAddress),
-    [allRows]
+    [allRows],
   );
 
   const { ensNames: allEnsNames } = useEnsNames({
@@ -1092,7 +1085,7 @@ export function ImpactView() {
         // ignore
       }
     },
-    [setDir, setPage, setSort, sort, sortDir]
+    [setDir, setPage, setSort, sort, sortDir],
   );
 
   // Sorting is backend-driven; filtering preserves backend order.
@@ -1106,7 +1099,7 @@ export function ImpactView() {
 
   const pageRows = React.useMemo(
     () => orderedRows.slice(startIdx, endIdx),
-    [endIdx, orderedRows, startIdx]
+    [endIdx, orderedRows, startIdx],
   );
 
   const topWallet = React.useMemo(() => {
@@ -1124,7 +1117,7 @@ export function ImpactView() {
   }, [allRows]);
 
   const [cacheUpdateAtMs, setCacheUpdateAtMs] = React.useState(() =>
-    getNextCacheUpdateAtMs()
+    getNextCacheUpdateAtMs(),
   );
 
   const remainingMsToCacheUpdate = useCountdownTo({
@@ -1134,7 +1127,7 @@ export function ImpactView() {
 
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [selectedWallet, setSelectedWallet] = React.useState<string | null>(
-    null
+    null,
   );
 
   const handleRowClick = React.useCallback((walletAddress: string) => {
@@ -1144,7 +1137,7 @@ export function ImpactView() {
 
   return (
     <div className="space-y-8">
-      <div className="rounded-2xl border border-border bg-muted/10 p-4 md:p-6 space-y-4">
+      <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12 space-y-6">
         <ImpactHero
           weekRange={weekRange}
           totalWalletCount={totalWalletCount}
@@ -1159,26 +1152,28 @@ export function ImpactView() {
         />
       </div>
 
-      <div className="rounded-2xl border border-border overflow-hidden bg-card">
-        <div className="flex flex-col gap-4 px-6 py-4 border-b border-border bg-muted/20 sm:flex-row sm:items-center sm:justify-between">
+      <div className="rounded-3xl border border-border/20 overflow-hidden bg-card">
+        <div className="flex flex-col gap-4 px-8 py-6 border-b border-border/20 dark:border-border/40 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-1">
-            <div className="text-xl font-semibold">Leaderboard</div>
+            <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
+              Leaderboard
+            </h3>
             {leaderboardQuery.isLoading ? (
-              <div className="space-y-1">
-                <Skeleton className="h-4 w-80 rounded-md" />
-              </div>
+              <Skeleton className="h-4 w-80 rounded-md" />
             ) : weekRange ? (
-              <div className="text-xs text-muted-foreground font-mono">
-                Weeks {weekRange.startWeek}–{weekRange.endWeek} · Showing{" "}
-                {orderedRows.length === 0 ? 0 : `${startIdx + 1}–${endIdx}`} of{" "}
+              <div className="text-sm text-muted-foreground font-mono">
+                Weeks {weekRange.startWeek}–{weekRange.endWeek}
+                <span className="text-muted-foreground/40"> · </span>
+                Showing {orderedRows.length === 0 ? 0 : `${startIdx + 1}–${endIdx}`} of{" "}
                 {orderedRows.length.toLocaleString("en-US")}
                 {searchLower
                   ? ` (filtered from ${allRows.length.toLocaleString("en-US")})`
                   : ""}
-                {" · "}Total wallets{" "}
+                <span className="text-muted-foreground/40"> · </span>
                 {totalWalletCountDisplay == null
                   ? "—"
-                  : totalWalletCountDisplay.toLocaleString("en-US")}
+                  : totalWalletCountDisplay.toLocaleString("en-US")}{" "}
+                wallets
               </div>
             ) : null}
           </div>
@@ -1223,11 +1218,11 @@ export function ImpactView() {
 
         {leaderboardQuery.isLoading ? (
           <>
-            <div className="md:hidden p-4 space-y-3">
+            <div className="md:hidden p-6 space-y-3">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}
-                  className="rounded-xl border border-border bg-muted/10 p-4 space-y-3"
+                  className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-4 space-y-3"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="space-y-2">
@@ -1250,9 +1245,9 @@ export function ImpactView() {
               ))}
             </div>
 
-            <div className="hidden md:block p-6 space-y-4">
+            <div className="hidden md:block p-8 space-y-4">
               <Table>
-                <TableHeader className="bg-muted/10">
+                <TableHeader className="bg-muted/30 dark:bg-muted/50">
                   <TableRow>
                     <TableHead className="w-20 h-11 px-3">
                       <Skeleton className="h-3 w-16 rounded-md" />
@@ -1326,11 +1321,11 @@ export function ImpactView() {
           <>
             <div
               className={cn(
-                "md:hidden",
-                isLeaderboardRefreshing && "opacity-60"
+                "md:hidden p-6",
+                isLeaderboardRefreshing && "opacity-60",
               )}
             >
-              <div className="divide-y divide-border">
+              <div className="space-y-3">
                 {pageRows.map((row) => {
                   const globalRank =
                     row.globalRank ??
@@ -1357,19 +1352,22 @@ export function ImpactView() {
                     <div
                       key={row.walletAddress}
                       className={cn(
-                        "px-4 py-4 cursor-pointer relative overflow-hidden transition-all",
+                        "p-4 rounded-xl cursor-pointer relative overflow-hidden transition-all border",
                         isConnectedUser &&
-                          "bg-[color:var(--color-glow-orange)]/12 dark:bg-[color:var(--color-glow-orange)]/8 ring-1 ring-inset ring-[color:var(--color-glow-orange)]/30 z-10",
+                          "bg-[color:var(--color-glow-orange)]/12 dark:bg-[color:var(--color-glow-orange)]/8 border-[color:var(--color-glow-orange)]/30 z-10",
                         isRank1 &&
                           !isConnectedUser &&
-                          "bg-[color:var(--color-glow-yellow)]/20 dark:bg-[color:var(--color-glow-yellow)]/10 border-y border-[color:var(--color-glow-yellow)]/30",
+                          "bg-[color:var(--color-glow-yellow)]/20 dark:bg-[color:var(--color-glow-yellow)]/10 border-[color:var(--color-glow-yellow)]/30",
                         isRank2 &&
                           !isConnectedUser &&
-                          "bg-[color:var(--color-glow-green)]/20 dark:bg-[color:var(--color-glow-green)]/10 border-y border-[color:var(--color-glow-green)]/30",
+                          "bg-[color:var(--color-glow-green)]/20 dark:bg-[color:var(--color-glow-green)]/10 border-[color:var(--color-glow-green)]/30",
                         isRank3 &&
                           !isConnectedUser &&
-                          "bg-[color:var(--color-glow-purple)]/20 dark:bg-[color:var(--color-glow-purple)]/10 border-y border-[color:var(--color-glow-purple)]/30",
-                        "hover:bg-muted/20"
+                          "bg-[color:var(--color-glow-purple)]/20 dark:bg-[color:var(--color-glow-purple)]/10 border-[color:var(--color-glow-purple)]/30",
+                        !isConnectedUser &&
+                          !isTop3 &&
+                          "border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50",
+                        "hover:bg-muted/40 dark:hover:bg-muted/60",
                       )}
                       role="button"
                       tabIndex={0}
@@ -1407,7 +1405,7 @@ export function ImpactView() {
                             <span
                               className={cn(
                                 "min-w-0 truncate font-mono text-sm",
-                                isTop3 && "font-bold"
+                                isTop3 && "font-bold",
                               )}
                             >
                               {ensName ?? shortAddress(row.walletAddress)}
@@ -1450,7 +1448,7 @@ export function ImpactView() {
                           "mt-3 font-mono text-3xl font-bold tracking-tight tabular-nums relative z-10",
                           isRank1
                             ? "text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-yellow)]"
-                            : "text-foreground"
+                            : "text-foreground",
                         )}
                       >
                         {formatImpactPoints(row.totalPoints, 2)}
@@ -1504,24 +1502,24 @@ export function ImpactView() {
 
             <div
               className={cn(
-                "hidden md:block",
-                isLeaderboardRefreshing && "opacity-60"
+                "hidden md:block p-8",
+                isLeaderboardRefreshing && "opacity-60",
               )}
             >
               <Table>
-                <TableHeader className="bg-muted/10">
-                  <TableRow>
-                    <TableHead className="w-20 h-11 px-3 text-xs font-mono uppercase tracking-wider">
+                <TableHeader>
+                  <TableRow className="bg-muted/40 dark:bg-muted/50 hover:bg-muted/40">
+                    <TableHead className="w-20 h-11 px-4 text-xs font-mono uppercase tracking-wider text-muted-foreground rounded-tl-xl">
                       Rank
                     </TableHead>
-                    <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider min-w-[220px]">
+                    <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider text-muted-foreground min-w-[220px]">
                       Wallet
                     </TableHead>
                     <TableHead className="h-11 px-3 text-right w-[180px]">
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-8 px-2 font-mono text-xs uppercase tracking-wider"
+                        className="h-8 px-2 font-mono text-xs uppercase tracking-wider text-muted-foreground"
                         onClick={() => handleSortClick("totalPoints")}
                       >
                         Total Points
@@ -1536,7 +1534,7 @@ export function ImpactView() {
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-8 px-2 font-mono text-xs uppercase tracking-wider"
+                        className="h-8 px-2 font-mono text-xs uppercase tracking-wider text-muted-foreground"
                         onClick={() => handleSortClick("lastWeekPoints")}
                       >
                         Last week
@@ -1551,7 +1549,7 @@ export function ImpactView() {
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-8 px-2 font-mono text-xs uppercase tracking-wider"
+                        className="h-8 px-2 font-mono text-xs uppercase tracking-wider text-muted-foreground"
                         onClick={() => handleSortClick("glowWorth")}
                       >
                         Glow Worth
@@ -1562,10 +1560,10 @@ export function ImpactView() {
                         ) : null}
                       </Button>
                     </TableHead>
-                    <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider hidden lg:table-cell w-[220px] max-w-[260px]">
+                    <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider text-muted-foreground hidden lg:table-cell w-[220px] max-w-[260px]">
                       Point Sources
                     </TableHead>
-                    <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider hidden md:table-cell w-[140px] max-w-[160px]">
+                    <TableHead className="h-11 px-3 text-xs font-mono uppercase tracking-wider text-muted-foreground hidden md:table-cell w-[140px] max-w-[160px] rounded-tr-xl">
                       Multipliers
                     </TableHead>
                   </TableRow>
@@ -1601,14 +1599,16 @@ export function ImpactView() {
                             "bg-[color:var(--color-glow-orange)]/12 dark:bg-[color:var(--color-glow-orange)]/8 ring-1 ring-inset ring-[color:var(--color-glow-orange)]/30",
                           isRank1 &&
                             !isConnectedUser &&
-                            "bg-[color:var(--color-glow-yellow)]/30 dark:bg-[color:var(--color-glow-yellow)]/10 hover:bg-[color:var(--color-glow-yellow)]/40 dark:hover:bg-[color:var(--color-glow-yellow)]/15",
+                            "bg-[color:var(--color-glow-yellow)]/20 dark:bg-[color:var(--color-glow-yellow)]/10 hover:bg-[color:var(--color-glow-yellow)]/30 dark:hover:bg-[color:var(--color-glow-yellow)]/15",
                           isRank2 &&
                             !isConnectedUser &&
-                            "bg-[color:var(--color-glow-green)]/30 dark:bg-[color:var(--color-glow-green)]/10 hover:bg-[color:var(--color-glow-green)]/40 dark:hover:bg-[color:var(--color-glow-green)]/15",
+                            "bg-[color:var(--color-glow-green)]/20 dark:bg-[color:var(--color-glow-green)]/10 hover:bg-[color:var(--color-glow-green)]/30 dark:hover:bg-[color:var(--color-glow-green)]/15",
                           isRank3 &&
                             !isConnectedUser &&
-                            "bg-[color:var(--color-glow-purple)]/30 dark:bg-[color:var(--color-glow-purple)]/10 hover:bg-[color:var(--color-glow-purple)]/40 dark:hover:bg-[color:var(--color-glow-purple)]/15",
-                          !isTop3 && "hover:bg-muted/20"
+                            "bg-[color:var(--color-glow-purple)]/20 dark:bg-[color:var(--color-glow-purple)]/10 hover:bg-[color:var(--color-glow-purple)]/30 dark:hover:bg-[color:var(--color-glow-purple)]/15",
+                          !isTop3 &&
+                            !isConnectedUser &&
+                            "hover:bg-muted/40 dark:hover:bg-muted/60",
                         )}
                         onClick={() => handleRowClick(row.walletAddress)}
                       >
@@ -1640,7 +1640,7 @@ export function ImpactView() {
                                     <span
                                       className={cn(
                                         "text-sm font-medium",
-                                        isTop3 && "font-bold text-foreground"
+                                        isTop3 && "font-bold text-foreground",
                                       )}
                                     >
                                       {allEnsNames[row.walletAddress]}
@@ -1655,7 +1655,7 @@ export function ImpactView() {
                                   <span
                                     className={cn(
                                       "font-mono text-sm",
-                                      isTop3 && "font-bold text-foreground"
+                                      isTop3 && "font-bold text-foreground",
                                     )}
                                   >
                                     {shortAddress(row.walletAddress)}
@@ -1693,7 +1693,7 @@ export function ImpactView() {
                             "text-right font-mono tabular-nums py-3 px-3 text-base font-semibold",
                             isRank1
                               ? "text-[color:var(--color-glow-black)] dark:text-[color:var(--color-glow-yellow)]"
-                              : "text-foreground"
+                              : "text-foreground",
                           )}
                         >
                           {formatImpactPoints(row.totalPoints, 0)}
@@ -1725,7 +1725,7 @@ export function ImpactView() {
         )}
 
         {!leaderboardQuery.isLoading && orderedRows.length > 0 ? (
-          <div className="flex flex-col gap-3 px-6 py-4 border-t border-border bg-background">
+          <div className="flex flex-col gap-3 px-8 py-6 border-t border-border/20 dark:border-border/40">
             <div className="flex items-center justify-between">
               <div className="text-xs text-muted-foreground font-mono">
                 Page {safePage} of {totalPages}
@@ -1750,7 +1750,7 @@ export function ImpactView() {
                             {pageNum}
                           </PaginationLink>
                         </PaginationItem>
-                      )
+                      ),
                     )
                   ) : (
                     <>

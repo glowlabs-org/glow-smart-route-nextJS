@@ -82,12 +82,14 @@ export function SwapDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm p-0 overflow-hidden bg-background rounded-2xl border-border shadow-2xl">
-        <DialogHeader className="p-6 pb-0">
-          <DialogTitle>Swap Tokens</DialogTitle>
+      <DialogContent className="sm:max-w-sm p-0 gap-0 overflow-hidden bg-card rounded-[24px] border border-border/40">
+        <DialogHeader className="px-6 pt-6 pb-3">
+          <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+            Swap Tokens
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="p-6 pt-2 overflow-y-auto max-h-[85vh]">
+        <div className="px-5 pb-5 overflow-y-auto max-h-[85vh]">
           {hasError ? (
             <div className="space-y-3">
               <div className="text-sm text-muted-foreground">

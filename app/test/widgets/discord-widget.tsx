@@ -55,7 +55,7 @@ export default function DiscordWidget({
     >
       <Card
         className={cn(
-          "relative flex h-full flex-col overflow-hidden transition-all border-0 bg-[#5865F2] text-white shadow-xl group-hover:bg-[#4752C4] group-focus-visible:ring-2 group-focus-visible:ring-white/30",
+          "relative flex h-full flex-col overflow-hidden transition-all border-0 bg-[#5865F2] dark:bg-[#5865F2] text-white group-hover:bg-[#4752C4] dark:group-hover:bg-[#4752C4] group-focus-visible:ring-2 group-focus-visible:ring-white/30",
           className
         )}
       >

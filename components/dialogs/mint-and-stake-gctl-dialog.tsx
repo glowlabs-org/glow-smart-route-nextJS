@@ -1540,13 +1540,13 @@ export function MintAndStakeGctlDialog({
       <Dialog open={open} onOpenChange={handleDialogOpenChange}>
         <DialogContent
           showCloseButton={false}
-          className="bg-background backdrop-blur-sm rounded-2xl p-0 sm:max-w-md w-full border-border overflow-hidden flex flex-col gap-0 max-h-[calc(100dvh-2rem)]"
+          className="bg-card rounded-2xl p-0 sm:max-w-md w-full border border-border/40 overflow-hidden flex flex-col gap-0 max-h-[calc(100dvh-2rem)]"
         >
           {/* Header */}
           {step === 4 ? (
             <></>
           ) : (
-            <DialogHeader className="px-5 py-4 border-b border-border/60">
+            <DialogHeader className="px-5 py-4 border-b border-border/40">
               <div className="flex items-center justify-between gap-3">
                 {step !== 1 ? (
                   <Button
@@ -1597,9 +1597,9 @@ export function MintAndStakeGctlDialog({
             {step === 1 ? (
               // STEP 1: INTRO
               <div className="space-y-5">
-                <div className="rounded-xl border border-border bg-muted/10 p-5 space-y-3">
+                <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-5 space-y-3">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg border border-border bg-background flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-lg bg-muted/50 flex items-center justify-center">
                       <Sun className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div>
@@ -1620,8 +1620,8 @@ export function MintAndStakeGctlDialog({
                   </div>
 
                   <div className="pt-1">
-                    <div className="p-3 bg-glow-orange/5 border border-glow-orange/10 rounded-lg">
-                      <div className="text-[10px] font-bold text-glow-orange flex items-center gap-1.5 uppercase tracking-wider">
+                    <div className="p-3 bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-lg">
+                      <div className="text-[10px] font-medium text-[color:var(--color-glow-orange)] flex items-center gap-1.5 uppercase tracking-wider">
                         Off-chain Asset
                       </div>
                       <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
@@ -1636,12 +1636,14 @@ export function MintAndStakeGctlDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider pl-1 pb-1">
+                  <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest pl-1 pb-1">
                     Your Benefits
                   </div>
-                  <div className="rounded-xl border border-border bg-muted/5 divide-y divide-border/40">
+                  <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 divide-y divide-border/20 dark:divide-border/40">
                     <div className="p-3.5 flex items-start gap-3">
-                      <Zap className="h-4 w-4 text-cyan-500 mt-0.5" />
+                      <div className="h-7 w-7 rounded-lg bg-[#22D3EE]/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <Zap className="h-3.5 w-3.5 text-[#22D3EE]" />
+                      </div>
                       <div>
                         <div className="text-sm font-medium">
                           Boost Impact Score
@@ -1652,7 +1654,9 @@ export function MintAndStakeGctlDialog({
                       </div>
                     </div>
                     <div className="p-3.5 flex items-start gap-3">
-                      <Check className="h-4 w-4 text-zinc-500 mt-0.5" />
+                      <div className="h-7 w-7 rounded-lg bg-muted/50 flex items-center justify-center shrink-0 mt-0.5">
+                        <Check className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
                       <div>
                         <div className="text-sm font-medium">
                           Direct Protocol Rewards
@@ -1709,8 +1713,8 @@ export function MintAndStakeGctlDialog({
                         className={cn(
                           "relative w-full rounded-xl border px-4 py-3.5 text-left transition-all",
                           isSelected
-                            ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
-                            : "border-border bg-muted/5 hover:bg-muted/10 hover:border-border/80"
+                            ? "border-border/40 bg-muted/50 dark:bg-muted/60"
+                            : "border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 hover:bg-muted/40 dark:hover:bg-muted/60 hover:border-border/30"
                         )}
                       >
                         <div className="flex items-center justify-between">
@@ -1721,8 +1725,8 @@ export function MintAndStakeGctlDialog({
                             </div>
                           </div>
                           {isSelected && (
-                            <div className="h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center">
-                              <div className="h-2 w-2 rounded-full bg-primary" />
+                            <div className="h-4 w-4 rounded-full bg-[#22D3EE]/20 flex items-center justify-center">
+                              <div className="h-2 w-2 rounded-full bg-[#22D3EE]" />
                             </div>
                           )}
                         </div>
@@ -1752,7 +1756,7 @@ export function MintAndStakeGctlDialog({
                             <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
                           </div>
                         ) : (
-                          <div className="h-14 w-14 rounded-full bg-destructive/15 border border-destructive/30 flex items-center justify-center">
+                          <div className="h-14 w-14 rounded-full bg-muted/50 dark:bg-muted/70 border border-border/20 dark:border-border/40 flex items-center justify-center">
                             <X className="h-8 w-8 text-destructive" />
                           </div>
                         )}
@@ -1772,7 +1776,7 @@ export function MintAndStakeGctlDialog({
                     </div>
 
                     {stakeSteps.length > 0 ? (
-                      <div className="bg-muted/20 border border-border/50 rounded-2xl p-4">
+                      <div className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-4">
                         <TransactionStepper
                           steps={stakeSteps}
                           chainId={wagmiChainId}
@@ -1781,7 +1785,7 @@ export function MintAndStakeGctlDialog({
                     ) : null}
 
                     {stakeUiState === "error" && stakeUiErrorMessage ? (
-                      <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl">
+                      <div className="p-3 bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl">
                         <p className="text-sm text-destructive break-words">
                           {stakeUiErrorMessage}
                         </p>
@@ -1830,7 +1834,7 @@ export function MintAndStakeGctlDialog({
                         </div>
                       </div>
 
-                      <div className="p-4 rounded-xl border border-border bg-muted/5 space-y-4">
+                      <div className="p-4 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 space-y-4">
                         <div className="flex items-center gap-3">
                           <Input
                             type="text"
@@ -1871,7 +1875,7 @@ export function MintAndStakeGctlDialog({
                               setEthUsdcQuoteWei(null);
                             }}
                           >
-                            <SelectTrigger className="w-auto min-w-[90px] h-9 rounded-lg bg-muted/20 border-border/50 text-xs font-medium gap-2">
+                            <SelectTrigger className="w-auto min-w-[90px] h-9 rounded-lg bg-muted/50 border-border/20 text-xs font-medium gap-2">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent align="end">
@@ -1887,7 +1891,7 @@ export function MintAndStakeGctlDialog({
                           </Select>
                         </div>
 
-                        <div className="pt-2 border-t border-border/30">
+                        <div className="pt-2 border-t border-border/20 dark:border-border/40">
                           <Slider
                             value={[sliderPct]}
                             disabled={isBusy}
@@ -1925,14 +1929,14 @@ export function MintAndStakeGctlDialog({
                     </div>
 
                     <div className="space-y-2">
-                      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider pl-1">
+                      <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest pl-1">
                         Impact Preview
                       </div>
-                      <div className="rounded-xl border border-border bg-muted/5 overflow-hidden">
-                        <div className="p-4 border-b border-border/30 flex items-center justify-between">
+                      <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 overflow-hidden">
+                        <div className="p-4 border-b border-border/20 dark:border-border/40 flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-full bg-cyan-500/10 flex items-center justify-center">
-                              <SteeringIcon className="h-4 w-4 text-cyan-500" />
+                            <div className="h-8 w-8 rounded-lg bg-[#22D3EE]/10 flex items-center justify-center">
+                              <SteeringIcon className="h-4 w-4 text-[#22D3EE]" />
                             </div>
                             <div>
                               <div className="flex items-center gap-1 text-sm font-medium">
@@ -1974,13 +1978,13 @@ export function MintAndStakeGctlDialog({
                                 "—"
                               )}
                             </div>
-                            <div className="text-xs font-medium text-cyan-600 dark:text-cyan-400">
+                            <div className="text-xs font-mono text-[#22D3EE]">
                               GLW/week
                             </div>
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 divide-x divide-border/30 bg-muted/10">
+                        <div className="grid grid-cols-2 divide-x divide-border/20 dark:divide-border/40 bg-muted/20 dark:bg-muted/30">
                           <div className="p-3 text-center">
                             <div className="text-[10px] text-muted-foreground font-mono uppercase">
                               Score Boost
@@ -2027,8 +2031,8 @@ export function MintAndStakeGctlDialog({
                         className={cn(
                           "w-full rounded-xl border p-4 text-left transition-all mb-4",
                           isUnstakeAcknowledged
-                            ? "border-primary/50 bg-primary/5"
-                            : "border-border bg-muted/5 hover:border-border/80"
+                            ? "border-border/40 bg-muted/50 dark:bg-muted/60"
+                            : "border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 hover:border-border/30"
                         )}
                       >
                         <div className="flex items-start gap-3">
@@ -2160,16 +2164,15 @@ function SuccessLevelUp(props: {
         <div className="text-sm text-muted-foreground">
           Your Governance Power is now live and directing rewards.
         </div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1">
-          <SteeringIcon className="h-3.5 w-3.5 text-cyan-500" />
-          <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
+        <div className="inline-flex items-center gap-2 rounded-full border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 px-3 py-1">
+          <SteeringIcon className="h-3.5 w-3.5 text-[#22D3EE]" />
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
             Steering Score
           </span>
         </div>
       </div>
 
       <div className="relative">
-        <div className="absolute inset-0 bg-cyan-500/20 blur-3xl rounded-full" />
         <SegmentedCircleProgress
           totalSteps={100}
           filledBeforeSteps={0}
@@ -2185,7 +2188,7 @@ function SuccessLevelUp(props: {
             </div>
           }
           sublabel={
-            <span className="text-xs text-cyan-600 dark:text-cyan-400 font-medium">
+            <span className="text-xs text-[#22D3EE] font-medium">
               +{delta.toLocaleString()} gained
             </span>
           }
@@ -2197,7 +2200,7 @@ function SuccessLevelUp(props: {
       </div>
 
       {receipt ? (
-        <div className="w-full rounded-xl border border-border bg-muted/5 overflow-hidden">
+        <div className="w-full rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 overflow-hidden">
           <div className="p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground font-medium">

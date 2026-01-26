@@ -12,6 +12,8 @@ import { FeatureLaunchModal } from "@/components/referral/feature-launch-modal";
 import { ActivationCelebrationModal } from "@/components/referral/activation-celebration-modal";
 import { ReferralNetworkDialog } from "@/components/dialogs/referral-network-dialog";
 import { ChangeReferrerDialog } from "@/components/referral/change-referrer-dialog";
+import { useReferralLaunch } from "@/hooks/use-referral-launch";
+import { REFERRAL_LAUNCH_LABEL } from "@/lib/referral-launch";
 
 const MOCK_WALLET = "0x8Ba1f109551bD432803012645Ac136ddd64DBA72";
 const MOCK_REFERRER = "0x6fC9E1b41c1f4D0a9B84cA6CF8999E6aB74C8E2F";
@@ -24,6 +26,7 @@ export default function ReferralTestPage() {
   const [isActivationOpen, setIsActivationOpen] = React.useState(false);
   const [isNetworkOpen, setIsNetworkOpen] = React.useState(false);
   const [isChangeOpen, setIsChangeOpen] = React.useState(false);
+  const { isLive: isReferralLive } = useReferralLaunch();
 
   const [hasReferrer, setHasReferrer] = React.useState(true);
   const [canChangeReferrer, setCanChangeReferrer] = React.useState(true);
@@ -92,7 +95,7 @@ export default function ReferralTestPage() {
         {
           refereeWallet: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
           ensName: "sam.eth",
-          status: "active",
+          status: "active" as const,
           linkedAt: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(),
           activatedAt: new Date(
             Date.now() - 14 * 24 * 60 * 60 * 1000
@@ -109,7 +112,7 @@ export default function ReferralTestPage() {
         {
           refereeWallet: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
           ensName: "maya.eth",
-          status: "pending",
+          status: "pending" as const,
           linkedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
           thisWeekPointsScaled6: "800",
           lifetimePointsScaled6: "800",
@@ -122,7 +125,7 @@ export default function ReferralTestPage() {
         },
         {
           refereeWallet: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
-          status: "inactive",
+          status: "inactive" as const,
           linkedAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
           thisWeekPointsScaled6: "0",
           lifetimePointsScaled6: "5200",
@@ -170,6 +173,23 @@ export default function ReferralTestPage() {
     await new Promise((resolve) => setTimeout(resolve, 700));
     setIsChanging(false);
   }, []);
+
+  if (!isReferralLive) {
+    return (
+      <div className="min-h-screen bg-muted/40 text-foreground">
+        <div className="max-w-3xl mx-auto p-6">
+          <Card className="border border-border/60">
+            <CardHeader className="space-y-2">
+              <CardTitle>Referral Program Launching Soon</CardTitle>
+              <div className="text-sm text-muted-foreground">
+                Referrals open on {REFERRAL_LAUNCH_LABEL}.
+              </div>
+            </CardHeader>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   if (!isSepolia) {
     return (

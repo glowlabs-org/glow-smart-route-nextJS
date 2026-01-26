@@ -233,7 +233,7 @@ export default function CommunityActivityWidget({
           "relative flex h-full flex-col overflow-hidden",
           isMinimal
             ? "bg-transparent border-transparent"
-            : "bg-card dark:bg-muted/20 border-foreground/10 dark:border-border",
+            : "bg-card dark:bg-card border-border/20",
           className
         )}
       >
@@ -265,7 +265,7 @@ export default function CommunityActivityWidget({
               {[1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="flex-1 flex items-center gap-4 p-4 rounded-xl border border-border bg-muted/10 animate-pulse"
+                  className="flex-1 flex items-center gap-4 p-4 rounded-xl border border-border/40 bg-muted/30 animate-pulse"
                 >
                   <div className="w-24 h-full min-h-[80px] rounded-xl bg-muted shrink-0" />
                   <div className="flex-1 space-y-2">
@@ -294,10 +294,10 @@ export default function CommunityActivityWidget({
                     href={auditUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 flex items-center gap-4 p-4 rounded-xl border border-border bg-muted/10 hover:bg-muted/20 transition-colors group"
+                    className="flex-1 flex items-center gap-4 p-4 rounded-xl border border-border/40 bg-muted/30 hover:bg-muted/50 transition-colors group"
                   >
                     {/* Farm Image - Takes full height */}
-                    <div className="relative w-24 h-full min-h-[80px] rounded-xl overflow-hidden shrink-0 border border-border/50">
+                    <div className="relative w-24 h-full min-h-[80px] rounded-xl overflow-hidden shrink-0 border border-border/20">
                       <FarmImageWithSkeleton
                         src={imageUrl}
                         alt={farm.farmName}
@@ -348,11 +348,11 @@ export default function CommunityActivityWidget({
       </Card>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-hidden p-0">
-          <DialogHeader className="p-6 pb-4 border-b">
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-hidden p-0 bg-card border-border/40 rounded-2xl">
+          <DialogHeader className="p-6 pb-4 border-b border-border/20">
             <DialogTitle>Recent Activity</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6 bg-background">
             <SponsoredFarmsActivity
               variant="full"
               constrainHeight={false}

@@ -91,11 +91,8 @@ function NavigationMenuContent({
 }) {
   const cardStyles =
     variant === "card"
-      ? "border border-white/20 rounded-2xl shadow-2xl bg-background/10 backdrop-blur-xl"
-      : "border border-border rounded-2xl bg-background/95 backdrop-blur-xl shadow-xl";
-
-  const cardShadowStyle =
-    variant === "card" ? { boxShadow: "0px 0px 20px 0px #FFFFFF40" } : {};
+      ? "border border-white/20 dark:border-white/20 rounded-2xl bg-background/10 backdrop-blur-xl"
+      : "border border-border/20 dark:border-border/40 rounded-2xl bg-card backdrop-blur-xl";
 
   return (
     <NavigationMenuPrimitive.Content
@@ -123,7 +120,6 @@ function NavigationMenuContent({
         "**:data-[slot=navigation-menu-link]:focus:ring-0 **:data-[slot=navigation-menu-link]:focus:outline-none",
         className
       )}
-      style={cardShadowStyle}
       {...props}
     />
   );
@@ -138,11 +134,8 @@ function NavigationMenuViewport({
 }) {
   const cardStyles =
     variant === "card"
-      ? "border border-background/20 bg-background/10 backdrop-blur-xl shadow-2xl"
-      : "bg-background/95 backdrop-blur-xl text-popover-foreground border border-border shadow-xl";
-
-  const cardShadowStyle =
-    variant === "card" ? { boxShadow: "0px 0px 20px 0px #FFFFFF40" } : {};
+      ? "border border-background/20 bg-background/10 backdrop-blur-xl"
+      : "bg-card backdrop-blur-xl text-popover-foreground border border-border/20 dark:border-border/40";
 
   return (
     <div
@@ -160,7 +153,6 @@ function NavigationMenuViewport({
           cardStyles,
           className
         )}
-        style={cardShadowStyle}
         {...props}
       />
     </div>
@@ -200,7 +192,7 @@ function NavigationMenuIndicator({
       )}
       {...props}
     >
-      <div className="bg-border relative top-[60%] h-2 w-2 rotate-45 rounded-tl-sm shadow-md" />
+      <div className="bg-border/40 relative top-[60%] h-2 w-2 rotate-45 rounded-tl-sm" />
     </NavigationMenuPrimitive.Indicator>
   );
 }

@@ -69,7 +69,7 @@ export default function ProtocolMetricsWidget({
   const totalGlwDelegated = React.useMemo(() => {
     if (!totalActivelyDelegatedData?.totalGlwDelegatedWei) return 0;
     return Number(
-      formatUnits(BigInt(totalActivelyDelegatedData.totalGlwDelegatedWei), 18)
+      formatUnits(BigInt(totalActivelyDelegatedData.totalGlwDelegatedWei), 18),
     );
   }, [totalActivelyDelegatedData]);
 
@@ -85,7 +85,7 @@ export default function ProtocolMetricsWidget({
     const currentSpotPrice = spotPrice ?? 0;
 
     const rows = completedFarms.filter((farm): farm is CompletedApplication =>
-      Boolean(farm?.id)
+      Boolean(farm?.id),
     );
 
     // Filter for last 3 months
@@ -148,7 +148,7 @@ export default function ProtocolMetricsWidget({
           const currency = row.paymentCurrency as PaymentCurrency;
           const decimals = DECIMALS_BY_TOKEN[currency] || 18;
           const amount = parseFloat(
-            formatUnits(BigInt(row.paymentAmount), decimals)
+            formatUnits(BigInt(row.paymentAmount), decimals),
           );
 
           let valueInUsd = 0;
@@ -240,24 +240,24 @@ export default function ProtocolMetricsWidget({
           rel="noreferrer"
           className="block"
         >
-          <Card className="group bg-card dark:bg-muted/20 border-border/50 hover:bg-muted/30 transition-colors cursor-pointer">
+          <Card className="group bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40 hover:bg-muted/40 dark:hover:bg-muted/60 transition-colors cursor-pointer">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-muted-foreground">
+                <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                   GLW Price
                 </span>
-                <div className="text-muted-foreground group-hover:text-foreground transition-colors">
+                <div className="text-muted-foreground/60 dark:text-muted-foreground/80 group-hover:text-foreground transition-colors">
                   <ArrowRight className="w-4 h-4 -rotate-45" />
                 </div>
               </div>
-              <div className="text-2xl font-bold">
+              <div className="text-3xl font-semibold font-mono tracking-tight">
                 {isMetricsLoading || spotPrice === null ? (
                   <Skeleton className="h-8 w-24" />
                 ) : (
                   `$${spotPrice.toFixed(4)}`
                 )}
               </div>
-              <div className="text-xs text-muted-foreground mt-1">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mt-2">
                 Current spot price
               </div>
             </CardContent>
@@ -265,57 +265,58 @@ export default function ProtocolMetricsWidget({
         </a>
 
         {/* Metric 2: Market Cap */}
-        <Card className="bg-card dark:bg-muted/20 border-border/50">
+        <Card className="bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-muted-foreground">
+              <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                 Market Cap
               </span>
-              <TrendingUp className="w-4 h-4 text-muted-foreground" />
+              <TrendingUp className="w-4 h-4 text-muted-foreground/60 dark:text-muted-foreground/80" />
             </div>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-semibold font-mono tracking-tight">
               {isMetricsLoading ? (
                 <Skeleton className="h-8 w-24" />
               ) : (
                 `$${(marketCap / 1_000_000).toFixed(1)}M`
               )}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mt-2">
               Circulating supply
             </div>
           </CardContent>
         </Card>
 
         {/* Metric 3: Delegated */}
-        <Card className="bg-card dark:bg-muted/20 border-border/50">
+        <Card className="bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-muted-foreground">
-                GLW Actively Delegated
+              <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                GLW Delegated
               </span>
-              <DelegationIcon className="w-4 h-4 text-muted-foreground" />
+              <DelegationIcon className="w-4 h-4 text-muted-foreground/60 dark:text-muted-foreground/80" />
             </div>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-semibold font-mono tracking-tight">
               {isMetricsLoading ? (
                 <Skeleton className="h-8 w-24" />
               ) : (
                 `${percentGlwDelegated.toFixed(1)}%`
               )}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              of the circulating supply
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mt-2">
+              of circulating supply
             </div>
           </CardContent>
         </Card>
 
         {/* Call to Action Card */}
-        <Link href="/stats" className="block h-full">
-          <Card className="bg-primary text-primary-foreground border-primary h-full hover:opacity-90 transition-opacity cursor-pointer">
+        <Link href="/stats" className="block h-full group">
+          <Card className="!bg-foreground text-primary-foreground border-transparent h-full hover:bg-primary/90 transition-colors cursor-pointer">
             <CardContent className="p-6 flex flex-col justify-center h-full">
-              <div className="text-lg font-bold flex items-center gap-2">
-                View All Stats <ArrowRight className="w-5 h-5" />
+              <div className="text-sm font-mono font-bold flex items-center gap-2">
+                View All Stats{" "}
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
-              <p className="text-sm text-primary-foreground/80 mt-1">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-primary-foreground/70 mt-2">
                 Deep dive into protocol metrics
               </p>
             </CardContent>
@@ -324,17 +325,20 @@ export default function ProtocolMetricsWidget({
       </div>
 
       {/* Chart Section */}
-      <Card className="bg-card dark:bg-muted/20 border-border/50">
+      <Card className="bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <div>
-            <CardTitle className="text-lg font-medium">
+            <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 font-semibold">
               New Solar Farms & Protocol Deposit
             </CardTitle>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mt-1">
               Onboarded in the last 3 months
             </p>
           </div>
-          <Badge variant="outline" className="flex items-center gap-1">
+          <Badge
+            variant="outline"
+            className="flex items-center gap-1.5 border-border/20 dark:border-border/40 text-muted-foreground/60 dark:text-muted-foreground/80 font-mono text-[10px] uppercase tracking-widest"
+          >
             <Sun className="w-3 h-3" />
             Last 3 Months
           </Badge>
@@ -460,7 +464,7 @@ export default function ProtocolMetricsWidget({
               </ComposedChart>
             </ChartContainer>
           ) : (
-            <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+            <div className="h-[200px] flex items-center justify-center text-muted-foreground/60 dark:text-muted-foreground/80 text-xs font-mono uppercase tracking-widest">
               No new farms in this period
             </div>
           )}

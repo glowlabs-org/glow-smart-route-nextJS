@@ -40,7 +40,7 @@ function formatTokenAmount(symbol: PortfolioTokenSymbol, amount: number) {
 
 function AllocationSkeleton() {
   return (
-    <Card className="h-full overflow-hidden flex flex-col bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
+    <Card className="h-full overflow-hidden flex flex-col bg-card dark:bg-card border-border/20">
       <CardHeader className="pb-0">
         <div className="flex items-center justify-center">
           <Skeleton className="h-6 w-36 rounded-xl" />
@@ -153,7 +153,7 @@ export default function PortfolioAllocationWidget({
   return (
     <Card
       className={cn(
-        "h-full overflow-hidden flex flex-col gap-4 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border",
+        "h-full overflow-hidden flex flex-col gap-4 bg-card dark:bg-card border-border/20",
         className
       )}
     >

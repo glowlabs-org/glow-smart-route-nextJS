@@ -46,7 +46,7 @@ const ListItem = React.forwardRef<
           className={cn(
             "block select-none space-y-1 rounded-xl p-3 leading-none no-underline outline-none transition-all duration-200",
             "hover:bg-foreground  dark:hover:bg-accent/10 dark:hover:text-zinc-100 focus:bg-foreground focus:text-background dark:focus:bg-accent/10 dark:focus:text-zinc-100",
-            className
+            className,
           )}
           {...props}
         >
@@ -73,8 +73,8 @@ export function HeaderHamburgerMenu({
       <DrawerTrigger asChild>
         <motion.button
           className={cn(
-            "p-2 rounded-xl border border-border bg-background/80 backdrop-blur-sm hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-all duration-300 relative z-50 text-zinc-900 dark:text-zinc-100",
-            triggerClassName
+            "p-2 rounded-xl border border-border/20 dark:border-border/40 bg-background/80 backdrop-blur-sm hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-all duration-300 relative z-50 text-zinc-900 dark:text-zinc-100",
+            triggerClassName,
           )}
           whileTap={{ scale: 0.95 }}
           aria-label="Open menu"
@@ -85,9 +85,9 @@ export function HeaderHamburgerMenu({
 
       <DrawerContent
         showHandle={false}
-        className="fixed right-0 inset-y-0 h-screen w-80 max-w-[85vw] bg-background backdrop-blur-xl border-l border-border shadow-2xl"
+        className="fixed right-0 inset-y-0 h-screen w-80 max-w-[85vw] bg-card backdrop-blur-xl border-l border-border/20 dark:border-border/40"
       >
-        <DrawerHeader className="border-b border-border">
+        <DrawerHeader className="border-b border-border/20 dark:border-border/40">
           <div className="flex items-center justify-between">
             <WalletStatus className="h-10" />
             <div className="flex items-center gap-2">
@@ -112,7 +112,7 @@ export function HeaderHamburgerMenu({
 
         <div className="p-6 flex-1 overflow-y-auto">
           <nav className="space-y-2">
-            <div className="pt-4 border-t border-border mt-4">
+            <div className="pt-4 border-t border-border/20 dark:border-border/40 mt-4">
               <div className="space-y-2">
                 <div>
                   <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
@@ -167,16 +167,6 @@ export function HeaderHamburgerMenu({
                         className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
                       >
                         Infrastructure projects
-                      </Link>
-                    </DrawerClose>
-                    <DrawerClose asChild>
-                      <Link
-                        href="https://impact.glow.org/new-campaign"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block px-4 py-3 text-base rounded-lg hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-colors"
-                      >
-                        Create a Region
                       </Link>
                     </DrawerClose>
                   </div>
@@ -379,8 +369,8 @@ export function Header({
   withIsScrolled?: boolean;
 }) {
   const headerClassName = cn(
-    "relative isolate z-50 h-[72px] w-full border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60",
-    !withIsScrolled && "bg-transparent border-transparent backdrop-blur-0"
+    "relative isolate z-50 h-[72px] w-full border-b border-border/40 bg-card/95 backdrop-blur-sm supports-[backdrop-filter]:bg-card/90",
+    !withIsScrolled && "bg-transparent border-transparent backdrop-blur-0",
   );
 
   return (
@@ -428,12 +418,6 @@ export function Header({
                         title="Infrastructure projects"
                       >
                         See the list of infrastructure projects
-                      </ListItem>
-                      <ListItem
-                        href="https://impact.glow.org/new-campaign"
-                        title="Create a Region"
-                      >
-                        Create a new infrastructure project
                       </ListItem>
                     </ul>
                   </NavigationMenuContent>
@@ -557,7 +541,7 @@ export function Header({
             <Drawer direction="right" shouldScaleBackground={false}>
               <DrawerTrigger asChild>
                 <motion.button
-                  className="p-2 rounded-xl border border-border bg-background/80 backdrop-blur-sm hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-all duration-300 relative z-50 text-zinc-900 dark:text-zinc-100"
+                  className="p-2 rounded-xl border border-border/20 dark:border-border/40 bg-background/80 backdrop-blur-sm hover:bg-foreground hover:text-background dark:hover:bg-accent/10 dark:hover:text-zinc-100 transition-all duration-300 relative z-50 text-zinc-900 dark:text-zinc-100"
                   whileTap={{ scale: 0.95 }}
                   aria-label="Open menu"
                 >
@@ -567,9 +551,9 @@ export function Header({
 
               <DrawerContent
                 showHandle={false}
-                className="fixed right-0 inset-y-0 h-screen w-80 max-w-[85vw] bg-background backdrop-blur-xl border-l border-border shadow-2xl"
+                className="fixed right-0 inset-y-0 h-screen w-80 max-w-[85vw] bg-card backdrop-blur-xl border-l border-border/20 dark:border-border/40"
               >
-                <DrawerHeader className="border-b border-border">
+                <DrawerHeader className="border-b border-border/20 dark:border-border/40">
                   <div className="flex items-center justify-between">
                     <WalletStatus className="h-10" />
                     <div className="flex items-center gap-2">
@@ -594,7 +578,7 @@ export function Header({
 
                 <div className="p-6 flex-1 overflow-y-auto">
                   <nav className="space-y-2">
-                    <div className="pt-4 border-t border-border mt-4">
+                    <div className="pt-4 border-t border-border/20 dark:border-border/40 mt-4">
                       <div className="space-y-2">
                         <div>
                           <div className="px-4 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">

@@ -15,6 +15,8 @@ import { trackEvent } from "@/lib/telemetry";
 import { GlowLockup } from "@/components/glow-lockup";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { motion, AnimatePresence } from "framer-motion";
+import { useReferralLaunch } from "@/hooks/use-referral-launch";
+import { REFERRAL_LAUNCH_LABEL } from "@/lib/referral-launch";
 
 interface ValidateCodeResponse {
   valid: boolean;
@@ -36,13 +38,14 @@ export default function ReferralLandingPage() {
     isChanging,
     isLoadingStatus,
   } = useReferral();
+  const { isLive: isReferralLive } = useReferralLaunch();
   const [isSuccess, setIsSuccess] = React.useState(false);
   const [isChangeSuccess, setIsChangeSuccess] = React.useState(false);
 
   const validateQuery = useQuery({
     queryKey: ["validate-referral-code", code],
     queryFn: () => hubGet<ValidateCodeResponse>(`/referral/validate/${code}`),
-    enabled: !!code,
+    enabled: !!code && isReferralLive,
   });
 
   const isValid = validateQuery.data?.valid;
@@ -97,6 +100,32 @@ export default function ReferralLandingPage() {
     currentReferrerWallet !== newReferrerWallet;
   const canChangeReferrer =
     isAlreadyLinked && canChangeReferrerFlag && isDifferentReferrer;
+
+  if (!isReferralLive) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="min-h-screen flex items-center justify-center p-8">
+          <div className="max-w-md w-full rounded-3xl border border-gray-200 bg-white px-8 py-10 text-center space-y-4">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-gray-200 bg-white">
+              <GlowSymbol className="h-7 w-7" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-black">
+              Referral Program Launching Soon
+            </h1>
+            <p className="text-sm text-gray-600">
+              Referrals open on {REFERRAL_LAUNCH_LABEL}.
+            </p>
+            <Button
+              className="w-full"
+              onClick={() => router.push("/test")}
+            >
+              Go to Dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">

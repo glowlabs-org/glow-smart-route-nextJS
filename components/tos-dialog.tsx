@@ -421,7 +421,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <div className="border-t">
+              <div className="border-t border-border/30 dark:border-border/40">
                 <ScrollArea className="h-[300px] px-4 py-4">
                   <div className="space-y-6 text-sm">
                     <div>
@@ -697,7 +697,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
             </CollapsibleContent>
           </Collapsible>
 
-          <div className="p-3 bg-muted/30 rounded-lg border border-border">
+          <div className="p-3 bg-muted/40 dark:bg-muted/50 rounded-lg border border-border/30 dark:border-border/40">
             <p className="text-sm text-muted-foreground">
               <strong className="text-glow-orange">
                 Digital Signature Required:
@@ -711,7 +711,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
           </div>
         </div>
 
-        <DialogFooter className="px-6 pb-6 pt-4 gap-2 border-t">
+        <DialogFooter className="px-6 pb-6 pt-4 gap-2 border-t border-border/30 dark:border-border/40">
           <Button
             variant="outline"
             onClick={handleDecline}

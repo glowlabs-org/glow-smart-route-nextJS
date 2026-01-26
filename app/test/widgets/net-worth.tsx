@@ -88,10 +88,10 @@ function GlowWorthChartTooltip({
         {isCurrent
           ? `Current · ${currentDateLabel}`
           : dateLabel
-          ? `Week ${week} · ${dateLabel}`
-          : week
-          ? `Week ${week}`
-          : "GLW worth"}
+            ? `Week ${week} · ${dateLabel}`
+            : week
+              ? `Week ${week}`
+              : "GLW worth"}
       </div>
       <div className="font-mono text-sm font-bold tabular-nums text-foreground">
         {safeGlw.toLocaleString("en-US", { maximumFractionDigits: 0 })} GLW
@@ -126,8 +126,8 @@ function GlowWorthChartTooltip({
 
 function NetWorthSkeleton() {
   return (
-    <Card className="h-full overflow-hidden flex flex-col gap-2 bg-transparent border-transparent pt-0 w-full">
-      <CardHeader className="py-0 px-4">
+    <Card className="h-full overflow-hidden flex flex-col gap-2 bg-transparent border-transparent pt-6 pb-0 w-full">
+      <CardHeader className="py-0 px-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
             Glow Worth
@@ -285,6 +285,7 @@ export default function NetWorthWidget({
     return (
       <OnboardingHeroWidget
         className="h-full"
+        variant={variant}
         onBuyGlowClick={onBuyGlowClick}
       />
     );
@@ -301,13 +302,13 @@ export default function NetWorthWidget({
   return (
     <Card
       className={cn(
-        "overflow-hidden flex flex-col gap-2 pt-0 w-full py-0",
+        "overflow-hidden flex flex-col gap-3 pt-6 pb-0 w-full",
         isMinimal
-          ? "bg-transparent border-transparent h-full"
-          : "h-full min-h-[420px] lg:min-h-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+          ? "bg-transparent border-transparent h-full max-h-[540px]"
+          : "h-full bg-card dark:bg-card border-border/20",
       )}
     >
-      <CardHeader className="py-0 px-4">
+      <CardHeader className="py-0 px-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
             Glow Worth
@@ -351,18 +352,18 @@ export default function NetWorthWidget({
             !hasWallet &&
               cn(
                 "pointer-events-none select-none blur-[5px] opacity-60",
-                isMinimal ? "bg-transparent" : "bg-card dark:bg-muted/30"
-              )
+                isMinimal ? "bg-transparent" : "bg-card dark:bg-card",
+              ),
           )}
         >
-          <div className="flex flex-1 min-h-[300px] max-h-[300px] lg:min-h-0 lg:max-h-[400px]">
+          <div className="flex flex-1 min-h-[200px]">
             <div className="flex flex-col sm:flex-row flex-1 min-h-0">
               {/* Left Side: Chart */}
               <div
                 className={cn(
                   "flex-1 min-h-0",
                   isMinimal ? "px-0 lg:pr-1" : "px-4 lg:pr-1",
-                  hasWallet ? "pb-1" : ""
+                  hasWallet ? "pb-1" : "",
                 )}
               >
                 <div className="relative h-full w-full">
@@ -382,22 +383,22 @@ export default function NetWorthWidget({
                   <div
                     className={cn(
                       "absolute left-0 top-0 z-10 p-2",
-                      isMinimal ? "bg-transparent" : "bg-card dark:bg-muted/30"
+                      isMinimal ? "bg-transparent" : "bg-card dark:bg-card",
                     )}
                   >
-                    <div className="flex items-baseline gap-2">
-                      <div className="font-mono text-3xl sm:text-4xl font-bold tracking-tight text-foreground tabular-nums leading-none">
+                    <div className="flex items-baseline gap-3">
+                      <div className="font-mono text-4xl sm:text-5xl font-semibold tracking-tight text-foreground tabular-nums leading-none">
                         <NumberTicker
                           value={glowWorthGlw}
                           decimalPlaces={0}
                           className="tracking-tight"
                         />
                       </div>
-                      <span className="text-base sm:text-lg font-mono font-semibold text-zinc-500">
+                      <span className="text-lg sm:text-xl font-mono font-medium text-muted-foreground/50">
                         GLW
                       </span>
                     </div>
-                    <div className="mt-2 flex items-center gap-2">
+                    <div className="mt-3 flex items-center gap-2">
                       <Badge className="h-7 px-2.5 rounded-xl font-mono text-xs font-bold bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/15 transition-colors">
                         +
                         {weeklyAccumulatedGlw.toLocaleString("en-US", {
@@ -405,8 +406,8 @@ export default function NetWorthWidget({
                         })}{" "}
                         GLW
                       </Badge>
-                      <span className="font-mono text-xs text-muted-foreground">
-                        accumulated this week
+                      <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
+                        this week
                       </span>
                     </div>
                   </div>

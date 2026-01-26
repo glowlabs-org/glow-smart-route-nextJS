@@ -13,10 +13,7 @@ import { FallbackImage } from "@/components/ui/fallback-image";
 import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 import { cn } from "@/lib/utils";
 
-import {
-  useFractionsSummary,
-  type FractionsSummaryResponse,
-} from "@/hooks";
+import { useFractionsSummary, type FractionsSummaryResponse } from "@/hooks";
 import {
   useGlowLaunchpad,
   useSplitsActivity,
@@ -24,15 +21,9 @@ import {
   type AuctionApplication,
 } from "@/hooks";
 import { useMiningCenter } from "@/hooks";
-import {
-  useRewardScore,
-  getRewardScoreForApplication,
-} from "@/hooks";
+import { useRewardScore, getRewardScoreForApplication } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
-import {
-  useMiningScore,
-  getMiningScoreForApplication,
-} from "@/hooks";
+import { useMiningScore, getMiningScoreForApplication } from "@/hooks";
 import { formatNumber } from "@/app/marketplace/utils";
 import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 import { formatUnits } from "viem";
@@ -114,7 +105,7 @@ function EmptyState({
   description: string;
 }) {
   return (
-    <div className="rounded-xl border-2 border-dashed border-border bg-muted/30 py-16 text-center">
+    <div className="rounded-xl border-2 border-dashed border-border/30 dark:border-border/40 bg-muted/20 dark:bg-muted/50 py-16 text-center">
       <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
         {icon}
       </div>
@@ -141,7 +132,7 @@ function InventoryList({
 }) {
   if (items.length === 0) {
     return (
-      <div className="mb-6 rounded-xl border-2 border-dashed border-border bg-muted/30 p-6 text-center">
+      <div className="mb-6 rounded-xl border-2 border-dashed border-border/30 dark:border-border/40 bg-muted/20 dark:bg-muted/50 p-6 text-center">
         <div className="mb-2 text-lg font-bold">SOLD OUT</div>
         <div className="mb-6 text-sm text-muted-foreground">
           {countdownLabel}
@@ -173,7 +164,7 @@ function InventoryList({
             }`}
             className="block"
           >
-            <div className="cursor-pointer rounded-xl border border-border bg-muted/50 overflow-hidden transition-all hover:border-gray-300 hover:bg-muted dark:hover:border-gray-700">
+            <div className="cursor-pointer rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 overflow-hidden transition-colors hover:border-border/40 dark:hover:border-border/60 hover:bg-muted/50 dark:hover:bg-muted/60">
               <div className="flex gap-3">
                 {/* Farm Image */}
                 <div className="relative w-24 h-24 flex-shrink-0">
@@ -250,10 +241,10 @@ function InventoryList({
                             parseFloat(
                               formatUnits(
                                 BigInt(item.weeklyGlwRewards),
-                                DECIMALS_BY_TOKEN["GLW"]
-                              )
+                                DECIMALS_BY_TOKEN["GLW"],
+                              ),
                             ),
-                            2
+                            2,
                           )}{" "}
                           GLW
                         </span>
@@ -278,32 +269,24 @@ function EventList({
   empty: React.ReactNode;
 }) {
   if (!rows.length) return <>{empty}</>;
+  const displayRows = rows.slice(0, 5);
   return (
-    <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
-      {rows.map((event) => (
+    <div className="space-y-3">
+      {displayRows.map((event) => (
         <div
           key={event.id}
-          className="group flex items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-4 transition-all hover:border-border hover:bg-muted hover:shadow-sm"
+          className="group flex items-center gap-3 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 px-4 py-3 transition-colors hover:border-border/40 dark:hover:border-border/60 hover:bg-muted/50 dark:hover:bg-muted/60"
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-delegation-purple/20 bg-delegation-purple/10">
-            <DelegationIcon className="h-5 w-5 text-delegation-purple" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-delegation-purple/20 bg-delegation-purple/10">
+            <DelegationIcon className="h-4 w-4 text-delegation-purple" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="mb-1.5 text-sm font-semibold">{event.title}</div>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">
-                {event.farmName}
-              </span>
-              <span>·</span>
-              <Badge
-                variant="secondary"
-                className="h-5 px-2 text-xs font-medium"
-              >
-                {event.token}
-              </Badge>
-              <span>·</span>
+            <div className="text-sm font-semibold text-foreground">{event.title}</div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 truncate">
+              <span>{event.farmName}</span>
+              <span className="text-muted-foreground/30">·</span>
               <span className="font-mono">{event.buyer}</span>
-              <span>·</span>
+              <span className="text-muted-foreground/30">·</span>
               <span>{event.timestamp}</span>
             </div>
           </div>
@@ -325,21 +308,21 @@ function DelegationEmptyState() {
 
 function MinerItem({ event }: { event: ProtocolEventRowProps }) {
   return (
-    <div className="group flex items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-4 transition-all hover:border-border hover:bg-muted hover:shadow-sm">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--color-miner)]/20 bg-[color:var(--color-miner)]/10">
-        <CashMinerIcon className="h-5 w-5 text-[color:var(--color-miner)]" />
+    <div className="group flex items-center gap-3 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 px-4 py-3 transition-colors hover:border-border/40 dark:hover:border-border/60 hover:bg-muted/50 dark:hover:bg-muted/60">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[color:var(--color-miner)]/20 bg-[color:var(--color-miner)]/10">
+        <CashMinerIcon className="h-4 w-4 text-[color:var(--color-miner)]" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="mb-1.5 text-sm font-semibold">{event.title}</div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">{event.farmName}</span>
-          <span>·</span>
+        <div className="text-sm font-semibold text-foreground">{event.title}</div>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 truncate">
+          <span>{event.farmName}</span>
+          <span className="text-muted-foreground/30">·</span>
           <span className="font-semibold text-green-600 dark:text-green-400">
             {event.totalValueFormatted}
           </span>
-          <span>·</span>
+          <span className="text-muted-foreground/30">·</span>
           <span className="font-mono">{event.buyer}</span>
-          <span>·</span>
+          <span className="text-muted-foreground/30">·</span>
           <span>{event.timestamp}</span>
         </div>
       </div>
@@ -359,16 +342,23 @@ function MinerEmptyState() {
 
 function ProtocolActivitySkeleton() {
   return (
-    <div className="py-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
       {[0, 1].map((index) => (
-        <Card key={index} className="overflow-hidden pt-0">
-          <CardHeader className="border-b border-border/50 bg-muted/30 pt-8">
+        <Card
+          key={index}
+          className="overflow-hidden bg-card border-border/20 dark:border-border/40 !py-0 !gap-0"
+        >
+          <CardHeader className="border-b border-border/20 dark:border-border/40 !py-6 !px-8">
             <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-3 w-32 mt-2" />
           </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            <Skeleton className="h-10 w-40" />
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-6 w-32" />
+          <CardContent className="!p-8 space-y-6">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-6 w-16" />
+            </div>
+            <Skeleton className="h-32 w-full rounded-xl" />
+            <Skeleton className="h-32 w-full rounded-xl" />
           </CardContent>
         </Card>
       ))}
@@ -489,23 +479,23 @@ export function ProtocolActivity({
 
         const remainingValueFormatted = formatNumber(
           parseFloat(
-            formatUnits(remainingValueBigInt, DECIMALS_BY_TOKEN["GLW"])
+            formatUnits(remainingValueBigInt, DECIMALS_BY_TOKEN["GLW"]),
           ),
-          0
+          0,
         );
 
         // Calculate total delegated so far
         const totalDelegatedBigInt = stepPriceBigInt * BigInt(splitsSold);
         const totalDelegatedFormatted = formatNumber(
           parseFloat(
-            formatUnits(totalDelegatedBigInt, DECIMALS_BY_TOKEN["GLW"])
+            formatUnits(totalDelegatedBigInt, DECIMALS_BY_TOKEN["GLW"]),
           ),
-          0
+          0,
         );
 
         const rewardScore = getRewardScoreForApplication(
           rewardScoreMap,
-          app.id
+          app.id,
         );
 
         return {
@@ -515,11 +505,11 @@ export function ProtocolActivity({
           remainingStepsFormatted: remainingSteps.toLocaleString(),
           remainingValueFormatted: `${remainingValueFormatted} GLW`,
           remainingPercentFormatted: `${Math.round(
-            (remainingSteps / totalSteps) * 100
+            (remainingSteps / totalSteps) * 100,
           )}%`,
           stepPriceFormatted: `${formatNumber(
             parseFloat(formatUnits(stepPriceBigInt, DECIMALS_BY_TOKEN["GLW"])),
-            0
+            0,
           )} GLW`,
           type: "launchpad" as const,
           rewardScore: rewardScore?.rewardScore || null,
@@ -546,23 +536,23 @@ export function ProtocolActivity({
 
         const remainingValueFormatted = formatNumber(
           parseFloat(
-            formatUnits(remainingValueBigInt, DECIMALS_BY_TOKEN["USDC"])
+            formatUnits(remainingValueBigInt, DECIMALS_BY_TOKEN["USDC"]),
           ),
-          0
+          0,
         );
 
         // Calculate total purchased so far
         const totalPurchasedBigInt = stepPriceBigInt * BigInt(splitsSold);
         const totalPurchasedFormatted = formatNumber(
           parseFloat(
-            formatUnits(totalPurchasedBigInt, DECIMALS_BY_TOKEN["USDC"])
+            formatUnits(totalPurchasedBigInt, DECIMALS_BY_TOKEN["USDC"]),
           ),
-          0
+          0,
         );
 
         const miningScoreData = getMiningScoreForApplication(
           miningScoreMap,
-          app.id
+          app.id,
         );
 
         return {
@@ -572,11 +562,11 @@ export function ProtocolActivity({
           remainingStepsFormatted: remainingSteps.toLocaleString(),
           remainingValueFormatted: `$${remainingValueFormatted}`,
           remainingPercentFormatted: `${Math.round(
-            (remainingSteps / totalSteps) * 100
+            (remainingSteps / totalSteps) * 100,
           )}%`,
           stepPriceFormatted: `$${formatNumber(
             parseFloat(formatUnits(stepPriceBigInt, DECIMALS_BY_TOKEN["USDC"])),
-            0
+            0,
           )}`,
           type: "mining-center" as const,
           miningScore: miningScoreData?.miningScore || null,
@@ -590,19 +580,19 @@ export function ProtocolActivity({
 
   const delegationEvents = React.useMemo(
     () => formatDelegationEvents(allSplitsActivity),
-    [allSplitsActivity]
+    [allSplitsActivity],
   );
   const minerEvents = React.useMemo(
     () => formatMinerEvents(allSplitsActivity),
-    [allSplitsActivity]
+    [allSplitsActivity],
   );
   const delegationPreviewEvents = React.useMemo(
     () => formatDelegationEvents(launchpadSplitsActivity),
-    [launchpadSplitsActivity]
+    [launchpadSplitsActivity],
   );
   const minerPreviewEvents = React.useMemo(
     () => formatMinerEvents(miningSplitsActivity),
-    [miningSplitsActivity]
+    [miningSplitsActivity],
   );
 
   const hasDelegationPreview = delegationPreviewEvents.length > 0;
@@ -669,57 +659,43 @@ export function ProtocolActivity({
   } satisfies MinerCardState;
 
   return (
-    <div className="py-12">
+    <div>
       {isInitialLoading ? (
         <ProtocolActivitySkeleton />
       ) : (
         <>
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Protocol Activity</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Real-time delegation and miner activity
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card className="overflow-hidden pt-0">
-              <CardHeader className="border-b border-border/50 bg-muted/30 pt-8">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+            <Card className="overflow-hidden bg-card border-border/20 dark:border-border/40 !py-0 !gap-0">
+              <CardHeader className="border-b border-border/20 dark:border-border/40 !py-6 !px-8">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-xl">
+                    <h3 className="text-sm font-semibold text-foreground">
                       GLW Farm Delegation
-                    </CardTitle>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    </h3>
+                    <p className="mt-0.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
                       Community-backed solar farms
                     </p>
                   </div>
-                  <Badge variant="secondary" className="gap-1">
+                  <Badge
+                    variant="secondary"
+                    className="gap-1.5 text-xs font-mono font-semibold"
+                  >
                     <Users className="h-3 w-3" />
                     {pendingProps.delegatorsCount}
-                    {pendingProps.delegatorsCount === 1
-                      ? " Delegator"
-                      : " Delegators"}
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="p-6">
-                <InventoryList
-                  items={pendingProps.availableFarms}
-                  emptyLabel="Farms"
-                  countdownLabel="All farm slots are filled. Next batch available soon."
-                  countdownDate={pendingProps.farmsCountdownDate}
-                  badgeColor="green"
-                />
-
-                <div className="space-y-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="text-sm font-semibold">
-                      Delegation History
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
+              <CardContent className="!p-8">
+                <div className="space-y-4">
+                  <div className="mb-4 flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                      Recent Activity
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-mono uppercase tracking-widest border-border/30 text-muted-foreground/60"
+                      >
                         <Activity className="mr-1 h-3 w-3" />
                         Live
                       </Badge>
@@ -727,7 +703,7 @@ export function ProtocolActivity({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 text-xs"
+                          className="h-7 text-xs font-medium text-muted-foreground hover:text-foreground"
                           onClick={pendingProps.onSeeAllDelegation}
                         >
                           See All
@@ -743,38 +719,37 @@ export function ProtocolActivity({
               </CardContent>
             </Card>
 
-            <Card className="overflow-hidden pt-0">
-              <CardHeader className="border-b border-border/50 bg-muted/30 pt-8">
+            <Card className="overflow-hidden bg-card border-border/20 dark:border-border/40 !py-0 !gap-0">
+              <CardHeader className="border-b border-border/20 dark:border-border/40 !py-6 !px-8">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-xl">Glow Miners</CardTitle>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Glow Miners
+                    </h3>
+                    <p className="mt-0.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
                       Mining infrastructure
                     </p>
                   </div>
-                  <Badge variant="secondary" className="gap-1">
+                  <Badge
+                    variant="secondary"
+                    className="gap-1.5 text-xs font-mono font-semibold"
+                  >
                     <Building className="h-3 w-3" />
                     {minerProps.buyersCount}
-                    {minerProps.buyersCount === 1 ? " Buyer" : " Buyers"}
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="p-6">
-                <InventoryList
-                  items={minerProps.availableMiners}
-                  emptyLabel="Miners"
-                  countdownLabel="All miners are sold. Next batch available soon."
-                  countdownDate={minerProps.minersCountdownDate}
-                  badgeColor="blue"
-                />
-
-                <div className="space-y-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="text-sm font-semibold">
-                      Purchase History
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
+              <CardContent className="!p-8">
+                <div className="space-y-4">
+                  <div className="mb-4 flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                      Recent Activity
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-mono uppercase tracking-widest border-border/30 text-muted-foreground/60"
+                      >
                         <Activity className="mr-1 h-3 w-3" />
                         Live
                       </Badge>
@@ -782,7 +757,7 @@ export function ProtocolActivity({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 text-xs"
+                          className="h-7 text-xs font-medium text-muted-foreground hover:text-foreground"
                           onClick={minerProps.onSeeAllMiners}
                         >
                           See All
@@ -791,8 +766,8 @@ export function ProtocolActivity({
                     </div>
                   </div>
                   {minerProps.hasMinerPreview ? (
-                    <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
-                      {minerProps.minerPreviewEvents.map((event) => (
+                    <div className="space-y-3">
+                      {minerProps.minerPreviewEvents.slice(0, 5).map((event) => (
                         <MinerItem key={event.id} event={event} />
                       ))}
                     </div>

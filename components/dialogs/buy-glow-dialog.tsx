@@ -174,14 +174,14 @@ function PaymentOption({
     <div
       onClick={onSelect}
       className={cn(
-        "flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all duration-200",
+        "flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all",
         selected
-          ? "bg-foreground/5 border-foreground/15"
-          : "bg-transparent border-border/50 hover:bg-foreground/5 hover:border-foreground/10"
+          ? "bg-muted/50 dark:bg-muted/60 border-border/40"
+          : "bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40 hover:bg-muted/40 dark:hover:bg-muted/60 hover:border-border/30",
       )}
     >
       <div className="flex items-center gap-3">
-        <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center border border-border">
+        <div className="h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center">
           {icon}
         </div>
         <div>
@@ -189,7 +189,11 @@ function PaymentOption({
           <div className="text-xs text-muted-foreground">{balance}</div>
         </div>
       </div>
-      {selected && <div className="h-2 w-2 rounded-full bg-primary shrink-0" />}
+      {selected && (
+        <div className="h-4 w-4 rounded-full bg-[#4ADE80]/20 flex items-center justify-center">
+          <div className="h-2 w-2 rounded-full bg-[#4ADE80]" />
+        </div>
+      )}
     </div>
   );
 }
@@ -317,7 +321,7 @@ export function BuyGlowDialog({
   const usdcBalanceFormatted = React.useMemo(
     () =>
       usdcBalance ? formatUnits(usdcBalance, DECIMALS_BY_TOKEN.USDC) : "0",
-    [usdcBalance]
+    [usdcBalance],
   );
 
   const { usdgBalance } = useWalletTokenBalances(address);
@@ -334,7 +338,7 @@ export function BuyGlowDialog({
     address,
     query: {
       enabled: Boolean(
-        open && address && payToken === "ETH" && isEthPayEnabled
+        open && address && payToken === "ETH" && isEthPayEnabled,
       ),
     },
   });
@@ -392,14 +396,14 @@ export function BuyGlowDialog({
       if (payToken === "USDC") {
         const requestedWei = parseUnits(
           trimToDecimals(inputAmount, DECIMALS_BY_TOKEN.USDC as number),
-          DECIMALS_BY_TOKEN.USDC as number
+          DECIMALS_BY_TOKEN.USDC as number,
         );
         return requestedWei > usdcBalanceWei;
       }
       if (payToken === "USDG") {
         const requestedWei = parseUnits(
           trimToDecimals(inputAmount, DECIMALS_BY_TOKEN.USDG as number),
-          DECIMALS_BY_TOKEN.USDG as number
+          DECIMALS_BY_TOKEN.USDG as number,
         );
         return requestedWei > usdgBalanceWei;
       }
@@ -471,7 +475,7 @@ export function BuyGlowDialog({
       earlyLiquidityCurrentPrice,
       isEthPayEnabled,
       payToken,
-    ]
+    ],
   );
 
   const handleEstimateResult = React.useCallback(
@@ -484,7 +488,7 @@ export function BuyGlowDialog({
       setSmartAmounts(result.smartAmounts);
       setLastEstimatedAmount(result.forAmount);
     },
-    []
+    [],
   );
 
   const handleEstimateError = React.useCallback(() => {
@@ -499,12 +503,12 @@ export function BuyGlowDialog({
       onResult: handleEstimateResult,
       onError: handleEstimateError,
     }),
-    [handleEstimateError, handleEstimateResult]
+    [handleEstimateError, handleEstimateResult],
   );
 
   const { run: runEstimate, isRunning: isEstimating } = useDebouncedAsync(
     estimateRunner,
-    estimateOptions
+    estimateOptions,
   );
 
   React.useEffect(() => {
@@ -559,7 +563,7 @@ export function BuyGlowDialog({
 
       runEstimate(value);
     },
-    [runEstimate]
+    [runEstimate],
   );
 
   const handlePayTokenChange = React.useCallback(
@@ -584,7 +588,7 @@ export function BuyGlowDialog({
         }
       }
     },
-    [defaultUsdcAmount, handleInputChange, open, phase]
+    [defaultUsdcAmount, handleInputChange, open, phase],
   );
 
   React.useEffect(() => {
@@ -620,7 +624,7 @@ export function BuyGlowDialog({
     (
       stepId: string,
       status: StepStatus,
-      extras?: { txHash?: string; errorMessage?: string }
+      extras?: { txHash?: string; errorMessage?: string },
     ) => {
       setTransactionSteps((prev) => {
         const updated = prev.map((s) => {
@@ -630,7 +634,7 @@ export function BuyGlowDialog({
               status,
               startedAt:
                 status === "waiting_signature" || status === "confirming"
-                  ? s.startedAt ?? Date.now()
+                  ? (s.startedAt ?? Date.now())
                   : s.startedAt,
               txHash: extras?.txHash ?? s.txHash,
               errorMessage: extras?.errorMessage ?? s.errorMessage,
@@ -642,7 +646,7 @@ export function BuyGlowDialog({
         return updated;
       });
     },
-    []
+    [],
   );
 
   const handleBuyGlow = React.useCallback(async () => {
@@ -676,7 +680,7 @@ export function BuyGlowDialog({
       if (payToken === "USDC") {
         const requestedWei = parseUnits(
           trimToDecimals(inputAmount, DECIMALS_BY_TOKEN.USDC as number),
-          DECIMALS_BY_TOKEN.USDC as number
+          DECIMALS_BY_TOKEN.USDC as number,
         );
         if (requestedWei > usdcBalanceWei)
           throw new Error("Insufficient USDC balance");
@@ -687,7 +691,7 @@ export function BuyGlowDialog({
       if (payToken === "USDG") {
         const requestedWei = parseUnits(
           trimToDecimals(inputAmount, DECIMALS_BY_TOKEN.USDG as number),
-          DECIMALS_BY_TOKEN.USDG as number
+          DECIMALS_BY_TOKEN.USDG as number,
         );
         if (requestedWei > usdgBalanceWei)
           throw new Error("Insufficient USDG balance");
@@ -698,7 +702,7 @@ export function BuyGlowDialog({
       const bondingAllocationInitial =
         effectiveSmartAmounts.amount_in_glow_bonding_curve ?? BigInt(0);
       const bondingOutputInitial = Number(
-        effectiveSmartAmounts.amount_out_glow || "0"
+        effectiveSmartAmounts.amount_out_glow || "0",
       );
       const hasBondingOutputInitial =
         bondingAllocationInitial > BigInt(0) && bondingOutputInitial > 0;
@@ -810,7 +814,7 @@ export function BuyGlowDialog({
         const bondingAllocation =
           effectiveSmartAmounts.amount_in_glow_bonding_curve ?? BigInt(0);
         const bondingOutput = Number(
-          effectiveSmartAmounts.amount_out_glow || "0"
+          effectiveSmartAmounts.amount_out_glow || "0",
         );
         const hasBondingOutput =
           bondingAllocation > BigInt(0) && bondingOutput > 0;
@@ -871,15 +875,15 @@ export function BuyGlowDialog({
       const bondingAllocation =
         effectiveSmartAmounts.amount_in_glow_bonding_curve ?? BigInt(0);
       const bondingOutput = Number(
-        effectiveSmartAmounts.amount_out_glow || "0"
+        effectiveSmartAmounts.amount_out_glow || "0",
       );
       const hasBondingOutput =
         bondingAllocation > BigInt(0) && bondingOutput > 0;
       const finalUniswapOut = Number(
-        effectiveSmartAmounts.amount_out_uni || "0"
+        effectiveSmartAmounts.amount_out_uni || "0",
       );
       const finalBondingOut = Number(
-        effectiveSmartAmounts.amount_out_glow || "0"
+        effectiveSmartAmounts.amount_out_glow || "0",
       );
       const finalEstimatedGlw = (finalUniswapOut + finalBondingOut).toString();
 
@@ -917,9 +921,8 @@ export function BuyGlowDialog({
         updateStepStatus("PURCHASING_GLOW", "waiting_signature");
         updateStepStatus("PURCHASING_GLOW", "confirming");
         const incrementsToPurchase = Math.floor(bondingOutput * 100);
-        const quoteResult = await getGlowQuoteEarlyLiquidity(
-          incrementsToPurchase
-        );
+        const quoteResult =
+          await getGlowQuoteEarlyLiquidity(incrementsToPurchase);
         if (!quoteResult.ok) {
           trackEvent("buy_glw_step_result", {
             step: "purchase_glw_bonding",
@@ -936,7 +939,7 @@ export function BuyGlowDialog({
             {
               bondingAllocation: bondingAllocation.toString(),
               bondingQuote: quoteResult.val.toString(),
-            }
+            },
           );
           updateStepStatus("PURCHASING_GLOW", "completed");
           trackEvent("buy_glw_step_result", {
@@ -990,7 +993,7 @@ export function BuyGlowDialog({
 
       const currentSteps = stepsRef.current;
       const activeStep = currentSteps.find(
-        (s) => s.status === "waiting_signature" || s.status === "confirming"
+        (s) => s.status === "waiting_signature" || s.status === "confirming",
       );
       if (activeStep) {
         updateStepStatus(activeStep.id, "error", { errorMessage: msg });
@@ -1125,46 +1128,34 @@ export function BuyGlowDialog({
     if (phase === "success") {
       return (
         <div className="px-6 py-8 text-center space-y-6">
-          <div className="text-center space-y-2">
-            <div className="flex items-center justify-center mb-4">
-              <GlowSymbol className="size-14" />
-            </div>
-            <div className="text-4xl font-bold text-emerald-700 dark:text-[color:var(--color-glow-green)]">
+          {/* Success Icon */}
+          <div className="w-16 h-16 bg-[#4ADE80]/10 rounded-full flex items-center justify-center mx-auto">
+            <GlowSymbol className="size-8" />
+          </div>
+
+          {/* Hero Amount */}
+          <div className="text-center">
+            <div className="text-3xl font-semibold text-foreground tracking-tight mb-1">
               +
               {Number(estimatedGlw).toLocaleString("en-US", {
                 maximumFractionDigits: 4,
               })}{" "}
               GLW
             </div>
-            <div className="mt-4 flex flex-col items-center gap-2">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 dark:border-[color:var(--color-glow-green)]/30 bg-emerald-500/10 dark:bg-[color:var(--color-glow-green)]/10 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-[color:var(--color-glow-green)]">
+            <div className="mt-3 flex flex-col items-center gap-2">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-[#4ADE80]/10 px-3 py-1.5 text-xs font-medium text-[#4ADE80]">
                 <TrendingUp className="h-3 w-3" />
                 Impact Score Boosted
               </div>
-              <div className="text-sm text-muted-foreground max-w-[280px] mx-auto">
+              <div className="text-xs text-muted-foreground max-w-[260px] mx-auto">
                 You've increased your Glow Worth. You are now earning passive
                 Impact Points on this balance.
               </div>
             </div>
           </div>
 
-          <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full">
-            <span className="text-foreground text-sm font-medium">
-              Completed •{" "}
-              {new Date().toLocaleDateString("en-US", {
-                day: "numeric",
-                month: "short",
-              })}
-              ,{" "}
-              {new Date().toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: false,
-              })}
-            </span>
-          </div>
-
-          <div className="space-y-4 text-left">
+          {/* Transaction Details */}
+          <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 text-left space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground text-sm">Sent</span>
               <div className="text-right">
@@ -1182,7 +1173,7 @@ export function BuyGlowDialog({
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground text-sm">Received</span>
               <div className="text-right">
-                <span className="text-emerald-700 dark:text-[color:var(--color-glow-green)] text-sm font-mono">
+                <span className="text-[#4ADE80] text-sm font-mono font-medium">
                   {Number(estimatedGlw).toLocaleString("en-US", {
                     maximumFractionDigits: 4,
                   })}
@@ -1192,43 +1183,36 @@ export function BuyGlowDialog({
             </div>
 
             {txHash && (
-              <>
+              <div className="pt-3 border-t border-border/20 dark:border-border/40">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">
-                    Transaction ID
+                    Transaction
                   </span>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-2">
                     <span className="text-foreground text-sm font-mono">
-                      {`${txHash.slice(0, 6)}...${txHash.slice(-6)}`}
+                      {`${txHash.slice(0, 6)}...${txHash.slice(-4)}`}
                     </span>
                     <button
                       onClick={copyTxHash}
-                      className="p-2 hover:bg-muted rounded transition-colors"
+                      className="p-1 hover:bg-muted/50 rounded transition-colors"
                     >
-                      <Copy className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                      <Copy className="w-3 h-3 text-muted-foreground hover:text-foreground" />
                     </button>
+                    <a
+                      href={`https://etherscan.io/tx/${txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 hover:bg-muted/50 rounded transition-colors"
+                    >
+                      <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                    </a>
                   </div>
                 </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground text-sm">
-                    Explorer
-                  </span>
-                  <a
-                    href={`https://etherscan.io/tx/${txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center space-x-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                  >
-                    <span>View on Etherscan</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              </>
+              </div>
             )}
           </div>
 
-          <Button onClick={handleClose} className="w-full">
+          <Button variant="outline" onClick={handleClose} className="w-full">
             Close
           </Button>
         </div>
@@ -1249,7 +1233,7 @@ export function BuyGlowDialog({
                   className="h-14 w-14 rounded-full bg-red-500/20 flex items-center justify-center border border-red-500/50"
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", duration: 0.5 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
                 >
                   <X className="h-8 w-8 text-red-500" />
                 </motion.div>
@@ -1287,7 +1271,7 @@ export function BuyGlowDialog({
           {/* Transaction Stepper */}
           {transactionSteps.length > 0 ? (
             <motion.div
-              className="bg-muted/20 border border-border/50 rounded-2xl p-4"
+              className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-4"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15, duration: 0.3 }}
@@ -1296,12 +1280,14 @@ export function BuyGlowDialog({
             </motion.div>
           ) : hasError && errorMessage ? (
             <motion.div
-              className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl"
+              className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <p className="text-sm text-red-500 break-words">{errorMessage}</p>
+              <p className="text-sm text-destructive break-words">
+                {errorMessage}
+              </p>
             </motion.div>
           ) : null}
 
@@ -1332,16 +1318,18 @@ export function BuyGlowDialog({
     // INPUT PHASE
     return (
       <>
-        <div className="px-5 pt-5 pb-3">
-          <DialogTitle className="text-xl font-semibold">Buy GLW</DialogTitle>
-          <div className="text-sm text-muted-foreground mt-1">
+        <div className="px-6 pt-8 pb-4 border-b border-border/40">
+          <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+            Buy GLW
+          </DialogTitle>
+          <div className="text-sm text-muted-foreground mt-2">
             Swap stablecoins or ETH for GLW tokens
           </div>
         </div>
 
-        <div className="px-5 pb-5 space-y-5">
+        <div className="px-5 py-5 space-y-5">
           {/* Amount Input Section */}
-          <div className="bg-muted/30 rounded-2xl p-5 border border-border/50">
+          <div className="bg-muted/30 dark:bg-muted/50 rounded-xl p-5 border border-border/20 dark:border-border/40">
             <div className="flex items-center justify-between mb-3">
               <Label
                 htmlFor="buy-amount"
@@ -1356,7 +1344,7 @@ export function BuyGlowDialog({
                       ? toFixedTruncate(Number(ethBalanceFormatted || "0"), 4)
                       : formatLocaleAmount(
                           availablePayBalanceFormatted,
-                          2
+                          2,
                         )}{" "}
                     {payToken}
                   </span>
@@ -1405,7 +1393,7 @@ export function BuyGlowDialog({
                             handleInputChange(formatEthMaxFromWei(maxSpendWei));
                           } catch (e: any) {
                             toast.error(
-                              e?.message || "Failed to compute max ETH amount"
+                              e?.message || "Failed to compute max ETH amount",
                             );
                           }
                           return;
@@ -1439,7 +1427,7 @@ export function BuyGlowDialog({
                   isConnected &&
                     Number(inputAmount) > Number(availablePayBalanceFormatted)
                     ? "text-destructive"
-                    : "text-foreground"
+                    : "text-foreground",
                 )}
               />
               <div className="flex items-center gap-2 shrink-0 bg-background/50 rounded-xl px-3 py-2 border border-border/50">
@@ -1470,7 +1458,7 @@ export function BuyGlowDialog({
           </div>
 
           {/* You Receive - Animated */}
-          <div className="bg-muted/30 rounded-2xl p-4 border border-border/50 relative overflow-hidden group">
+          <div className="bg-muted/30 dark:bg-muted/50 rounded-xl p-4 border border-border/20 dark:border-border/40 relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-foreground/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
             <div className="relative flex justify-between items-center">
               <div>
@@ -1510,7 +1498,7 @@ export function BuyGlowDialog({
 
           {/* Payment Method Selection */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <label className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
               Payment Method
             </label>
             <div className="space-y-2">
@@ -1543,7 +1531,7 @@ export function BuyGlowDialog({
                     isConnected
                       ? `${toFixedTruncate(
                           Number(ethBalanceFormatted || "0"),
-                          4
+                          4,
                         )} ETH`
                       : "Connect wallet"
                   }
@@ -1563,7 +1551,7 @@ export function BuyGlowDialog({
     if (phase !== "input") return null;
 
     return (
-      <div className="px-5 py-4 bg-muted/20 border-t border-border shrink-0">
+      <div className="px-5 py-4 bg-muted/30 border-t border-border/40 shrink-0">
         <div className="relative">
           {!isConnected ? (
             <ConnectKitButton.Custom>
@@ -1610,7 +1598,7 @@ export function BuyGlowDialog({
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className="md:max-w-md p-0 gap-0 bg-background border-border text-foreground overflow-hidden shadow-2xl sm:rounded-3xl flex flex-col max-h-[85vh]"
+        className="md:max-w-md p-0 gap-0 bg-card border border-border/40 text-foreground overflow-hidden rounded-[24px] flex flex-col max-h-[85vh]"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader className="sr-only">
@@ -1618,10 +1606,10 @@ export function BuyGlowDialog({
             {phase === "success"
               ? "Purchase Successful"
               : phase === "error"
-              ? "Purchase Failed"
-              : phase === "processing"
-              ? "Processing Purchase"
-              : "Buy GLW"}
+                ? "Purchase Failed"
+                : phase === "processing"
+                  ? "Processing Purchase"
+                  : "Buy GLW"}
           </DialogTitle>
         </DialogHeader>
 

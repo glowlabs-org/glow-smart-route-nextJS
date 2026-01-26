@@ -11,7 +11,7 @@ import {
   HelpCircle,
 } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -54,8 +54,8 @@ function buildChartConfig(title: string, deltaPercent?: number | null) {
       color: isPositive
         ? "hsl(142, 71%, 45%)"
         : deltaPercent !== undefined && deltaPercent !== null
-        ? "hsl(0, 84%, 60%)"
-        : "hsl(var(--primary))",
+          ? "hsl(0, 84%, 60%)"
+          : "hsl(var(--primary))",
     },
   } satisfies ChartConfig;
 }
@@ -111,64 +111,57 @@ function TickerCard({
   const isPositive = (delta ?? 0) >= 0;
   const chartData = React.useMemo(
     () => getChartData(title, sparkline),
-    [title, sparkline]
+    [title, sparkline],
   );
   const chartConfig = React.useMemo(
     () => buildChartConfig(title, deltaPercent ?? undefined),
-    [title, deltaPercent]
+    [title, deltaPercent],
   );
 
   return (
     <TooltipProvider delayDuration={150}>
-      <Card className="group relative overflow-hidden transition-all duration-300">
-        <CardContent className="p-0">
+      <Card className="group relative overflow-hidden transition-colors bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40 !py-0 !gap-0">
+        <CardContent className="!p-0">
           {isLoading ? (
-            <>
-              <div className="p-6">
-                <Skeleton className="mb-3 h-4 w-32" />
-                <Skeleton className="mb-3 h-10 w-40" />
-                <Skeleton className="h-4 w-24" />
-              </div>
-              <div className="border-t border-border/60 p-6 pt-4">
-                <Skeleton className="h-32 w-full" />
-              </div>
-            </>
+            <div className="p-6">
+              <Skeleton className="mb-2 h-4 w-24" />
+              <Skeleton className="mb-2 h-8 w-32" />
+              <Skeleton className="h-3 w-20" />
+            </div>
           ) : (
             <>
-              <div className="p-6 pb-4">
-                <div className="mb-3 flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <div>
-                      <div className="mb-1 flex items-center gap-2">
-                        <span className="text-sm font-medium text-muted-foreground">
-                          {title}
-                        </span>
-                        {tooltip ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                type="button"
-                                className="text-muted-foreground transition-colors hover:text-primary"
-                                aria-label={`Info about ${title}`}
-                              >
-                                <HelpCircle className="h-4 w-4" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs">
-                              <p className="text-xs leading-relaxed">
-                                {tooltip}
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
-                        ) : null}
-                      </div>
-                      {source ? (
-                        <Badge variant="outline" className="h-5 px-2 text-xs">
-                          <Activity className="mr-1 h-3 w-3" />
-                          {source}
-                        </Badge>
-                      ) : null}
-                    </div>
+              <div className="p-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                      {title}
+                    </span>
+                    {tooltip ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="text-muted-foreground/60 dark:text-muted-foreground/80 transition-colors hover:text-foreground"
+                            aria-label={`Info about ${title}`}
+                          >
+                            <HelpCircle className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="text-xs leading-relaxed">{tooltip}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {updateFrequency ? (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-mono uppercase tracking-widest border-border/20 dark:border-border/40 text-muted-foreground/60 dark:text-muted-foreground/80"
+                      >
+                        {updateFrequency}
+                      </Badge>
+                    ) : null}
                     {externalLink ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -176,10 +169,10 @@ function TickerCard({
                             href={externalLink.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-muted-foreground transition-colors hover:text-primary"
+                            className="text-muted-foreground/60 dark:text-muted-foreground/80 transition-colors hover:text-foreground"
                             onClick={(event) => event.stopPropagation()}
                           >
-                            <ExternalLink className="h-4 w-4" />
+                            <ExternalLink className="h-3.5 w-3.5" />
                           </Link>
                         </TooltipTrigger>
                         <TooltipContent>
@@ -188,37 +181,36 @@ function TickerCard({
                       </Tooltip>
                     ) : null}
                   </div>
-                  {updateFrequency ? (
-                    <Badge variant="secondary" className="text-xs">
-                      {updateFrequency}
-                    </Badge>
-                  ) : null}
                 </div>
 
-                <div className="mb-3 text-4xl font-bold tracking-tight">
+                <div className="text-3xl font-semibold font-mono tracking-tight">
                   {price}
                 </div>
 
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mt-2">
+                  {source ? source : "Current price"}
+                </div>
+
                 {typeof deltaPercent === "number" ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 mt-3">
                     <div
-                      className={`flex items-center gap-1 rounded-md px-2 py-1 text-sm font-semibold ${
+                      className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold ${
                         isPositive
                           ? "bg-green-500/10 text-green-700 dark:text-green-400"
                           : "bg-red-500/10 text-red-700 dark:text-red-400"
                       }`}
                     >
                       {isPositive ? (
-                        <ArrowUp className="h-4 w-4" />
+                        <ArrowUp className="h-3 w-3" />
                       ) : (
-                        <ArrowDown className="h-4 w-4" />
+                        <ArrowDown className="h-3 w-3" />
                       )}
                       <span>
                         {isPositive ? "+" : ""}
                         {deltaPercent.toFixed(2)}%
                       </span>
                     </div>
-                    <span className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
                       7d
                     </span>
                   </div>
@@ -226,7 +218,7 @@ function TickerCard({
               </div>
 
               {chartData.length > 0 ? (
-                <div className="border-t border-border/60 p-6 pt-4">
+                <div className="border-t border-border/20 dark:border-border/40 p-6 pt-4">
                   <ChartContainer config={chartConfig}>
                     <AreaChart
                       accessibilityLayer
@@ -236,12 +228,16 @@ function TickerCard({
                         right: 0,
                       }}
                     >
-                      <CartesianGrid vertical={false} />
+                      <CartesianGrid
+                        vertical={false}
+                        className="stroke-muted"
+                      />
                       <XAxis
                         dataKey="axisLabel"
                         tickLine={false}
                         axisLine={false}
                         tickMargin={8}
+                        className="text-xs text-muted-foreground"
                       />
                       <YAxis
                         tickLine={false}
@@ -250,6 +246,7 @@ function TickerCard({
                         tickFormatter={(value: number) =>
                           `$${Number(value).toFixed(2)}`
                         }
+                        className="text-xs text-muted-foreground"
                       />
                       <ChartTooltip
                         cursor={false}
@@ -259,7 +256,7 @@ function TickerCard({
                             labelFormatter={(value) => value}
                             formatter={(value) => [
                               `$${Number(value as number).toFixed(
-                                title.includes("GCTL") ? 2 : 4
+                                title.includes("GCTL") ? 2 : 4,
                               )}`,
                               title,
                             ]}
@@ -321,21 +318,8 @@ export function MarketTickers({ shouldLoad = true }: MarketTickersProps) {
   }, [gctlMintPrice]);
 
   return (
-    <section className="py-12">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Market Tickers</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Real-time pricing data for GLW and GCTL tokens
-          </p>
-        </div>
-        <Badge variant="outline" className="hidden md:flex">
-          <Activity className="mr-1 h-3 w-3" />
-          Live
-        </Badge>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+    <div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <TickerCard
           title="GLW Spot Price"
           price={spotPriceLabel}
@@ -371,6 +355,6 @@ export function MarketTickers({ shouldLoad = true }: MarketTickersProps) {
           updateFrequency="~1m"
         />
       </div>
-    </section>
+    </div>
   );
 }

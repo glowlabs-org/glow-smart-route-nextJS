@@ -103,19 +103,13 @@ export default function RewardsView() {
     REWARDS_TABS.find((tab) => tab.value === validType) ?? REWARDS_TABS[0]!;
 
   return (
-    <div className="min-h-screen bg-background">
-      <section className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 pb-16 pt-6">
-        <div className="flex flex-col gap-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                Rewards
-              </div>
-              <div className="text-xs text-muted-foreground font-mono hidden lg:block">
-                <span className="text-foreground">{activeTab.label}</span> ·{" "}
-                {activeTab.description}
-              </div>
-            </div>
+    <div className="min-h-screen bg-background text-foreground">
+      <section className="max-w-screen-2xl mx-auto px-8 py-10 lg:px-12">
+        <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+              Leaderboard
+            </h1>
 
             <Tabs
               value={validType}
@@ -134,12 +128,12 @@ export default function RewardsView() {
                   setSelectedFarmId("");
               }}
             >
-              <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-2xl border border-border bg-background/60 p-2 dark:bg-muted/20 sm:w-auto sm:grid-cols-4 sm:gap-1 sm:rounded-full sm:p-1">
+              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-2xl border border-border/30 dark:border-border/50 bg-muted/30 dark:bg-muted/40 p-1.5 sm:w-auto sm:grid-cols-4 sm:rounded-full sm:p-2">
                 {REWARDS_TABS.map((tab) => (
                   <TabsTrigger
                     key={tab.value}
                     value={tab.value}
-                    className="h-10 justify-start rounded-xl px-3 py-2 text-sm sm:h-9 sm:justify-center sm:rounded-full sm:px-4 sm:text-xs sm:font-mono sm:uppercase sm:tracking-wider"
+                    className="h-10 gap-2 justify-center rounded-xl px-4 py-2 text-xs font-mono uppercase tracking-wider text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-none sm:rounded-full sm:px-5"
                   >
                     <tab.Icon className="h-4 w-4" />
                     {tab.label}

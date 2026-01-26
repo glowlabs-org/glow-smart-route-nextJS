@@ -12,11 +12,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Gift, ChevronRight, ExternalLink } from "lucide-react";
-import {
-  useRewardsBreakdown,
-  formatGLW,
-  formatUSDC,
-} from "@/hooks";
+import { useRewardsBreakdown, formatGLW, formatUSDC } from "@/hooks";
 import { useWalletFarms, useRegions } from "@/hooks";
 import { FallbackImage } from "@/components/ui/fallback-image";
 import { useGlowSpotPrice } from "@/hooks/useGlowPrices";
@@ -123,7 +119,7 @@ export function RewardsBreakdownPanel({
   const pendingFarms = recentPurchases
     .map((purchase) => {
       const farmMetadata = purchasedFarms.find(
-        (f) => f.farmId === purchase.farmId
+        (f) => f.farmId === purchase.farmId,
       );
       if (!farmMetadata) return null;
       return {
@@ -161,15 +157,15 @@ export function RewardsBreakdownPanel({
     (
       Number(data.totals.totalGlwDelegated) +
       Number(data.delegatedAfterWeekRange.totalGlwDelegatedAfter)
-    ).toString()
+    ).toString(),
   );
   const spentUSDC = formatUSDC(data.totals.totalUsdcSpentByMiners);
 
   const pendingDelegatedGLW = formatGLW(
-    data.delegatedAfterWeekRange.totalGlwDelegatedAfter
+    data.delegatedAfterWeekRange.totalGlwDelegatedAfter,
   );
   const pendingSpentUSDC = formatUSDC(
-    data.delegatedAfterWeekRange.totalUsdcSpentAfter
+    data.delegatedAfterWeekRange.totalUsdcSpentAfter,
   );
   const hasPendingDelegations =
     Number(data.delegatedAfterWeekRange.totalGlwDelegatedAfter) > 0;
@@ -244,12 +240,12 @@ export function RewardsBreakdownPanel({
   const selectedFarmDetails = selectedFarmForDetails
     ? selectedFarmForDetails.type === "other"
       ? data?.otherFarmsWithRewards.farms.find(
-          (f) => f.farmId === selectedFarmForDetails.farmId
+          (f) => f.farmId === selectedFarmForDetails.farmId,
         )
       : data?.farmDetails.find(
           (f) =>
             f.farmId === selectedFarmForDetails.farmId &&
-            f.type === selectedFarmForDetails.type
+            f.type === selectedFarmForDetails.type,
         )
     : null;
 
@@ -270,8 +266,8 @@ export function RewardsBreakdownPanel({
               {selectedFarmForDetails?.type === "launchpad"
                 ? "delegation"
                 : selectedFarmForDetails?.type === "mining-center"
-                ? "miner"
-                : "farm"}
+                  ? "miner"
+                  : "farm"}
             </DialogDescription>
           </DialogHeader>
 
@@ -327,7 +323,7 @@ export function RewardsBreakdownPanel({
                                     ? formatGLW(week.protocolDepositRewards)
                                     : formatPDRewards(
                                         week.protocolDepositRewards,
-                                        asset
+                                        asset,
                                       )}{" "}
                                   {pdAsset}
                                 </td>
@@ -348,7 +344,7 @@ export function RewardsBreakdownPanel({
                                         +{" "}
                                         {formatPDRewards(
                                           week.protocolDepositRewards,
-                                          asset
+                                          asset,
                                         )}{" "}
                                         {asset}
                                       </span>
@@ -356,7 +352,7 @@ export function RewardsBreakdownPanel({
                                 </td>
                               </tr>
                             );
-                          }
+                          },
                         )}
                     </tbody>
                     <tfoot>
@@ -380,11 +376,11 @@ export function RewardsBreakdownPanel({
                               <>
                                 {!asset || asset === "GLW"
                                   ? formatGLW(
-                                      selectedFarmDetails.totalProtocolDepositRewards
+                                      selectedFarmDetails.totalProtocolDepositRewards,
                                     )
                                   : formatPDRewards(
                                       selectedFarmDetails.totalProtocolDepositRewards,
-                                      asset
+                                      asset,
                                     )}{" "}
                                 {pdAsset}
                               </>
@@ -405,12 +401,12 @@ export function RewardsBreakdownPanel({
                                   {formatGLW(
                                     (
                                       Number(
-                                        selectedFarmDetails.totalInflationRewards
+                                        selectedFarmDetails.totalInflationRewards,
                                       ) +
                                       Number(
-                                        selectedFarmDetails.totalProtocolDepositRewards
+                                        selectedFarmDetails.totalProtocolDepositRewards,
                                       )
-                                    ).toString()
+                                    ).toString(),
                                   )}{" "}
                                   GLW
                                 </>
@@ -420,17 +416,17 @@ export function RewardsBreakdownPanel({
                             return (
                               <>
                                 {formatGLW(
-                                  selectedFarmDetails.totalInflationRewards
+                                  selectedFarmDetails.totalInflationRewards,
                                 )}{" "}
                                 GLW
                                 {Number(
-                                  selectedFarmDetails.totalProtocolDepositRewards
+                                  selectedFarmDetails.totalProtocolDepositRewards,
                                 ) > 0 && (
                                   <span className="text-xs text-muted-foreground ml-1">
                                     +{" "}
                                     {formatPDRewards(
                                       selectedFarmDetails.totalProtocolDepositRewards,
-                                      asset
+                                      asset,
                                     )}{" "}
                                     {asset}
                                   </span>
@@ -683,7 +679,7 @@ export function RewardsBreakdownPanel({
                                       width: `${
                                         Number(farm.totalEarnedSoFar) > 0
                                           ? (Number(
-                                              farm.totalInflationRewards
+                                              farm.totalInflationRewards,
                                             ) /
                                               Number(farm.totalEarnedSoFar)) *
                                             100
@@ -697,7 +693,7 @@ export function RewardsBreakdownPanel({
                                       width: `${
                                         Number(farm.totalEarnedSoFar) > 0
                                           ? (Number(
-                                              farm.totalProtocolDepositRewards
+                                              farm.totalProtocolDepositRewards,
                                             ) /
                                               Number(farm.totalEarnedSoFar)) *
                                             100
@@ -723,7 +719,7 @@ export function RewardsBreakdownPanel({
                                       PD:{" "}
                                       <span className="font-medium text-foreground">
                                         {formatGLW(
-                                          farm.totalProtocolDepositRewards
+                                          farm.totalProtocolDepositRewards,
                                         )}{" "}
                                         GLW
                                       </span>
@@ -764,7 +760,7 @@ export function RewardsBreakdownPanel({
                                 onClick={() => {
                                   window.open(
                                     `https://glow.org/audits/${farm.farmId}`,
-                                    "_blank"
+                                    "_blank",
                                   );
                                 }}
                               >
@@ -880,7 +876,7 @@ export function RewardsBreakdownPanel({
                                 onClick={() => {
                                   window.open(
                                     `https://glow.org/audits/${farm.farmId}`,
-                                    "_blank"
+                                    "_blank",
                                   );
                                 }}
                               >
@@ -918,14 +914,14 @@ export function RewardsBreakdownPanel({
                               .reduce(
                                 (sum, farm) =>
                                   sum + Number(farm.totalInflationRewards),
-                                0
+                                0,
                               )
-                              .toString()
+                              .toString(),
                           )}{" "}
                           GLW
                         </span>
                         {otherFarms.some(
-                          (f) => Number(f.totalProtocolDepositRewards) > 0
+                          (f) => Number(f.totalProtocolDepositRewards) > 0,
                         ) && (
                           <span className="text-xs">
                             + PD in various assets
@@ -1062,7 +1058,7 @@ export function RewardsBreakdownPanel({
                                       <span className="font-medium text-foreground">
                                         {formatPDRewards(
                                           farm.totalProtocolDepositRewards,
-                                          farm.asset
+                                          farm.asset,
                                         )}{" "}
                                         {farm.asset || "GLW"}
                                       </span>
@@ -1081,9 +1077,9 @@ export function RewardsBreakdownPanel({
                                         (
                                           Number(farm.totalInflationRewards) +
                                           Number(
-                                            farm.totalProtocolDepositRewards
+                                            farm.totalProtocolDepositRewards,
                                           )
-                                        ).toString()
+                                        ).toString(),
                                       )}{" "}
                                       GLW
                                     </span>
@@ -1094,13 +1090,13 @@ export function RewardsBreakdownPanel({
                                         GLW
                                       </span>
                                       {Number(
-                                        farm.totalProtocolDepositRewards
+                                        farm.totalProtocolDepositRewards,
                                       ) > 0 && (
                                         <span className="text-xs font-medium text-muted-foreground">
                                           +{" "}
                                           {formatPDRewards(
                                             farm.totalProtocolDepositRewards,
-                                            farm.asset
+                                            farm.asset,
                                           )}{" "}
                                           {farm.asset}
                                         </span>
@@ -1137,7 +1133,7 @@ export function RewardsBreakdownPanel({
                               onClick={() => {
                                 window.open(
                                   `https://glow.org/audits/${farm.farmId}`,
-                                  "_blank"
+                                  "_blank",
                                 );
                               }}
                             >
@@ -1182,7 +1178,7 @@ export function RewardsBreakdownPanel({
                       pending.farmMetadata.userWeeklyRewards
                         ?.protocolDepositRewards || "0";
                     const weeklyRewardFormatted = formatGLW(
-                      estimatedWeeklyReward
+                      estimatedWeeklyReward,
                     );
                     const weeklyPDFormatted = formatGLW(estimatedWeeklyPD);
 
@@ -1267,7 +1263,7 @@ export function RewardsBreakdownPanel({
                                       (
                                         Number(estimatedWeeklyReward) +
                                         Number(estimatedWeeklyPD)
-                                      ).toString()
+                                      ).toString(),
                                     )}{" "}
                                     GLW
                                   </span>
@@ -1287,7 +1283,7 @@ export function RewardsBreakdownPanel({
                               onClick={() => {
                                 window.open(
                                   `https://glow.org/audits/${pending.farmId}`,
-                                  "_blank"
+                                  "_blank",
                                 );
                               }}
                             >

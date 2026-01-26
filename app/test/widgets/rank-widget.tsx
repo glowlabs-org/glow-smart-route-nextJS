@@ -44,14 +44,16 @@ import {
 } from "@/hooks";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
+import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { formatTopPercentile } from "@/utils/impact";
 import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import { ArrowTopRightIcon } from "@radix-ui/react-icons";
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 
 function formatPoints(
   value?: string,
-  opts: { maximumFractionDigits: number } = { maximumFractionDigits: 0 }
+  opts: { maximumFractionDigits: number } = { maximumFractionDigits: 0 },
 ) {
   if (!value) return "—";
   const num = Number(value);
@@ -77,7 +79,7 @@ function safeNumber(value?: string) {
 }
 
 function getIndicatorsStateFromImpactScore(
-  impactScore: ImpactGlowScoreResponse
+  impactScore: ImpactGlowScoreResponse,
 ): ImpactIndicatorsState {
   // Use currentWeekProjection for "what's active NOW" (current ongoing week)
   const projection = impactScore?.currentWeekProjection;
@@ -125,43 +127,44 @@ function RankWidgetSkeleton({
   return (
     <Card
       className={cn(
-        "overflow-hidden flex flex-col w-full",
+        "flex flex-col w-full overflow-hidden",
         isHero
-          ? "bg-muted dark:bg-muted/30 dark:border-transparent h-full gap-2 py-4 border-border"
-          : "h-full bg-card dark:bg-muted/30 border-foreground/10 dark:border-border gap-3 pt-4"
+          ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl h-full gap-4 pt-6 pb-0"
+          : "bg-card dark:bg-card border-border/20 h-full gap-4 pt-6 pb-0",
       )}
     >
-      <CardHeader className="py-0 px-4 relative">
-        <div className="flex items-center justify-center gap-2">
+      <CardHeader className="py-0 px-6">
+        <div className="flex items-center justify-between gap-3">
           <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
             Impact Score
           </div>
-        </div>
-        <div className="absolute right-4 top-0">
           <Skeleton className="h-8 w-8 rounded-full" />
         </div>
       </CardHeader>
 
       <CardContent
-        className={cn("flex flex-col flex-1 min-h-0 gap-3 px-4", "py-0")}
+        className="flex flex-col flex-1 gap-4 px-6 pb-6"
       >
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-1 min-h-0 flex-col items-center justify-center text-center px-1">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col items-center justify-center text-center px-2">
             <Skeleton className="h-4 w-24 rounded-xl" />
             <Skeleton
               className={cn(
                 "mt-2 rounded-xl",
-                isHero ? "h-16 w-48" : "h-14 w-40"
+                isHero ? "h-16 w-48" : "h-14 w-40",
               )}
             />
 
-            <div className="mt-2 flex items-center justify-center gap-3">
+            <div className="mt-3 flex items-center justify-center gap-4">
               <div className="flex items-center gap-2">
                 <Skeleton className="h-3 w-12 rounded-xl" />
                 <Skeleton className="h-3 w-16 rounded-xl" />
               </div>
               <div
-                className={cn("w-px bg-border/60", isHero ? "h-4" : "h-3")}
+                className={cn(
+                  "w-px bg-border/40 dark:bg-border/60",
+                  isHero ? "h-4" : "h-3",
+                )}
               />
               <div className="flex items-center gap-2">
                 <Skeleton className="h-3 w-20 rounded-xl" />
@@ -173,19 +176,27 @@ function RankWidgetSkeleton({
           {/* Impact indicators skeleton */}
           <div
             className={cn(
-              "rounded-xl border border-border bg-card",
-              isHero ? "p-2 mb-2" : "p-3"
+              "rounded-full border bg-card/50 dark:bg-card/80 max-w-full mx-auto",
+              isHero
+                ? "px-3 py-2 border-border/30 dark:border-border/40"
+                : "px-3 py-2.5 border-border/20 dark:border-border/40",
             )}
           >
-            <div className="flex items-center justify-center gap-2">
-              {[...Array(6)].map((_, i) => (
+            <div className="flex items-center justify-center gap-1.5">
+              {/* Sources */}
+              {[...Array(5)].map((_, i) => (
                 <Skeleton key={i} className="h-8 w-8 rounded-full" />
               ))}
+              {/* Separator */}
+              <div className="h-5 w-px bg-border/40 mx-0.5" />
+              {/* Multipliers */}
+              <Skeleton className="h-8 w-8 rounded-lg" />
+              <Skeleton className="h-8 w-8 rounded-lg" />
             </div>
           </div>
 
           {/* Buttons skeleton */}
-          <div className="grid gap-2 grid-cols-2">
+          <div className="grid gap-2 grid-cols-2 mt-auto">
             <Skeleton className={cn("rounded-xl", isHero ? "h-10" : "h-12")} />
             <Skeleton className={cn("rounded-xl", isHero ? "h-10" : "h-12")} />
           </div>
@@ -221,7 +232,7 @@ export function RankWidget({
     const rawWallets = leaderboardQuery.data?.wallets ?? [];
     return rawWallets.filter(
       (row): row is ImpactGlowScoreLeaderboardRow =>
-        "walletAddress" in row && !("isSystemRow" in row)
+        "walletAddress" in row && !("isSystemRow" in row),
     );
   }, [leaderboardQuery.data?.wallets]);
   const totalWalletCount = leaderboardQuery.data?.totalWalletCount ?? 0;
@@ -292,7 +303,7 @@ export function RankWidget({
   const selfGlobalRank = React.useMemo(() => {
     if (!normalizedWalletAddress) return null;
     const idx = leaderboardRows.findIndex(
-      (row) => row.walletAddress.toLowerCase() === normalizedWalletAddress
+      (row) => row.walletAddress.toLowerCase() === normalizedWalletAddress,
     );
     return idx >= 0 ? idx + 1 : null;
   }, [leaderboardRows, normalizedWalletAddress]);
@@ -344,6 +355,7 @@ export function RankWidget({
   const { spotPrice: glowSpotPrice } = useGlowSpotPrice({
     query: { enabled: isBuyGlowOpen },
   });
+  const { isLive: isReferralLive } = useReferralLaunch();
 
   const handleIndicatorClick = React.useCallback(
     (
@@ -354,7 +366,7 @@ export function RankWidget({
         | "vault"
         | "emissions"
         | "worth"
-        | "referral"
+        | "referral",
     ) => {
       trackEvent("dashboard_impact_indicator_click", {
         source,
@@ -364,6 +376,7 @@ export function RankWidget({
       });
 
       if (key === "referral") {
+        if (!isReferralLive) return;
         setIsReferralNetworkOpen(true);
         return;
       }
@@ -387,7 +400,7 @@ export function RankWidget({
       normalizedWalletAddress,
       onMintAndStakeClick,
       source,
-    ]
+    ],
   );
 
   const isLoading =
@@ -402,48 +415,48 @@ export function RankWidget({
       {/* --- DASHBOARD CARD --- */}
       <Card
         className={cn(
-          "overflow-hidden flex flex-col w-full",
+          "flex flex-col w-full overflow-hidden",
           isHero
-            ? "bg-muted dark:bg-muted/30 dark:border-transparent h-full gap-2 py-4 border-border"
-            : "h-full bg-card dark:bg-muted/30 border-foreground/10 dark:border-border gap-3 pt-4"
+            ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl h-full gap-4 pt-6 pb-0"
+            : "bg-card dark:bg-card border-border/20 h-full gap-4 pt-6 pb-0",
         )}
       >
-        <CardHeader className="py-0 px-4 relative">
-          <div className="flex items-center  justify-center gap-2 ">
+        <CardHeader className="py-0 px-6">
+          <div className="flex items-center justify-between gap-3">
             <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
               Impact Score
             </div>
-          </div>
-          {hasWallet && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-4 top-0 h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-transparent"
-              asChild
-            >
-              <Link
-                href="/stats/rewards"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => {
-                  trackEvent("dashboard_leaderboard_open_click", {
-                    source,
-                    wallet_connected: hasWallet,
-                    wallet_address: normalizedWalletAddress,
-                  });
-                }}
+            {hasWallet && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-transparent"
+                asChild
               >
-                <Trophy className="w-4 h-4" />
-              </Link>
-            </Button>
-          )}
+                <Link
+                  href="/stats/rewards"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    trackEvent("dashboard_leaderboard_open_click", {
+                      source,
+                      wallet_connected: hasWallet,
+                      wallet_address: normalizedWalletAddress,
+                    });
+                  }}
+                >
+                  <ArrowTopRightIcon className="w-5 h-5" />
+                </Link>
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent
-          className={cn("flex flex-col flex-1 min-h-0 gap-3 px-4", "py-0")}
+          className="flex flex-col flex-1 gap-4 px-6 pb-6"
         >
           {!hasWallet ? (
             <div className="flex flex-col gap-3">
-              <div className="flex flex-1 min-h-0 flex-col items-center justify-center text-center px-1 select-none">
+              <div className="flex flex-col items-center justify-center text-center px-1 select-none">
                 <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground blur-[1px] opacity-60">
                   Total points
                 </div>
@@ -479,25 +492,25 @@ export function RankWidget({
             </div>
           ) : (
             <>
-              <div className="flex flex-1 min-h-0 flex-col items-center justify-center text-center px-1">
+              <div className="flex flex-col items-center justify-center text-center px-2">
                 <div
                   className={cn(
-                    "font-mono uppercase tracking-wider text-muted-foreground",
-                    isHero ? "text-sm" : "text-xs"
+                    "font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80",
+                    isHero ? "text-xs" : "text-[10px]",
                   )}
                 >
                   Total points
                 </div>
                 <div
                   className={cn(
-                    "mt-1 font-mono font-bold tracking-tighter text-foreground tabular-nums",
+                    "mt-1 font-mono font-semibold tracking-tighter text-foreground tabular-nums",
                     isHero
                       ? isMillionPlusScore
                         ? "text-4xl md:text-5xl"
-                        : "text-5xl md:text-6xl"
+                        : "text-4xl md:text-5xl"
                       : isMillionPlusScore
-                      ? "text-3xl md:text-4xl"
-                      : "text-4xl md:text-5xl"
+                        ? "text-4xl md:text-5xl"
+                        : "text-4xl md:text-5xl",
                   )}
                 >
                   {pointsHeroText}
@@ -505,42 +518,49 @@ export function RankWidget({
 
                 <div
                   className={cn(
-                    "mt-2 flex items-center justify-center gap-3 text-muted-foreground",
-                    isHero ? "text-sm" : "text-xs"
+                    "mt-3 flex items-center justify-center gap-4 text-muted-foreground",
+                    isHero ? "text-sm" : "text-xs",
                   )}
                 >
                   <div className="flex items-baseline gap-2 font-mono">
                     <span
                       className={cn(
-                        "uppercase tracking-wider text-muted-foreground/80",
-                        isHero ? "text-xs" : "text-[10px]"
+                        "uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80",
+                        isHero ? "text-[10px]" : "text-[9px]",
                       )}
                     >
                       Rank
                     </span>
-                    <span className="tabular-nums">{rankText}</span>
+                    <span className="tabular-nums font-medium">{rankText}</span>
                   </div>
                   <div
-                    className={cn("w-px bg-border/60", isHero ? "h-4" : "h-3")}
+                    className={cn(
+                      "w-px bg-border/40 dark:bg-border/60",
+                      isHero ? "h-4" : "h-3",
+                    )}
                   />
                   <div className="flex items-baseline gap-2 font-mono">
                     <span
                       className={cn(
-                        "uppercase tracking-wider text-muted-foreground/80",
-                        isHero ? "text-xs" : "text-[10px]"
+                        "uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80",
+                        isHero ? "text-[10px]" : "text-[9px]",
                       )}
                     >
                       Percentile
                     </span>
-                    <span className="tabular-nums">{percentileText}</span>
+                    <span className="tabular-nums font-medium">
+                      {percentileText}
+                    </span>
                   </div>
                 </div>
               </div>
               {impactScore ? (
                 <div
                   className={cn(
-                    "rounded-xl border border-border bg-card w-fit max-w-full mx-auto overflow-hidden",
-                    isHero ? "p-2 mb-2" : "p-3"
+                    "rounded-full border bg-card/50 dark:bg-card/80 max-w-full mx-auto",
+                    isHero
+                      ? "px-3 py-2 border-border/30 dark:border-border/40"
+                      : "px-3 py-2.5 border-border/20 dark:border-border/40",
                   )}
                 >
                   <ImpactIndicatorsRow
@@ -550,11 +570,14 @@ export function RankWidget({
                 </div>
               ) : null}
 
-              <div className={cn("grid gap-2", "grid-cols-2")}>
+              <div className={cn("grid gap-2 grid-cols-2 mt-auto", isHero && "pt-1")}>
                 {shouldShowMintAndStakeCta ? (
                   onMintAndStakeClick ? (
                     <Button
-                      className={cn("font-mono font-bold", "h-12 text-xs")}
+                      className={cn(
+                        "font-mono font-bold",
+                        isHero ? "h-11 text-xs" : "h-12 text-xs",
+                      )}
                       type="button"
                       onClick={() => {
                         trackEvent("dashboard_gctl_mint_stake_open_click", {
@@ -571,7 +594,7 @@ export function RankWidget({
                     <Button
                       className={cn(
                         "font-mono font-bold",
-                        isHero ? "h-10 text-xs" : "h-12 text-xs"
+                        isHero ? "h-11 text-xs" : "h-12 text-xs",
                       )}
                       asChild
                     >
@@ -595,7 +618,10 @@ export function RankWidget({
                 {shouldShowBreakdownButton ? (
                   <Button
                     variant="outline"
-                    className={cn("font-mono font-bold w-full h-12 text-xs")}
+                    className={cn(
+                      "font-mono font-bold w-full text-xs",
+                      isHero ? "h-11" : "h-12",
+                    )}
                     type="button"
                     onClick={() => {
                       trackEvent("dashboard_impact_breakdown_open_click", {
@@ -611,25 +637,54 @@ export function RankWidget({
                   </Button>
                 ) : null}
 
-                <Button
-                  variant={
-                    shouldShowMintAndStakeCta && onMintAndStakeClick
-                      ? "outline"
-                      : "default"
-                  }
-                  className={cn(
-                    "font-mono font-bold w-full h-12 text-xs gap-1.5 px-2"
-                  )}
-                  type="button"
-                  onClick={() => setIsReferralNetworkOpen(true)}
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  {referralPointsThisWeek > 0
-                    ? `Invites (+${formatPoints(
-                        String(referralPointsThisWeek)
-                      )})`
-                    : "Invite Friends"}
-                </Button>
+                {isReferralLive ? (
+                  <Button
+                    variant={
+                      shouldShowMintAndStakeCta && onMintAndStakeClick
+                        ? "outline"
+                        : "default"
+                    }
+                    className={cn(
+                      "font-mono font-bold w-full text-xs gap-1.5 px-2",
+                      isHero ? "h-11" : "h-12",
+                    )}
+                    type="button"
+                    onClick={() => setIsReferralNetworkOpen(true)}
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    {referralPointsThisWeek > 0
+                      ? `Invites (+${formatPoints(
+                          String(referralPointsThisWeek),
+                        )})`
+                      : "Invite Friends"}
+                  </Button>
+                ) : (
+                  <Button
+                    variant={
+                      shouldShowMintAndStakeCta && onMintAndStakeClick
+                        ? "outline"
+                        : "default"
+                    }
+                    className={cn(
+                      "font-mono font-bold w-full text-xs gap-1.5 px-2",
+                      isHero ? "h-11" : "h-12",
+                    )}
+                    asChild
+                  >
+                    <Link
+                      href="/stats/rewards"
+                      onClick={() => {
+                        trackEvent("dashboard_leaderboard_open_click", {
+                          source,
+                          wallet_connected: hasWallet,
+                          wallet_address: normalizedWalletAddress,
+                        });
+                      }}
+                    >
+                      Leaderboard
+                    </Link>
+                  </Button>
+                )}
               </div>
             </>
           )}
@@ -673,11 +728,13 @@ export function RankWidget({
         defaultUsdcAmount="20"
       />
 
-      <ReferralNetworkDialog
-        open={isReferralNetworkOpen}
-        onOpenChange={setIsReferralNetworkOpen}
-        walletAddress={normalizedWalletAddress}
-      />
+      {isReferralLive ? (
+        <ReferralNetworkDialog
+          open={isReferralNetworkOpen}
+          onOpenChange={setIsReferralNetworkOpen}
+          walletAddress={normalizedWalletAddress}
+        />
+      ) : null}
     </>
   );
 }

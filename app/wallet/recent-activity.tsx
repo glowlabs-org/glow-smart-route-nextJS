@@ -257,7 +257,7 @@ function buildStakeActivity(event: StakedEvent): ActivityItem | null {
     iconClassName:
       direction === "stake"
         ? "text-[#22D3EE] bg-[#22D3EE]/10"
-        : "text-zinc-400 bg-zinc-900/40",
+        : "text-muted-foreground bg-muted/50",
   };
 }
 
@@ -507,14 +507,12 @@ export function RecentActivity({
   return (
     <Card
       className={cn(
-        "h-full lg:max-h-[380px] overflow-hidden flex flex-col gap-4",
+        "h-full lg:max-h-[380px] overflow-hidden flex flex-col gap-4 pt-6 pb-0",
         className
       )}
     >
       {showHeader ? (
-        <CardHeader
-          className={cn(headerVariant === "small" ? "pb-0 pt-4" : "py-0")}
-        >
+        <CardHeader className="py-0 px-6">
           <div className="flex items-center justify-between gap-3">
             <CardTitle
               className={cn(
@@ -526,7 +524,7 @@ export function RecentActivity({
               Recent Activity
             </CardTitle>
             {headerRight ?? (
-              <span className="text-[10px] font-mono uppercase text-muted-foreground">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                 Live
               </span>
             )}
@@ -537,47 +535,47 @@ export function RecentActivity({
       {showKpis && !isLoading && activities.length > 0 && (
         <div className="px-4 pb-3">
           <div className="grid grid-cols-4 gap-3">
-            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                 Total
               </div>
-              <div className="mt-1.5 text-xl font-bold tabular-nums text-foreground">
+              <div className="mt-1.5 text-xl font-semibold tabular-nums text-foreground">
                 {kpis.totalTransactions}
               </div>
-              <div className="mt-0.5 text-[10px] text-muted-foreground">
+              <div className="mt-0.5 text-[10px] text-muted-foreground/60 dark:text-muted-foreground/80">
                 transactions
               </div>
             </div>
-            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                 Delegations
               </div>
-              <div className="mt-1.5 text-xl font-bold tabular-nums text-foreground">
+              <div className="mt-1.5 text-xl font-semibold tabular-nums text-foreground">
                 {kpis.delegationsCount}
               </div>
-              <div className="mt-0.5 text-[10px] text-muted-foreground">
+              <div className="mt-0.5 text-[10px] text-muted-foreground/60 dark:text-muted-foreground/80">
                 made
               </div>
             </div>
-            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                 Miners
               </div>
-              <div className="mt-1.5 text-xl font-bold tabular-nums text-foreground">
+              <div className="mt-1.5 text-xl font-semibold tabular-nums text-foreground">
                 {kpis.minersCount}
               </div>
-              <div className="mt-0.5 text-[10px] text-muted-foreground">
+              <div className="mt-0.5 text-[10px] text-muted-foreground/60 dark:text-muted-foreground/80">
                 purchased
               </div>
             </div>
-            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                 Claimed
               </div>
-              <div className="mt-1.5 text-xl font-bold tabular-nums text-foreground">
+              <div className="mt-1.5 text-xl font-semibold tabular-nums text-foreground">
                 {formatCompactNumber(kpis.totalClaimed, 0)}
               </div>
-              <div className="mt-0.5 text-[10px] text-muted-foreground">
+              <div className="mt-0.5 text-[10px] text-muted-foreground/60 dark:text-muted-foreground/80">
                 GLW
               </div>
             </div>
@@ -585,18 +583,18 @@ export function RecentActivity({
         </div>
       )}
 
-      <CardContent className="min-h-0 flex-1 p-4 py-0">
+      <CardContent className="min-h-0 flex-1 px-6 pb-6">
         {isLoading ? (
           <div className="space-y-2">
             {Array.from({ length: 5 }).map((_, i) => (
               <div
                 key={i}
-                className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/10 p-3 animate-pulse"
+                className="flex items-start gap-3 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 animate-pulse"
               >
-                <div className="h-9 w-9 rounded-xl bg-muted flex-shrink-0" />
+                <div className="h-9 w-9 rounded-lg bg-muted/50 dark:bg-muted flex-shrink-0" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-4 w-3/4 bg-muted rounded" />
-                  <div className="h-3 w-1/2 bg-muted rounded" />
+                  <div className="h-4 w-3/4 bg-muted/50 dark:bg-muted rounded" />
+                  <div className="h-3 w-1/2 bg-muted/50 dark:bg-muted rounded" />
                 </div>
               </div>
             ))}
@@ -620,7 +618,7 @@ export function RecentActivity({
                 {displayedActivities.map((activity) => (
                   <div
                     key={activity.id}
-                    className="group flex items-start gap-3 rounded-xl border border-border/60 bg-muted/10 p-3 hover:bg-muted/20 transition-colors"
+                    className="group flex items-start gap-3 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 hover:bg-muted/50 dark:hover:bg-muted/70 transition-colors"
                     role="button"
                     tabIndex={0}
                     onClick={() => handleViewTransaction(activity)}
@@ -632,7 +630,7 @@ export function RecentActivity({
                   >
                     <div
                       className={cn(
-                        "h-9 w-9 rounded-xl border border-border bg-background/60 flex items-center justify-center flex-shrink-0",
+                        "h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0",
                         activity.iconClassName
                       )}
                     >
@@ -693,7 +691,7 @@ export function RecentActivity({
                   {displayedActivities.map((activity) => (
                     <div
                       key={activity.id}
-                      className="group flex items-start gap-3 rounded-xl border border-border/60 bg-muted/10 p-3 hover:bg-muted/20 transition-colors"
+                      className="group flex items-start gap-3 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 hover:bg-muted/50 dark:hover:bg-muted/70 transition-colors"
                       role="button"
                       tabIndex={0}
                       onClick={() => handleViewTransaction(activity)}
@@ -705,7 +703,7 @@ export function RecentActivity({
                     >
                       <div
                         className={cn(
-                          "h-9 w-9 rounded-xl border border-border bg-background/60 flex items-center justify-center flex-shrink-0",
+                          "h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0",
                           activity.iconClassName
                         )}
                       >

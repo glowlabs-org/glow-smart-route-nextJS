@@ -18,7 +18,7 @@ export default function BlogFeaturedWidget({
   const { address, isConnected } = useAccount();
   const walletAddress = address?.toLowerCase() ?? null;
   const source = "blog_featured_widget";
-  
+
   const post = {
     slug: "progressive-vaults-transparency",
     title: "Progressive Vaults: Competitive Deposit Recovery in Glow",
@@ -31,7 +31,8 @@ export default function BlogFeaturedWidget({
       role: "Chief Scientist",
     },
     publishedAt: "2025-10-24", // Approximate date for display
-    image: "/images/sections/panels-array.jpg",
+    image:
+      "https://glow.org/_next/image?url=%2Fimages%2Fblog%2Fprogressive-vaults%2Fheader.jpg&w=3840&q=75",
     url: "https://glow.org/blog/progressive-vaults-transparency",
   };
 
@@ -51,7 +52,7 @@ export default function BlogFeaturedWidget({
         });
       }}
     >
-      <div className="relative h-full w-full rounded-xl overflow-hidden group cursor-pointer shadow-sm hover:shadow-md transition-all duration-300 bg-muted">
+      <div className="relative h-full w-full rounded-2xl overflow-hidden group cursor-pointer transition-all duration-300 bg-muted border border-border/20 dark:border-border/40">
         {/* Background Image */}
         <Image
           src={post.image}
@@ -62,44 +63,43 @@ export default function BlogFeaturedWidget({
         />
 
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-black/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/50 to-black/90" />
 
         {/* Featured/Category Badge */}
         <div className="absolute top-3 left-3 md:top-4 md:left-4 z-10">
-          <span className="bg-white/90 text-black px-2 md:px-3 py-1 text-xs font-medium uppercase tracking-wider backdrop-blur-sm rounded-xl">
+          <span className="bg-white/90 dark:bg-white/80 text-black px-2.5 py-1 text-[10px] font-mono font-semibold uppercase tracking-widest backdrop-blur-sm rounded-lg">
             {post.category}
           </span>
         </div>
 
-        {/* Content Overlay */}
-        <div className="relative z-10 p-5 md:p-8 h-full flex flex-col justify-end text-white">
-          {/* Metadata */}
-          <div className="flex items-center gap-3 text-xs text-white/90 mb-3">
-            <time dateTime={post.publishedAt} className="font-medium">
-              Oct 24, 2025
-            </time>
-            <span aria-hidden="true">•</span>
-            <span className="font-medium">{post.readTime}</span>
+        {/* Arrow Icon */}
+        <ArrowUpRight
+          strokeWidth={1.5}
+          className="absolute right-4 top-4 w-5 h-5 md:w-6 md:h-6 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 text-white/80 z-10"
+        />
 
-            <ArrowUpRight
-              strokeWidth={1.5}
-              className="absolute right-5 top-5 w-6 h-6 md:w-8 md:h-8 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 text-white opacity-90"
-            />
+        {/* Content Overlay */}
+        <div className="relative z-10 p-5 md:p-6 h-full flex flex-col justify-end text-white">
+          {/* Metadata */}
+          <div className="flex items-center gap-3 text-[10px] font-mono uppercase tracking-widest text-white/70 mb-3">
+            <time dateTime={post.publishedAt}>Oct 24, 2025</time>
+            <span aria-hidden="true">•</span>
+            <span>{post.readTime}</span>
           </div>
 
           {/* Title */}
-          <h3 className="text-xl md:text-2xl lg:text-3xl font-bold text-white group-hover:text-white/90 transition-colors duration-300 mb-3 line-clamp-2 md:line-clamp-3 leading-tight">
+          <h3 className="text-lg md:text-xl lg:text-2xl font-semibold text-white group-hover:text-white/90 transition-colors duration-300 mb-2 line-clamp-2 leading-tight tracking-tight">
             {post.title}
           </h3>
 
           {/* Description */}
-          <p className="text-white line-clamp-2 md:line-clamp-3 mb-4 text-sm md:text-base leading-relaxed opacity-90">
+          <p className="text-white/80 line-clamp-2 mb-4 text-sm leading-relaxed">
             {post.description}
           </p>
 
           {/* Author */}
-          <div className="flex items-center gap-2 text-sm text-white/90 font-medium">
-            <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px] text-white">
+          <div className="flex items-center gap-2 text-xs font-mono text-white/70">
+            <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[9px] text-white font-semibold">
               {post.author.name.charAt(0)}
             </div>
             <span>{post.author.name}</span>

@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeftRight, Send } from "lucide-react";
 import { useAccount, useChainId } from "wagmi";
 
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { SwapDialog } from "@/components/dialogs/swap-dialog";
 import { SendDialog } from "@/components/send-dialog";
 import { cn } from "@/lib/utils";
@@ -170,12 +170,23 @@ export default function WalletWidget({
 
   return (
     <>
-      <div className={cn("flex flex-col h-full w-full", !isMinimal && "p-4")}>
-        <div className="text-sm md:text-lg text-center font-semibold tracking-tight text-foreground mb-4">
-          Your Wallet
-        </div>
+      <Card
+        className={cn(
+          "flex flex-col w-full h-full overflow-hidden pt-6 pb-0",
+          isMinimal
+            ? "bg-transparent border-transparent"
+            : "bg-card dark:bg-card border-border/20"
+        )}
+      >
+        <CardHeader className="py-0 px-6">
+          <div className="flex items-center justify-center">
+            <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
+              Your Wallet
+            </div>
+          </div>
+        </CardHeader>
 
-        <div className="flex-1 flex flex-col justify-center gap-2">
+        <CardContent className="flex flex-col flex-1 gap-3 px-6 py-0 pb-6">
           {holdingsRows.map((row) => {
             const displayValue = formatHoldingAmount(row.symbol, row.amount);
 
@@ -199,11 +210,10 @@ export default function WalletWidget({
               </div>
             );
           })}
-        </div>
 
-        <div className="mt-auto pt-4 grid gap-2">
+        <div className="pt-4 grid grid-cols-2 gap-2 mt-auto">
           <Button
-            className="flex-1 gap-2"
+            className="h-11"
             onClick={() => {
               trackEvent("dashboard_swap_open_click", {
                 source,
@@ -215,12 +225,11 @@ export default function WalletWidget({
               setIsSwapOpen(true);
             }}
           >
-            <ArrowLeftRight className="h-3.5 w-3.5" />
-            <span>Swap</span>
+            Swap
           </Button>
           <Button
             variant="outline"
-            className="flex-1 gap-2"
+            className="h-11"
             onClick={() => {
               trackEvent("dashboard_send_open_click", {
                 source,
@@ -231,11 +240,11 @@ export default function WalletWidget({
               setIsSendOpen(true);
             }}
           >
-            <Send className="h-3.5 w-3.5" />
-            <span>Send</span>
+            Send
           </Button>
         </div>
-      </div>
+      </CardContent>
+      </Card>
 
       <SwapDialog
         open={isSwapOpen}

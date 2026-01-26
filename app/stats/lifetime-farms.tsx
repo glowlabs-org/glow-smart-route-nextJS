@@ -3,18 +3,12 @@
 import React from "react";
 import Link from "next/link";
 
-import {
-  TrendingUp,
-  Activity,
-  Building,
-  ExternalLink,
-  Sun,
-} from "lucide-react";
+import { ExternalLink, Sun } from "lucide-react";
 import { BarChart, CartesianGrid, XAxis, YAxis, Bar } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChartContainer,
@@ -31,6 +25,10 @@ import {
   CompletedApplication,
   useCompletedFarms,
 } from "@/hooks/useCompletedFarms";
+import {
+  CompletedFarmsDialog,
+  type CompletedFarmItem,
+} from "@/components/dialogs/completed-farms-dialog";
 
 interface CompletedFarmRow {
   id: string;
@@ -79,14 +77,14 @@ const DEFAULT_CHART_RANGE: ChartRangeValue = "3m";
 
 function formatPayment(
   amount?: string,
-  currency?: PaymentCurrency
+  currency?: PaymentCurrency,
 ): string | null {
   if (!amount) return null;
   const numericAmount = parseFloat(
     formatUnits(
       BigInt(amount),
-      DECIMALS_BY_TOKEN[currency as keyof typeof DECIMALS_BY_TOKEN]
-    )
+      DECIMALS_BY_TOKEN[currency as keyof typeof DECIMALS_BY_TOKEN],
+    ),
   );
   const formatted = Number.isFinite(numericAmount)
     ? numericAmount.toLocaleString(undefined, {
@@ -98,36 +96,36 @@ function formatPayment(
 
 function FarmsSkeleton() {
   return (
-    <div className="grid gap-6">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <div className="grid gap-8">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {[0, 1].map((item) => (
           <div
             key={item}
-            className="rounded-xl border border-border bg-muted/30 p-6"
+            className="rounded-xl border border-border/20 dark:border-border/40 bg-card p-8"
           >
-            <Skeleton className="mb-2 h-3 w-20" />
-            <Skeleton className="h-9 w-32" />
-            <Skeleton className="mt-2 h-3 w-32" />
+            <Skeleton className="mb-3 h-3 w-20" />
+            <Skeleton className="h-10 w-32" />
+            <Skeleton className="mt-3 h-3 w-32" />
           </div>
         ))}
       </div>
-      <div className="rounded-xl border border-border bg-muted/30 p-6">
-        <Skeleton className="mb-6 h-[220px] w-full" />
+      <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card p-8">
+        <Skeleton className="mb-8 h-[260px] w-full" />
       </div>
-      <div className="rounded-xl border border-border bg-muted/30 p-6">
+      <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card p-8">
         {[0, 1, 2].map((item) => (
           <div
             key={item}
-            className="flex items-center justify-between border-b border-border/50 py-3 last:border-b-0"
+            className="flex items-center justify-between border-b border-border/20 dark:border-border/40 py-4 last:border-b-0"
           >
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-10 w-10 rounded-full" />
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-12 w-12 rounded-full" />
               <div>
                 <Skeleton className="mb-2 h-4 w-32" />
                 <Skeleton className="h-3 w-48" />
               </div>
             </div>
-            <Skeleton className="h-5 w-16" />
+            <Skeleton className="h-6 w-20" />
           </div>
         ))}
       </div>
@@ -144,9 +142,9 @@ function CompletedTimelineRow({ row }: { row: CompletedFarmRow }) {
       : null;
 
   const baseClassName =
-    "group flex flex-col gap-3 rounded-xl border border-border/50 bg-muted/30 p-4 transition-all sm:flex-row sm:items-center sm:justify-between";
+    "group flex flex-col gap-4 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-4 transition-colors sm:flex-row sm:items-center sm:justify-between";
   const interactiveClassName = row.auditUrl
-    ? " hover:border-border hover:bg-muted hover:shadow-sm"
+    ? " hover:border-border/40 dark:hover:border-border/60 hover:bg-muted/50 dark:hover:bg-muted/60"
     : "";
 
   const content = (
@@ -156,32 +154,32 @@ function CompletedTimelineRow({ row }: { row: CompletedFarmRow }) {
           <Sun className="h-5 w-5 text-glow-orange" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold">{row.name}</div>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <div className="truncate text-base font-bold tracking-tight text-foreground">{row.name}</div>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground/70">
             {row.zoneName ? (
               <Badge
                 variant="secondary"
-                className="h-5 px-2 text-xs font-medium"
+                className="h-5 px-2 text-[10px] font-medium"
               >
                 {row.zoneName}
               </Badge>
             ) : null}
             {row.netCCProduction ? (
               <>
-                <span className="hidden sm:inline">·</span>
-                <span className="whitespace-nowrap">
+                <span className="hidden sm:inline text-muted-foreground/40">·</span>
+                <span className="whitespace-nowrap text-muted-foreground/60">
                   {row.netCCProduction} cc/week
                 </span>
               </>
             ) : null}
             {solarPanelsLabel ? (
               <>
-                <span className="hidden sm:inline">·</span>
-                <span className="whitespace-nowrap">{solarPanelsLabel}</span>
+                <span className="hidden sm:inline text-muted-foreground/40">·</span>
+                <span className="whitespace-nowrap text-muted-foreground/60">{solarPanelsLabel}</span>
               </>
             ) : null}
-            <span className="hidden sm:inline">·</span>
-            <span className="whitespace-nowrap">{row.timestampLabel}</span>
+            <span className="hidden sm:inline text-muted-foreground/40">·</span>
+            <span className="whitespace-nowrap text-muted-foreground/60">{row.timestampLabel}</span>
           </div>
         </div>
       </div>
@@ -195,12 +193,12 @@ function CompletedTimelineRow({ row }: { row: CompletedFarmRow }) {
           </Badge>
         ) : null}
         {row.auditUrl ? (
-          <Badge variant="secondary" className="gap-1">
+          <Badge variant="secondary" className="gap-1 text-xs">
             See audit
             <ExternalLink className="h-3 w-3 opacity-60 transition-opacity group-hover:opacity-100" />
           </Badge>
         ) : (
-          <Badge variant="outline" className="text-xs">
+          <Badge variant="outline" className="text-xs text-muted-foreground/60">
             Audit pending
           </Badge>
         )}
@@ -232,12 +230,13 @@ export function LifetimeFarms({
   isGlwDataLoading = false,
   withChart = false,
 }: LifetimeFarmsProps) {
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const { farms: completedFarms, isLoading: completedLoading } =
     useCompletedFarms({ enabled: shouldLoad });
 
   const completedRows = React.useMemo(() => {
     const rows = (completedFarms || []).filter(
-      (farm): farm is CompletedApplication => Boolean(farm?.id)
+      (farm): farm is CompletedApplication => Boolean(farm?.id),
     );
 
     return rows
@@ -285,13 +284,27 @@ export function LifetimeFarms({
   }, [completedFarms]);
 
   const totalFarms = completedRows.length;
+
+  const dialogFarms = React.useMemo<CompletedFarmItem[]>(() => {
+    return completedRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      zoneName: row.zoneName,
+      netCCProduction: row.netCCProduction,
+      solarPanelsQuantity: row.solarPanelsQuantity,
+      timestampLabel: row.timestampLabel,
+      auditUrl: row.auditUrl,
+      paymentLabel: formatPayment(row.paymentAmount, row.paymentCurrency),
+    }));
+  }, [completedRows]);
+
   const farmsThisMonth = React.useMemo(() => {
     if (completedRows.length === 0) return 0;
     const now = new Date();
     const startOfMonth = new Date(
       now.getFullYear(),
       now.getMonth(),
-      1
+      1,
     ).getTime();
     return completedRows.filter((row) => row.timestampMs >= startOfMonth)
       .length;
@@ -302,7 +315,7 @@ export function LifetimeFarms({
       new Intl.DateTimeFormat("en-US", {
         month: "long",
       }).format(new Date()),
-    []
+    [],
   );
 
   const farmsChartData = React.useMemo(() => {
@@ -380,8 +393,8 @@ export function LifetimeFarms({
           label: "Farms onboarded",
           color: "var(--chart-1)",
         },
-      } satisfies ChartConfig),
-    []
+      }) satisfies ChartConfig,
+    [],
   );
 
   const [selectedChartRange, setSelectedChartRange] =
@@ -408,31 +421,27 @@ export function LifetimeFarms({
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-8">
       {withChart && (
-        <Card className="overflow-hidden pt-0">
-          <CardHeader className="border-b border-border/50 bg-muted/30 pt-4">
+        <Card className="overflow-hidden bg-card border-border/20 dark:border-border/40 !py-0 !gap-0">
+          <CardHeader className="border-b border-border/20 dark:border-border/40 !py-6 !px-8">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <CardTitle className="text-xl">
+                <h3 className="text-sm font-semibold text-foreground">
                   Lifetime Farms Onboarded
-                </CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
+                </h3>
+                <p className="mt-0.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
                   Solar farms brought online
                 </p>
               </div>
-              <Badge variant="outline" className="text-xs">
-                <TrendingUp className="mr-1 h-3 w-3" />
-                {totalFarms}
-              </Badge>
             </div>
           </CardHeader>
-          <CardContent className="p-6">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">
+          <CardContent className="!p-8">
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-muted-foreground/60">
                 Showing {activeRangeOption.description}
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {CHART_RANGE_OPTIONS.map((option) => {
                   const isActive = option.value === selectedChartRange;
                   return (
@@ -440,9 +449,9 @@ export function LifetimeFarms({
                       key={option.value}
                       type="button"
                       size="sm"
-                      variant={isActive ? "default" : "outline"}
-                      className={`rounded-full ${
-                        isActive ? "shadow-sm" : "text-muted-foreground"
+                      variant={isActive ? "default" : "ghost"}
+                      className={`h-7 rounded-full px-3 text-xs ${
+                        isActive ? "" : "text-muted-foreground hover:text-foreground"
                       }`}
                       aria-pressed={isActive}
                       onClick={() => setSelectedChartRange(option.value)}
@@ -454,7 +463,7 @@ export function LifetimeFarms({
               </div>
             </div>
             {filteredFarmsChartData.length === 0 ? (
-              <div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">
+              <div className="flex h-[260px] items-center justify-center text-xs text-muted-foreground/60">
                 {farmsChartData.length === 0
                   ? "No historical data available."
                   : "No data for the selected timeframe."}
@@ -510,45 +519,51 @@ export function LifetimeFarms({
         </Card>
       )}
 
-      <Card className="overflow-hidden">
-        <CardContent className="p-4 sm:p-6">
-          <div className="pb-6 grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-border/50">
+      <Card className="overflow-hidden bg-card border-border/20 dark:border-border/40 !py-0 !gap-0">
+        <CardContent className="!p-8">
+          <div className="pb-8 grid grid-cols-1 md:grid-cols-2 gap-8 border-b border-border/20 dark:border-border/40">
             <div>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="mb-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
                 Total Onboarded
               </div>
-              <div className="text-4xl font-bold tracking-tight">
+              <div className="text-5xl font-bold tracking-tight text-foreground">
                 {totalFarms.toLocaleString()}
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground/60">
                 Lifetime farms with completed audits
               </p>
             </div>
             <div>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="mb-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
                 Total GLW Delegated
               </div>
-              <div className="text-4xl font-bold tracking-tight">
+              <div className="text-5xl font-bold tracking-tight text-foreground">
                 {isGlwDataLoading || totalGlwDelegated === undefined
                   ? "--"
                   : totalGlwDelegated.toLocaleString()}{" "}
-                <span className="text-2xl text-muted-foreground">GLW</span>
+                <span className="text-xl text-muted-foreground/60">GLW</span>
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground/60">
                 Delegated to solar farms
               </p>
             </div>
           </div>
-          <div className="pt-6">
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <div className="text-sm font-semibold">Completed Timeline</div>
-              <Badge variant="outline" className="shrink-0 text-xs">
-                <Activity className="mr-1 h-3 w-3" />
-                Live
-              </Badge>
+          <div className="pt-8">
+            <div className="mb-6 flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">Completed Timeline</span>
+              {completedRows.length > 5 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs font-medium text-muted-foreground hover:text-foreground"
+                  onClick={() => setIsDialogOpen(true)}
+                >
+                  See All
+                </Button>
+              )}
             </div>
             {completedRows.length === 0 ? (
-              <div className="rounded-xl border-2 border-dashed border-border bg-muted/30 py-12 text-center sm:py-16">
+              <div className="rounded-xl border-2 border-dashed border-border/30 dark:border-border/40 bg-muted/20 dark:bg-muted/50 py-12 text-center sm:py-16">
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
                   <Sun className="h-8 w-8 text-muted-foreground" />
                 </div>
@@ -560,8 +575,8 @@ export function LifetimeFarms({
                 </p>
               </div>
             ) : (
-              <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
-                {completedRows.map((row) => (
+              <div className="space-y-3">
+                {completedRows.slice(0, 5).map((row) => (
                   <CompletedTimelineRow key={row.id} row={row} />
                 ))}
               </div>
@@ -569,6 +584,12 @@ export function LifetimeFarms({
           </div>
         </CardContent>
       </Card>
+
+      <CompletedFarmsDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        farms={dialogFarms}
+      />
     </div>
   );
 }

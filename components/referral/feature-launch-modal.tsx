@@ -20,6 +20,7 @@ import { GlowSymbol } from "@/components/glow-symbol";
 import { hubPost } from "@/lib/api/hub-client";
 import { useAccount } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
+import { useReferralLaunch } from "@/hooks/use-referral-launch";
 
 interface SuccessReceipt {
   referralCode: string;
@@ -65,12 +66,17 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
   const [successReceipt, setSuccessReceipt] =
     React.useState<SuccessReceipt | null>(null);
   const hasTrackedViewRef = React.useRef(false);
+  const { isLive: isReferralLive } = useReferralLaunch();
 
   // Derive error message from linkError or localError
   const errorMessage = localError || (linkError as Error | null)?.message;
 
   const hasSeen = !!status?.featureLaunchModal?.seen || isDismissed;
   const isControlled = mock?.open !== undefined;
+
+  if (!isReferralLive) {
+    return null;
+  }
 
   // Modal should show if: eligible + no referrer + not seen, OR in success state
   const computedShouldShow =

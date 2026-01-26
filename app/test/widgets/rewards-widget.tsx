@@ -49,7 +49,7 @@ function safeGetCurrentEpoch() {
 
 function formatTokenAmount(
   value: number,
-  params?: { maximumFractionDigits?: number }
+  params?: { maximumFractionDigits?: number },
 ) {
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: params?.maximumFractionDigits ?? 0,
@@ -178,12 +178,12 @@ export default function RewardsWidget({
 
   const finalizedWeeks = React.useMemo(
     () => weeklyBreakdown.filter((week) => week.isFinalized),
-    [weeklyBreakdown]
+    [weeklyBreakdown],
   );
 
   const finalizedWeeksKey = React.useMemo(
     () => finalizedWeeks.map((week) => week.week).join(","),
-    [finalizedWeeks]
+    [finalizedWeeks],
   );
 
   const {
@@ -194,7 +194,7 @@ export default function RewardsWidget({
     queryKey: QUERY_KEYS.wallets.claimableTotals(
       address,
       finalizedWeeksKey,
-      refreshKey
+      refreshKey,
     ),
     enabled: Boolean(hasWallet && address && finalizedWeeks.length > 0),
     staleTime: QUERY_CONFIG.STICKY.staleTime,
@@ -210,10 +210,10 @@ export default function RewardsWidget({
       await Promise.all(
         finalizedWeeks.map(async (weekData) => {
           const hasGlwRewards = weekData.rewards.some(
-            (reward) => reward.type === "glowInflation"
+            (reward) => reward.type === "glowInflation",
           );
           const hasProtocolRewards = weekData.rewards.some(
-            (reward) => reward.type === "protocolDeposit"
+            (reward) => reward.type === "protocolDeposit",
           );
 
           const [glwClaimed, protocolClaimed] = await Promise.all([
@@ -223,7 +223,7 @@ export default function RewardsWidget({
             hasProtocolRewards
               ? checkIfClaimed(
                   address as `0x${string}`,
-                  weekToNonce(weekData.week)
+                  weekToNonce(weekData.week),
                 )
               : Promise.resolve(true),
           ]);
@@ -241,7 +241,7 @@ export default function RewardsWidget({
               totals[reward.currency] = (totals[reward.currency] ?? 0) + amount;
             }
           }
-        })
+        }),
       );
       return totals;
     },
@@ -254,7 +254,7 @@ export default function RewardsWidget({
 
   const claimableBreakdown = React.useMemo(
     () => getClaimableBreakdown({ claimableTotalsByCurrency }),
-    [claimableTotalsByCurrency]
+    [claimableTotalsByCurrency],
   );
 
   const handleClaimSuccess = React.useCallback(() => {
@@ -273,7 +273,7 @@ export default function RewardsWidget({
   const hasClaimable = React.useMemo(() => {
     if (!claimableTotalsByCurrency) return false;
     return Object.values(claimableTotalsByCurrency).some(
-      (value) => Number.isFinite(value) && value > 0
+      (value) => Number.isFinite(value) && value > 0,
     );
   }, [claimableTotalsByCurrency]);
 
@@ -283,7 +283,7 @@ export default function RewardsWidget({
 
     // Only show the very next claim (earliest week), not all future ones
     const nextWeek = nonFinalizedWeeks.reduce((prev, curr) =>
-      prev.week < curr.week ? prev : curr
+      prev.week < curr.week ? prev : curr,
     );
 
     const totals: Record<string, number> = {};
@@ -327,21 +327,19 @@ export default function RewardsWidget({
   return (
     <Card
       className={cn(
-        "flex flex-col overflow-hidden w-full",
+        "flex flex-col overflow-hidden pt-0 gap-3 w-full",
         isMinimal
           ? "bg-transparent border-transparent h-full"
-          : "h-full bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+          : "h-full bg-card dark:bg-card border-border/20",
       )}
     >
-      <CardHeader className="py-0 px-4">
-        <div className="flex items-center justify-center gap-2">
-          <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
-            Rewards
-          </div>
-        </div>
+      <CardHeader className="pb-0 pt-4">
+        <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
+          Rewards
+        </CardTitle>
       </CardHeader>
 
-      <CardContent className="flex flex-col flex-1 min-h-0 py-0 px-6 gap-4">
+      <CardContent className="flex flex-col flex-1 min-h-0 px-4 py-0 pt-2 sm:px-6 gap-6">
         {/* Countdown Area */}
         {hasWallet &&
           !isWalletConnecting &&
@@ -385,18 +383,18 @@ export default function RewardsWidget({
                 </div>
               ) : (
                 <>
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 mb-1">
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 mb-2">
                     Available Now
                   </div>
-                  <div className="flex flex-col items-center gap-0.5 animate-in fade-in zoom-in-95 duration-300">
+                  <div className="flex flex-col items-center gap-1 animate-in fade-in zoom-in-95 duration-300">
                     {claimableBreakdown.map((entry) => (
                       <div
                         key={entry.currency}
                         className={cn(
                           "leading-tight",
                           entry.isPrimary
-                            ? "text-4xl lg:text-5xl font-bold tracking-tighter text-foreground"
-                            : "text-lg font-medium text-muted-foreground/80 flex items-center gap-1.5"
+                            ? "text-5xl lg:text-6xl font-semibold tracking-tight text-foreground"
+                            : "text-lg font-medium text-muted-foreground/60 flex items-center gap-1.5",
                         )}
                       >
                         {entry.label}
@@ -432,7 +430,7 @@ export default function RewardsWidget({
           {hasWallet && !shouldHide ? (
             <Dialog>
               <DialogTrigger asChild>
-                <Button className="w-full ">Claim Rewards</Button>
+                <Button className="w-full ">See Rewards</Button>
               </DialogTrigger>
               <DialogContent
                 className="bg-background rounded-2xl p-0 sm:max-w-[980px] w-full border-border shadow-2xl overflow-hidden"

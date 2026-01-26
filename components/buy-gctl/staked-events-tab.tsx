@@ -1,94 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import {
-  Loader2,
-  Clock,
-  Copy,
-  Check,
-  ArrowUpRight,
-  TrendingUp,
-  TrendingDown,
-} from "lucide-react";
+import { Clock, ArrowUpRight, Zap } from "lucide-react";
 import { formatUnits } from "viem";
-import { toast } from "sonner";
 import { Region, StakedEvent } from "@glowlabs-org/utils/browser";
+import { cn } from "@/lib/utils";
 
 interface StakedEventsTabProps {
   stakedEvents: StakedEvent[];
   dataLoading: boolean;
   regions: Region[];
   isRegionsLoading: boolean;
-}
-
-function CopyableAddress({
-  address,
-  type = "address",
-}: {
-  address: string;
-  type?: "address" | "tx";
-}) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    try {
-      await navigator.clipboard.writeText(address);
-      setCopied(true);
-      toast.success(
-        `${type === "tx" ? "Transaction hash" : "Address"} copied to clipboard`
-      );
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      toast.error("Failed to copy to clipboard");
-    }
-  };
-
-  const etherscanUrl =
-    type === "tx"
-      ? `https://etherscan.io/tx/${address}`
-      : `https://etherscan.io/address/${address}`;
-
-  const displayText =
-    type === "tx"
-      ? `${address.slice(0, 8)}...${address.slice(-6)}`
-      : `${address.slice(0, 6)}...${address.slice(-4)}`;
-
-  return (
-    <div className="flex items-center space-x-1 group">
-      <a
-        href={etherscanUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="font-mono text-sm text-primary hover:text-primary/80 transition-colors flex items-center space-x-1 group/link"
-      >
-        <span>{displayText}</span>
-        <ArrowUpRight className="w-3 h-3 opacity-0 group-hover/link:opacity-100 transition-opacity" />
-      </a>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleCopy}
-        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted"
-      >
-        {copied ? (
-          <Check className="w-3 h-3 text-green-500" />
-        ) : (
-          <Copy className="w-3 h-3" />
-        )}
-      </Button>
-    </div>
-  );
+  maxItems?: number;
 }
 
 // Timer component for staked events
@@ -135,177 +56,130 @@ export function StakedEventsTab({
   dataLoading,
   regions,
   isRegionsLoading,
+  maxItems,
 }: StakedEventsTabProps) {
+  const displayedEvents = maxItems ? stakedEvents.slice(0, maxItems) : stakedEvents;
+
+  if (dataLoading || isRegionsLoading) {
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-3 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-4 animate-pulse"
+          >
+            <div className="h-9 w-9 rounded-lg bg-muted/50 dark:bg-muted shrink-0" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-3/4 bg-muted/50 dark:bg-muted rounded" />
+              <div className="h-3 w-1/2 bg-muted/50 dark:bg-muted rounded" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (stakedEvents.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-14 h-14 bg-muted/50 dark:bg-muted/30 rounded-xl flex items-center justify-center mx-auto mb-4">
+          <Zap className="w-6 h-6 text-muted-foreground/60" />
+        </div>
+        <h3 className="text-sm font-semibold text-foreground mb-1">
+          No staking events
+        </h3>
+        <p className="text-xs text-muted-foreground/60 max-w-sm mx-auto">
+          Staking and unstaking transactions will appear here
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <Card className="border border-border bg-card/90 backdrop-blur-sm">
-      <CardHeader className="border-b">
-        <CardTitle className="text-xl font-bold text-foreground flex items-center">
-          Staking Events
-          <span className="ml-auto text-sm font-normal text-muted-foreground bg-card px-3 py-1 rounded-full border border-border">
-            {stakedEvents.length} events
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        {dataLoading || isRegionsLoading ? (
-          <div className="flex justify-center items-center p-12">
-            <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-green-600 mx-auto mb-4" />
-              <p className="text-muted-foreground">Loading staking events...</p>
+    <div className="space-y-3">
+      {displayedEvents.map((event) => {
+        const region = regions.find((r) => r.id === event.regionId);
+        const eventDirection = event.direction || "unknown";
+        const isStake = eventDirection === "stake";
+        const isUnstake = eventDirection === "unstake";
+
+        const amount = event.amount
+          ? parseFloat(formatUnits(BigInt(event.amount), 6)).toLocaleString(
+              undefined,
+              { minimumFractionDigits: 0, maximumFractionDigits: 2 }
+            )
+          : "—";
+
+        const regionName = region?.name || `Region #${event.regionId || "?"}`;
+        const walletShort = event.wallet
+          ? `${event.wallet.slice(0, 6)}...${event.wallet.slice(-4)}`
+          : "—";
+        const etherscanWalletUrl = event.wallet
+          ? `https://etherscan.io/address/${event.wallet}`
+          : "#";
+
+        return (
+          <div
+            key={event.id || "unknown"}
+            className="group p-4 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 hover:bg-muted/40 dark:hover:bg-muted/60 transition-colors"
+          >
+            {/* Top row: Action + Amount + Region */}
+            <div className="flex items-baseline justify-between gap-4 mb-3">
+              <div className="flex items-baseline gap-2">
+                <span
+                  className={cn(
+                    "text-xs font-semibold uppercase tracking-wide",
+                    isStake && "text-[#4ADE80]",
+                    isUnstake && "text-[color:var(--color-glow-orange)]",
+                    !isStake && !isUnstake && "text-muted-foreground"
+                  )}
+                >
+                  {isStake ? "Staked" : isUnstake ? "Unstaked" : "Event"}
+                </span>
+                <span className="text-lg font-bold tabular-nums text-foreground">
+                  {amount}
+                </span>
+                <span className="text-sm font-medium text-muted-foreground">
+                  GCTL
+                </span>
+              </div>
+              <span className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wide">
+                {regionName}
+              </span>
+            </div>
+
+            {/* Bottom row: Wallet + Date + Time ago */}
+            <div className="flex items-center justify-between text-xs">
+              {event.wallet ? (
+                <a
+                  href={etherscanWalletUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                >
+                  {walletShort}
+                  <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </a>
+              ) : (
+                <span className="font-mono text-muted-foreground">—</span>
+              )}
+              <div className="flex items-center gap-3 text-muted-foreground/60">
+                {event.ts && (
+                  <>
+                    <span>
+                      {new Date(event.ts).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                    <StakedTimer stakedAt={event.ts} />
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        ) : stakedEvents.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-              <TrendingUp className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">
-              No staking events
-            </h3>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              Your staking and unstaking transactions will appear here with
-              detailed information about amounts, regions, and transaction
-              status.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted hover:bg-muted">
-                  <TableHead className="font-semibold text-foreground whitespace-nowrap">
-                    Type
-                  </TableHead>
-                  <TableHead className="font-semibold text-foreground whitespace-nowrap">
-                    Wallet
-                  </TableHead>
-                  <TableHead className="font-semibold text-foreground whitespace-nowrap">
-                    Amount
-                  </TableHead>
-                  <TableHead className="font-semibold text-foreground whitespace-nowrap">
-                    Region
-                  </TableHead>
-
-                  <TableHead className="font-semibold text-foreground whitespace-nowrap">
-                    Date
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {stakedEvents.map((event) => {
-                  const region = regions.find((r) => r.id === event.regionId);
-                  const eventDirection = event.direction || "unknown";
-                  const isStake = eventDirection === "stake";
-
-                  // Safe type display with fallback
-                  const typeDisplay =
-                    eventDirection.charAt(0).toUpperCase() +
-                    eventDirection.slice(1);
-
-                  return (
-                    <TableRow
-                      key={event.id || "unknown"}
-                      className="hover:bg-muted/30 transition-all duration-200 group/row"
-                    >
-                      <TableCell className="py-4">
-                        <span
-                          className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${
-                            isStake
-                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                              : eventDirection === "unstake"
-                              ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300"
-                              : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300"
-                          }`}
-                        >
-                          {isStake ? (
-                            <TrendingUp className="w-3 h-3 mr-1" />
-                          ) : eventDirection === "unstake" ? (
-                            <TrendingDown className="w-3 h-3 mr-1" />
-                          ) : null}
-                          {typeDisplay}
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-4">
-                        {event.wallet ? (
-                          <CopyableAddress
-                            address={event.wallet}
-                            type="address"
-                          />
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-4">
-                        <div className="text-base font-semibold text-foreground">
-                          {event.amount ? (
-                            <>
-                              {parseFloat(
-                                formatUnits(BigInt(event.amount), 6)
-                              ).toLocaleString(undefined, {
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 2,
-                              })}{" "}
-                              <span className="text-sm font-normal text-muted-foreground">
-                                GCTL
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4">
-                        {region ? (
-                          <div className="flex items-center space-x-2">
-                            <div>
-                              <div className="text-sm font-medium text-foreground">
-                                {region.name}
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
-                            #{event.regionId || "?"}
-                          </span>
-                        )}
-                      </TableCell>
-
-                      <TableCell className="py-4">
-                        {event.ts ? (
-                          <div className="space-y-1">
-                            <div className="text-sm font-medium text-foreground">
-                              {new Date(event.ts).toLocaleDateString(
-                                undefined,
-                                {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                }
-                              )}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {new Date(event.ts).toLocaleTimeString(
-                                undefined,
-                                {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                }
-                              )}
-                            </div>
-                            <StakedTimer stakedAt={event.ts} />
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        );
+      })}
+    </div>
   );
 }

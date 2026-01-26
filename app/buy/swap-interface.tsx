@@ -1480,13 +1480,13 @@ export function SwapInterface({
       {/* Main Swap Content */}
       <div
         className={cn(
-          "bg-background backdrop-blur-xl rounded-3xl border border-border overflow-hidden w-full h-fit mx-auto",
+          "bg-card rounded-3xl border border-border/20 overflow-hidden w-full h-fit mx-auto",
           isDialog ? "p-0 border-0" : "p-4 lg:p-6 max-w-[600px] lg:max-w-none"
         )}
       >
-        <div>
+        <div className="space-y-1">
           {/* Enhanced From Token */}
-          <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
+          <div className="group relative bg-muted/30 dark:bg-muted/50 rounded-3xl p-4 lg:p-6 border border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60 transition-all duration-200">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs lg:text-sm font-medium text-muted-foreground">
                 You pay
@@ -1664,7 +1664,7 @@ export function SwapInterface({
                 type="button"
                 disabled={!isConnected || isWalletLoading}
                 onClick={handleSwapDirection}
-                className="bg-background border-4 border-border rounded-full p-2 lg:p-3 hover:bg-muted/30 transition-all duration-200 z-50 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="bg-card border-2 border-border/30 rounded-full p-2 lg:p-3 hover:bg-muted/30 transition-colors z-50 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <ArrowDownUp className="w-4 h-4 lg:w-5 lg:h-5 text-muted-foreground" />
               </button>
@@ -1672,7 +1672,7 @@ export function SwapInterface({
           </div>
 
           {/* Enhanced To Token */}
-          <div className="group relative bg-muted/30 rounded-3xl p-4 lg:p-6 border border-border hover:border-border/60 transition-all duration-300">
+          <div className="group relative bg-muted/30 dark:bg-muted/50 rounded-3xl p-4 lg:p-6 border border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60 transition-all duration-200">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs lg:text-sm font-medium text-muted-foreground">
                 You receive
@@ -1732,7 +1732,7 @@ export function SwapInterface({
 
           {/* Enhanced Transaction Details */}
           {smartBalancingAmounts && selectedTokenBuy.label === "GLOW" && (
-            <div className="bg-gradient-to-r from-muted/10 to-muted/5 rounded-xl p-4 lg:p-5 space-y-4 border border-border/20">
+            <div className="mt-4 bg-gradient-to-r from-muted/10 to-muted/5 dark:from-muted/20 dark:to-muted/10 rounded-xl p-4 lg:p-5 space-y-4 border border-border/20 dark:border-border/40">
               {/* Only show route details if using both Uniswap and Bonding Curve */}
               {Number(smartBalancingAmounts?.amount_out_glow) > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1772,7 +1772,7 @@ export function SwapInterface({
                   {estimateErrorMessage}
                 </div>
               )}
-              <div className="pt-3 border-t border-border/20">
+              <div className="pt-3 border-t border-border/20 dark:border-border/40">
                 <div className="flex items-center justify-between">
                   <span className="text-xs lg:text-sm text-muted-foreground">
                     Estimated Network Fee
@@ -1792,7 +1792,7 @@ export function SwapInterface({
           )}
 
           {/* Enhanced Swap Button */}
-          <div className="pt-4">
+          <div className="pt-5">
             {!isConnected || isConnecting ? (
               <ConnectButton variant="default" />
             ) : (

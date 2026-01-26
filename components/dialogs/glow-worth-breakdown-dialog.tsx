@@ -43,24 +43,17 @@ type BreakdownTone = "emerald" | "purple" | "cyan";
 function getToneClasses(tone: BreakdownTone) {
   if (tone === "emerald")
     return {
-      row: "border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10",
-      iconWrap: "bg-[#4ADE80]/10 border-[#4ADE80]/20 text-[#4ADE80]",
-      label: "text-[#4ADE80]",
-      value: "text-[#4ADE80]",
+      row: "border-border/20 dark:border-border/40",
+      iconWrap: "bg-[#4ADE80]/10 text-[#4ADE80]",
     } as const;
   if (tone === "purple")
     return {
-      row: "border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10",
-      iconWrap:
-        "bg-delegation-purple/10 border-delegation-purple/20 text-delegation-purple",
-      label: "text-delegation-purple",
-      value: "text-delegation-purple",
+      row: "border-border/20 dark:border-border/40",
+      iconWrap: "bg-[color:var(--delegation-purple)]/10 text-[color:var(--delegation-purple)]",
     } as const;
   return {
-    row: "border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10",
-    iconWrap: "bg-[#22D3EE]/10 border-[#22D3EE]/20 text-[#22D3EE]",
-    label: "text-[#22D3EE]",
-    value: "text-[#22D3EE]",
+    row: "border-border/20 dark:border-border/40",
+    iconWrap: "bg-[#22D3EE]/10 text-[#22D3EE]",
   } as const;
 }
 
@@ -77,44 +70,34 @@ function BreakdownRow(props: {
   return (
     <div
       className={cn(
-        "flex items-center justify-between p-3 rounded-xl border transition-all bg-muted/30 dark:bg-zinc-900/40",
+        "flex items-center justify-between p-4 rounded-xl bg-muted/30 dark:bg-muted/50 border",
         toneClasses.row
       )}
     >
       <div className="flex items-center gap-3">
         <div
           className={cn(
-            "flex items-center justify-center w-8 h-8 rounded-lg border",
+            "flex items-center justify-center w-9 h-9 rounded-lg shrink-0",
             toneClasses.iconWrap
           )}
         >
           <Icon className="w-4 h-4" />
         </div>
         <div className="flex flex-col">
-          <span
-            className={cn(
-              "text-xs font-bold uppercase tracking-wide text-foreground dark:text-zinc-200",
-              toneClasses.label
-            )}
-          >
+          <span className="text-sm font-medium text-foreground">
             {label}
           </span>
-          <span className="text-[10px] text-muted-foreground font-mono dark:text-zinc-500">
+          <span className="text-[10px] text-muted-foreground/60 dark:text-muted-foreground/80">
             {sublabel}
           </span>
         </div>
       </div>
 
-      <div className="flex flex-col items-end gap-1">
-        <span
-          className={cn(
-            "font-mono font-bold text-sm text-foreground dark:text-white tabular-nums",
-            toneClasses.value
-          )}
-        >
+      <div className="flex flex-col items-end gap-0.5">
+        <span className="font-mono font-semibold text-sm text-foreground tabular-nums">
           {value}
         </span>
-        <span className="text-[10px] text-muted-foreground font-mono dark:text-zinc-600">
+        <span className="text-[10px] text-muted-foreground/50 font-mono uppercase">
           GLW
         </span>
       </div>
@@ -134,35 +117,26 @@ export function GlowWorthBreakdownDialog(props: GlowWorthBreakdownDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl bg-card border-foreground/10 dark:bg-[#09090b] dark:border-zinc-800">
-        <div className="px-6 pr-14 py-6 border-b border-border bg-muted/20 dark:border-zinc-800 dark:bg-zinc-900/50">
+      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40">
+        <div className="border-b border-border/40 pb-6 pt-8 px-6">
           <DialogHeader>
-            <div className="flex items-start justify-between gap-6">
-              <div>
-                <DialogTitle className="font-mono uppercase tracking-wide text-lg text-foreground dark:text-white">
-                  What’s in your Glow Worth?
-                </DialogTitle>
-                <DialogDescription className="text-muted-foreground mt-1 dark:text-zinc-400">
-                  Your Glow Worth is your total GLW across your wallet, active
-                  delegations, and earned rewards you haven’t claimed yet.
-                </DialogDescription>
+            <div className="flex flex-col items-center text-center space-y-2">
+              <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
+                Your Glow Worth
+              </DialogTitle>
+              <div className="text-6xl font-mono font-semibold text-foreground tracking-tighter tabular-nums">
+                {formatGlw(safeBreakdown.glowWorthGlw)}
               </div>
-
-              <div className="text-right">
-                <div className="text-[10px] uppercase text-muted-foreground font-mono dark:text-zinc-500">
-                  Total
-                </div>
-                <div className="text-xl font-bold font-mono text-foreground tracking-tight dark:text-white tabular-nums">
-                  {formatGlw(safeBreakdown.glowWorthGlw)}
-                </div>
-              </div>
+              <DialogDescription className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-wider mt-2">
+                Total GLW across all sources
+              </DialogDescription>
             </div>
           </DialogHeader>
         </div>
 
-        <ScrollArea className="max-h-[70vh]">
-          <div className="p-6 space-y-8">
-            <div className="space-y-2">
+        <ScrollArea className="max-h-[65vh]">
+          <div className="p-5 space-y-8">
+            <div className="space-y-3">
               <BreakdownRow
                 icon={GlwWorthIcon}
                 label="GLW in your wallet"

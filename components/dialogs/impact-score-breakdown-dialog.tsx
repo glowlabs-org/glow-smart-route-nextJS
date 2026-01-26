@@ -50,6 +50,7 @@ import {
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useReferral } from "@/hooks/use-referral";
+import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { useMemo, useState } from "react";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -77,7 +78,7 @@ interface ImpactScoreBreakdownDialogProps {
 
 function formatPoints(
   value?: string,
-  opts: { maximumFractionDigits: number } = { maximumFractionDigits: 0 }
+  opts: { maximumFractionDigits: number } = { maximumFractionDigits: 0 },
 ) {
   if (!value) return "0";
   const num = Number(value);
@@ -153,7 +154,7 @@ function RegionalPointsLegend({ entries }: RegionalPointsLegendProps) {
 
 /**
  * A "Slot" card for Multipliers.
- * Designed to look like an equipment slot in a game.
+ * Only the icon gets colored when active - card and badge stay neutral.
  */
 function MultiplierCard({
   icon: Icon,
@@ -162,10 +163,10 @@ function MultiplierCard({
   isActive,
   description,
   onClick,
-  colorClass, // e.g. "text-orange-500"
-  bgClass, // e.g. "bg-orange-500/10"
-  borderClass, // e.g. "border-orange-500/50"
-  shadowClass, // e.g. "shadow-[0_0_20px_-5px_var(--color-miner)]"
+  colorClass, // e.g. "text-orange-500" - only applied to icon when active
+  activeIconBg, // e.g. "bg-[color:var(--color-miner)]/10" - icon container bg when active
+  bgClass, // e.g. "bg-muted/50" - card background
+  borderClass, // e.g. "border-border/40"
 }: {
   icon: React.ElementType;
   title: string;
@@ -174,9 +175,10 @@ function MultiplierCard({
   description: string;
   onClick?: () => void;
   colorClass: string;
+  activeIconBg?: string;
   bgClass: string;
   borderClass: string;
-  shadowClass?: string;
+  shadowClass?: string; // kept for backwards compatibility
 }) {
   return (
     <button
@@ -186,8 +188,8 @@ function MultiplierCard({
       className={cn(
         "relative flex flex-col items-start p-4 rounded-xl border transition-all w-full text-left group",
         isActive
-          ? cn(bgClass, borderClass, shadowClass)
-          : "bg-muted/10 border-dashed border-border/60 hover:border-border hover:bg-muted/20"
+          ? cn(bgClass, borderClass)
+          : "bg-muted/10 dark:bg-muted/20 border-dashed border-border/60 hover:border-border hover:bg-muted/20 dark:hover:bg-muted/30",
       )}
     >
       {/* Header Row */}
@@ -196,8 +198,8 @@ function MultiplierCard({
           className={cn(
             "flex items-center justify-center w-10 h-10 rounded-lg transition-all",
             isActive
-              ? cn(bgClass, colorClass)
-              : "bg-muted text-muted-foreground/50 grayscale"
+              ? cn(activeIconBg || "bg-muted/80", colorClass)
+              : "bg-muted text-muted-foreground/50 grayscale",
           )}
         >
           <Icon className="w-5 h-5" />
@@ -206,8 +208,8 @@ function MultiplierCard({
           className={cn(
             "px-2 py-1 rounded text-xs font-mono font-bold tracking-wider",
             isActive
-              ? cn(bgClass, colorClass)
-              : "bg-muted text-muted-foreground"
+              ? "bg-muted/80 text-foreground"
+              : "bg-muted text-muted-foreground",
           )}
         >
           {isActive ? `${multiplierValue}x` : "INACTIVE"}
@@ -219,7 +221,7 @@ function MultiplierCard({
         <span
           className={cn(
             "text-sm font-bold uppercase tracking-tight",
-            isActive ? "text-foreground" : "text-muted-foreground"
+            isActive ? "text-foreground" : "text-muted-foreground",
           )}
         >
           {title}
@@ -231,7 +233,7 @@ function MultiplierCard({
 
       {/* Inactive Hover Prompt */}
       {!isActive && onClick && (
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-background/90 backdrop-blur-sm rounded-xl border border-dashed border-border">
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-card/95 rounded-xl border border-dashed border-border/40">
           <span className="text-xs font-bold uppercase flex items-center gap-1 text-foreground">
             Activate <ArrowRight className="w-3 h-3" />
           </span>
@@ -243,7 +245,7 @@ function MultiplierCard({
 
 /**
  * A row for a Point Source (e.g. Steering, Emissions).
- * Responsive: stacks vertically on mobile, horizontal on larger screens.
+ * Clean, neutral design with subtle color accent on icon when active.
  */
 function SourceRow({
   icon: Icon,
@@ -253,7 +255,9 @@ function SourceRow({
   subValue,
   ctaLabel,
   onCta,
-  themeColor,
+  activeIconColor,
+  activeIconBg,
+  hoverColor,
 }: {
   icon: React.ElementType;
   label: string;
@@ -262,108 +266,61 @@ function SourceRow({
   subValue?: string;
   ctaLabel?: string;
   onCta?: () => void;
-  themeColor: "cyan" | "yellow" | "purple" | "green";
+  themeColor?: string; // kept for backwards compatibility, but ignored
+  activeIconColor?: string; // color class for icon when source has value
+  activeIconBg?: string; // bg color class for icon container when active (10% opacity)
+  hoverColor?: string; // hover text + border color class for CTA button
 }) {
-  const themeStyles = {
-    cyan: {
-      icon: "text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
-      text: "text-cyan-700 dark:text-cyan-300",
-      value: "text-cyan-600 dark:text-cyan-400",
-      btn: "hover:bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20",
-    },
-    yellow: {
-      icon: "text-[color:var(--color-miner)] bg-[color:var(--color-miner)]/10 border-[color:var(--color-miner)]/20",
-      text: "text-[color:var(--color-miner)]",
-      value: "text-[color:var(--color-miner)]",
-      btn: "hover:bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)] border-[color:var(--color-miner)]/20",
-    },
-    purple: {
-      icon: "text-[color:var(--delegation-purple)] bg-[color:var(--delegation-purple)]/10 border-[color:var(--delegation-purple)]/20",
-      text: "text-[color:var(--delegation-purple)]",
-      value: "text-[color:var(--delegation-purple)]",
-      btn: "hover:bg-[color:var(--delegation-purple)]/10 !text-[color:var(--delegation-purple)] border-[color:var(--delegation-purple)]/20",
-    },
-    green: {
-      icon: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-      text: "text-emerald-700 dark:text-emerald-300",
-      value: "text-emerald-600 dark:text-emerald-400",
-      btn: "hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-    },
-  }[themeColor];
-
   const hasValue = value !== "0" && value !== "—";
 
   return (
-    <div className="group flex flex-col gap-3 p-3 rounded-xl border border-transparent hover:border-border/50 hover:bg-muted/10 transition-all sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+    <div className="flex items-center justify-between gap-4 py-3 border-b border-border/20 last:border-b-0">
       {/* Left: Icon + Label */}
       <div className="flex items-center gap-3 min-w-0">
         <div
           className={cn(
-            "flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl border transition-colors shrink-0",
-            themeStyles.icon
+            "flex items-center justify-center w-9 h-9 rounded-lg shrink-0",
+            hasValue && activeIconColor
+              ? cn(activeIconColor, activeIconBg || "bg-muted/50")
+              : "bg-muted/50 text-muted-foreground",
           )}
         >
-          <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+          <Icon className="w-4 h-4" />
         </div>
         <div className="flex flex-col min-w-0">
-          <span className="text-sm font-bold text-foreground truncate">
+          <span className="text-sm font-medium text-foreground truncate">
             {label}
           </span>
-          <span className="text-[10px] text-muted-foreground font-mono truncate">
+          <span className="text-[10px] text-muted-foreground truncate">
             {subValue || "Passive income"}
           </span>
         </div>
       </div>
 
       {/* Right: Values + CTA */}
-      <div className="flex items-center justify-between gap-3 pl-12 sm:pl-0 sm:gap-4 sm:justify-end">
-        {/* Values Container */}
-        <div className="flex items-center gap-3 sm:gap-4">
-          {/* Finalized Value */}
-          <div className="text-left sm:text-right">
-            {hasValue ? (
-              <>
-                <div
-                  className={cn(
-                    "font-mono font-bold text-sm sm:text-base",
-                    themeStyles.value
-                  )}
-                >
-                  +{value}
-                </div>
-                <div className="text-[9px] sm:text-[10px] uppercase font-medium">
-                  {weeklyRate ? (
-                    <div className="flex flex-col items-start sm:items-end gap-0.5">
-                      <span className="text-muted-foreground">Finalized</span>
-                      <span className={cn("font-semibold", themeStyles.value)}>
-                        +{weeklyRate}/wk
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">Finalized</span>
-                  )}
-                </div>
-              </>
-            ) : weeklyRate ? (
-              <>
-                <div
-                  className={cn(
-                    "font-mono font-bold text-sm sm:text-base",
-                    themeStyles.value
-                  )}
-                >
-                  +{weeklyRate}
-                </div>
-                <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">
-                  Per Week
-                </div>
-              </>
-            ) : (
-              <div className="text-xs sm:text-sm text-muted-foreground/50 font-mono">
-                0 pts
+      <div className="flex items-center gap-4">
+        <div className="text-right">
+          {hasValue ? (
+            <>
+              <div className="font-mono font-semibold text-sm text-foreground">
+                +{value}
               </div>
-            )}
-          </div>
+              <div className="text-[10px] text-muted-foreground">
+                {weeklyRate ? `+${weeklyRate}/wk` : "Finalized"}
+              </div>
+            </>
+          ) : weeklyRate ? (
+            <>
+              <div className="font-mono font-semibold text-sm text-foreground">
+                +{weeklyRate}
+              </div>
+              <div className="text-[10px] text-muted-foreground">Per week</div>
+            </>
+          ) : (
+            <div className="text-sm text-muted-foreground/50 font-mono">
+              0 pts
+            </div>
+          )}
         </div>
 
         {/* CTA Button */}
@@ -372,8 +329,8 @@ function SourceRow({
             size="sm"
             variant="outline"
             className={cn(
-              "h-7 sm:h-8 px-2.5 sm:px-3 text-[11px] sm:text-xs font-medium border-dashed bg-transparent transition-all shrink-0",
-              themeStyles.btn
+              "h-7 px-3 text-[11px] font-medium border-border/40 bg-transparent hover:bg-transparent transition-colors shrink-0",
+              hoverColor,
             )}
             onClick={onCta}
           >
@@ -388,7 +345,7 @@ function SourceRow({
 // --- Main Content Component ---
 
 export function ImpactScoreBreakdownDialogContent(
-  props: ImpactScoreBreakdownDialogContentProps
+  props: ImpactScoreBreakdownDialogContentProps,
 ) {
   const { impactScore, title, showCurrentWeekProjection, walletAddress } =
     props;
@@ -409,6 +366,7 @@ export function ImpactScoreBreakdownDialogContent(
   const [isChangeReferrerOpen, setIsChangeReferrerOpen] = useState(false);
 
   const { status: referralStatus } = useReferral();
+  const { isLive: isReferralLive } = useReferralLaunch();
 
   // --- Client-Side Optimistic Data (Steering) ---
   const { walletDetails } = useWallets({
@@ -429,7 +387,7 @@ export function ImpactScoreBreakdownDialogContent(
           totalStaked: r.stakedGctl,
           weeklyEmissions: r.glwPerWeek,
         },
-      ])
+      ]),
     );
 
     const stakes = walletDetails.regions
@@ -470,8 +428,8 @@ export function ImpactScoreBreakdownDialogContent(
     ? !!projection?.hasMinerMultiplier
     : !!latestWeek?.hasCashMinerBonus;
   const streakMultiplier = hasProjection
-    ? projection?.streakBonusMultiplier ?? 0
-    : latestWeek?.streakBonusMultiplier ?? 0;
+    ? (projection?.streakBonusMultiplier ?? 0)
+    : (latestWeek?.streakBonusMultiplier ?? 0);
   const hasStreak = streakMultiplier > 0;
 
   // Point values from totals (post-multiplier) - these add up to the total score
@@ -491,13 +449,13 @@ export function ImpactScoreBreakdownDialogContent(
     impactScore?.composition?.referralPoints,
     {
       maximumFractionDigits: 2,
-    }
+    },
   );
   const referralBonusPoints = formatPoints(
     impactScore?.composition?.referralBonusPoints,
     {
       maximumFractionDigits: 2,
-    }
+    },
   );
   const referrerStats = impactScore?.referral?.asReferrer;
   const activeReferees = referrerStats?.activeRefereeCount ?? 0;
@@ -506,14 +464,14 @@ export function ImpactScoreBreakdownDialogContent(
   const hasReferralPoints =
     safePointsNumber(impactScore?.composition?.referralPoints) > 0;
   const showReferralNetwork =
-    isOwnWallet || hasReferrals || hasReferralPoints;
+    isReferralLive && (isOwnWallet || hasReferrals || hasReferralPoints);
   const referralSubValue = hasReferrals
     ? pendingReferees > 0
       ? `${activeReferees} active · ${pendingReferees} pending`
       : `${activeReferees} active referrals`
     : isOwnWallet
-    ? "No referrals yet"
-    : "0 active referrals";
+      ? "No referrals yet"
+      : "0 active referrals";
   const referralCtaLabel = isOwnWallet
     ? hasReferrals || hasReferralPoints
       ? "Manage"
@@ -523,7 +481,7 @@ export function ImpactScoreBreakdownDialogContent(
   // Weekly GLW amounts for point calculations
   // Use projection if available, otherwise fall back to latest week's data
   const pendingSteeringGlw = weiToGlw(
-    projection?.projectedPoints?.steeringGlwWei
+    projection?.projectedPoints?.steeringGlwWei,
   );
 
   // Emissions: use projection, or fallback to latest week's emissions
@@ -634,9 +592,9 @@ export function ImpactScoreBreakdownDialogContent(
   const totalScore = formatPoints(
     String(
       safePointsNumber(impactScore?.totals?.rolloverPoints) +
-        safePointsNumber(impactScore?.totals?.continuousPoints)
+        safePointsNumber(impactScore?.totals?.continuousPoints),
     ),
-    { maximumFractionDigits: 0 }
+    { maximumFractionDigits: 0 },
   );
 
   const regions = activeSummary?.regions;
@@ -658,11 +616,12 @@ export function ImpactScoreBreakdownDialogContent(
     return labels;
   }, [regions]);
 
+  // Glow brand colors for pie chart
   const regionColors: Record<number, string> = {
-    1: "#6b7280", // Grey - Global
-    2: "#3b82f6", // Blue - UT
-    3: "#10b981", // Green - MO
-    4: "#f59e0b", // Amber - CO
+    1: "#ffb472", // glow orange
+    2: "#ccffd4", // glow green
+    3: "#2081e2", // miner blue
+    4: "#a855f7", // delegation purple
   };
 
   const regionalChartData = useMemo(() => {
@@ -698,29 +657,20 @@ export function ImpactScoreBreakdownDialogContent(
 
   return (
     <>
-      <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-[24px] bg-background border shadow-2xl">
+      <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40">
         {/* HERO HEADER */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-muted/80 via-background to-background border-b pb-6 pt-8 px-6">
-          {/* Ambient Glow */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[100px] pointer-events-none" />
-
-          <div className="relative z-10 flex flex-col items-center text-center space-y-2">
-            <DialogTitle className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+        <div className="border-b border-border/40 pb-6 pt-8 px-6">
+          <div className="flex flex-col items-center text-center space-y-2">
+            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
               {title || "Current Impact"}
             </DialogTitle>
 
             <div className="flex flex-col items-center">
-              <div className="text-6xl font-mono font-bold text-foreground tracking-tighter drop-shadow-sm">
+              <div className="text-6xl font-mono font-semibold text-foreground tracking-tighter">
                 {totalScore}
               </div>
-              <div className="flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full bg-muted border">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
-                  Updating Weekly
-                </span>
+              <div className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-wider mt-2">
+                Updated weekly
               </div>
             </div>
           </div>
@@ -731,24 +681,24 @@ export function ImpactScoreBreakdownDialogContent(
             {/* SECTION 1: EQUIPMENT (MULTIPLIERS) */}
             <div className="space-y-3">
               <div className="flex items-center justify-between px-1">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                <h3 className="text-xs font-mono text-muted-foreground/60 uppercase tracking-widest">
                   Active Multipliers
                 </h3>
               </div>
 
               {bonusPoints > 0 && (
-                <div className="rounded-lg bg-gradient-to-r from-[color:var(--color-miner)]/10 to-[color:var(--delegation-purple)]/10 border border-[color:var(--color-miner)]/30 p-3">
+                <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-xs text-muted-foreground">
-                        Bonus from Multipliers
+                      <span className="text-sm font-medium text-foreground">
+                        All Time Bonus from Multipliers
                       </span>
-                      <span className="text-[10px] text-muted-foreground/60">
+                      <span className="text-[10px] text-muted-foreground">
                         Included in point sources below
                       </span>
                     </div>
-                    <span className="text-lg font-mono font-bold text-[color:var(--color-miner)]">
-                      +{formatPoints(String(bonusPoints))} pts
+                    <span className="text-xl font-mono font-semibold text-foreground">
+                      +{formatPoints(String(bonusPoints))}
                     </span>
                   </div>
                 </div>
@@ -770,14 +720,19 @@ export function ImpactScoreBreakdownDialogContent(
                     });
                     setIsLaunchpadOpen(true);
                   }}
-                  colorClass="text-[color:var(--color-miner)]"
-                  bgClass="bg-[color:var(--color-miner)]/10"
-                  borderClass="border-[color:var(--color-miner)]"
+                  colorClass={
+                    hasMiner
+                      ? "text-[color:var(--color-miner-contrast)]"
+                      : "text-foreground"
+                  }
+                  activeIconBg="bg-[color:var(--color-miner)]/10"
+                  bgClass="bg-muted/50"
+                  borderClass="border-border/40"
                 />
                 <MultiplierCard
                   icon={ImpactStreakIcon}
                   title="Streak"
-                  description="Grow delegation or buy a miner weekly to build."
+                  description="Grow delegation or buy a miner weekly."
                   multiplierValue={(1 + (streakMultiplier || 0)).toFixed(2)}
                   isActive={hasStreak}
                   onClick={() => {
@@ -789,9 +744,14 @@ export function ImpactScoreBreakdownDialogContent(
                     });
                     setIsLaunchpadOpen(true);
                   }}
-                  colorClass="text-[color:var(--delegation-purple)]"
-                  bgClass="bg-[color:var(--delegation-purple)]/10"
-                  borderClass="border-[color:var(--delegation-purple)]"
+                  colorClass={
+                    hasStreak
+                      ? "text-[color:var(--delegation-purple)]"
+                      : "text-foreground"
+                  }
+                  activeIconBg="bg-[color:var(--delegation-purple)]/10"
+                  bgClass="bg-muted/50"
+                  borderClass="border-border/40"
                 />
               </div>
             </div>
@@ -831,7 +791,9 @@ export function ImpactScoreBreakdownDialogContent(
                         }
                       : undefined
                   }
-                  themeColor="cyan"
+                  activeIconColor="text-[#22D3EE]"
+                  activeIconBg="bg-[#22D3EE]/10"
+                  hoverColor="hover:text-[#22D3EE] hover:border-[#22D3EE]"
                 />
 
                 <SourceRow
@@ -864,7 +826,9 @@ export function ImpactScoreBreakdownDialogContent(
                         }
                       : undefined
                   }
-                  themeColor="yellow"
+                  activeIconColor="text-[color:var(--color-miner-contrast)]"
+                  activeIconBg="bg-[color:var(--color-miner)]/10"
+                  hoverColor="hover:text-[color:var(--color-miner-contrast)] hover:border-[color:var(--color-miner)]"
                 />
 
                 <SourceRow
@@ -897,7 +861,9 @@ export function ImpactScoreBreakdownDialogContent(
                         }
                       : undefined
                   }
-                  themeColor="purple"
+                  activeIconColor="text-[color:var(--delegation-purple)]"
+                  activeIconBg="bg-[color:var(--delegation-purple)]/10"
+                  hoverColor="hover:text-[color:var(--delegation-purple)] hover:border-[color:var(--delegation-purple)]"
                 />
 
                 <SourceRow
@@ -924,7 +890,9 @@ export function ImpactScoreBreakdownDialogContent(
                         }
                       : undefined
                   }
-                  themeColor="green"
+                  activeIconColor="text-[#4ADE80]"
+                  activeIconBg="bg-[#4ADE80]/10"
+                  hoverColor="hover:text-[#4ADE80] hover:border-[#4ADE80]"
                 />
 
                 {showReferralNetwork && (
@@ -936,33 +904,36 @@ export function ImpactScoreBreakdownDialogContent(
                     weeklyRate={referralWeeklyRate}
                     ctaLabel={referralCtaLabel}
                     onCta={() => setIsReferralNetworkOpen(true)}
-                    themeColor="cyan"
+                    activeIconColor="text-[color:var(--color-glow-orange)]"
+                    activeIconBg="bg-[color:var(--color-glow-orange)]/10"
+                    hoverColor="hover:text-[color:var(--color-glow-orange)] hover:border-[color:var(--color-glow-orange)]"
                   />
                 )}
               </div>
             </div>
             <Separator />
             {/* SECTION 3: BONUSES (REFEEES) */}
-            {(impactScore?.referral?.asReferee?.bonusIsActive ||
-              impactScore?.referral?.asReferee?.activationBonus?.awarded ||
-              impactScore?.referral?.asReferee?.activationBonus?.pending) && (
+            {isReferralLive &&
+              (impactScore?.referral?.asReferee?.bonusIsActive ||
+                impactScore?.referral?.asReferee?.activationBonus?.awarded ||
+                impactScore?.referral?.asReferee?.activationBonus?.pending) && (
               <div className="space-y-3">
                 <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
                   Referral Bonuses
                 </h3>
                 <div className="space-y-2">
                   {impactScore.referral.asReferee.bonusIsActive && (
-                    <div className="flex items-center justify-between p-3 rounded-xl border bg-emerald-500/5 border-emerald-500/20">
+                    <div className="flex items-center justify-between p-4 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]">
                           <ReferralBonusIcon className="w-4 h-4" />
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-sm font-bold text-foreground">
+                          <span className="text-sm font-medium text-foreground">
                             +10% Referral Bonus
                           </span>
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-muted-foreground font-mono">
+                            <span className="text-[10px] text-muted-foreground">
                               {
                                 impactScore.referral.asReferee
                                   .bonusWeeksRemaining
@@ -973,7 +944,7 @@ export function ImpactScoreBreakdownDialogContent(
                               <button
                                 type="button"
                                 onClick={() => setIsChangeReferrerOpen(true)}
-                                className="text-[10px] font-bold text-primary hover:underline uppercase tracking-wider"
+                                className="text-[10px] font-medium text-foreground hover:underline"
                               >
                                 Change
                               </button>
@@ -982,10 +953,10 @@ export function ImpactScoreBreakdownDialogContent(
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        <div className="font-mono font-semibold text-foreground">
                           +{referralBonusPoints} pts
                         </div>
-                        <div className="text-[10px] text-muted-foreground uppercase font-medium">
+                        <div className="text-[10px] text-muted-foreground">
                           Total Earned
                         </div>
                       </div>
@@ -993,25 +964,25 @@ export function ImpactScoreBreakdownDialogContent(
                   )}
 
                   {impactScore.referral.asReferee.activationBonus?.awarded && (
-                    <div className="flex items-center justify-between p-3 rounded-xl border bg-amber-500/5 border-amber-500/20">
+                    <div className="flex items-center justify-between p-4 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]">
                           <ActivationBonusIcon className="w-4 h-4" />
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-sm font-bold text-foreground">
+                          <span className="text-sm font-medium text-foreground">
                             Activation Bonus
                           </span>
-                          <span className="text-[10px] text-muted-foreground font-mono">
+                          <span className="text-[10px] text-muted-foreground">
                             One-time award (≥100 pts)
                           </span>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                        <div className="font-mono font-semibold text-foreground">
                           +100 pts
                         </div>
-                        <div className="text-[10px] text-muted-foreground uppercase font-medium">
+                        <div className="text-[10px] text-muted-foreground">
                           Awarded
                         </div>
                       </div>
@@ -1019,25 +990,25 @@ export function ImpactScoreBreakdownDialogContent(
                   )}
 
                   {impactScore.referral.asReferee.activationBonus?.pending && (
-                    <div className="flex items-center justify-between p-3 rounded-xl border bg-amber-500/5 border-amber-500/20">
+                    <div className="flex items-center justify-between p-4 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]">
                           <ActivationBonusIcon className="w-4 h-4" />
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-sm font-bold text-foreground">
+                          <span className="text-sm font-medium text-foreground">
                             Activation Bonus
                           </span>
-                          <span className="text-[10px] text-muted-foreground font-mono">
+                          <span className="text-[10px] text-muted-foreground">
                             Threshold met — activates at week end
                           </span>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                        <div className="font-mono font-semibold text-foreground">
                           +100 pts
                         </div>
-                        <div className="text-[10px] text-muted-foreground uppercase font-medium">
+                        <div className="text-[10px] text-muted-foreground">
                           Pending
                         </div>
                       </div>
@@ -1051,8 +1022,7 @@ export function ImpactScoreBreakdownDialogContent(
             {regionalChartData.length > 0 && (
               <div className="space-y-4">
                 <div className="flex items-center justify-center gap-2 px-1">
-                  <PieChartIcon className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  <h3 className="text-xs font-mono text-muted-foreground/60 uppercase tracking-widest">
                     Regional Points Distribution
                   </h3>
                 </div>
@@ -1109,12 +1079,12 @@ export function ImpactScoreBreakdownDialogContent(
             {/* SCORE EXPLAINER */}
             <div className="space-y-3">
               <div className="space-y-3 px-1">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <h3 className="text-xs font-mono text-muted-foreground/60 uppercase tracking-widest">
                   How Scores Update
                 </h3>
 
                 <div className="space-y-2 text-xs">
-                  <div className="rounded-lg bg-muted/50 border p-3 space-y-1.5">
+                  <div className="rounded-lg bg-muted/30 dark:bg-muted/50 border border-border/30 dark:border-border/40 p-3 space-y-1.5">
                     <div className="flex items-start gap-2">
                       <div className="space-y-0.5">
                         <p className="font-semibold text-foreground">
@@ -1131,7 +1101,7 @@ export function ImpactScoreBreakdownDialogContent(
                     </div>
                   </div>
 
-                  <div className="rounded-lg bg-muted/50 border p-3 space-y-1.5">
+                  <div className="rounded-lg bg-muted/30 dark:bg-muted/50 border border-border/30 dark:border-border/40 p-3 space-y-1.5">
                     <div className="flex items-start gap-2">
                       <div className="space-y-0.5">
                         <p className="font-semibold text-foreground">
@@ -1179,24 +1149,29 @@ export function ImpactScoreBreakdownDialogContent(
         defaultUsdcAmount="20"
       />
 
-      <ReferralNetworkDialog
-        open={isReferralNetworkOpen}
-        onOpenChange={setIsReferralNetworkOpen}
-        walletAddress={walletAddress || ""}
-      />
-
-      <ChangeReferrerDialog
-        open={isChangeReferrerOpen}
-        onOpenChange={setIsChangeReferrerOpen}
-        currentReferrerEns={impactScore?.referral?.asReferee?.referrerEns}
-        currentReferrerWallet={impactScore?.referral?.asReferee?.referrerWallet}
-      />
+      {isReferralLive ? (
+        <>
+          <ReferralNetworkDialog
+            open={isReferralNetworkOpen}
+            onOpenChange={setIsReferralNetworkOpen}
+            walletAddress={walletAddress || ""}
+          />
+          <ChangeReferrerDialog
+            open={isChangeReferrerOpen}
+            onOpenChange={setIsChangeReferrerOpen}
+            currentReferrerEns={impactScore?.referral?.asReferee?.referrerEns}
+            currentReferrerWallet={
+              impactScore?.referral?.asReferee?.referrerWallet
+            }
+          />
+        </>
+      ) : null}
     </>
   );
 }
 
 export function ImpactScoreBreakdownDialog(
-  props: ImpactScoreBreakdownDialogProps
+  props: ImpactScoreBreakdownDialogProps,
 ) {
   const {
     open,
@@ -1219,16 +1194,16 @@ export function ImpactScoreBreakdownDialog(
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {query.isLoading ? (
-        <DialogContent className="sm:max-w-md p-6 bg-[#09090b] border-white/10">
+        <DialogContent className="sm:max-w-md p-6 bg-card border border-border/40 rounded-2xl">
           <DialogTitle className="sr-only">Loading Impact Score</DialogTitle>
           <div className="space-y-4">
-            <Skeleton className="h-20 w-full rounded-xl bg-zinc-800" />
-            <Skeleton className="h-32 w-full rounded-xl bg-zinc-800" />
-            <Skeleton className="h-48 w-full rounded-xl bg-zinc-800" />
+            <Skeleton className="h-20 w-full rounded-xl bg-muted/50" />
+            <Skeleton className="h-32 w-full rounded-xl bg-muted/50" />
+            <Skeleton className="h-48 w-full rounded-xl bg-muted/50" />
           </div>
         </DialogContent>
       ) : query.isError ? (
-        <DialogContent className="sm:max-w-md p-6 bg-[#09090b] border-white/10">
+        <DialogContent className="sm:max-w-md p-6 bg-card border border-border/40 rounded-2xl">
           <DialogTitle className="sr-only">Error</DialogTitle>
           <div className="text-center text-zinc-500 py-10">
             Unable to load score data.

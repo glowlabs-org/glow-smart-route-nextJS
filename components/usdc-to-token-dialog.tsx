@@ -592,7 +592,7 @@ export const UsdcToTokenDialog: FC<{
     {
       label: "Received",
       value: (
-        <span className="text-accent font-mono">
+        <span className="text-[#4ADE80] font-mono font-medium">
           {Number(amount).toLocaleString("en-US", {
             maximumFractionDigits: 4,
           })}
@@ -604,14 +604,14 @@ export const UsdcToTokenDialog: FC<{
 
   // Custom review content with transaction stepper
   const reviewContent = (
-    <div className="space-y-6 mb-8">
+    <div className="space-y-6 mb-6">
       {/* Token swap visualization */}
       <div className="relative space-y-4">
-        <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-4">
+        <div className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-4">
           <div className="flex items-center justify-between text-left">
             <div>
-              <div className="text-xs text-muted-foreground mb-1">You pay</div>
-              <div className="text-2xl font-bold">
+              <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-1">You pay</div>
+              <div className="text-2xl font-semibold">
                 {Number(amountToSell).toLocaleString("en-US", {
                   maximumFractionDigits: 6,
                 })}{" "}
@@ -625,18 +625,18 @@ export const UsdcToTokenDialog: FC<{
 
         {/* Absolutely positioned arrow */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-          <div className="bg-background rounded-full p-2 border border-border shadow-sm">
-            <ArrowDown className="size-6 text-muted-foreground" />
+          <div className="bg-card rounded-full p-2 border border-border/40">
+            <ArrowDown className="size-5 text-muted-foreground" />
           </div>
         </div>
 
-        <div className="text-left bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-4">
+        <div className="text-left bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs text-muted-foreground mb-1">
+              <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-1">
                 You receive
               </div>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-semibold">
                 {Number(amount) ? formatPrice(amount, 4) : "0.00"}{" "}
                 <span className="text-lg font-medium text-muted-foreground">
                   {selectedTokenBuy.label}
@@ -649,7 +649,7 @@ export const UsdcToTokenDialog: FC<{
 
       {/* Transaction stepper - shown during processing */}
       {isPending && transactionSteps.length > 0 && (
-        <div className="bg-muted/20 border border-border/50 rounded-2xl p-4">
+        <div className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-4">
           <TransactionStepper steps={transactionSteps} chainId={chainId} />
         </div>
       )}

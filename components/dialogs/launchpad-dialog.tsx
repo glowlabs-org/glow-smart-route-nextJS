@@ -51,7 +51,7 @@ export function LaunchpadDialog({ open, onOpenChange }: LaunchpadDialogProps) {
   return (
     <>
       <Dialog open={open} onOpenChange={handleLaunchpadOpenChange}>
-        <DialogContent className="p-0 sm:max-w-6xl w-full h-[85vh] overflow-hidden rounded-2xl border-foreground/10 dark:border-border">
+        <DialogContent className="p-0 gap-0 sm:max-w-6xl w-full h-[85vh] overflow-hidden rounded-[24px] bg-card border border-border/40">
           <DialogTitle className="sr-only">Launchpad</DialogTitle>
           <ScrollArea className="h-[85vh]">
             <LaunchpadView variant="dialog" onPayDeposit={handlePayDeposit} />

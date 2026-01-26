@@ -2151,6 +2151,8 @@ function LaunchpadMarketplaceWidget({
           ) : (
             <div className="w-full h-full bg-muted/20" />
           )}
+          {/* Gradient overlay for better text contrast */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
         </div>
 
         {/* Top Right: Advanced Stats Pill */}
@@ -2174,7 +2176,7 @@ function LaunchpadMarketplaceWidget({
 
         {/* Bottom Overlay: Apple Liquid Glass Panel */}
         <div className="absolute bottom-4 left-4 right-4 z-10">
-          <div className="relative overflow-hidden rounded-3xl bg-white/60 text-foreground backdrop-blur-sm shadow-[0_4px_12px_rgba(0,0,0,0.15)] dark:bg-black/40 dark:text-white">
+          <div className="relative overflow-hidden rounded-3xl bg-white/80 text-foreground backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.2)] dark:bg-black/70 dark:text-white">
             {/* Liquid Glass Material Layer - Adaptive tint for light/dark */}
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/40 via-white/20 to-transparent dark:from-white/10 dark:via-transparent dark:to-transparent" />
 
@@ -2247,8 +2249,8 @@ function LaunchpadMarketplaceWidget({
               <div className="mt-3 md:mt-5 flex flex-col gap-2 md:gap-3 md:flex-row md:items-stretch">
                 {/* Amount + Units row on mobile */}
                 <div className="flex flex-row gap-2 md:gap-3 md:contents">
-                  {/* Stat 1: Amount */}
-                  <div className="flex-1 min-w-0 md:min-w-[120px] p-2.5 md:p-3 rounded-2xl bg-white/10 border border-white10 flex flex-col justify-center dark:bg-white/5 dark:border-white/10">
+                  {/* Stat 1: Amount + Availability */}
+                  <div className="flex-1 min-w-0 md:min-w-[140px] p-2.5 md:p-3 rounded-2xl bg-white/10 border border-white10 flex flex-col justify-center dark:bg-white/5 dark:border-white/10">
                     <span className="text-[9px] md:text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-0.5 md:mb-1 dark:text-white/50">
                       {availability.isSoldOut
                         ? isMiner
@@ -2258,49 +2260,42 @@ function LaunchpadMarketplaceWidget({
                         ? "Price"
                         : "Amount"}
                     </span>
-                    <span className="text-base md:text-lg font-semibold">
-                      {availability.isSoldOut ? (
-                        <>
-                          {isMiner ? "$" : ""}
-                          {formatNumber(row.totalAmountNeeded || 0, 0)}{" "}
-                          {currency}
-                        </>
-                      ) : cost > 0 ? (
-                        <>
-                          {isMiner ? "$" : ""}
-                          {formatNumber(cost, 0)} {currency}
-                        </>
-                      ) : (
-                        "Free"
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-base md:text-lg font-semibold">
+                        {availability.isSoldOut ? (
+                          <>
+                            {isMiner ? "$" : ""}
+                            {formatNumber(row.totalAmountNeeded || 0, 0)}{" "}
+                            {currency}
+                          </>
+                        ) : cost > 0 ? (
+                          <>
+                            {isMiner ? "$" : ""}
+                            {formatNumber(cost, 0)} {currency}
+                          </>
+                        ) : (
+                          "Free"
+                        )}
+                      </span>
+                      {!availability.isSoldOut && (
+                        <span className="text-xs md:text-sm font-mono tabular-nums text-foreground/70 dark:text-white/60">
+                          {availability?.remaining}/{availability?.total} left
+                        </span>
                       )}
-                    </span>
-                    {!availability.isSoldOut && (
+                    </div>
+                    {availability.isSoldOut ? (
+                      <span className="text-[9px] md:text-[10px] text-foreground/50 dark:text-white/40">
+                        {formatTimeToSellOut(
+                          application.publishedOnAuctionTimestamp,
+                          application.activeFraction?.filledAt || null
+                        )}{" "}
+                        to sell out
+                      </span>
+                    ) : (
                       <span className="text-[9px] md:text-[10px] text-foreground/50 dark:text-white/40">
                         {isMiner ? "≈ 0.003 ETH" : "≈ $1,810 USD"}
                       </span>
                     )}
-                  </div>
-
-                  {/* Stat 2: Units */}
-                  <div className="flex-1 min-w-0 md:min-w-[120px] p-2.5 md:p-3 rounded-2xl bg-white/10 border border-white10 flex flex-col justify-center dark:bg-white/5 dark:border-white/10">
-                    <span className="text-[9px] md:text-[10px] uppercase tracking-widest text-foreground/60 font-bold mb-0.5 md:mb-1 dark:text-white/50">
-                      {availability.isSoldOut ? "Sell out time" : "Units"}
-                    </span>
-                    <span className="text-lg md:text-xl font-semibold">
-                      {availability.isSoldOut ? (
-                        formatTimeToSellOut(
-                          application.publishedOnAuctionTimestamp,
-                          application.activeFraction?.filledAt || null
-                        )
-                      ) : (
-                        <>
-                          {availability?.remaining}/{availability?.total}
-                        </>
-                      )}
-                    </span>
-                    <span className="text-[9px] md:text-[10px] text-foreground/50 dark:text-white/40">
-                      {availability.isSoldOut ? "Completed" : "Available"}
-                    </span>
                   </div>
                 </div>
 
@@ -2439,15 +2434,15 @@ function LaunchpadMarketplaceWidget({
                   isHeroCarousel ? "w-full gap-4 pr-0" : "gap-4 pr-6"
                 )}
               >
-                {Array.from({ length: 3 }).map((_, i) => (
+                {Array.from({ length: 2 }).map((_, i) => (
                   <div
                     key={i}
                     data-carousel-item
                     className={cn(
                       "snap-start shrink-0",
                       isHeroCarousel
-                        ? "w-[calc(50%-12px)] min-w-[600px] max-w-full"
-                        : "w-[400px] max-w-[85vw]"
+                        ? "w-[calc(50%-12px)] min-w-[400px] max-w-[700px]"
+                        : "w-[380px] max-w-[85vw]"
                     )}
                   >
                     <Skeleton className="w-full h-[500px] rounded-[2rem] bg-white/5" />
@@ -2531,8 +2526,7 @@ function LaunchpadMarketplaceWidget({
                 "flex",
                 isHeroCarousel ? "w-full gap-6 pl-1 pr-0" : "gap-4",
                 !isHeroCarousel &&
-                  (rows.length <= 1 ? "w-full pr-0" : "pr-6 pl-1"),
-                rows.length === 1 && isHeroCarousel && "justify-center"
+                  (rows.length <= 1 ? "w-full pr-0" : "pr-6 pl-1")
               )}
             >
               {rows.map((row) => (
@@ -2543,9 +2537,9 @@ function LaunchpadMarketplaceWidget({
                     "snap-start shrink-0 cursor-pointer transition-transform hover:scale-[1.01] duration-300",
                     row.availability.isSoldOut && "cursor-default hover:scale-100",
                     isHeroCarousel
-                      ? "w-[calc(50%-12px)] min-w-[600px] h-[500px]"
+                      ? "w-[calc(50%-12px)] min-w-[400px] max-w-[700px] h-[500px]"
                       : rows.length <= 1
-                      ? "w-full max-w-full h-[500px]"
+                      ? "w-[380px] max-w-[85vw] h-[500px]"
                       : "w-[380px] max-w-[85vw]"
                   )}
                   onClick={() => {

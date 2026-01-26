@@ -133,7 +133,7 @@ export function StakeAmountStep({
     >
       {/* Balance Information */}
       {showBalanceInfo && (
-        <div className="p-6 bg-glow-light-grey dark:bg-gray-900 rounded-xl">
+        <div className="p-5 bg-muted/30 dark:bg-muted/50 rounded-xl border border-border/20 dark:border-border/40">
           <div className="grid gap-4 md:grid-cols-2 md:gap-6">
             {/* Your Balance */}
             <div className="flex-1 p-4 md:p-5">
@@ -198,9 +198,9 @@ export function StakeAmountStep({
 
             {/* Campaign Needs - only when a target exists */}
             {targetAmount > 0 ? (
-              <div className="flex-1 bg-background rounded-lg p-4 md:p-5">
+              <div className="flex-1 bg-muted/50 dark:bg-muted/60 rounded-xl p-4 md:p-5 border border-border/20 dark:border-border/40">
                 <div className="flex items-center gap-2 mb-3">
-                  <p className="text-sm font-medium">Campaign needs</p>
+                  <p className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">Campaign needs</p>
                 </div>
                 <p className="text-3xl font-semibold mb-1">
                   {(targetAmount - currentStaked).toLocaleString("en-US", {
@@ -216,9 +216,9 @@ export function StakeAmountStep({
                 </p>
               </div>
             ) : (
-              <div className="flex-1 bg-background rounded-lg p-4 md:p-5">
+              <div className="flex-1 bg-muted/50 dark:bg-muted/60 rounded-xl p-4 md:p-5 border border-border/20 dark:border-border/40">
                 <div className="flex items-center gap-2 mb-3">
-                  <p className="text-sm font-medium">
+                  <p className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
                     Infrastructure Project Balance
                   </p>
                 </div>
@@ -241,9 +241,9 @@ export function StakeAmountStep({
       )}
 
       {/* Amount Selection */}
-      <div className="p-6 border border-border rounded-xl">
+      <div className="p-5 border border-border/20 dark:border-border/40 rounded-xl bg-muted/30 dark:bg-muted/50">
         <div>
-          <label className="text-sm font-medium mb-2 block">
+          <label className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-3 block">
             {selectedCurrency === "GCTL"
               ? "Enter amount of GCTL to stake"
               : `Enter amount in ${currencySymbol} to spend`}
@@ -316,11 +316,13 @@ export function StakeAmountStep({
             >
               <div className="space-y-4">
                 {/* Contribution Impact */}
-                <div className="bg-primary/5 rounded-lg p-4">
+                <div className="bg-muted/30 dark:bg-muted/50 rounded-xl p-4 border border-border/20 dark:border-border/40">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-primary" />
-                      <p className="font-medium">Your Impact</p>
+                      <div className="h-8 w-8 rounded-lg bg-[#22D3EE]/10 flex items-center justify-center">
+                        <TrendingUp className="w-4 h-4 text-[#22D3EE]" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground">Your Impact</p>
                     </div>
                     <Badge variant="default">
                       +{userContributionPercentage.toFixed(1)}% of goal

@@ -2,7 +2,15 @@
 
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Sparkles, ShoppingCart, ArrowUpRight } from "lucide-react";
+import {
+  Sparkles,
+  ShoppingCart,
+  ArrowUpRight,
+  MapPin,
+  ChevronRight,
+  Info,
+  HelpCircle,
+} from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +23,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
   AnimatedCountdownDhms,
@@ -22,7 +35,15 @@ import {
 } from "@/app/components/animated-countdown";
 import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
-import { useGlowLaunchpad, useMiningCenter } from "@/hooks";
+import {
+  useGlowLaunchpad,
+  useMiningCenter,
+  useRewardScore,
+  useMiningScore,
+  getRewardScoreForApplication,
+  getMiningScoreForApplication,
+  type AuctionApplication,
+} from "@/hooks";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { SponsoredFarmsActivity } from "@/app/marketplace/sponsored-farms-activity";
@@ -38,6 +59,11 @@ import type {
 import { LaunchpadView } from "@/app/marketplace/launchpad-view";
 import type { TaggedAuctionApplication } from "@/app/marketplace/launchpad-view";
 import { GlowSymbol } from "@/components/glow-symbol";
+import { FallbackImage } from "@/components/ui/fallback-image";
+import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
+import { formatUnits } from "viem";
+import { LaunchpadStatsDialog } from "@/app/marketplace/launchpad-stats-dialog";
+import { MiningStatsDialog } from "@/app/marketplace/mining-stats-dialog";
 
 const DEFINED_POOL_ACTIVITY_URL =
   "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d";
@@ -57,7 +83,7 @@ function formatSignedPercent(value: number | null) {
 function countAvailableApplications(
   applications: Array<{
     activeFraction: { isFilled: boolean; remainingSteps: number | null } | null;
-  }>
+  }>,
 ) {
   return applications.reduce((count, app) => {
     const fraction = app.activeFraction;
@@ -68,6 +94,916 @@ function countAvailableApplications(
   }, 0);
 }
 
+// Helper: Get availability info for an application
+function getActiveFractionAvailability(application: AuctionApplication) {
+  const fraction = application.activeFraction;
+  if (!fraction) {
+    return { remaining: 0, total: 0, isSoldOut: true, percentFilled: 100 };
+  }
+  const total = fraction.totalSteps ?? 0;
+  const remaining = fraction.remainingSteps ?? 0;
+  const isSoldOut = fraction.isFilled || remaining <= 0;
+  const filled = total - remaining;
+  const percentFilled = total > 0 ? Math.round((filled / total) * 100) : 0;
+  return { remaining, total, isSoldOut, percentFilled };
+}
+
+// Helper: Format number with appropriate precision
+function formatNumber(value: number, decimals: number = 2): string {
+  if (!Number.isFinite(value)) return "0";
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1)}M`;
+  }
+  if (value >= 1_000) {
+    return `${(value / 1_000).toFixed(1)}K`;
+  }
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+// Helper: Format time to sell out
+function formatTimeToSellOut(
+  publishedTimestamp: string | null,
+  filledTimestamp: string | null,
+): string {
+  if (!publishedTimestamp || !filledTimestamp) return "—";
+  try {
+    const published = new Date(publishedTimestamp).getTime();
+    const filled = new Date(filledTimestamp).getTime();
+    const durationMs = filled - published;
+    if (durationMs <= 0) return "Instant";
+    const hours = Math.floor(durationMs / (1000 * 60 * 60));
+    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+    if (hours >= 24) {
+      const days = Math.floor(hours / 24);
+      return `${days}d ${hours % 24}h`;
+    }
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  } catch {
+    return "—";
+  }
+}
+
+// Extended type for applications with type tagging
+type LocalTaggedApplication = AuctionApplication & {
+  _type: "miners" | "delegations";
+};
+
+// Row data structure for the grid
+interface ListingRow {
+  application: LocalTaggedApplication;
+  availability: ReturnType<typeof getActiveFractionAvailability>;
+  score: number;
+  scoreData: LaunchpadRewardScore | MiningCenterScore | null;
+  cost: number;
+  weeklyYield: number;
+  weeklyYieldUsd: number;
+  totalAmountNeeded: number;
+  rewardScore: number | null;
+}
+
+// ============================================================================
+// Full Row Launchpad Grid Component - exactly.ai inspired design
+// ============================================================================
+
+interface FullRowLaunchpadGridProps {
+  onPayDeposit?: (
+    application: TaggedAuctionApplication,
+    scoreData?: LaunchpadRewardScore | MiningCenterScore | null,
+  ) => void;
+}
+
+function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
+  const { address, isConnected } = useAccount();
+  const walletAddress = address?.toLowerCase() ?? null;
+  const source = "launchpad_status_widget_fullrow";
+  const { spotPriceUsd: glwSpotPrice } = useGlowSpotPriceSummary();
+  const isMobile = useIsMobile();
+
+  // Tab filter state
+  type TabFilter = "all" | "delegations" | "miners";
+  const [activeTab, setActiveTab] = React.useState<TabFilter>("all");
+
+  // Stats dialog state
+  const [statsDialogOpen, setStatsDialogOpen] = React.useState(false);
+  const [selectedApplicationForStats, setSelectedApplicationForStats] =
+    React.useState<LocalTaggedApplication | null>(null);
+  const [selectedScoreDataForStats, setSelectedScoreDataForStats] =
+    React.useState<LaunchpadRewardScore | MiningCenterScore | null>(null);
+
+  // Fetch delegations
+  const {
+    applications: delegationApplications,
+    isLoading: isDelegationsLoading,
+  } = useGlowLaunchpad({
+    filters: { paymentCurrency: "GLW", includeFilled: true },
+  });
+
+  // Fetch miners
+  const { applications: minerApplications, isLoading: isMinersLoading } =
+    useMiningCenter({
+      filters: { paymentCurrency: "USDC", includeFilled: true },
+    });
+
+  // Tag applications with their type
+  const taggedDelegations = React.useMemo<LocalTaggedApplication[]>(
+    () =>
+      delegationApplications.map((app) => ({
+        ...app,
+        _type: "delegations" as const,
+      })),
+    [delegationApplications],
+  );
+
+  const taggedMiners = React.useMemo<LocalTaggedApplication[]>(
+    () =>
+      minerApplications.map((app) => ({ ...app, _type: "miners" as const })),
+    [minerApplications],
+  );
+
+  // Fetch scores
+  const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
+    applications: taggedDelegations,
+    paymentCurrency: "GLW",
+    enabled: taggedDelegations.length > 0,
+    walletAddress: address || null,
+  });
+
+  const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
+    applications: taggedMiners,
+    enabled: taggedMiners.length > 0,
+  });
+
+  // Count available listings per type
+  const delegationsAvailableCount = React.useMemo(
+    () => countAvailableApplications(delegationApplications),
+    [delegationApplications],
+  );
+  const minersAvailableCount = React.useMemo(
+    () => countAvailableApplications(minerApplications),
+    [minerApplications],
+  );
+
+  // Build rows with metrics
+  const allRows = React.useMemo(() => {
+    const allApplications = [...taggedDelegations, ...taggedMiners];
+
+    return allApplications.map((application) => {
+      const availability = getActiveFractionAvailability(application);
+
+      const reward = getRewardScoreForApplication(
+        rewardScoreMap,
+        application.id,
+      );
+      const mining = getMiningScoreForApplication(
+        miningScoreMap,
+        application.id,
+      );
+
+      const score =
+        application._type === "delegations"
+          ? (reward?.rewardScore ?? 0)
+          : (mining?.miningScore ?? 0);
+
+      const scoreData: LaunchpadRewardScore | MiningCenterScore | null =
+        application._type === "delegations"
+          ? reward
+            ? {
+                userWeeklyGlwRewards: reward.userWeeklyGlwRewards,
+                userWeeklyPdRewards: reward.userWeeklyPdRewards,
+              }
+            : null
+          : mining
+            ? {
+                miningScore: mining.miningScore,
+                weeklyGlwRewards: mining.weeklyGlwRewards,
+                weeklyGlwRewardsUsd: mining.weeklyGlwRewardsUsd,
+              }
+            : null;
+
+      const cost = (() => {
+        try {
+          if (!application.activeFraction) return 0;
+          if (application._type === "miners") {
+            return parseFloat(
+              formatUnits(
+                BigInt(application.activeFraction.stepPrice || "0"),
+                DECIMALS_BY_TOKEN.USDC,
+              ),
+            );
+          }
+          return parseFloat(
+            formatUnits(
+              BigInt(application.activeFraction.step || "0"),
+              DECIMALS_BY_TOKEN.GLW,
+            ),
+          );
+        } catch {
+          return 0;
+        }
+      })();
+
+      const weeklyYield = (() => {
+        try {
+          if (application._type === "miners") {
+            if (!mining?.weeklyGlwRewards) return 0;
+            return parseFloat(
+              formatUnits(
+                BigInt(mining.weeklyGlwRewards),
+                DECIMALS_BY_TOKEN.GLW,
+              ),
+            );
+          }
+          const totalShares = application.activeFraction?.totalSteps || 0;
+          if (!reward || !totalShares) return 0;
+          const glwRewards = parseFloat(
+            formatUnits(
+              BigInt(reward.userWeeklyGlwRewards || "0"),
+              DECIMALS_BY_TOKEN.GLW,
+            ),
+          );
+          const pdRewards = parseFloat(
+            formatUnits(
+              BigInt(reward.userWeeklyPdRewards || "0"),
+              DECIMALS_BY_TOKEN.GLW,
+            ),
+          );
+          return (glwRewards + pdRewards) / totalShares;
+        } catch {
+          return 0;
+        }
+      })();
+
+      const totalAmountNeeded = application.activeFraction?.totalAmountNeeded
+        ? parseFloat(
+            formatUnits(
+              BigInt(application.activeFraction.totalAmountNeeded),
+              application._type === "miners"
+                ? DECIMALS_BY_TOKEN.USDC
+                : DECIMALS_BY_TOKEN.GLW,
+            ),
+          )
+        : 0;
+
+      // Calculate USD value for weekly yield
+      const weeklyYieldUsd = weeklyYield * (glwSpotPrice || 0);
+
+      // Get reward score for delegations
+      const rewardScore =
+        application._type === "delegations"
+          ? (reward?.rewardScore ?? null)
+          : null;
+
+      return {
+        application,
+        availability,
+        score,
+        scoreData,
+        cost,
+        weeklyYield,
+        weeklyYieldUsd,
+        totalAmountNeeded,
+        rewardScore,
+      };
+    });
+  }, [
+    taggedDelegations,
+    taggedMiners,
+    rewardScoreMap,
+    miningScoreMap,
+    glwSpotPrice,
+  ]);
+
+  // Filter and sort rows based on active tab
+  const filteredRows = React.useMemo(() => {
+    let filtered = allRows;
+
+    // Filter by type
+    if (activeTab === "delegations") {
+      filtered = allRows.filter((r) => r.application._type === "delegations");
+    } else if (activeTab === "miners") {
+      filtered = allRows.filter((r) => r.application._type === "miners");
+    }
+
+    // Partition into active and sold out
+    const activeRows = filtered.filter((r) => !r.availability.isSoldOut);
+    const soldOutRows = filtered
+      .filter((r) => r.availability.isSoldOut)
+      .sort((a, b) => {
+        const aTime = new Date(
+          a.application.activeFraction?.filledAt ||
+            a.application.activeFraction?.createdAt ||
+            0,
+        ).getTime();
+        const bTime = new Date(
+          b.application.activeFraction?.filledAt ||
+            b.application.activeFraction?.createdAt ||
+            0,
+        ).getTime();
+        return bTime - aTime;
+      });
+
+    // Sort active rows
+    if (activeTab === "all") {
+      // In "all" tab: delegations first, then miners, sorted by score within each group
+      activeRows.sort((a, b) => {
+        if (a.application._type !== b.application._type) {
+          return a.application._type === "delegations" ? -1 : 1;
+        }
+        return (b.score ?? 0) - (a.score ?? 0);
+      });
+    } else if (activeTab === "delegations") {
+      activeRows.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    }
+
+    // Combine: active first, then sold out to fill minimum of 2
+    let finalRows = [...activeRows];
+    if (finalRows.length < 2) {
+      const needed = 2 - finalRows.length;
+      finalRows = [...finalRows, ...soldOutRows.slice(0, needed)];
+    }
+
+    return finalRows;
+  }, [allRows, activeTab]);
+
+  const isLoading = isDelegationsLoading || isMinersLoading;
+  const isScoresLoading = isRewardScoresLoading || isMiningScoresLoading;
+
+  // Determine which tabs to show (hide if no listings of that type)
+  const showDelegationsTab = delegationApplications.length > 0;
+  const showMinersTab = minerApplications.length > 0;
+  const showAllTab = showDelegationsTab || showMinersTab;
+
+  // Handle card click
+  const handleCardClick = React.useCallback(
+    (row: ListingRow) => {
+      if (row.availability.isSoldOut || !row.scoreData) return;
+      trackEvent("dashboard_launchpad_card_click", {
+        source,
+        wallet_connected: isConnected,
+        wallet_address: walletAddress,
+        application_id: row.application.id,
+        listing_type: row.application._type,
+      });
+      onPayDeposit?.(
+        row.application as TaggedAuctionApplication,
+        row.scoreData,
+      );
+    },
+    [isConnected, walletAddress, onPayDeposit],
+  );
+
+  // Render a single listing card - image-at-top, content-below design
+  const renderListingCard = (row: ListingRow, index: number) => {
+    const {
+      application,
+      availability,
+      cost,
+      weeklyYield,
+      weeklyYieldUsd,
+      totalAmountNeeded,
+      rewardScore,
+    } = row;
+    const isMiner = application._type === "miners";
+    const currency = isMiner ? "USDC" : "GLW";
+    const imageUrl = application.afterInstallPictures?.[0]?.url;
+
+    return (
+      <div
+        key={application.id}
+        onClick={() => handleCardClick(row)}
+        className={cn(
+          "group overflow-hidden rounded-2xl cursor-pointer flex flex-col",
+          "bg-card dark:bg-card border border-border/20 dark:border-border/40",
+          "transition-all duration-300",
+          availability.isSoldOut
+            ? "opacity-60 cursor-default"
+            : "hover:ring-2 hover:ring-border/40 dark:hover:ring-border/60 hover:-translate-y-0.5",
+        )}
+      >
+        {/* Image Section */}
+        <div className="relative aspect-[5/3] md:aspect-[2/1] m-3 mb-0 rounded-xl overflow-hidden">
+          {imageUrl ? (
+            <FallbackImage
+              src={imageUrl}
+              widthForProxy={800}
+              quality={85}
+              alt={application.farmName || "Farm"}
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            />
+          ) : (
+            <div className="w-full h-full bg-muted/30 dark:bg-muted/50" />
+          )}
+          {/* Light gradient for badge visibility */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent rounded-xl" />
+
+          {/* Top Left: Category Badge */}
+          <div className="absolute top-4 left-4 z-10">
+            <div
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-xl shadow-sm",
+                isMiner
+                  ? "bg-white/90 dark:bg-black/60 text-foreground dark:text-white border border-[color:var(--color-miner)]/50"
+                  : "bg-white/90 dark:bg-black/60 text-foreground dark:text-white border border-purple-400/50",
+              )}
+            >
+              <span
+                className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  isMiner ? "bg-[color:var(--color-miner)]" : "bg-purple-400",
+                )}
+              />
+              {isMiner ? "Miner" : "Delegation"}
+            </div>
+          </div>
+
+          {/* Top Right: Stats Button or Sold Out Badge */}
+          <div className="absolute top-4 right-4 z-10">
+            {availability.isSoldOut ? (
+              <div className="px-3 py-1.5 rounded-full text-xs font-semibold bg-white/90 dark:bg-black/60 text-foreground dark:text-white backdrop-blur-xl border border-border/20 dark:border-white/20 shadow-sm">
+                Sold Out
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  trackEvent("dashboard_launchpad_stats_click", {
+                    source,
+                    wallet_connected: isConnected,
+                    wallet_address: walletAddress,
+                    application_id: application.id,
+                    listing_type: application._type,
+                  });
+                  setSelectedApplicationForStats(application);
+                  setSelectedScoreDataForStats(row.scoreData);
+                  setStatsDialogOpen(true);
+                }}
+                className="backdrop-blur-xl bg-white/90 dark:bg-black/60 hover:bg-white dark:hover:bg-black/70 border border-border/20 dark:border-white/20 text-foreground dark:text-white rounded-full px-3 h-8 text-xs font-semibold transition-all shadow-sm"
+              >
+                Advanced Stats <ArrowUpRight className="ml-1 w-3 h-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Content Section */}
+        <div className="flex flex-col flex-1 p-5 md:p-6">
+          {/* Title and Location */}
+          <div className="mb-4">
+            <h3 className="text-xl md:text-2xl font-bold text-foreground tracking-tight line-clamp-1">
+              {application.farmName || "Unnamed Farm"}
+            </h3>
+            <div className="flex items-center gap-1.5 mt-1.5 text-muted-foreground text-sm">
+              <MapPin className="w-3.5 h-3.5" />
+              <span>{application.zone?.name || "Unknown Region"}</span>
+            </div>
+          </div>
+
+          {/* Stats Grid - 3 columns for delegations, 2 for miners */}
+          <div
+            className={cn(
+              "grid gap-2 mt-auto",
+              isMiner ? "grid-cols-2" : "grid-cols-3",
+            )}
+          >
+            {/* Column 1: Price/Amount */}
+            <div className="flex flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+                {availability.isSoldOut
+                  ? isMiner
+                    ? "Total"
+                    : "Delegated"
+                  : isMiner
+                    ? "Price"
+                    : "Amount"}
+              </span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
+                  {availability.isSoldOut ? (
+                    <>
+                      {isMiner && "$"}
+                      {Math.round(totalAmountNeeded).toLocaleString()}
+                    </>
+                  ) : cost > 0 ? (
+                    <>
+                      {isMiner && "$"}
+                      {Math.round(cost).toLocaleString()}
+                    </>
+                  ) : (
+                    "Free"
+                  )}
+                </span>
+                <span className="text-xs text-muted-foreground font-medium">
+                  {currency}
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground font-medium">
+                {availability.isSoldOut
+                  ? "filled"
+                  : `${availability.remaining}/${availability.total} left`}
+              </span>
+            </div>
+
+            {/* Column 2: Weekly Rewards or Time to Sell */}
+            {availability.isSoldOut ? (
+              <div className="flex flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+                  Sold In
+                </span>
+                <span className="text-lg font-bold text-foreground leading-tight">
+                  {formatTimeToSellOut(
+                    application.publishedOnAuctionTimestamp,
+                    application.activeFraction?.filledAt || null,
+                  )}
+                </span>
+                <span className="text-xs text-muted-foreground font-medium">
+                  to fill
+                </span>
+              </div>
+            ) : isScoresLoading ? (
+              <div className="flex flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+                  Est. Weekly
+                </span>
+                <Skeleton className="h-5 w-20 mb-1" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+            ) : weeklyYield > 0 ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50 cursor-help">
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                        Est. Weekly
+                      </span>
+                      <HelpCircle className="w-3 h-3 text-muted-foreground/60" />
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
+                        +{formatNumber(weeklyYield, 1)}
+                      </span>
+                      <span className="text-xs text-muted-foreground font-medium">
+                        GLW
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground font-medium">
+                      {weeklyYieldUsd > 0
+                        ? `≈ $${formatNumber(weeklyYieldUsd, 2)}/wk`
+                        : `${isMiner ? "99" : "100"} weeks`}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  {isMiner ? (
+                    <p className="text-xs">
+                      Estimated weekly rewards per miner, paid for 99 weeks. May
+                      decrease as new farms join.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Estimated weekly rewards per delegation, paid for 100
+                        weeks.
+                      </p>
+                      {row.scoreData &&
+                        "userWeeklyGlwRewards" in row.scoreData && (
+                          <div className="space-y-1.5 pt-2 border-t border-border/20 dark:border-border/40">
+                            <div className="flex justify-between gap-4 text-xs">
+                              <span className="text-muted-foreground">
+                                Emissions
+                              </span>
+                              <span className="font-mono font-medium">
+                                +
+                                {parseFloat(
+                                  formatUnits(
+                                    BigInt(
+                                      row.scoreData.userWeeklyGlwRewards || "0",
+                                    ),
+                                    DECIMALS_BY_TOKEN.GLW,
+                                  ),
+                                ).toLocaleString(undefined, {
+                                  maximumFractionDigits: 1,
+                                })}{" "}
+                                GLW
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-4 text-xs">
+                              <span className="text-muted-foreground">
+                                PD Recovery
+                              </span>
+                              <span className="font-mono font-medium">
+                                +
+                                {parseFloat(
+                                  formatUnits(
+                                    BigInt(
+                                      row.scoreData.userWeeklyPdRewards || "0",
+                                    ),
+                                    DECIMALS_BY_TOKEN.GLW,
+                                  ),
+                                ).toLocaleString(undefined, {
+                                  maximumFractionDigits: 1,
+                                })}{" "}
+                                GLW
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                    </div>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <div className="flex flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50" />
+            )}
+
+            {/* Column 3: Reward Score (delegations only) */}
+            {!isMiner &&
+              (isScoresLoading ? (
+                <div className="flex flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+                    Score
+                  </span>
+                  <Skeleton className="h-5 w-12 mb-1" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              ) : rewardScore !== null ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50 cursor-help">
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                          Score
+                        </span>
+                        <Info className="w-3 h-3 text-muted-foreground/60" />
+                      </div>
+                      <span className="text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
+                        {Math.round(rewardScore)}
+                      </span>
+                      <span className="text-xs text-muted-foreground font-medium">
+                        Reward Score
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-xs">
+                      Combines deposit recovery and GLW emissions into expected
+                      rewards per dollar. Higher is better.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <div className="flex flex-col p-3 rounded-lg bg-muted/30 dark:bg-muted/50" />
+              ))}
+          </div>
+
+          {/* Action Button Row */}
+          <div className="mt-4">
+            {availability.isSoldOut ? (
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full rounded-xl h-11",
+
+                  "transition-all duration-200",
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(
+                    `https://glow.org/audits/${application.id}`,
+                    "_blank",
+                  );
+                }}
+              >
+                View Audit <ArrowUpRight className="ml-1.5 w-4 h-4" />
+              </Button>
+            ) : isMiner ? (
+              <div className="flex justify-end">
+                <Button
+                  className={cn(
+                    "w-full",
+
+                    "transition-all duration-200",
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCardClick(row);
+                  }}
+                >
+                  Purchase Miner <ArrowUpRight className="w-5 h-5" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                className={cn(
+                  "w-full ",
+
+                  "transition-all duration-200",
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCardClick(row);
+                }}
+              >
+                Delegate Glow <ArrowUpRight className="ml-1.5 w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {/* Tabs skeleton */}
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-20 rounded-full" />
+          <Skeleton className="h-10 w-28 rounded-full" />
+          <Skeleton className="h-10 w-20 rounded-full" />
+        </div>
+        {/* Cards skeleton - matching new card structure */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[0, 1].map((i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-border/20 dark:border-border/40 overflow-hidden"
+            >
+              <div className="p-3 pb-0">
+                <Skeleton className="aspect-[5/3] md:aspect-[2/1] w-full rounded-xl" />
+              </div>
+              <div className="p-5 md:p-6 space-y-4">
+                <div className="space-y-2">
+                  <Skeleton className="h-6 w-3/4" />
+                  <Skeleton className="h-4 w-1/3" />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <Skeleton className="h-20 rounded-lg" />
+                  <Skeleton className="h-20 rounded-lg" />
+                  <Skeleton className="h-20 rounded-lg" />
+                </div>
+                <Skeleton className="h-11 w-full rounded-xl" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // No listings state
+  if (filteredRows.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <GlowSymbol className="h-12 w-12 mb-4 opacity-50" />
+        <div className="text-sm text-muted-foreground">
+          No listings available at this time.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-6 lg:p-8 space-y-4">
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        {showAllTab && (
+          <button
+            onClick={() => {
+              trackEvent("dashboard_launchpad_tab_change", {
+                source,
+                wallet_connected: isConnected,
+                wallet_address: walletAddress,
+                tab: "all",
+              });
+              setActiveTab("all");
+            }}
+            className={cn(
+              "px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap",
+              activeTab === "all"
+                ? "bg-foreground text-background"
+                : "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
+            )}
+          >
+            All{" "}
+            <span className="ml-1 font-mono tabular-nums text-xs opacity-70">
+              {delegationsAvailableCount + minersAvailableCount}
+            </span>
+          </button>
+        )}
+        {showDelegationsTab && (
+          <button
+            onClick={() => {
+              trackEvent("dashboard_launchpad_tab_change", {
+                source,
+                wallet_connected: isConnected,
+                wallet_address: walletAddress,
+                tab: "delegations",
+              });
+              setActiveTab("delegations");
+            }}
+            className={cn(
+              "px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-2",
+              activeTab === "delegations"
+                ? "bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30"
+                : "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
+            )}
+          >
+            <DelegationIcon className="w-4 h-4" />
+            Delegations{" "}
+            <span className="font-mono tabular-nums text-xs opacity-70">
+              {delegationsAvailableCount}
+            </span>
+          </button>
+        )}
+        {showMinersTab && (
+          <button
+            onClick={() => {
+              trackEvent("dashboard_launchpad_tab_change", {
+                source,
+                wallet_connected: isConnected,
+                wallet_address: walletAddress,
+                tab: "miners",
+              });
+              setActiveTab("miners");
+            }}
+            className={cn(
+              "px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-2",
+              activeTab === "miners"
+                ? "bg-[color:var(--color-miner)]/20 text-[color:var(--color-miner-contrast)] border border-[color:var(--color-miner)]/30"
+                : "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
+            )}
+          >
+            <CashMinerIcon className="w-4 h-4" />
+            Miners{" "}
+            <span className="font-mono tabular-nums text-xs opacity-70">
+              {minersAvailableCount}
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Cards Grid - Always 2 columns on desktop */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {filteredRows
+          .slice(0, isMobile ? 4 : 2)
+          .map((row, index) => renderListingCard(row, index))}
+      </div>
+
+      {/* View All Link (if more than 2 listings) */}
+      {filteredRows.length > 2 && (
+        <div className="flex justify-center pt-2">
+          <Link
+            href="/marketplace"
+            className={cn(
+              "inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-colors",
+              "bg-muted/30 dark:bg-muted/50 text-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
+              "border border-border/20 dark:border-border/40",
+            )}
+          >
+            View all listings
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
+
+      {/* Stats Dialogs */}
+      {selectedApplicationForStats?._type === "miners" ? (
+        <MiningStatsDialog
+          open={statsDialogOpen}
+          onOpenChange={setStatsDialogOpen}
+          application={selectedApplicationForStats as TaggedAuctionApplication}
+          miningScoreData={
+            selectedScoreDataForStats as {
+              miningScore: number;
+              weeklyGlwRewards?: string;
+              weeklyGlwRewardsUsd?: string;
+            } | null
+          }
+        />
+      ) : (
+        <LaunchpadStatsDialog
+          open={statsDialogOpen}
+          onOpenChange={setStatsDialogOpen}
+          application={selectedApplicationForStats as TaggedAuctionApplication}
+          rewardScore={
+            selectedScoreDataForStats as {
+              userWeeklyGlwRewards: string;
+              userWeeklyPdRewards: string;
+            } | null
+          }
+        />
+      )}
+    </div>
+  );
+}
+
 interface LaunchpadStatusWidgetProps {
   className?: string;
   forcedType?: "delegations" | "miners";
@@ -75,7 +1011,7 @@ interface LaunchpadStatusWidgetProps {
   isApproaching?: boolean;
   onPayDeposit?: (
     application: TaggedAuctionApplication,
-    scoreData?: LaunchpadRewardScore | MiningCenterScore | null
+    scoreData?: LaunchpadRewardScore | MiningCenterScore | null,
   ) => void;
 }
 
@@ -111,7 +1047,7 @@ export default function LaunchpadStatusWidget({
 
   type ListTypeFilter = "all" | "delegations" | "miners" | "activity";
   const [liveTypeFilter, setLiveTypeFilter] = React.useState<ListTypeFilter>(
-    () => "all"
+    () => "all",
   );
 
   const shouldForceType = forcedType != null;
@@ -134,11 +1070,11 @@ export default function LaunchpadStatusWidget({
 
   const delegationsAvailableCount = React.useMemo(
     () => countAvailableApplications(delegationApplications),
-    [delegationApplications]
+    [delegationApplications],
   );
   const minersAvailableCount = React.useMemo(
     () => countAvailableApplications(minerApplications),
-    [minerApplications]
+    [minerApplications],
   );
   const hasDelegationsAvailable = delegationsAvailableCount > 0;
   const hasMinersAvailable = minersAvailableCount > 0;
@@ -181,17 +1117,17 @@ export default function LaunchpadStatusWidget({
 
   const priceLabel = React.useMemo(
     () => formatUsdPrice(spotPriceUsd),
-    [spotPriceUsd]
+    [spotPriceUsd],
   );
 
   const handlePayDeposit = React.useCallback(
     (
       application: TaggedAuctionApplication,
-      scoreData?: LaunchpadRewardScore | MiningCenterScore | null
+      scoreData?: LaunchpadRewardScore | MiningCenterScore | null,
     ) => {
       onPayDeposit?.(application, scoreData);
     },
-    [onPayDeposit]
+    [onPayDeposit],
   );
 
   return (
@@ -201,31 +1137,26 @@ export default function LaunchpadStatusWidget({
         isMinimal
           ? "bg-transparent border-transparent h-full"
           : isFlow
-          ? "bg-card/30 border-foreground/5 min-h-[380px]"
-          : isFullRow
-          ? "bg-card dark:bg-muted/20 border-foreground/5 dark:border-border"
-          : cn(
-              "bg-card dark:bg-muted/20 border-foreground/5 dark:border-border",
-              isMobile ? "min-h-[620px]" : "h-full"
-            ),
-        className
+            ? "bg-card/30 border-foreground/5 min-h-[380px]"
+            : isFullRow
+              ? "bg-transparent border-transparent"
+              : cn(
+                  "bg-card dark:bg-muted/20 border-foreground/5 dark:border-border",
+                  isMobile ? "min-h-[620px]" : "h-full",
+                ),
+        className,
       )}
     >
-      {/* Hide header for full-row approaching state (bento section header shows it) */}
-      {!(effectiveIsApproaching && isFullRow) && (
+      {/* Hide header for full-row live state (tabs are in the grid) */}
+      {!(isLive && isFullRow) && !(effectiveIsApproaching && isFullRow) && (
         <CardHeader
-          className={cn(
-            "pb-0",
-            isFullRow
-              ? "px-3 pt-3 pb-0 border-b border-border/40 [.border-b]:pb-2"
-              : "pt-4"
-          )}
+          className={cn("pb-0", isFullRow ? "px-3 pt-3 pb-0" : "pt-4")}
         >
           <div
             className={cn(
               "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
               !isLive ? "items-center" : "items-start",
-              isFullRow ? "min-h-0" : null
+              isFullRow ? "min-h-0" : null,
             )}
           >
             <div className="flex items-center gap-2 min-w-0">
@@ -234,120 +1165,29 @@ export default function LaunchpadStatusWidget({
                   "tracking-tight text-foreground",
                   isFullRow
                     ? "text-xl font-semibold"
-                    : "text-lg font-semibold tracking-tight text-foreground"
+                    : "text-lg font-semibold tracking-tight text-foreground",
                 )}
               >
                 {isLive
                   ? "Glow Launchpad"
                   : effectiveIsApproaching
-                  ? "Get ready"
-                  : "New Solar Farm Listing In..."}
+                    ? "Get ready"
+                    : "New Solar Farm Listing In..."}
               </CardTitle>
             </div>
 
             {isLive && variant === "full-row" ? (
-              <Tabs
-                value={resolvedTab}
-                onValueChange={(v) => {
-                  trackEvent("dashboard_launchpad_tab_change", {
-                    source,
-                    wallet_connected: isConnected,
-                    wallet_address: walletAddress,
-                    tab: v,
-                  });
-                  setLiveTypeFilter(v as ListTypeFilter);
-                }}
-                className="w-full shrink-0 sm:w-auto"
+              <Link
+                href="/marketplace"
+                className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors",
+                  "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70",
+                  "border border-border/20 dark:border-border/40",
+                )}
               >
-                <TabsList
-                  className={cn(
-                    "rounded-full border border-border bg-muted/10 p-1",
-                    "h-10 sm:h-12",
-                    "w-full sm:w-auto",
-                    "justify-start overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                  )}
-                >
-                  {shouldForceType ? (
-                    <TabsTrigger
-                      value={forcedType}
-                      className={cn(
-                        "rounded-full data-[state=active]:bg-background/40 data-[state=active]:text-foreground",
-                        isFullRow ? "px-2 h-5 text-[10px]" : "px-3 h-7 text-xs"
-                      )}
-                    >
-                      {forcedType === "delegations" ? "Delegations" : "Miners"}{" "}
-                      <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
-                        {forcedType === "delegations"
-                          ? isDelegationsLoading
-                            ? "…"
-                            : delegationsAvailableCount
-                          : isMinersLoading
-                          ? "…"
-                          : minersAvailableCount}
-                      </span>
-                    </TabsTrigger>
-                  ) : (
-                    <>
-                      <TabsTrigger
-                        value="all"
-                        className={cn(
-                          "rounded-full data-[state=active]:bg-background/40 data-[state=active]:text-foreground",
-                          isFullRow
-                            ? "px-2 h-5 text-[10px]"
-                            : "px-3 h-7 text-xs"
-                        )}
-                      >
-                        All{" "}
-                        <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
-                          {isDelegationsLoading || isMinersLoading
-                            ? "…"
-                            : delegationsAvailableCount + minersAvailableCount}
-                        </span>
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="delegations"
-                        className={cn(
-                          "rounded-full data-[state=active]:bg-delegation-purple/15 data-[state=active]:text-foreground",
-                          isFullRow
-                            ? "px-2 h-5 text-[10px]"
-                            : "px-3 h-7 text-xs"
-                        )}
-                      >
-                        Delegations{" "}
-                        <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
-                          {isDelegationsLoading
-                            ? "…"
-                            : delegationsAvailableCount}
-                        </span>
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="miners"
-                        className={cn(
-                          "rounded-full data-[state=active]:bg-primary/15 data-[state=active]:text-foreground",
-                          isFullRow
-                            ? "px-2 h-5 text-[10px]"
-                            : "px-3 h-7 text-xs"
-                        )}
-                      >
-                        Miners{" "}
-                        <span className="ml-1 font-mono tabular-nums text-[10px] opacity-70">
-                          {isMinersLoading ? "…" : minersAvailableCount}
-                        </span>
-                      </TabsTrigger>
-                    </>
-                  )}
-
-                  <TabsTrigger
-                    value="activity"
-                    className={cn(
-                      "rounded-full data-[state=active]:bg-background/40 data-[state=active]:text-foreground",
-                      isFullRow ? "px-2 h-5 text-[10px]" : "px-3 h-7 text-xs"
-                    )}
-                  >
-                    Activity
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+                View Marketplace
+                <ArrowUpRight className="w-4 h-4" />
+              </Link>
             ) : (
               <Button
                 variant="outline"
@@ -362,7 +1202,7 @@ export default function LaunchpadStatusWidget({
                 }}
                 className={cn(
                   "shrink-0 rounded-full border-border ",
-                  "h-9 px-4 text-sm"
+                  "h-9 px-4 text-sm",
                 )}
               >
                 <ShoppingCart
@@ -378,18 +1218,14 @@ export default function LaunchpadStatusWidget({
       <CardContent
         className={cn(
           "min-h-0 min-w-0 w-full flex-1 flex flex-col overflow-hidden",
-          variant === "full-row"
-            ? resolvedTab === "activity"
-              ? "p-0"
-              : "pt-3 pb-4"
-            : "p-0"
+          variant === "full-row" ? "p-0" : "p-0",
         )}
       >
         {isLoading ? (
           <div
             className={cn(
               "space-y-4",
-              variant === "full-row" ? "p-0" : "py-4 px-5 pb-5"
+              variant === "full-row" ? "p-0" : "py-4 px-5 pb-5",
             )}
           >
             <Skeleton className="h-16 w-3/4 mx-auto rounded-xl" />
@@ -399,7 +1235,7 @@ export default function LaunchpadStatusWidget({
           <div
             className={cn(
               "flex flex-1 flex-col items-center justify-center text-center gap-2",
-              variant === "full-row" ? "p-0" : "px-5 pb-5"
+              variant === "full-row" ? "p-0" : "px-5 pb-5",
             )}
           >
             <div className="text-sm text-muted-foreground">
@@ -412,7 +1248,7 @@ export default function LaunchpadStatusWidget({
             <div
               className={cn(
                 "min-h-0 flex-1 flex flex-col gap-4",
-                variant === "full-row" ? "px-4 pt-3 pb-4" : "px-5 pb-5 pt-4"
+                variant === "full-row" ? "px-4 pt-3 pb-4" : "px-5 pb-5 pt-4",
               )}
             >
               <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -444,20 +1280,14 @@ export default function LaunchpadStatusWidget({
               </div>
             </div>
           ) : variant === "full-row" ? (
-            <div className="min-h-0 flex-1">
-              <LaunchpadView
-                variant="widget"
-                typeFilter={launchpadTypeFilter}
-                widgetLayout="carousel"
-                widgetCarouselVariant="hero"
-                onPayDeposit={handlePayDeposit}
-              />
+            <div className="min-h-0 flex-1 px-4 pb-4">
+              <FullRowLaunchpadGrid onPayDeposit={handlePayDeposit} />
             </div>
           ) : (
             <div
               className={cn(
                 "min-h-0 flex-1 flex flex-col",
-                isMobile ? "px-4 pb-6" : "px-5 pb-5"
+                isMobile ? "px-4 pb-6" : "px-5 pb-5",
               )}
             >
               <div className="flex flex-col gap-3 h-full">
@@ -566,7 +1396,7 @@ export default function LaunchpadStatusWidget({
             <div
               className={cn(
                 "min-h-0 flex-1 flex flex-col",
-                isMobile ? "px-4 pb-6" : "px-5 pb-5"
+                isMobile ? "px-4 pb-6" : "px-5 pb-5",
               )}
             >
               <div className="flex flex-col gap-4 h-full">
@@ -647,7 +1477,7 @@ export default function LaunchpadStatusWidget({
           <div
             className={cn(
               "flex-1 flex flex-col gap-6",
-              variant === "full-row" ? "p-0" : "px-5 pb-5"
+              variant === "full-row" ? "p-0" : "px-5 pb-5",
             )}
           >
             {/* Big Countdown Hero */}

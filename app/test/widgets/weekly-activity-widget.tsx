@@ -124,11 +124,11 @@ const GRID_COLUMNS = 4;
 
 function WeeklyActivitySkeleton() {
   return (
-    <Card className="overflow-hidden h-full lg:max-h-[280px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
-      <CardHeader className="pb-0">
+    <Card className="overflow-hidden h-full lg:max-h-[280px] bg-card dark:bg-card border-border/20 pt-6 pb-0">
+      <CardHeader className="py-0 px-6">
         <CardTitle className="text-center">Weekly Streak</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col flex-1 min-h-0 p-4 py-0">
+      <CardContent className="flex flex-col flex-1 min-h-0 px-6 pb-6">
         <div className="flex flex-col flex-1 min-h-0 gap-4">
           <div className="flex flex-col items-center justify-center text-center select-none">
             <Skeleton className="h-12 w-20 rounded-xl" />
@@ -377,18 +377,18 @@ export default function WeeklyActivityWidget({
   return (
     <Card
       className={cn(
-        "overflow-hidden w-full",
+        "overflow-hidden w-full pt-6 pb-0",
         isMinimal
           ? "bg-transparent border-transparent h-full"
           : isFlow
-          ? "bg-card/30 border-foreground/5 min-h-[280px]"
-          : "h-full lg:max-h-[280px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+          ? "bg-card/30 border-border/20 min-h-[280px]"
+          : "h-full lg:max-h-[280px] bg-card dark:bg-card border-border/20"
       )}
     >
-      <CardHeader className="pb-0">
+      <CardHeader className="py-0 px-6">
         <CardTitle className="text-center">Weekly Streak</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col flex-1 min-h-0 p-4 py-0">
+      <CardContent className="flex flex-col flex-1 min-h-0 px-6 pb-6">
         <div className="flex flex-col flex-1 min-h-0">
           {!hasWallet ? (
             <>
@@ -508,13 +508,13 @@ export default function WeeklyActivityWidget({
           ) : (
             <>
               <div className="flex flex-col items-center justify-center text-center select-none">
-                <div className="font-mono text-5xl font-bold tracking-tight text-foreground leading-none">
+                <div className="font-mono text-6xl font-semibold tracking-tight text-foreground leading-none">
                   {streakWeeks}
-                  <span className="ml-2 text-sm font-mono font-semibold text-muted-foreground uppercase tracking-wider align-middle">
+                  <span className="ml-2 text-sm font-mono font-medium text-muted-foreground/50 uppercase tracking-widest align-middle">
                     Wks
                   </span>
                 </div>
-                <div className="mt-2 font-mono text-xs text-muted-foreground">
+                <div className="mt-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
                   Current Streak
                 </div>
               </div>

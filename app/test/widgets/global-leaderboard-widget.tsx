@@ -76,7 +76,7 @@ export default function GlobalLeaderboardWidget({
           "relative flex h-full flex-col overflow-hidden",
           isMinimal
             ? "bg-transparent border-transparent"
-            : "bg-card dark:bg-muted/20 border-foreground/10 dark:border-border",
+            : "bg-card dark:bg-card border-border/20",
           className
         )}
       >

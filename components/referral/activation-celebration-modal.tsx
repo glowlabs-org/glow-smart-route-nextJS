@@ -14,6 +14,7 @@ import { ActivationBonusIcon } from "@/components/impact-icons";
 import { hubPost } from "@/lib/api/hub-client";
 import { useReferral } from "@/hooks/use-referral";
 import { motion, useReducedMotion } from "framer-motion";
+import { useReferralLaunch } from "@/hooks/use-referral-launch";
 
 const SPARKLES = [
   { top: "18%", left: "16%", size: "6px", delay: 0 },
@@ -51,6 +52,11 @@ export function ActivationCelebrationModal({
   const address = mock?.walletAddress ?? connectedAddress;
   const status = mock?.status ?? referralStatus;
   const [isDismissed, setIsDismissed] = React.useState(false);
+  const { isLive: isReferralLive } = useReferralLaunch();
+
+  if (!isReferralLive) {
+    return null;
+  }
 
   const shouldShow =
     mock?.open ??

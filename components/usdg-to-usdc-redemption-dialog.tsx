@@ -151,64 +151,50 @@ export const UsdgToUsdcRedemptionDialog: FC<{
         onInteractOutside={(e) => {
           if (isPending) e.preventDefault();
         }}
-        className="bg-card/90 backdrop-blur-sm rounded-3xl p-0 md:max-w-sm w-full border-border shadow-2xl overflow-hidden"
+        className="bg-card rounded-[24px] p-0 md:max-w-sm w-full border border-border/40 overflow-hidden gap-0"
       >
         <DialogHeader className="sr-only">
           <DialogTitle>Redeem USDG</DialogTitle>
         </DialogHeader>
-        <div className="px-8 py-12 text-center">
+        <div className="px-6 py-8 text-center">
           {isTransactionSuccessful ? (
             <div className="space-y-6">
-              <div className="text-center space-y-4">
-                {/* Amount Display */}
-                <div className="mb-6">
-                  <div className="text-4xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-                    + {toFixedTruncate(Number(amountToRedeem), 2)} USDC
-                  </div>
-                  <div className="text-muted-foreground text-sm">
-                    Redeemed from USDG
-                  </div>
-                </div>
+              {/* Success Icon */}
+              <div className="w-16 h-16 bg-[#4ADE80]/10 rounded-full flex items-center justify-center mx-auto">
+                <Check className="w-8 h-8 text-[#4ADE80]" />
+              </div>
 
-                {/* Status Badge */}
-                <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full mb-8">
-                  <span className="text-zinc-900 dark:text-zinc-100 text-sm font-medium">
-                    Completed •{" "}
-                    {new Date().toLocaleDateString("en-US", {
-                      day: "numeric",
-                      month: "short",
-                    })}
-                    ,{" "}
-                    {new Date().toLocaleTimeString("en-US", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      hour12: false,
-                    })}
-                  </span>
+              {/* Amount Display */}
+              <div className="text-center">
+                <div className="text-3xl font-semibold text-foreground tracking-tight mb-1">
+                  +{toFixedTruncate(Number(amountToRedeem), 2)} USDC
+                </div>
+                <div className="text-xs font-mono text-muted-foreground/60 uppercase tracking-widest">
+                  Redeemed from USDG
                 </div>
               </div>
 
               {/* Transaction Details */}
-              <div className="space-y-4 text-left">
+              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 text-left space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">From</span>
-                  <span className="text-zinc-900 dark:text-zinc-100 text-sm font-medium">
+                  <span className="text-foreground text-sm font-mono">
                     USDG Balance
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground text-sm">To</span>
-                  <span className="text-zinc-900 dark:text-zinc-100 text-sm font-medium">
+                  <span className="text-foreground text-sm font-mono">
                     USDC Wallet
                   </span>
                 </div>
 
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center pt-3 border-t border-border/20 dark:border-border/40">
                   <span className="text-muted-foreground text-sm">
                     Amount Redeemed
                   </span>
-                  <span className="text-zinc-900 dark:text-zinc-100 text-sm font-medium">
+                  <span className="text-foreground text-sm font-mono">
                     {toFixedTruncate(Number(amountToRedeem), 2)} USDG
                   </span>
                 </div>
@@ -217,7 +203,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                   <span className="text-muted-foreground text-sm">
                     Amount Received
                   </span>
-                  <span className="text-zinc-900 dark:text-zinc-100 text-sm font-medium">
+                  <span className="text-[#4ADE80] text-sm font-mono font-medium">
                     {toFixedTruncate(Number(amountToRedeem), 2)} USDC
                   </span>
                 </div>
@@ -226,16 +212,16 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                   <span className="text-muted-foreground text-sm">
                     Exchange Rate
                   </span>
-                  <span className="text-zinc-900 dark:text-zinc-100 text-sm font-medium">
+                  <span className="text-foreground text-sm font-mono">
                     1:1
                   </span>
                 </div>
               </div>
 
               <Button
-                variant="default"
+                variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="w-full h-12 text-base font-medium rounded-xl"
+                className="w-full"
               >
                 Close
               </Button>
@@ -243,11 +229,11 @@ export const UsdgToUsdcRedemptionDialog: FC<{
           ) : (
             <>
               {/* Header */}
-              <div className="mb-8">
-                <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
+              <div className="mb-6">
+                <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-2">
                   Redeem USDG
                 </h2>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-sm text-muted-foreground">
                   Exchange your USDG for USDC at a 1:1 rate
                 </p>
               </div>
@@ -255,9 +241,9 @@ export const UsdgToUsdcRedemptionDialog: FC<{
               <div className="space-y-4 text-left">
                 {/* USDG TO REDEEM */}
                 <div className="space-y-2">
-                  <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium text-muted-foreground">
+                  <div className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
                         You redeem
                       </span>
                     </div>
@@ -265,12 +251,12 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                       <Input
                         type="number"
                         placeholder="0.00"
-                        className="text-2xl md:text-3xl font-bold bg-transparent dark:bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="text-2xl md:text-3xl font-semibold bg-transparent dark:bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         pattern="[0-9]*"
                         value={amountToRedeem}
                         readOnly
                       />
-                      <span className="text-2xl font-medium text-zinc-900 dark:text-zinc-100">
+                      <span className="text-xl font-medium text-foreground">
                         USDG
                       </span>
                     </div>
@@ -279,20 +265,20 @@ export const UsdgToUsdcRedemptionDialog: FC<{
 
                 {/* USDC TO RECEIVE */}
                 <div className="space-y-2">
-                  <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium text-muted-foreground">
+                  <div className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
                         You receive
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
                       <Input
                         placeholder="0.00"
-                        className="text-2xl md:text-3xl font-bold bg-transparent dark:bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="text-2xl md:text-3xl font-semibold bg-transparent dark:bg-transparent border-0 p-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         value={amountToRedeem}
                         readOnly
                       />
-                      <span className="text-2xl font-medium text-zinc-900 dark:text-zinc-100">
+                      <span className="text-xl font-medium text-foreground">
                         USDC
                       </span>
                     </div>
@@ -300,70 +286,71 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                 </div>
 
                 {/* Exchange Rate Info */}
-                <div className="bg-muted/50 rounded-xl p-4 flex items-center justify-between">
+                <div className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-4 flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
                     Exchange Rate
                   </span>
-                  <span className="text-sm font-medium">1 USDG = 1 USDC</span>
+                  <span className="text-sm font-mono text-foreground">1 USDG = 1 USDC</span>
                 </div>
               </div>
 
               {currentState !== "NONE" && currentState !== "ERROR" ? (
-                <div className="mt-8">
+                <div className="mt-6">
                   {/* Status Badge */}
-                  <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full mb-6">
-                    <span className="text-zinc-900 dark:text-zinc-100 text-sm font-medium">
+                  <div className="inline-flex items-center px-4 py-2 bg-muted/50 border border-border/40 rounded-full mb-4">
+                    <span className="text-foreground text-sm font-medium animate-pulse">
                       Processing redemption...
                     </span>
                   </div>
 
                   {/* Transaction Status */}
-                  <div className="bg-secondary/30 backdrop-blur-sm border border-border/50 rounded-2xl p-6 space-y-4 text-left">
-                    <div className="space-y-3">
-                      {pendingStates.map((state, index) => (
-                        <motion.div
-                          key={index}
-                          className="flex items-center gap-3"
-                          initial={{ opacity: 0.5 }}
-                          animate={
-                            state.validated || state.pending ? "show" : "hidden"
-                          }
-                          variants={waitingToSuccessVariants}
-                        >
-                          <div className="bg-background/50 rounded-xl p-2 flex items-center justify-center h-8 w-8 shrink-0">
-                            {state.validated ? (
-                              <Check className="w-4 h-4 text-green-600" />
-                            ) : state.pending ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                            ) : (
-                              <div className="w-2 h-2 bg-muted-foreground/30 rounded-full" />
+                  <div className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-4 space-y-3 text-left">
+                    {pendingStates.map((state, index) => (
+                      <motion.div
+                        key={index}
+                        className="flex items-center gap-3"
+                        initial={{ opacity: 0.5 }}
+                        animate={
+                          state.validated || state.pending ? "show" : "hidden"
+                        }
+                        variants={waitingToSuccessVariants}
+                      >
+                        <div className={clsx(
+                          "rounded-lg p-2 flex items-center justify-center h-8 w-8 shrink-0",
+                          state.validated ? "bg-[#4ADE80]/10" : "bg-muted/50"
+                        )}>
+                          {state.validated ? (
+                            <Check className="w-4 h-4 text-[#4ADE80]" />
+                          ) : state.pending ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-foreground" />
+                          ) : (
+                            <div className="w-2 h-2 bg-muted-foreground/30 rounded-full" />
+                          )}
+                        </div>
+                        <div>
+                          <h3
+                            className={clsx(
+                              "text-sm",
+                              state.validated && !state.pending
+                                ? "text-foreground font-medium"
+                                : state.pending
+                                ? "text-foreground"
+                                : "text-muted-foreground"
                             )}
-                          </div>
-                          <div>
-                            <h3
-                              className={clsx(
-                                "text-sm",
-                                state.validated && !state.pending
-                                  ? "text-zinc-900 dark:text-zinc-100"
-                                  : state.pending
-                                  ? "text-zinc-900 dark:text-zinc-100"
-                                  : "text-muted-foreground"
-                              )}
-                            >
-                              {state.message}
-                            </h3>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
+                          >
+                            {state.message}
+                          </h3>
+                        </div>
+                      </motion.div>
+                    ))}
                   </div>
                 </div>
               ) : currentState === "NONE" ? (
-                <div className="mt-8">
+                <div className="mt-6">
                   <Button
                     variant="default"
                     onClick={handleRedeemUSDG}
-                    className="w-full h-12 text-base font-medium rounded-xl"
+                    className="w-full"
                   >
                     {isPending && (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -374,7 +361,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
               ) : null}
 
               {currentState === "ERROR" ? (
-                <div className="mt-8">
+                <div className="mt-6">
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -389,7 +376,7 @@ export const UsdgToUsdcRedemptionDialog: FC<{
                       setIsTransactionSuccessful(false);
                       handleRedeemUSDG();
                     }}
-                    className="w-full h-12 text-base font-medium rounded-xl"
+                    className="w-full"
                   >
                     Try Again
                   </Button>

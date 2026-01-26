@@ -55,6 +55,7 @@ import SolarCollectorWidget from "./widgets/solar-collector";
 import { WidgetErrorBoundary } from "@/components/widget-error-boundary";
 import { FeatureLaunchModal } from "@/components/referral/feature-launch-modal";
 import { ActivationCelebrationModal } from "@/components/referral/activation-celebration-modal";
+import { useReferralLaunch } from "@/hooks/use-referral-launch";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
@@ -76,13 +77,13 @@ function useIsClient() {
   return React.useSyncExternalStore(
     subscribeToNothing,
     getClientSnapshot,
-    getServerSnapshot
+    getServerSnapshot,
   );
 }
 
 function SectionHeader({ title }: { title: string }) {
   return (
-    <h2 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-4">
+    <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
       {title}
     </h2>
   );
@@ -119,7 +120,7 @@ function formatGctl(amount: string): string {
 function countAvailableApplications(
   applications: Array<{
     activeFraction: { isFilled: boolean; remainingSteps: number | null } | null;
-  }>
+  }>,
 ) {
   return applications.reduce((count, app) => {
     const fraction = app.activeFraction;
@@ -196,6 +197,7 @@ export default function GlowSoftDashboard({
   const prevHasRefundsRef = React.useRef<boolean | null>(null);
   const queryClient = useQueryClient();
   const { spotPriceUsd: glwSpotPrice } = useGlowSpotPriceSummary();
+  const { isLive: isReferralLive } = useReferralLaunch();
 
   const hasAnyDialogOpen =
     isRefundDialogOpen ||
@@ -373,7 +375,7 @@ export default function GlowSoftDashboard({
   const handlePayDeposit = React.useCallback(
     (
       application: TaggedAuctionApplication,
-      scoreData?: LaunchpadRewardScore | MiningCenterScore | null
+      scoreData?: LaunchpadRewardScore | MiningCenterScore | null,
     ) => {
       trackEvent("dashboard_launchpad_deposit_open_click", {
         source: "bento",
@@ -387,7 +389,7 @@ export default function GlowSoftDashboard({
       setSelectedRewardScore(scoreData ?? null);
       setIsDepositDialogOpen(true);
     },
-    [isConnected, normalizedWalletAddress]
+    [isConnected, normalizedWalletAddress],
   );
 
   const handleDepositOpenChange = React.useCallback((nextOpen: boolean) => {
@@ -407,10 +409,14 @@ export default function GlowSoftDashboard({
   }, [isConnected, normalizedWalletAddress]);
 
   return (
-    <div className="min-h-screen bg-muted dark:bg-background text-foreground selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
-      <ActivationCelebrationModal />
-      <FeatureLaunchModal />
-      <div className="max-w-screen-2xl mx-auto p-6">
+    <div className="min-h-screen bg-background text-foreground selection:bg-[color:var(--color-glow-yellow)] selection:text-foreground">
+      {isReferralLive ? (
+        <>
+          <ActivationCelebrationModal />
+          <FeatureLaunchModal />
+        </>
+      ) : null}
+      <div className="max-w-screen-2xl mx-auto px-8 py-10 lg:px-12">
         <AnimatePresence mode="wait" initial={false}>
           {hasWallet ? (
             <motion.div
@@ -419,11 +425,11 @@ export default function GlowSoftDashboard({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="flex flex-col gap-6"
+              className="flex flex-col gap-8"
             >
               {/* Launchpad Live/Approaching Section - First Row */}
               {shouldShowLaunchpadHeroRow && (
-                <section className="flex flex-col gap-4">
+                <section className="flex flex-col gap-8">
                   <SectionHeader
                     title={
                       isApproachingLaunchpad
@@ -439,51 +445,54 @@ export default function GlowSoftDashboard({
                 </section>
               )}
 
-              {/* Dashboard Header Band */}
-              <section className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-4 lg:p-8">
-                <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
-                  <div className="lg:col-span-3 flex">
-                    <WidgetErrorBoundary>
-                      <RankWidget
-                        walletAddress={walletAddress}
-                        variant="hero"
-                        onMintAndStakeClick={(forceStep1) => {
-                          setMintAndStakeForceStep1(Boolean(forceStep1));
-                          setIsMintAndStakeOpen(true);
-                        }}
-                      />
-                    </WidgetErrorBoundary>
-                  </div>
+              {/* Dashboard Overview */}
+              <section className="flex flex-col gap-8">
+                <SectionHeader title="Overview" />
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                  <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
+                    <div className="lg:col-span-3 flex">
+                      <WidgetErrorBoundary>
+                        <RankWidget
+                          walletAddress={walletAddress}
+                          variant="hero"
+                          onMintAndStakeClick={(forceStep1) => {
+                            setMintAndStakeForceStep1(Boolean(forceStep1));
+                            setIsMintAndStakeOpen(true);
+                          }}
+                        />
+                      </WidgetErrorBoundary>
+                    </div>
 
-                  <div className="lg:col-span-5 flex">
-                    <WidgetErrorBoundary>
-                      <NetWorthWidget
-                        walletAddress={walletAddress}
-                        variant="minimal"
-                        onBuyGlowClick={handleBuyGlowClick}
-                      />
-                    </WidgetErrorBoundary>
-                  </div>
+                    <div className="lg:col-span-5 flex">
+                      <WidgetErrorBoundary>
+                        <NetWorthWidget
+                          walletAddress={walletAddress}
+                          variant="minimal"
+                          onBuyGlowClick={handleBuyGlowClick}
+                        />
+                      </WidgetErrorBoundary>
+                    </div>
 
-                  <div className="lg:col-span-2 flex">
-                    <WidgetErrorBoundary>
-                      <WalletWidget
-                        walletAddress={walletAddress}
-                        variant="minimal"
-                      />
-                    </WidgetErrorBoundary>
+                    <div className="lg:col-span-2 flex">
+                      <WidgetErrorBoundary>
+                        <WalletWidget
+                          walletAddress={walletAddress}
+                          variant="minimal"
+                        />
+                      </WidgetErrorBoundary>
+                    </div>
                   </div>
                 </div>
               </section>
 
               {/* Mining & Rewards Section */}
-              <section className="flex flex-col gap-4">
+              <section className="flex flex-col gap-8 pt-20">
                 <SectionHeader title="Mining & Rewards" />
-                <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
                     <div
                       id="bento-solar-farm"
-                      className="pb-6 lg:pb-0 lg:pr-8 lg:col-span-2 flex min-h-[320px]"
+                      className="pb-8 lg:pb-0 lg:pr-10 lg:col-span-2 flex min-h-[320px]"
                     >
                       <WidgetErrorBoundary>
                         <SolarFarmWidget
@@ -492,7 +501,7 @@ export default function GlowSoftDashboard({
                         />
                       </WidgetErrorBoundary>
                     </div>
-                    <div className="pt-6 lg:pt-0 lg:pl-8 flex">
+                    <div className="pt-8 lg:pt-0 lg:pl-10 flex">
                       <WidgetErrorBoundary>
                         <RewardsWidget
                           walletAddress={walletAddress}
@@ -506,13 +515,13 @@ export default function GlowSoftDashboard({
               </section>
 
               {/* Action Section: Grow Your Impact */}
-              <section className="flex flex-col gap-4 pt-12">
+              <section className="flex flex-col gap-8 pt-20">
                 <SectionHeader title="Grow Your Impact" />
-                <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
                     <div
                       id="bento-launchpad-status"
-                      className="pb-6 lg:pb-0 lg:pr-8 flex"
+                      className="pb-8 lg:pb-0 lg:pr-10 flex"
                     >
                       <WidgetErrorBoundary>
                         <LaunchpadStatusWidget
@@ -521,7 +530,7 @@ export default function GlowSoftDashboard({
                         />
                       </WidgetErrorBoundary>
                     </div>
-                    <div className="pt-6 lg:pt-0 lg:pl-8 flex">
+                    <div className="pt-8 lg:pt-0 lg:pl-10 flex">
                       <WidgetErrorBoundary>
                         <GctlHeatmapWidget
                           walletAddress={walletAddress}
@@ -536,12 +545,41 @@ export default function GlowSoftDashboard({
                 </div>
               </section>
 
+              {/* My Impact Section */}
+              <section className="flex flex-col gap-8 pt-20">
+                <SectionHeader title="My Impact" />
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                  <WidgetErrorBoundary>
+                    <SolarCollectorWidget
+                      walletAddress={walletAddress}
+                      onFarmClick={(farmId) => {
+                        // Scroll to the farm card in the grid below
+                        const el = document.querySelector(
+                          `[data-farm-id="${farmId}"]`,
+                        );
+                        if (el) {
+                          el.scrollIntoView({
+                            behavior: "smooth",
+                            block: "center",
+                          });
+                          el.classList.add("ring-2", "ring-primary");
+                          setTimeout(
+                            () => el.classList.remove("ring-2", "ring-primary"),
+                            2000,
+                          );
+                        }
+                      }}
+                    />
+                  </WidgetErrorBoundary>
+                </div>
+              </section>
+
               {/* Journey Section */}
-              <section className="flex flex-col gap-4 pt-12 pb-12">
+              <section className="flex flex-col gap-8 pt-20">
                 <SectionHeader title="Your Journey" />
-                <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch pb-8 mb-8 border-b border-border/50">
-                    <div className="pb-6 lg:pb-0 lg:pr-8 flex lg:col-span-4">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
+                    <div className="pb-8 lg:pb-0 lg:pr-10 flex lg:col-span-4">
                       <WidgetErrorBoundary>
                         <WeeklyActivityWidget
                           walletAddress={walletAddress}
@@ -551,7 +589,7 @@ export default function GlowSoftDashboard({
                       </WidgetErrorBoundary>
                     </div>
 
-                    <div className="pt-6 lg:pt-0 lg:pl-8 flex lg:col-span-5">
+                    <div className="pt-8 lg:pt-0 lg:pl-10 flex lg:col-span-5">
                       <WidgetErrorBoundary>
                         <RecentActivityWidget
                           walletAddress={walletAddress}
@@ -560,7 +598,7 @@ export default function GlowSoftDashboard({
                         />
                       </WidgetErrorBoundary>
                     </div>
-                    <div className="py-6 lg:py-0 lg:px-8 flex lg:col-span-3">
+                    <div className="py-8 lg:py-0 lg:px-10 flex lg:col-span-3">
                       <WidgetErrorBoundary>
                         <PortfolioSummaryWidget
                           walletAddress={walletAddress}
@@ -569,37 +607,16 @@ export default function GlowSoftDashboard({
                       </WidgetErrorBoundary>
                     </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-6">
-                      My Impact
-                    </h3>
-                    <WidgetErrorBoundary>
-                      <SolarCollectorWidget
-                        walletAddress={walletAddress}
-                        onFarmClick={(farmId) => {
-                          // Scroll to the farm card in the grid below
-                          const el = document.querySelector(
-                            `[data-farm-id="${farmId}"]`
-                          );
-                          if (el) {
-                            el.scrollIntoView({
-                              behavior: "smooth",
-                              block: "center",
-                            });
-                            el.classList.add("ring-2", "ring-primary");
-                            setTimeout(
-                              () =>
-                                el.classList.remove("ring-2", "ring-primary"),
-                              2000
-                            );
-                          }
-                        }}
-                      />
-                    </WidgetErrorBoundary>
-                    <WidgetErrorBoundary>
-                      <MyFarmsGridSection walletAddress={walletAddress} />
-                    </WidgetErrorBoundary>
-                  </div>
+                </div>
+              </section>
+
+              {/* My Farms Section */}
+              <section className="flex flex-col gap-8 pt-20 pb-20">
+                <SectionHeader title="My Farms" />
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                  <WidgetErrorBoundary>
+                    <MyFarmsGridSection walletAddress={walletAddress} />
+                  </WidgetErrorBoundary>
                 </div>
               </section>
             </motion.div>
@@ -620,11 +637,11 @@ export default function GlowSoftDashboard({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="flex flex-col gap-12"
+              className="flex flex-col gap-16"
             >
               {/* Launchpad Live/Approaching Section - First Row */}
               {shouldShowLaunchpadHeroRow && (
-                <section className="flex flex-col gap-4">
+                <section className="flex flex-col gap-8">
                   <SectionHeader
                     title={
                       isApproachingLaunchpad
@@ -641,35 +658,38 @@ export default function GlowSoftDashboard({
               )}
 
               {/* Hero Section */}
-              <section className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-0  items-stretch">
-                  <div className="pb-6 lg:pb-0 lg:pr-8 flex min-h-[340px]">
-                    <WidgetErrorBoundary>
-                      <OnboardingHeroWidget
-                        className="w-full h-full"
-                        variant="minimal"
-                        onBuyGlowClick={handleBuyGlowClick}
-                      />
-                    </WidgetErrorBoundary>
-                  </div>
-                  <div className="pt-6 lg:pt-0 lg:pl-8 flex min-h-[340px]">
-                    <WidgetErrorBoundary>
-                      <LaunchpadStatusWidget
-                        className="w-full h-full"
-                        variant="minimal"
-                        onPayDeposit={handlePayDeposit}
-                      />
-                    </WidgetErrorBoundary>
+              <section className="flex flex-col gap-8">
+                <SectionHeader title="Get Started" />
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-0 items-stretch">
+                    <div className="pb-8 lg:pb-0 lg:pr-10 flex min-h-[340px]">
+                      <WidgetErrorBoundary>
+                        <OnboardingHeroWidget
+                          className="w-full h-full"
+                          variant="minimal"
+                          onBuyGlowClick={handleBuyGlowClick}
+                        />
+                      </WidgetErrorBoundary>
+                    </div>
+                    <div className="pt-8 lg:pt-0 lg:pl-10 flex min-h-[340px]">
+                      <WidgetErrorBoundary>
+                        <LaunchpadStatusWidget
+                          className="w-full h-full"
+                          variant="minimal"
+                          onPayDeposit={handlePayDeposit}
+                        />
+                      </WidgetErrorBoundary>
+                    </div>
                   </div>
                 </div>
               </section>
 
               {/* Community & Leaderboard Section */}
-              <section className="flex flex-col gap-4">
+              <section className="flex flex-col gap-8">
                 <SectionHeader title="Community & Leaderboard" />
-                <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch">
-                    <div className="pb-6 lg:pb-0 lg:pr-8 lg:col-span-8 flex min-h-[400px]">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
+                    <div className="pb-8 lg:pb-0 lg:pr-10 lg:col-span-8 flex min-h-[400px]">
                       <WidgetErrorBoundary>
                         <CommunityActivityWidget
                           className="w-full h-full"
@@ -677,7 +697,7 @@ export default function GlowSoftDashboard({
                         />
                       </WidgetErrorBoundary>
                     </div>
-                    <div className="pt-6 lg:pt-0 lg:pl-8 lg:col-span-4 flex min-h-[400px]">
+                    <div className="pt-8 lg:pt-0 lg:pl-10 lg:col-span-4 flex min-h-[400px]">
                       <WidgetErrorBoundary>
                         <GlobalLeaderboardWidget
                           className="h-full w-full"
@@ -690,9 +710,9 @@ export default function GlowSoftDashboard({
               </section>
 
               {/* Protocol Metrics Section */}
-              <section className="flex flex-col gap-4">
+              <section className="flex flex-col gap-8">
                 <SectionHeader title="Protocol Metrics" />
-                <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
                   <WidgetErrorBoundary>
                     <ProtocolMetricsWidget />
                   </WidgetErrorBoundary>
@@ -700,11 +720,11 @@ export default function GlowSoftDashboard({
               </section>
 
               {/* Education Section */}
-              <section className="flex flex-col gap-4">
+              <section className="flex flex-col gap-8">
                 <SectionHeader title="Education" />
-                <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch">
-                    <div className="pb-6 lg:pb-0 lg:pr-8 lg:col-span-7 flex min-h-[400px]">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
+                    <div className="pb-8 lg:pb-0 lg:pr-10 lg:col-span-7 flex min-h-[400px]">
                       <WidgetErrorBoundary>
                         <GlowFaqWidget
                           className="w-full h-full"
@@ -712,7 +732,7 @@ export default function GlowSoftDashboard({
                         />
                       </WidgetErrorBoundary>
                     </div>
-                    <div className="pt-6 lg:pt-0 lg:pl-8 lg:col-span-5 flex min-h-[400px]">
+                    <div className="pt-8 lg:pt-0 lg:pl-10 lg:col-span-5 flex min-h-[400px]">
                       <WidgetErrorBoundary>
                         <BlogFeaturedWidget className="w-full h-full" />
                       </WidgetErrorBoundary>
@@ -722,11 +742,11 @@ export default function GlowSoftDashboard({
               </section>
 
               {/* Stay Connected Section */}
-              <section className="flex flex-col gap-4">
+              <section className="flex flex-col gap-8">
                 <SectionHeader title="Stay Connected" />
-                <div className="rounded-2xl bg-card dark:bg-muted/20 border border-border/50 p-6 lg:p-8">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/50 items-stretch">
-                    <div className="pb-6 lg:pb-0 lg:pr-8 lg:col-span-5 flex min-h-[340px]">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
+                    <div className="pb-8 lg:pb-0 lg:pr-10 lg:col-span-5 flex min-h-[340px]">
                       <WidgetErrorBoundary>
                         <NewsletterWidget
                           className="w-full h-full"
@@ -734,7 +754,7 @@ export default function GlowSoftDashboard({
                         />
                       </WidgetErrorBoundary>
                     </div>
-                    <div className="pt-6 lg:pt-0 lg:pl-8 lg:col-span-7 flex min-h-[340px]">
+                    <div className="pt-8 lg:pt-0 lg:pl-10 lg:col-span-7 flex min-h-[340px]">
                       <WidgetErrorBoundary>
                         <DiscordWidget
                           className="w-full h-full"

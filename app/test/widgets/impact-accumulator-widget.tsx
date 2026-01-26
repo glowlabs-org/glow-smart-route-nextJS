@@ -118,10 +118,10 @@ export default function ImpactAccumulatorWidget({
   return (
     <Card
       className={cn(
-        "overflow-hidden flex flex-col gap-2 pt-0 w-full py-0",
+        "overflow-hidden flex flex-col gap-3 pt-0 w-full py-0",
         isMinimal
           ? "bg-transparent border-transparent h-full"
-          : "h-full min-h-[300px] lg:min-h-0 bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+          : "h-full min-h-[300px] lg:min-h-0 bg-card dark:bg-card border-border/20"
       )}
     >
       <CardHeader className="py-0 px-4 pt-4">

@@ -388,7 +388,7 @@ export const GlowToUsdcDialog: FC<{
     {
       label: "Received",
       value: (
-        <span className="text-green-600 font-mono">
+        <span className="text-[#4ADE80] font-mono font-medium">
           {formatPrice(estimatedOutputAmount, 6)}
         </span>
       ),
@@ -398,14 +398,14 @@ export const GlowToUsdcDialog: FC<{
 
   // Custom review content with pending states
   const reviewContent = (
-    <div className="space-y-6 mb-8">
+    <div className="space-y-6 mb-6">
       {/* Token swap visualization */}
       <div className="relative space-y-4">
-        <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-4">
+        <div className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-4">
           <div className="flex items-center justify-between text-left">
             <div>
-              <div className="text-xs text-muted-foreground mb-1">You pay</div>
-              <div className="text-2xl font-bold">
+              <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-1">You pay</div>
+              <div className="text-2xl font-semibold">
                 {Number(amountToSell).toLocaleString("en-US", {
                   maximumFractionDigits: 6,
                 })}{" "}
@@ -419,18 +419,18 @@ export const GlowToUsdcDialog: FC<{
 
         {/* Absolutely positioned arrow */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-          <div className="bg-background rounded-full p-2 border border-border shadow-sm">
-            <ArrowDown className="size-6 text-muted-foreground" />
+          <div className="bg-card rounded-full p-2 border border-border/40">
+            <ArrowDown className="size-5 text-muted-foreground" />
           </div>
         </div>
 
-        <div className="text-left bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-4">
+        <div className="text-left bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs text-muted-foreground mb-1">
+              <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest mb-1">
                 You receive
               </div>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-semibold">
                 {Number(estimatedOutputAmount)
                   ? formatPrice(estimatedOutputAmount, 6)
                   : "0.00"}{" "}
@@ -445,9 +445,9 @@ export const GlowToUsdcDialog: FC<{
 
       {/* Pending states display */}
       {(uniswapPurchaseState !== "NONE" || currentState !== "NONE") && (
-        <div className="bg-secondary/30 backdrop-blur-sm border border-border rounded-xl p-4 space-y-3">
+        <div className="bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-xl p-4 space-y-3">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            <span className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
               Transaction Progress
             </span>
           </div>
@@ -460,11 +460,14 @@ export const GlowToUsdcDialog: FC<{
                 animate={state.validated || state.pending ? "show" : "hidden"}
                 variants={waitingToSuccessVariants}
               >
-                <div className="bg-background/80 backdrop-blur-sm rounded-lg p-2 flex items-center justify-center h-8 w-8 shrink-0 border border-border/50">
+                <div className={clsx(
+                  "rounded-lg p-2 flex items-center justify-center h-8 w-8 shrink-0",
+                  state.validated && !state.pending ? "bg-[#4ADE80]/10" : "bg-muted/50"
+                )}>
                   {state.validated && !state.pending ? (
-                    <Check className="w-4 h-4 text-green-600" />
+                    <Check className="w-4 h-4 text-[#4ADE80]" />
                   ) : state.pending ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    <Loader2 className="w-4 h-4 animate-spin text-foreground" />
                   ) : (
                     <ArrowLeftRight className="w-4 h-4 text-muted-foreground" />
                   )}
@@ -474,9 +477,9 @@ export const GlowToUsdcDialog: FC<{
                     className={clsx(
                       "text-sm",
                       state.validated && !state.pending
-                        ? "text-zinc-900 dark:text-zinc-100 font-medium"
+                        ? "text-foreground font-medium"
                         : state.pending
-                        ? "text-zinc-900 dark:text-zinc-100"
+                        ? "text-foreground"
                         : "text-muted-foreground"
                     )}
                   >

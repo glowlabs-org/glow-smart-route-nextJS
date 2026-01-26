@@ -96,11 +96,11 @@ export default function PortfolioSummaryWidget({
 
   if (!hasWallet && isWalletConnecting) {
     return (
-      <Card className="h-full bg-card dark:bg-muted/30 border-foreground/10 dark:border-border">
-        <CardHeader className="pb-0">
+      <Card className="h-full bg-card dark:bg-card border-border/30 dark:border-border/40 pt-6 pb-0">
+        <CardHeader className="py-0 px-6">
           <CardTitle className="text-center">Mining Summary</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4 p-6">
+        <CardContent className="flex flex-col gap-4 px-6 pb-6">
           <Skeleton className="h-16 w-full rounded-xl" />
           <Skeleton className="h-16 w-full rounded-xl" />
           <Skeleton className="h-16 w-full rounded-xl" />
@@ -112,20 +112,20 @@ export default function PortfolioSummaryWidget({
   return (
     <Card
       className={cn(
-        "overflow-hidden w-full flex flex-col",
+        "overflow-hidden w-full flex flex-col pt-6 pb-0",
         isMinimal
           ? "bg-transparent border-transparent h-full"
-          : "h-full bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+          : "h-full bg-card dark:bg-card border-border/30 dark:border-border/40"
       )}
     >
-      <CardHeader className="pb-0">
+      <CardHeader className="py-0 px-6">
         <CardTitle className="text-center">Mining Summary</CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col justify-center p-4 gap-3">
+      <CardContent className="flex-1 flex flex-col justify-evenly px-6 pb-6 gap-3">
         {/* Row 1: Actively Delegated */}
         <div
           className={cn(
-            "flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50 transition-colors",
+            "flex items-center justify-between p-4 rounded-xl bg-muted/40 dark:bg-muted/50 border border-border/30 dark:border-border/40 transition-colors",
             isDelegatedClickable
               ? "hover:bg-muted/60 cursor-pointer active:scale-[0.98]"
               : "opacity-50"
@@ -170,7 +170,7 @@ export default function PortfolioSummaryWidget({
         {/* Row 2: Active Miners */}
         <div
           className={cn(
-            "flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50 transition-colors",
+            "flex items-center justify-between p-4 rounded-xl bg-muted/40 dark:bg-muted/50 border border-border/30 dark:border-border/40 transition-colors",
             isMinersClickable
               ? "hover:bg-muted/60 cursor-pointer active:scale-[0.98]"
               : "opacity-50"
@@ -195,7 +195,7 @@ export default function PortfolioSummaryWidget({
         {/* Row 3: Active Delegations */}
         <div
           className={cn(
-            "flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50 transition-colors",
+            "flex items-center justify-between p-4 rounded-xl bg-muted/40 dark:bg-muted/50 border border-border/30 dark:border-border/40 transition-colors",
             isDelegationsClickable
               ? "hover:bg-muted/60 cursor-pointer active:scale-[0.98]"
               : "opacity-50"

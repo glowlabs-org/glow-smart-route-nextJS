@@ -1,18 +1,7 @@
 "use client";
 import React from "react";
-import {
-  Clock,
-  TrendingUp,
-  Activity,
-  Building,
-  Coins,
-  Zap,
-  DollarSign,
-  Sun,
-  Receipt,
-} from "lucide-react";
+import { Zap, DollarSign, Sparkles, Activity } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 import { MarketTickers } from "./market-tickers";
 import {
@@ -35,19 +26,25 @@ import { StakedEventsTab } from "@/components/buy-gctl/staked-events-tab";
 import { useGctlApi, useRegions, useFractionsSummary } from "@/hooks";
 import { parseFractionsSummary } from "@/lib/fractions";
 
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+      {title}
+    </h2>
+  );
+}
+
 export default function StatsView() {
-  const [activeTab, setActiveTab] = React.useState("t0");
-  const [lastUpdated, setLastUpdated] = React.useState(new Date());
-  const [isRefreshing, setIsRefreshing] = React.useState(false);
-  const [shouldLoadRest, setShouldLoadRest] = React.useState(false);
   const [isDelegationDialogOpen, setIsDelegationDialogOpen] =
     React.useState(false);
   const [isMinerDialogOpen, setIsMinerDialogOpen] = React.useState(false);
+  const [isMintedDialogOpen, setIsMintedDialogOpen] = React.useState(false);
+  const [isStakedDialogOpen, setIsStakedDialogOpen] = React.useState(false);
   const [delegationEvents, setDelegationEvents] = React.useState<
     ProtocolEventRowProps[]
   >([]);
   const [minerEvents, setMinerEvents] = React.useState<ProtocolEventRowProps[]>(
-    []
+    [],
   );
   const [mintedEvents, setMintedEvents] = React.useState<any[]>([]);
   const [stakedEvents, setStakedEvents] = React.useState<any[]>([]);
@@ -59,74 +56,12 @@ export default function StatsView() {
     summary,
     isLoading: summaryLoading,
     isFetching: summaryFetching,
-  } = useFractionsSummary({ enabled: shouldLoadRest });
+  } = useFractionsSummary({ enabled: true });
 
   const { totalDelegatedGlw } = React.useMemo(
     () => parseFractionsSummary(summary),
-    [summary]
+    [summary],
   );
-
-  const sectionRefs = React.useMemo(
-    () => ({
-      t0: React.createRef<HTMLDivElement>(),
-      t1: React.createRef<HTMLDivElement>(),
-      t2: React.createRef<HTMLDivElement>(),
-      t3: React.createRef<HTMLDivElement>(),
-      t4: React.createRef<HTMLDivElement>(),
-    }),
-    []
-  );
-
-  // Only T0 (tickers) loads at first; once the user scrolls or navigates to another tab, load the rest
-
-  const handleRefresh = React.useCallback(() => {
-    setIsRefreshing(true);
-    setTimeout(() => {
-      setLastUpdated(new Date());
-      setIsRefreshing(false);
-    }, 1000);
-  }, []);
-
-  React.useEffect(() => {
-    const interval = setInterval(handleRefresh, 30_000);
-    return () => clearInterval(interval);
-  }, [handleRefresh]);
-
-  React.useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) return;
-          const id = entry.target.id as keyof typeof sectionRefs;
-          setActiveTab(id);
-          // If any non-T0 section becomes visible, consider that a user scroll and load the rest
-          if (id !== "t0") setShouldLoadRest(true);
-        });
-      },
-      {
-        // Trigger earlier to ensure data starts loading as the section nears the viewport
-        threshold: 0.1,
-        rootMargin: "0px 0px -25% 0px",
-      }
-    );
-
-    Object.values(sectionRefs).forEach((ref) => {
-      if (ref.current) observer.observe(ref.current);
-    });
-
-    return () => observer.disconnect();
-  }, [sectionRefs]);
-
-  // First scroll loads the rest
-  React.useEffect(() => {
-    if (shouldLoadRest) return;
-    const onScroll = () => {
-      setShouldLoadRest(true);
-      window.removeEventListener("scroll", onScroll);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [shouldLoadRest]);
 
   const loadEvents = React.useCallback(async () => {
     setEventsLoading(true);
@@ -150,154 +85,176 @@ export default function StatsView() {
   }, [fetchMintedEvents, fetchStakedEvents]);
 
   React.useEffect(() => {
-    if (shouldLoadRest) {
-      loadEvents();
-    }
-  }, [shouldLoadRest, loadEvents]);
-
-  const scrollToSection = (id: string) => {
-    if (id !== "t0" && !shouldLoadRest) setShouldLoadRest(true);
-    setActiveTab(id);
-    const ref = sectionRefs[id as keyof typeof sectionRefs];
-    if (ref.current) {
-      ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
+    loadEvents();
+  }, [loadEvents]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="relative overflow-hidden min-h-screen pt-20">
-        <div className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 relative z-10 min-h-screen">
-          <div className="py-8 border-b border-border/50">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-              <div>
-                <h1 className="text-4xl font-bold mb-2">Protocol Overview</h1>
-                <p className="text-muted-foreground">
-                  Real-time insights into Glow token markets, protocol activity,
-                  regional staking, and economic health
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 flex-wrap">
-                <button
-                  onClick={handleRefresh}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Clock
-                    className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
-                  />
-                  <span>Last updated {lastUpdated.toLocaleTimeString()}</span>
-                </button>
-              </div>
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="max-w-screen-2xl mx-auto px-8 py-10 lg:px-12">
+        <div className="flex flex-col gap-8">
+          <section className="flex flex-col gap-8">
+            <SectionHeader title="Market Tickers" />
+            <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+              <MarketTickers shouldLoad={true} />
             </div>
-          </div>
+          </section>
 
-          <div
-            className="sticky top-20 z-40 bg-background border-b border-border/50 -mx-4 md:-mx-6 lg:-mx-12 px-4 md:px-6 lg:px-12"
-            role="navigation"
-            aria-label="Page sections"
-          >
-            <div className="flex items-center gap-2 overflow-x-auto py-3">
-              {[
-                { id: "t0", label: "Tickers", icon: TrendingUp },
-                { id: "t1", label: "Economy", icon: Coins },
-                { id: "t2", label: "Activity", icon: Activity },
-                { id: "t3", label: "Regions", icon: Sun },
-                { id: "t4", label: "Events", icon: Receipt },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => scrollToSection(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-all focus:outline-none focus:ring-2 focus:ring-primary ${
-                    activeTab === tab.id
-                      ? "bg-primary text-primary-foreground font-semibold"
-                      : "hover:bg-muted text-muted-foreground"
-                  }`}
-                  aria-current={activeTab === tab.id ? "true" : undefined}
-                  aria-label={`Navigate to ${tab.label}`}
-                >
-                  <tab.icon className="w-4 h-4" aria-hidden="true" />
-                  <span className="text-sm">{tab.label}</span>
-                </button>
-              ))}
+          <section className="flex flex-col gap-8 pt-20">
+            <SectionHeader title="Economy Overview" />
+            <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+              <EconomyOverview shouldLoad={true} />
             </div>
-          </div>
-
-          <section id="t0" ref={sectionRefs.t0} className="scroll-mt-36">
-            <MarketTickers shouldLoad={true} />
           </section>
 
-          <section id="t1" ref={sectionRefs.t1} className="py-12 scroll-mt-36">
-            <EconomyOverview shouldLoad={true} />
-          </section>
-
-          <section id="t2" ref={sectionRefs.t2} className="py-12 scroll-mt-36">
-            <ProtocolActivity
-              shouldLoad={true}
-              onSeeAllDelegation={(events) => {
-                setDelegationEvents(events);
-                setIsDelegationDialogOpen(true);
-              }}
-              onSeeAllMiners={(events) => {
-                setMinerEvents(events);
-                setIsMinerDialogOpen(true);
-              }}
-            />
-            <LifetimeFarms
-              shouldLoad={shouldLoadRest}
-              totalGlwDelegated={totalDelegatedGlw}
-              isGlwDataLoading={summaryLoading || summaryFetching}
-              withChart
-            />
-          </section>
-
-          <section id="t3" ref={sectionRefs.t3} className="py-12 scroll-mt-36">
-            <RegionsStaking shouldLoad={shouldLoadRest} />
-          </section>
-
-          <section
-            id="t4"
-            ref={sectionRefs.t4}
-            className="py-12 pb-24 scroll-mt-36"
-          >
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold">Protocol Events</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                All minting and staking transactions across the network
-              </p>
+          <section className="flex flex-col gap-8 pt-20">
+            <SectionHeader title="Protocol Activity" />
+            <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+              <ProtocolActivity
+                shouldLoad={true}
+                onSeeAllDelegation={(events) => {
+                  setDelegationEvents(events);
+                  setIsDelegationDialogOpen(true);
+                }}
+                onSeeAllMiners={(events) => {
+                  setMinerEvents(events);
+                  setIsMinerDialogOpen(true);
+                }}
+              />
             </div>
-            <Tabs defaultValue="minted" className="w-full">
-              <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
-                <TabsTrigger value="minted" className="flex items-center gap-2">
-                  <Receipt className="w-4 h-4" />
-                  Minted Events
-                  <Badge variant="secondary" className="ml-1 h-5 px-2 text-xs">
-                    {mintedEvents.length}
-                  </Badge>
-                </TabsTrigger>
-                <TabsTrigger value="staked" className="flex items-center gap-2">
-                  <Zap className="w-4 h-4" />
-                  Staking Events
-                  <Badge variant="secondary" className="ml-1 h-5 px-2 text-xs">
-                    {stakedEvents.length}
-                  </Badge>
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="minted" className="mt-0">
-                <MintedEventsTab
-                  mintedEvents={mintedEvents}
-                  dataLoading={eventsLoading}
-                />
-              </TabsContent>
-              <TabsContent value="staked" className="mt-0">
-                <StakedEventsTab
-                  stakedEvents={stakedEvents}
-                  dataLoading={eventsLoading}
-                  regions={regions}
-                  isRegionsLoading={isRegionsLoading}
-                />
-              </TabsContent>
-            </Tabs>
+            <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+              <LifetimeFarms
+                shouldLoad={true}
+                totalGlwDelegated={totalDelegatedGlw}
+                isGlwDataLoading={summaryLoading || summaryFetching}
+                withChart
+              />
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-8 pt-20">
+            <SectionHeader title="GCTL Staking by Region" />
+            <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+              <RegionsStaking shouldLoad={true} />
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-8 pt-20 pb-20">
+            <SectionHeader title="Protocol Events" />
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+              {/* GCTL Minting Card */}
+              <Card className="overflow-hidden bg-card border-border/20 dark:border-border/40 !py-0 !gap-0">
+                <CardHeader className="border-b border-border/20 dark:border-border/40 !py-6 !px-8">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        GCTL Minting
+                      </h3>
+                      <p className="mt-0.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                        Token creation events
+                      </p>
+                    </div>
+                    <Badge
+                      variant="secondary"
+                      className="gap-1.5 text-xs font-mono font-semibold"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {mintedEvents.length}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="!p-8">
+                  <div className="space-y-4">
+                    <div className="mb-4 flex items-center justify-between">
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                        Recent Activity
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-mono uppercase tracking-widest border-border/30 text-muted-foreground/60"
+                        >
+                          <Activity className="mr-1 h-3 w-3" />
+                          Live
+                        </Badge>
+                        {mintedEvents.length > 10 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs font-medium text-muted-foreground hover:text-foreground"
+                            onClick={() => setIsMintedDialogOpen(true)}
+                          >
+                            See All
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <MintedEventsTab
+                      mintedEvents={mintedEvents}
+                      dataLoading={eventsLoading}
+                      maxItems={10}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* GCTL Staking Card */}
+              <Card className="overflow-hidden bg-card border-border/20 dark:border-border/40 !py-0 !gap-0">
+                <CardHeader className="border-b border-border/20 dark:border-border/40 !py-6 !px-8">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        GCTL Staking
+                      </h3>
+                      <p className="mt-0.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                        Stake & unstake events
+                      </p>
+                    </div>
+                    <Badge
+                      variant="secondary"
+                      className="gap-1.5 text-xs font-mono font-semibold"
+                    >
+                      <Zap className="h-3 w-3" />
+                      {stakedEvents.length}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="!p-8">
+                  <div className="space-y-4">
+                    <div className="mb-4 flex items-center justify-between">
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                        Recent Activity
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-mono uppercase tracking-widest border-border/30 text-muted-foreground/60"
+                        >
+                          <Activity className="mr-1 h-3 w-3" />
+                          Live
+                        </Badge>
+                        {stakedEvents.length > 10 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs font-medium text-muted-foreground hover:text-foreground"
+                            onClick={() => setIsStakedDialogOpen(true)}
+                          >
+                            See All
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <StakedEventsTab
+                      stakedEvents={stakedEvents}
+                      dataLoading={eventsLoading}
+                      regions={regions}
+                      isRegionsLoading={isRegionsLoading}
+                      maxItems={10}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </section>
         </div>
       </div>
@@ -306,41 +263,36 @@ export default function StatsView() {
         open={isDelegationDialogOpen}
         onOpenChange={setIsDelegationDialogOpen}
       >
-        <DialogContent className="md:max-w-md max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Delegation History</DialogTitle>
-            <DialogDescription>
-              All delegation and undelegation events across all farms
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto pr-2 -mr-2">
+        <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 max-h-[80vh] flex flex-col">
+          <div className="border-b border-border/20 dark:border-border/40 pb-6 pt-8 px-6">
+            <DialogHeader>
+              <DialogTitle className="text-sm font-semibold text-foreground">
+                Delegation History
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground/60 mt-1">
+                All delegation and undelegation events across all farms
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-2">
               {delegationEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="group flex items-start gap-3 p-4 bg-muted/30 rounded-xl hover:bg-muted transition-all border border-border/50 hover:border-border hover:shadow-sm"
+                  className="group flex items-center gap-3 px-4 py-3 bg-muted/30 dark:bg-muted/50 rounded-xl hover:bg-muted/50 dark:hover:bg-muted/60 transition-colors border border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60"
                 >
-                  <div className="w-10 h-10 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
-                    <Zap className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <div className="w-9 h-9 rounded-lg bg-delegation-purple/10 border border-delegation-purple/20 flex items-center justify-center shrink-0">
+                    <Zap className="w-4 h-4 text-delegation-purple" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold mb-1.5">
+                    <div className="text-sm font-semibold text-foreground">
                       {event.title}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                      <span className="font-medium text-foreground">
-                        {event.applicationId}
-                      </span>
-                      <span>·</span>
-                      <Badge
-                        variant="secondary"
-                        className="h-5 px-2 text-xs font-medium"
-                      >
-                        {event.token}
-                      </Badge>
-                      <span>·</span>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 truncate">
+                      <span>{event.farmName}</span>
+                      <span className="text-muted-foreground/30">·</span>
                       <span className="font-mono">{event.buyer}</span>
-                      <span>·</span>
+                      <span className="text-muted-foreground/30">·</span>
                       <span>{event.timestamp}</span>
                     </div>
                   </div>
@@ -352,44 +304,92 @@ export default function StatsView() {
       </Dialog>
 
       <Dialog open={isMinerDialogOpen} onOpenChange={setIsMinerDialogOpen}>
-        <DialogContent className="md:max-w-md max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Purchase History</DialogTitle>
-            <DialogDescription>
-              All miner purchases across the platform
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto pr-2 -mr-2">
+        <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 max-h-[80vh] flex flex-col">
+          <div className="border-b border-border/20 dark:border-border/40 pb-6 pt-8 px-6">
+            <DialogHeader>
+              <DialogTitle className="text-sm font-semibold text-foreground">
+                Purchase History
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground/60 mt-1">
+                All miner purchases across the platform
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-2">
               {minerEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="group flex items-start gap-3 p-4 bg-muted/30 rounded-xl hover:bg-muted transition-all border border-border/50 hover:border-border hover:shadow-sm"
+                  className="group flex items-center gap-3 px-4 py-3 bg-muted/30 dark:bg-muted/50 rounded-xl hover:bg-muted/50 dark:hover:bg-muted/60 transition-colors border border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60"
                 >
-                  <div className="w-10 h-10 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-                    <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <div className="w-9 h-9 rounded-lg bg-[color:var(--color-miner)]/10 border border-[color:var(--color-miner)]/20 flex items-center justify-center shrink-0">
+                    <DollarSign className="w-4 h-4 text-[color:var(--color-miner)]" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold mb-1.5">
+                    <div className="text-sm font-semibold text-foreground">
                       {event.title}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                      <span className="font-medium text-foreground">
-                        {event.applicationId}
-                      </span>
-                      <span>·</span>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 truncate">
+                      <span>{event.farmName}</span>
+                      <span className="text-muted-foreground/30">·</span>
                       <span className="font-semibold text-green-600 dark:text-green-400">
                         {event.totalValueFormatted}
                       </span>
-                      <span>·</span>
+                      <span className="text-muted-foreground/30">·</span>
                       <span className="font-mono">{event.buyer}</span>
-                      <span>·</span>
+                      <span className="text-muted-foreground/30">·</span>
                       <span>{event.timestamp}</span>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Minted Events Dialog */}
+      <Dialog open={isMintedDialogOpen} onOpenChange={setIsMintedDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 max-h-[80vh] flex flex-col">
+          <div className="border-b border-border/20 dark:border-border/40 pb-6 pt-8 px-6">
+            <DialogHeader>
+              <DialogTitle className="text-sm font-semibold text-foreground">
+                GCTL Minting History
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground/60 mt-1">
+                All GCTL minting events
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            <MintedEventsTab
+              mintedEvents={mintedEvents}
+              dataLoading={eventsLoading}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Staked Events Dialog */}
+      <Dialog open={isStakedDialogOpen} onOpenChange={setIsStakedDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 max-h-[80vh] flex flex-col">
+          <div className="border-b border-border/20 dark:border-border/40 pb-6 pt-8 px-6">
+            <DialogHeader>
+              <DialogTitle className="text-sm font-semibold text-foreground">
+                GCTL Staking History
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground/60 mt-1">
+                All GCTL staking and unstaking events
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            <StakedEventsTab
+              stakedEvents={stakedEvents}
+              dataLoading={eventsLoading}
+              regions={regions}
+              isRegionsLoading={isRegionsLoading}
+            />
           </div>
         </DialogContent>
       </Dialog>

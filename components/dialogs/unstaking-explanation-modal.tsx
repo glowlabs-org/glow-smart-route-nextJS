@@ -18,9 +18,9 @@ export function UnstakingExplanationModal({
 }: UnstakingExplanationModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-background backdrop-blur-sm rounded-2xl p-0 sm:max-w-md w-full border-border overflow-hidden flex flex-col gap-0 max-h-[calc(100dvh-2rem)]">
-        <DialogHeader className="px-5 py-4 border-b border-border/60">
-          <DialogTitle className="text-lg font-semibold">
+      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 flex flex-col max-h-[calc(100dvh-2rem)]">
+        <DialogHeader className="px-6 pt-8 pb-6 border-b border-border/40">
+          <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
             Understanding GCTL Unstaking
           </DialogTitle>
         </DialogHeader>
@@ -36,13 +36,13 @@ export function UnstakingExplanationModal({
               .
             </p>
 
-            <div className="rounded-xl border border-border bg-muted/10 p-4 space-y-2">
-              <div className="text-sm font-semibold text-foreground">
-                Example:
+            <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 space-y-2">
+              <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
+                Example
               </div>
               <ul className="text-sm text-muted-foreground space-y-1.5">
                 <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">•</span>
+                  <span className="text-[#22D3EE] mt-0.5">•</span>
                   <span>
                     If you stake{" "}
                     <strong className="text-foreground">100 GCTL</strong>, it
@@ -51,7 +51,7 @@ export function UnstakingExplanationModal({
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">•</span>
+                  <span className="text-[#22D3EE] mt-0.5">•</span>
                   <span>
                     If you stake{" "}
                     <strong className="text-foreground">1,000 GCTL</strong>, you
@@ -66,19 +66,19 @@ export function UnstakingExplanationModal({
             </div>
 
             <div className="space-y-2">
-              <div className="text-sm font-semibold text-foreground">
+              <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
                 Why This Design?
               </div>
               <ul className="text-sm text-muted-foreground space-y-1.5">
                 <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">•</span>
+                  <span className="text-[#22D3EE] mt-0.5">•</span>
                   <span>
                     <strong className="text-foreground">Stable rewards</strong>{" "}
                     for solar farms - prevents sudden emission drops
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">•</span>
+                  <span className="text-[#22D3EE] mt-0.5">•</span>
                   <span>
                     <strong className="text-foreground">
                       Long-term alignment
@@ -87,7 +87,7 @@ export function UnstakingExplanationModal({
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">•</span>
+                  <span className="text-[#22D3EE] mt-0.5">•</span>
                   <span>
                     <strong className="text-foreground">
                       Predictable planning
@@ -99,7 +99,7 @@ export function UnstakingExplanationModal({
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-muted/10 p-4">
+          <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
             <Link
               href="https://glow.org/blog/beginner-guide-to-gctl"
               target="_blank"
@@ -107,19 +107,19 @@ export function UnstakingExplanationModal({
               className="flex items-center justify-between gap-3 group"
             >
               <div>
-                <div className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                <div className="text-sm font-medium text-foreground group-hover:text-[#22D3EE] transition-colors">
                   Read the full guide
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   Learn more about GCTL mechanics
                 </div>
               </div>
-              <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-[#22D3EE] transition-colors" />
             </Link>
           </div>
         </div>
 
-        <div className="border-t border-border/60 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+        <div className="border-t border-border/40 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
           <Button
             type="button"
             onClick={() => onOpenChange(false)}

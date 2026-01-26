@@ -305,7 +305,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
   return (
     <div
       className={cn(
-        "rounded-xl border border-border bg-muted/30 transition-colors",
+        "rounded-xl border border-border/30 dark:border-border/40 bg-muted/40 dark:bg-muted/50 transition-colors",
         isPendingStart && "opacity-60"
       )}
     >
@@ -447,7 +447,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                 </span>
                 <span>{weeksRemaining} left</span>
               </div>
-              <div className="relative w-full h-3 bg-muted rounded-full overflow-hidden border border-border/70">
+              <div className="relative w-full h-3 bg-muted/70 dark:bg-muted rounded-full overflow-hidden border border-border/30 dark:border-border/40">
                 <div
                   className="absolute left-0 h-full bg-foreground/20"
                   style={{ width: `${timePercent}%` }}
@@ -456,7 +456,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
             </div>
 
             {isExpanded && (
-              <div className="mt-4 pt-4 border-t border-border/60 space-y-3">
+              <div className="mt-4 pt-4 border-t border-border/30 dark:border-border/40 space-y-3">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
                   Breakdown
                 </div>
@@ -482,7 +482,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   <span className="text-right text-[color:var(--color-miner-contrast)]">
                     +{fmtGlw(data.inflationGlw)} GLW
                   </span>
-                  <div className="col-span-2 h-px bg-border" />
+                  <div className="col-span-2 h-px bg-border/30 dark:bg-border/40" />
                   <span className="text-muted-foreground font-bold">Total</span>
                   <span className="text-right font-bold text-foreground">
                     {isOther && data.isProtocolDepositUsd
@@ -567,7 +567,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                   </span>
                   <span>{weeksRemaining} left</span>
                 </div>
-                <div className="relative w-full h-2.5 bg-muted rounded-full overflow-hidden border border-border/70">
+                <div className="relative w-full h-2.5 bg-muted/70 dark:bg-muted rounded-full overflow-hidden border border-border/30 dark:border-border/40">
                   <div
                     className="absolute left-0 h-full transition-all bg-foreground/20"
                     style={{ width: `${timePercent}%` }}
@@ -699,7 +699,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
         {/* EXPANDABLE DETAIL PANEL */}
         {isExpanded && !isInProgress && (
           <div className="px-4 pb-4 pt-0">
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+            <div className="rounded-xl border border-border/30 dark:border-border/40 bg-muted/40 dark:bg-muted/50 p-4">
               <div className="grid grid-cols-2 gap-6">
                 {/* LEFT: BREAKDOWN */}
                 <div>
@@ -745,7 +745,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                         +{fmtGlw(data.inflationGlw)} GLW
                       </span>
                     </div>
-                    <div className="h-px bg-border my-2" />
+                    <div className="h-px bg-border/30 dark:bg-border/40 my-2" />
                     <div className="flex justify-between font-bold">
                       <span className="text-muted-foreground">Total</span>
                       <span className="text-foreground">
@@ -797,7 +797,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
                         </span>
                       </div>
                     )}
-                    <div className="h-px bg-border my-2" />
+                    <div className="h-px bg-border/30 dark:bg-border/40 my-2" />
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Remaining</span>
                       <span className="text-foreground">
@@ -1379,9 +1379,9 @@ export function FarmsPerformanceDialogContent({
   }, [inProgressRows, pendingStartRows, rows]);
 
   return (
-    <DialogContent className="max-w-4xl h-[92dvh] sm:h-[80vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden shadow-2xl">
+    <DialogContent className="max-w-4xl h-[92dvh] sm:h-[80vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40">
       {/* Header */}
-      <DialogHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border bg-muted/40 flex-shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 space-y-0">
+      <DialogHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border/30 dark:border-border/40 bg-muted/60 dark:bg-muted/50 flex-shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 space-y-0">
         <DialogTitle className="text-xl sm:text-2xl font-bold font-mono uppercase tracking-wide leading-tight">
           Farm Performance
         </DialogTitle>
@@ -1400,7 +1400,7 @@ export function FarmsPerformanceDialogContent({
           }}
           className="w-full sm:w-auto"
         >
-          <TabsList className="w-full sm:w-auto bg-muted/30 border border-border h-10 sm:h-12 p-1 overflow-x-auto">
+          <TabsList className="w-full sm:w-auto bg-muted/50 dark:bg-muted/50 border border-border/30 dark:border-border/40 h-10 sm:h-12 p-1 overflow-x-auto">
             <TabsTrigger
               value="all"
               className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[#ffb472] data-[state=active]:bg-[#ffb472]/12 data-[state=active]:border data-[state=active]:border-[#ffb472]"
@@ -1444,7 +1444,7 @@ export function FarmsPerformanceDialogContent({
       </DialogHeader>
 
       {/* Legend / Columns */}
-      <div className="hidden sm:grid grid-cols-12 px-6 py-3 border-b border-border bg-muted/30 text-xs font-mono uppercase text-muted-foreground tracking-wider flex-shrink-0 gap-4">
+      <div className="hidden sm:grid grid-cols-12 px-6 py-3 border-b border-border/30 dark:border-border/40 bg-muted/50 dark:bg-muted/50 text-xs font-mono uppercase text-muted-foreground tracking-wider flex-shrink-0 gap-4">
         <div className="col-span-3">Identity</div>
         <div className="col-span-3 px-2">Lifecycle</div>
         <div className="col-span-4 text-center">Key Metrics</div>
@@ -1512,7 +1512,7 @@ export function FarmsPerformanceDialogContent({
                   !isSpotPriceLoading &&
                   (!Number.isFinite(glwSpotPriceUsd ?? NaN) ||
                     (glwSpotPriceUsd ?? 0) <= 0) && (
-                    <div className="rounded-xl border border-border bg-muted/20 p-3 text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+                    <div className="rounded-xl border border-border/30 dark:border-border/40 bg-muted/40 dark:bg-muted/50 p-3 text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
                       ROI requires GLW spot price; showing $0 until price is
                       available.
                     </div>
@@ -1545,8 +1545,8 @@ export default function FarmsPerformanceDialogWidget({
 
   return (
     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-      <Card className="h-full max-h-[400px] flex flex-col overflow-hidden shadow-2xl shadow-black/10">
-        <CardHeader className="pb-2 border-b border-border/60 bg-muted/20">
+      <Card className="h-full max-h-[400px] flex flex-col overflow-hidden bg-card border border-border/20 dark:border-border/40">
+        <CardHeader className="pb-2 border-b border-border/30 dark:border-border/40 bg-muted/50 dark:bg-muted/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CardTitle className="tracking-tight text-sm font-bold text-foreground uppercase font-mono">

@@ -53,6 +53,7 @@ import { SparklesIcon } from "@/components/ui/sparkles";
 import { SunMediumIcon } from "@/components/ui/sun-medium";
 import { SunIcon } from "@/components/ui/sun";
 import { SunMoonIcon } from "@/components/ui/sun-moon";
+import { useReferralLaunch } from "@/hooks/use-referral-launch";
 
 interface ReferralStatusResponse {
   nonce: string;
@@ -152,6 +153,7 @@ export function ReferralNetworkDialog({
   const [isLeaderboardOpen, setIsLeaderboardOpen] = React.useState(false);
   const [isQRCodeOpen, setIsQRCodeOpen] = React.useState(false);
   const [isCopied, setIsCopied] = React.useState(false);
+  const { isLive: isReferralLive } = useReferralLaunch();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["referral-network", walletAddress],
@@ -159,7 +161,7 @@ export function ReferralNetworkDialog({
       hubGet<ReferralNetworkResponse>("/referral/network", {
         params: { walletAddress },
       }),
-    enabled: open && !!walletAddress && !mockData,
+    enabled: isReferralLive && open && !!walletAddress && !mockData,
   });
 
   const { data: statusData } = useQuery({
@@ -168,8 +170,12 @@ export function ReferralNetworkDialog({
       hubGet<ReferralStatusResponse>("/referral/status", {
         params: { walletAddress },
       }),
-    enabled: open && !!walletAddress && !mockStatus,
+    enabled: isReferralLive && open && !!walletAddress && !mockStatus,
   });
+
+  if (!isReferralLive) {
+    return null;
+  }
   const resolvedData = mockData ?? data;
   const resolvedStatus = mockStatus ?? statusData;
   const resolvedIsLoading = mockData ? false : isLoading;
@@ -209,12 +215,12 @@ export function ReferralNetworkDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] p-0 gap-0 overflow-hidden rounded-[24px] bg-background border">
+      <DialogContent className="sm:max-w-[700px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40">
         {/* HERO HEADER - Following Impact Breakdown Style */}
-        <div className="relative overflow-hidden border-b pb-6 pt-8 px-6">
-    
+        <div className="relative overflow-hidden border-b border-border/40 pb-6 pt-8 px-6">
+
           <div className="relative z-10 flex flex-col items-center text-center space-y-2">
-            <DialogTitle className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
               Referral Rewards
             </DialogTitle>
 
@@ -250,11 +256,11 @@ export function ReferralNetworkDialog({
               {/* SECTION: YOUR LINK */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between px-1">
-                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
                     Your Referral Link
                   </h3>
                 </div>
-                <div className="relative flex items-center gap-2 p-1.5 pl-4 rounded-2xl border bg-muted/20 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                <div className="relative flex items-center gap-2 p-1.5 pl-4 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                   <div className="flex-1 font-mono text-xs truncate text-muted-foreground select-all">
                     {resolvedData.shareableLink}
                   </div>
@@ -292,7 +298,7 @@ export function ReferralNetworkDialog({
                     </Button>
                   </div>
                 </div>
-                <div className="rounded-xl bg-muted/30 border p-4">
+                <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
@@ -324,7 +330,7 @@ export function ReferralNetworkDialog({
               {resolvedStatus?.hasReferrer && resolvedStatus.referrer && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between px-1">
-                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                    <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
                       Your Referrer
                     </h3>
                     {resolvedStatus.referrer.canChangeReferrer && (
@@ -453,7 +459,7 @@ export function ReferralNetworkDialog({
                 return (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between px-1">
-                      <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                      <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
                         Progress & Tiers
                       </h3>
                       <Badge
@@ -641,7 +647,7 @@ export function ReferralNetworkDialog({
 
                 return (
                   <div className="space-y-3">
-                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">
+                    <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest px-1">
                       Badges Earned
                     </h3>
                     <div className="grid grid-cols-4 gap-3">
@@ -729,7 +735,7 @@ export function ReferralNetworkDialog({
               {/* SECTION: YOUR NETWORK */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between px-1">
-                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
                     Your Network
                   </h3>
                   <div className="text-[10px] font-medium text-muted-foreground">
@@ -858,16 +864,16 @@ export function ReferralNetworkDialog({
               </div>
 
               {/* FOOTER TIPS */}
-              <div className="rounded-2xl bg-muted/30 p-5 border border-dashed space-y-4">
+              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 p-5 border border-border/20 dark:border-border/40 space-y-4">
                 <div className="flex items-center gap-2">
-                  <Info className="w-3.5 h-3.5 text-primary" />
-                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                  <Info className="w-3.5 h-3.5 text-[#22D3EE]" />
+                  <h4 className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
                     Quick Guide
                   </h4>
                 </div>
                 <ul className="space-y-3">
                   <li className="flex items-start gap-3 text-xs text-muted-foreground">
-                    <div className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                    <div className="mt-1 h-1.5 w-1.5 rounded-full bg-[#22D3EE] shrink-0" />
                     <p className="leading-relaxed">
                       Referrals become{" "}
                       <span className="text-foreground font-bold">Active</span>{" "}
@@ -879,7 +885,7 @@ export function ReferralNetworkDialog({
                     </p>
                   </li>
                   <li className="flex items-start gap-3 text-xs text-muted-foreground">
-                    <div className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                    <div className="mt-1 h-1.5 w-1.5 rounded-full bg-[#22D3EE] shrink-0" />
                     <p className="leading-relaxed">
                       Your earnings are based on their{" "}
                       <span className="text-foreground font-bold">
@@ -889,7 +895,7 @@ export function ReferralNetworkDialog({
                     </p>
                   </li>
                   <li className="flex items-start gap-3 text-xs text-muted-foreground">
-                    <div className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                    <div className="mt-1 h-1.5 w-1.5 rounded-full bg-[#22D3EE] shrink-0" />
                     <p className="leading-relaxed">
                       Rewards are calculated and finalized every{" "}
                       <span className="text-foreground font-bold text-xs uppercase font-mono">

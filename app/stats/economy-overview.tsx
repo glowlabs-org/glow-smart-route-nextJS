@@ -68,7 +68,7 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
   const totalGlwDelegated = React.useMemo(() => {
     if (!totalActivelyDelegatedData?.totalGlwDelegatedWei) return 0;
     return Number(
-      formatUnits(BigInt(totalActivelyDelegatedData.totalGlwDelegatedWei), 18)
+      formatUnits(BigInt(totalActivelyDelegatedData.totalGlwDelegatedWei), 18),
     );
   }, [totalActivelyDelegatedData]);
 
@@ -99,8 +99,11 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
     return (
       <div className="grid gap-4">
         {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
-          <Card key={index}>
-            <CardContent className="p-6">
+          <Card
+            key={index}
+            className="bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40"
+          >
+            <CardContent className="!p-8">
               <div className="h-4 w-1/2 bg-muted rounded" />
             </CardContent>
           </Card>
@@ -111,21 +114,14 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold">Economy Overview</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Macro health, participation, and reward flows
-          </p>
-        </div>
-      </div>
-
       <div className="mb-8">
-        <h3 className="text-lg font-semibold mb-4">GLW Supply & Liquidity</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
+        <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-6">
+          GLW Supply & Liquidity
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40 !py-0 !gap-0">
+            <CardContent className="!p-8">
+              <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
                   GLW Circulating Market Cap
                 </div>
@@ -147,9 +143,9 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
+          <Card className="bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40 !py-0 !gap-0">
+            <CardContent className="!p-8">
+              <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
                   % of GLW Actively Delegated
                 </div>
@@ -167,15 +163,15 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
                       undefined,
                       {
                         maximumFractionDigits: 0,
-                      }
+                      },
                     )} circulating`}
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
+          <Card className="bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40 !py-0 !gap-0">
+            <CardContent className="!p-8">
+              <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
                   USDC Liquidity (Uniswap)
                 </div>
@@ -198,9 +194,9 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
+          <Card className="bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40 !py-0 !gap-0">
+            <CardContent className="!p-8">
+              <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
                   Liquidity Provided by Glow Endowment
                 </div>
@@ -210,10 +206,10 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
                 {isEndowmentLoading
                   ? "--"
                   : endowmentLpBalance === 0
-                  ? "No LP tokens"
-                  : `${endowmentUsdg.toLocaleString(undefined, {
-                      maximumFractionDigits: 0,
-                    })} USDC`}
+                    ? "No LP tokens"
+                    : `${endowmentUsdg.toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      })} USDC`}
               </div>
               <div className="text-xs text-muted-foreground">
                 and{" "}
@@ -228,13 +224,13 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
       </div>
 
       <div className="mb-8">
-        <h3 className="text-lg font-semibold mb-4">
+        <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-6">
           GCTL Supply & Participation
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40 !py-0 !gap-0">
+            <CardContent className="!p-8">
+              <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
                   Number of GCTL Tokens
                 </div>
@@ -253,9 +249,9 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
+          <Card className="bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40 !py-0 !gap-0">
+            <CardContent className="!p-8">
+              <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
                   GCTL Market Cap
                 </div>
@@ -274,9 +270,9 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
+          <Card className="bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40 !py-0 !gap-0">
+            <CardContent className="!p-8">
+              <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
                   % of GCTL Staked
                 </div>
@@ -299,15 +295,15 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
                       undefined,
                       {
                         maximumFractionDigits: 0,
-                      }
+                      },
                     )} outstanding`}
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
+          <Card className="bg-muted/30 dark:bg-muted/50 border-border/20 dark:border-border/40 !py-0 !gap-0">
+            <CardContent className="!p-8">
+              <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
                   GCTL Holders
                 </div>
@@ -327,10 +323,10 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
       {/* Group 3: Yield & Flows */}
       {/* <div>
         <h3 className="text-lg font-semibold mb-4">Yield & Flows</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
+            <CardContent className="!p-8">
+              <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
                   Average Delegator APY
                 </div>
@@ -344,8 +340,8 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
           </Card>
 
           <Card className="">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
+            <CardContent className="!p-8">
+              <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
                   Average Miner APY
                 </div>
@@ -359,8 +355,8 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
           </Card>
 
           <Card className="">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
+            <CardContent className="!p-8">
+              <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
                   GLW/week → Delegators
                 </div>
@@ -374,8 +370,8 @@ export function EconomyOverview({ shouldLoad = true }: EconomyOverviewProps) {
           </Card>
 
           <Card className="">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
+            <CardContent className="!p-8">
+              <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-muted-foreground">
                   USDC/week → Miners
                 </div>

@@ -185,7 +185,7 @@ export function TransactionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "bg-background backdrop-blur-sm rounded-2xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden",
+          "bg-card rounded-[24px] p-0 sm:max-w-sm w-full border border-border/40 overflow-hidden gap-0",
           contentClassName
         )}
         onInteractOutside={(e) => e.preventDefault()}
@@ -206,35 +206,39 @@ export function TransactionDialog({
             <div className="text-center">
               {/* Success Header */}
               <div className="mb-6">
-                <div
-                  className={cn(
-                    "text-4xl font-bold mb-2",
-                    showImpactScoreBoost
-                      ? "text-emerald-700 dark:text-[color:var(--color-glow-green)]"
-                      : "text-foreground"
-                  )}
-                >
+                {/* Success Icon */}
+                <div className="w-16 h-16 bg-[#4ADE80]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg
+                    className="w-8 h-8 text-[#4ADE80]"
+                    fill="none"
+                    strokeWidth="2"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                </div>
+                <div className="text-3xl font-semibold text-foreground tracking-tight mb-1">
                   {successTitle}
                 </div>
                 {showImpactScoreBoost && (
                   <div className="mt-4 flex flex-col items-center gap-2">
-                    <div
-                      className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium",
-                        "border-[color:var(--color-glow-green)]/30 bg-[color:var(--color-glow-green)]/10 text-emerald-700 dark:text-[color:var(--color-glow-green)]"
-                      )}
-                    >
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-[#4ADE80]/10 px-3 py-1.5 text-xs font-medium text-[#4ADE80]">
                       {impactScoreBoostIconType === "glw" ? (
-                        <GlwWorthIcon className="h-4 w-4" />
+                        <GlwWorthIcon className="h-3.5 w-3.5" />
                       ) : impactScoreBoostIconType === "gctl" ? (
-                        <SteeringIcon className="h-4 w-4" />
+                        <SteeringIcon className="h-3.5 w-3.5" />
                       ) : (
-                        <TrendingUp className="h-4 w-4" />
+                        <TrendingUp className="h-3.5 w-3.5" />
                       )}
                       Impact Score Boosted
                     </div>
                     {impactScoreBoostMessage && (
-                      <div className="text-sm text-muted-foreground max-w-[280px] mx-auto">
+                      <div className="text-xs text-muted-foreground max-w-[260px] mx-auto">
                         {impactScoreBoostMessage}
                       </div>
                     )}
@@ -244,43 +248,38 @@ export function TransactionDialog({
 
               {/* Success Content (custom or default) */}
               {successContent || (
-                <div className="space-y-4 mb-8 text-left">
+                <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 mb-6 text-left space-y-3">
                   {displayDetails.map((detail, index) => (
                     <TransactionDetailRow key={index} {...detail} />
                   ))}
 
                   {txHash && (
                     <>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground text-sm">
-                          Transaction ID
-                        </span>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-foreground text-sm font-mono">
-                            {`${txHash.slice(0, 6)}...${txHash.slice(-6)}`}
+                      <div className="pt-3 border-t border-border/20 dark:border-border/40">
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground text-sm">
+                            Transaction
                           </span>
-                          <button
-                            onClick={copyTxHash}
-                            className="p-1 hover:bg-muted rounded transition-colors"
-                          >
-                            <Copy className="w-3 h-3 text-muted-foreground hover:text-foreground" />
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <span className="text-foreground text-sm font-mono">
+                              {`${txHash.slice(0, 6)}...${txHash.slice(-4)}`}
+                            </span>
+                            <button
+                              onClick={copyTxHash}
+                              className="p-1 hover:bg-muted/50 rounded transition-colors"
+                            >
+                              <Copy className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                            </button>
+                            <a
+                              href={`https://etherscan.io/tx/${txHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1 hover:bg-muted/50 rounded transition-colors"
+                            >
+                              <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                            </a>
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground text-sm">
-                          Explorer
-                        </span>
-                        <a
-                          href={`https://etherscan.io/tx/${txHash}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center space-x-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                        >
-                          <span>View on Etherscan</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
                       </div>
                     </>
                   )}
@@ -385,7 +384,7 @@ export function TransactionDialog({
 
               {/* Status Badge for processing */}
               {isSubmitting && (
-                <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full mb-8">
+                <div className="inline-flex items-center px-4 py-2 bg-muted/50 border border-border/40 rounded-full mb-8">
                   <span className="text-foreground text-sm font-medium animate-pulse">
                     Submitting transaction...
                   </span>
@@ -395,7 +394,7 @@ export function TransactionDialog({
               {/* Processing ETA + Progress Bar */}
               {isSubmitting && showProcessingProgress && (
                 <div className="mb-8">
-                  <div className="inline-flex items-center px-4 py-2 bg-secondary/50 backdrop-blur-sm border border-border rounded-full mb-6">
+                  <div className="inline-flex items-center px-4 py-2 bg-muted/50 border border-border/40 rounded-full mb-6">
                     <span className="text-foreground text-sm font-medium">
                       ETA:{" "}
                       {processingCountdown > 0
@@ -404,7 +403,7 @@ export function TransactionDialog({
                     </span>
                   </div>
                   <div>
-                    <div className="w-full bg-muted rounded-full h-2 mb-4 overflow-hidden">
+                    <div className="w-full bg-muted/50 dark:bg-muted/70 rounded-full h-2 mb-4 overflow-hidden border border-border/20 dark:border-border/40">
                       <div
                         className="h-full glow-gradient-a transition-all duration-300 ease-out"
                         style={{ width: `${processingProgressPercentage}%` }}
@@ -426,7 +425,7 @@ export function TransactionDialog({
                   ))}
 
                   {networkFee && (
-                    <div className="pt-3 border-t">
+                    <div className="pt-3 border-t border-border/20 dark:border-border/40">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground text-sm">
                           Network Fee

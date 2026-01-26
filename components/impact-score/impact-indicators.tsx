@@ -16,6 +16,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useReferralLaunch } from "@/hooks/use-referral-launch";
 
 export interface ImpactIndicatorsState {
   hasMinerMultiplier: boolean;
@@ -110,24 +111,34 @@ function IndicatorIcon(props: {
   meta: IndicatorMeta;
   isActive: boolean;
   variant: "multiplier" | "source";
+  compact?: boolean;
   onClick?: () => void;
 }) {
-  const { meta, isActive, variant, onClick } = props;
+  const { meta, isActive, variant, compact, onClick } = props;
 
-  // Multipliers are larger to show hierarchy; smaller on mobile
-  const sizeClasses =
-    variant === "multiplier"
+  // Uniform sizing for single-row layout - slightly larger for multipliers
+  const sizeClasses = compact
+    ? variant === "multiplier"
+      ? "h-8 w-8 rounded-lg"
+      : "h-8 w-8 rounded-full"
+    : variant === "multiplier"
       ? "h-9 w-9 md:h-11 md:w-11 rounded-xl"
       : "h-7 w-7 md:h-9 md:w-9 rounded-full";
 
   const baseClasses = cn(
-    "group relative inline-flex items-center justify-center transition-all duration-300 ease-out",
+    "group relative inline-flex items-center justify-center transition-all duration-300 ease-out flex-shrink-0",
     "hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     sizeClasses,
     getVariantStyles(meta.key, isActive, variant)
   );
 
   const Icon = meta.icon;
+
+  const iconSizeClasses = compact
+    ? "h-3.5 w-3.5"
+    : variant === "multiplier"
+      ? "h-4 w-4 md:h-5 md:w-5"
+      : "h-3.5 w-3.5 md:h-4 md:w-4";
 
   return (
     <Tooltip delayDuration={100}>
@@ -147,9 +158,7 @@ function IndicatorIcon(props: {
 
           <Icon
             className={cn(
-              variant === "multiplier"
-                ? "h-4 w-4 md:h-5 md:w-5"
-                : "h-3.5 w-3.5 md:h-4 md:w-4",
+              iconSizeClasses,
               // Pulse effect for active Streak
               meta.key === "streak" && isActive && "animate-pulse"
             )}
@@ -262,9 +271,15 @@ export function ImpactPointSourcesIcons(props: {
   className?: string;
   onIndicatorClick?: (key: IndicatorMeta["key"]) => void;
 }) {
+  const { isLive: isReferralLive } = useReferralLaunch();
+  const pointSources = React.useMemo(() => {
+    if (isReferralLive) return POINT_SOURCES;
+    return POINT_SOURCES.filter((source) => source.key !== "referral");
+  }, [isReferralLive]);
+
   return (
     <div className={cn("flex items-center gap-1 md:gap-2", props.className)}>
-      {POINT_SOURCES.map((meta) => {
+      {pointSources.map((meta) => {
         const isActive =
           meta.key === "steering"
             ? props.state.hasSteeringStake
@@ -328,29 +343,79 @@ export function ImpactIndicatorsRow(props: {
   className?: string;
   onIndicatorClick?: (key: IndicatorMeta["key"]) => void;
 }) {
+  const { isLive: isReferralLive } = useReferralLaunch();
+
+  const multipliersMeta = React.useMemo(
+    () =>
+      getMultipliersMeta({
+        hasImpactStreak: props.state.hasImpactStreak,
+        streakBonusMultiplier: props.state.streakBonusMultiplier,
+      }),
+    [props.state.hasImpactStreak, props.state.streakBonusMultiplier]
+  );
+
+  const sourcesMeta = React.useMemo(() => {
+    if (isReferralLive) return POINT_SOURCES;
+    return POINT_SOURCES.filter((source) => source.key !== "referral");
+  }, [isReferralLive]);
+
+  const getIsActive = React.useCallback(
+    (key: IndicatorMeta["key"]) => {
+      switch (key) {
+        case "miner":
+          return props.state.hasMinerMultiplier;
+        case "streak":
+          return props.state.hasImpactStreak;
+        case "steering":
+          return props.state.hasSteeringStake;
+        case "emissions":
+          return props.state.hasEmissionsEarned;
+        case "vault":
+          return props.state.hasVaultBonus;
+        case "worth":
+          return props.state.hasGlwWorth;
+        case "referral":
+          return !!props.state.hasReferralPoints;
+        default:
+          return false;
+      }
+    },
+    [props.state]
+  );
+
   return (
     <div
       className={cn(
-        "flex items-center justify-center gap-2 md:gap-3",
+        "flex items-center justify-center gap-1.5",
         props.className
       )}
     >
-      {/* Sources Container - The "Tray" look */}
-      <div className="flex items-center bg-muted/40 rounded-full px-1.5 py-1 md:px-2 md:py-1.5 border border-border/50">
-        <ImpactPointSourcesIcons
-          state={props.state}
-          onIndicatorClick={props.onIndicatorClick}
+      {/* Sources first */}
+      {sourcesMeta.map((meta) => (
+        <IndicatorIcon
+          key={meta.key}
+          meta={meta}
+          isActive={getIsActive(meta.key)}
+          variant="source"
+          compact
+          onClick={() => props.onIndicatorClick?.(meta.key)}
         />
-      </div>
+      ))}
 
-      {/* Visual Separator - Hidden on mobile */}
-      <div className="hidden md:block w-8 h-px bg-gradient-to-r from-transparent via-border to-transparent opacity-50" />
+      {/* Subtle separator */}
+      <div className="h-5 w-px bg-border/40 mx-0.5" />
 
-      {/* Multipliers Container */}
-      <ImpactMultipliersIcons
-        state={props.state}
-        onIndicatorClick={props.onIndicatorClick}
-      />
+      {/* Multipliers on the right */}
+      {multipliersMeta.map((meta) => (
+        <IndicatorIcon
+          key={meta.key}
+          meta={meta}
+          isActive={getIsActive(meta.key)}
+          variant="multiplier"
+          compact
+          onClick={() => props.onIndicatorClick?.(meta.key)}
+        />
+      ))}
     </div>
   );
 }

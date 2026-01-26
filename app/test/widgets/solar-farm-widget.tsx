@@ -1015,7 +1015,14 @@ export default function SolarFarmWidget({
     const base = [...rewardsHistoryData];
 
     // Only show estimated bar if user has NO historical rewards yet
-    if (base.length > 0) return base;
+    if (base.length > 0) {
+      // Mark the last week as "Current"
+      base[base.length - 1] = {
+        ...base[base.length - 1],
+        week: "Current",
+      };
+      return base;
+    }
 
     // Aggregate pending farms estimated rewards
     const totalPendingEstimated = pendingStartRows.reduce((sum, row) => {
@@ -1190,10 +1197,10 @@ export default function SolarFarmWidget({
       {/* --- DASHBOARD CARD --- */}
       <Card
         className={cn(
-          "flex flex-col overflow-hidden pt-0 gap-2 w-full",
+          "flex flex-col overflow-hidden pt-0 gap-3 w-full",
           isMinimal
             ? "bg-transparent border-transparent h-full"
-            : "h-full lg:max-h-[380px] bg-card dark:bg-muted/30 border-foreground/10 dark:border-border"
+            : "h-full lg:max-h-[380px] bg-card dark:bg-card border-border/20"
         )}
       >
         {!isEmptyButConnected && (
@@ -1529,18 +1536,18 @@ export default function SolarFarmWidget({
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-10 min-w-0">
                   {/* KPI: Current weekly payout */}
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-wider">
+                  <div className="flex flex-col gap-1.5 min-w-0">
+                    <span className="text-[9px] uppercase text-muted-foreground/50 font-mono tracking-widest">
                       Current Weekly Payout
                     </span>
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0">
                       <Sun className="w-5 h-5 text-emerald-500 fill-emerald-500/20" />
                       <div className="flex flex-col leading-none">
                         <div className="flex items-baseline gap-2">
-                          <span className="text-3xl font-bold text-foreground tracking-tight font-mono">
+                          <span className="text-4xl font-semibold text-foreground tracking-tight font-mono">
                             {formatGlwCompact(stats.weeklyPayout)}
                           </span>
-                          <span className="text-sm font-bold text-muted-foreground font-mono">
+                          <span className="text-sm font-medium text-muted-foreground/50 font-mono">
                             GLW
                           </span>
                         </div>
@@ -1631,12 +1638,30 @@ export default function SolarFarmWidget({
                       dataKey="week"
                       axisLine={false}
                       tickLine={false}
-                      tick={{
-                        fill: "var(--muted-foreground)",
-                        fontSize: 10,
-                        fontFamily: "monospace",
+                      tick={(props: {
+                        x: number;
+                        y: number;
+                        payload: { value: string };
+                      }) => {
+                        const isCurrent = props.payload.value === "Current";
+                        return (
+                          <text
+                            x={props.x}
+                            y={props.y + 10}
+                            textAnchor="middle"
+                            fill={
+                              isCurrent
+                                ? "var(--color-glow-orange)"
+                                : "var(--muted-foreground)"
+                            }
+                            fontSize={10}
+                            fontFamily="monospace"
+                            fontWeight={isCurrent ? 600 : 400}
+                          >
+                            {props.payload.value}
+                          </text>
+                        );
                       }}
-                      dy={10}
                     />
                     <Tooltip
                       content={<CustomTooltip />}

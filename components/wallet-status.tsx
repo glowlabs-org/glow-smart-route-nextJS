@@ -146,12 +146,12 @@ export function WalletStatus({
         <button
           type="button"
           className={cn(
-            "inline-flex items-center border-border bg-background/70 text-zinc-900 dark:text-zinc-100 shadow-sm backdrop-blur-xl transition-colors",
-            "hover:bg-muted/30 hover:border-border/60",
+            "inline-flex items-center border-border/30 dark:border-border/40 bg-background/70 text-zinc-900 dark:text-zinc-100 backdrop-blur-xl transition-colors",
+            "hover:bg-muted/40 dark:hover:bg-muted/50 hover:border-border/50 dark:hover:border-border/60",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            "data-[state=open]:bg-muted/30",
+            "data-[state=open]:bg-muted/40 dark:data-[state=open]:bg-muted/50",
             minimal
-              ? "justify-center rounded-full w-full h-full p-0 border-0 bg-transparent hover:bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              ? "justify-center rounded-full w-full h-full p-0 border-0 bg-transparent hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
               : "gap-2 rounded-2xl border px-4 text-sm h-10",
             className
           )}
@@ -194,7 +194,7 @@ export function WalletStatus({
       <DropdownMenuContent
         align="end"
         sideOffset={10}
-        className="w-80 p-0 overflow-hidden backdrop-blur-xl bg-background/95 border-border"
+        className="w-80 p-0 overflow-hidden backdrop-blur-xl bg-card border border-border/30 dark:border-border/40 rounded-2xl"
       >
         <div className="px-4 py-3">
           <div className="flex items-start justify-between gap-3">
@@ -204,7 +204,7 @@ export function WalletStatus({
               </div>
               <div className="font-mono text-sm truncate">{address}</div>
             </div>
-            <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/20 px-2 py-0.5 text-[11px] text-muted-foreground">
+            <div className="inline-flex items-center gap-1 rounded-full border border-border/30 dark:border-border/40 bg-muted/40 dark:bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground">
               <span
                 aria-hidden
                 className="h-1.5 w-1.5 rounded-full bg-emerald-500"
