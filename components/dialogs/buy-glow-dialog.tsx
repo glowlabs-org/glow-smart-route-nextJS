@@ -161,6 +161,7 @@ function PaymentOption({
   selected,
   onSelect,
   disabled,
+  isLoading,
 }: {
   label: string;
   balance: string;
@@ -168,6 +169,7 @@ function PaymentOption({
   selected: boolean;
   onSelect: () => void;
   disabled?: boolean;
+  isLoading?: boolean;
 }) {
   if (disabled) return null;
   return (
@@ -186,7 +188,11 @@ function PaymentOption({
         </div>
         <div>
           <div className="text-sm font-medium text-foreground">{label}</div>
-          <div className="text-xs text-muted-foreground">{balance}</div>
+          {isLoading ? (
+            <Skeleton className="h-3.5 w-16 mt-0.5" />
+          ) : (
+            <div className="text-xs text-muted-foreground">{balance}</div>
+          )}
         </div>
       </div>
       {selected && (
@@ -324,7 +330,7 @@ export function BuyGlowDialog({
     [usdcBalance],
   );
 
-  const { usdgBalance } = useWalletTokenBalances(address);
+  const { usdgBalance, isLoading: isBalancesLoading } = useWalletTokenBalances(address);
   const usdcBalanceWei = usdcBalance ?? 0n;
   const usdgBalanceWei = usdgBalance ?? 0n;
 
@@ -1512,6 +1518,7 @@ export function BuyGlowDialog({
                 icon={<TokenIcon symbol="USDC" />}
                 selected={payToken === "USDC"}
                 onSelect={() => handlePayTokenChange("USDC")}
+                isLoading={isConnected && isBalancesLoading}
               />
               <PaymentOption
                 label="USD Glow (USDG)"
@@ -1523,6 +1530,7 @@ export function BuyGlowDialog({
                 icon={<TokenIcon symbol="USDG" />}
                 selected={payToken === "USDG"}
                 onSelect={() => handlePayTokenChange("USDG")}
+                isLoading={isConnected && isBalancesLoading}
               />
               {isEthPayEnabled && (
                 <PaymentOption
@@ -1538,6 +1546,7 @@ export function BuyGlowDialog({
                   icon={<TokenIcon symbol="ETH" />}
                   selected={payToken === "ETH"}
                   onSelect={() => handlePayTokenChange("ETH")}
+                  isLoading={isConnected && ethBalanceQuery.isLoading}
                 />
               )}
             </div>

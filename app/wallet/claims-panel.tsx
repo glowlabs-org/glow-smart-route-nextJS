@@ -1382,7 +1382,7 @@ export function ClaimsPanel({
           tags: { walletStage: "claim_confirmation" },
           extra: {
             week: activeClaim.weekData.week,
-            walletAddress: activeClaim.address,
+            walletAddress: address,
           },
         });
       }
