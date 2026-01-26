@@ -35,6 +35,12 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   Table,
   TableBody,
   TableCell,
@@ -447,10 +453,28 @@ export function ReferralNetworkDialog({
                     Network Size
                   </div>
                   <div className="text-2xl sm:text-3xl font-mono font-semibold text-foreground">
-                    {resolvedData.stats.activeReferees}
+                    {resolvedData.referees.length}
                   </div>
                   <div className="text-[8px] sm:text-[9px] text-muted-foreground/60 dark:text-muted-foreground/80 uppercase font-medium">
-                    Active referrals
+                    {resolvedData.stats.activeReferees > 0 ? (
+                      <span>
+                        <span className="text-[#16a34a] dark:text-[#4ade80]">
+                          {resolvedData.stats.activeReferees} active
+                        </span>
+                        {resolvedData.stats.pendingReferees > 0 && (
+                          <span>
+                            {" "}
+                            · {resolvedData.stats.pendingReferees} pending
+                          </span>
+                        )}
+                      </span>
+                    ) : resolvedData.stats.pendingReferees > 0 ? (
+                      <span className="text-amber-600 dark:text-amber-400">
+                        {resolvedData.stats.pendingReferees} pending activation
+                      </span>
+                    ) : (
+                      <span>Total referrals</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -491,10 +515,18 @@ export function ReferralNetworkDialog({
                             )}{" "}
                             Tier
                           </span>
-                          <span className="text-xs sm:text-sm font-mono text-muted-foreground/60 dark:text-muted-foreground/80 font-semibold">
-                            {resolvedData.stats.currentTier.percent}% REWARD
-                            SHARE
-                          </span>
+                          <div className="flex items-center gap-2 text-xs sm:text-sm font-mono">
+                            <span className="text-muted-foreground/60 dark:text-muted-foreground/80 font-semibold">
+                              {resolvedData.stats.currentTier.percent}% REWARD
+                              SHARE
+                            </span>
+                            {resolvedData.stats.activeReferees === 0 &&
+                              resolvedData.stats.pendingReferees > 0 && (
+                                <span className="text-amber-600 dark:text-amber-400 text-[10px]">
+                                  ({resolvedData.stats.pendingReferees} pending)
+                                </span>
+                              )}
+                          </div>
                         </div>
                         {resolvedData.stats.currentTier.nextTier && (
                           <div className="text-left sm:text-right p-2 rounded-xl bg-muted/50 dark:bg-muted/60 border border-dashed border-border/20 dark:border-border/40">
@@ -766,6 +798,33 @@ export function ReferralNetworkDialog({
                     {resolvedData.referees.length} Total
                   </div>
                 </div>
+
+                {/* Activation explainer when there are pending referees but no active ones */}
+                {resolvedData.referees.length > 0 &&
+                  resolvedData.stats.activeReferees === 0 && (
+                    <div className="rounded-xl bg-amber-500/5 dark:bg-amber-400/5 border border-amber-500/20 dark:border-amber-400/20 p-4 space-y-2">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 p-1.5 rounded-lg bg-amber-500/10 dark:bg-amber-400/10">
+                          <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground">
+                            Waiting for Activation
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                            Your referrals need to earn{" "}
+                            <span className="font-bold text-foreground">
+                              100 points after linking
+                            </span>{" "}
+                            to become active. Points they earned before joining
+                            through your link don&apos;t count toward this
+                            threshold.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                 {resolvedData.referees.length === 0 ? (
                   <div className="rounded-2xl border border-dashed p-10 text-center bg-muted/10">
                     <div className="inline-flex p-4 rounded-2xl bg-muted/50 mb-4">
@@ -808,7 +867,7 @@ export function ReferralNetworkDialog({
                               Status
                             </TableHead>
                             <TableHead className="h-10 text-right text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap">
-                              Earnings
+                              Your Earnings
                             </TableHead>
                           </TableRow>
                         </TableHeader>
@@ -840,7 +899,7 @@ export function ReferralNetworkDialog({
                                   {ref.activationPending ? (
                                     <Badge
                                       variant="secondary"
-                                      className="bg-muted/50 dark:bg-muted/60 text-foreground border-border/20 dark:border-border/40 hover:bg-muted/50 dark:hover:bg-muted/60 gap-1 rounded-lg h-5 sm:h-6 text-[10px] font-semibold whitespace-nowrap"
+                                      className="bg-[#16a34a]/10 text-[#16a34a] dark:bg-[#4ade80]/10 dark:text-[#4ade80] border-[#16a34a]/20 dark:border-[#4ade80]/20 hover:bg-[#16a34a]/10 dark:hover:bg-[#4ade80]/10 gap-1 rounded-lg h-5 sm:h-6 text-[10px] font-semibold whitespace-nowrap"
                                     >
                                       <Sparkles className="w-3 h-3" />{" "}
                                       Activating
@@ -854,12 +913,17 @@ export function ReferralNetworkDialog({
                                       Active
                                     </Badge>
                                   ) : (
-                                    <Badge
-                                      variant="secondary"
-                                      className="bg-muted/30 dark:bg-muted/50 text-muted-foreground border-border/20 dark:border-border/40 hover:bg-muted/30 dark:hover:bg-muted/50 gap-1 rounded-lg h-5 sm:h-6 text-[10px] font-semibold whitespace-nowrap"
-                                    >
-                                      <Clock className="w-3 h-3" /> Pending
-                                    </Badge>
+                                    <div className="flex flex-col gap-1">
+                                      <Badge
+                                        variant="secondary"
+                                        className="bg-amber-500/10 dark:bg-amber-400/10 text-amber-600 dark:text-amber-400 border-amber-500/20 dark:border-amber-400/20 hover:bg-amber-500/10 dark:hover:bg-amber-400/10 gap-1 rounded-lg h-5 sm:h-6 text-[10px] font-semibold whitespace-nowrap"
+                                      >
+                                        <Clock className="w-3 h-3" /> Pending
+                                      </Badge>
+                                      <span className="text-[8px] text-muted-foreground/60 whitespace-nowrap">
+                                        Needs 100 pts
+                                      </span>
+                                    </div>
                                   )}
                                 </div>
                               </TableCell>
@@ -886,50 +950,140 @@ export function ReferralNetworkDialog({
                 )}
               </div>
 
-              {/* FOOTER TIPS */}
+              {/* FAQ SECTION */}
               <div className="rounded-xl bg-muted/30 dark:bg-muted/50 p-4 sm:p-5 border border-border/20 dark:border-border/40 space-y-3 sm:space-y-4">
                 <div className="flex items-center gap-2">
-                  <Info className="w-3.5 h-3.5 text-[#22D3EE]" />
                   <h4 className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                    Quick Guide
+                    FAQ
                   </h4>
                 </div>
-                <ul className="space-y-2 sm:space-y-3">
-                  <li className="flex items-start gap-2 sm:gap-3 text-[11px] sm:text-xs text-muted-foreground/60 dark:text-muted-foreground/80">
-                    <div className="mt-1.5 h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-[#22D3EE] shrink-0" />
-                    <p className="leading-relaxed">
-                      Referrals become{" "}
+                <Accordion type="single" collapsible className="space-y-2">
+                  <AccordionItem
+                    value="activation"
+                    className="border-b-0 rounded-lg bg-background/50 dark:bg-background/30 px-3 sm:px-4"
+                  >
+                    <AccordionTrigger className="py-2.5 sm:py-3 text-[11px] sm:text-xs font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                      How do referrals become active?
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-3 text-[11px] sm:text-xs text-muted-foreground/70 dark:text-muted-foreground/80 leading-relaxed">
+                      Your referrals need to earn{" "}
                       <span className="text-foreground font-semibold">
-                        Active
+                        100 Impact Points after linking
                       </span>{" "}
-                      once they earn{" "}
+                      through your code. Points they earned before joining
+                      don&apos;t count toward this threshold. Once active,
+                      you&apos;ll start earning rewards from their activity.
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem
+                    value="rewards"
+                    className="border-b-0 rounded-lg bg-background/50 dark:bg-background/30 px-3 sm:px-4"
+                  >
+                    <AccordionTrigger className="py-2.5 sm:py-3 text-[11px] sm:text-xs font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                      How much do I earn from referrals?
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-3 text-[11px] sm:text-xs text-muted-foreground/70 dark:text-muted-foreground/80 leading-relaxed space-y-2">
+                      <p>
+                        You earn a percentage of your referrals&apos;{" "}
+                        <span className="text-foreground font-semibold">
+                          base points
+                        </span>{" "}
+                        (before multipliers). The more referrals you have, the
+                        higher your rate:
+                      </p>
+                      <div className="grid grid-cols-2 gap-1.5 pt-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground/50">
+                            1 referral
+                          </span>
+                          <span className="text-foreground font-semibold">
+                            5%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground/50">
+                            2-3 referrals
+                          </span>
+                          <span className="text-foreground font-semibold">
+                            10%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground/50">
+                            4-6 referrals
+                          </span>
+                          <span className="text-foreground font-semibold">
+                            15%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground/50">
+                            7+ referrals
+                          </span>
+                          <span className="text-foreground font-semibold">
+                            20%
+                          </span>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem
+                    value="referee-benefit"
+                    className="border-b-0 rounded-lg bg-background/50 dark:bg-background/30 px-3 sm:px-4"
+                  >
+                    <AccordionTrigger className="py-2.5 sm:py-3 text-[11px] sm:text-xs font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                      What do my referrals get?
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-3 text-[11px] sm:text-xs text-muted-foreground/70 dark:text-muted-foreground/80 leading-relaxed">
+                      People who join through your link receive a{" "}
                       <span className="text-foreground font-semibold">
-                        100 post-link base points
-                      </span>
-                      .
-                    </p>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3 text-[11px] sm:text-xs text-muted-foreground/60 dark:text-muted-foreground/80">
-                    <div className="mt-1.5 h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-[#22D3EE] shrink-0" />
-                    <p className="leading-relaxed">
-                      Your earnings are based on their{" "}
-                      <span className="text-foreground font-semibold">
-                        Base Points
+                        +100 point bonus
                       </span>{" "}
-                      (before multipliers).
-                    </p>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3 text-[11px] sm:text-xs text-muted-foreground/60 dark:text-muted-foreground/80">
-                    <div className="mt-1.5 h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-[#22D3EE] shrink-0" />
-                    <p className="leading-relaxed">
-                      Rewards finalize every{" "}
-                      <span className="text-foreground font-semibold font-mono uppercase">
-                        Sunday 00:00 UTC
+                      when they reach 100 total points (activation), plus a{" "}
+                      <span className="text-foreground font-semibold">
+                        10% boost on their base points for 12 weeks
                       </span>
-                      .
-                    </p>
-                  </li>
-                </ul>
+                      . This helps them climb the leaderboard faster while
+                      getting started.
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem
+                    value="change-referrer"
+                    className="border-b-0 rounded-lg bg-background/50 dark:bg-background/30 px-3 sm:px-4"
+                  >
+                    <AccordionTrigger className="py-2.5 sm:py-3 text-[11px] sm:text-xs font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                      Can referrals change their referrer?
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-3 text-[11px] sm:text-xs text-muted-foreground/70 dark:text-muted-foreground/80 leading-relaxed">
+                      Users have a{" "}
+                      <span className="text-foreground font-semibold">
+                        7-day grace period
+                      </span>{" "}
+                      after linking to change their referrer. After that, the
+                      link becomes permanent.
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem
+                    value="finalization"
+                    className="border-b-0 rounded-lg bg-background/50 dark:bg-background/30 px-3 sm:px-4"
+                  >
+                    <AccordionTrigger className="py-2.5 sm:py-3 text-[11px] sm:text-xs font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                      When do rewards update?
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-3 text-[11px] sm:text-xs text-muted-foreground/70 dark:text-muted-foreground/80 leading-relaxed">
+                      Rewards are calculated weekly and finalize every{" "}
+                      <span className="text-foreground font-semibold font-mono">
+                        Sunday at 00:00 UTC
+                      </span>
+                      . You&apos;ll see your earnings update at the start of
+                      each new week.
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </div>
             </div>
           )}
