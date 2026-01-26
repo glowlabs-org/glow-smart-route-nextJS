@@ -23,6 +23,7 @@ import {
   type PendingTransfer,
 } from "@glowlabs-org/utils/browser";
 
+import * as Sentry from "@sentry/nextjs";
 import {
   Dialog,
   DialogClose,
@@ -1177,6 +1178,18 @@ export function MintAndStakeGctlDialog({
       if (activeStep)
         updateStakeStepStatus(activeStep.id, "error", { errorMessage: msg });
 
+      // Report to Sentry (exclude user rejections)
+      const isUserRejected =
+        msg?.includes("User rejected") || (error as any)?.code === 4001;
+      if (!isUserRejected) {
+        const normalizedError =
+          error instanceof Error ? error : new Error(String(msg));
+        Sentry.captureException(normalizedError, {
+          tags: { gctlStage: "stake_existing" },
+          extra: { regionId: selectedRegionId, walletAddress: address },
+        });
+      }
+
       trackGctlEvent("gctl_stake_existing_error", {
         step,
         region_id: selectedRegionId,
@@ -1422,6 +1435,23 @@ export function MintAndStakeGctlDialog({
       );
       if (activeStep)
         updateStakeStepStatus(activeStep.id, "error", { errorMessage: msg });
+
+      // Report to Sentry (exclude user rejections)
+      const isUserRejected =
+        msg?.includes("User rejected") || (error as any)?.code === 4001;
+      if (!isUserRejected) {
+        const normalizedError =
+          error instanceof Error ? error : new Error(String(msg));
+        Sentry.captureException(normalizedError, {
+          tags: { gctlStage: "mint_stake" },
+          extra: {
+            regionId: selectedRegionId,
+            payCurrency: selectedCurrency,
+            walletAddress: address,
+          },
+        });
+      }
+
       trackGctlEvent("gctl_mint_stake_error", {
         step,
         region_id: selectedRegionId,

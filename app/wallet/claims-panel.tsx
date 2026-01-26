@@ -30,6 +30,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 import {
   useClaimableRewards,
   type ClaimableReward,
@@ -646,6 +647,23 @@ function WeekRewardsContent({
         }
       } catch (error: any) {
         console.error("Claim error:", error);
+
+        // Report to Sentry (exclude user rejections)
+        const isUserRejected =
+          error?.message?.includes("User rejected") || error?.code === 4001;
+        if (!isUserRejected) {
+          const normalizedError =
+            error instanceof Error ? error : new Error(String(error?.message || error));
+          Sentry.captureException(normalizedError, {
+            tags: { walletStage: "claim_single_reward" },
+            extra: {
+              week: weekData.week,
+              rewardType,
+              walletAddress: address,
+            },
+          });
+        }
+
         toast.error(
           `Failed to claim ${
             isInflation ? "emission" : "protocol deposit"
@@ -1353,6 +1371,22 @@ export function ClaimsPanel({
       }
     } catch (error: any) {
       console.error("Claim confirmation error:", error);
+
+      // Report to Sentry (exclude user rejections)
+      const isUserRejected =
+        error?.message?.includes("User rejected") || error?.code === 4001;
+      if (!isUserRejected) {
+        const normalizedError =
+          error instanceof Error ? error : new Error(String(error?.message || error));
+        Sentry.captureException(normalizedError, {
+          tags: { walletStage: "claim_confirmation" },
+          extra: {
+            week: activeClaim.weekData.week,
+            walletAddress: activeClaim.address,
+          },
+        });
+      }
+
       setClaimDialogStatus("error");
       setClaimDialogError(
         error?.message ||

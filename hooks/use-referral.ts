@@ -5,6 +5,7 @@ import { useAccount, useChainId, useSignTypedData } from "wagmi";
 import { hubGet, hubPost } from "@/lib/api/hub-client";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/telemetry";
+import * as Sentry from "@sentry/nextjs";
 
 // ============================================
 // EIP-712 Definitions (Must match backend)
@@ -128,10 +129,16 @@ export function useReferral() {
     },
     onError: (error: any, referralCode) => {
       trackEvent("referral_link_error", { referralCode, wallet: address, error: error?.message });
-      // Don't show toast for user-rejected signature
+      // Don't show toast or report to Sentry for user-rejected signature
       if (error?.message?.includes("User rejected") || error?.code === 4001) {
         return;
       }
+      const normalizedError =
+        error instanceof Error ? error : new Error(String(error?.message || error));
+      Sentry.captureException(normalizedError, {
+        tags: { referralStage: "link" },
+        extra: { referralCode, walletAddress: address },
+      });
       toast.error(error?.message || "Failed to link referrer");
     },
   });
@@ -189,10 +196,16 @@ export function useReferral() {
     },
     onError: (error: any, newReferralCode) => {
       trackEvent("referral_change_error", { newReferralCode, wallet: address, error: error?.message });
-      // Don't show toast for user-rejected signature
+      // Don't show toast or report to Sentry for user-rejected signature
       if (error?.message?.includes("User rejected") || error?.code === 4001) {
         return;
       }
+      const normalizedError =
+        error instanceof Error ? error : new Error(String(error?.message || error));
+      Sentry.captureException(normalizedError, {
+        tags: { referralStage: "change" },
+        extra: { newReferralCode, walletAddress: address },
+      });
       toast.error(error?.message || "Failed to change referrer");
     },
   });

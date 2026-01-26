@@ -16,6 +16,7 @@ import { useReferral } from "@/hooks/use-referral";
 import { motion, useReducedMotion } from "framer-motion";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { trackEvent } from "@/lib/telemetry";
+import * as Sentry from "@sentry/nextjs";
 
 const SPARKLES = [
   { top: "18%", left: "16%", size: "6px", delay: 0 },
@@ -88,8 +89,13 @@ export function ActivationCelebrationModal({
       queryClient.invalidateQueries({
         queryKey: ["referral-status", address],
       });
-    } catch {
-      // no-op
+    } catch (err) {
+      const normalizedError =
+        err instanceof Error ? err : new Error(String(err));
+      Sentry.captureException(normalizedError, {
+        tags: { referralStage: "activation_seen" },
+        extra: { walletAddress: address },
+      });
     }
   }, [address, mock, queryClient]);
 

@@ -58,43 +58,54 @@ Features enabled:
 
 ---
 
+## Implemented Error Tracking
+
+### Referral System
+
+| File | Stage Tag | Description |
+|------|-----------|-------------|
+| `hooks/use-referral.ts` | `referralStage: "link"` | Link referrer failed |
+| `hooks/use-referral.ts` | `referralStage: "change"` | Change referrer failed |
+| `components/referral/feature-launch-modal.tsx` | `referralStage: "feature_launch_claim"` | Claim with code failed |
+| `components/referral/activation-celebration-modal.tsx` | `referralStage: "activation_seen"` | Mark activation seen failed |
+
+### GCTL Minting & Staking
+
+| File | Stage Tag | Description |
+|------|-----------|-------------|
+| `components/dialogs/mint-and-stake-gctl-dialog.tsx` | `gctlStage: "mint_stake"` | Mint & stake GCTL failed |
+| `components/dialogs/mint-and-stake-gctl-dialog.tsx` | `gctlStage: "stake_existing"` | Stake existing GCTL failed |
+
+### Marketplace
+
+| File | Stage Tag | Description |
+|------|-----------|-------------|
+| `app/marketplace/deposit-dialog.tsx` | `marketplaceStage: "deposit"` | Deposit/purchase transaction failed |
+
+### Wallet Claims
+
+| File | Stage Tag | Description |
+|------|-----------|-------------|
+| `app/wallet/claims-panel.tsx` | `walletStage: "claim_single_reward"` | Single reward claim failed |
+| `app/wallet/claims-panel.tsx` | `walletStage: "claim_confirmation"` | Claim confirmation failed |
+
+Note: User signature rejections (code 4001) are excluded from Sentry reporting.
+
+---
+
 ## Gaps - Missing Error Tracking
-
-### Referral System (HIGH PRIORITY)
-
-The referral feature has no Sentry error tracking. Add tracking for:
-
-| File | Error Case | Suggested Tags |
-|------|------------|----------------|
-| `hooks/use-referral.ts` | `linkReferrer` fails | `referralStage: "link"` |
-| `hooks/use-referral.ts` | `changeReferrer` fails | `referralStage: "change"` |
-| `hooks/use-referral.ts` | `validateCode` fails | `referralStage: "validate"` |
-| `app/r/[code]/page.tsx` | Link/change throws | `referralStage: "landing_link"` |
-| `components/referral/feature-launch-modal.tsx` | Claim with code fails | `referralStage: "feature_launch_claim"` |
-| `components/referral/change-referrer-dialog.tsx` | Change referrer fails | `referralStage: "change_dialog"` |
-| `components/referral/activation-celebration-modal.tsx` | Mark seen fails | `referralStage: "activation_seen"` |
-| `components/dialogs/referral-network-dialog.tsx` | Network data fetch fails | `referralStage: "network_fetch"` |
 
 ### Marketplace / Launchpad
 
 | File | Error Case | Suggested Tags |
 |------|------------|----------------|
-| `app/marketplace/deposit-dialog.tsx` | Deposit transaction fails | `marketplaceStage: "deposit"` |
 | `app/marketplace/launchpad-view.tsx` | Data fetch fails | `marketplaceStage: "fetch"` |
 
 ### Wallet Operations
 
 | File | Error Case | Suggested Tags |
 |------|------------|----------------|
-| `app/wallet/claims-panel.tsx` | Claim transaction fails | `walletStage: "claim"` |
 | `components/wallet-widget.tsx` | Balance fetch fails | `walletStage: "balance_fetch"` |
-
-### GCTL Minting
-
-| File | Error Case | Suggested Tags |
-|------|------------|----------------|
-| `components/dialogs/mint-and-stake-gctl-dialog.tsx` | Mint fails | `gctlStage: "mint"` |
-| `components/dialogs/mint-and-stake-gctl-dialog.tsx` | Stake fails | `gctlStage: "stake"` |
 
 ### API Routes
 

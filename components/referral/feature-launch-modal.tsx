@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { trackEvent } from "@/lib/telemetry";
+import * as Sentry from "@sentry/nextjs";
 import { GlowSymbol } from "@/components/glow-symbol";
 import { hubPost } from "@/lib/api/hub-client";
 import { useAccount } from "wagmi";
@@ -187,6 +188,17 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
       setStep("success");
     } catch (err) {
       const message = (err as Error)?.message || "Something went wrong";
+      // Don't report user rejections to Sentry
+      const isUserRejection =
+        message?.includes("User rejected") || (err as any)?.code === 4001;
+      if (!isUserRejection) {
+        const normalizedError =
+          err instanceof Error ? err : new Error(String(message));
+        Sentry.captureException(normalizedError, {
+          tags: { referralStage: "feature_launch_claim" },
+          extra: { code: trimmedCode, walletAddress: address },
+        });
+      }
       setLocalError(message);
     }
   };

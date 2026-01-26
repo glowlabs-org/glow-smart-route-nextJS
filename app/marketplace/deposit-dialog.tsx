@@ -30,6 +30,7 @@ import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useSponsorApplication, type AuctionApplication } from "@/hooks";
 import { ConnectButton } from "@/components/connect-button";
 import { trackEvent } from "@/lib/telemetry";
+import * as Sentry from "@sentry/nextjs";
 import { AnimatePresence, motion } from "framer-motion";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { publicClient } from "@/web3/web3/clients/publicClient";
@@ -910,6 +911,22 @@ export function DepositDialog({
           failed_step: activeStep?.id ?? null,
           error_message: rawMsg.slice(0, 200),
           error_name: errorName || null,
+        });
+
+        // Report to Sentry
+        const normalizedError = e instanceof Error ? e : new Error(String(rawMsg));
+        Sentry.captureException(normalizedError, {
+          tags: { marketplaceStage: "deposit" },
+          extra: {
+            currency: selectedCurrency,
+            paymentMethod: selectedPaymentMethod,
+            applicationId: application?.id,
+            fractionId: application?.activeFraction?.id,
+            quantity,
+            failedStep: activeStep?.id,
+            errorName: errorName || null,
+            walletAddress: address,
+          },
         });
       }
 
