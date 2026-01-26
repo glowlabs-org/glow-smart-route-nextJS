@@ -172,11 +172,68 @@ className="bg-muted/50 text-muted-foreground"
 
 ## Cards & Containers
 
-### Info Cards (Neutral)
+### Info Cards
+
+Info containers inside dialogs use a subtle muted background with proper dark mode variants:
 
 ```tsx
 <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
   {/* Content */}
+</div>
+```
+
+**Key rules:**
+- Dialog background is `bg-card` (set on DialogContent)
+- Info containers inside dialogs use `bg-muted/30 dark:bg-muted/50`
+- Always pair light/dark mode opacity values (30% light → 50% dark)
+- Borders follow the same pattern: `border-border/20 dark:border-border/40`
+
+**IMPORTANT:** Never reverse the opacity values. Light mode needs LOWER opacity (30%) because the background is already light. Dark mode needs HIGHER opacity (50%) to create visible contrast against the dark background.
+
+### Nested Containers (Contrast Layering)
+
+When placing a container **inside** an already-muted parent, use the **opposite** background to create contrast:
+
+| Parent Background | Child Background | Result |
+|-------------------|------------------|--------|
+| `bg-card` | `bg-muted/30 dark:bg-muted/50` | Gray container on white |
+| `bg-muted/30 dark:bg-muted/50` | `bg-card` | White container on gray |
+
+**Example: Expandable row with detail panel**
+
+```tsx
+{/* Row container - muted background */}
+<div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-4">
+  {/* Row content... */}
+
+  {/* Nested detail panel - use bg-card for contrast */}
+  {isExpanded && (
+    <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card p-4">
+      {/* Breakdown, Timeline, etc. */}
+    </div>
+  )}
+</div>
+```
+
+**Why this matters:**
+- If nested container uses the same `bg-muted/30` as parent, it blends in and becomes invisible
+- Using `bg-card` creates a visible white/light panel against the gray parent
+- This alternating pattern ensures clear visual hierarchy at any nesting depth
+
+**Common mistake to avoid:**
+```tsx
+{/* WRONG - nested container blends into parent */}
+<div className="bg-muted/30 dark:bg-muted/50">
+  <div className="bg-muted/30 dark:bg-muted/50">  {/* Invisible! */}
+    ...
+  </div>
+</div>
+
+{/* CORRECT - contrast creates visible nesting */}
+<div className="bg-muted/30 dark:bg-muted/50">
+  <div className="bg-card">  {/* Visible white panel */}
+    ...
+  </div>
 </div>
 ```
 
@@ -392,11 +449,13 @@ For inline dividers within cards:
 
 ### Do's
 
-- Use `bg-card` for dialog backgrounds
+- Use `bg-card` for dialog backgrounds (on DialogContent)
+- Use `bg-muted/30 dark:bg-muted/50` for info containers inside dialogs
+- Use `bg-card` for nested containers inside muted parents (contrast layering)
 - Use `border-border/20 dark:border-border/40` for subtle borders
 - Color only icons when active, not containers
 - Use `font-mono` for numbers and labels
-- Keep labels quiet with `text-muted-foreground/60 dark:text-muted-foreground/80`
+- Keep labels quiet with `text-muted-foreground` (no opacity for readability)
 - Use hover states for text + border color on buttons
 - Always pair light mode opacity with dark mode equivalents
 - Test dialogs in both light and dark themes before shipping
@@ -412,6 +471,8 @@ For inline dividers within cards:
 - Never use full opacity borders (`border-border` without opacity)
 - Never forget dark mode variants for opacity-based classes
 - Never use the same opacity in dark mode as light mode (increase by ~20%)
+- **Never reverse opacity values** - light mode uses LOWER opacity (30%), dark mode uses HIGHER (50%). Using `bg-muted/50 dark:bg-muted/40` is wrong and causes poor contrast
+- **Never use the same background on nested containers** - if parent is `bg-muted`, child must be `bg-card` (and vice versa) to create visible contrast
 
 ---
 

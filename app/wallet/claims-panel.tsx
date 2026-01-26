@@ -727,7 +727,7 @@ function WeekRewardsContent({
                     })}
                   </div>
                 </div>
-                <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70 truncate">
+                <div className="text-[10px] font-mono text-muted-foreground/70 truncate">
                   {rewardLabel}
                 </div>
               </div>
@@ -815,14 +815,14 @@ function TotalsSummaryCard({
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
             {title}
           </div>
-          <div className="mt-1 text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70">
+          <div className="mt-1 text-[10px] font-mono text-muted-foreground">
             {subtitle}
           </div>
         </div>
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/50 text-muted-foreground">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-background border border-border/40 text-muted-foreground">
           {icon}
         </div>
       </div>
@@ -838,7 +838,7 @@ function TotalsSummaryCard({
               <div className="text-3xl font-semibold font-mono tabular-nums tracking-tight text-foreground">
                 {formatCompactAmount(primary[1])}
               </div>
-              <div className="mt-1 text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70">
+              <div className="mt-1 text-[10px] font-mono text-muted-foreground/70">
                 {CURRENCY_CONFIG[primary[0] as CurrencyKey]?.label ??
                   primary[0]}
               </div>
@@ -881,7 +881,7 @@ function TotalsSummaryCard({
               );
             })}
             {entries.length > 3 ? (
-              <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70">
+              <div className="text-[10px] font-mono text-muted-foreground/70">
                 +{entries.length - 3} more
               </div>
             ) : null}
@@ -895,17 +895,17 @@ function TotalsSummaryCard({
 function RewardTypesInfo() {
   return (
     <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
-      <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+      <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
         Reward Types
       </div>
-      <div className="mt-3 space-y-3 text-sm text-muted-foreground">
+      <div className="mt-3 space-y-3 text-sm text-foreground/80 dark:text-foreground/70">
         <div>
-          <span className="font-medium text-foreground">Emission Rewards:</span>{" "}
+          <span className="font-semibold text-foreground">Emission Rewards:</span>{" "}
           GLW earned by solar farms and split between Glow Miners and Glow
           Delegators.
         </div>
         <div>
-          <span className="font-medium text-foreground">Protocol Deposits:</span>{" "}
+          <span className="font-semibold text-foreground">Protocol Deposits:</span>{" "}
           Rewards from Glow&apos;s redistribution mechanism, where
           high-performing farms earn back deposits plus surplus captured from
           underperforming competitors.
@@ -919,21 +919,21 @@ function ClaimsAboutInfo() {
   return (
     <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/50 shrink-0">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-background border border-border/40 shrink-0">
           <AlertCircle className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="space-y-1">
-          <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+          <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
             About Claims
           </div>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-foreground/80 dark:text-foreground/70">
             Rewards become claimable after a 3-week finality period. Week 96 and
             earlier are available to claim on the{" "}
             <a
               href="https://hub.glow.org"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-foreground underline hover:no-underline transition-colors"
+              className="font-semibold text-foreground underline hover:no-underline transition-colors"
             >
               Hub Dashboard
             </a>{" "}
@@ -1515,7 +1515,7 @@ export function ClaimsPanel({
                     </div>
                   )}
                   {status.message && (
-                    <div className="mt-1.5 text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70">
+                    <div className="mt-1.5 text-[10px] font-mono text-muted-foreground/70">
                       {status.message}
                     </div>
                   )}
@@ -1806,7 +1806,7 @@ export function ClaimsPanel({
                 key={weekData.week}
                 defaultOpen={false}
                 className={cn(
-                  "rounded-xl border border-border/20 dark:border-border/40 bg-card",
+                  "rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50",
                   isClaimed && "opacity-60"
                 )}
               >
@@ -1908,44 +1908,55 @@ export function ClaimsPanel({
       {isDialog ? (
         <div
           id="claims-panel"
-          className={cn("flex max-h-[85vh] flex-col p-6", className)}
+          className={cn("flex max-h-[85vh] flex-col", className)}
         >
-          <div className="flex flex-col gap-4 border-b border-border/20 dark:border-border/40 pb-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 text-xl font-semibold md:text-2xl text-foreground">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground">
-                  <Gift className="h-5 w-5" />
-                </div>
-                {isEverythingClaimed
-                  ? "Farm Rewards"
-                  : "Farm Rewards Available"}
+          {/* Header with hero amount */}
+          <div className="border-b border-border/40 pb-6 pt-8 px-6">
+            <div className="flex flex-col items-center text-center space-y-2">
+              <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
+                {isEverythingClaimed ? "Farm Rewards" : "Claimable Rewards"}
               </div>
-              <div className="mt-3 text-sm text-muted-foreground">
+              {/* Hero amount */}
+              <div className="flex items-baseline gap-2">
+                <span className="text-5xl font-semibold font-mono tabular-nums tracking-tight text-foreground">
+                  {hasClaimableRewards
+                    ? formatCompactAmount(
+                        Object.values(actualClaimableTotals).reduce((a, b) => a + b, 0)
+                      )
+                    : "0"}
+                </span>
+                <span className="text-xl font-mono text-muted-foreground">
+                  GLW
+                </span>
+              </div>
+              <div className="text-sm text-muted-foreground">
                 {isEverythingClaimed
-                  ? "Your farm rewards history"
-                  : "Claim your earned rewards from solar farm delegations"}
+                  ? "All rewards have been claimed"
+                  : `${totalClaimableWeeks} week${totalClaimableWeeks !== 1 ? "s" : ""} ready to claim`}
               </div>
             </div>
           </div>
 
-          <div className="flex-1 overflow-hidden pt-4">
-            <ScrollArea className="h-full pr-2">{content}</ScrollArea>
-          </div>
+          {/* Scrollable Content */}
+          <ScrollArea className="max-h-[60vh]">
+            <div className="p-5 space-y-6">{content}</div>
+          </ScrollArea>
         </div>
       ) : (
-        <Card id="claims-panel" className={cn("mb-8 border-border/20 dark:border-border/40", className)}>
-          <CardHeader className="pb-4 md:pb-6">
-            <div className="flex flex-col gap-4">
-              <div className="flex-1">
-                <CardTitle className="flex items-center gap-3 text-xl md:text-2xl text-foreground">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground">
-                    <Gift className="w-5 h-5" />
-                  </div>
-                  {isEverythingClaimed
-                    ? "Farm Rewards"
-                    : "Farm Rewards Available"}
+        <Card id="claims-panel" className={cn("mb-8 border-border/20 dark:border-border/40 overflow-hidden", className)}>
+          <CardHeader className="pb-4 md:pb-6 border-b border-border/20 dark:border-border/40">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 shrink-0">
+                <Gift className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-1">
+                  {isEverythingClaimed ? "Rewards History" : "Rewards Available"}
+                </div>
+                <CardTitle className="text-xl md:text-2xl text-foreground">
+                  Farm Rewards
                 </CardTitle>
-                <CardDescription className="mt-3 text-sm text-muted-foreground">
+                <CardDescription className="mt-2 text-sm text-muted-foreground">
                   {isEverythingClaimed
                     ? "Your farm rewards history"
                     : "Claim your earned rewards from solar farm delegations"}
@@ -1953,7 +1964,7 @@ export function ClaimsPanel({
               </div>
             </div>
           </CardHeader>
-          <CardContent>{content}</CardContent>
+          <CardContent className="pt-6">{content}</CardContent>
         </Card>
       )}
 

@@ -305,7 +305,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
   return (
     <div
       className={cn(
-        "rounded-xl border border-border/30 dark:border-border/40 bg-muted/40 dark:bg-muted/50 transition-colors",
+        "rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 transition-colors",
         isPendingStart && "opacity-60"
       )}
     >
@@ -699,7 +699,7 @@ const FarmPerformanceRow = ({ data }: { data: PerformanceRowData }) => {
         {/* EXPANDABLE DETAIL PANEL */}
         {isExpanded && !isInProgress && (
           <div className="px-4 pb-4 pt-0">
-            <div className="rounded-xl border border-border/30 dark:border-border/40 bg-muted/40 dark:bg-muted/50 p-4">
+            <div className="rounded-xl border border-border/20 dark:border-border/40 bg-card p-4">
               <div className="grid grid-cols-2 gap-6">
                 {/* LEFT: BREAKDOWN */}
                 <div>
@@ -1381,7 +1381,7 @@ export function FarmsPerformanceDialogContent({
   return (
     <DialogContent className="max-w-4xl h-[92dvh] sm:h-[80vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40">
       {/* Header */}
-      <DialogHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border/30 dark:border-border/40 bg-muted/60 dark:bg-muted/50 flex-shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 space-y-0">
+      <DialogHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 flex-shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 space-y-0">
         <DialogTitle className="text-xl sm:text-2xl font-bold font-mono uppercase tracking-wide leading-tight">
           Farm Performance
         </DialogTitle>
@@ -1400,7 +1400,7 @@ export function FarmsPerformanceDialogContent({
           }}
           className="w-full sm:w-auto"
         >
-          <TabsList className="w-full sm:w-auto bg-muted/50 dark:bg-muted/50 border border-border/30 dark:border-border/40 h-10 sm:h-12 p-1 overflow-x-auto">
+          <TabsList className="w-full sm:w-auto bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 h-10 sm:h-12 p-1 overflow-x-auto">
             <TabsTrigger
               value="all"
               className="h-8 sm:h-7 text-xs font-mono px-3 sm:px-4 text-muted-foreground data-[state=active]:text-[#ffb472] data-[state=active]:bg-[#ffb472]/12 data-[state=active]:border data-[state=active]:border-[#ffb472]"
@@ -1444,7 +1444,7 @@ export function FarmsPerformanceDialogContent({
       </DialogHeader>
 
       {/* Legend / Columns */}
-      <div className="hidden sm:grid grid-cols-12 px-6 py-3 border-b border-border/30 dark:border-border/40 bg-muted/50 dark:bg-muted/50 text-xs font-mono uppercase text-muted-foreground tracking-wider flex-shrink-0 gap-4">
+      <div className="hidden sm:grid grid-cols-12 px-6 py-3 border-b border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 text-xs font-mono uppercase text-muted-foreground tracking-wider flex-shrink-0 gap-4">
         <div className="col-span-3">Identity</div>
         <div className="col-span-3 px-2">Lifecycle</div>
         <div className="col-span-4 text-center">Key Metrics</div>
@@ -1452,7 +1452,7 @@ export function FarmsPerformanceDialogContent({
       </div>
 
       {/* Scrollable List */}
-      <ScrollArea className="flex-1 min-h-0 bg-background">
+      <ScrollArea className="flex-1 min-h-0">
         <TooltipProvider delayDuration={0}>
           <div className="p-4 sm:p-6 space-y-3 pb-12 min-h-0">
             {!hasWallet ? (
@@ -1512,7 +1512,7 @@ export function FarmsPerformanceDialogContent({
                   !isSpotPriceLoading &&
                   (!Number.isFinite(glwSpotPriceUsd ?? NaN) ||
                     (glwSpotPriceUsd ?? 0) <= 0) && (
-                    <div className="rounded-xl border border-border/30 dark:border-border/40 bg-muted/40 dark:bg-muted/50 p-3 text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+                    <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
                       ROI requires GLW spot price; showing $0 until price is
                       available.
                     </div>
@@ -1546,7 +1546,7 @@ export default function FarmsPerformanceDialogWidget({
   return (
     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
       <Card className="h-full max-h-[400px] flex flex-col overflow-hidden bg-card border border-border/20 dark:border-border/40">
-        <CardHeader className="pb-2 border-b border-border/30 dark:border-border/40 bg-muted/50 dark:bg-muted/50">
+        <CardHeader className="pb-2 border-b border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CardTitle className="tracking-tight text-sm font-bold text-foreground uppercase font-mono">

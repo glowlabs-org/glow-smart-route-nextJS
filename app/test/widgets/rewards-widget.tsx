@@ -116,7 +116,7 @@ function RewardsCountdown(props: { initialDurationMs: number }) {
   });
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border/60 bg-muted/20 py-2 px-3">
+    <div className="relative overflow-hidden rounded-xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-muted/40 py-2 px-3">
       <motion.div
         aria-hidden
         className="pointer-events-none absolute -inset-16 opacity-30 dark:opacity-20"
@@ -409,7 +409,7 @@ export default function RewardsWidget({
 
                   {nextClaimLabel && (
                     <div className="pt-3">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/30 border border-border/50">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
                         <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
                           next claim:
                         </span>
@@ -433,7 +433,7 @@ export default function RewardsWidget({
                 <Button className="w-full ">See Rewards</Button>
               </DialogTrigger>
               <DialogContent
-                className="bg-background rounded-2xl p-0 sm:max-w-[980px] w-full border-border shadow-2xl overflow-hidden"
+                className="bg-card rounded-[24px] p-0 sm:max-w-[980px] w-full border border-border/20 dark:border-border/40 overflow-hidden"
                 onInteractOutside={(e) => e.preventDefault()}
               >
                 <DialogTitle className="sr-only">Claim Rewards</DialogTitle>
