@@ -15,8 +15,39 @@ import { toast } from "sonner";
 import { keccak256, toHex } from "viem";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useGctlApi } from "@/hooks";
+import { useConnectorClient } from "wagmi";
 import { WalletsRouter } from "@glowlabs-org/utils/browser";
 import * as Sentry from "@sentry/nextjs";
+
+// Helper to get signature debugging info
+function getSignatureDebugInfo(signature: string | undefined) {
+  if (!signature) return { signatureLength: 0, signatureType: "none", signaturePreview: "none" };
+
+  const hexLength = signature.length - 2; // Remove 0x prefix
+  const byteLength = hexLength / 2;
+
+  let signatureType: string;
+  if (byteLength === 64) {
+    signatureType = "eip2098_compact";
+  } else if (byteLength === 65) {
+    signatureType = "ecdsa_standard";
+  } else if (byteLength > 65) {
+    signatureType = "erc1271_or_eip6492";
+  } else {
+    signatureType = "invalid_too_short";
+  }
+
+  // Truncate signature for logging (first 20 chars + last 20 chars)
+  const signaturePreview = signature.length > 44
+    ? `${signature.slice(0, 22)}...${signature.slice(-20)}`
+    : signature;
+
+  return {
+    signatureLength: byteLength,
+    signatureType,
+    signaturePreview,
+  };
+}
 import {
   Collapsible,
   CollapsibleContent,
@@ -231,10 +262,15 @@ const tosEIP712Types = {
 };
 
 export function TosDialog() {
-  const { isConnected, address } = useAccount();
+  const { isConnected, address, connector } = useAccount();
   const { disconnect } = useDisconnect();
   const { signer, isLoading: isSignerLoading } = useEthersSigner();
   const { latestNonce } = useGctlApi(address);
+  const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 1;
+
+  // Get connector info for debugging
+  const connectorName = connector?.name || "unknown";
+  const connectorId = connector?.id || "unknown";
   const [isOpen, setIsOpen] = React.useState(false);
   const [isInitialized, setIsInitialized] = React.useState(false);
   const [hasAccepted, setHasAccepted] = React.useState(false);
@@ -320,10 +356,22 @@ export function TosDialog() {
     setError(null);
     setIsSigning(true);
 
+    // Track signing context for error reporting
+    let signingContext = {
+      tosHash: "",
+      nonce: "",
+      deadline: "",
+      signature: "",
+      signingMethod: "eip712" as "eip712" | "personal_sign",
+    };
+
     try {
       const tosHash = getTosHash();
       const nonce = (Number(latestNonce) + 1).toString();
       const deadline = Math.floor(Date.now() / 1000 + 3600).toString();
+
+      // Store in context for error reporting
+      signingContext = { ...signingContext, tosHash, nonce, deadline };
 
       const timestamp = new Date().toISOString();
       const message = `I accept the Glow Terms of Service at app.glow.org
@@ -350,17 +398,18 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
         };
 
         signature = await signer.signTypedData(
-          tosEIP712Domain(Number(process.env.NEXT_PUBLIC_CHAIN_ID)),
+          tosEIP712Domain(chainId),
           tosEIP712Types as unknown as Record<string, any[]>,
           signatureMessage
         );
+        signingContext.signature = signature;
       } catch (typedDataError) {
         console.warn(
           "EIP-712 signing failed, falling back to personal sign:",
           typedDataError
         );
 
-        // Log EIP-712 failure to Sentry
+        // Log EIP-712 failure to Sentry with wallet context
         if (typeof window !== "undefined") {
           const normalizedError =
             typedDataError instanceof Error
@@ -370,21 +419,28 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
             tags: {
               tosStage: "eip712_signing",
               walletAddress: address,
+              chainId: String(chainId),
+              connectorName,
+              connectorId,
             },
             extra: {
               tosVersion: TOS_VERSION,
               tosHash,
               nonce,
               deadline,
-              chainId: process.env.NEXT_PUBLIC_CHAIN_ID,
+              deadlineHuman: new Date(Number(deadline) * 1000).toISOString(),
               errorMessage: normalizedError.message,
+              // Include raw error for better debugging
+              rawError: typeof typedDataError === "object" ? JSON.stringify(typedDataError, null, 2) : String(typedDataError),
             },
           });
         }
 
         // Fallback to personal sign for wallets that don't support EIP-712 properly
         signingMethod = "personal_sign";
+        signingContext.signingMethod = signingMethod;
         signature = await signer.signMessage(message);
+        signingContext.signature = signature;
       }
 
       if (!signature) {
@@ -418,22 +474,33 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
           deadline,
         });
       } catch (apiError) {
-        // Log API errors to Sentry
+        // Log API errors to Sentry with comprehensive debugging info
         if (typeof window !== "undefined") {
           const normalizedError =
             apiError instanceof Error ? apiError : new Error(String(apiError));
+          const sigDebug = getSignatureDebugInfo(signature);
+
           Sentry.captureException(normalizedError, {
             tags: {
               tosStage: "api_submission",
               walletAddress: address,
               signingMethod,
+              chainId: String(chainId),
+              connectorName,
+              connectorId,
+              signatureType: sigDebug.signatureType,
             },
             extra: {
               tosVersion: TOS_VERSION,
               tosHash,
               nonce,
               deadline,
+              deadlineHuman: new Date(Number(deadline) * 1000).toISOString(),
+              signatureLength: sigDebug.signatureLength,
+              signaturePreview: sigDebug.signaturePreview,
               errorMessage: normalizedError.message,
+              // Include raw error for nested error objects
+              rawError: typeof apiError === "object" ? JSON.stringify(apiError, null, 2) : String(apiError),
             },
           });
         }
@@ -460,24 +527,41 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
         });
       }
 
-      // Log non-rejection errors to Sentry
+      // Log non-rejection errors to Sentry with comprehensive debugging info
       if (parsedError.type !== "signature_rejected" && typeof window !== "undefined") {
         const normalizedError =
           error instanceof Error ? error : new Error(String(error));
+        const sigDebug = getSignatureDebugInfo(signingContext.signature);
+
         Sentry.captureException(normalizedError, {
           tags: {
             tosStage: "general_error",
             tosErrorType: parsedError.type,
             walletAddress: address,
+            chainId: String(chainId),
+            connectorName,
+            connectorId,
+            signingMethod: signingContext.signingMethod,
+            signatureType: sigDebug.signatureType,
           },
           extra: {
             tosVersion: TOS_VERSION,
-            tosHash: getTosHash(),
-            nonce: latestNonce,
+            tosHash: signingContext.tosHash || getTosHash(),
+            nonce: signingContext.nonce || String(latestNonce),
+            deadline: signingContext.deadline,
+            deadlineHuman: signingContext.deadline
+              ? new Date(Number(signingContext.deadline) * 1000).toISOString()
+              : "not set",
+            signatureLength: sigDebug.signatureLength,
+            signaturePreview: sigDebug.signaturePreview,
             errorMessage: normalizedError.message,
             errorType: typeof error,
             parsedErrorType: parsedError.type,
+            parsedErrorTitle: parsedError.title,
+            parsedErrorSuggestion: parsedError.suggestion,
             retryCount,
+            // Include raw error for nested error objects
+            rawError: typeof error === "object" ? JSON.stringify(error, null, 2) : String(error),
           },
         });
       }
