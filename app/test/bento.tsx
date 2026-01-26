@@ -416,7 +416,7 @@ export default function GlowSoftDashboard({
           <FeatureLaunchModal />
         </>
       ) : null}
-      <div className="max-w-screen-2xl mx-auto px-8 py-10 lg:px-12">
+      <div className="max-w-screen-2xl mx-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-12 lg:py-10">
         <AnimatePresence mode="wait" initial={false}>
           {hasWallet ? (
             <motion.div
@@ -448,7 +448,7 @@ export default function GlowSoftDashboard({
               {/* Dashboard Overview */}
               <section className="flex flex-col gap-8">
                 <SectionHeader title="Overview" />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
                     <div className="lg:col-span-3 flex">
                       <WidgetErrorBoundary>
@@ -488,7 +488,7 @@ export default function GlowSoftDashboard({
               {/* Mining & Rewards Section */}
               <section className="flex flex-col gap-8 pt-20">
                 <SectionHeader title="Mining & Rewards" />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
                     <div
                       id="bento-solar-farm"
@@ -517,7 +517,7 @@ export default function GlowSoftDashboard({
               {/* Action Section: Grow Your Impact */}
               <section className="flex flex-col gap-8 pt-20">
                 <SectionHeader title="Grow Your Impact" />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
                     <div
                       id="bento-launchpad-status"
@@ -548,7 +548,7 @@ export default function GlowSoftDashboard({
               {/* My Impact Section */}
               <section className="flex flex-col gap-8 pt-20">
                 <SectionHeader title="My Impact" />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <WidgetErrorBoundary>
                     <SolarCollectorWidget
                       walletAddress={walletAddress}
@@ -577,7 +577,7 @@ export default function GlowSoftDashboard({
               {/* Journey Section */}
               <section className="flex flex-col gap-8 pt-20">
                 <SectionHeader title="Your Journey" />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
                     <div className="pb-8 lg:pb-0 lg:pr-10 flex lg:col-span-4">
                       <WidgetErrorBoundary>
@@ -613,7 +613,7 @@ export default function GlowSoftDashboard({
               {/* My Farms Section */}
               <section className="flex flex-col gap-8 pt-20 pb-20">
                 <SectionHeader title="My Farms" />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <WidgetErrorBoundary>
                     <MyFarmsGridSection walletAddress={walletAddress} />
                   </WidgetErrorBoundary>
@@ -660,7 +660,7 @@ export default function GlowSoftDashboard({
               {/* Hero Section */}
               <section className="flex flex-col gap-8">
                 <SectionHeader title="Get Started" />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-0 items-stretch">
                     <div className="pb-8 lg:pb-0 lg:pr-10 flex min-h-[340px]">
                       <WidgetErrorBoundary>
@@ -687,7 +687,7 @@ export default function GlowSoftDashboard({
               {/* Community & Leaderboard Section */}
               <section className="flex flex-col gap-8">
                 <SectionHeader title="Community & Leaderboard" />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
                     <div className="pb-8 lg:pb-0 lg:pr-10 lg:col-span-8 flex min-h-[400px]">
                       <WidgetErrorBoundary>
@@ -712,7 +712,7 @@ export default function GlowSoftDashboard({
               {/* Protocol Metrics Section */}
               <section className="flex flex-col gap-8">
                 <SectionHeader title="Protocol Metrics" />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <WidgetErrorBoundary>
                     <ProtocolMetricsWidget />
                   </WidgetErrorBoundary>
@@ -722,7 +722,7 @@ export default function GlowSoftDashboard({
               {/* Education Section */}
               <section className="flex flex-col gap-8">
                 <SectionHeader title="Education" />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
                     <div className="pb-8 lg:pb-0 lg:pr-10 lg:col-span-7 flex min-h-[400px]">
                       <WidgetErrorBoundary>
@@ -744,7 +744,7 @@ export default function GlowSoftDashboard({
               {/* Stay Connected Section */}
               <section className="flex flex-col gap-8">
                 <SectionHeader title="Stay Connected" />
-                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+                <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/20 items-stretch">
                     <div className="pb-8 lg:pb-0 lg:pr-10 lg:col-span-5 flex min-h-[340px]">
                       <WidgetErrorBoundary>

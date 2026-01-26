@@ -90,25 +90,25 @@ export default function StatsView() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="max-w-screen-2xl mx-auto px-8 py-10 lg:px-12">
+      <div className="max-w-screen-2xl mx-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-12 lg:py-10">
         <div className="flex flex-col gap-8">
           <section className="flex flex-col gap-8">
             <SectionHeader title="Market Tickers" />
-            <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+            <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
               <MarketTickers shouldLoad={true} />
             </div>
           </section>
 
           <section className="flex flex-col gap-8 pt-20">
             <SectionHeader title="Economy Overview" />
-            <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+            <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
               <EconomyOverview shouldLoad={true} />
             </div>
           </section>
 
           <section className="flex flex-col gap-8 pt-20">
             <SectionHeader title="Protocol Activity" />
-            <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+            <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
               <ProtocolActivity
                 shouldLoad={true}
                 onSeeAllDelegation={(events) => {
@@ -121,7 +121,7 @@ export default function StatsView() {
                 }}
               />
             </div>
-            <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+            <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
               <LifetimeFarms
                 shouldLoad={true}
                 totalGlwDelegated={totalDelegatedGlw}
@@ -133,7 +133,7 @@ export default function StatsView() {
 
           <section className="flex flex-col gap-8 pt-20">
             <SectionHeader title="GCTL Staking by Region" />
-            <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12">
+            <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
               <RegionsStaking shouldLoad={true} />
             </div>
           </section>

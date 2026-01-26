@@ -104,7 +104,7 @@ export default function RewardsView() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <section className="max-w-screen-2xl mx-auto px-8 py-10 lg:px-12">
+      <section className="max-w-screen-2xl mx-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-12 lg:py-10">
         <div className="flex flex-col gap-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">

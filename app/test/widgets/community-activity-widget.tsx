@@ -265,9 +265,9 @@ export default function CommunityActivityWidget({
               {[1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="flex-1 flex items-center gap-4 p-4 rounded-xl border border-border/40 bg-muted/30 animate-pulse"
+                  className="flex-1 flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 animate-pulse"
                 >
-                  <div className="w-24 h-full min-h-[80px] rounded-xl bg-muted shrink-0" />
+                  <div className="w-20 sm:w-24 h-full min-h-[70px] sm:min-h-[80px] rounded-xl bg-muted shrink-0" />
                   <div className="flex-1 space-y-2">
                     <div className="h-5 w-32 bg-muted rounded" />
                     <div className="h-4 w-28 bg-muted rounded" />
@@ -294,10 +294,10 @@ export default function CommunityActivityWidget({
                     href={auditUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 flex items-center gap-4 p-4 rounded-xl border border-border/40 bg-muted/30 hover:bg-muted/50 transition-colors group"
+                    className="flex-1 flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 hover:bg-muted/40 dark:hover:bg-muted/60 transition-colors group"
                   >
                     {/* Farm Image - Takes full height */}
-                    <div className="relative w-24 h-full min-h-[80px] rounded-xl overflow-hidden shrink-0 border border-border/20">
+                    <div className="relative w-20 sm:w-24 h-full min-h-[70px] sm:min-h-[80px] rounded-xl overflow-hidden shrink-0 border border-border/20 dark:border-border/40">
                       <FarmImageWithSkeleton
                         src={imageUrl}
                         alt={farm.farmName}
@@ -305,40 +305,37 @@ export default function CommunityActivityWidget({
                     </div>
 
                     {/* Farm Info */}
-                    <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
-                      {/* Left: Name + Delegated */}
-                      <div className="min-w-0 flex flex-col justify-center">
-                        <h3 className="font-bold text-lg truncate text-foreground group-hover:text-glow-orange transition-colors">
-                          {farm.farmName}
-                        </h3>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          Delegated
-                        </div>
-                        <div className="font-mono text-xl font-bold text-delegation-purple">
-                          {formatCompactNumber(farm.totalDelegatedGlw)} GLW
-                        </div>
+                    <div className="flex-1 min-w-0 flex flex-col gap-1">
+                      {/* Name */}
+                      <h3 className="font-bold text-base sm:text-lg truncate text-foreground group-hover:text-glow-orange transition-colors">
+                        {farm.farmName}
+                      </h3>
+
+                      {/* Delegated amount - prominent */}
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="font-mono text-lg font-bold text-delegation-purple">
+                          {formatCompactNumber(farm.totalDelegatedGlw)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">GLW</span>
                       </div>
 
-                      {/* Right: Reward Score & Funded in */}
-                      <div className="flex flex-col items-end justify-center gap-1 text-sm shrink-0">
+                      {/* Secondary stats row */}
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         {farm.rewardScore !== null && (
-                          <div className="flex items-center gap-1.5 text-muted-foreground">
-                            <span>Reward Score:</span>
-                            <span className="font-mono font-semibold text-foreground">
-                              {formatNumber(farm.rewardScore, 0)}
+                          <>
+                            <span className="whitespace-nowrap">
+                              Score <span className="font-mono font-medium text-foreground">{formatNumber(farm.rewardScore, 0)}</span>
                             </span>
-                          </div>
+                            <span className="text-border">•</span>
+                          </>
                         )}
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <span>Funded in:</span>
-                          <span className="font-mono font-medium text-foreground">
-                            {formatDuration(farm.fundingDurationMs)}
-                          </span>
-                        </div>
+                        <span className="whitespace-nowrap">
+                          <span className="font-mono font-medium text-foreground">{formatDuration(farm.fundingDurationMs)}</span>
+                        </span>
                       </div>
                     </div>
 
-                    <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0 group-hover:translate-x-1 transition-transform" />
+                    <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0 group-hover:translate-x-1 transition-transform hidden sm:block" />
                   </Link>
                 );
               })}
