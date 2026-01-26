@@ -31,8 +31,7 @@ export default function BlogFeaturedWidget({
       role: "Chief Scientist",
     },
     publishedAt: "2025-10-24", // Approximate date for display
-    image:
-      "https://glow.org/_next/image?url=%2Fimages%2Fblog%2Fprogressive-vaults%2Fheader.jpg&w=3840&q=75",
+    image: "/images/referral-hero.jpg",
     url: "https://glow.org/blog/progressive-vaults-transparency",
   };
 
