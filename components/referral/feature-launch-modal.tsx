@@ -6,6 +6,12 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   Sparkles,
   TrendingUp,
   CheckCircle2,
@@ -388,6 +394,77 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                   </Button>
                 </div>
               </form>
+            </div>
+
+            {/* FAQ Section */}
+            <div className="px-5 sm:px-8 pb-4 sm:pb-5">
+              <Accordion
+                type="single"
+                collapsible
+                className="space-y-1.5"
+                onValueChange={(value) => {
+                  if (value) {
+                    trackEvent("referral_feature_launch_faq_expand", {
+                      faq_id: value,
+                    });
+                  }
+                }}
+              >
+                <AccordionItem
+                  value="what-is-referral"
+                  className="border-b-0 rounded-lg bg-muted/30 dark:bg-muted/50 px-3"
+                >
+                  <AccordionTrigger className="py-2.5 text-[10px] sm:text-[11px] font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                    What do I get as a referee?
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-2.5 text-[10px] sm:text-[11px] text-muted-foreground/70 dark:text-muted-foreground/80 leading-relaxed">
+                    You receive a{" "}
+                    <span className="text-foreground font-semibold">
+                      +100 point bonus
+                    </span>{" "}
+                    when you reach 100 total points, plus a{" "}
+                    <span className="text-foreground font-semibold">
+                      10% boost on your base points for 12 weeks
+                    </span>
+                    .
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem
+                  value="how-activate"
+                  className="border-b-0 rounded-lg bg-muted/30 dark:bg-muted/50 px-3"
+                >
+                  <AccordionTrigger className="py-2.5 text-[10px] sm:text-[11px] font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                    How do I earn Impact Points?
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-2.5 text-[10px] sm:text-[11px] text-muted-foreground/70 dark:text-muted-foreground/80 leading-relaxed">
+                    Earn points by holding GLW, delegating to farms, staking
+                    GCTL, and more. Points are calculated weekly and finalize
+                    every{" "}
+                    <span className="text-foreground font-semibold font-mono">
+                      Sunday at 00:00 UTC
+                    </span>
+                    .
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem
+                  value="change-referrer"
+                  className="border-b-0 rounded-lg bg-muted/30 dark:bg-muted/50 px-3"
+                >
+                  <AccordionTrigger className="py-2.5 text-[10px] sm:text-[11px] font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                    Can I change my referrer later?
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-2.5 text-[10px] sm:text-[11px] text-muted-foreground/70 dark:text-muted-foreground/80 leading-relaxed">
+                    You have a{" "}
+                    <span className="text-foreground font-semibold">
+                      7-day grace period
+                    </span>{" "}
+                    after linking to change your referrer. After that, the link
+                    becomes permanent.
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </div>
 
             {/* Footer */}
