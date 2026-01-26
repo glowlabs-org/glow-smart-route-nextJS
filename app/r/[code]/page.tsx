@@ -103,6 +103,32 @@ export default function ReferralLandingPage() {
   const canChangeReferrer =
     isAlreadyLinked && canChangeReferrerFlag && isDifferentReferrer;
 
+  // Track page view when validation completes
+  const hasTrackedViewRef = React.useRef(false);
+  React.useEffect(() => {
+    if (hasTrackedViewRef.current) return;
+    if (!validateQuery.isFetched) return;
+
+    if (isValid) {
+      trackEvent("referral_landing_view", {
+        code,
+        referrer_wallet: referrerWallet ?? null,
+        referrer_ens: referrerEns ?? null,
+      });
+    } else if (validateQuery.data?.valid === false || hasValidationError) {
+      trackEvent("referral_landing_invalid_code", { code });
+    }
+    hasTrackedViewRef.current = true;
+  }, [
+    validateQuery.isFetched,
+    validateQuery.data?.valid,
+    isValid,
+    hasValidationError,
+    code,
+    referrerWallet,
+    referrerEns,
+  ]);
+
   if (!isReferralLive) {
     return (
       <div className="min-h-screen bg-white dark:bg-background">

@@ -15,6 +15,7 @@ import { hubPost } from "@/lib/api/hub-client";
 import { useReferral } from "@/hooks/use-referral";
 import { motion, useReducedMotion } from "framer-motion";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
+import { trackEvent } from "@/lib/telemetry";
 
 const SPARKLES = [
   { top: "18%", left: "16%", size: "6px", delay: 0 },
@@ -62,6 +63,17 @@ export function ActivationCelebrationModal({
         status?.activationBonus?.awarded &&
         !status?.activationBonus?.celebrationSeen
     );
+
+  // Track view when modal is shown
+  const hasTrackedViewRef = React.useRef(false);
+  React.useEffect(() => {
+    if (shouldShow && !hasTrackedViewRef.current && !mock) {
+      trackEvent("referral_activation_celebration_view", {
+        wallet_address: address ?? null,
+      });
+      hasTrackedViewRef.current = true;
+    }
+  }, [shouldShow, address, mock]);
 
   const markActivationSeen = React.useCallback(async () => {
     if (mock) {

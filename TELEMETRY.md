@@ -295,6 +295,59 @@ All events below follow `snake_case` and use `dashboard_*` (dashboard surface ar
   - `dashboard_remove_liquidity_open_click`
     - emitted by: `app/test/widgets/add-liquidity-quick-dialog.tsx`
 
+#### Referral System
+
+Events for the referral program, tracking user acquisition and engagement.
+
+- **Referral Landing Page (`app/r/[code]/page.tsx`)**
+
+  - `referral_landing_view`: page loaded with valid referral code
+    - props: `code`, `referrer_wallet`, `referrer_ens`
+  - `referral_landing_invalid_code`: page loaded with invalid code
+    - props: `code`
+  - `referral_link_click`: user clicked to link referrer
+    - props: `code`, `wallet`
+  - `referral_link_success`: referral link completed successfully
+    - props: `code`, `wallet`
+  - `referral_change_click`: user clicked to change referrer
+    - props: `code`, `wallet`
+  - `referral_change_success`: referrer change completed successfully
+    - props: `code`, `wallet`
+
+- **Referral Network Dialog (`components/dialogs/referral-network-dialog.tsx`)**
+
+  - `referral_network_dialog_open`: dialog opened
+    - props: `wallet_address`
+  - `referral_copy_link_click`: user copied referral link
+    - props: `wallet_address`
+  - `referral_qr_code_open`: user opened QR code dialog
+    - props: `wallet_address`
+  - `referral_faq_expand`: user expanded FAQ item
+    - props: `faq_id`, `wallet_address`
+
+- **Feature Launch Modal (`components/referral/feature-launch-modal.tsx`)**
+
+  - `referral_feature_launch_modal_view`: modal displayed to user
+  - `referral_feature_launch_modal_close`: user closed modal
+  - `referral_feature_launch_modal_skip`: user skipped without entering code
+  - `referral_feature_launch_claim_submit`: user submitted referral code
+    - props: `code`
+  - `referral_feature_launch_claim_success`: code claimed successfully
+    - props: `code`, `referrer_wallet`, `referrer_ens`
+  - `referral_feature_launch_success_done`: user clicked done after success
+
+- **Activation Celebration Modal (`components/referral/activation-celebration-modal.tsx`)**
+
+  - `referral_activation_celebration_view`: celebration modal displayed
+    - props: `wallet_address`
+
+- **Change Referrer Dialog (`components/referral/change-referrer-dialog.tsx`)**
+
+  - `referral_change_submit`: user submitted new referral code
+    - props: `newCode`
+  - `referral_change_success`: referrer changed successfully
+    - props: `newCode`
+
 #### Landing site (glow.org)
 
 The marketing site has its own analytics integration (`@vercel/analytics/next` in `glow.org/app/layout.tsx`). We emit:

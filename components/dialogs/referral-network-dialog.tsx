@@ -60,6 +60,7 @@ import { SunMediumIcon } from "@/components/ui/sun-medium";
 import { SunIcon } from "@/components/ui/sun";
 import { SunMoonIcon } from "@/components/ui/sun-moon";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
+import { trackEvent } from "@/lib/telemetry";
 
 interface ReferralStatusResponse {
   nonce: string;
@@ -192,13 +193,37 @@ export function ReferralNetworkDialog({
     return resolvedData.referees.filter((r) => r.activationPending).length;
   }, [resolvedData]);
 
+  // Track dialog open
+  const hasTrackedOpenRef = React.useRef(false);
+  React.useEffect(() => {
+    if (open && !hasTrackedOpenRef.current && !mockData) {
+      trackEvent("referral_network_dialog_open", {
+        wallet_address: walletAddress ?? null,
+      });
+      hasTrackedOpenRef.current = true;
+    }
+    if (!open) {
+      hasTrackedOpenRef.current = false;
+    }
+  }, [open, walletAddress, mockData]);
+
   const copyLink = React.useCallback(() => {
     if (!resolvedData?.shareableLink) return;
     navigator.clipboard.writeText(resolvedData.shareableLink);
     setIsCopied(true);
     toast.success("Referral link copied!");
+    trackEvent("referral_copy_link_click", {
+      wallet_address: walletAddress ?? null,
+    });
     setTimeout(() => setIsCopied(false), 2000);
-  }, [resolvedData?.shareableLink]);
+  }, [resolvedData?.shareableLink, walletAddress]);
+
+  const openQRCode = React.useCallback(() => {
+    trackEvent("referral_qr_code_open", {
+      wallet_address: walletAddress ?? null,
+    });
+    setIsQRCodeOpen(true);
+  }, [walletAddress]);
 
   const shareLink = React.useCallback(async () => {
     if (!resolvedData?.shareableLink) return;
@@ -293,7 +318,7 @@ export function ReferralNetworkDialog({
                       size="icon"
                       variant="ghost"
                       className="shrink-0"
-                      onClick={() => setIsQRCodeOpen(true)}
+                      onClick={openQRCode}
                       title="Show QR Code"
                       aria-label="Show referral QR code"
                     >
@@ -847,7 +872,7 @@ export function ReferralNetworkDialog({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setIsQRCodeOpen(true)}
+                        onClick={openQRCode}
                         disabled={!resolvedData.shareableLink}
                       >
                         Show QR Code
@@ -957,7 +982,19 @@ export function ReferralNetworkDialog({
                     FAQ
                   </h4>
                 </div>
-                <Accordion type="single" collapsible className="space-y-2">
+                <Accordion
+                  type="single"
+                  collapsible
+                  className="space-y-2"
+                  onValueChange={(value) => {
+                    if (value) {
+                      trackEvent("referral_faq_expand", {
+                        faq_id: value,
+                        wallet_address: walletAddress ?? null,
+                      });
+                    }
+                  }}
+                >
                   <AccordionItem
                     value="activation"
                     className="border-b-0 rounded-lg bg-background/50 dark:bg-background/30 px-3 sm:px-4"
