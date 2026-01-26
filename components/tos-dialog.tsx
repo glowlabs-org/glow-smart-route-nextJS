@@ -10,7 +10,7 @@ import {
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
 import { Separator } from "./ui/separator";
-import { Loader2, ChevronDown } from "lucide-react";
+import { Loader2, ChevronDown, AlertCircle, RefreshCw, Wallet, Info } from "lucide-react";
 import { toast } from "sonner";
 import { keccak256, toHex } from "viem";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
@@ -22,7 +22,108 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+
+// Error types for better UX
+type TosErrorType =
+  | "smart_wallet"
+  | "deadline_expired"
+  | "signature_rejected"
+  | "network_error"
+  | "unknown";
+
+interface TosError {
+  type: TosErrorType;
+  title: string;
+  message: string;
+  suggestion: string;
+  canRetry: boolean;
+}
+
+// Parse backend error messages into structured error objects
+function parseApiError(error: unknown): TosError {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const lowerMessage = errorMessage.toLowerCase();
+
+  // Smart wallet specific errors
+  if (
+    lowerMessage.includes("smart wallet") ||
+    lowerMessage.includes("erc-1271") ||
+    lowerMessage.includes("erc1271") ||
+    lowerMessage.includes("isvalidsignature")
+  ) {
+    return {
+      type: "smart_wallet",
+      title: "Smart Wallet Signature Issue",
+      message: "Your smart wallet couldn't verify the signature.",
+      suggestion: "This can happen with some smart wallets (Safe, Coinbase Smart Wallet, etc.). Try signing again, or use a regular wallet if the issue persists.",
+      canRetry: true,
+    };
+  }
+
+  // Deadline expired
+  if (lowerMessage.includes("deadline") && lowerMessage.includes("expired")) {
+    return {
+      type: "deadline_expired",
+      title: "Signature Expired",
+      message: "The signature request timed out.",
+      suggestion: "Please try signing again. Make sure to complete the signing process promptly.",
+      canRetry: true,
+    };
+  }
+
+  // User rejected
+  if (
+    lowerMessage.includes("user rejected") ||
+    lowerMessage.includes("user denied") ||
+    lowerMessage.includes("rejected the request")
+  ) {
+    return {
+      type: "signature_rejected",
+      title: "Signature Rejected",
+      message: "You declined to sign the message in your wallet.",
+      suggestion: "Click 'Sign & Accept' and approve the signature request in your wallet to continue.",
+      canRetry: true,
+    };
+  }
+
+  // Signer mismatch (might be smart wallet related)
+  if (lowerMessage.includes("signer_mismatch") || lowerMessage.includes("signer mismatch")) {
+    return {
+      type: "smart_wallet",
+      title: "Signature Verification Failed",
+      message: "The signature doesn't match your wallet address.",
+      suggestion: "If you're using a smart wallet (Safe, Coinbase, etc.), ensure all required signers have approved. Otherwise, try disconnecting and reconnecting your wallet.",
+      canRetry: true,
+    };
+  }
+
+  // Network errors
+  if (
+    lowerMessage.includes("network") ||
+    lowerMessage.includes("fetch") ||
+    lowerMessage.includes("timeout") ||
+    lowerMessage.includes("connection")
+  ) {
+    return {
+      type: "network_error",
+      title: "Connection Error",
+      message: "Couldn't connect to the server.",
+      suggestion: "Please check your internet connection and try again.",
+      canRetry: true,
+    };
+  }
+
+  // Unknown error
+  return {
+    type: "unknown",
+    title: "Something Went Wrong",
+    message: errorMessage || "An unexpected error occurred.",
+    suggestion: "Please try again. If the problem persists, try refreshing the page or using a different browser.",
+    canRetry: true,
+  };
+}
 
 // ToS content version and hash generation - MUST match backend exactly
 const TOS_VERSION = "1.0";
@@ -116,6 +217,8 @@ export function TosDialog() {
   const [hasAccepted, setHasAccepted] = React.useState(false);
   const [isSigning, setIsSigning] = React.useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = React.useState(false);
+  const [error, setError] = React.useState<TosError | null>(null);
+  const [retryCount, setRetryCount] = React.useState(0);
 
   React.useEffect(() => {
     if (!isConnected || !address) {
@@ -190,6 +293,8 @@ export function TosDialog() {
       return;
     }
 
+    // Clear previous error and start signing
+    setError(null);
     setIsSigning(true);
 
     try {
@@ -316,33 +421,30 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
       setIsOpen(false);
       toast.success("Terms of Service accepted successfully");
     } catch (error) {
-      const isUserRejection =
-        error instanceof Error &&
-        (error.message.includes("User rejected") ||
-          error.message.includes("User denied") ||
-          error.message.includes("user rejected"));
+      const parsedError = parseApiError(error);
+      setError(parsedError);
+      setRetryCount((prev) => prev + 1);
 
-      if (error instanceof Error) {
-        if (isUserRejection) {
-          toast.error(
-            "You must sign the message to accept the Terms of Service"
-          );
-        } else {
-          toast.error("Failed to accept Terms of Service", {
-            description: error.message,
-          });
-        }
-      } else {
-        toast.error("Failed to accept Terms of Service. Please try again.");
+      // Show toast for user rejection (common case)
+      if (parsedError.type === "signature_rejected") {
+        toast.error("Signature required", {
+          description: "Please approve the signature request in your wallet.",
+        });
+      } else if (parsedError.type === "smart_wallet") {
+        // For smart wallet errors, show a more helpful toast
+        toast.error("Smart wallet issue detected", {
+          description: "See the error details below for help.",
+        });
       }
 
       // Log non-rejection errors to Sentry
-      if (!isUserRejection && typeof window !== "undefined") {
+      if (parsedError.type !== "signature_rejected" && typeof window !== "undefined") {
         const normalizedError =
           error instanceof Error ? error : new Error(String(error));
         Sentry.captureException(normalizedError, {
           tags: {
             tosStage: "general_error",
+            tosErrorType: parsedError.type,
             walletAddress: address,
           },
           extra: {
@@ -351,7 +453,8 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
             nonce: latestNonce,
             errorMessage: normalizedError.message,
             errorType: typeof error,
-            isUserRejection,
+            parsedErrorType: parsedError.type,
+            retryCount,
           },
         });
       }
@@ -697,6 +800,36 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
             </CollapsibleContent>
           </Collapsible>
 
+          {/* Error Display */}
+          {error && (
+            <Alert variant="destructive" className="border-red-500/50 bg-red-500/10">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle className="font-semibold">{error.title}</AlertTitle>
+              <AlertDescription className="mt-2 space-y-2">
+                <p>{error.message}</p>
+                <p className="text-sm opacity-90">{error.suggestion}</p>
+                {error.type === "smart_wallet" && (
+                  <div className="mt-3 p-2 bg-background/50 rounded text-xs space-y-1">
+                    <p className="font-medium flex items-center gap-1">
+                      <Wallet className="h-3 w-3" />
+                      Smart Wallet Tips:
+                    </p>
+                    <ul className="list-disc list-inside space-y-0.5 opacity-90">
+                      <li>Ensure your wallet is fully deployed on-chain</li>
+                      <li>For multisig wallets, all required signers must approve</li>
+                      <li>Try using the wallet's built-in browser if available</li>
+                    </ul>
+                  </div>
+                )}
+                {retryCount >= 2 && (
+                  <p className="text-xs opacity-75 mt-2">
+                    Still having trouble? Try disconnecting your wallet and reconnecting, or use a different wallet.
+                  </p>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="p-3 bg-muted/40 dark:bg-muted/50 rounded-lg border border-border/30 dark:border-border/40">
             <p className="text-sm text-muted-foreground">
               <strong className="text-glow-orange">
@@ -722,6 +855,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
           <Button
             onClick={handleAcceptTos}
             disabled={isSigning || isSignerLoading}
+            variant={error?.canRetry ? "default" : "default"}
           >
             {isSigning ? (
               <>
@@ -732,6 +866,11 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Connecting...
+              </>
+            ) : error?.canRetry ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Try Again
               </>
             ) : (
               "Sign & Accept"
