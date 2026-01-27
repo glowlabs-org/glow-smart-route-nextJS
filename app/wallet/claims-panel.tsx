@@ -28,6 +28,7 @@ import {
   Clock,
   CheckCircle,
   RefreshCw,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
@@ -144,6 +145,17 @@ function getEtherscanUrl(chainId: number, txHash: string): string {
   const baseUrl =
     chainId === 1 ? "https://etherscan.io" : "https://sepolia.etherscan.io";
   return `${baseUrl}/tx/${txHash}`;
+}
+
+function getEtherscanAddressUrl(chainId: number, address: string): string {
+  const baseUrl =
+    chainId === 1 ? "https://etherscan.io" : "https://sepolia.etherscan.io";
+  return `${baseUrl}/address/${address}`;
+}
+
+function isTransactionTimeoutError(message: string | null): boolean {
+  if (!message) return false;
+  return message.includes("Transaction receipt not found");
 }
 
 type ClaimDialogStatus = "review" | "processing" | "success" | "error";
@@ -1599,42 +1611,74 @@ export function ClaimsPanel({
     );
   }, [claimStageStatuses]);
 
+  const isTimeoutError = isTransactionTimeoutError(claimDialogError);
+
   const errorDescription = React.useMemo(() => {
     if (hasTxHashes) {
       return "Your transaction was submitted but we couldn't confirm its completion. Please check the transaction status on Etherscan using the link(s) below. If the transaction failed, please reach out in our Discord #help channel for assistance.";
+    }
+    if (isTimeoutError) {
+      return "Your transaction may still be pending. Before retrying, please check Etherscan to see if your transaction is processing or has completed.";
     }
     return (
       claimDialogError ||
       "We were unable to complete your claim. Please try again."
     );
-  }, [hasTxHashes, claimDialogError]);
+  }, [hasTxHashes, isTimeoutError, claimDialogError]);
 
-  const errorContent = stageList ? (
-    <div className="space-y-4 text-left">
-      {stageList}
-      {hasTxHashes && (
-        <div className="p-4 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
-          <div className="space-y-2">
-            <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-              Need Help?
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Join our{" "}
-              <a
-                href="https://discord.gg/glowfnd"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:no-underline font-medium text-foreground transition-colors"
-              >
-                Discord server
-              </a>{" "}
-              and ask for assistance in the <span className="font-medium text-foreground">#help</span> channel.
+  const errorContent = React.useMemo(() => {
+    if (!stageList && !isTimeoutError) return undefined;
+
+    return (
+      <div className="space-y-4 text-left">
+        {stageList}
+        {(hasTxHashes || isTimeoutError) && (
+          <div className="p-4 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
+            <div className="space-y-3">
+              {isTimeoutError && !hasTxHashes && address && (
+                <div className="space-y-2">
+                  <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                    Check Your Transactions
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <a
+                      href={getEtherscanAddressUrl(chainId, address)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 underline hover:no-underline font-medium text-foreground transition-colors"
+                    >
+                      View your wallet on Etherscan
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                    <span className="block mt-1 text-muted-foreground/80">
+                      Look for any pending or recently completed transactions before retrying.
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                  Need Help?
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Join our{" "}
+                  <a
+                    href="https://discord.gg/glowfnd"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:no-underline font-medium text-foreground transition-colors"
+                  >
+                    Discord server
+                  </a>{" "}
+                  and ask for assistance in the <span className="font-medium text-foreground">#help</span> channel.
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  ) : undefined;
+        )}
+      </div>
+    );
+  }, [stageList, hasTxHashes, isTimeoutError, address, chainId]);
 
   const isDialog = variant === "dialog";
 
