@@ -95,12 +95,12 @@ function AnimatedTimePart({
       : size === "sm"
       ? "h-7 w-10"
       : size === "md"
-      ? "h-8 w-10"
+      ? "h-8 w-12"
       : size === "lg"
-      ? "h-10 w-10"
+      ? "h-12 w-14 sm:h-16 sm:w-20"
       : size === "xl"
-      ? "h-14 w-16"
-      : "h-12 w-12";
+      ? "h-14 w-16 sm:h-20 sm:w-24"
+      : "h-12 w-14";
   const textClass =
     size === "xs"
       ? "text-sm"
@@ -109,8 +109,8 @@ function AnimatedTimePart({
       : size === "md"
       ? "text-2xl"
       : size === "lg"
-      ? "text-3xl"
-      : "text-4xl";
+      ? "text-3xl sm:text-5xl"
+      : "text-4xl sm:text-6xl";
 
   // xs variant: inline text only, no box/background
   if (isXs) {
@@ -125,14 +125,13 @@ function AnimatedTimePart({
         <AnimatePresence initial={false} mode="popLayout">
           <motion.span
             key={value}
-            initial={{ y: 8, opacity: 0, filter: "blur(4px)", scale: 0.98 }}
-            animate={{ y: 0, opacity: 1, filter: "blur(0px)", scale: 1 }}
-            exit={{ y: -8, opacity: 0, filter: "blur(4px)", scale: 0.98 }}
+            initial={{ y: 8, opacity: 0, scale: 0.95 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: -8, opacity: 0, scale: 0.95 }}
             transition={{
-              type: "spring",
-              stiffness: 700,
-              damping: 45,
-              mass: 0.7,
+              type: "tween",
+              duration: 0.2,
+              ease: "easeOut",
             }}
             className={cn(
               "absolute inset-0 flex items-center justify-center font-mono font-semibold tabular-nums text-foreground",
@@ -149,7 +148,7 @@ function AnimatedTimePart({
   return (
     <span
       className={cn(
-        "relative inline-flex items-center justify-center overflow-hidden rounded-lg bg-background/60 px-1.5 ring-1 ring-border/60",
+        "relative inline-flex items-center justify-center overflow-hidden rounded-xl bg-background/60 px-3 sm:px-4 ring-1 ring-border/60",
         heightClass
       )}
       style={{ minWidth: `${minWidthCh}ch` }}
@@ -157,14 +156,13 @@ function AnimatedTimePart({
       <AnimatePresence initial={false} mode="popLayout">
         <motion.span
           key={value}
-          initial={{ y: 14, opacity: 0, filter: "blur(6px)", scale: 0.98 }}
-          animate={{ y: 0, opacity: 1, filter: "blur(0px)", scale: 1 }}
-          exit={{ y: -14, opacity: 0, filter: "blur(6px)", scale: 0.98 }}
+          initial={{ y: 12, opacity: 0, scale: 0.95 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          exit={{ y: -12, opacity: 0, scale: 0.95 }}
           transition={{
-            type: "spring",
-            stiffness: 700,
-            damping: 45,
-            mass: 0.7,
+            type: "tween",
+            duration: 0.2,
+            ease: "easeOut",
           }}
           className={cn(
             "absolute inset-0 flex items-center justify-center font-mono font-bold tabular-nums text-foreground",

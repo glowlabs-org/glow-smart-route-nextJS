@@ -10,7 +10,7 @@ export async function GET() {
   try {
     const url = `${HUB_URL}/referral/internal/dashboard`;
     const response = await fetch(url, {
-      next: { revalidate: 300 }, // Cache for 5 minutes
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -23,11 +23,7 @@ export async function GET() {
 
     const data = await response.json();
 
-    return NextResponse.json(data, {
-      headers: {
-        "Cache-Control": "public, max-age=300",
-      },
-    });
+    return NextResponse.json(data);
   } catch (error) {
     console.error("Error fetching referral dashboard:", error);
     return NextResponse.json(
