@@ -46,6 +46,41 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
 
     // Setting this option to true will print useful information to the console while you're setting up Sentry.
     debug: false,
+
+    // Filter out errors from browser extensions and transient chunk loading failures
+    beforeSend(event) {
+      // Filter info-level events (performance observations, not errors)
+      if (event.level === "info") return null;
+
+      const frames =
+        event.exception?.values?.[0]?.stacktrace?.frames || [];
+      const message = event.exception?.values?.[0]?.value || "";
+
+      // Filter browser extension errors (crypto wallets, etc.)
+      const isExtensionError = frames.some(
+        (frame) =>
+          frame.filename?.includes("inpage.js") ||
+          frame.filename?.startsWith("chrome-extension://") ||
+          frame.filename?.startsWith("moz-extension://")
+      );
+      if (isExtensionError) return null;
+
+      // Filter transient chunk loading failures (network issues, Safari race conditions)
+      const isChunkLoadError =
+        message.includes("e[o].call") ||
+        message.includes("Loading chunk") ||
+        message.includes("ChunkLoadError");
+      if (isChunkLoadError) return null;
+
+      // Filter wallet rejection errors (user declined connection/signature)
+      const isWalletRejection =
+        message.includes("Object captured as promise rejection with keys: code, message") ||
+        message.includes("User rejected") ||
+        message.includes("user rejected");
+      if (isWalletRejection) return null;
+
+      return event;
+    },
   });
 
   configureSentry({
