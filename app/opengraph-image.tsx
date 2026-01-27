@@ -21,7 +21,7 @@ export default function Image() {
           padding: "60px",
         }}
       >
-        {/* Top row: Badge and Symbol */}
+        {/* Top row: Badge */}
         <div
           style={{
             display: "flex",
@@ -30,7 +30,6 @@ export default function Image() {
             width: "100%",
           }}
         >
-          {/* GLOW MINING pill badge */}
           <div
             style={{
               display: "flex",
@@ -41,24 +40,25 @@ export default function Image() {
               fontSize: "24px",
               fontWeight: 600,
               letterSpacing: "0.1em",
-              textTransform: "uppercase",
             }}
           >
             GLOW MINING
           </div>
 
-          {/* Glow Symbol - simplified star pattern */}
-          <div
-            style={{
-              width: "80px",
-              height: "80px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "48px",
-            }}
-          >
-            ✦
+          {/* Glow Symbol - colored dots */}
+          <div style={{ display: "flex", gap: "8px" }}>
+            {["#ffb472", "#f7fcc4", "#ccffd4", "#dcc4ff"].map((color) => (
+              <div
+                key={color}
+                style={{
+                  width: "20px",
+                  height: "20px",
+                  borderRadius: "999px",
+                  backgroundColor: color,
+                  border: "2px solid #000000",
+                }}
+              />
+            ))}
           </div>
         </div>
 
@@ -66,18 +66,21 @@ export default function Image() {
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
           <div
             style={{
+              display: "flex",
+              flexDirection: "column",
               fontSize: "96px",
               fontWeight: 800,
               lineHeight: 0.95,
               letterSpacing: "-0.03em",
             }}
           >
-            Sponsor
-            <br />
-            solar farms
+            <span>Sponsor</span>
+            <span>solar farms</span>
           </div>
           <div
             style={{
+              display: "flex",
+              flexDirection: "column",
               fontSize: "32px",
               fontWeight: 500,
               color: "#3f3f46",
@@ -85,9 +88,8 @@ export default function Image() {
               maxWidth: "700px",
             }}
           >
-            Earn GLW rewards while funding
-            <br />
-            renewable infrastructure.
+            <span>Earn GLW rewards while funding</span>
+            <span>renewable infrastructure.</span>
           </div>
         </div>
       </div>

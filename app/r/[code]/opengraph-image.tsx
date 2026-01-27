@@ -20,7 +20,7 @@ export default async function Image({
 }) {
   const { code } = await params;
   const rawCode = safeDecode(code ?? "");
-  const displayCode = rawCode.slice(0, 16);
+  const displayCode = rawCode.slice(0, 12).toUpperCase();
 
   return new ImageResponse(
     (
@@ -37,7 +37,7 @@ export default async function Image({
           padding: "60px",
         }}
       >
-        {/* Top row: Badge and Symbol */}
+        {/* Top row: Badge */}
         <div
           style={{
             display: "flex",
@@ -46,7 +46,6 @@ export default async function Image({
             width: "100%",
           }}
         >
-          {/* GLOW MINING pill badge */}
           <div
             style={{
               display: "flex",
@@ -57,7 +56,6 @@ export default async function Image({
               fontSize: "24px",
               fontWeight: 600,
               letterSpacing: "0.1em",
-              textTransform: "uppercase",
             }}
           >
             GLOW MINING
@@ -84,6 +82,7 @@ export default async function Image({
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
           <div
             style={{
+              display: "flex",
               fontSize: "96px",
               fontWeight: 800,
               lineHeight: 0.95,
@@ -94,6 +93,7 @@ export default async function Image({
           </div>
           <div
             style={{
+              display: "flex",
               fontSize: "36px",
               fontWeight: 600,
               color: "#000000",
@@ -101,12 +101,11 @@ export default async function Image({
               padding: "12px 0",
             }}
           >
-            Invited by {displayCode}
+            {`Invited by ${displayCode}`}
           </div>
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
               fontSize: "32px",
               fontWeight: 500,
               color: "#3f3f46",
@@ -114,8 +113,7 @@ export default async function Image({
               maxWidth: "700px",
             }}
           >
-            <span>Earn bonus Impact Points when you</span>
-            <span>sign up with this referral link.</span>
+            Earn bonus Impact Points when you sign up with this referral link.
           </div>
         </div>
       </div>
