@@ -1,6 +1,6 @@
-// Tuesday, Jan 27 2026 at 10:02 AM EST (15:02 UTC).
-const DEFAULT_REFERRAL_LAUNCH_AT = "2026-01-27T15:02:46Z";
-export const REFERRAL_LAUNCH_LABEL = "Tuesday 27 at 10:02am EST";
+// Tuesday, Jan 27 2026 at 10:00 AM EST (15:00 UTC).
+const DEFAULT_REFERRAL_LAUNCH_AT = "2026-01-27T15:00:00Z";
+export const REFERRAL_LAUNCH_LABEL = "Tuesday 27 at 10am EST";
 
 function parseLaunchDate(value: string | undefined): Date {
   const candidate = value?.trim() || DEFAULT_REFERRAL_LAUNCH_AT;
