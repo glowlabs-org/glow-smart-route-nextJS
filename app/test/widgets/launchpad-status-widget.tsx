@@ -34,6 +34,7 @@ import {
   useCountdownTo,
 } from "@/app/components/animated-countdown";
 import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
+import { getNextTuesdayAt1pmET } from "@/utils/nextTuesdayET";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import {
   useGlowLaunchpad,
@@ -125,15 +126,17 @@ function formatNumber(value: number, decimals: number = 2): string {
 
 // Helper: Format time to sell out
 function formatTimeToSellOut(
-  publishedTimestamp: string | null,
+  startAt: number | string | null,
   filledTimestamp: string | null,
 ): string {
-  if (!publishedTimestamp || !filledTimestamp) return "—";
+  if (!startAt || !filledTimestamp) return "—";
   try {
-    const published = new Date(publishedTimestamp).getTime();
+    const published =
+      typeof startAt === "number" ? startAt : new Date(startAt).getTime();
     const filled = new Date(filledTimestamp).getTime();
+    if (!Number.isFinite(published) || !Number.isFinite(filled)) return "—";
     const durationMs = filled - published;
-    if (durationMs <= 0) return "Instant";
+    if (durationMs <= 0) return "—";
     const hours = Math.floor(durationMs / (1000 * 60 * 60));
     const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
     if (hours >= 24) {
@@ -144,6 +147,15 @@ function formatTimeToSellOut(
     return `${minutes}m`;
   } catch {
     return "—";
+  }
+}
+
+function getAuctionBatchStartAtMs(publishedTimestamp: string | null) {
+  if (!publishedTimestamp) return null;
+  try {
+    return getNextTuesdayAt1pmET(new Date(publishedTimestamp)).getTime();
+  } catch {
+    return null;
   }
 }
 
@@ -619,7 +631,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 </span>
                 <span className="text-base sm:text-lg font-bold text-foreground leading-tight">
                   {formatTimeToSellOut(
-                    application.publishedOnAuctionTimestamp,
+                    getAuctionBatchStartAtMs(
+                      application.publishedOnAuctionTimestamp,
+                    ),
                     application.activeFraction?.filledAt || null,
                   )}
                 </span>
