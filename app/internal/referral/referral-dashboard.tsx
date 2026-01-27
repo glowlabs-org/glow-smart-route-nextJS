@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { RefreshCw, Users, UserCheck, Clock, Gift, Trophy, TrendingUp, Link2 } from "lucide-react";
+import { RefreshCw, Users, UserCheck, Clock, Gift, Trophy, TrendingUp, Link2, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
 import {
   BarChart,
   Bar,
@@ -28,6 +29,32 @@ import {
 
 function formatWallet(wallet: string) {
   return `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
+}
+
+function CopyableWallet({ wallet, className }: { wallet: string; className?: string }) {
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopy = React.useCallback(() => {
+    navigator.clipboard.writeText(wallet);
+    setCopied(true);
+    toast.success("Wallet address copied");
+    setTimeout(() => setCopied(false), 2000);
+  }, [wallet]);
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className={`inline-flex items-center gap-1.5 font-mono hover:text-foreground transition-colors ${className ?? ""}`}
+    >
+      {formatWallet(wallet)}
+      {copied ? (
+        <Check className="w-3 h-3 text-emerald-500" />
+      ) : (
+        <Copy className="w-3 h-3 opacity-40 hover:opacity-70" />
+      )}
+    </button>
+  );
 }
 
 function formatPoints(scaled6: string) {
@@ -306,14 +333,16 @@ function TopReferrersTable({ data }: { data: ReferralDashboardTopReferrer[] }) {
               {referrer.ensName ? (
                 <>
                   <span className="font-medium">{referrer.ensName}</span>
-                  <span className="text-xs text-muted-foreground/50 font-mono">
-                    {formatWallet(referrer.referrerWallet)}
-                  </span>
+                  <CopyableWallet
+                    wallet={referrer.referrerWallet}
+                    className="text-xs text-muted-foreground/50"
+                  />
                 </>
               ) : (
-                <span className="font-mono text-sm">
-                  {formatWallet(referrer.referrerWallet)}
-                </span>
+                <CopyableWallet
+                  wallet={referrer.referrerWallet}
+                  className="text-sm"
+                />
               )}
             </div>
           </div>
@@ -374,9 +403,10 @@ function RecentReferralsTable({ data }: { data: ReferralDashboardRecentReferral[
               }`}
             />
             <div className="flex flex-col">
-              <span className="font-mono text-sm">
-                {formatWallet(referral.refereeWallet)}
-              </span>
+              <CopyableWallet
+                wallet={referral.refereeWallet}
+                className="text-sm"
+              />
               <span className="text-xs text-muted-foreground/50">
                 via <span className="font-medium">{referral.referralCode}</span>
               </span>
