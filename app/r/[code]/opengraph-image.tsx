@@ -115,6 +115,22 @@ export default async function Image({
           >
             Earn bonus Impact Points when you sign up with this referral link.
           </div>
+          {/* CTA Button */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "18px 48px",
+              backgroundColor: "#000000",
+              color: "#ffffff",
+              borderRadius: "999px",
+              fontSize: "24px",
+              fontWeight: 600,
+            }}
+          >
+            Start Earning Rewards
+          </div>
         </div>
       </div>
     ),

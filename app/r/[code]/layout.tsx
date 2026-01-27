@@ -22,8 +22,9 @@ export async function generateMetadata({
   const displayCode = rawCode.slice(0, 12).toUpperCase();
 
   const base = buildPageMetadata({
-    title: `Referral Code - ${displayCode}`,
-    description: "Join Glow with a referral code and start earning rewards.",
+    title: `Join Glow Mining with Referral Code ${displayCode} - Earn Bonus Rewards`,
+    description:
+      "Sign up for Glow Mining with this referral link and earn bonus Impact Points for 12 weeks. Sponsor solar farms, earn GLW token rewards, and support renewable energy infrastructure.",
     path: `/r/${encodeURIComponent(code)}`,
     noIndex: true,
   });
