@@ -144,8 +144,25 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
 
   const handleCodeChange = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      setCode(e.target.value);
-      if (localError) setLocalError(null);
+      const value = e.target.value;
+      setCode(value);
+
+      // Check if it looks like a wallet address and show immediate feedback
+      const trimmed = value.trim();
+      const isWalletAddress =
+        /^0x[a-fA-F0-9]{40}$/i.test(trimmed) ||
+        (trimmed.toLowerCase().startsWith("0x") && trimmed.length > 20);
+
+      if (isWalletAddress) {
+        setLocalError(
+          "That looks like a wallet address. Referral codes are ENS names (alice.eth) or short codes."
+        );
+      } else if (localError?.includes("wallet address")) {
+        // Clear the wallet address error when user changes input
+        setLocalError(null);
+      } else if (localError) {
+        setLocalError(null);
+      }
     },
     [localError],
   );
@@ -183,6 +200,17 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
 
     if (trimmedCode.length < 3) {
       setLocalError("Code must be at least 3 characters");
+      return;
+    }
+
+    // Detect if user entered a wallet address instead of a referral code
+    const isWalletAddress =
+      /^0x[a-fA-F0-9]{40}$/.test(trimmedCode) ||
+      (trimmedCode.startsWith("0x") && trimmedCode.length > 20);
+    if (isWalletAddress) {
+      setLocalError(
+        "That looks like a wallet address. Referral codes are ENS names (alice.eth) or short codes."
+      );
       return;
     }
 
@@ -374,7 +402,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                   <Input
                     id="modal-ref-code"
                     name="referralCode"
-                    placeholder="alice.eth or 0x…"
+                    placeholder="alice.eth or abc123"
                     value={code}
                     onChange={handleCodeChange}
                     className={`h-11 sm:h-12 rounded-xl font-mono text-center text-sm sm:text-base transition-colors ${
@@ -401,6 +429,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                       <span>{errorMessage}</span>
                     </div>
                   )}
+                  <ShowMyCodeHint walletAddress={address} />
                 </div>
 
                 <div className="flex flex-col gap-2 pt-1">
@@ -510,6 +539,66 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ShowMyCodeHint({ walletAddress }: { walletAddress?: string | null }) {
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  const [isCopied, setIsCopied] = React.useState(false);
+
+  const ownCodeQuery = useQuery({
+    queryKey: ["referral-code", walletAddress],
+    queryFn: () =>
+      hubGet<ReferralCodeResponse>("/referral/code", {
+        params: { walletAddress },
+      }),
+    enabled: isExpanded && !!walletAddress,
+  });
+
+  const copyCode = React.useCallback(() => {
+    if (!ownCodeQuery.data?.code) return;
+    navigator.clipboard.writeText(ownCodeQuery.data.code);
+    setIsCopied(true);
+    toast.success("Your code copied!");
+    setTimeout(() => setIsCopied(false), 2000);
+  }, [ownCodeQuery.data?.code]);
+
+  if (!walletAddress) return null;
+
+  return (
+    <div className="pt-1">
+      {!isExpanded ? (
+        <button
+          type="button"
+          onClick={() => setIsExpanded(true)}
+          className="text-[10px] sm:text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 decoration-muted-foreground/40 hover:decoration-foreground/40 transition-colors"
+        >
+          What does a referral code look like?
+        </button>
+      ) : (
+        <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-muted-foreground/60">
+          <span>Yours is</span>
+          {ownCodeQuery.isLoading ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : ownCodeQuery.data?.code ? (
+            <button
+              type="button"
+              onClick={copyCode}
+              className="inline-flex items-center gap-1 font-mono font-semibold text-foreground hover:text-foreground/80 transition-colors"
+            >
+              {ownCodeQuery.data.code}
+              {isCopied ? (
+                <Check className="w-3 h-3 text-[#4ADE80]" />
+              ) : (
+                <Copy className="w-3 h-3 opacity-50" />
+              )}
+            </button>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -250,12 +250,12 @@ export default function GlowSoftDashboard({
     return delegationsCount > 0 || minersCount > 0;
   }, [isLaunchpadLive, delegationApplications, minerApplications]);
 
-  const ONE_HOUR_MS = 60 * 60 * 1000;
+  const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
   const isApproachingLaunchpad = React.useMemo(() => {
     if (isLaunchpadLive) return false;
     const now = Date.now();
     const timeUntilLive = launchpadNextBatchAtMs - now;
-    return timeUntilLive > 0 && timeUntilLive <= ONE_HOUR_MS;
+    return timeUntilLive > 0 && timeUntilLive <= THREE_HOURS_MS;
   }, [isLaunchpadLive, launchpadNextBatchAtMs]);
 
   const shouldShowLaunchpadHeroRow =
@@ -437,11 +437,13 @@ export default function GlowSoftDashboard({
                         : "Launchpad Live"
                     }
                   />
-                  <LaunchpadStatusWidget
-                    variant="full-row"
-                    onPayDeposit={handlePayDeposit}
-                    isApproaching={isApproachingLaunchpad}
-                  />
+                  <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
+                    <LaunchpadStatusWidget
+                      variant="full-row"
+                      onPayDeposit={handlePayDeposit}
+                      isApproaching={isApproachingLaunchpad}
+                    />
+                  </div>
                 </section>
               )}
 
@@ -527,6 +529,7 @@ export default function GlowSoftDashboard({
                         <LaunchpadStatusWidget
                           variant="minimal"
                           onPayDeposit={handlePayDeposit}
+                          isApproaching={isApproachingLaunchpad}
                         />
                       </WidgetErrorBoundary>
                     </div>
@@ -649,11 +652,13 @@ export default function GlowSoftDashboard({
                         : "Launchpad Live"
                     }
                   />
-                  <LaunchpadStatusWidget
-                    variant="full-row"
-                    onPayDeposit={handlePayDeposit}
-                    isApproaching={isApproachingLaunchpad}
-                  />
+                  <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
+                    <LaunchpadStatusWidget
+                      variant="full-row"
+                      onPayDeposit={handlePayDeposit}
+                      isApproaching={isApproachingLaunchpad}
+                    />
+                  </div>
                 </section>
               )}
 
@@ -677,6 +682,7 @@ export default function GlowSoftDashboard({
                           className="w-full h-full"
                           variant="minimal"
                           onPayDeposit={handlePayDeposit}
+                          isApproaching={isApproachingLaunchpad}
                         />
                       </WidgetErrorBoundary>
                     </div>
