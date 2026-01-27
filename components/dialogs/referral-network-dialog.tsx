@@ -194,6 +194,14 @@ export function ReferralNetworkDialog({
     return resolvedData.referees.filter((r) => r.activationPending).length;
   }, [resolvedData]);
 
+  const isTierLocked = React.useMemo(() => {
+    if (!resolvedData) return false;
+    return (
+      resolvedData.stats.activeReferees > 0 &&
+      resolvedData.stats.currentTier.percent === 0
+    );
+  }, [resolvedData]);
+
   // Track dialog open
   const hasTrackedOpenRef = React.useRef(false);
   React.useEffect(() => {
@@ -572,14 +580,23 @@ export function ReferralNetworkDialog({
                         variant="outline"
                         className="font-mono text-[10px] bg-background border-primary/20 text-primary"
                       >
-                        LEVEL{" "}
-                        {resolvedData.stats.activeReferees >= 7
-                          ? 4
-                          : resolvedData.stats.activeReferees >= 4
-                            ? 3
-                            : resolvedData.stats.activeReferees >= 2
-                              ? 2
-                              : 1}
+                        {isTierLocked ? (
+                          <span className="inline-flex items-center gap-1">
+                            <Lock className="w-3 h-3" />
+                            LOCKED
+                          </span>
+                        ) : (
+                          <>
+                            LEVEL{" "}
+                            {resolvedData.stats.activeReferees >= 7
+                              ? 4
+                              : resolvedData.stats.activeReferees >= 4
+                                ? 3
+                                : resolvedData.stats.activeReferees >= 2
+                                  ? 2
+                                  : 1}
+                          </>
+                        )}
                       </Badge>
                     </div>
 
@@ -598,6 +615,11 @@ export function ReferralNetworkDialog({
                               {resolvedData.stats.currentTier.percent}% REWARD
                               SHARE
                             </span>
+                            {isTierLocked && (
+                              <span className="text-amber-600 dark:text-amber-400 text-[10px]">
+                                Earn base points to unlock
+                              </span>
+                            )}
                             {resolvedData.stats.activeReferees === 0 &&
                               resolvedData.stats.pendingReferees > 0 && (
                                 <span className="text-amber-600 dark:text-amber-400 text-[10px]">
@@ -744,7 +766,7 @@ export function ReferralNetworkDialog({
                         </div>
                       )}
 
-                      {resolvedData.stats.currentTier.nextTier && (
+                      {resolvedData.stats.currentTier.nextTier && !isTierLocked && (
                         <div className="flex items-center justify-center gap-2 pt-4 border-t border-dashed">
                           <div className="flex -space-x-1.5">
                             {[...Array(3)].map((_, i) => (
