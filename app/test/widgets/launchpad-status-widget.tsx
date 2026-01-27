@@ -245,6 +245,15 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
     [taggedDelegations],
   );
 
+  const activeMinersForScores = React.useMemo(
+    () =>
+      taggedMiners.filter((app) => {
+        const availability = getActiveFractionAvailability(app);
+        return !availability.isSoldOut;
+      }),
+    [taggedMiners],
+  );
+
   // Fetch scores
   const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
     applications: activeDelegationsForScores,
@@ -254,8 +263,8 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   });
 
   const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
-    applications: taggedMiners,
-    enabled: taggedMiners.length > 0,
+    applications: activeMinersForScores,
+    enabled: activeMinersForScores.length > 0,
   });
 
   // Count available listings per type

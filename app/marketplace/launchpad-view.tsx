@@ -486,9 +486,17 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
   });
 
   // Fetch mining scores only for miners
+  const activeMinersForScores = React.useMemo(
+    () =>
+      taggedMinersApplications.filter(
+        (app) => !getActiveFractionAvailability(app).isSoldOut
+      ),
+    [taggedMinersApplications]
+  );
+
   const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
-    applications: taggedMinersApplications,
-    enabled: taggedMinersApplications.length > 0,
+    applications: activeMinersForScores,
+    enabled: activeMinersForScores.length > 0,
   });
 
   const { spotPrice: glwSpotPrice } = useGlowSpotPrice();
@@ -1734,9 +1742,17 @@ function LaunchpadMarketplaceWidget({
     walletAddress: address || null,
   });
 
+  const activeMinersForScores = React.useMemo(
+    () =>
+      taggedMiners.filter(
+        (app) => !getActiveFractionAvailability(app).isSoldOut
+      ),
+    [taggedMiners]
+  );
+
   const { miningScoreMap, isLoading: isMiningScoresLoading } = useMiningScore({
-    applications: taggedMiners,
-    enabled: taggedMiners.length > 0,
+    applications: activeMinersForScores,
+    enabled: activeMinersForScores.length > 0,
   });
 
   // --- Metrics Calculation (Unchanged) ---
