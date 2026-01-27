@@ -270,6 +270,29 @@ type SortOption = "rewardScore" | "delegated" | "mined" | "risk";
 type FarmFilterOption = "all" | "delegation-only" | "mining-only" | "both";
 type DetailView = "delegation" | "mining";
 
+const CASH_BOUNTY_BY_APPLICATION_ID: Record<string, number | null> = {
+  "83b11acc-5207-47b5-a07f-483db5e48871": 1000,
+  "9c712552-e0bf-4a30-babd-9962f311929f": 1500,
+  "970c24ed-6273-4899-b8a1-c0c3742d9ae9": 1500,
+  "ed8eecb0-1509-4d7c-8337-a958e6064b5c": 1500,
+  "54c1ce52-15d3-4dbd-85d0-eb06f6eed8a": 1500,
+  "8dcf8df9-9d1b-4c10-b648-ac7b2f63dd28": 1500,
+  "a315a8e5-dcd7-4e2b-bdba-54a34e03e826": 4000,
+  "61e1d3c1-2682-4025-9db8-7d160bedf315": 2500,
+  "c41fc798-7cde-461c-a0f5-f9742a701990": 2000,
+  "8dd53eae-4dcf-4877-a5aa-492bb1ff72e9": null,
+  "71c4918e-19dd-4bb7-bcae-b27532eb4c94": 2500,
+  "25d454f1-a021-435c-b64a-476fca1b0d45": 1800,
+  "6dd28b54-745b-4e51-84fb-a5d9fd1432da": 1600,
+  "1987c17d-b927-410a-b1b4-2993beb33dbf": 500,
+  "c63b17d1-e3be-4bc4-92b9-f5df3d2b0e92": 2000,
+  "737a6761-01ac-46f9-8794-e45d3afd7726": 800,
+  "ca7ae649-974e-437d-a843-2a65b08aeb2f": 3000,
+  "93eeaf4d-3f43-41e1-8b7f-0f8018ed78d1": 6500,
+  "f6963add-86a4-48f0-81a7-5b8b2f0b680f": 1500,
+  "7be6c9e7-5ef5-4fd8-b67a-040d6e436822": 2500,
+};
+
 interface HealthStatus {
   label: "Ahead" | "On track" | "Behind" | "At risk";
   badgeClass: string;
@@ -287,6 +310,7 @@ interface FarmSummaryRow {
   rewardScore: number;
   rewardDelta: number;
   combinedGlw: number;
+  cashBountyUsd: number | null;
   health: HealthStatus;
   hasDelegation: boolean;
   hasMining: boolean;
@@ -342,6 +366,17 @@ function formatUsd(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "$0";
   const digits = value >= 1000 ? 0 : 2;
   return `$${value.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: digits,
+  })}`;
+}
+
+function formatUsdSigned(value: number) {
+  if (!Number.isFinite(value) || value === 0) return "$0";
+  const sign = value < 0 ? "-" : "";
+  const absValue = Math.abs(value);
+  const digits = absValue >= 1000 ? 0 : 2;
+  return `${sign}$${absValue.toLocaleString("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: digits,
   })}`;
@@ -587,6 +622,7 @@ export function MiningStats() {
 
   const { data, isLoading, isFetching, isError } = useFarmsPerPieceStats({
     enabled: true,
+    endWeek: 114,
   });
   const { spotPrice } = useGlowSpotPrice();
 
@@ -705,6 +741,8 @@ export function MiningStats() {
         hasMining,
       });
 
+      const cashBountyUsd = CASH_BOUNTY_BY_APPLICATION_ID[farm.appId] ?? null;
+
       return {
         farmId: farm.farmId,
         farmName: farm.farmName || "Unknown Farm",
@@ -714,6 +752,7 @@ export function MiningStats() {
         rewardScore,
         rewardDelta: 0,
         combinedGlw,
+        cashBountyUsd,
         health,
         hasDelegation,
         hasMining,
@@ -762,6 +801,23 @@ export function MiningStats() {
       rewardDelta: row.rewardScore - average,
     }));
   }, [data, spotPrice]);
+
+  const miningTotals = React.useMemo(() => {
+    let totalMining = 0;
+    let totalBounty = 0;
+
+    for (const farm of farmsSummary) {
+      totalMining += farm.mining.totalSpent;
+      if (farm.cashBountyUsd !== null) {
+        totalBounty += farm.cashBountyUsd;
+      }
+    }
+
+    return {
+      totalMining,
+      totalBounty,
+    };
+  }, [farmsSummary]);
 
   const filteredFarms = React.useMemo(() => {
     return farmsSummary.filter((farm) => {
@@ -893,6 +949,12 @@ export function MiningStats() {
                     <span className="font-mono text-xs">
                       {selectedFarm.summary.appId}
                     </span>
+                    {selectedFarm.summary.cashBountyUsd !== null && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        · Cash bounty{" "}
+                        {formatUsd(selectedFarm.summary.cashBountyUsd)}
+                      </span>
+                    )}
                   </DialogDescription>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -1225,6 +1287,29 @@ export function MiningStats() {
           </div>
         </div>
 
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card className="border-border/60 shadow-none">
+            <CardContent className="p-5 space-y-2">
+              <p className="text-xs uppercase text-muted-foreground">
+                Mining sold (USDC)
+              </p>
+              <p className="text-2xl font-semibold">
+                {formatUsd(miningTotals.totalMining)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/60 shadow-none">
+            <CardContent className="p-5 space-y-2">
+              <p className="text-xs uppercase text-muted-foreground">
+                Cash bounties paid
+              </p>
+              <p className="text-2xl font-semibold">
+                {formatUsd(miningTotals.totalBounty)}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
         <Card className="border-border/60 shadow-none">
           <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
@@ -1254,12 +1339,18 @@ export function MiningStats() {
                     <TableHead className="min-w-[180px] text-right">
                       Mining – Progress
                     </TableHead>
-                    <TableHead className="min-w-[200px] text-right">
-                      Mining – Size
-                    </TableHead>
-                    <TableHead className="min-w-[140px] text-right">
-                      Combined GLW
-                    </TableHead>
+    <TableHead className="min-w-[200px] text-right">
+      Mining – Size
+    </TableHead>
+    <TableHead className="min-w-[140px] text-right">
+      Cash bounty
+    </TableHead>
+    <TableHead className="min-w-[160px] text-right">
+      Mining – Net
+    </TableHead>
+    <TableHead className="min-w-[140px] text-right">
+      Combined GLW
+    </TableHead>
                     <TableHead className="w-24 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1267,7 +1358,7 @@ export function MiningStats() {
                   {sortedFarms.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={9}
                         className="h-24 text-center text-muted-foreground"
                       >
                         No farms match this filter.
@@ -1405,6 +1496,31 @@ export function MiningStats() {
                                 <div className="text-xs text-muted-foreground">
                                   Wallets: {farm.mining.wallets}
                                 </div>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="align-top py-4 text-right">
+                            {farm.cashBountyUsd === null ? (
+                              <span className="text-xs text-muted-foreground">
+                                —
+                              </span>
+                            ) : (
+                              <div className="font-semibold">
+                                {formatUsd(farm.cashBountyUsd)}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="align-top py-4 text-right">
+                            {farm.hasMining || farm.cashBountyUsd !== null ? (
+                              <div className="font-semibold">
+                                {formatUsdSigned(
+                                  farm.mining.totalSpent -
+                                    (farm.cashBountyUsd ?? 0)
+                                )}
                               </div>
                             ) : (
                               <span className="text-xs text-muted-foreground">

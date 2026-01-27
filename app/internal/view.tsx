@@ -21,7 +21,6 @@ export default function InternalView() {
             </Link>
           </div>
           <MiningStats />
-          <LifetimeFarms withChart={true} />
         </div>
       </section>
     </div>
