@@ -1420,10 +1420,12 @@ export function BuyGlowDialog({
               <Input
                 id="buy-amount"
                 type="text"
+                inputMode="decimal"
                 placeholder="0"
                 value={inputAmount}
                 onChange={(e) => {
-                  const value = e.target.value;
+                  // Accept comma as decimal separator (common in EU locales)
+                  const value = e.target.value.replace(",", ".");
                   if (value === "" || /^\d*\.?\d*$/.test(value)) {
                     handleInputChange(value);
                   }

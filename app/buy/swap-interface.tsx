@@ -1604,7 +1604,8 @@ export function SwapInterface({
                             placeholder="e.g. 1"
                             value={slippageTolerance}
                             onChange={(e) => {
-                              const next = e.target.value;
+                              // Accept comma as decimal separator (common in EU locales)
+                              const next = e.target.value.replace(",", ".");
                               if (!/^\d*\.?\d*$/.test(next)) return;
                               setSlippageTolerance(next);
                             }}
@@ -1626,16 +1627,22 @@ export function SwapInterface({
               <div className="flex-1 min-w-0">
                 <Input
                   type="text"
+                  inputMode="decimal"
                   placeholder="0.00"
                   className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold bg-transparent border-0 p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40 w-full"
                   value={amountToSell}
                   disabled={!isConnected || isWalletLoading}
                   onChange={(e) => {
-                    if (Number(e.target.value) < 0) {
+                    // Accept comma as decimal separator (common in EU locales)
+                    const value = e.target.value.replace(",", ".");
+                    if (value !== "" && !/^\d*\.?\d*$/.test(value)) {
+                      return;
+                    }
+                    if (Number(value) < 0) {
                       setAmountToSell("");
                       return;
                     }
-                    setAmountToSell(e.target.value);
+                    setAmountToSell(value);
                   }}
                 />
               </div>
