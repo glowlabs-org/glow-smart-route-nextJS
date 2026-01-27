@@ -457,6 +457,15 @@ export function ImpactScoreBreakdownDialogContent(
       maximumFractionDigits: 2,
     },
   );
+  const referralBonusProjectedPoints = formatPoints(
+    impactScore?.referral?.asReferee?.bonusPointsProjectedScaled6,
+    {
+      maximumFractionDigits: 2,
+    },
+  );
+  const hasReferralBonusProjected =
+    showCurrentWeekProjection &&
+    safePointsNumber(impactScore?.referral?.asReferee?.bonusPointsProjectedScaled6) > 0;
   const referrerStats = impactScore?.referral?.asReferrer;
   const activeReferees = referrerStats?.activeRefereeCount ?? 0;
   const pendingReferees = referrerStats?.pendingRefereeCount ?? 0;
@@ -959,6 +968,11 @@ export function ImpactScoreBreakdownDialogContent(
                         <div className="text-[10px] text-muted-foreground">
                           Total Earned
                         </div>
+                        {hasReferralBonusProjected && (
+                          <div className="text-[10px] text-muted-foreground mt-1">
+                            +{referralBonusProjectedPoints} pts projected this week
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

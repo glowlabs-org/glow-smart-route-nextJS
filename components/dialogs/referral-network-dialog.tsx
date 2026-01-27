@@ -81,6 +81,7 @@ interface ReferralStatusResponse {
     endsAt: string;
     weeksRemaining: number;
     bonusPercent: number;
+    bonusProjectedPointsScaled6?: string;
   };
 }
 
@@ -131,11 +132,14 @@ interface ReferralNetworkDialogProps {
   mockStatus?: ReferralStatusResponse;
 }
 
-function formatPoints(val: string) {
+function formatPoints(
+  val: string,
+  opts: { maximumFractionDigits?: number } = {},
+) {
   const num = parseFloat(val);
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(
-    num,
-  );
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: opts.maximumFractionDigits ?? 0,
+  }).format(num);
 }
 
 const REFERRAL_TIER_LABELS: Record<string, string> = {
@@ -173,10 +177,10 @@ export function ReferralNetworkDialog({
   });
 
   const { data: statusData } = useQuery({
-    queryKey: ["referral-status", walletAddress],
+    queryKey: ["referral-status", walletAddress, "projection"],
     queryFn: () =>
       hubGet<ReferralStatusResponse>("/referral/status", {
-        params: { walletAddress },
+        params: { walletAddress, includeProjection: "1" },
       }),
     enabled: isReferralLive && open && !!walletAddress && !mockStatus,
   });
@@ -463,16 +467,28 @@ export function ReferralNetworkDialog({
                           </span>
                         </div>
                       </div>
-                      {resolvedStatus.bonus?.isActive && (
-                        <div className="text-right">
-                          <div className="text-lg font-mono font-bold text-[#16a34a] dark:text-[#4ade80]">
-                            +{resolvedStatus.bonus.bonusPercent}%
-                          </div>
-                          <div className="text-[9px] text-muted-foreground uppercase font-medium">
-                            {resolvedStatus.bonus.weeksRemaining} weeks left
-                          </div>
+                    {resolvedStatus.bonus?.isActive && (
+                      <div className="text-right">
+                        <div className="text-lg font-mono font-bold text-[#16a34a] dark:text-[#4ade80]">
+                          +{resolvedStatus.bonus.bonusPercent}%
                         </div>
-                      )}
+                        <div className="text-[9px] text-muted-foreground uppercase font-medium">
+                          {resolvedStatus.bonus.weeksRemaining} weeks left
+                        </div>
+                        {resolvedStatus.bonus.bonusProjectedPointsScaled6 &&
+                          Number(resolvedStatus.bonus.bonusProjectedPointsScaled6) >
+                            0 && (
+                            <div className="text-[9px] text-muted-foreground mt-1">
+                              +
+                              {formatPoints(
+                                resolvedStatus.bonus.bonusProjectedPointsScaled6,
+                                { maximumFractionDigits: 2 },
+                              )}{" "}
+                              pts projected
+                            </div>
+                          )}
+                      </div>
+                    )}
                     </div>
 
                     {resolvedStatus.referrer.canChangeReferrer && (

@@ -22,9 +22,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  useReferralDashboard,
+  useReferralDashboardOverview,
+  useReferralDashboardTopReferrers,
+  useReferralDashboardRecentReferrals,
+  useReferralDashboardWeeklyStats,
+  useReferralDashboardNewReferees,
   type ReferralDashboardTopReferrer,
   type ReferralDashboardRecentReferral,
+  type ReferralDashboardResponse,
 } from "@/hooks/useReferralDashboard";
 
 function formatWallet(wallet: string) {
@@ -413,6 +418,16 @@ function RecentReferralsTable({ data }: { data: ReferralDashboardRecentReferral[
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {referral.status !== "active" && (
+              <div className="text-right min-w-[90px]">
+                <div className="text-xs font-semibold text-yellow-500">
+                  +{formatPoints(referral.refereePendingPointsScaled6 ?? "0")} pts
+                </div>
+                <div className="text-[10px] text-muted-foreground/50">
+                  Referee pending
+                </div>
+              </div>
+            )}
             {referral.isInGracePeriod && (
               <Badge
                 variant="outline"
@@ -492,28 +507,130 @@ function ActivationFunnel({
   );
 }
 
-export function ReferralDashboard() {
-  const { data, isLoading, isFetching, isError, refetch } = useReferralDashboard();
-
-  if (isLoading) {
-    return <ReferralDashboardSkeleton />;
-  }
-
-  if (isError || !data) {
+function NewRefereesTable({
+  data,
+  total,
+  truncated,
+}: {
+  data: ReferralDashboardResponse["newRefereeActivations"]["rows"];
+  total: number;
+  truncated: boolean;
+}) {
+  if (data.length === 0) {
     return (
-      <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-12 text-center">
-        <p className="text-muted-foreground/60">Unable to load referral dashboard data.</p>
-        <Button variant="outline" className="mt-6" onClick={() => refetch()}>
-          Retry
-        </Button>
+      <div className="py-12 text-center text-sm text-muted-foreground/50">
+        No new referees with points yet
       </div>
     );
   }
 
-  const totalPointsAllTime =
-    Number(data.totalPointsAllTime.referrerPoints) +
-    Number(data.totalPointsAllTime.refereeBonusPoints) +
-    Number(data.totalPointsAllTime.activationBonusPoints);
+  return (
+    <div className="space-y-3">
+      {data.map((row) => (
+        <div
+          key={row.refereeWallet}
+          className="rounded-2xl border border-border/20 dark:border-border/40 p-4 bg-muted/20 dark:bg-muted/40"
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col">
+                <CopyableWallet wallet={row.refereeWallet} className="text-sm" />
+                <span className="text-[10px] text-muted-foreground/50">
+                  via <span className="font-medium">{formatWallet(row.referrerWallet)}</span> ·{" "}
+                  {formatDate(row.linkedAt)}
+                </span>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-semibold text-emerald-500">
+                  +{formatPoints(row.projectedBasePointsScaled6)} pts
+                </div>
+                <div className="text-[10px] text-muted-foreground/50">Projected base</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-muted-foreground/70">
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-background/60 px-2 py-1">
+                <span>Inflation</span>
+                <span className="font-medium text-foreground/80">
+                  {formatPoints(row.inflationPointsScaled6)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-background/60 px-2 py-1">
+                <span>Steering</span>
+                <span className="font-medium text-foreground/80">
+                  {formatPoints(row.steeringPointsScaled6)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-background/60 px-2 py-1">
+                <span>Vault</span>
+                <span className="font-medium text-foreground/80">
+                  {formatPoints(row.vaultPointsScaled6)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-background/60 px-2 py-1">
+                <span>Worth</span>
+                <span className="font-medium text-foreground/80">
+                  {formatPoints(row.worthPointsScaled6)}
+                </span>
+              </div>
+            </div>
+            {truncated && (
+              <div className="text-[10px] text-muted-foreground/50">
+                Showing top {data.length} of {total} new referees.
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SectionError({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/20 dark:border-border/40 p-6 text-sm text-muted-foreground/60 text-center">
+      <div>{message}</div>
+      <Button variant="outline" size="sm" className="mt-4" onClick={onRetry}>
+        Retry
+      </Button>
+    </div>
+  );
+}
+
+export function ReferralDashboard() {
+  const overviewQuery = useReferralDashboardOverview();
+  const topReferrersQuery = useReferralDashboardTopReferrers();
+  const recentReferralsQuery = useReferralDashboardRecentReferrals();
+  const weeklyStatsQuery = useReferralDashboardWeeklyStats();
+  const newRefereesQuery = useReferralDashboardNewReferees();
+
+  const currentWeek =
+    overviewQuery.data?.currentWeek ?? weeklyStatsQuery.data?.currentWeek;
+  const isFetching =
+    overviewQuery.isFetching ||
+    topReferrersQuery.isFetching ||
+    recentReferralsQuery.isFetching ||
+    weeklyStatsQuery.isFetching ||
+    newRefereesQuery.isFetching;
+
+  const refetchAll = () => {
+    overviewQuery.refetch();
+    topReferrersQuery.refetch();
+    recentReferralsQuery.refetch();
+    weeklyStatsQuery.refetch();
+    newRefereesQuery.refetch();
+  };
+
+  const totalPointsAllTime = weeklyStatsQuery.data
+    ? Number(weeklyStatsQuery.data.totalPointsAllTime.referrerPoints) +
+      Number(weeklyStatsQuery.data.totalPointsAllTime.refereeBonusPoints) +
+      Number(weeklyStatsQuery.data.totalPointsAllTime.activationBonusPoints)
+    : null;
 
   return (
     <div className="space-y-8">
@@ -522,13 +639,13 @@ export function ReferralDashboard() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Referral Dashboard</h1>
           <p className="text-sm text-muted-foreground/60 dark:text-muted-foreground/80 mt-1">
-            Internal tracking · Week {data.currentWeek}
+            Internal tracking · Week {currentWeek ?? "—"}
           </p>
         </div>
         <Button
           variant="outline"
           size="sm"
-          onClick={() => refetch()}
+          onClick={refetchAll}
           disabled={isFetching}
           className="border-border/20 dark:border-border/40 hover:border-border/40 dark:hover:border-border/60"
         >
@@ -540,40 +657,63 @@ export function ReferralDashboard() {
       {/* Hero KPIs */}
       <section>
         <SectionHeader title="Overview" />
-        <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8 lg:p-12">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12 divide-y lg:divide-y-0 lg:divide-x divide-border/20 dark:divide-border/40">
-            <KPIDisplay
-              label="Total Referrals"
-              value={data.overview.totalReferrals}
-              subtitle={`${data.overview.activeReferrals} active · ${data.overview.pendingReferrals} pending`}
-              icon={<Users className="h-4 w-4" />}
-            />
-            <div className="pt-8 lg:pt-0 lg:pl-12">
-              <KPIDisplay
-                label="Unique Referrers"
-                value={data.overview.uniqueReferrers}
-                subtitle={`${data.overview.totalCodesGenerated} codes generated`}
-                icon={<UserCheck className="h-4 w-4" />}
-              />
-            </div>
-            <div className="pt-8 lg:pt-0 lg:pl-12">
-              <KPIDisplay
-                label="In Grace Period"
-                value={data.overview.inGracePeriod}
-                subtitle={`${data.overview.inBonusPeriod} in bonus period`}
-                icon={<Clock className="h-4 w-4" />}
-              />
-            </div>
-            <div className="pt-8 lg:pt-0 lg:pl-12">
-              <KPIDisplay
-                label="Total Points"
-                value={formatPoints(String(totalPointsAllTime))}
-                subtitle={`${data.overview.activationBonusesAwarded} activation bonuses`}
-                icon={<Gift className="h-4 w-4" />}
-              />
+        {overviewQuery.isLoading ? (
+          <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8 lg:p-12">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12 divide-y lg:divide-y-0 lg:divide-x divide-border/20 dark:divide-border/40">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="space-y-3">
+                  <Skeleton className="h-3 w-24 bg-muted/50" />
+                  <Skeleton className="h-12 w-20 bg-muted/50" />
+                  <Skeleton className="h-3 w-32 bg-muted/50" />
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        ) : overviewQuery.isError || !overviewQuery.data ? (
+          <SectionError
+            message="Unable to load overview."
+            onRetry={() => overviewQuery.refetch()}
+          />
+        ) : (
+          <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8 lg:p-12">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12 divide-y lg:divide-y-0 lg:divide-x divide-border/20 dark:divide-border/40">
+              <KPIDisplay
+                label="Total Referrals"
+                value={overviewQuery.data.overview.totalReferrals}
+                subtitle={`${overviewQuery.data.overview.activeReferrals} active · ${overviewQuery.data.overview.pendingReferrals} pending`}
+                icon={<Users className="h-4 w-4" />}
+              />
+              <div className="pt-8 lg:pt-0 lg:pl-12">
+                <KPIDisplay
+                  label="Unique Referrers"
+                  value={overviewQuery.data.overview.uniqueReferrers}
+                  subtitle={`${overviewQuery.data.overview.totalCodesGenerated} codes generated`}
+                  icon={<UserCheck className="h-4 w-4" />}
+                />
+              </div>
+              <div className="pt-8 lg:pt-0 lg:pl-12">
+                <KPIDisplay
+                  label="In Grace Period"
+                  value={overviewQuery.data.overview.inGracePeriod}
+                  subtitle={`${overviewQuery.data.overview.inBonusPeriod} in bonus period`}
+                  icon={<Clock className="h-4 w-4" />}
+                />
+              </div>
+              <div className="pt-8 lg:pt-0 lg:pl-12">
+                <KPIDisplay
+                  label="Total Points"
+                  value={
+                    totalPointsAllTime == null
+                      ? "—"
+                      : formatPoints(String(totalPointsAllTime))
+                  }
+                  subtitle={`${overviewQuery.data.overview.activationBonusesAwarded} activation bonuses`}
+                  icon={<Gift className="h-4 w-4" />}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Charts Row */}
@@ -581,50 +721,83 @@ export function ReferralDashboard() {
         {/* Tier Distribution */}
         <section>
           <SectionHeader title="Tier Distribution" />
-          <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
-            <TierDistributionChart data={data.tierDistribution} />
-            <div className="mt-6 pt-6 border-t border-border/20 dark:border-border/40">
-              <div className="grid grid-cols-4 gap-4 text-center">
-                <div>
-                  <div className="text-xs text-muted-foreground/50 mb-1">Seed</div>
-                  <div className="text-sm font-medium">1 ref · 5%</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground/50 mb-1">Grow</div>
-                  <div className="text-sm font-medium">2-3 refs · 10%</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground/50 mb-1">Scale</div>
-                  <div className="text-sm font-medium">4-6 refs · 15%</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground/50 mb-1">Legend</div>
-                  <div className="text-sm font-medium">7+ refs · 20%</div>
+          {overviewQuery.isLoading ? (
+            <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+              <Skeleton className="h-64 w-full bg-muted/50 rounded-xl" />
+            </div>
+          ) : overviewQuery.isError || !overviewQuery.data ? (
+            <SectionError
+              message="Unable to load tier distribution."
+              onRetry={() => overviewQuery.refetch()}
+            />
+          ) : (
+            <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+              <TierDistributionChart data={overviewQuery.data.tierDistribution} />
+              <div className="mt-6 pt-6 border-t border-border/20 dark:border-border/40">
+                <div className="grid grid-cols-4 gap-4 text-center">
+                  <div>
+                    <div className="text-xs text-muted-foreground/50 mb-1">Seed</div>
+                    <div className="text-sm font-medium">1 ref · 5%</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground/50 mb-1">Grow</div>
+                    <div className="text-sm font-medium">2-3 refs · 10%</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground/50 mb-1">Scale</div>
+                    <div className="text-sm font-medium">4-6 refs · 15%</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground/50 mb-1">Legend</div>
+                    <div className="text-sm font-medium">7+ refs · 20%</div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </section>
 
         {/* Activation Funnel */}
         <section>
           <SectionHeader title="Activation Funnel" />
-          <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
-            <ActivationFunnel
-              total={data.overview.totalReferrals}
-              active={data.overview.activeReferrals}
-              pending={data.overview.pendingReferrals}
+          {overviewQuery.isLoading ? (
+            <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+              <Skeleton className="h-40 w-full bg-muted/50 rounded-xl" />
+            </div>
+          ) : overviewQuery.isError || !overviewQuery.data ? (
+            <SectionError
+              message="Unable to load activation funnel."
+              onRetry={() => overviewQuery.refetch()}
             />
-          </div>
+          ) : (
+            <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+              <ActivationFunnel
+                total={overviewQuery.data.overview.totalReferrals}
+                active={overviewQuery.data.overview.activeReferrals}
+                pending={overviewQuery.data.overview.pendingReferrals}
+              />
+            </div>
+          )}
         </section>
       </div>
 
       {/* Weekly Points Chart */}
       <section>
         <SectionHeader title="Weekly Points (Last 12 Weeks)" />
-        <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
-          <WeeklyPointsChart data={data.weeklyStats} />
-        </div>
+        {weeklyStatsQuery.isLoading ? (
+          <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+            <Skeleton className="h-64 w-full bg-muted/50 rounded-xl" />
+          </div>
+        ) : weeklyStatsQuery.isError || !weeklyStatsQuery.data ? (
+          <SectionError
+            message="Unable to load weekly stats."
+            onRetry={() => weeklyStatsQuery.refetch()}
+          />
+        ) : (
+          <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+            <WeeklyPointsChart data={weeklyStatsQuery.data.weeklyStats} />
+          </div>
+        )}
       </section>
 
       {/* Tables Row */}
@@ -632,19 +805,64 @@ export function ReferralDashboard() {
         {/* Top Referrers */}
         <section>
           <SectionHeader title="Top Referrers" />
-          <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
-            <TopReferrersTable data={data.topReferrers} />
-          </div>
+          {topReferrersQuery.isLoading ? (
+            <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+              <Skeleton className="h-48 w-full bg-muted/50 rounded-xl" />
+            </div>
+          ) : topReferrersQuery.isError || !topReferrersQuery.data ? (
+            <SectionError
+              message="Unable to load top referrers."
+              onRetry={() => topReferrersQuery.refetch()}
+            />
+          ) : (
+            <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+              <TopReferrersTable data={topReferrersQuery.data.topReferrers} />
+            </div>
+          )}
         </section>
 
         {/* Recent Referrals */}
         <section>
           <SectionHeader title="Recent Activity" />
-          <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
-            <RecentReferralsTable data={data.recentReferrals} />
-          </div>
+          {recentReferralsQuery.isLoading ? (
+            <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+              <Skeleton className="h-48 w-full bg-muted/50 rounded-xl" />
+            </div>
+          ) : recentReferralsQuery.isError || !recentReferralsQuery.data ? (
+            <SectionError
+              message="Unable to load recent referrals."
+              onRetry={() => recentReferralsQuery.refetch()}
+            />
+          ) : (
+            <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+              <RecentReferralsTable data={recentReferralsQuery.data.recentReferrals} />
+            </div>
+          )}
         </section>
       </div>
+
+      {/* New Referees */}
+      <section>
+        <SectionHeader title="New Referees (0 Last Week → Points Now)" />
+        {newRefereesQuery.isLoading ? (
+          <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+            <Skeleton className="h-48 w-full bg-muted/50 rounded-xl" />
+          </div>
+        ) : newRefereesQuery.isError || !newRefereesQuery.data ? (
+          <SectionError
+            message="Unable to load new referees."
+            onRetry={() => newRefereesQuery.refetch()}
+          />
+        ) : (
+          <div className="rounded-3xl bg-card border border-border/20 dark:border-border/40 p-8">
+            <NewRefereesTable
+              data={newRefereesQuery.data.newRefereeActivations.rows}
+              total={newRefereesQuery.data.newRefereeActivations.total}
+              truncated={newRefereesQuery.data.newRefereeActivations.truncated}
+            />
+          </div>
+        )}
+      </section>
     </div>
   );
 }
