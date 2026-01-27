@@ -183,7 +183,7 @@ export default function ProtocolMetricsWidget({
     // Ensure we have bars for weeks with 0 farms too, within the range
     // Start from cutoffTime (rounded to week start) up to now
     let startTs = getWeekStartUtc(cutoffTime);
-    const endTs = getWeekStartUtc(Date.now());
+    const endTs = getWeekStartUtc(Date.now()) - WEEK_MS;
 
     for (let ts = startTs; ts <= endTs; ts += WEEK_MS) {
       const data = totalsByWeek.get(ts) ?? { count: 0, valueUsd: 0 };
