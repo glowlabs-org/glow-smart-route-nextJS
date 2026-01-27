@@ -470,10 +470,18 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
   }, [allLaunchpadApplications, allMinersApplications]);
 
   // Fetch reward scores only for delegations
+  const activeDelegationsForScores = React.useMemo(
+    () =>
+      taggedLaunchpadApplications.filter(
+        (app) => !getActiveFractionAvailability(app).isSoldOut
+      ),
+    [taggedLaunchpadApplications]
+  );
+
   const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
-    applications: taggedLaunchpadApplications,
+    applications: activeDelegationsForScores,
     paymentCurrency: selectedCurrency || "GLW",
-    enabled: taggedLaunchpadApplications.length > 0,
+    enabled: activeDelegationsForScores.length > 0,
     walletAddress: address || null,
   });
 
@@ -1386,11 +1394,9 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                             ) : (
                               <div className="text-sm">
                                 <div className="mb-2 text-background/80 text-xs">
-                                  Estimated weekly rewards per delegation, paid
-                                  weekly for 100 weeks. These estimates may
-                                  decrease as new farms join the region and
-                                  dilute the regional GLW allocation. See
-                                  Advanced Stats for detailed information.
+                                  Weekly reward breakdown (per delegation).
+                                  Estimates update weekly as new farms and
+                                  regions join the protocol.
                                 </div>
                                 {rewardScore?.userWeeklyGlwRewards &&
                                 rewardScore?.userWeeklyPdRewards &&
@@ -1421,30 +1427,35 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
 
                                       return (
                                         <div className="space-y-1">
-                                          <div>
-                                            <strong>
-                                              Weekly reward breakdown:
-                                            </strong>
+                                          <div className="flex justify-between gap-4 text-xs">
+                                            <span className="text-background/70">
+                                              Emissions
+                                            </span>
+                                            <span className="font-mono font-medium">
+                                              +
+                                              {glwPerShare.toLocaleString(
+                                                undefined,
+                                                {
+                                                  maximumFractionDigits: 1,
+                                                }
+                                              )}{" "}
+                                              GLW
+                                            </span>
                                           </div>
-                                          <div>
-                                            {pdPerShare.toLocaleString(
-                                              undefined,
-                                              {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2,
-                                              }
-                                            )}{" "}
-                                            GLW from PDs
-                                          </div>
-                                          <div>
-                                            {glwPerShare.toLocaleString(
-                                              undefined,
-                                              {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2,
-                                              }
-                                            )}{" "}
-                                            GLW from Emissions
+                                          <div className="flex justify-between gap-4 text-xs">
+                                            <span className="text-background/70">
+                                              PD Recovery
+                                            </span>
+                                            <span className="font-mono font-medium">
+                                              +
+                                              {pdPerShare.toLocaleString(
+                                                undefined,
+                                                {
+                                                  maximumFractionDigits: 1,
+                                                }
+                                              )}{" "}
+                                              GLW
+                                            </span>
                                           </div>
                                         </div>
                                       );
@@ -1708,10 +1719,18 @@ function LaunchpadMarketplaceWidget({
     [minersApplications]
   );
 
+  const activeDelegationsForScores = React.useMemo(
+    () =>
+      taggedDelegations.filter(
+        (app) => !getActiveFractionAvailability(app).isSoldOut
+      ),
+    [taggedDelegations]
+  );
+
   const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
-    applications: taggedDelegations,
+    applications: activeDelegationsForScores,
     paymentCurrency: "GLW",
-    enabled: taggedDelegations.length > 0,
+    enabled: activeDelegationsForScores.length > 0,
     walletAddress: address || null,
   });
 
@@ -3392,10 +3411,18 @@ function LaunchpadMarketplaceDialog({
     [filteredMiners]
   );
 
+  const activeDelegationsForScores = React.useMemo(
+    () =>
+      taggedDelegations.filter(
+        (app) => !getActiveFractionAvailability(app).isSoldOut
+      ),
+    [taggedDelegations]
+  );
+
   const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
-    applications: taggedDelegations,
+    applications: activeDelegationsForScores,
     paymentCurrency: "GLW",
-    enabled: taggedDelegations.length > 0,
+    enabled: activeDelegationsForScores.length > 0,
     walletAddress: address || null,
   });
 

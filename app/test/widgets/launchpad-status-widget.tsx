@@ -236,11 +236,20 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
     [minerApplications],
   );
 
+  const activeDelegationsForScores = React.useMemo(
+    () =>
+      taggedDelegations.filter((app) => {
+        const availability = getActiveFractionAvailability(app);
+        return !availability.isSoldOut;
+      }),
+    [taggedDelegations],
+  );
+
   // Fetch scores
   const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
-    applications: taggedDelegations,
+    applications: activeDelegationsForScores,
     paymentCurrency: "GLW",
-    enabled: taggedDelegations.length > 0,
+    enabled: activeDelegationsForScores.length > 0,
     walletAddress: address || null,
   });
 
@@ -683,52 +692,65 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   ) : (
                     <div className="space-y-2">
                       <p className="text-xs text-muted-foreground">
-                        Estimated weekly rewards per delegation, paid for 100
-                        weeks.
+                        Weekly reward breakdown (per delegation). Estimates
+                        update weekly as new farms and regions join the
+                        protocol.
                       </p>
                       {row.scoreData &&
-                        "userWeeklyGlwRewards" in row.scoreData && (
-                          <div className="space-y-1.5 pt-2 border-t border-border/20 dark:border-border/40">
-                            <div className="flex justify-between gap-4 text-xs">
-                              <span className="text-muted-foreground">
-                                Emissions
-                              </span>
-                              <span className="font-mono font-medium">
-                                +
-                                {parseFloat(
-                                  formatUnits(
-                                    BigInt(
-                                      row.scoreData.userWeeklyGlwRewards || "0",
-                                    ),
-                                    DECIMALS_BY_TOKEN.GLW,
-                                  ),
-                                ).toLocaleString(undefined, {
-                                  maximumFractionDigits: 1,
-                                })}{" "}
-                                GLW
-                              </span>
-                            </div>
-                            <div className="flex justify-between gap-4 text-xs">
-                              <span className="text-muted-foreground">
-                                PD Recovery
-                              </span>
-                              <span className="font-mono font-medium">
-                                +
-                                {parseFloat(
-                                  formatUnits(
-                                    BigInt(
-                                      row.scoreData.userWeeklyPdRewards || "0",
-                                    ),
-                                    DECIMALS_BY_TOKEN.GLW,
-                                  ),
-                                ).toLocaleString(undefined, {
-                                  maximumFractionDigits: 1,
-                                })}{" "}
-                                GLW
-                              </span>
-                            </div>
-                          </div>
-                        )}
+                        "userWeeklyGlwRewards" in row.scoreData &&
+                        application.activeFraction?.totalSteps ? (
+                          (() => {
+                            const totalShares =
+                              application.activeFraction?.totalSteps || 0;
+                            const glwRewards = parseFloat(
+                              formatUnits(
+                                BigInt(
+                                  row.scoreData.userWeeklyGlwRewards || "0",
+                                ),
+                                DECIMALS_BY_TOKEN.GLW,
+                              ),
+                            );
+                            const pdRewards = parseFloat(
+                              formatUnits(
+                                BigInt(row.scoreData.userWeeklyPdRewards || "0"),
+                                DECIMALS_BY_TOKEN.GLW,
+                              ),
+                            );
+                            const glwPerShare =
+                              totalShares > 0 ? glwRewards / totalShares : 0;
+                            const pdPerShare =
+                              totalShares > 0 ? pdRewards / totalShares : 0;
+
+                            return (
+                              <div className="space-y-1.5 pt-2 border-t border-border/20 dark:border-border/40">
+                                <div className="flex justify-between gap-4 text-xs">
+                                  <span className="text-muted-foreground">
+                                    Emissions
+                                  </span>
+                                  <span className="font-mono font-medium">
+                                    +
+                                    {glwPerShare.toLocaleString(undefined, {
+                                      maximumFractionDigits: 1,
+                                    })}{" "}
+                                    GLW
+                                  </span>
+                                </div>
+                                <div className="flex justify-between gap-4 text-xs">
+                                  <span className="text-muted-foreground">
+                                    PD Recovery
+                                  </span>
+                                  <span className="font-mono font-medium">
+                                    +
+                                    {pdPerShare.toLocaleString(undefined, {
+                                      maximumFractionDigits: 1,
+                                    })}{" "}
+                                    GLW
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })()
+                        ) : null}
                     </div>
                   )}
                 </TooltipContent>
