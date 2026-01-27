@@ -445,7 +445,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
               >
                 <AccordionItem
                   value="what-is-referral"
-                  className="border-b-0 rounded-lg bg-muted/30 dark:bg-muted/50 px-3"
+                  className="border-b-0 rounded-lg bg-card dark:bg-card/30 px-3"
                 >
                   <AccordionTrigger className="py-2.5 text-[10px] sm:text-[11px] font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
                     What do I get as a referee?
@@ -465,7 +465,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
 
                 <AccordionItem
                   value="how-activate"
-                  className="border-b-0 rounded-lg bg-muted/30 dark:bg-muted/50 px-3"
+                  className="border-b-0 rounded-lg bg-card dark:bg-card/30 px-3"
                 >
                   <AccordionTrigger className="py-2.5 text-[10px] sm:text-[11px] font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
                     How do I earn Impact Points?
@@ -483,7 +483,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
 
                 <AccordionItem
                   value="change-referrer"
-                  className="border-b-0 rounded-lg bg-muted/30 dark:bg-muted/50 px-3"
+                  className="border-b-0 rounded-lg bg-card dark:bg-card/30 px-3"
                 >
                   <AccordionTrigger className="py-2.5 text-[10px] sm:text-[11px] font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
                     Can I change my referrer later?

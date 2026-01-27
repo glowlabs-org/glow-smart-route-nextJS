@@ -8,7 +8,11 @@ import {
   ExternalLink,
   LogOut,
   AlertTriangle,
+  Link,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { hubGet } from "@/lib/api/hub-client";
+import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +54,17 @@ export function WalletStatus({
   const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
 
   const { hasError, hasSigner } = useER20Balances({ signer });
+  const { isLive: isReferralLive } = useReferralLaunch();
+
+  const referralQuery = useQuery({
+    queryKey: ["referral-code", address],
+    queryFn: () =>
+      hubGet<{ code: string; shareableLink: string }>(
+        `/referral/code?walletAddress=${address}`
+      ),
+    enabled: !!address && isReferralLive,
+    staleTime: Infinity,
+  });
 
   const hasNetworkIssues =
     hasError || (!hasSigner && isConnected && !isSignerLoading);
@@ -235,6 +250,24 @@ export function WalletStatus({
             <Copy className="w-4 h-4 mr-2" /> Copy address
             <DropdownMenuShortcut>⌘C</DropdownMenuShortcut>
           </DropdownMenuItem>
+          {isReferralLive && referralQuery.data?.shareableLink && (
+            <DropdownMenuItem
+              onSelect={async (e) => {
+                e.preventDefault();
+                try {
+                  await navigator.clipboard.writeText(
+                    referralQuery.data!.shareableLink
+                  );
+                  toast.success("Referral link copied");
+                } catch {
+                  toast.error("Failed to copy");
+                }
+              }}
+              className="cursor-pointer px-4"
+            >
+              <Link className="w-4 h-4 mr-2" /> Copy referral link
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem asChild className="cursor-pointer px-4">
             <a href={addressUrl} target="_blank" rel="noreferrer">
               <ExternalLink className="w-4 h-4 mr-2" /> View on Etherscan

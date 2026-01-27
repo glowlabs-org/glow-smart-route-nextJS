@@ -1508,7 +1508,7 @@ export default function LaunchpadStatusWidget({
                   href={DEFINED_POOL_ACTIVITY_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="shrink-0 flex flex-col items-center justify-center p-3 rounded-xl bg-background/50 border border-border/60 min-w-[100px] gap-0.5 hover:bg-muted/50 hover:border-border transition-colors group"
+                  className="shrink-0 flex flex-col items-center justify-center p-3 rounded-xl bg-card border border-border/60 min-w-[100px] gap-0.5 hover:bg-muted/50 hover:border-border transition-colors group"
                 >
                   <span className="text-[10px] translate-x-2 font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                     GLW

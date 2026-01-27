@@ -249,7 +249,7 @@ export function ReferralNetworkDialog({
   const shareToTwitter = React.useCallback(() => {
     if (!resolvedData?.shareableLink) return;
     const text = encodeURIComponent(
-      `Join me on @GlowFND and we both earn bonus Impact Points! You'll get +100 pts + a 10% boost for 12 weeks.\n\n${resolvedData.shareableLink}`
+      `Join me on @GlowFND and we both earn bonus Impact Points! You'll get +100 pts + a 10% boost for 12 weeks.\n\n${resolvedData.shareableLink}`,
     );
     window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
     trackEvent("referral_share_twitter", {
@@ -1084,7 +1084,7 @@ export function ReferralNetworkDialog({
                 >
                   <AccordionItem
                     value="activation"
-                    className="border-b-0 rounded-lg bg-background/50 dark:bg-background/30 px-3 sm:px-4"
+                    className="border-b-0 rounded-lg bg-card dark:bg-card/30 px-3 sm:px-4"
                   >
                     <AccordionTrigger className="py-2.5 sm:py-3 text-[11px] sm:text-xs font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
                       How do referrals become active?
@@ -1102,7 +1102,7 @@ export function ReferralNetworkDialog({
 
                   <AccordionItem
                     value="rewards"
-                    className="border-b-0 rounded-lg bg-background/50 dark:bg-background/30 px-3 sm:px-4"
+                    className="border-b-0 rounded-lg bg-card dark:bg-card/30 px-3 sm:px-4"
                   >
                     <AccordionTrigger className="py-2.5 sm:py-3 text-[11px] sm:text-xs font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
                       How much do I earn from referrals?
@@ -1155,7 +1155,7 @@ export function ReferralNetworkDialog({
 
                   <AccordionItem
                     value="referee-benefit"
-                    className="border-b-0 rounded-lg bg-background/50 dark:bg-background/30 px-3 sm:px-4"
+                    className="border-b-0 rounded-lg bg-card dark:bg-card/30 px-3 sm:px-4"
                   >
                     <AccordionTrigger className="py-2.5 sm:py-3 text-[11px] sm:text-xs font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
                       What do my referrals get?
@@ -1176,7 +1176,7 @@ export function ReferralNetworkDialog({
 
                   <AccordionItem
                     value="change-referrer"
-                    className="border-b-0 rounded-lg bg-background/50 dark:bg-background/30 px-3 sm:px-4"
+                    className="border-b-0 rounded-lg bg-card dark:bg-card/30 px-3 sm:px-4"
                   >
                     <AccordionTrigger className="py-2.5 sm:py-3 text-[11px] sm:text-xs font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
                       Can referrals change their referrer?
@@ -1193,7 +1193,7 @@ export function ReferralNetworkDialog({
 
                   <AccordionItem
                     value="finalization"
-                    className="border-b-0 rounded-lg bg-background/50 dark:bg-background/30 px-3 sm:px-4"
+                    className="border-b-0 rounded-lg bg-card dark:bg-card/30 px-3 sm:px-4"
                   >
                     <AccordionTrigger className="py-2.5 sm:py-3 text-[11px] sm:text-xs font-medium text-foreground hover:no-underline [&[data-state=open]>svg]:rotate-180">
                       When do rewards update?
