@@ -7,7 +7,7 @@ import { useAccount, useDisconnect } from "wagmi";
 import { hubGet } from "@/lib/api/hub-client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Copy, Check, Users } from "lucide-react";
 import Image from "next/image";
 import { ConnectButton } from "@/components/connect-button";
 import { useReferral } from "@/hooks/use-referral";
@@ -17,12 +17,18 @@ import { GlowSymbol } from "@/components/glow-symbol";
 import { motion, AnimatePresence } from "framer-motion";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { REFERRAL_LAUNCH_LABEL } from "@/lib/referral-launch";
+import { toast } from "sonner";
 
 interface ValidateCodeResponse {
   valid: boolean;
   referrerWallet?: string;
   referrerEns?: string;
   message?: string;
+}
+
+interface ReferralCodeResponse {
+  code: string;
+  shareableLink: string;
 }
 
 export default function ReferralLandingPage() {
@@ -42,6 +48,30 @@ export default function ReferralLandingPage() {
   const { isLive: isReferralLive } = useReferralLaunch();
   const [isSuccess, setIsSuccess] = React.useState(false);
   const [isChangeSuccess, setIsChangeSuccess] = React.useState(false);
+  const [isOwnLinkCopied, setIsOwnLinkCopied] = React.useState(false);
+
+  // Fetch user's own referral code after successful link
+  const ownCodeQuery = useQuery({
+    queryKey: ["referral-code", address],
+    queryFn: () =>
+      hubGet<ReferralCodeResponse>("/referral/code", {
+        params: { walletAddress: address },
+      }),
+    enabled: isReferralLive && isSuccess && !!address,
+  });
+
+  const copyOwnLink = React.useCallback(() => {
+    if (!ownCodeQuery.data?.shareableLink) return;
+    navigator.clipboard.writeText(ownCodeQuery.data.shareableLink);
+    setIsOwnLinkCopied(true);
+    toast.success("Your referral link copied!");
+    trackEvent("referral_success_copy_own_link", {
+      code,
+      wallet: address,
+      own_code: ownCodeQuery.data.code,
+    });
+    setTimeout(() => setIsOwnLinkCopied(false), 2000);
+  }, [ownCodeQuery.data, code, address]);
 
   const validateQuery = useQuery({
     queryKey: ["validate-referral-code", code],
@@ -209,6 +239,54 @@ export default function ReferralLandingPage() {
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
+
+                {/* Viral Loop: Share Your Own Link */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: 0.3 }}
+                  className="mt-8 pt-6 border-t border-dashed border-border/40"
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 rounded-lg bg-primary/10">
+                      <Users className="w-4 h-4 text-primary" />
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">
+                      Start your own network
+                    </p>
+                  </div>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-4 leading-relaxed">
+                    Invite friends and earn up to 20% of their Impact Points.
+                    They&apos;ll get the same bonuses you just unlocked.
+                  </p>
+                  {ownCodeQuery.isLoading ? (
+                    <Skeleton className="h-10 w-full sm:max-w-xs" />
+                  ) : ownCodeQuery.data?.shareableLink ? (
+                    <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                      <div className="flex-1 sm:max-w-xs px-3 py-2 rounded-lg bg-muted/50 border border-border/20 font-mono text-xs text-muted-foreground truncate">
+                        {ownCodeQuery.data.shareableLink}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-10 gap-2 shrink-0"
+                        onClick={copyOwnLink}
+                      >
+                        {isOwnLinkCopied ? (
+                          <>
+                            <Check className="w-4 h-4" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4" />
+                            Copy Your Link
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ) : null}
+                </motion.div>
               </div>
 
               <div className="text-xs sm:text-sm text-muted-foreground/60 mt-6 lg:mt-0">

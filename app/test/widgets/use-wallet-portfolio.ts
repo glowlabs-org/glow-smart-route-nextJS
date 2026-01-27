@@ -204,6 +204,12 @@ export function useWalletPortfolio(params: {
   const impactDelegatedActiveGlw = React.useMemo(() => {
     return parseGlwFromWei(impactGlowWorth?.delegatedActiveGlwWei);
   }, [impactGlowWorth?.delegatedActiveGlwWei]);
+  const impactPendingRecoveredGlw = React.useMemo(() => {
+    return parseGlwFromWei(impactGlowWorth?.pendingRecoveredGlwWei);
+  }, [impactGlowWorth?.pendingRecoveredGlwWei]);
+  const impactDelegatedTotalGlw = React.useMemo(() => {
+    return impactDelegatedActiveGlw + impactPendingRecoveredGlw;
+  }, [impactDelegatedActiveGlw, impactPendingRecoveredGlw]);
   const impactUnclaimedGlwRewards = React.useMemo(() => {
     return parseGlwFromWei(impactGlowWorth?.unclaimedGlwRewardsWei);
   }, [impactGlowWorth?.unclaimedGlwRewardsWei]);
@@ -228,13 +234,13 @@ export function useWalletPortfolio(params: {
     return {
       glowWorthGlw,
       liquidGlw: impactLiquidGlw,
-      delegatedActiveGlw: impactDelegatedActiveGlw,
+      delegatedActiveGlw: impactDelegatedTotalGlw,
       unclaimedGlwRewards: impactUnclaimedGlwRewards,
     };
   }, [
     glowWorthGlw,
     hasWallet,
-    impactDelegatedActiveGlw,
+    impactDelegatedTotalGlw,
     impactLiquidGlw,
     impactUnclaimedGlwRewards,
   ]);
@@ -299,7 +305,7 @@ export function useWalletPortfolio(params: {
           week: currentWeek,
           isCurrent: true,
           liquidGlw: impactLiquidGlw,
-          delegatedActiveGlw: impactDelegatedActiveGlw,
+          delegatedActiveGlw: impactDelegatedTotalGlw,
           unclaimedGlwRewards: impactUnclaimedGlwRewards,
         },
       ];
@@ -314,7 +320,7 @@ export function useWalletPortfolio(params: {
       // Breakdown is only available for current week
       const liquidGlw = isCurrent ? impactLiquidGlw : undefined;
       const delegatedActiveGlw = isCurrent
-        ? impactDelegatedActiveGlw
+        ? impactDelegatedTotalGlw
         : undefined;
       const unclaimedGlwRewards = isCurrent
         ? impactUnclaimedGlwRewards
@@ -335,7 +341,7 @@ export function useWalletPortfolio(params: {
     impactScore?.weekly,
     impactGlowWorth?.glowWorthWei,
     impactLiquidGlw,
-    impactDelegatedActiveGlw,
+    impactDelegatedTotalGlw,
     impactUnclaimedGlwRewards,
   ]);
 

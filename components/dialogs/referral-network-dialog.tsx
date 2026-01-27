@@ -18,6 +18,7 @@ import {
   Info,
   Check,
   Sparkles,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatAddress } from "@/lib/utils";
@@ -234,13 +235,38 @@ export function ReferralNetworkDialog({
           text: "Help build the future of solar energy and earn Impact Points.",
           url: resolvedData.shareableLink,
         });
+        trackEvent("referral_share_native", {
+          wallet_address: walletAddress ?? null,
+        });
       } catch (e) {
         // user cancelled or failed
       }
     } else {
       copyLink();
     }
-  }, [resolvedData?.shareableLink, copyLink]);
+  }, [resolvedData?.shareableLink, copyLink, walletAddress]);
+
+  const shareToTwitter = React.useCallback(() => {
+    if (!resolvedData?.shareableLink) return;
+    const text = encodeURIComponent(
+      `Join me on @GlowFND and we both earn bonus Impact Points! You'll get +100 pts + a 10% boost for 12 weeks.\n\n${resolvedData.shareableLink}`
+    );
+    window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
+    trackEvent("referral_share_twitter", {
+      wallet_address: walletAddress ?? null,
+    });
+  }, [resolvedData?.shareableLink, walletAddress]);
+
+  const shareToDiscord = React.useCallback(() => {
+    if (!resolvedData?.shareableLink) return;
+    // Discord doesn't have a direct share URL, so we copy a formatted message
+    const message = `Join me on Glow! You'll get +100 pts bonus + 10% boost for 12 weeks: ${resolvedData.shareableLink}`;
+    navigator.clipboard.writeText(message);
+    toast.success("Discord message copied! Paste it in your server.");
+    trackEvent("referral_share_discord", {
+      wallet_address: walletAddress ?? null,
+    });
+  }, [resolvedData?.shareableLink, walletAddress]);
 
   if (!isReferralLive) {
     return null;
@@ -313,6 +339,33 @@ export function ReferralNetworkDialog({
                       ) : (
                         <Copy className="w-3.5 h-3.5" />
                       )}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="shrink-0"
+                      onClick={shareToTwitter}
+                      title="Share on X"
+                      aria-label="Share on X (Twitter)"
+                    >
+                      <svg
+                        className="w-3.5 h-3.5"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                      </svg>
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="shrink-0"
+                      onClick={shareToDiscord}
+                      title="Copy for Discord"
+                      aria-label="Copy message for Discord"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
                     </Button>
                     <Button
                       size="icon"
@@ -856,26 +909,60 @@ export function ReferralNetworkDialog({
                       <Users className="w-8 h-8 text-muted-foreground/30" />
                     </div>
                     <p className="text-sm font-bold text-foreground">
-                      Your network is empty
+                      Invite your first friend
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1 max-w-[200px] mx-auto leading-relaxed">
-                      Share your link to start earning tiered impact points.
+                    <p className="text-xs text-muted-foreground mt-1 max-w-[220px] mx-auto leading-relaxed">
+                      Share your link to unlock Aurora tier and start earning 5%
+                      of their points.
                     </p>
-                    <div className="mt-4 flex flex-col gap-2">
+                    <div className="mt-5 flex flex-col sm:flex-row gap-2 justify-center">
                       <Button
                         size="sm"
-                        onClick={copyLink}
+                        className="gap-2"
+                        onClick={shareToTwitter}
                         disabled={!resolvedData.shareableLink}
                       >
-                        Copy Referral Link
+                        <svg
+                          className="w-4 h-4"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                        </svg>
+                        Post on X
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
+                        className="gap-2"
+                        onClick={copyLink}
+                        disabled={!resolvedData.shareableLink}
+                      >
+                        <Copy className="w-4 h-4" />
+                        Copy Link
+                      </Button>
+                    </div>
+                    <div className="mt-3 flex justify-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-xs text-muted-foreground"
+                        onClick={shareToDiscord}
+                        disabled={!resolvedData.shareableLink}
+                      >
+                        <MessageCircle className="w-3.5 h-3.5 mr-1.5" />
+                        Discord
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-xs text-muted-foreground"
                         onClick={openQRCode}
                         disabled={!resolvedData.shareableLink}
                       >
-                        Show QR Code
+                        <QrCode className="w-3.5 h-3.5 mr-1.5" />
+                        QR Code
                       </Button>
                     </div>
                   </div>

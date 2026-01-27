@@ -107,7 +107,7 @@ function GlowWorthChartTooltip({
             </span>
           </div>
           <div className="flex items-center justify-between gap-4">
-            <span>Delegated</span>
+            <span>Delegated + recovery</span>
             <span className="tabular-nums text-foreground">
               {delegated.toLocaleString("en-US", { maximumFractionDigits: 0 })}
             </span>

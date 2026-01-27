@@ -146,8 +146,8 @@ export function GlowWorthBreakdownDialog(props: GlowWorthBreakdownDialogProps) {
               />
               <BreakdownRow
                 icon={VaultIcon}
-                label="GLW from delegations"
-                sublabel="Shows up once delegations are active in the weekly accounting"
+                label="GLW from delegations + pending recovery"
+                sublabel="Includes delegated GLW and protocol deposit recovery not yet claimable"
                 value={formatGlw(safeBreakdown.delegatedActiveGlw)}
                 tone="purple"
               />

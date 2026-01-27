@@ -19,20 +19,29 @@ import {
   AlertCircle,
   Check,
   Users,
+  Copy,
+  QrCode,
 } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { trackEvent } from "@/lib/telemetry";
 import * as Sentry from "@sentry/nextjs";
 import { GlowSymbol } from "@/components/glow-symbol";
-import { hubPost } from "@/lib/api/hub-client";
+import { hubGet, hubPost } from "@/lib/api/hub-client";
+import { toast } from "sonner";
 import { useAccount } from "wagmi";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
+import { QRCodeDialog } from "@/components/referral/qr-code-dialog";
 
 interface SuccessReceipt {
   referralCode: string;
   referrerWallet?: string;
   referrerEns?: string;
+}
+
+interface ReferralCodeResponse {
+  code: string;
+  shareableLink: string;
 }
 
 interface FeatureLaunchModalMock {
@@ -69,7 +78,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
   const [code, setCode] = React.useState("");
   const [localError, setLocalError] = React.useState<string | null>(null);
   const [isDismissed, setIsDismissed] = React.useState(false);
-  const [step, setStep] = React.useState<"form" | "success">("form");
+  const [step, setStep] = React.useState<"form" | "success" | "invite">("form");
   const [successReceipt, setSuccessReceipt] =
     React.useState<SuccessReceipt | null>(null);
   const hasTrackedViewRef = React.useRef(false);
@@ -81,10 +90,11 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
   const hasSeen = !!status?.featureLaunchModal?.seen;
   const isControlled = mock?.open !== undefined;
 
-  // Modal should show if: eligible + no referrer + not seen (backend), OR in success state
+  // Modal should show if: eligible + no referrer + not seen (backend), OR in success/invite state
   // isDismissed is session-only (resets on page refresh) - allows closing without permanent dismiss
   const computedShouldShow =
     step === "success" ||
+    step === "invite" ||
     (status?.canClaim && !status?.hasReferrer && !hasSeen && !isDismissed);
   const shouldShow = isControlled ? Boolean(mock?.open) : computedShouldShow;
 
@@ -116,16 +126,21 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
     mock?.onOpenChange?.(false);
   }, [mock]);
 
-  // Permanently dismiss - user explicitly clicked "I wasn't referred"
+  // User clicked "I wasn't referred" - show invite screen instead of closing
   const handleSkip = React.useCallback(() => {
-    setIsDismissed(true);
     setLocalError(null);
-    setStep("form");
-    setSuccessReceipt(null);
     trackEvent("referral_feature_launch_modal_skip");
     markFeatureLaunchSeen();
+    setStep("invite");
+  }, [markFeatureLaunchSeen]);
+
+  // Close from invite screen
+  const handleInviteDone = React.useCallback(() => {
+    setIsDismissed(true);
+    setStep("form");
+    trackEvent("referral_feature_launch_invite_done");
     mock?.onOpenChange?.(false);
-  }, [markFeatureLaunchSeen, mock]);
+  }, [mock]);
 
   const handleCodeChange = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -216,6 +231,8 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
         if (!open) {
           if (step === "success") {
             handleSuccessDone();
+          } else if (step === "invite") {
+            handleInviteDone();
           } else {
             handleClose();
           }
@@ -225,10 +242,21 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
     >
       <DialogContent
         className="sm:max-w-sm p-0 overflow-hidden border border-border/20 dark:border-border/40 bg-card gap-0 rounded-[24px]"
-        showCloseButton={step !== "success"}
+        showCloseButton={step === "form"}
       >
         {step === "success" ? (
-          <SuccessScreen receipt={successReceipt} onDone={handleSuccessDone} />
+          <SuccessScreen
+            receipt={successReceipt}
+            onDone={handleSuccessDone}
+            walletAddress={address}
+            isReferralLive={isReferralLive}
+          />
+        ) : step === "invite" ? (
+          <InviteScreen
+            onDone={handleInviteDone}
+            walletAddress={address}
+            isReferralLive={isReferralLive}
+          />
         ) : (
           <>
             {/* Hero Section */}
@@ -245,7 +273,7 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                     Referral Program is Live
                   </DialogTitle>
                   <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
-                    Were you invited by someone? Claim your referrer to unlock
+                    Were you invited by someone? Enter their code to unlock
                     bonus{" "}
                     <span className="font-semibold text-foreground">
                       Impact Points
@@ -389,7 +417,12 @@ export function FeatureLaunchModal({ mock }: FeatureLaunchModalProps) {
                     {isLinking ? "Verifying…" : "Claim My Bonus"}
                   </Button>
 
-                  <Button type="button" variant="outline" className="h-10 sm:h-11 text-sm" onClick={handleSkip}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 sm:h-11 text-sm"
+                    onClick={handleSkip}
+                  >
                     I wasn&apos;t referred
                   </Button>
                 </div>
@@ -536,12 +569,39 @@ function AnimatedStat({
 function SuccessScreen({
   receipt,
   onDone,
+  walletAddress,
+  isReferralLive,
 }: {
   receipt: SuccessReceipt | null;
   onDone: () => void;
+  walletAddress?: string | null;
+  isReferralLive: boolean;
 }) {
   const [displayPercent, setDisplayPercent] = React.useState(0);
+  const [isOwnLinkCopied, setIsOwnLinkCopied] = React.useState(false);
   const shouldReduceMotion = useReducedMotion();
+
+  // Fetch user's own referral code for viral loop
+  const ownCodeQuery = useQuery({
+    queryKey: ["referral-code", walletAddress],
+    queryFn: () =>
+      hubGet<ReferralCodeResponse>("/referral/code", {
+        params: { walletAddress },
+      }),
+    enabled: isReferralLive && !!walletAddress,
+  });
+
+  const copyOwnLink = React.useCallback(() => {
+    if (!ownCodeQuery.data?.shareableLink) return;
+    navigator.clipboard.writeText(ownCodeQuery.data.shareableLink);
+    setIsOwnLinkCopied(true);
+    toast.success("Your referral link copied!");
+    trackEvent("referral_feature_launch_copy_own_link", {
+      wallet: walletAddress,
+      own_code: ownCodeQuery.data.code,
+    });
+    setTimeout(() => setIsOwnLinkCopied(false), 2000);
+  }, [ownCodeQuery.data, walletAddress]);
 
   React.useEffect(() => {
     if (shouldReduceMotion) {
@@ -708,15 +768,237 @@ function SuccessScreen({
           </div>
         </motion.div>
 
+        {/* Viral loop - invite others */}
+        {ownCodeQuery.data?.shareableLink && (
+          <motion.div
+            className="w-full space-y-2 sm:space-y-3"
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={fadeUp(0.85)}
+          >
+            <div className="text-[9px] sm:text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+              Start Your Network
+            </div>
+            <button
+              type="button"
+              onClick={copyOwnLink}
+              className="w-full flex items-center justify-between gap-3 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 hover:border-border/40 dark:hover:border-border/60 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-[#4ADE80]/10 flex items-center justify-center shrink-0">
+                  <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#4ADE80]" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs sm:text-sm font-semibold text-foreground">
+                    Invite friends, earn more
+                  </div>
+                  <div className="text-[9px] sm:text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 truncate">
+                    {ownCodeQuery.data.shareableLink}
+                  </div>
+                </div>
+              </div>
+              <div className="shrink-0">
+                {isOwnLinkCopied ? (
+                  <Check className="w-4 h-4 text-[#4ADE80]" />
+                ) : (
+                  <Copy className="w-4 h-4 text-muted-foreground" />
+                )}
+              </div>
+            </button>
+          </motion.div>
+        )}
+
         {/* Done button */}
         <motion.div
           className="w-full pt-1 sm:pt-2"
           initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={fadeUp(0.8)}
+          transition={fadeUp(0.9)}
         >
           <Button onClick={onDone} className="w-full h-10 sm:h-11">
             Start Earning
+          </Button>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
+function InviteScreen({
+  onDone,
+  walletAddress,
+  isReferralLive,
+}: {
+  onDone: () => void;
+  walletAddress?: string | null;
+  isReferralLive: boolean;
+}) {
+  const [isLinkCopied, setIsLinkCopied] = React.useState(false);
+  const [isQROpen, setIsQROpen] = React.useState(false);
+  const shouldReduceMotion = useReducedMotion();
+
+  // Fetch user's referral code
+  const ownCodeQuery = useQuery({
+    queryKey: ["referral-code", walletAddress],
+    queryFn: () =>
+      hubGet<ReferralCodeResponse>("/referral/code", {
+        params: { walletAddress },
+      }),
+    enabled: isReferralLive && !!walletAddress,
+  });
+
+  const copyLink = React.useCallback(() => {
+    if (!ownCodeQuery.data?.shareableLink) return;
+    navigator.clipboard.writeText(ownCodeQuery.data.shareableLink);
+    setIsLinkCopied(true);
+    toast.success("Your referral link copied!");
+    trackEvent("referral_feature_launch_invite_copy_link", {
+      wallet: walletAddress,
+      code: ownCodeQuery.data.code,
+    });
+    setTimeout(() => setIsLinkCopied(false), 2000);
+  }, [ownCodeQuery.data, walletAddress]);
+
+  const springIn = shouldReduceMotion
+    ? { duration: 0 }
+    : { type: "spring", stiffness: 200, damping: 15, delay: 0.1 };
+  const fadeUp = (delay: number) =>
+    shouldReduceMotion ? { duration: 0 } : { delay, duration: 0.2 };
+
+  return (
+    <div className="relative overflow-hidden">
+      <div className="relative px-5 sm:px-8 py-8 sm:py-10 flex flex-col items-center text-center space-y-5 sm:space-y-6">
+        {/* Icon */}
+        <motion.div
+          className="relative"
+          initial={shouldReduceMotion ? false : { scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={springIn}
+        >
+          <div className="relative h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-[#4ADE80]/10 border border-[#4ADE80]/20 flex items-center justify-center">
+            <Users className="h-8 w-8 sm:h-10 sm:w-10 text-[#4ADE80]" />
+          </div>
+        </motion.div>
+
+        {/* Title and subtitle */}
+        <motion.div
+          className="space-y-2"
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={fadeUp(0.2)}
+        >
+          <DialogTitle className="text-xl sm:text-2xl font-semibold tracking-tight">
+            Become a Referrer
+          </DialogTitle>
+          <p className="text-xs sm:text-sm text-muted-foreground/60 dark:text-muted-foreground/80 max-w-xs mx-auto">
+            No worries! You can still earn bonus points by inviting others to
+            Glow.
+          </p>
+        </motion.div>
+
+        {/* Benefits preview */}
+        <motion.div
+          className="w-full rounded-xl sm:rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 sm:p-4"
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={fadeUp(0.3)}
+        >
+          <div className="text-[9px] sm:text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-2 sm:mb-3">
+            What You Earn
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2.5 text-left">
+              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-[#4ADE80]/10 flex items-center justify-center shrink-0">
+                <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#4ADE80]" />
+              </div>
+              <div className="text-[11px] sm:text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">5-20%</span> of
+                your referees Impact Points
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 text-left">
+              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-[color:var(--delegation-purple)]/10 flex items-center justify-center shrink-0">
+                <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[color:var(--delegation-purple)]" />
+              </div>
+              <div className="text-[11px] sm:text-xs text-muted-foreground">
+                Grow your tier:{" "}
+                <span className="font-semibold text-foreground">
+                  1 ref → 7+
+                </span>{" "}
+                for max rewards
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Copy link section */}
+        {ownCodeQuery.data?.shareableLink && (
+          <motion.div
+            className="w-full space-y-2 sm:space-y-3"
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={fadeUp(0.4)}
+          >
+            <div className="text-[9px] sm:text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+              Your Referral Link
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={copyLink}
+                className="flex-1 flex items-center justify-between gap-3 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-[#4ADE80]/30 bg-[#4ADE80]/5 hover:bg-[#4ADE80]/10 transition-colors text-left"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs sm:text-sm font-mono text-foreground truncate">
+                    {ownCodeQuery.data.shareableLink}
+                  </div>
+                </div>
+                <div className="shrink-0">
+                  {isLinkCopied ? (
+                    <Check className="w-4 h-4 text-[#4ADE80]" />
+                  ) : (
+                    <Copy className="w-4 h-4 text-[#4ADE80]" />
+                  )}
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsQROpen(true)}
+                className="shrink-0 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 hover:bg-muted/50 dark:hover:bg-muted/70 transition-colors"
+                aria-label="Show QR code"
+              >
+                <QrCode className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <QRCodeDialog
+              open={isQROpen}
+              onOpenChange={setIsQROpen}
+              url={ownCodeQuery.data.shareableLink}
+              title="Your Referral QR"
+            />
+          </motion.div>
+        )}
+
+        {ownCodeQuery.isLoading && (
+          <motion.div
+            className="w-full flex justify-center py-4"
+            initial={shouldReduceMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={fadeUp(0.4)}
+          >
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </motion.div>
+        )}
+
+        {/* Done button */}
+        <motion.div
+          className="w-full pt-1 sm:pt-2"
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={fadeUp(0.5)}
+        >
+          <Button onClick={onDone} className="w-full h-10 sm:h-11">
+            Done
           </Button>
         </motion.div>
       </div>
