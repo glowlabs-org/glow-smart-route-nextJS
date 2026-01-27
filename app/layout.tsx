@@ -48,8 +48,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: SEO.defaultTitle,
-    description:
-      "Join Glow's decentralized solar mining ecosystem. Sponsor competitive solar farms, earn GLW tokens, and support renewable energy infrastructure through the Glow Launchpad and Mining Center.",
+    description: SEO.defaultDescription,
     url: SEO.siteUrl,
     siteName: SEO.siteName,
     images: [
@@ -65,9 +64,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Glow Mining - Sponsor Solar Farms & Earn GLW Tokens",
-    description:
-      "Participate in decentralized solar mining. Sponsor solar farms through the Glow Launchpad, earn GLW tokens through the Mining Center, and support renewable energy while earning rewards.",
+    title: SEO.defaultTitle,
+    description: SEO.defaultDescription,
     images: ["/twitter-image"],
   },
   robots: {
@@ -93,6 +91,40 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* JSON-LD Structured Data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@graph": [
+                {
+                  "@type": "Organization",
+                  "@id": `${SEO.siteUrl}/#organization`,
+                  name: "Glow Labs",
+                  url: SEO.siteUrl,
+                  logo: {
+                    "@type": "ImageObject",
+                    url: `${SEO.siteUrl}/Chrome_512x512.png`,
+                  },
+                  sameAs: [
+                    "https://twitter.com/glaboratory",
+                    "https://discord.gg/glow",
+                  ],
+                },
+                {
+                  "@type": "WebSite",
+                  "@id": `${SEO.siteUrl}/#website`,
+                  url: SEO.siteUrl,
+                  name: SEO.siteName,
+                  publisher: { "@id": `${SEO.siteUrl}/#organization` },
+                  description: SEO.defaultDescription,
+                },
+              ],
+            }),
+          }}
+        />
+
         {/* Favicon and Icons */}
         <link rel="icon" type="image/png" sizes="16x16" href="/16x16.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/32x32.png" />

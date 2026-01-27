@@ -5,7 +5,7 @@ export const SEO = {
   siteUrl: "https://app.glow.org",
   defaultTitle: "Glow Mining - Solar Farm Sponsorship & GLW Token Rewards",
   defaultDescription:
-    "Participate in Glow's decentralized solar mining ecosystem. Sponsor solar farms through the Glow Launchpad, earn GLW tokens through the Mining Center, and support renewable energy infrastructure while earning rewards.",
+    "Sponsor solar farms and earn GLW tokens with Glow Mining. Join the Launchpad or Mining Center to participate in decentralized renewable energy rewards.",
 } as const;
 
 export function buildPageMetadata(options: {
