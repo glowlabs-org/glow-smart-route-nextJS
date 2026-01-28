@@ -677,18 +677,17 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                       </span>
                       <HelpCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-muted-foreground/60" />
                     </div>
-                    <div className="flex items-baseline gap-0.5 sm:gap-1">
+                    <div className="flex items-baseline gap-0.5 sm:gap-1 flex-wrap">
                       <span className="text-base sm:text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
                         +{formatNumber(weeklyYield, 1)}
                       </span>
                       <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
                         GLW
+                        {weeklyYieldUsd > 0 && ` · $${formatNumber(weeklyYieldUsd, 2)}`}
                       </span>
                     </div>
                     <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
-                      {weeklyYieldUsd > 0
-                        ? `≈ $${formatNumber(weeklyYieldUsd, 2)}/wk`
-                        : `${isMiner ? "99" : "100"} weeks`}
+                      {`for ${isMiner ? "99" : "100"} weeks`}
                     </span>
                   </div>
                 </TooltipTrigger>
