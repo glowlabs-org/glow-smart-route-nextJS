@@ -95,6 +95,25 @@ const faqItems: FaqItem[] = [
   },
   {
     id: "item-5",
+    q: "Should I delegate or mine?",
+    a: (
+      <div className="space-y-4">
+        <p>
+          It depends on what you hold. If you already have GLW, delegation is the
+          most capital-efficient path: you earn two reward streams (deposit
+          recovery + protocol emissions) while keeping your tokens.
+        </p>
+        <p>
+          If you hold USDC or ETH and want to accumulate GLW over time, mining
+          positions may offer a discounted entry. Selling GLW to buy miners forfeits
+          the deposit recovery stream entirely, making it harder to rebuild your
+          position, especially if the protocol grows.
+        </p>
+      </div>
+    ),
+  },
+  {
+    id: "item-6",
     q: "What is the Impact Leaderboard?",
     a: (
       <div className="space-y-4">

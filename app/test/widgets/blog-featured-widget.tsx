@@ -20,19 +20,19 @@ export default function BlogFeaturedWidget({
   const source = "blog_featured_widget";
 
   const post = {
-    slug: "progressive-vaults-transparency",
-    title: "Progressive Vaults: Competitive Deposit Recovery in Glow",
+    slug: "capital-efficiency-in-the-glow-economy",
+    title: "Delegate or Mine? Capital Efficiency in the Glow Economy",
     description:
-      "How Glow redistributes protocol deposits based on solar farm performance. On Glow, solar farms compete to produce the maximum number of carbon credits relative to their electricity revenues.",
+      "Optimizing your participation and rewards in the on-chain solar economy",
     category: "Protocol",
-    readTime: "12 min read",
+    readTime: "7 min read",
     author: {
       name: "Vik Kalghatgi",
       role: "Chief Scientist",
     },
-    publishedAt: "2025-10-24", // Approximate date for display
-    image: "/images/referral-hero.jpg",
-    url: "https://glow.org/blog/progressive-vaults-transparency",
+    publishedAt: "2026-01-29",
+    image: "/images/capital-efficiency-header.jpg",
+    url: "https://glow.org/blog/capital-efficiency-in-the-glow-economy",
   };
 
   return (
@@ -81,7 +81,7 @@ export default function BlogFeaturedWidget({
         <div className="relative z-10 p-5 md:p-6 h-full flex flex-col justify-end text-white">
           {/* Metadata */}
           <div className="flex items-center gap-3 text-[10px] font-mono uppercase tracking-widest text-white/70 mb-3">
-            <time dateTime={post.publishedAt}>Oct 24, 2025</time>
+            <time dateTime={post.publishedAt}>Jan 29, 2026</time>
             <span aria-hidden="true">•</span>
             <span>{post.readTime}</span>
           </div>
