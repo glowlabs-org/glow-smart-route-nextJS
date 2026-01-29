@@ -49,6 +49,30 @@ export default function ReferralLandingPage() {
   const [isSuccess, setIsSuccess] = React.useState(false);
   const [isChangeSuccess, setIsChangeSuccess] = React.useState(false);
   const [isOwnLinkCopied, setIsOwnLinkCopied] = React.useState(false);
+  const handleConnectClick = React.useCallback(() => {
+    if (isConnected) return;
+    trackEvent("referral_connect_wallet_click", {
+      code,
+    });
+  }, [code, isConnected]);
+  const handleConnectSuccess = React.useCallback(() => {
+    trackEvent("referral_connect_wallet_success", {
+      code,
+      wallet: address ?? null,
+    });
+  }, [code, address]);
+
+  const handleGoToDashboard = React.useCallback(
+    (source: "success" | "already_linked" | "launch_soon") => {
+      trackEvent("referral_go_to_dashboard_click", {
+        code,
+        wallet: address ?? null,
+        source,
+      });
+      router.push(source === "launch_soon" ? "/test" : "/");
+    },
+    [code, address, router]
+  );
 
   // Fetch user's own referral code after successful link
   const ownCodeQuery = useQuery({
@@ -175,7 +199,7 @@ export default function ReferralLandingPage() {
             </p>
             <Button
               className="w-full"
-              onClick={() => router.push("/test")}
+              onClick={() => handleGoToDashboard("launch_soon")}
             >
               Go to Dashboard
             </Button>
@@ -233,7 +257,7 @@ export default function ReferralLandingPage() {
                 <div className="space-y-3">
                   <Button
                     className="h-12 sm:h-14 w-full sm:max-w-xs"
-                    onClick={() => router.push("/")}
+                    onClick={() => handleGoToDashboard("success")}
                   >
                     Go to Dashboard
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -391,11 +415,14 @@ export default function ReferralLandingPage() {
 
                 <div className="space-y-4">
                   {!isConnected ? (
-                    <ConnectButton
-                      variant="default"
-                      size="large"
-                      className="w-full sm:max-w-xs"
-                    />
+                    <div onClickCapture={handleConnectClick}>
+                      <ConnectButton
+                        variant="default"
+                        size="large"
+                        className="w-full sm:max-w-xs"
+                        onConnect={handleConnectSuccess}
+                      />
+                    </div>
                   ) : isValidationLoading ? (
                     <Button disabled className="h-12 sm:h-14 w-full sm:max-w-xs">
                       Checking link...
@@ -403,7 +430,10 @@ export default function ReferralLandingPage() {
                   ) : hasValidationError ? (
                     <Button
                       className="h-12 sm:h-14 w-full sm:max-w-xs"
-                      onClick={() => validateQuery.refetch()}
+                      onClick={() => {
+                        trackEvent("referral_retry_verification_click", { code });
+                        validateQuery.refetch();
+                      }}
                     >
                       Retry Verification
                     </Button>
@@ -424,7 +454,7 @@ export default function ReferralLandingPage() {
                     <div className="space-y-2 w-full sm:max-w-xs">
                       <Button
                         className="h-12 sm:h-14 w-full"
-                        onClick={() => router.push("/")}
+                        onClick={() => handleGoToDashboard("already_linked")}
                       >
                         Go to Dashboard
                         <ArrowRight className="ml-2 h-4 w-4" />
@@ -432,7 +462,13 @@ export default function ReferralLandingPage() {
                       <Button
                         variant="outline"
                         className="h-10 sm:h-12 w-full"
-                        onClick={() => disconnect()}
+                        onClick={() => {
+                          trackEvent("referral_try_different_wallet_click", {
+                            code,
+                            wallet: address ?? null,
+                          });
+                          disconnect();
+                        }}
                       >
                         Try Different Wallet
                       </Button>
