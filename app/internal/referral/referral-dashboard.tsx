@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { RefreshCw, Users, UserCheck, Clock, Gift, Trophy, TrendingUp, Link2, Copy, Check } from "lucide-react";
+import { RefreshCw, Users, UserCheck, Gift, Trophy, TrendingUp, Link2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import {
   BarChart,
@@ -693,10 +693,10 @@ export function ReferralDashboard() {
               </div>
               <div className="pt-8 lg:pt-0 lg:pl-12">
                 <KPIDisplay
-                  label="In Grace Period"
-                  value={overviewQuery.data.overview.inGracePeriod}
-                  subtitle={`${overviewQuery.data.overview.inBonusPeriod} in bonus period`}
-                  icon={<Clock className="h-4 w-4" />}
+                  label="Pending Activation"
+                  value={newRefereesQuery.data?.newRefereeActivations.total ?? "—"}
+                  subtitle={`${overviewQuery.data.overview.pendingReferrals} total pending`}
+                  icon={<TrendingUp className="h-4 w-4" />}
                 />
               </div>
               <div className="pt-8 lg:pt-0 lg:pl-12">
