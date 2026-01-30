@@ -115,6 +115,7 @@ interface RankWidgetProps {
   walletAddress?: string | null;
   onMintAndStakeClick?: (forceStep1?: boolean) => void;
   variant?: "default" | "hero";
+  readOnly?: boolean;
 }
 
 function RankWidgetSkeleton({
@@ -210,6 +211,7 @@ export function RankWidget({
   walletAddress,
   onMintAndStakeClick,
   variant = "default",
+  readOnly = false,
 }: RankWidgetProps) {
   const hasWallet = Boolean(walletAddress);
   const isHero = variant === "hero";
@@ -571,7 +573,7 @@ export function RankWidget({
               ) : null}
 
               <div className={cn("grid gap-2 grid-cols-2 mt-auto", isHero && "pt-1")}>
-                {shouldShowMintAndStakeCta ? (
+                {!readOnly && shouldShowMintAndStakeCta ? (
                   onMintAndStakeClick ? (
                     <Button
                       className={cn(
@@ -637,7 +639,20 @@ export function RankWidget({
                   </Button>
                 ) : null}
 
-                {isReferralLive ? (
+                {readOnly ? (
+                  <Button
+                    variant="default"
+                    className={cn(
+                      "font-mono font-bold w-full text-xs gap-1.5 px-2",
+                      isHero ? "h-11" : "h-12",
+                    )}
+                    asChild
+                  >
+                    <Link href="/stats/rewards">
+                      Leaderboard
+                    </Link>
+                  </Button>
+                ) : isReferralLive ? (
                   <Button
                     variant={
                       shouldShowMintAndStakeCta && onMintAndStakeClick

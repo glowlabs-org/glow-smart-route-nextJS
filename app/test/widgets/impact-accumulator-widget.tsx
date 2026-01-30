@@ -22,6 +22,7 @@ const WATTS_PER_PANEL = 400;
 interface ImpactAccumulatorWidgetProps {
   walletAddress?: string | null;
   variant?: "default" | "minimal";
+  readOnly?: boolean;
 }
 
 function ImpactAccumulatorSkeleton() {
@@ -69,6 +70,7 @@ function ImpactAccumulatorSkeleton() {
 export default function ImpactAccumulatorWidget({
   walletAddress,
   variant = "default",
+  readOnly = false,
 }: ImpactAccumulatorWidgetProps) {
   const chainId = useChainId();
   const isMinimal = variant === "minimal";
@@ -238,14 +240,16 @@ export default function ImpactAccumulatorWidget({
               }}
             />
           </div>
-          <div className="flex  gap-2">
-            <Button variant="default" className="w-full">
-              Get more panels
-            </Button>
-            <Button variant="outline" className="w-full">
-              Boost your points
-            </Button>
-          </div>
+          {!readOnly && (
+            <div className="flex  gap-2">
+              <Button variant="default" className="w-full">
+                Get more panels
+              </Button>
+              <Button variant="outline" className="w-full">
+                Boost your points
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Disconnected State Overlay */}

@@ -280,7 +280,7 @@ const CASH_BOUNTY_BY_APPLICATION_ID: Record<string, number | null> = {
   "a315a8e5-dcd7-4e2b-bdba-54a34e03e826": 4000,
   "61e1d3c1-2682-4025-9db8-7d160bedf315": 2500,
   "c41fc798-7cde-461c-a0f5-f9742a701990": 2000,
-  "8dd53eae-4dcf-4877-a5aa-492bb1ff72e9": 1500,
+  "8dd53eae-4dcf-4877-a5aa-492bb1ff72e9": 1,
   "71c4918e-19dd-4bb7-bcae-b27532eb4c94": 2500,
   "25d454f1-a021-435c-b46a-476fca1b0d45": 1800,
   "6dd28b54-745b-4e51-84fb-a5d9fd1432da": 1600,

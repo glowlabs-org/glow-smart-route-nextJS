@@ -149,6 +149,7 @@ interface RewardsWidgetProps {
   hideIfEmpty?: boolean;
   initialDurationMs?: number;
   variant?: "default" | "minimal";
+  readOnly?: boolean;
 }
 
 export default function RewardsWidget({
@@ -156,6 +157,7 @@ export default function RewardsWidget({
   hideIfEmpty = true,
   initialDurationMs = DEFAULT_INITIAL_DURATION_MS,
   variant = "default",
+  readOnly = false,
 }: RewardsWidgetProps) {
   const { isConnecting, isReconnecting } = useAccount();
   const isMinimal = variant === "minimal";
@@ -427,7 +429,7 @@ export default function RewardsWidget({
 
         {/* Footer Action Button */}
         <div className="shrink-0 pt-2">
-          {hasWallet && !shouldHide ? (
+          {hasWallet && !shouldHide && !readOnly ? (
             <Dialog>
               <DialogTrigger asChild>
                 <Button className="w-full ">See Rewards</Button>
@@ -449,7 +451,7 @@ export default function RewardsWidget({
               className="w-full  opacity-50 cursor-not-allowed"
               disabled
             >
-              No Rewards
+              {readOnly ? "See Rewards" : "No Rewards"}
             </Button>
           )}
         </div>
