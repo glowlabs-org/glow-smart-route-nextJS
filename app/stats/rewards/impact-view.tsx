@@ -40,7 +40,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { ImpactScoreBreakdownDialog } from "@/components/dialogs/impact-score-breakdown-dialog";
+import { useRouter } from "next/navigation";
 import { LaunchpadDialog } from "@/components/dialogs/launchpad-dialog";
 import { MintAndStakeGctlDialog } from "@/components/dialogs/mint-and-stake-gctl-dialog";
 import { ConnectButton } from "@/components/connect-button";
@@ -443,13 +443,8 @@ function ImpactHero(props: {
     ? (globalRankByWallet.get(normalizedAddress) ?? null)
     : null;
 
-  // Use estimated rank if current points suggest a better position
-  const displayRank =
-    estimatedCurrentRank &&
-    selfGlobalRank &&
-    estimatedCurrentRank < selfGlobalRank
-      ? estimatedCurrentRank
-      : selfGlobalRank;
+  // Always show official cached rank (not estimated) for consistency with leaderboard
+  const displayRank = selfGlobalRank;
 
   const selfPercentile =
     displayRank && totalWalletCount > 0
@@ -608,7 +603,7 @@ function ImpactHero(props: {
                         Points
                       </div>
                       <div className="font-mono text-3xl md:text-4xl font-semibold tracking-tight tabular-nums">
-                        {formatNumber(selfPoints, { maximumFractionDigits: 2 })}{" "}
+                        {formatNumber(selfPoints, { maximumFractionDigits: 0 })}{" "}
                         <span className="text-sm text-muted-foreground font-normal">
                           pts
                         </span>
@@ -743,8 +738,8 @@ function ImpactHero(props: {
                     selfGlobalRank &&
                     estimatedCurrentRank < selfGlobalRank ? (
                       <div className="text-xs text-muted-foreground font-mono">
-                        <span className="text-[color:var(--color-glow-green)]">
-                          ↑ Climbing
+                        <span className="text-[color:var(--color-glow-orange)]">
+                          ↑ Projected rank: #{estimatedCurrentRank.toLocaleString("en-US")}
                         </span>{" "}
                         · Official rank updates weekly on Sunday at 01:00 UTC
                       </div>
@@ -1026,6 +1021,9 @@ export function ImpactView() {
   });
 
   const selfProjection = selfScoreQuery.data?.currentWeekProjection ?? null;
+  const selfProjectedTotalPoints = selfScoreQuery.data?.totals?.totalPoints
+    ? safeNumber(selfScoreQuery.data.totals.totalPoints)
+    : null;
 
   const isLeaderboardRefreshing =
     leaderboardQuery.isFetching && !leaderboardQuery.isLoading;
@@ -1125,15 +1123,14 @@ export function ImpactView() {
     onComplete: () => setCacheUpdateAtMs(getNextCacheUpdateAtMs()),
   });
 
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-  const [selectedWallet, setSelectedWallet] = React.useState<string | null>(
-    null,
-  );
+  const router = useRouter();
 
-  const handleRowClick = React.useCallback((walletAddress: string) => {
-    setSelectedWallet(walletAddress);
-    setIsDialogOpen(true);
-  }, []);
+  const handleRowClick = React.useCallback(
+    (walletAddress: string) => {
+      router.push(`/wallet/${walletAddress}`);
+    },
+    [router],
+  );
 
   return (
     <div className="space-y-8">
@@ -1451,7 +1448,12 @@ export function ImpactView() {
                             : "text-foreground",
                         )}
                       >
-                        {formatImpactPoints(row.totalPoints, 2)}
+                        {formatImpactPoints(
+                          isConnectedUser && selfProjectedTotalPoints != null
+                            ? String(selfProjectedTotalPoints)
+                            : row.totalPoints,
+                          2,
+                        )}
                         <span className="ml-2 text-xs font-mono text-muted-foreground">
                           pts
                         </span>
@@ -1696,7 +1698,12 @@ export function ImpactView() {
                               : "text-foreground",
                           )}
                         >
-                          {formatImpactPoints(row.totalPoints, 0)}
+                          {formatImpactPoints(
+                            isConnectedUser && selfProjectedTotalPoints != null
+                              ? String(selfProjectedTotalPoints)
+                              : row.totalPoints,
+                            0,
+                          )}
                         </TableCell>
                         <TableCell className="py-3 px-3 hidden md:table-cell text-right font-mono tabular-nums text-sm text-muted-foreground">
                           {row.lastWeekPoints
@@ -1814,17 +1821,6 @@ export function ImpactView() {
         ) : null}
       </div>
 
-      <ImpactScoreBreakdownDialog
-        open={isDialogOpen}
-        onOpenChange={(nextOpen) => {
-          setIsDialogOpen(nextOpen);
-          if (!nextOpen) setSelectedWallet(null);
-        }}
-        walletAddress={selectedWallet}
-        weekRange={weekRange}
-        title="Impact Score Breakdown"
-        showCurrentWeekProjection={false}
-      />
     </div>
   );
 }
