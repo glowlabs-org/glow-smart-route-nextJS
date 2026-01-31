@@ -137,6 +137,10 @@ export const QUERY_KEYS = {
     pressure: (range?: string | null, address?: string | null) =>
       ["fmi-pressure", range ?? null, address ?? null] as const,
   },
+  pol: {
+    liquiditySnapshot: (range?: string | null, wallets?: string[] | null) =>
+      ["pol-liquidity-snapshot", range ?? null, wallets ?? null] as const,
+  },
   unclaimed: {
     all: ["unclaimed-glw-rewards"] as const,
     glw: (wallet?: string, eligibleWeeksKey?: string) =>

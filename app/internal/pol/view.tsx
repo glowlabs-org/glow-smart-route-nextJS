@@ -54,6 +54,7 @@ import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
 import { usePoolInfo } from "@/hooks/useLiquidityPositionsOptimized";
 import { useImpactMetrics } from "@/hooks/useImpactMetrics";
 import { useFmiPressure } from "@/hooks/useFmiPressure";
+import { usePolLiquiditySnapshot } from "@/hooks/usePolLiquiditySnapshot";
 import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
 
 // TODO: mock data (replace with live on-chain + CRM sources)
@@ -276,6 +277,10 @@ const GCTL_REGION_PIE_DATA = GCTL_REGIONS.map((r) => ({
 
 const walletGrowthChartConfig = {
   newWallets: { label: "New wallets", color: "hsl(215, 90%, 55%)" },
+} satisfies ChartConfig;
+
+const polLiquidityChartConfig = {
+  liquidity: { label: "PoL liquidity", color: "hsl(142, 71%, 45%)" },
 } satisfies ChartConfig;
 
 const REGION_COLORS: Record<string, string> = {
@@ -974,6 +979,33 @@ export function PolDashboardView() {
   const fmiNetToPoolDisplay =
     fmiNetToPool !== null ? fmiNetToPool.toFixed(1) : "—";
 
+  const { data: polLiquiditySnapshot } = usePolLiquiditySnapshot({
+    range: "12w",
+  });
+  const polLiquidityPerLp = React.useMemo(() => {
+    const totalLiquidity = polLiquiditySnapshot?.currentTotalLiquidity;
+    const totalSupply = polLiquiditySnapshot?.currentTotalSupply;
+    if (!totalLiquidity || !totalSupply) return null;
+    const liquidityNum = Number(totalLiquidity);
+    const supplyNum = Number(totalSupply);
+    if (!Number.isFinite(liquidityNum) || supplyNum <= 0) return null;
+    return liquidityNum / supplyNum;
+  }, [polLiquiditySnapshot]);
+  const polLiquidityTrend = React.useMemo(() => {
+    const series = polLiquiditySnapshot?.series;
+    if (!series || !polLiquidityPerLp) return null;
+    const sorted = series.slice().sort((a, b) => a.week - b.week);
+    const completed = sorted.length > 1 ? sorted.slice(0, -1) : sorted;
+    const tail = completed.slice(-12);
+    if (tail.length < 2) return null;
+    return tail.map((row, index) => ({
+      week: `W-${tail.length - index}`,
+      liquidity: Number(row.balanceLiquidity) * polLiquidityPerLp,
+    }));
+  }, [polLiquiditySnapshot, polLiquidityPerLp]);
+  const polLiquidityChartData = polLiquidityTrend ?? [];
+  const polLiquidityIsLive = Boolean(polLiquidityTrend);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <section className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 pb-16 pt-8">
@@ -1458,6 +1490,44 @@ export function PolDashboardView() {
                       helper={hasPoolReserves ? undefined : "Live data unavailable"}
                       valueClassName="text-base sm:text-lg tracking-tight"
                     />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
+                      PoL liquidity (12w){polLiquidityIsLive ? "" : " · Live data unavailable"}
+                    </div>
+                    <ChartContainer
+                      config={polLiquidityChartConfig}
+                      className="h-24 w-full"
+                    >
+                      <AreaChart data={polLiquidityChartData}>
+                        <XAxis
+                          dataKey="week"
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fontSize: 9 }}
+                          interval="preserveStartEnd"
+                        />
+                        <ChartTooltip
+                          content={
+                            <ChartTooltipContent
+                              labelFormatter={(label) => label}
+                              formatter={(value) => [
+                                `${formatCompactNumberPrecise(Number(value))} lq`,
+                                "PoL liquidity",
+                              ]}
+                            />
+                          }
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="liquidity"
+                          stroke="var(--color-liquidity)"
+                          fill="var(--color-liquidity)"
+                          fillOpacity={0.2}
+                          strokeWidth={2}
+                        />
+                      </AreaChart>
+                    </ChartContainer>
                   </div>
                   <div className="flex-1 flex flex-col gap-3">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
