@@ -19,29 +19,20 @@ pnpm lint --file path/to/file.tsx
 ```
 
 Fix all errors and warnings before proceeding. Common issues:
+
 - React hooks called conditionally (move all hooks before early returns)
 - Missing dependencies in useEffect/useCallback/useMemo
 - Unused imports or variables
 
-### 2. Never Push Without a Working Build
-
-Before pushing ANY changes, verify the build succeeds:
-
-```bash
-pnpm build
-```
-
-A failed build means broken production. Do not push until:
-- `pnpm lint` passes with no errors
-- `pnpm build` completes successfully
-
 ### 3. Verification Order
 
 For every frontend change:
+
 1. Make the change
 2. Run `pnpm lint` → fix any errors
-3. Run `pnpm build` → fix any errors
-4. Only then consider the task complete
+3. Only then consider the task complete
+
+Note: `pnpm build` is handled by husky pre-commit hooks. No need to run it manually.
 
 ### 4. Documentation Updates
 
@@ -76,14 +67,14 @@ The design relies on **background color contrast** for visual depth, not shadows
 Page Background (#f5f5f5) → Section Cards (#ffffff) → Content
 ```
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--background` | `#f5f5f5` | Page background (gray) |
-| `--card` | `#ffffff` | Cards, sections, elevated surfaces (white) |
-| `--muted` | `#f0f0f0` | Subtle backgrounds, disabled states |
-| `--secondary` | `#ebebeb` | Secondary backgrounds |
-| `--border` | `#e5e5e5` | Borders (use sparingly, at 20% opacity) |
-| `--muted-foreground` | `#71717a` | Secondary text, labels |
+| Token                | Value     | Usage                                      |
+| -------------------- | --------- | ------------------------------------------ |
+| `--background`       | `#f5f5f5` | Page background (gray)                     |
+| `--card`             | `#ffffff` | Cards, sections, elevated surfaces (white) |
+| `--muted`            | `#f0f0f0` | Subtle backgrounds, disabled states        |
+| `--secondary`        | `#ebebeb` | Secondary backgrounds                      |
+| `--border`           | `#e5e5e5` | Borders (use sparingly, at 20% opacity)    |
+| `--muted-foreground` | `#71717a` | Secondary text, labels                     |
 
 ### Dark Mode
 
@@ -91,24 +82,24 @@ Page Background (#f5f5f5) → Section Cards (#ffffff) → Content
 Page Background (#09090b) → Section Cards (#141414) → Content
 ```
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--background` | `#09090b` | Page background (near-black) |
-| `--card` | `#141414` | Cards, sections, elevated surfaces (lighter) |
-| `--muted` | `#0f0f0f` | Subtle backgrounds (darker than card) |
-| `--border` | `#262626` | Borders (more visible) |
+| Token          | Value     | Usage                                        |
+| -------------- | --------- | -------------------------------------------- |
+| `--background` | `#09090b` | Page background (near-black)                 |
+| `--card`       | `#141414` | Cards, sections, elevated surfaces (lighter) |
+| `--muted`      | `#0f0f0f` | Subtle backgrounds (darker than card)        |
+| `--border`     | `#262626` | Borders (more visible)                       |
 
 ### Brand Colors (Immutable)
 
 These colors are part of Glow's brand identity and should not be changed:
 
-| Color | Value | Usage |
-|-------|-------|-------|
-| `--color-glow-orange` | `#ffb472` | Accent, CTAs, highlights |
-| `--color-glow-yellow` | `#f7fcc4` | Gradient component |
-| `--color-glow-green` | `#ccffd4` | Gradient component, success states |
-| `--color-glow-purple` | `#dcc4ff` | Gradient component |
-| `--delegation-purple` | `#a855f7` | Delegation-specific UI |
+| Color                 | Value     | Usage                              |
+| --------------------- | --------- | ---------------------------------- |
+| `--color-glow-orange` | `#ffb472` | Accent, CTAs, highlights           |
+| `--color-glow-yellow` | `#f7fcc4` | Gradient component                 |
+| `--color-glow-green`  | `#ccffd4` | Gradient component, success states |
+| `--color-glow-purple` | `#dcc4ff` | Gradient component                 |
+| `--delegation-purple` | `#a855f7` | Delegation-specific UI             |
 
 ---
 
@@ -118,23 +109,24 @@ These colors are part of Glow's brand identity and should not be changed:
 
 ```tsx
 // ❌ WRONG - No shadows
-className="shadow-sm shadow-lg shadow-card"
+className = "shadow-sm shadow-lg shadow-card";
 
 // ✅ CORRECT - Use background contrast
-className="bg-card"  // White card on gray background creates depth
+className = "bg-card"; // White card on gray background creates depth
 ```
 
 ### 2. Card/Section Backgrounds
 
 ```tsx
 // ✅ Section containers in bento layout
-className="rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12"
+className =
+  "rounded-3xl bg-card dark:bg-card border border-border/20 p-8 lg:p-12";
 
 // ✅ Widgets inside sections (minimal variant)
-className="bg-transparent border-transparent"
+className = "bg-transparent border-transparent";
 
 // ✅ Standalone cards
-className="bg-card dark:bg-card border-border/20"
+className = "bg-card dark:bg-card border-border/20";
 ```
 
 ### 3. Border Opacity
@@ -143,12 +135,12 @@ Always use low-opacity borders. Borders should be nearly invisible:
 
 ```tsx
 // ✅ CORRECT
-className="border border-border/20"
-className="divide-border/20"
+className = "border border-border/20";
+className = "divide-border/20";
 
 // ❌ WRONG - Too visible
-className="border border-border"
-className="border border-border/50"
+className = "border border-border";
+className = "border border-border/50";
 ```
 
 ---
@@ -161,16 +153,16 @@ Large, bold, attention-grabbing. Use for primary values users care about.
 
 ```tsx
 // Rank/Score - Largest
-className="text-6xl lg:text-7xl font-semibold tracking-tight"
+className = "text-6xl lg:text-7xl font-semibold tracking-tight";
 
 // Primary KPIs (Net Worth, Rewards)
-className="text-5xl lg:text-6xl font-semibold tracking-tight"
+className = "text-5xl lg:text-6xl font-semibold tracking-tight";
 
 // Secondary KPIs
-className="text-4xl sm:text-5xl font-semibold tracking-tight"
+className = "text-4xl sm:text-5xl font-semibold tracking-tight";
 
 // Tertiary numbers
-className="text-2xl sm:text-3xl font-semibold"
+className = "text-2xl sm:text-3xl font-semibold";
 ```
 
 ### Labels (Quiet, supportive text)
@@ -179,26 +171,29 @@ Labels should be quiet and not compete with numbers for attention.
 
 ```tsx
 // Section headers
-className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 mb-8"
+className =
+  "text-xs font-mono uppercase tracking-widest text-muted-foreground/60 mb-8";
 
 // Widget labels
-className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50"
+className =
+  "text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50";
 
 // Very quiet labels
-className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/40"
+className =
+  "text-[9px] font-mono uppercase tracking-widest text-muted-foreground/40";
 ```
 
 ### Body Text
 
 ```tsx
 // Primary body
-className="text-sm text-foreground"
+className = "text-sm text-foreground";
 
 // Secondary/description
-className="text-sm text-muted-foreground"
+className = "text-sm text-muted-foreground";
 
 // Small/meta
-className="text-xs text-muted-foreground"
+className = "text-xs text-muted-foreground";
 ```
 
 ---
@@ -211,24 +206,24 @@ Use generous spacing between major sections:
 
 ```tsx
 // Between sections
-className="gap-8"        // Standard gap
-className="pt-20"        // Large section separation
+className = "gap-8"; // Standard gap
+className = "pt-20"; // Large section separation
 
 // Inside section containers
-className="p-8 lg:p-12"  // Generous internal padding
+className = "p-8 lg:p-12"; // Generous internal padding
 ```
 
 ### Widget Internal Spacing
 
 ```tsx
 // Widget gaps
-className="gap-6"        // Between major elements
-className="gap-4"        // Between related elements
-className="gap-2"        // Between tightly coupled elements
+className = "gap-6"; // Between major elements
+className = "gap-4"; // Between related elements
+className = "gap-2"; // Between tightly coupled elements
 
 // Widget padding
-className="p-6"          // Standard widget padding
-className="px-8"         // Card header/content padding
+className = "p-6"; // Standard widget padding
+className = "px-8"; // Card header/content padding
 ```
 
 ### Dividers
@@ -236,7 +231,7 @@ className="px-8"         // Card header/content padding
 When dividing content within sections:
 
 ```tsx
-className="divide-y lg:divide-y-0 lg:divide-x divide-border/20"
+className = "divide-y lg:divide-y-0 lg:divide-x divide-border/20";
 ```
 
 ---
@@ -245,13 +240,13 @@ className="divide-y lg:divide-y-0 lg:divide-x divide-border/20"
 
 Use soft, premium radius values:
 
-| Element | Class | Effective Size |
-|---------|-------|----------------|
-| Section containers | `rounded-3xl` | 24px |
-| Cards | `rounded-2xl` | 16px |
-| Buttons, inputs | `rounded-xl` | 12px |
-| Badges, pills | `rounded-full` | Full |
-| Small elements | `rounded-lg` | 8px |
+| Element            | Class          | Effective Size |
+| ------------------ | -------------- | -------------- |
+| Section containers | `rounded-3xl`  | 24px           |
+| Cards              | `rounded-2xl`  | 16px           |
+| Buttons, inputs    | `rounded-xl`   | 12px           |
+| Badges, pills      | `rounded-full` | Full           |
+| Small elements     | `rounded-lg`   | 8px            |
 
 ---
 
@@ -325,31 +320,31 @@ When widgets are embedded in section containers, use transparent backgrounds:
 
 Use these breakpoints for responsive design:
 
-| Breakpoint | Width | Usage |
-|------------|-------|-------|
-| `sm` | 640px | Mobile landscape |
-| `md` | 768px | Tablets |
-| `lg` | 1024px | Desktop |
-| `xl` | 1280px | Large desktop |
-| `2xl` | 1536px | Wide screens |
+| Breakpoint | Width  | Usage            |
+| ---------- | ------ | ---------------- |
+| `sm`       | 640px  | Mobile landscape |
+| `md`       | 768px  | Tablets          |
+| `lg`       | 1024px | Desktop          |
+| `xl`       | 1280px | Large desktop    |
+| `2xl`      | 1536px | Wide screens     |
 
 ### Common Responsive Patterns
 
 ```tsx
 // Grid columns
-className="grid grid-cols-1 lg:grid-cols-12"
+className = "grid grid-cols-1 lg:grid-cols-12";
 
 // Text sizes
-className="text-4xl sm:text-5xl lg:text-6xl"
+className = "text-4xl sm:text-5xl lg:text-6xl";
 
 // Padding
-className="p-4 sm:p-6 lg:p-8"
+className = "p-4 sm:p-6 lg:p-8";
 
 // Gap
-className="gap-4 lg:gap-8"
+className = "gap-4 lg:gap-8";
 
 // Flex direction
-className="flex flex-col sm:flex-row"
+className = "flex flex-col sm:flex-row";
 ```
 
 ---
@@ -401,12 +396,12 @@ transition={{ duration: 0.15 }}  // Keep durations short
 
 ## File Locations
 
-| Purpose | Location |
-|---------|----------|
-| CSS Variables | `app/globals.css` |
-| Card Component | `components/ui/card.tsx` |
-| Bento Layout | `app/test/bento.tsx` |
-| Widgets | `app/test/widgets/*.tsx` |
+| Purpose        | Location                               |
+| -------------- | -------------------------------------- |
+| CSS Variables  | `app/globals.css`                      |
+| Card Component | `components/ui/card.tsx`               |
+| Bento Layout   | `app/test/bento.tsx`                   |
+| Widgets        | `app/test/widgets/*.tsx`               |
 | Error Boundary | `components/widget-error-boundary.tsx` |
 
 ---

@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { ArrowUpDown, ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -21,6 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { FallbackImage } from "@/components/ui/fallback-image";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,19 @@ import {
 } from "@/components/ui/chart";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { GlowSymbol } from "@/components/glow-symbol";
+import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
+import {
+  useGctlApi,
+  useActiveRegionsSummary,
+  useGctlHoldersCount,
+} from "@/hooks";
+import {
+  useImpactLeaderboardQuery,
+  type ImpactGlowScoreLeaderboardRow,
+} from "@/hooks/hub-impact";
+import { useFractionsSummary } from "@/hooks/hub-fractions";
 
 const SUPPLY_BASELINE = {
   total: 42_000_000,
@@ -50,7 +64,7 @@ const SUPPLY_BASELINE = {
   polUsd: 8_750_000,
 };
 const UPDATED_AT = new Date("2026-01-29T00:00:00Z");
-const PRICE_RANGE = { min: 0.05, max: 25, step: 0.01 };
+const PRICE_RANGE = { min: 0.001, max: 100 };
 
 const WEEKLY_NET_CHANGES = [
   { week: "W-11", net: -45_000 },
@@ -78,47 +92,13 @@ const MARKET_OVERVIEW = {
   polWeeklyRevenue: 168_000,
 };
 
-const MARKET_TREND = [
-  { label: "Oct", price: 0.285 },
-  { label: "Nov", price: 0.298 },
-  { label: "Dec", price: 0.304 },
-  { label: "Jan", price: 0.3148 },
-];
-
 const AGGREGATE_FARM_REVENUE = {
   lifetimeUsd: 3_800_000,
-  weeklyUsd: 78_000,
-  weekDelta: 3.2,
+  ninetyDayUsd: 78_000 * 13,
+  ninetyDayDelta: 3.2,
   farms: 102,
-  netPolWeekly: 24_500,
+  netPolNinetyDay: 24_500 * 13,
 };
-
-const WEEKLY_REVENUE_TREND = [
-  { week: "W-11", revenue: 52 },
-  { week: "W-10", revenue: 55 },
-  { week: "W-9", revenue: 58 },
-  { week: "W-8", revenue: 61 },
-  { week: "W-7", revenue: 64 },
-  { week: "W-6", revenue: 67 },
-  { week: "W-5", revenue: 69 },
-  { week: "W-4", revenue: 71 },
-  { week: "W-3", revenue: 73 },
-  { week: "W-2", revenue: 75 },
-  { week: "W-1", revenue: 77 },
-  { week: "Now", revenue: 78 },
-];
-
-const FARM_REVENUE_SERIES = [
-  { week: "W-8", shelteredPines: 2.6, lichenHeadland: 2.2, thrivingAlcove: 1.9, emeraldCrossing: 1.6, papayaPrairie: 1.2, freshGrange: 1.0 },
-  { week: "W-7", shelteredPines: 2.8, lichenHeadland: 2.4, thrivingAlcove: 2.1, emeraldCrossing: 1.7, papayaPrairie: 1.3, freshGrange: 1.1 },
-  { week: "W-6", shelteredPines: 3.0, lichenHeadland: 2.5, thrivingAlcove: 2.2, emeraldCrossing: 1.8, papayaPrairie: 1.4, freshGrange: 1.2 },
-  { week: "W-5", shelteredPines: 3.1, lichenHeadland: 2.7, thrivingAlcove: 2.4, emeraldCrossing: 2.0, papayaPrairie: 1.5, freshGrange: 1.2 },
-  { week: "W-4", shelteredPines: 3.3, lichenHeadland: 2.8, thrivingAlcove: 2.5, emeraldCrossing: 2.1, papayaPrairie: 1.6, freshGrange: 1.3 },
-  { week: "W-3", shelteredPines: 3.4, lichenHeadland: 2.9, thrivingAlcove: 2.6, emeraldCrossing: 2.2, papayaPrairie: 1.6, freshGrange: 1.4 },
-  { week: "W-2", shelteredPines: 3.5, lichenHeadland: 3.0, thrivingAlcove: 2.7, emeraldCrossing: 2.3, papayaPrairie: 1.7, freshGrange: 1.5 },
-  { week: "W-1", shelteredPines: 3.7, lichenHeadland: 3.1, thrivingAlcove: 2.8, emeraldCrossing: 2.3, papayaPrairie: 1.7, freshGrange: 1.5 },
-  { week: "Now", shelteredPines: 3.8, lichenHeadland: 3.2, thrivingAlcove: 2.9, emeraldCrossing: 2.4, papayaPrairie: 1.8, freshGrange: 1.6 },
-];
 
 const FARM_REVENUE_ROWS = [
   {
@@ -126,60 +106,69 @@ const FARM_REVENUE_ROWS = [
     region: "Golden Colorado",
     panels: 85,
     lifetimeUsd: 186_000,
-    weekUsd: 3_800,
-    weekDelta: 5.2,
+    ninetyDayUsd: 3_800 * 13,
+    ninetyDayDelta: 5.2,
     credits: 12.4,
     ccPerWeek: 0.146,
+    imageUrl: null as string | null,
   },
   {
     name: "Lichen Headland",
     region: "Golden Colorado",
     panels: 72,
     lifetimeUsd: 142_000,
-    weekUsd: 3_200,
-    weekDelta: 2.8,
+    ninetyDayUsd: 3_200 * 13,
+    ninetyDayDelta: 2.8,
     credits: 10.1,
     ccPerWeek: 0.174,
+    imageUrl:
+      "https://pub-e71c2d06062242109db2bdd6b0bb5ee0.r2.dev/b4d5f092-9c99-44ee-a14a-bcf7ed2fc636/misc_after_install_pictures_dji_fly_20250122_112352_436_1737570344222_photo_optimized.jpg",
   },
   {
     name: "Thriving Alcove",
     region: "Shining Missouri",
     panels: 95,
     lifetimeUsd: 128_000,
-    weekUsd: 2_900,
-    weekDelta: -1.2,
+    ninetyDayUsd: 2_900 * 13,
+    ninetyDayDelta: -1.2,
     credits: 13.4,
     ccPerWeek: 0.141,
+    imageUrl: null as string | null,
   },
   {
     name: "Emerald Crossing",
     region: "Golden Colorado",
     panels: 54,
     lifetimeUsd: 98_000,
-    weekUsd: 2_400,
-    weekDelta: 4.1,
+    ninetyDayUsd: 2_400 * 13,
+    ninetyDayDelta: 4.1,
     credits: 5.7,
     ccPerWeek: 0.106,
+    imageUrl: null as string | null,
   },
   {
     name: "Papaya Prairie",
     region: "Rising Utah",
     panels: 62,
     lifetimeUsd: 82_000,
-    weekUsd: 1_800,
-    weekDelta: 3.6,
+    ninetyDayUsd: 1_800 * 13,
+    ninetyDayDelta: 3.6,
     credits: 2.7,
     ccPerWeek: 0.043,
+    imageUrl:
+      "https://pub-e71c2d06062242109db2bdd6b0bb5ee0.r2.dev/cc098775-8a92-4f28-924e-4c1ba8c7a4f6/misc_after_install_pictures_dji_fly_20260107_141538_764_1767820610384_photo_optimized.jpg",
   },
   {
     name: "Fresh Grange",
     region: "Golden Colorado",
     panels: 48,
     lifetimeUsd: 64_000,
-    weekUsd: 1_600,
-    weekDelta: 1.8,
+    ninetyDayUsd: 1_600 * 13,
+    ninetyDayDelta: 1.8,
     credits: 4.9,
     ccPerWeek: 0.103,
+    imageUrl:
+      "https://pub-e71c2d06062242109db2bdd6b0bb5ee0.r2.dev/51e2d48b-243c-4909-bc26-2b15b77daed7/misc_after_install_pictures_copy_of_dji_fly_20250119_134838_80_1737319751976_photo_optimized.jpg",
   },
 ];
 
@@ -187,7 +176,7 @@ const REGION_REVENUE_ROWS = [
   {
     region: "Golden Colorado",
     lifetimeUsd: 1_520_000,
-    weekUsd: 32_000,
+    ninetyDayUsd: 32_000 * 13,
     credits: 33.1,
     farms: 38,
     stakedGctl: 133_000,
@@ -195,7 +184,7 @@ const REGION_REVENUE_ROWS = [
   {
     region: "Rising Utah",
     lifetimeUsd: 920_000,
-    weekUsd: 19_200,
+    ninetyDayUsd: 19_200 * 13,
     credits: 14.8,
     farms: 26,
     stakedGctl: 84_000,
@@ -203,7 +192,7 @@ const REGION_REVENUE_ROWS = [
   {
     region: "Shining Missouri",
     lifetimeUsd: 680_000,
-    weekUsd: 14_000,
+    ninetyDayUsd: 14_000 * 13,
     credits: 18.2,
     farms: 18,
     stakedGctl: 63_000,
@@ -211,7 +200,7 @@ const REGION_REVENUE_ROWS = [
   {
     region: "Clean Grid",
     lifetimeUsd: 420_000,
-    weekUsd: 8_400,
+    ninetyDayUsd: 8_400 * 13,
     credits: 9.6,
     farms: 12,
     stakedGctl: 42_000,
@@ -219,7 +208,7 @@ const REGION_REVENUE_ROWS = [
   {
     region: "Other",
     lifetimeUsd: 260_000,
-    weekUsd: 4_400,
+    ninetyDayUsd: 4_400 * 13,
     credits: 5.2,
     farms: 8,
     stakedGctl: 28_000,
@@ -256,18 +245,18 @@ const GCTL_REGIONS = [
 ];
 
 const WALLET_GROWTH = [
-  { week: "W-11", newWallets: 820, newDelegators: 95 },
-  { week: "W-10", newWallets: 940, newDelegators: 110 },
-  { week: "W-9", newWallets: 1100, newDelegators: 130 },
-  { week: "W-8", newWallets: 980, newDelegators: 105 },
-  { week: "W-7", newWallets: 1250, newDelegators: 145 },
-  { week: "W-6", newWallets: 1180, newDelegators: 160 },
-  { week: "W-5", newWallets: 1340, newDelegators: 175 },
-  { week: "W-4", newWallets: 1420, newDelegators: 190 },
-  { week: "W-3", newWallets: 1560, newDelegators: 210 },
-  { week: "W-2", newWallets: 1680, newDelegators: 225 },
-  { week: "W-1", newWallets: 1820, newDelegators: 240 },
-  { week: "Now", newWallets: 1950, newDelegators: 260 },
+  { week: "W-11", newWallets: 820 },
+  { week: "W-10", newWallets: 940 },
+  { week: "W-9", newWallets: 1100 },
+  { week: "W-8", newWallets: 980 },
+  { week: "W-7", newWallets: 1250 },
+  { week: "W-6", newWallets: 1180 },
+  { week: "W-5", newWallets: 1340 },
+  { week: "W-4", newWallets: 1420 },
+  { week: "W-3", newWallets: 1560 },
+  { week: "W-2", newWallets: 1680 },
+  { week: "W-1", newWallets: 1820 },
+  { week: "Now", newWallets: 1950 },
 ];
 
 const WALLET_BREAKDOWN = [
@@ -302,29 +291,12 @@ const VESTING_SCHEDULE = [
   { year: "2030", unlocked: 86 },
 ];
 
-const farmChartConfig = {
-  shelteredPines: { label: "Sheltered Pines", color: "hsl(142, 71%, 45%)" },
-  lichenHeadland: { label: "Lichen Headland", color: "hsl(215, 90%, 55%)" },
-  thrivingAlcove: { label: "Thriving Alcove", color: "hsl(22, 80%, 50%)" },
-  emeraldCrossing: { label: "Emerald Crossing", color: "hsl(172, 66%, 50%)" },
-  papayaPrairie: { label: "Papaya Prairie", color: "hsl(29, 90%, 60%)" },
-  freshGrange: { label: "Fresh Grange", color: "hsl(270, 70%, 60%)" },
-} satisfies ChartConfig;
-
 const circulationChartConfig = {
   net: { label: "Weekly net change", color: "hsl(142, 71%, 45%)" },
 } satisfies ChartConfig;
 
-const revenueChartConfig = {
-  revenue: { label: "Weekly revenue", color: "hsl(142, 71%, 45%)" },
-} satisfies ChartConfig;
-
 const polGrowthChartConfig = {
   pol: { label: "PoL ($M)", color: "hsl(142, 71%, 45%)" },
-} satisfies ChartConfig;
-
-const marketChartConfig = {
-  price: { label: "GLW price", color: "hsl(215, 90%, 55%)" },
 } satisfies ChartConfig;
 
 const vestingChartConfig = {
@@ -336,10 +308,31 @@ const delegationTrendChartConfig = {
   apy: { label: "Est. APY (%)", color: "hsl(142, 71%, 45%)" },
 } satisfies ChartConfig;
 
+const gctlRegionChartConfig = Object.fromEntries(
+  GCTL_REGIONS.map((r) => [
+    r.name,
+    { label: r.name, color: r.color },
+  ]),
+) as Record<string, { label: string; color: string }> satisfies ChartConfig;
+
+const GCTL_REGION_PIE_DATA = GCTL_REGIONS.map((r) => ({
+  name: r.name,
+  value: Math.round((284_000 * r.value) / 100),
+  fill: r.color,
+  pct: r.value,
+}));
+
 const walletGrowthChartConfig = {
   newWallets: { label: "New wallets", color: "hsl(215, 90%, 55%)" },
-  newDelegators: { label: "New delegators", color: "hsl(270, 70%, 60%)" },
 } satisfies ChartConfig;
+
+const REGION_COLORS: Record<string, string> = {
+  "Golden Colorado": "#a855f7",
+  "Rising Utah": "#2081e2",
+  "Shining Missouri": "#ffb472",
+  "Clean Grid Project": "#4ade80",
+};
+const DEFAULT_REGION_COLOR = "#94a3b8";
 
 function SectionHeader({
   title,
@@ -376,7 +369,7 @@ function formatUsdCompact(value: number) {
 }
 
 function formatLiquidityCompact(value: number) {
-  return `${formatCompactNumber(value)} L`;
+  return `${formatCompactNumber(value)} lq`;
 }
 
 function formatCompactNumber(value: number) {
@@ -423,7 +416,7 @@ function getLiquidityFromUsd(totalUsd: number, pricePerGlw: number) {
   return {
     liquidity,
     value: formatLiquidityCompact(liquidity),
-    breakdown: `${formatUsdCompact(halfUsd)} USD + ${formatCompactNumber(glwTokens)} GLW`,
+    breakdown: `$${formatCompactNumber(halfUsd)} / ${formatCompactNumber(glwTokens)} GLW`,
   };
 }
 
@@ -433,7 +426,7 @@ function getLiquidityFromReserves(usdc: number, glw: number) {
   return {
     liquidity,
     value: formatLiquidityCompact(liquidity),
-    breakdown: `${formatUsdCompact(usdc)} USD + ${formatCompactNumber(glw)} GLW`,
+    breakdown: `$${formatCompactNumber(usdc)} / ${formatCompactNumber(glw)} GLW`,
   };
 }
 
@@ -561,55 +554,161 @@ function FlyNode({
   );
 }
 
-function SortButton({
-  label,
-  active,
-  direction,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  direction: "asc" | "desc";
-  onClick: () => void;
-}) {
-  const Icon = active
-    ? direction === "asc"
-      ? ChevronUp
-      : ChevronDown
-    : ArrowUpDown;
-  return (
-    <button
-      type="button"
-      className={cn(
-        "flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest",
-        active
-          ? "text-foreground"
-          : "text-muted-foreground/60 dark:text-muted-foreground/80",
-      )}
-      onClick={onClick}
-    >
-      {label}
-      <Icon className={cn("h-3 w-3", active ? "opacity-90" : "opacity-50")} />
-    </button>
-  );
+function logSliderToPrice(sliderValue: number) {
+  const logMin = Math.log10(PRICE_RANGE.min);
+  const logMax = Math.log10(PRICE_RANGE.max);
+  return Math.pow(10, logMin + (sliderValue / 100) * (logMax - logMin));
 }
 
+function priceToLogSlider(price: number) {
+  const logMin = Math.log10(PRICE_RANGE.min);
+  const logMax = Math.log10(PRICE_RANGE.max);
+  return ((Math.log10(price) - logMin) / (logMax - logMin)) * 100;
+}
 
 export function PolDashboardView() {
   const [isSupplyDialogOpen, setIsSupplyDialogOpen] = React.useState(false);
-  const [price, setPrice] = React.useState(SUPPLY_BASELINE.price);
-  const [farmSort, setFarmSort] = React.useState<{
-    key: "lifetime" | "week" | "credits";
-    direction: "asc" | "desc";
-  }>({
-    key: "lifetime",
-    direction: "desc",
-  });
+  const [farmSortKey, setFarmSortKey] = React.useState<
+    "lifetime" | "ninetyDay" | "credits"
+  >("lifetime");
+
+  // ── Live data ──
+  const {
+    glowPrice: liveGlwPrice,
+    marketCap: liveMarketCap,
+    circulatingSupply: liveCirculatingSupply,
+    isLoading: isBannerLoading,
+  } = useGlowCirculatingSupply();
+
+  // Use live price when available, fall back to static
+  const currentPrice = liveGlwPrice > 0 ? liveGlwPrice : SUPPLY_BASELINE.price;
+  const currentMarketCap = liveMarketCap > 0 ? liveMarketCap : currentPrice * SUPPLY_BASELINE.circulating;
+  const currentCirculating = liveCirculatingSupply > 0 ? liveCirculatingSupply : SUPPLY_BASELINE.circulating;
+
+  // PoL mock: ~40% of market cap in lq terms (sensible ratio for protocol-owned liquidity)
+  const polMockUsd = currentMarketCap * 0.4;
+
+  // ── GCTL live data ──
+  const {
+    gctlPriceNumber,
+    gctlCirculatingSupplyNumber,
+    isGctlPriceLoading,
+    isGctlCirculatingSupplyLoading,
+  } = useGctlApi();
+
+  const {
+    data: activeRegionsSummary,
+    isLoading: isRegionsSummaryLoading,
+  } = useActiveRegionsSummary();
+
+  const isGctlLoading = isGctlPriceLoading || isGctlCirculatingSupplyLoading || isRegionsSummaryLoading;
+
+  const gctlTotalSupply = gctlCirculatingSupplyNumber > 0 ? gctlCirculatingSupplyNumber : 350_000;
+  const gctlTotalStaked = activeRegionsSummary?.totalGctlStaked ?? 0;
+  const gctlUnstaked = Math.max(0, gctlTotalSupply - gctlTotalStaked);
+  const gctlStakedPct = gctlTotalSupply > 0 ? Math.round((gctlTotalStaked / gctlTotalSupply) * 100) : 0;
+
+  const gctlRegionPieData = React.useMemo(() => {
+    if (!activeRegionsSummary?.regions?.length) return GCTL_REGION_PIE_DATA;
+    return activeRegionsSummary.regions.map((r) => ({
+      name: r.name,
+      value: Math.round(r.stakedGctl),
+      fill: REGION_COLORS[r.name] ?? DEFAULT_REGION_COLOR,
+      pct: gctlTotalStaked > 0 ? Math.round((r.stakedGctl / gctlTotalStaked) * 100) : 0,
+    }));
+  }, [activeRegionsSummary, gctlTotalStaked]);
+
+  const gctlRegionChartConfigLive = React.useMemo(() => {
+    if (!activeRegionsSummary?.regions?.length) return gctlRegionChartConfig;
+    return Object.fromEntries(
+      activeRegionsSummary.regions.map((r) => [
+        r.name,
+        { label: r.name, color: REGION_COLORS[r.name] ?? DEFAULT_REGION_COLOR },
+      ]),
+    ) as Record<string, { label: string; color: string }>;
+  }, [activeRegionsSummary]);
+
+  // ── Wallet Stats live data ──
+  const {
+    data: leaderboardData,
+    isLoading: isLeaderboardLoading,
+  } = useImpactLeaderboardQuery({ limit: 5000 });
+
+  const {
+    holdersCount: gctlHoldersCount,
+    isLoading: isGctlHoldersLoading,
+  } = useGctlHoldersCount();
+
+  const walletStats = React.useMemo(() => {
+    const totalWallets = leaderboardData?.totalWalletCount ?? 0;
+    const rows = (leaderboardData?.wallets ?? []).filter(
+      (w): w is ImpactGlowScoreLeaderboardRow => !("isSystemRow" in w),
+    );
+    const delegatorCount = rows.filter((w) => w.hasVaultBonus).length;
+    const minerCount = rows.filter((w) => w.hasMinerMultiplier).length;
+    const gctlCount = gctlHoldersCount > 0
+      ? gctlHoldersCount
+      : rows.filter((w) => w.hasSteeringStake).length;
+    const otherCount = Math.max(0, totalWallets - delegatorCount - minerCount - gctlCount);
+    const total = totalWallets || 1; // avoid division by zero
+    return {
+      totalWallets,
+      delegatorCount,
+      breakdown: [
+        { label: "Delegators", count: delegatorCount, pct: Math.round((delegatorCount / total) * 1000) / 10, color: "#a855f7" },
+        { label: "Miners", count: minerCount, pct: Math.round((minerCount / total) * 1000) / 10, color: "#2081e2" },
+        { label: "GCTL holders", count: gctlCount, pct: Math.round((gctlCount / total) * 1000) / 10, color: "#22d3ee" },
+        { label: "Other", count: otherCount, pct: Math.round((otherCount / total) * 1000) / 10, color: "#4ade80" },
+      ],
+    };
+  }, [leaderboardData, gctlHoldersCount]);
+
+  const isWalletStatsLoading = isLeaderboardLoading || isGctlHoldersLoading;
+
+  // ── Wallet growth chart (from fractions summary) ──
+  const { summary: fractionsSummary } = useFractionsSummary();
+
+  const walletGrowthLive = React.useMemo(() => {
+    const byEpoch = fractionsSummary?.walletCountByEpoch;
+    if (!byEpoch || Object.keys(byEpoch).length < 3) return null;
+
+    const epochs = Object.keys(byEpoch)
+      .map(Number)
+      .sort((a, b) => a - b);
+
+    // Take last 12 weeks (need 13 data points to get 12 diffs)
+    const tail = epochs.slice(-13);
+    if (tail.length < 3) return null;
+
+    const result: { week: string; newWallets: number }[] = [];
+    for (let i = 1; i < tail.length; i++) {
+      const diff = (byEpoch[tail[i]] || 0) - (byEpoch[tail[i - 1]] || 0);
+      const label = i === tail.length - 1 ? "Now" : `W-${tail.length - 1 - i}`;
+      result.push({ week: label, newWallets: Math.max(0, diff) });
+    }
+    return result;
+  }, [fractionsSummary]);
+
+  // ── Supply model slider ──
+  const [price, setPrice] = React.useState(currentPrice);
+  const [sliderValue, setSliderValue] = React.useState(() =>
+    priceToLogSlider(currentPrice),
+  );
+
+  // Sync slider when live price loads
+  React.useEffect(() => {
+    if (liveGlwPrice > 0) {
+      setPrice(liveGlwPrice);
+      setSliderValue(priceToLogSlider(liveGlwPrice));
+    }
+  }, [liveGlwPrice]);
 
   const supplyModel = React.useMemo(() => {
-    const priceRatio = price / SUPPLY_BASELINE.price;
+    const basePrice = liveGlwPrice > 0 ? liveGlwPrice : SUPPLY_BASELINE.price;
+    const priceRatio = price / basePrice;
+    const baseCirculating = liveCirculatingSupply > 0 ? liveCirculatingSupply : SUPPLY_BASELINE.circulating;
     // Available pool = circulating + vaulted (locked/unvested is separate)
-    const availablePool = SUPPLY_BASELINE.circulating + SUPPLY_BASELINE.vaulted;
+    const availablePool = baseCirculating + SUPPLY_BASELINE.vaulted;
     // Higher price → more vaulting (sqrt elasticity)
     const vaulted = Math.min(
       availablePool,
@@ -618,7 +717,7 @@ export function PolDashboardView() {
     const circulating = availablePool - vaulted;
     const locked = SUPPLY_BASELINE.total - availablePool;
     const marketCap = price * circulating;
-    const polUsd = Math.round(SUPPLY_BASELINE.polUsd * priceRatio);
+    const polUsd = Math.round(polMockUsd * priceRatio);
 
     return {
       total: SUPPLY_BASELINE.total,
@@ -628,64 +727,61 @@ export function PolDashboardView() {
       marketCap,
       polUsd,
     };
-  }, [price]);
+  }, [price, liveGlwPrice, liveCirculatingSupply, polMockUsd]);
 
-  const supplyDelta = supplyModel.circulating - SUPPLY_BASELINE.circulating;
-  const supplyPolLiquidity = getLiquidityFromUsd(supplyModel.polUsd, price);
+  const supplyDelta = supplyModel.circulating - currentCirculating;
 
   const sortedFarmRows = React.useMemo(() => {
     const rows = [...FARM_REVENUE_ROWS];
-    const factor = farmSort.direction === "asc" ? 1 : -1;
     rows.sort((a, b) => {
-      if (farmSort.key === "credits") {
-        return (a.credits - b.credits) * factor;
-      }
-      if (farmSort.key === "week") {
-        return (a.weekUsd - b.weekUsd) * factor;
-      }
-      return (a.lifetimeUsd - b.lifetimeUsd) * factor;
+      if (farmSortKey === "credits") return b.credits - a.credits;
+      if (farmSortKey === "ninetyDay") return b.ninetyDayUsd - a.ninetyDayUsd;
+      return b.lifetimeUsd - a.lifetimeUsd;
     });
     return rows;
-  }, [farmSort]);
+  }, [farmSortKey]);
 
   const circulationPercent =
-    (SUPPLY_BASELINE.circulating / SUPPLY_BASELINE.total) * 100;
+    (currentCirculating / SUPPLY_BASELINE.total) * 100;
 
-  const marketCapUsd = MARKET_OVERVIEW.price * SUPPLY_BASELINE.circulating;
   const poolLiquidityBreakdown = getLiquidityFromReserves(
     MARKET_OVERVIEW.lpUsdc,
     MARKET_OVERVIEW.lpGlw,
   );
   const totalPolLiquidity = getLiquidityFromUsd(
-    MARKET_OVERVIEW.totalLiquidity,
-    MARKET_OVERVIEW.price,
-  );
-  const polWeeklyLiquidity = getLiquidityFromUsd(
-    MARKET_OVERVIEW.polWeeklyRevenue,
-    MARKET_OVERVIEW.price,
+    polMockUsd,
+    currentPrice,
   );
   const fdvLiquidity = getLiquidityFromUsd(
     2_400_000_000,
-    MARKET_OVERVIEW.price,
+    currentPrice,
   );
 
   const fmiSellUsd = 1_400_000;
   const fmiBuyUsd = 2_100_000;
-  const fmiPoolUsd = MARKET_OVERVIEW.lpUsdc + MARKET_OVERVIEW.lpGlw * MARKET_OVERVIEW.price;
+  const fmiPoolUsd =
+    MARKET_OVERVIEW.lpUsdc + MARKET_OVERVIEW.lpGlw * currentPrice;
   const fmiNetPressure = fmiBuyUsd - fmiSellUsd;
   const fmiRatio = fmiBuyUsd / (fmiBuyUsd + fmiSellUsd);
   const fmiScore = Math.round(fmiRatio * 100);
-  const fmiLabel = fmiScore >= 55 ? "Accumulating" : fmiScore >= 45 ? "Neutral" : "Distributing";
-  const fmiAccentClass = fmiScore >= 55
-    ? "text-green-600 dark:text-green-400"
-    : fmiScore >= 45
-      ? "text-yellow-600 dark:text-yellow-400"
-      : "text-red-600 dark:text-red-400";
-  const fmiBadgeBorder = fmiScore >= 55
-    ? "border-green-500/30 bg-green-500/5"
-    : fmiScore >= 45
-      ? "border-yellow-500/30 bg-yellow-500/5"
-      : "border-red-500/30 bg-red-500/5";
+  const fmiLabel =
+    fmiScore >= 55
+      ? "Accumulating"
+      : fmiScore >= 45
+        ? "Neutral"
+        : "Distributing";
+  const fmiAccentClass =
+    fmiScore >= 55
+      ? "text-green-600 dark:text-green-400"
+      : fmiScore >= 45
+        ? "text-yellow-600 dark:text-yellow-400"
+        : "text-red-600 dark:text-red-400";
+  const fmiBadgeBorder =
+    fmiScore >= 55
+      ? "border-green-500/30 bg-green-500/5"
+      : fmiScore >= 45
+        ? "border-yellow-500/30 bg-yellow-500/5"
+        : "border-red-500/30 bg-red-500/5";
   const fmiNetToPool = (fmiNetPressure / fmiPoolUsd) * 100;
   const fmiSellToPool = fmiSellUsd / fmiPoolUsd;
 
@@ -693,43 +789,165 @@ export function PolDashboardView() {
     <div className="min-h-screen bg-background text-foreground">
       <section className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 pb-16 pt-8">
         <div className="flex flex-col gap-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col gap-2">
-              <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-                Protocol Health Dashboard
-              </h1>
-              <p className="text-sm text-muted-foreground max-w-2xl">
-                Internal protocol health view focused on liquidity, revenue, and
-                adoption.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary" className="font-mono text-xs">
-                Internal Preview
-              </Badge>
-              <Badge variant="outline" className="font-mono text-xs">
-                Updated {formatDateShort(UPDATED_AT)}
-              </Badge>
-            </div>
-          </div>
-
           <section className="flex flex-col gap-6">
             <SectionHeader
               title="Overview"
-              subtitle="Circulation, market health, and protocol revenue."
+              subtitle="How big is Glow, how much revenue is flowing in, and where is it going."
             />
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              {/* ── Card 1: Circulation ── */}
+
+            {/* ── Row 1: Headline banner ── */}
+            <Card className="!gap-0 !bg-zinc-950 dark:!bg-white border-zinc-800/60 dark:border-zinc-200/60">
+              <CardContent className="px-8 py-10 sm:px-10 sm:py-12">
+                <div className="grid grid-cols-1 gap-10 sm:grid-cols-3 sm:gap-8">
+                  <div className="flex flex-col gap-2">
+                    <div className="text-xs font-medium text-zinc-400 dark:text-zinc-500 tracking-wide">
+                      Market Cap
+                    </div>
+                    <div className="text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
+                      {isBannerLoading ? (
+                        <Skeleton className="h-12 w-40 bg-zinc-800 dark:bg-zinc-200" />
+                      ) : (
+                        formatUsdCompact(currentMarketCap)
+                      )}
+                    </div>
+                    <div className="text-sm text-zinc-500 dark:text-zinc-400">
+                      {isBannerLoading ? (
+                        <Skeleton className="h-4 w-32 bg-zinc-800 dark:bg-zinc-200" />
+                      ) : (
+                        <>{formatCompactNumber(currentCirculating)} GLW circulating</>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <div className="text-xs font-medium text-zinc-400 dark:text-zinc-500 tracking-wide">
+                      GLW Price
+                    </div>
+                    <div className="text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
+                      {isBannerLoading ? (
+                        <Skeleton className="h-12 w-32 bg-zinc-800 dark:bg-zinc-200" />
+                      ) : (
+                        `$${currentPrice.toFixed(4)}`
+                      )}
+                    </div>
+                    <div className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Spot price
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <div className="text-xs font-medium text-zinc-400 dark:text-zinc-500 tracking-wide">
+                      Total PoL
+                    </div>
+                    <div className="text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
+                      {totalPolLiquidity.value}
+                    </div>
+                    <div className="text-sm text-zinc-500 dark:text-zinc-400">
+                      ({totalPolLiquidity.breakdown})
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* ── Row 2: Aggregate Farm Revenue (left) | Circulation (right) ── */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
+              {/* ── Left: Protocol Revenue (4 KPI cards) ── */}
+              <div className="grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-4">
+                {/* Lifetime Revenue */}
+                <Card className="!gap-0 relative overflow-hidden">
+                  <GlowSymbol
+                    className="!text-[var(--color-glow-green)] absolute -top-6 -right-6 w-32 h-32 opacity-50 dark:opacity-20 pointer-events-none rotate-12"
+                  />
+                  <CardContent className="relative flex flex-col justify-center px-8 py-10 sm:px-10 sm:py-12">
+                    <div className="text-sm font-medium text-muted-foreground tracking-wide">
+                      Lifetime Revenue
+                    </div>
+                    <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                      {
+                        getLiquidityFromUsd(
+                          AGGREGATE_FARM_REVENUE.lifetimeUsd,
+                          currentPrice,
+                        ).value
+                      }
+                    </div>
+                    <div className="mt-3 text-sm text-muted-foreground">
+                      ({getLiquidityFromUsd(AGGREGATE_FARM_REVENUE.lifetimeUsd, currentPrice).breakdown})
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Active Farms */}
+                <Card className="!gap-0 relative overflow-hidden">
+                  <GlowSymbol
+                    className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-20 pointer-events-none -rotate-12"
+                  />
+                  <CardContent className="relative flex flex-col justify-center px-8 py-10 sm:px-10 sm:py-12">
+                    <div className="text-sm font-medium text-muted-foreground tracking-wide">
+                      Active Farms
+                    </div>
+                    <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                      {formatNumber(AGGREGATE_FARM_REVENUE.farms)}
+                    </div>
+                    <div className="mt-3 text-sm text-muted-foreground">
+                      Across all regions
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 90d Revenue */}
+                <Card className="!gap-0 relative overflow-hidden">
+                  <GlowSymbol
+                    className="!text-[var(--color-glow-purple)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none rotate-6"
+                  />
+                  <CardContent className="relative flex flex-col justify-center px-8 py-8 sm:px-10 sm:py-10">
+                    <div className="text-sm font-medium text-muted-foreground tracking-wide">
+                      90d Revenue
+                    </div>
+                    <div className="mt-3 text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                      {
+                        getLiquidityFromUsd(
+                          AGGREGATE_FARM_REVENUE.ninetyDayUsd,
+                          currentPrice,
+                        ).value
+                      }
+                    </div>
+                    <div className="mt-2.5 text-sm text-muted-foreground">
+                      ({getLiquidityFromUsd(AGGREGATE_FARM_REVENUE.ninetyDayUsd, currentPrice).breakdown})
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 90d PoL Yield */}
+                <Card className="!gap-0 relative overflow-hidden">
+                  <GlowSymbol
+                    className="!text-[var(--color-glow-yellow)] absolute -top-4 -right-4 w-24 h-24 opacity-50 dark:opacity-20 pointer-events-none -rotate-6"
+                  />
+                  <CardContent className="relative flex flex-col justify-center px-8 py-8 sm:px-10 sm:py-10">
+                    <div className="text-sm font-medium text-muted-foreground tracking-wide">
+                      90d PoL Yield
+                    </div>
+                    <div className="mt-3 text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                      {
+                        getLiquidityFromUsd(
+                          AGGREGATE_FARM_REVENUE.netPolNinetyDay,
+                          currentPrice,
+                        ).value
+                      }
+                    </div>
+                    <div className="mt-2.5 text-sm text-muted-foreground">
+                      ({getLiquidityFromUsd(AGGREGATE_FARM_REVENUE.netPolNinetyDay, currentPrice).breakdown})
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* ── Right: Where the money goes ── */}
               <Card className="!gap-6">
                 <CardHeader className="pb-0">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold">Circulation</div>
-                    <Badge variant="outline" className="text-[10px] font-mono">
-                      12W NET
-                    </Badge>
+                  <div className="text-sm font-semibold">
+                    Supply &amp; Circulation
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Circulating vs total supply and weekly net changes.
+                    How revenue impacts the Glow economy.
                   </p>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
@@ -739,22 +957,55 @@ export function PolDashboardView() {
                       value={`${formatCompactNumber(SUPPLY_BASELINE.circulating)} GLW`}
                       helper={`${formatPercent(circulationPercent)} of ${formatCompactNumber(SUPPLY_BASELINE.total)} total`}
                     />
-                    <div className="mt-3 h-1.5 rounded-full bg-muted">
+                    <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden flex">
                       <div
-                        className="h-1.5 rounded-full bg-primary"
-                        style={{ width: `${circulationPercent}%` }}
+                        className="h-full"
+                        style={{
+                          width: `${(SUPPLY_BASELINE.circulating / SUPPLY_BASELINE.total) * 100}%`,
+                          background: "hsl(142, 71%, 45%)",
+                        }}
                       />
+                      <div
+                        className="h-full"
+                        style={{
+                          width: `${(SUPPLY_BASELINE.vaulted / SUPPLY_BASELINE.total) * 100}%`,
+                          background: "hsl(270, 70%, 60%)",
+                        }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="inline-block h-2 w-2 rounded-full shrink-0"
+                          style={{ background: "hsl(142, 71%, 45%)" }}
+                        />
+                        <span className="text-muted-foreground">
+                          Circulating
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="inline-block h-2 w-2 rounded-full shrink-0"
+                          style={{ background: "hsl(270, 70%, 60%)" }}
+                        />
+                        <span className="text-muted-foreground">Vaulted</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-block h-2 w-2 rounded-full shrink-0 bg-muted-foreground/20" />
+                        <span className="text-muted-foreground">Other</span>
+                      </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <MiniStat
-                      label="Total supply"
-                      value={formatCompactNumber(SUPPLY_BASELINE.total)}
+                      label="Vaulted"
+                      value={formatCompactNumber(SUPPLY_BASELINE.vaulted)}
                       valueClassName="text-xl sm:text-2xl tracking-tight"
                     />
                     <MiniStat
-                      label="Vaulted"
-                      value={formatCompactNumber(SUPPLY_BASELINE.vaulted)}
+                      label="Liquidity"
+                      value={poolLiquidityBreakdown.value}
+                      helper={`(${poolLiquidityBreakdown.breakdown})`}
                       valueClassName="text-xl sm:text-2xl tracking-tight"
                     />
                   </div>
@@ -807,351 +1058,139 @@ export function PolDashboardView() {
                   </Button>
                 </CardContent>
               </Card>
-
-              {/* ── Card 2: Market Health ── */}
-              <Card className="!gap-6">
-                <CardHeader className="pb-0">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold">Market Health</div>
-                    <Badge variant="outline" className="text-[10px] font-mono">
-                      LIVE
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Market cap, token price, and protocol-owned liquidity.
-                  </p>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-5">
-                  <div className="grid grid-cols-2 gap-4">
-                    <MetricCard
-                      label="Market cap"
-                      value={formatUsdCompact(marketCapUsd)}
-                      helper={
-                        MARKET_OVERVIEW.priceDelta === 0
-                          ? "Flat 7d"
-                          : `${formatPercent(MARKET_OVERVIEW.priceDelta)} 7d`
-                      }
-                    />
-                    <MetricCard
-                      label="GLW price"
-                      value={`$${MARKET_OVERVIEW.price.toFixed(4)}`}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-1">
-                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                        Liquidity
-                      </div>
-                      <div className="text-base sm:text-lg font-semibold font-mono tabular-nums tracking-tight">
-                        {poolLiquidityBreakdown.value}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        ({formatUsdCompact(MARKET_OVERVIEW.lpUsdc)} USD +{" "}
-                        {formatCompactNumber(MARKET_OVERVIEW.lpGlw)} GLW)
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {totalPolLiquidity.value} total PoL
-                      </div>
-                    </div>
-                    <MiniStat
-                      label="PoL APY"
-                      value={formatPercent(MARKET_OVERVIEW.polApy)}
-                      helper={
-                        <div className="flex flex-col gap-1">
-                          <span>({polWeeklyLiquidity.breakdown})</span>
-                          <span>{polWeeklyLiquidity.value} / week</span>
-                        </div>
-                      }
-                      valueClassName="text-xl sm:text-2xl tracking-tight"
-                    />
-                  </div>
-                  <ChartContainer
-                    config={marketChartConfig}
-                    className="h-32 w-full"
-                  >
-                    <LineChart data={MARKET_TREND}>
-                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="label"
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fontSize: 10 }}
-                      />
-                      <YAxis hide />
-                      <ChartTooltip
-                        content={
-                          <ChartTooltipContent
-                            labelFormatter={(label) => label}
-                            formatter={(value) =>
-                              `$${Number(value).toFixed(4)}`
-                            }
-                          />
-                        }
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="price"
-                        stroke="var(--color-price)"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                    </LineChart>
-                  </ChartContainer>
-                  <div className="text-xs text-muted-foreground/60 dark:text-muted-foreground/80">
-                    Spot price trend (last 90 days, mock).
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* ── Card 3: Aggregate Farm Revenue ── */}
-              <Card className="!gap-6">
-                <CardHeader className="pb-0">
-                  <div className="text-sm font-semibold">
-                    Aggregate Farm Revenue
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Revenue solar farms generate for the protocol via GCTL
-                    minting, PoL yield, and miner sales.
-                  </p>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-5">
-                  <div className="grid grid-cols-2 gap-4">
-                    <MetricCard
-                      label="Total lifetime revenue"
-                      value={formatUsdCompact(AGGREGATE_FARM_REVENUE.lifetimeUsd)}
-                    />
-                    <MetricCard
-                      label="Active farms"
-                      value={formatNumber(AGGREGATE_FARM_REVENUE.farms)}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <MiniStat
-                      label="Weekly revenue"
-                      value={formatUsdCompact(AGGREGATE_FARM_REVENUE.weeklyUsd)}
-                      helper={`+${formatPercent(AGGREGATE_FARM_REVENUE.weekDelta)} WoW`}
-                      valueClassName="text-xl sm:text-2xl tracking-tight"
-                    />
-                    <MiniStat
-                      label="PoL yield / week"
-                      value={formatUsdCompact(AGGREGATE_FARM_REVENUE.netPolWeekly)}
-                      valueClassName="text-xl sm:text-2xl tracking-tight"
-                    />
-                  </div>
-                  <ChartContainer
-                    config={revenueChartConfig}
-                    className="h-32 w-full"
-                  >
-                    <AreaChart data={WEEKLY_REVENUE_TREND}>
-                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="week"
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fontSize: 10 }}
-                        interval="preserveStartEnd"
-                      />
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        width={40}
-                        tick={{ fontSize: 10 }}
-                        tickFormatter={(v) => `$${v}k`}
-                      />
-                      <ChartTooltip
-                        content={
-                          <ChartTooltipContent
-                            labelFormatter={(label) => `Week ${label}`}
-                            formatter={(value) =>
-                              formatUsdCompact(Number(value) * 1000)
-                            }
-                          />
-                        }
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="revenue"
-                        stroke="var(--color-revenue)"
-                        fill="var(--color-revenue)"
-                        fillOpacity={0.15}
-                        strokeWidth={2}
-                      />
-                    </AreaChart>
-                  </ChartContainer>
-                </CardContent>
-              </Card>
             </div>
           </section>
 
           <section className="flex flex-col gap-6 pt-16">
             <SectionHeader
-              title="Per-Farm Protocol Revenue"
-              subtitle="Stacked revenue trend with sortable farm table."
+              title="Every Farm Adds Value"
+              subtitle="Each solar farm generates real revenue for the Glow protocol."
             />
-            <Card className="!gap-6">
-              <CardHeader className="border-b border-border/20 dark:border-border/40 pb-6">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="text-sm font-semibold">
-                      Per-Farm Protocol Revenue
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Liquidity-denominated revenue with USD + GLW breakdowns.
-                      Farms with zero revenue are expected for new listings.
-                    </p>
-                  </div>
-                  <Link
-                    href="/blog/sacrifice-your-revenue"
-                    className="text-xs font-mono uppercase tracking-widest text-muted-foreground/70 dark:text-muted-foreground/90 hover:text-foreground"
+            <div className="flex items-center justify-end">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                  Sort by
+                </span>
+                <select
+                  value={farmSortKey}
+                  onChange={(e) =>
+                    setFarmSortKey(
+                      e.target.value as "lifetime" | "ninetyDay" | "credits",
+                    )
+                  }
+                  className="rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-xs font-mono cursor-pointer hover:border-border/60 transition-colors"
+                >
+                  <option value="lifetime">Lifetime</option>
+                  <option value="ninetyDay">90d Revenue</option>
+                  <option value="credits">CC / Week</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {sortedFarmRows.map((farm) => {
+                const lifetimeLq = getLiquidityFromUsd(
+                  farm.lifetimeUsd,
+                  currentPrice,
+                );
+                const ninetyDayLq = getLiquidityFromUsd(
+                  farm.ninetyDayUsd,
+                  currentPrice,
+                );
+                return (
+                  <Card
+                    key={farm.name}
+                    className="!gap-0 !py-0 group overflow-hidden hover:border-border/60 dark:hover:border-border/80 transition-all duration-200"
                   >
-                    Learn more
-                  </Link>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-8">
-                <div>
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-3">
-                    Stacked revenue trend (8w)
-                  </div>
-                  <ChartContainer
-                    config={farmChartConfig}
-                    className="h-48 w-full"
-                  >
-                    <AreaChart data={FARM_REVENUE_SERIES}>
-                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                      <XAxis dataKey="week" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        width={40}
-                        tick={{ fontSize: 10 }}
-                        tickFormatter={(v) => `$${v}k`}
-                      />
-                      <ChartTooltip
-                        content={
-                          <ChartTooltipContent
-                            labelFormatter={(label) => `Week ${label}`}
-                            formatter={(value, name) => [
-                              formatUsdCompact(Number(value) * 1000),
-                              name as string,
-                            ]}
+                    <CardContent className="p-0">
+                      {/* Farm image header */}
+                      <div className="relative h-40 w-full overflow-hidden bg-muted/30">
+                        {farm.imageUrl ? (
+                          <FallbackImage
+                            src={farm.imageUrl}
+                            widthForProxy={600}
+                            quality={80}
+                            alt={farm.name}
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                           />
-                        }
-                      />
-                      <Area type="monotone" dataKey="shelteredPines" stackId="rev" stroke="var(--color-shelteredPines)" fill="var(--color-shelteredPines)" fillOpacity={0.22} />
-                      <Area type="monotone" dataKey="lichenHeadland" stackId="rev" stroke="var(--color-lichenHeadland)" fill="var(--color-lichenHeadland)" fillOpacity={0.2} />
-                      <Area type="monotone" dataKey="thrivingAlcove" stackId="rev" stroke="var(--color-thrivingAlcove)" fill="var(--color-thrivingAlcove)" fillOpacity={0.2} />
-                      <Area type="monotone" dataKey="emeraldCrossing" stackId="rev" stroke="var(--color-emeraldCrossing)" fill="var(--color-emeraldCrossing)" fillOpacity={0.2} />
-                      <Area type="monotone" dataKey="papayaPrairie" stackId="rev" stroke="var(--color-papayaPrairie)" fill="var(--color-papayaPrairie)" fillOpacity={0.2} />
-                      <Area type="monotone" dataKey="freshGrange" stackId="rev" stroke="var(--color-freshGrange)" fill="var(--color-freshGrange)" fillOpacity={0.2} />
-                    </AreaChart>
-                  </ChartContainer>
-                </div>
-                <div>
-                  <div className="overflow-x-auto rounded-2xl border border-border/20 dark:border-border/40">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/40 dark:bg-background/40">
-                        <tr className="text-left text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                          <th className="px-4 py-3">Farm</th>
-                          <th className="px-4 py-3">
-                            <SortButton
-                              label="Lifetime"
-                              active={farmSort.key === "lifetime"}
-                              direction={farmSort.direction}
-                              onClick={() =>
-                                setFarmSort((prev) => ({
-                                  key: "lifetime",
-                                  direction:
-                                    prev.key === "lifetime" &&
-                                    prev.direction === "desc"
-                                      ? "asc"
-                                      : "desc",
-                                }))
-                              }
-                            />
-                          </th>
-                          <th className="px-4 py-3">
-                            <SortButton
-                              label="This week"
-                              active={farmSort.key === "week"}
-                              direction={farmSort.direction}
-                              onClick={() =>
-                                setFarmSort((prev) => ({
-                                  key: "week",
-                                  direction:
-                                    prev.key === "week" &&
-                                    prev.direction === "desc"
-                                      ? "asc"
-                                      : "desc",
-                                }))
-                              }
-                            />
-                          </th>
-                          <th className="px-4 py-3">
-                            <SortButton
-                              label="CC / wk"
-                              active={farmSort.key === "credits"}
-                              direction={farmSort.direction}
-                              onClick={() =>
-                                setFarmSort((prev) => ({
-                                  key: "credits",
-                                  direction:
-                                    prev.key === "credits" &&
-                                    prev.direction === "desc"
-                                      ? "asc"
-                                      : "desc",
-                                }))
-                              }
-                            />
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sortedFarmRows.map((farm) => (
-                            <tr
-                              key={farm.name}
-                              className="border-t border-border/10 dark:border-border/20 hover:bg-muted/40 dark:hover:bg-background/60 transition-colors"
-                            >
-                              <td className="px-4 py-3">
-                                <div className="text-sm font-semibold">
-                                  {farm.name}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {farm.region} · {farm.panels} panels
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="font-mono font-semibold tabular-nums">
-                                  {formatUsdCompact(farm.lifetimeUsd)}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="font-mono font-semibold tabular-nums">
-                                  {formatUsdCompact(farm.weekUsd)}
-                                </div>
-                                <div
-                                  className={cn(
-                                    "text-xs",
-                                    farm.weekDelta >= 0
-                                      ? "text-green-600 dark:text-green-400"
-                                      : "text-red-600 dark:text-red-400",
-                                  )}
-                                >
-                                  {farm.weekDelta >= 0 ? "+" : ""}
-                                  {formatPercent(farm.weekDelta)}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 font-mono tabular-nums">
-                                {farm.credits.toFixed(1)}
-                              </td>
-                            </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-muted/40 via-muted/20 to-muted/40 flex items-center justify-center">
+                            <span className="text-3xl opacity-30">&#9728;</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "absolute top-2.5 right-2.5 text-[10px] font-mono tabular-nums shrink-0 border-0",
+                            farm.ninetyDayDelta >= 0
+                              ? "bg-green-600/80 text-white"
+                              : "bg-red-600/80 text-white",
+                          )}
+                        >
+                          {farm.ninetyDayDelta >= 0 ? "+" : ""}
+                          {formatPercent(farm.ninetyDayDelta)}
+                        </Badge>
+                        <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+                          <Badge
+                            variant="secondary"
+                            className="bg-white/20 hover:bg-white/30 text-white border-0 text-[9px] px-1.5 h-4 mb-1.5 font-medium w-fit"
+                          >
+                            {farm.region}
+                          </Badge>
+                          <h3 className="font-bold text-white text-sm leading-tight truncate">
+                            {farm.name}
+                          </h3>
+                          <p className="text-white/60 text-[11px] mt-0.5">
+                            {farm.panels} panels
+                          </p>
+                        </div>
+                      </div>
+                      {/* Revenue metrics */}
+                      <div className="px-5 pt-4 pb-4 grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                            Lifetime
+                          </div>
+                          <div className="text-xl font-semibold font-mono tabular-nums tracking-tight">
+                            {lifetimeLq.value}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">
+                            ({lifetimeLq.breakdown})
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                            90d
+                          </div>
+                          <div className="text-xl font-semibold font-mono tabular-nums tracking-tight">
+                            {ninetyDayLq.value}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">
+                            ({ninetyDayLq.breakdown})
+                          </div>
+                        </div>
+                      </div>
+                      {/* Footer with carbon stats */}
+                      <div className="px-5 py-3 border-t border-border/10 dark:border-border/20 bg-muted/20 dark:bg-background/30 flex items-center gap-4">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500/60" />
+                          <span className="font-mono tabular-nums">
+                            {farm.ccPerWeek.toFixed(3)}
+                          </span>
+                          <span>cc/wk</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          <span className="font-mono tabular-nums">
+                            {farm.credits.toFixed(1)}
+                          </span>{" "}
+                          total credits
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           </section>
 
           <section className="flex flex-col gap-6 pt-16">
@@ -1163,19 +1202,11 @@ export function PolDashboardView() {
               {/* ── Protocol Liquidity ── */}
               <Card className="!gap-6">
                 <CardHeader className="pb-0">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold">
-                      Protocol Liquidity
-                    </div>
-                    <Link
-                      href="/blog/PoL"
-                      className="text-xs font-mono uppercase tracking-widest text-muted-foreground/70 dark:text-muted-foreground/90 hover:text-foreground"
-                    >
-                      Learn more
-                    </Link>
+                  <div className="text-sm font-semibold">
+                    Protocol Liquidity
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Protocol-owned liquidity and weekly revenue.
+                    Protocol-owned liquidity and 90d revenue.
                   </p>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
@@ -1198,83 +1229,41 @@ export function PolDashboardView() {
                     />
                     <MiniStat
                       label="Pool depth"
-                      value={formatUsdCompact(MARKET_OVERVIEW.lpUsdc + MARKET_OVERVIEW.lpGlw * MARKET_OVERVIEW.price)}
+                      value={formatUsdCompact(
+                        MARKET_OVERVIEW.lpUsdc +
+                          MARKET_OVERVIEW.lpGlw * currentPrice,
+                      )}
                       valueClassName="text-base sm:text-lg tracking-tight"
                     />
                   </div>
-                  <div>
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                      PoL growth (12w)
-                    </div>
-                    <ChartContainer
-                      config={polGrowthChartConfig}
-                      className="h-24 w-full"
-                    >
-                      <AreaChart data={POL_GROWTH}>
-                        <XAxis
-                          dataKey="week"
-                          tickLine={false}
-                          axisLine={false}
-                          tick={{ fontSize: 9 }}
-                          interval="preserveStartEnd"
-                        />
-                        <YAxis
-                          tickLine={false}
-                          axisLine={false}
-                          width={28}
-                          tick={{ fontSize: 9 }}
-                          tickFormatter={(v) => `$${v}M`}
-                          domain={[6, 10]}
-                        />
-                        <ChartTooltip
-                          content={
-                            <ChartTooltipContent
-                              labelFormatter={(label) => label}
-                              formatter={(value) => `$${Number(value).toFixed(1)}M`}
-                            />
-                          }
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="pol"
-                          stroke="var(--color-pol)"
-                          fill="var(--color-pol)"
-                          fillOpacity={0.12}
-                          strokeWidth={2}
-                        />
-                      </AreaChart>
-                    </ChartContainer>
-                  </div>
-                  <div className="space-y-2">
+                  <div className="flex-1 flex flex-col gap-3">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                       Sources
                     </div>
-                    <div className="h-2.5 rounded-full bg-muted overflow-hidden flex">
+                    <div className="flex-1 flex flex-col justify-center gap-4">
                       {POL_BREAKDOWN.map((segment) => (
-                        <div
-                          key={segment.name}
-                          className="h-full"
-                          style={{
-                            width: `${segment.value}%`,
-                            backgroundColor: segment.color,
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <div className="grid gap-1.5 text-xs text-muted-foreground">
-                      {POL_BREAKDOWN.map((segment) => (
-                        <div
-                          key={segment.name}
-                          className="flex items-center justify-between"
-                        >
-                          <span className="flex items-center gap-2">
-                            <span
-                              className="inline-block h-2 w-2 rounded-full shrink-0"
-                              style={{ backgroundColor: segment.color }}
+                        <div key={segment.name} className="flex flex-col gap-1.5">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="flex items-center gap-2 text-muted-foreground">
+                              <span
+                                className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+                                style={{ backgroundColor: segment.color }}
+                              />
+                              {segment.name}
+                            </span>
+                            <span className="font-mono tabular-nums font-medium text-foreground">
+                              {segment.value}%
+                            </span>
+                          </div>
+                          <div className="h-2 w-full rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${segment.value}%`,
+                                backgroundColor: segment.color,
+                              }}
                             />
-                            {segment.name}
-                          </span>
-                          <span>{segment.value}%</span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1285,15 +1274,7 @@ export function PolDashboardView() {
               {/* ── GCTL ── */}
               <Card className="!gap-6">
                 <CardHeader className="pb-0">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold">GCTL</div>
-                    <Link
-                      href="/blog/beginner-guide-to-gctl"
-                      className="text-xs font-mono uppercase tracking-widest text-muted-foreground/70 dark:text-muted-foreground/90 hover:text-foreground"
-                    >
-                      Learn more
-                    </Link>
-                  </div>
+                  <div className="text-sm font-semibold">GCTL</div>
                   <p className="text-xs text-muted-foreground">
                     Control token supply and regional steering.
                   </p>
@@ -1301,30 +1282,33 @@ export function PolDashboardView() {
                 <CardContent className="flex flex-col gap-5">
                   <MetricCard
                     label="Total GCTL"
-                    value="350K"
-                    helper="$2.49 mint price"
+                    value={isGctlLoading ? "..." : formatCompactNumber(gctlTotalSupply)}
+                    helper={isGctlLoading ? "Loading..." : `$${gctlPriceNumber.toFixed(2)} mint price`}
                     valueClassName="text-3xl sm:text-4xl"
                   />
                   <div>
                     <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
                       <span>Staked vs unstaked</span>
-                      <span>81% staked</span>
+                      <span>{isGctlLoading ? "..." : `${gctlStakedPct}% staked`}</span>
                     </div>
                     <div className="h-2.5 rounded-full bg-muted overflow-hidden flex">
                       <div
-                        className="h-full rounded-full"
-                        style={{ width: "81%", background: "hsl(270, 70%, 60%)" }}
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${gctlStakedPct}%`,
+                          background: "hsl(270, 70%, 60%)",
+                        }}
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4 mt-3">
                       <MiniStat
                         label="Staked"
-                        value="284K"
+                        value={isGctlLoading ? "..." : formatCompactNumber(gctlTotalStaked)}
                         valueClassName="text-base sm:text-lg tracking-tight"
                       />
                       <MiniStat
                         label="Unstaked"
-                        value="66K"
+                        value={isGctlLoading ? "..." : formatCompactNumber(gctlUnstaked)}
                         valueClassName="text-base sm:text-lg tracking-tight"
                       />
                     </div>
@@ -1333,40 +1317,54 @@ export function PolDashboardView() {
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
                       Staking by region
                     </div>
-                    <div className="grid gap-2">
-                      {GCTL_REGIONS.map((region) => {
-                        const staked = Math.round(284_000 * region.value / 100);
-                        return (
-                          <div key={region.name} className="flex items-center gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between text-xs mb-1">
-                                <span className="flex items-center gap-1.5">
-                                  <span
-                                    className="inline-block h-2 w-2 rounded-full shrink-0"
-                                    style={{ backgroundColor: region.color }}
-                                  />
-                                  <span className="text-muted-foreground">{region.name}</span>
-                                </span>
-                                <span className="font-mono tabular-nums text-foreground">
-                                  {formatCompactNumber(staked)}
-                                </span>
-                              </div>
-                              <div className="h-1.5 w-full rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden">
-                                <div
-                                  className="h-full rounded-full"
-                                  style={{
-                                    width: `${region.value}%`,
-                                    backgroundColor: region.color,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                            <span className="text-[10px] font-mono tabular-nums text-muted-foreground/60 dark:text-muted-foreground/80 w-8 text-right shrink-0">
-                              {region.value}%
+                    <div className="flex items-center gap-4">
+                      <ChartContainer
+                        config={gctlRegionChartConfigLive}
+                        className="h-36 w-36 shrink-0"
+                      >
+                        <PieChart>
+                          <Pie
+                            data={gctlRegionPieData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={30}
+                            outerRadius={60}
+                            strokeWidth={2}
+                            stroke="var(--color-card)"
+                          />
+                          <ChartTooltip
+                            content={
+                              <ChartTooltipContent
+                                formatter={(value, name) => {
+                                  const region = gctlRegionPieData.find((r) => r.name === name);
+                                  return `${formatCompactNumber(Number(value))} (${region?.pct ?? 0}%)`;
+                                }}
+                              />
+                            }
+                          />
+                        </PieChart>
+                      </ChartContainer>
+                      <div className="flex-1 grid gap-1.5">
+                        {gctlRegionPieData.map((region) => (
+                          <div
+                            key={region.name}
+                            className="flex items-center justify-between text-xs"
+                          >
+                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                              <span
+                                className="inline-block h-2 w-2 rounded-full shrink-0"
+                                style={{ backgroundColor: region.fill }}
+                              />
+                              {region.name}
+                            </span>
+                            <span className="font-mono tabular-nums text-foreground">
+                              {formatCompactNumber(region.value)}
                             </span>
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -1384,25 +1382,25 @@ export function PolDashboardView() {
                   <div className="grid grid-cols-2 gap-4">
                     <MiniStat
                       label="Wallets"
-                      value="132,480"
+                      value={isWalletStatsLoading ? "..." : formatNumber(walletStats.totalWallets)}
                       valueClassName="text-xl sm:text-2xl tracking-tight"
                     />
                     <MiniStat
                       label="Delegators"
-                      value="18,240"
+                      value={isWalletStatsLoading ? "..." : formatNumber(walletStats.delegatorCount)}
                       valueClassName="text-xl sm:text-2xl tracking-tight"
                     />
                   </div>
 
                   <div>
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                      Weekly new wallets (12w)
+                      New wallets per week (12w)
                     </div>
                     <ChartContainer
                       config={walletGrowthChartConfig}
                       className="h-24 w-full"
                     >
-                      <BarChart data={WALLET_GROWTH} barGap={2}>
+                      <BarChart data={walletGrowthLive ?? WALLET_GROWTH} barGap={2}>
                         <XAxis
                           dataKey="week"
                           tickLine={false}
@@ -1414,11 +1412,9 @@ export function PolDashboardView() {
                           content={
                             <ChartTooltipContent
                               labelFormatter={(label) => label}
-                              formatter={(value, name) => [
+                              formatter={(value) => [
                                 Number(value).toLocaleString(),
-                                name === "newWallets"
-                                  ? "Wallets"
-                                  : "Delegators",
+                                "New wallets",
                               ]}
                             />
                           }
@@ -1426,12 +1422,6 @@ export function PolDashboardView() {
                         <Bar
                           dataKey="newWallets"
                           fill="var(--color-newWallets)"
-                          radius={[3, 3, 0, 0]}
-                          fillOpacity={0.7}
-                        />
-                        <Bar
-                          dataKey="newDelegators"
-                          fill="var(--color-newDelegators)"
                           radius={[3, 3, 0, 0]}
                           fillOpacity={0.7}
                         />
@@ -1444,7 +1434,7 @@ export function PolDashboardView() {
                       Wallet breakdown
                     </div>
                     <div className="flex flex-col gap-2">
-                      {WALLET_BREAKDOWN.map((row) => (
+                      {(walletStats.totalWallets > 0 ? walletStats.breakdown : WALLET_BREAKDOWN).map((row) => (
                         <div
                           key={row.label}
                           className="flex items-center gap-3"
@@ -1467,7 +1457,10 @@ export function PolDashboardView() {
                             <div className="h-1.5 w-full rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden">
                               <div
                                 className="h-full rounded-full"
-                                style={{ width: `${row.pct}%`, backgroundColor: row.color }}
+                                style={{
+                                  width: `${row.pct}%`,
+                                  backgroundColor: row.color,
+                                }}
                               />
                             </div>
                           </div>
@@ -1488,8 +1481,8 @@ export function PolDashboardView() {
               title="Delegation + Regions"
               subtitle="Delegation health and regional diversification."
             />
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <Card className="!gap-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
+              <Card className="!gap-6 flex flex-col">
                 <CardHeader className="pb-0">
                   <div className="text-sm font-semibold">
                     Delegation Metrics
@@ -1498,20 +1491,20 @@ export function PolDashboardView() {
                     Delegation health and estimated rewards.
                   </p>
                 </CardHeader>
-                <CardContent className="grid gap-6">
+                <CardContent className="flex flex-col gap-6 h-full">
                   <div className="grid gap-4 sm:grid-cols-3">
                     <MiniStat label="GLW delegated" value="24.8M" />
                     <MiniStat label="Delegators" value="18.2k" />
                     <MiniStat label="Est. APY" value="11.4%" />
                   </div>
 
-                  <div>
+                  <div className="flex-1 flex flex-col min-h-0">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-3">
                       Delegation growth vs APY (12w)
                     </div>
                     <ChartContainer
                       config={delegationTrendChartConfig}
-                      className="h-36 w-full"
+                      className="flex-1 w-full min-h-[140px]"
                     >
                       <AreaChart data={DELEGATION_TREND}>
                         <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -1605,16 +1598,8 @@ export function PolDashboardView() {
 
               <Card className="!gap-6">
                 <CardHeader className="pb-0">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold">
-                      Per-Region Protocol Revenue
-                    </div>
-                    <Link
-                      href="/blog/infrastructure-projects"
-                      className="text-xs font-mono uppercase tracking-widest text-muted-foreground/70 dark:text-muted-foreground/90 hover:text-foreground"
-                    >
-                      Learn more
-                    </Link>
+                  <div className="text-sm font-semibold">
+                    Per-Region Protocol Revenue
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Liquidity-denominated revenue and impact distribution by
@@ -1628,7 +1613,7 @@ export function PolDashboardView() {
                         <tr className="text-left text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                           <th className="px-4 py-3">Region</th>
                           <th className="px-4 py-3">Lifetime</th>
-                          <th className="px-4 py-3">This week</th>
+                          <th className="px-4 py-3">90d</th>
                           <th className="px-4 py-3">Farms</th>
                         </tr>
                       </thead>
@@ -1636,11 +1621,11 @@ export function PolDashboardView() {
                         {REGION_REVENUE_ROWS.map((region) => {
                           const lifetimeLiquidity = getLiquidityFromUsd(
                             region.lifetimeUsd,
-                            MARKET_OVERVIEW.price,
+                            currentPrice,
                           );
-                          const weekLiquidity = getLiquidityFromUsd(
-                            region.weekUsd,
-                            MARKET_OVERVIEW.price,
+                          const ninetyDayLiquidity = getLiquidityFromUsd(
+                            region.ninetyDayUsd,
+                            currentPrice,
                           );
 
                           return (
@@ -1666,10 +1651,10 @@ export function PolDashboardView() {
                               </td>
                               <td className="px-4 py-3">
                                 <div className="font-mono tabular-nums">
-                                  {weekLiquidity.value}
+                                  {ninetyDayLiquidity.value}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
-                                  ({weekLiquidity.breakdown})
+                                  ({ninetyDayLiquidity.breakdown})
                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                   {region.credits.toFixed(1)} cc/wk
@@ -1701,27 +1686,34 @@ export function PolDashboardView() {
                     <div className="text-sm font-semibold">
                       Flywheel Market Index
                     </div>
-                    <div className={cn(
-                      "flex items-center gap-1.5 rounded-full border px-2.5 py-0.5",
-                      fmiBadgeBorder,
-                    )}>
-                      <span className={cn("text-xs font-semibold font-mono tabular-nums", fmiAccentClass)}>
+                    <div
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full border px-2.5 py-0.5",
+                        fmiBadgeBorder,
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "text-xs font-semibold font-mono tabular-nums",
+                          fmiAccentClass,
+                        )}
+                      >
                         {fmiScore}
                       </span>
-                      <span className={cn("text-[10px] font-mono uppercase tracking-widest", fmiAccentClass)}>
+                      <span
+                        className={cn(
+                          "text-[10px] font-mono uppercase tracking-widest",
+                          fmiAccentClass,
+                        )}
+                      >
                         {fmiLabel}
                       </span>
                     </div>
                   </div>
-                  <Link
-                    href="/blog/fmi-diagram"
-                    className="text-xs font-mono uppercase tracking-widest text-muted-foreground/70 dark:text-muted-foreground/90 hover:text-foreground"
-                  >
-                    Learn more
-                  </Link>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Buy vs sell pressure balance and how protocol liquidity absorbs it. Score above 50 = net accumulation.
+                  Buy vs sell pressure balance and how protocol liquidity
+                  absorbs it. Score above 50 = net accumulation.
                 </p>
               </CardHeader>
               <CardContent className="flex flex-col gap-6">
@@ -1744,15 +1736,26 @@ export function PolDashboardView() {
                       detail={`${formatUsdCompact(MARKET_OVERVIEW.lpUsdc)} USDC + ${formatCompactNumber(MARKET_OVERVIEW.lpGlw)} GLW absorbing pressure`}
                       className="flex-1"
                     />
-                    <div className={cn(
-                      "flex flex-col items-center gap-0.5 rounded-2xl border px-3 py-2.5 shrink-0",
-                      fmiBadgeBorder,
-                    )}>
-                      <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">Net</span>
-                      <span className={cn("text-lg font-semibold font-mono tabular-nums", fmiAccentClass)}>
+                    <div
+                      className={cn(
+                        "flex flex-col items-center gap-0.5 rounded-2xl border px-3 py-2.5 shrink-0",
+                        fmiBadgeBorder,
+                      )}
+                    >
+                      <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                        Net
+                      </span>
+                      <span
+                        className={cn(
+                          "text-lg font-semibold font-mono tabular-nums",
+                          fmiAccentClass,
+                        )}
+                      >
                         +{formatUsdCompact(fmiNetPressure)}
                       </span>
-                      <span className="text-[9px] font-mono text-muted-foreground/50">/week</span>
+                      <span className="text-[9px] font-mono text-muted-foreground/50">
+                        /week
+                      </span>
                     </div>
                   </div>
                   <div className="text-muted-foreground/30">
@@ -1770,8 +1773,8 @@ export function PolDashboardView() {
                   </div>
                   <FlyNode
                     label="Market Cap"
-                    value={formatUsdCompact(marketCapUsd)}
-                    detail={`${formatCompactNumber(SUPPLY_BASELINE.circulating)} GLW at $${MARKET_OVERVIEW.price.toFixed(4)}`}
+                    value={formatUsdCompact(currentMarketCap)}
+                    detail={`${formatCompactNumber(currentCirculating)} GLW at $${currentPrice.toFixed(4)}`}
                     className="w-full"
                   />
                 </div>
@@ -1786,32 +1789,97 @@ export function PolDashboardView() {
                       preserveAspectRatio="xMidYMid meet"
                     >
                       <defs>
-                        <marker id="arrow-green" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                          <path d="M0,0 L8,3 L0,6" fill="hsl(142, 71%, 45%)" fillOpacity="0.5" />
+                        <marker
+                          id="arrow-green"
+                          markerWidth="8"
+                          markerHeight="6"
+                          refX="8"
+                          refY="3"
+                          orient="auto"
+                        >
+                          <path
+                            d="M0,0 L8,3 L0,6"
+                            fill="hsl(142, 71%, 45%)"
+                            fillOpacity="0.5"
+                          />
                         </marker>
-                        <marker id="arrow-red" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                          <path d="M0,0 L8,3 L0,6" fill="hsl(0, 84%, 60%)" fillOpacity="0.5" />
+                        <marker
+                          id="arrow-red"
+                          markerWidth="8"
+                          markerHeight="6"
+                          refX="8"
+                          refY="3"
+                          orient="auto"
+                        >
+                          <path
+                            d="M0,0 L8,3 L0,6"
+                            fill="hsl(0, 84%, 60%)"
+                            fillOpacity="0.5"
+                          />
                         </marker>
-                        <marker id="arrow-muted" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                          <path d="M0,0 L8,3 L0,6" fill="currentColor" fillOpacity="0.2" />
+                        <marker
+                          id="arrow-muted"
+                          markerWidth="8"
+                          markerHeight="6"
+                          refX="8"
+                          refY="3"
+                          orient="auto"
+                        >
+                          <path
+                            d="M0,0 L8,3 L0,6"
+                            fill="currentColor"
+                            fillOpacity="0.2"
+                          />
                         </marker>
                       </defs>
                       {/* Buy → Market Cap (right to top) */}
-                      <path d="M 650,200 Q 650,60 400,60" fill="none" stroke="hsl(142, 71%, 45%)" strokeOpacity="0.25" strokeWidth="2" strokeDasharray="6 4" markerEnd="url(#arrow-green)" />
+                      <path
+                        d="M 650,200 Q 650,60 400,60"
+                        fill="none"
+                        stroke="hsl(142, 71%, 45%)"
+                        strokeOpacity="0.25"
+                        strokeWidth="2"
+                        strokeDasharray="6 4"
+                        markerEnd="url(#arrow-green)"
+                      />
                       {/* Market Cap → Sell (top to left) */}
-                      <path d="M 400,60 Q 150,60 150,200" fill="none" stroke="hsl(0, 84%, 60%)" strokeOpacity="0.25" strokeWidth="2" strokeDasharray="6 4" markerEnd="url(#arrow-red)" />
+                      <path
+                        d="M 400,60 Q 150,60 150,200"
+                        fill="none"
+                        stroke="hsl(0, 84%, 60%)"
+                        strokeOpacity="0.25"
+                        strokeWidth="2"
+                        strokeDasharray="6 4"
+                        markerEnd="url(#arrow-red)"
+                      />
                       {/* Sell → Liquidity (left to bottom) */}
-                      <path d="M 150,200 Q 150,280 400,280" fill="none" stroke="currentColor" strokeOpacity="0.12" strokeWidth="2" strokeDasharray="6 4" markerEnd="url(#arrow-muted)" />
+                      <path
+                        d="M 150,200 Q 150,280 400,280"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeOpacity="0.12"
+                        strokeWidth="2"
+                        strokeDasharray="6 4"
+                        markerEnd="url(#arrow-muted)"
+                      />
                       {/* Liquidity → Buy (bottom to right) */}
-                      <path d="M 400,280 Q 650,280 650,200" fill="none" stroke="hsl(142, 71%, 45%)" strokeOpacity="0.15" strokeWidth="2" strokeDasharray="6 4" markerEnd="url(#arrow-green)" />
+                      <path
+                        d="M 400,280 Q 650,280 650,200"
+                        fill="none"
+                        stroke="hsl(142, 71%, 45%)"
+                        strokeOpacity="0.15"
+                        strokeWidth="2"
+                        strokeDasharray="6 4"
+                        markerEnd="url(#arrow-green)"
+                      />
                     </svg>
 
                     {/* Top: Market Cap */}
                     <div className="absolute left-1/2 top-0 -translate-x-1/2">
                       <FlyNode
                         label="Market Cap"
-                        value={formatUsdCompact(marketCapUsd)}
-                        detail={`${formatCompactNumber(SUPPLY_BASELINE.circulating)} GLW at $${MARKET_OVERVIEW.price.toFixed(4)}`}
+                        value={formatUsdCompact(currentMarketCap)}
+                        detail={`${formatCompactNumber(currentCirculating)} GLW at $${currentPrice.toFixed(4)}`}
                         className="w-56"
                       />
                     </div>
@@ -1850,20 +1918,41 @@ export function PolDashboardView() {
 
                     {/* Center: FMI gauge */}
                     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                      <div className={cn(
-                        "flex flex-col items-center gap-1 rounded-2xl border px-6 py-4",
-                        fmiBadgeBorder,
-                      )}>
-                        <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">FMI Score</span>
-                        <span className={cn("text-3xl font-semibold font-mono tabular-nums", fmiAccentClass)}>
+                      <div
+                        className={cn(
+                          "flex flex-col items-center gap-1 rounded-2xl border px-6 py-4",
+                          fmiBadgeBorder,
+                        )}
+                      >
+                        <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                          FMI Score
+                        </span>
+                        <span
+                          className={cn(
+                            "text-3xl font-semibold font-mono tabular-nums",
+                            fmiAccentClass,
+                          )}
+                        >
                           {fmiScore}
                         </span>
-                        <span className={cn("text-[10px] font-mono uppercase tracking-widest", fmiAccentClass)}>
+                        <span
+                          className={cn(
+                            "text-[10px] font-mono uppercase tracking-widest",
+                            fmiAccentClass,
+                          )}
+                        >
                           {fmiLabel}
                         </span>
                         <div className="mt-1.5 flex items-center gap-1">
-                          <span className="text-[9px] font-mono text-muted-foreground/50">Net</span>
-                          <span className={cn("text-xs font-semibold font-mono tabular-nums", fmiAccentClass)}>
+                          <span className="text-[9px] font-mono text-muted-foreground/50">
+                            Net
+                          </span>
+                          <span
+                            className={cn(
+                              "text-xs font-semibold font-mono tabular-nums",
+                              fmiAccentClass,
+                            )}
+                          >
                             +{formatUsdCompact(fmiNetPressure)}/wk
                           </span>
                         </div>
@@ -1895,8 +1984,12 @@ export function PolDashboardView() {
                     />
                   </div>
                   <div className="flex items-center justify-between mt-1.5 text-xs text-muted-foreground">
-                    <span className="font-mono tabular-nums">-{formatUsdCompact(fmiSellUsd)}/wk</span>
-                    <span className="font-mono tabular-nums">+{formatUsdCompact(fmiBuyUsd)}/wk</span>
+                    <span className="font-mono tabular-nums">
+                      -{formatUsdCompact(fmiSellUsd)}/wk
+                    </span>
+                    <span className="font-mono tabular-nums">
+                      +{formatUsdCompact(fmiBuyUsd)}/wk
+                    </span>
                   </div>
                 </div>
 
@@ -1924,18 +2017,23 @@ export function PolDashboardView() {
                     label="Buy / Sell ratio"
                     value={`${(fmiBuyUsd / fmiSellUsd).toFixed(2)}x`}
                     helper={`${formatUsdCompact(fmiBuyUsd)} in, ${formatUsdCompact(fmiSellUsd)} out`}
-                    valueClassName={cn("text-base sm:text-lg tracking-tight", fmiAccentClass)}
+                    valueClassName={cn(
+                      "text-base sm:text-lg tracking-tight",
+                      fmiAccentClass,
+                    )}
                   />
                 </div>
                 <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 px-4 py-3">
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Weekly buy pressure ({formatUsdCompact(fmiBuyUsd)}) exceeds sell pressure ({formatUsdCompact(fmiSellUsd)}) by{" "}
+                    Weekly buy pressure ({formatUsdCompact(fmiBuyUsd)}) exceeds
+                    sell pressure ({formatUsdCompact(fmiSellUsd)}) by{" "}
                     <span className={cn("font-semibold", fmiAccentClass)}>
                       {formatUsdCompact(fmiNetPressure)}
                     </span>
-                    , yielding a {(fmiBuyUsd / fmiSellUsd).toFixed(2)}x buy/sell ratio.
-                    The pool absorbs {fmiSellToPool.toFixed(1)}x its depth in sell flow weekly,
-                    with PoL backstop at {formatUsdCompact(MARKET_OVERVIEW.totalLiquidity)}.
+                    , yielding a {(fmiBuyUsd / fmiSellUsd).toFixed(2)}x buy/sell
+                    ratio. The pool absorbs {fmiSellToPool.toFixed(1)}x its
+                    depth in sell flow weekly, with PoL backstop at{" "}
+                    {formatUsdCompact(MARKET_OVERVIEW.totalLiquidity)}.
                   </p>
                 </div>
               </CardContent>
@@ -2029,33 +2127,20 @@ export function PolDashboardView() {
                 Supply Model Explorer
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Model how price changes affect circulating supply and protocol
-                liquidity. Mock data for iteration.
+                Model how price changes affect circulating supply. Mock data for
+                iteration.
               </DialogDescription>
             </DialogHeader>
           </div>
           <div className="p-6 space-y-6">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                  GLW price
-                </div>
-                <div className="text-sm font-semibold font-mono">
-                  ${price.toFixed(2)}
-                </div>
-              </div>
-              <Slider
-                min={PRICE_RANGE.min}
-                max={PRICE_RANGE.max}
-                step={PRICE_RANGE.step}
-                value={[price]}
-                onValueChange={(value) => setPrice(value[0] ?? price)}
-              />
-              <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                <span>${PRICE_RANGE.min.toFixed(2)}</span>
-                <span>${PRICE_RANGE.max.toFixed(0)}</span>
-              </div>
-            </div>
+            {/* ── Circulating supply (the thing that changes) ── */}
+            <MetricCard
+              label="Circulating supply"
+              value={`${formatCompactNumber(supplyModel.circulating)} GLW`}
+              helper={`${formatSignedNumber(supplyDelta)} vs current`}
+            />
+
+            {/* ── Supply breakdown bar (circulating / vaulted) ── */}
             <div>
               <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
                 <span>Supply breakdown</span>
@@ -2077,7 +2162,7 @@ export function PolDashboardView() {
                   }}
                 />
               </div>
-              <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+              <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
                 <div className="flex items-center gap-1.5">
                   <span
                     className="inline-block h-2 w-2 rounded-full shrink-0"
@@ -2102,41 +2187,40 @@ export function PolDashboardView() {
                     )}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-2 rounded-full shrink-0 bg-muted-foreground/20" />
-                  <span className="text-muted-foreground">Locked</span>
-                  <span className="font-mono tabular-nums ml-auto">
-                    {formatPercent(
-                      (supplyModel.locked / supplyModel.total) * 100,
-                    )}
-                  </span>
-                </div>
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <MiniStat
-                label="Market cap"
-                value={formatUsdCompact(supplyModel.marketCap)}
+
+            {/* ── Log-scale price slider (prominent) ── */}
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/70 font-semibold">
+                  GLW price
+                </div>
+                <div className="text-2xl font-semibold font-mono tabular-nums">
+                  ${price.toFixed(price < 0.01 ? 4 : price < 1 ? 3 : 2)}
+                </div>
+              </div>
+              <Slider
+                min={0}
+                max={100}
+                step={0.1}
+                value={[sliderValue]}
+                onValueChange={(value) => {
+                  const sv = value[0] ?? sliderValue;
+                  setSliderValue(sv);
+                  setPrice(logSliderToPrice(sv));
+                }}
+                className="[&_[role=slider]]:h-5 [&_[role=slider]]:w-5 [&_[role=slider]]:border-2"
               />
-              <MiniStat
-                label="Circulating supply"
-                value={formatCompactNumber(supplyModel.circulating)}
-                helper={`${formatSignedNumber(supplyDelta)} vs current`}
-              />
-              <MiniStat
-                label="Vaulted GLW"
-                value={formatCompactNumber(supplyModel.vaulted)}
-                helper={`${formatSignedNumber(supplyModel.vaulted - SUPPLY_BASELINE.vaulted)} vs current`}
-              />
-              <MiniStat
-                label="Protocol liquidity"
-                value={supplyPolLiquidity.value}
-                helper={`(${supplyPolLiquidity.breakdown})`}
-              />
+              <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                <span>${PRICE_RANGE.min}</span>
+                <span>${PRICE_RANGE.max}</span>
+              </div>
             </div>
+
             <div className="text-xs text-muted-foreground">
               Higher price increases vaulting incentives, contracting
-              circulating supply. Model is illustrative.
+              circulating supply. Log scale: $0.001 to $100.
             </div>
             <div className="pt-2">
               <Link
