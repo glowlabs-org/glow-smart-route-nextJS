@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { hubGet } from "@/lib/api/hub-client";
+import { QUERY_KEYS } from "@/hooks/query-keys";
 
 export interface ImpactWeekRange {
   startWeek: number;
@@ -167,6 +168,14 @@ export interface UseImpactLeaderboardQueryArgs {
   dir?: "asc" | "desc";
 }
 
+export interface ImpactWalletStatsResponse {
+  weekRange: ImpactWeekRange;
+  totalWallets: number;
+  delegators: number;
+  miners: number;
+  delegationWeek: number;
+}
+
 export function useImpactLeaderboardQuery(
   args: UseImpactLeaderboardQueryArgs = {}
 ) {
@@ -200,6 +209,57 @@ export function useImpactLeaderboardQuery(
         });
         throw error;
       }
+    },
+  });
+}
+
+export function useImpactWalletStats(args: { enabled?: boolean } = {}) {
+  const { enabled = true } = args;
+
+  return useQuery({
+    queryKey: QUERY_KEYS.impact.walletStats(),
+    enabled,
+    staleTime: 60_000,
+    retry: 0,
+    queryFn: async (): Promise<ImpactWalletStatsResponse> => {
+      try {
+        return await hubGet<ImpactWalletStatsResponse>("/impact/wallet-stats");
+      } catch (error) {
+        toast.error("Failed to load wallet stats", {
+          description: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    },
+  });
+}
+
+export interface ImpactNewWalletsByWeekResponse {
+  weekRange: ImpactWeekRange;
+  byWeek: Record<number, number>;
+}
+
+export function useImpactNewWalletsByWeek(params: {
+  startWeek?: number;
+  endWeek?: number;
+  enabled?: boolean;
+} = {}) {
+  const { startWeek, endWeek, enabled = true } = params;
+
+  return useQuery({
+    queryKey: QUERY_KEYS.impact.newWalletsByWeek(startWeek, endWeek),
+    enabled,
+    staleTime: 60_000,
+    queryFn: async (): Promise<ImpactNewWalletsByWeekResponse> => {
+      return await hubGet<ImpactNewWalletsByWeekResponse>(
+        "/impact/new-wallets-by-week",
+        {
+          params: {
+            startWeek: startWeek ?? undefined,
+            endWeek: endWeek ?? undefined,
+          },
+        }
+      );
     },
   });
 }

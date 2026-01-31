@@ -5,8 +5,8 @@ export const QUERY_KEYS = {
     availability: (type: "launchpad" | "mining-center" | "all") =>
       ["fractions", "available", type] as const,
     yieldPer100: () => ["yield-per-100"] as const,
-    totalActivelyDelegated: () =>
-      ["fractions", "total-actively-delegated"] as const,
+    totalActivelyDelegated: (includeApy?: boolean) =>
+      ["fractions", "total-actively-delegated", includeApy ?? false] as const,
     activelyDelegatedByWeek: (startWeek?: number, endWeek?: number) =>
       ["fractions", "actively-delegated-by-week", startWeek, endWeek] as const,
     rewardsBreakdown: (params: {
@@ -29,6 +29,9 @@ export const QUERY_KEYS = {
   },
   impact: {
     leaderboard: () => ["impact-leaderboard"] as const,
+    walletStats: () => ["impact", "wallet-stats"] as const,
+    newWalletsByWeek: (startWeek?: number, endWeek?: number) =>
+      ["impact", "new-wallets-by-week", startWeek, endWeek] as const,
     score: (walletAddress?: string | null) =>
       ["impact-glow-score", walletAddress] as const,
     glowWorth: (walletAddress?: string | null) =>

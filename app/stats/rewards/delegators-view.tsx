@@ -34,9 +34,7 @@ export function DelegatorsView() {
       glwSpotPrice={glwSpotPrice}
       networkTotalGlwDelegated={networkTotal}
       isLoadingNetworkTotal={isTotalActivelyDelegatedLoading}
-      glwDelegationByEpoch={
-        activelyDelegatedByWeekData?.byWeek || summary?.glwDelegationByEpoch
-      }
+      glwDelegationByEpoch={activelyDelegatedByWeekData?.byWeek}
       isLoadingDelegationByEpoch={isActivelyDelegatedByWeekLoading}
       walletCountByEpoch={summary?.walletCountByEpoch}
       glwHolderCount={glwHolderCount}
