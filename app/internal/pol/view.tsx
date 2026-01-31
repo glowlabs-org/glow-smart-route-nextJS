@@ -924,10 +924,7 @@ export function PolDashboardView() {
       <section className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 pb-16 pt-8">
         <div className="flex flex-col gap-8">
           <section className="flex flex-col gap-6">
-            <SectionHeader
-              title="Overview"
-              subtitle="How big is Glow, how much revenue is flowing in, and where is it going."
-            />
+            <SectionHeader title="Overview" />
 
             {/* ── Row 1: Headline banner ── */}
             <Card className="!gap-0 !bg-zinc-950 dark:!bg-white border-zinc-800/60 dark:border-zinc-200/60">
@@ -1068,9 +1065,6 @@ export function PolDashboardView() {
                   <div className="text-sm font-semibold">
                     Supply &amp; Circulation
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    How revenue impacts the Glow economy.
-                  </p>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
                   <div>
@@ -1193,10 +1187,7 @@ export function PolDashboardView() {
           </section>
 
           <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader
-              title="Every Farm Adds Value"
-              subtitle={`Each solar farm generates real revenue for the Glow protocol. $`}
-            />
+            <SectionHeader title="Every Farm Adds Value" />
             <div className="flex items-center justify-end">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
@@ -1325,10 +1316,7 @@ export function PolDashboardView() {
           </section>
 
           <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader
-              title="Network Impact"
-              subtitle="Aggregate environmental footprint across all Glow solar farms."
-            />
+            <SectionHeader title="Network Impact" />
             <Card className="!gap-0">
               <CardContent className="px-8 py-10 sm:px-10 sm:py-12">
                 <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
@@ -1382,10 +1370,7 @@ export function PolDashboardView() {
           </section>
 
           <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader
-              title="PoL, GCTL, Wallets"
-              subtitle="Protocol-owned liquidity, control token distribution, and adoption signals."
-            />
+            <SectionHeader title="PoL, GCTL, Wallets" />
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               {/* ── Protocol Liquidity ── */}
               <Card className="!gap-6">
@@ -1393,9 +1378,6 @@ export function PolDashboardView() {
                   <div className="text-sm font-semibold">
                     Protocol Liquidity
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Protocol-owned liquidity and 90d revenue.
-                  </p>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
                   <MetricCard
@@ -1461,9 +1443,6 @@ export function PolDashboardView() {
               <Card className="!gap-6">
                 <CardHeader className="pb-0">
                   <div className="text-sm font-semibold">GCTL</div>
-                  <p className="text-xs text-muted-foreground">
-                    Control token supply and regional steering.
-                  </p>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
                   <MetricCard
@@ -1560,9 +1539,6 @@ export function PolDashboardView() {
               <Card className="!gap-6">
                 <CardHeader className="pb-0">
                   <div className="text-sm font-semibold">Wallet Stats</div>
-                  <p className="text-xs text-muted-foreground">
-                    Adoption snapshot across Glow participants.
-                  </p>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
                   <div className="grid grid-cols-2 gap-4">
@@ -1669,19 +1645,13 @@ export function PolDashboardView() {
           </section>
 
           <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader
-              title="Delegation + Regions"
-              subtitle="Delegation health and regional diversification."
-            />
+            <SectionHeader title="Delegation + Regions" />
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
               <Card className="!gap-6 flex flex-col">
                 <CardHeader className="pb-0">
                   <div className="text-sm font-semibold">
                     Delegation Metrics
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Delegation health and estimated rewards.
-                  </p>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-6 h-full">
                   <div className="grid gap-4 sm:grid-cols-3">
@@ -1797,10 +1767,6 @@ export function PolDashboardView() {
                   <div className="text-sm font-semibold">
                     Per-Region Protocol Revenue
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Liquidity-denominated revenue and impact distribution by
-                    region.
-                  </p>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto rounded-2xl border border-border/20 dark:border-border/40">
@@ -1871,10 +1837,7 @@ export function PolDashboardView() {
           </section>
 
           <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader
-              title="FMI"
-              subtitle="Buy pressure vs sell pressure and liquidity absorption."
-            />
+            <SectionHeader title="FMI" />
             <Card className="!gap-6">
               <CardHeader className="pb-0">
                 <div className="flex items-center justify-between">
@@ -1907,10 +1870,7 @@ export function PolDashboardView() {
                     </div>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Buy vs sell pressure balance and how protocol liquidity
-                  absorbs it. Score above 50 = net accumulation.
-                </p>
+                
               </CardHeader>
               <CardContent className="flex flex-col gap-6">
                 {/* ── Mobile: vertical flow ── */}
@@ -2258,16 +2218,10 @@ export function PolDashboardView() {
           </section>
 
           <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader
-              title="Unlock / FDV"
-              subtitle={`Transparency on vesting schedule and fully diluted valuation. $`}
-            />
+            <SectionHeader title="Unlock / FDV" />
             <Card className="!gap-6">
               <CardHeader className="pb-0">
                 <div className="text-sm font-semibold">Unlock / FDV</div>
-                <p className="text-xs text-muted-foreground">
-                  Vesting schedule (2024-2030) with FDV snapshot.
-                </p>
               </CardHeader>
               <CardContent className="grid gap-8 xl:grid-cols-12">
                 <div className="xl:col-span-7">
