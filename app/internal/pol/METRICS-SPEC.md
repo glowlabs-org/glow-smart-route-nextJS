@@ -69,6 +69,8 @@ All "90d" metrics are **13 weeks**.
    - Grant tokens
    - Locked/vesting tokens
    - Tokens held by **bot** or **endowment** wallets
+     - Endowment wallet: `0x868D99B4a6e81b4683D10ea5665f13579A9d1607`
+     - Trading bot wallet: `0x0b650820dde452b204de44885fc0fbb788fc5e37`
 
 5) **Supply slider model**:
    - Use **xy = k**

@@ -1,4 +1,4 @@
-import { addresses, SDKAddresses } from "@/web3/constants/addresses";
+import { addresses } from "@/web3/constants/addresses";
 import { hubGet } from "@/lib/api/hub-client";
 import { getCurrentWeekNumber } from "@/lib/rewards/weekly-delegations";
 import { getTotalMinerClaimed } from "@/web3/web3/queries/getTotalMinerClaimed";
@@ -7,6 +7,9 @@ const erc20Abi = parseAbi([
   "function balanceOf(address owner) view returns (uint256)",
   "function totalSupply() view returns (uint256)",
 ]);
+
+const ENDOWMENT_WALLET = "0x868D99B4a6e81b4683D10ea5665f13579A9d1607";
+const TRADING_BOT_WALLET = "0x0b650820dde452b204de44885fc0fbb788fc5e37";
 
 /**
  * The Market Cap Of Glow Is The Total Circulating Supply Of Glow Multiplied By The Current Price Of Glow
@@ -19,6 +22,7 @@ const erc20Abi = parseAbi([
  *  6. Early liquidity balance
  *  7. Vault balance (from CRM)
  *  8. Endowment balance
+ *  9. Trading bot balance
  * @param glowPrice - The current price of glow in USD ($2.70) as an example
  *
  */
@@ -74,7 +78,13 @@ export async function getGlowMarketCap(
     address: addresses.glow,
     abi: erc20Abi,
     functionName: "balanceOf",
-    args: [SDKAddresses.ENDOWMENT_WALLET],
+    args: [ENDOWMENT_WALLET],
+  };
+  const tradingBotBalanceCall = {
+    address: addresses.glow,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: [TRADING_BOT_WALLET],
   };
 
   const calls = [
@@ -86,6 +96,7 @@ export async function getGlowMarketCap(
     glowStakedOrLockedBalanceCall,
     earlyLiquidityBalanceCall,
     endowmentBalanceCall,
+    tradingBotBalanceCall,
   ];
 
   let multicall: Awaited<ReturnType<typeof publicClient.multicall>>;
@@ -136,6 +147,7 @@ export async function getGlowMarketCap(
     glowStakedOrLockedBalance,
     earlyLiquidityBalance,
     endowmentBalance,
+    tradingBotBalance,
   ] = results;
 
   const vaultBalanceWei = BigInt(
@@ -163,7 +175,8 @@ export async function getGlowMarketCap(
     glowStakedOrLockedBalance.result -
     earlyLiquidityBalance.result -
     vaultBalanceWei -
-    endowmentBalance.result;
+    endowmentBalance.result -
+    tradingBotBalance.result;
   const formattedTotalSupplyMinusRest = Number(
     formatUnits(circulatingSupply, 18)
   );
