@@ -133,6 +133,10 @@ export const QUERY_KEYS = {
     headline: (chainId?: number) => ["headline-stats", chainId] as const,
     marketCap: () => ["glow-market-cap"] as const,
   },
+  fmi: {
+    pressure: (range?: string | null, address?: string | null) =>
+      ["fmi-pressure", range ?? null, address ?? null] as const,
+  },
   unclaimed: {
     all: ["unclaimed-glw-rewards"] as const,
     glw: (wallet?: string, eligibleWeeksKey?: string) =>

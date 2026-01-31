@@ -53,6 +53,7 @@ import { useImpactNewWalletsByWeek, useImpactWalletStats } from "@/hooks/hub-imp
 import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
 import { usePoolInfo } from "@/hooks/useLiquidityPositionsOptimized";
 import { useImpactMetrics } from "@/hooks/useImpactMetrics";
+import { useFmiPressure } from "@/hooks/useFmiPressure";
 import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
 
 // TODO: mock data (replace with live on-chain + CRM sources)
@@ -317,6 +318,11 @@ function formatUsdCompact(value: number) {
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(value);
+}
+
+function formatUsdCompactNullable(value: number | null) {
+  if (value === null || !Number.isFinite(value)) return "—";
+  return formatUsdCompact(value);
 }
 
 function formatUsdCompactPrecise(value: number) {
@@ -880,9 +886,20 @@ export function PolDashboardView() {
     displayPrice,
   );
 
-  // TODO: mock FMI inputs (replace with live pipeline)
-  const fmiSellUsd = 1_400_000;
-  const fmiBuyUsd = 2_100_000;
+  const { data: fmiPressure } = useFmiPressure({ range: "7d" });
+  const fmiBuyUsd = React.useMemo(() => {
+    const raw = fmiPressure?.buy?.usdg;
+    if (!raw) return null;
+    const value = Number(raw) / 1e6;
+    return Number.isFinite(value) ? value : null;
+  }, [fmiPressure]);
+  const fmiSellUsd = React.useMemo(() => {
+    const raw = fmiPressure?.sell?.usdg;
+    if (!raw) return null;
+    const value = Number(raw) / 1e6;
+    return Number.isFinite(value) ? value : null;
+  }, [fmiPressure]);
+  const hasFmiPressure = fmiBuyUsd !== null && fmiSellUsd !== null;
   const poolPriceForDepth =
     hasLivePrice
       ? currentPrice
@@ -894,30 +911,68 @@ export function PolDashboardView() {
       ? poolUsdg + poolGlw * poolPriceForDepth
       : 0;
   const poolDepthDisplay = hasPoolReserves ? formatUsdCompact(fmiPoolUsd) : "—";
-  const fmiNetPressure = fmiBuyUsd - fmiSellUsd;
-  const fmiRatio = fmiBuyUsd / (fmiBuyUsd + fmiSellUsd);
-  const fmiScore = Math.round(fmiRatio * 100);
+  const fmiNetPressure =
+    hasFmiPressure && fmiBuyUsd !== null && fmiSellUsd !== null
+      ? fmiBuyUsd - fmiSellUsd
+      : null;
+  const fmiRatio =
+    hasFmiPressure && fmiBuyUsd + fmiSellUsd > 0
+      ? fmiBuyUsd / (fmiBuyUsd + fmiSellUsd)
+      : null;
+  const fmiScore = fmiRatio !== null ? Math.round(fmiRatio * 100) : null;
   const fmiLabel =
-    fmiScore >= 55
-      ? "Accumulating"
-      : fmiScore >= 45
-        ? "Neutral"
-        : "Distributing";
+    fmiScore === null
+      ? "—"
+      : fmiScore >= 55
+        ? "Accumulating"
+        : fmiScore >= 45
+          ? "Neutral"
+          : "Distributing";
   const fmiAccentClass =
-    fmiScore >= 55
-      ? "text-green-600 dark:text-green-400"
-      : fmiScore >= 45
-        ? "text-yellow-600 dark:text-yellow-400"
-        : "text-red-600 dark:text-red-400";
+    fmiScore === null
+      ? "text-muted-foreground"
+      : fmiScore >= 55
+        ? "text-green-600 dark:text-green-400"
+        : fmiScore >= 45
+          ? "text-yellow-600 dark:text-yellow-400"
+          : "text-red-600 dark:text-red-400";
   const fmiBadgeBorder =
-    fmiScore >= 55
-      ? "border-green-500/30 bg-green-500/5"
-      : fmiScore >= 45
-        ? "border-yellow-500/30 bg-yellow-500/5"
-        : "border-red-500/30 bg-red-500/5";
-  const fmiPoolUsdSafe = fmiPoolUsd > 0 ? fmiPoolUsd : 1;
-  const fmiNetToPool = (fmiNetPressure / fmiPoolUsdSafe) * 100;
-  const fmiSellToPool = fmiSellUsd / fmiPoolUsdSafe;
+    fmiScore === null
+      ? "border-border/40 bg-muted/40"
+      : fmiScore >= 55
+        ? "border-green-500/30 bg-green-500/5"
+        : fmiScore >= 45
+          ? "border-yellow-500/30 bg-yellow-500/5"
+          : "border-red-500/30 bg-red-500/5";
+  const fmiPoolUsdSafe = fmiPoolUsd > 0 ? fmiPoolUsd : null;
+  const fmiNetToPool =
+    fmiNetPressure !== null && fmiPoolUsdSafe
+      ? (fmiNetPressure / fmiPoolUsdSafe) * 100
+      : null;
+  const fmiSellToPool =
+    fmiSellUsd !== null && fmiPoolUsdSafe ? fmiSellUsd / fmiPoolUsdSafe : null;
+  const fmiBuyUsdDisplay = formatUsdCompactNullable(fmiBuyUsd);
+  const fmiSellUsdDisplay = formatUsdCompactNullable(fmiSellUsd);
+  const fmiNetPressureDisplay = formatUsdCompactNullable(fmiNetPressure);
+  const fmiScoreDisplay = fmiScore !== null ? fmiScore : "—";
+  const fmiBuySellRatio =
+    hasFmiPressure && fmiSellUsd !== null && fmiSellUsd > 0 && fmiBuyUsd !== null
+      ? fmiBuyUsd / fmiSellUsd
+      : null;
+  const fmiBuySellRatioDisplay =
+    fmiBuySellRatio !== null ? fmiBuySellRatio.toFixed(2) : "—";
+  const fmiNetPressureSignedDisplay =
+    fmiNetPressure !== null && Number.isFinite(fmiNetPressure)
+      ? `${fmiNetPressure >= 0 ? "+" : ""}${formatUsdCompact(fmiNetPressure)}`
+      : "—";
+  const fmiNetPressurePerWeekDisplay =
+    fmiNetPressure !== null && Number.isFinite(fmiNetPressure)
+      ? `${fmiNetPressure >= 0 ? "+" : ""}${formatUsdCompact(fmiNetPressure)}/wk`
+      : "—";
+  const fmiSellToPoolDisplay =
+    fmiSellToPool !== null ? fmiSellToPool.toFixed(1) : "—";
+  const fmiNetToPoolDisplay =
+    fmiNetToPool !== null ? fmiNetToPool.toFixed(1) : "—";
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -1857,7 +1912,7 @@ export function PolDashboardView() {
                           fmiAccentClass,
                         )}
                       >
-                        {fmiScore}
+                        {fmiScoreDisplay}
                       </span>
                       <span
                         className={cn(
@@ -1877,7 +1932,9 @@ export function PolDashboardView() {
                 <div className="flex flex-col items-center gap-2 md:hidden">
                   <FlyNode
                     label="Buy Pressure"
-                    value={`+${formatUsdCompact(fmiBuyUsd)}/wk`}
+                    value={
+                      fmiBuyUsdDisplay === "—" ? "—" : `+${fmiBuyUsdDisplay}/wk`
+                    }
                     detail={`PoL yield + GCTL minting + miner sales flowing into the protocol weekly`}
                     accent="green"
                     className="w-full"
@@ -1911,7 +1968,7 @@ export function PolDashboardView() {
                           fmiAccentClass,
                         )}
                       >
-                        +{formatUsdCompact(fmiNetPressure)}
+                        {fmiNetPressureSignedDisplay}
                       </span>
                       <span className="text-[9px] font-mono text-muted-foreground/50">
                         /week
@@ -1923,7 +1980,11 @@ export function PolDashboardView() {
                   </div>
                   <FlyNode
                     label="Sell Pressure"
-                    value={`-${formatUsdCompact(fmiSellUsd)}/wk`}
+                    value={
+                      fmiSellUsdDisplay === "—"
+                        ? "—"
+                        : `-${fmiSellUsdDisplay}/wk`
+                    }
                     detail={`Vesting unlocks and secondary market seller flow per week`}
                     accent="red"
                     className="w-full"
@@ -2056,7 +2117,11 @@ export function PolDashboardView() {
                     <div className="absolute left-0 top-1/2 -translate-y-1/2">
                       <FlyNode
                         label="Sell Pressure"
-                        value={`-${formatUsdCompact(fmiSellUsd)}/wk`}
+                        value={
+                          fmiSellUsdDisplay === "—"
+                            ? "—"
+                            : `-${fmiSellUsdDisplay}/wk`
+                        }
                         detail={`Vesting unlocks and secondary market seller flow per week`}
                         accent="red"
                         className="w-52"
@@ -2067,7 +2132,11 @@ export function PolDashboardView() {
                     <div className="absolute right-0 top-1/2 -translate-y-1/2">
                       <FlyNode
                         label="Buy Pressure"
-                        value={`+${formatUsdCompact(fmiBuyUsd)}/wk`}
+                        value={
+                          fmiBuyUsdDisplay === "—"
+                            ? "—"
+                            : `+${fmiBuyUsdDisplay}/wk`
+                        }
                         detail={`PoL yield + GCTL minting + miner sales flowing into the protocol weekly`}
                         accent="green"
                         className="w-52"
@@ -2105,7 +2174,7 @@ export function PolDashboardView() {
                             fmiAccentClass,
                           )}
                         >
-                          {fmiScore}
+                          {fmiScoreDisplay}
                         </span>
                         <span
                           className={cn(
@@ -2125,7 +2194,7 @@ export function PolDashboardView() {
                               fmiAccentClass,
                             )}
                           >
-                            +{formatUsdCompact(fmiNetPressure)}/wk
+                            {fmiNetPressurePerWeekDisplay}
                           </span>
                         </div>
                       </div>
@@ -2143,24 +2212,28 @@ export function PolDashboardView() {
                     <div
                       className="h-full"
                       style={{
-                        width: `${(1 - fmiRatio) * 100}%`,
+                        width: `${fmiRatio !== null ? (1 - fmiRatio) * 100 : 50}%`,
                         background: "hsl(0, 84%, 60%)",
                       }}
                     />
                     <div
                       className="h-full"
                       style={{
-                        width: `${fmiRatio * 100}%`,
+                        width: `${fmiRatio !== null ? fmiRatio * 100 : 50}%`,
                         background: "hsl(142, 71%, 45%)",
                       }}
                     />
                   </div>
                   <div className="flex items-center justify-between mt-1.5 text-xs text-muted-foreground">
                     <span className="font-mono tabular-nums">
-                      -{formatUsdCompact(fmiSellUsd)}/wk
+                      {fmiSellUsdDisplay === "—"
+                        ? "—"
+                        : `-${fmiSellUsdDisplay}/wk`}
                     </span>
                     <span className="font-mono tabular-nums">
-                      +{formatUsdCompact(fmiBuyUsd)}/wk
+                      {fmiBuyUsdDisplay === "—"
+                        ? "—"
+                        : `+${fmiBuyUsdDisplay}/wk`}
                     </span>
                   </div>
                 </div>
@@ -2171,8 +2244,8 @@ export function PolDashboardView() {
                     label="Pool depth"
                     value={poolDepthDisplay}
                     helper={
-                      hasPoolReserves
-                        ? `${fmiSellToPool.toFixed(1)}x weekly sell pressure`
+                      hasPoolReserves && fmiSellToPoolDisplay !== "—"
+                        ? `${fmiSellToPoolDisplay}x weekly sell pressure`
                         : "Live data unavailable"
                     }
                     valueClassName="text-base sm:text-lg tracking-tight"
@@ -2185,14 +2258,25 @@ export function PolDashboardView() {
                   />
                   <MiniStat
                     label="Net / week"
-                    value={`+${formatUsdCompact(fmiNetPressure)}`}
-                    helper={`+${fmiNetToPool.toFixed(1)}% pool growth`}
-                    valueClassName="text-base sm:text-lg tracking-tight text-green-600 dark:text-green-400"
+                    value={fmiNetPressureSignedDisplay}
+                    helper={
+                      fmiNetToPoolDisplay !== "—"
+                        ? `+${fmiNetToPoolDisplay}% pool growth`
+                        : "Live data unavailable"
+                    }
+                    valueClassName={cn(
+                      "text-base sm:text-lg tracking-tight",
+                      fmiAccentClass,
+                    )}
                   />
                   <MiniStat
                     label="Buy / Sell ratio"
-                    value={`${(fmiBuyUsd / fmiSellUsd).toFixed(2)}x`}
-                    helper={`${formatUsdCompact(fmiBuyUsd)} in, ${formatUsdCompact(fmiSellUsd)} out`}
+                    value={
+                      fmiBuySellRatioDisplay === "—"
+                        ? "—"
+                        : `${fmiBuySellRatioDisplay}x`
+                    }
+                    helper={`${fmiBuyUsdDisplay} in, ${fmiSellUsdDisplay} out`}
                     valueClassName={cn(
                       "text-base sm:text-lg tracking-tight",
                       fmiAccentClass,
@@ -2201,13 +2285,13 @@ export function PolDashboardView() {
                 </div>
                 <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 px-4 py-3">
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Weekly buy pressure ({formatUsdCompact(fmiBuyUsd)}) exceeds
-                    sell pressure ({formatUsdCompact(fmiSellUsd)}) by{" "}
+                    Weekly buy pressure ({fmiBuyUsdDisplay}) exceeds
+                    sell pressure ({fmiSellUsdDisplay}) by{" "}
                     <span className={cn("font-semibold", fmiAccentClass)}>
-                      {formatUsdCompact(fmiNetPressure)}
+                      {fmiNetPressureDisplay}
                     </span>
-                    , yielding a {(fmiBuyUsd / fmiSellUsd).toFixed(2)}x buy/sell
-                    ratio. The pool absorbs {fmiSellToPool.toFixed(1)}x its
+                    , yielding a {fmiBuySellRatioDisplay}x buy/sell
+                    ratio. The pool absorbs {fmiSellToPoolDisplay}x its
                     depth in sell flow weekly, with PoL backstop at{" "}
                     {formatUsdCompact(MARKET_OVERVIEW.totalLiquidity)}.{" "}
 
