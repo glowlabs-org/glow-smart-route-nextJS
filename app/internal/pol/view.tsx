@@ -881,6 +881,12 @@ export function PolDashboardView() {
   const poolLiquidityBreakdown = hasPoolReserves
     ? getLiquidityFromReserves(poolUsdg, poolGlw)
     : { liquidity: 0, value: "—", breakdown: "—" };
+  const poolLiquidityDisplay = hasPoolReserves
+    ? poolLiquidityBreakdown.value
+    : "—";
+  const poolLiquidityDetail = hasPoolReserves
+    ? `${formatCompactNumber(poolUsdg)} USDG + ${formatCompactNumber(poolGlw)} GLW absorbing pressure`
+    : "Live data unavailable";
 
   const totalPolLiquidity = getLiquidityFromUsd(
     polMockUsd,
@@ -2015,12 +2021,8 @@ export function PolDashboardView() {
                   <div className="flex items-center gap-3 w-full">
                     <FlyNode
                       label="Liquidity Pool"
-                      value={poolDepthDisplay}
-                      detail={
-                        hasPoolReserves
-                          ? `${formatUsdCompact(poolUsdg)} USDC + ${formatCompactNumber(poolGlw)} GLW absorbing pressure`
-                          : "Live data unavailable"
-                      }
+                      value={poolLiquidityDisplay}
+                      detail={poolLiquidityDetail}
                       className="flex-1"
                     />
                     <div
@@ -2217,12 +2219,8 @@ export function PolDashboardView() {
                     <div className="absolute left-1/2 bottom-0 -translate-x-1/2">
                       <FlyNode
                         label="Liquidity Pool"
-                        value={poolDepthDisplay}
-                        detail={
-                          hasPoolReserves
-                            ? `${formatUsdCompact(poolUsdg)} USDC + ${formatCompactNumber(poolGlw)} GLW absorbing pressure`
-                            : "Live data unavailable"
-                        }
+                        value={poolLiquidityDisplay}
+                        detail={poolLiquidityDetail}
                         className="w-56"
                       />
                     </div>
@@ -2312,7 +2310,7 @@ export function PolDashboardView() {
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <MiniStat
                     label="Pool depth"
-                    value={poolDepthDisplay}
+                    value={poolLiquidityDisplay}
                     helper={
                       hasPoolReserves && fmiSellToPoolDisplay !== "—"
                         ? `${fmiSellToPoolDisplay}x weekly sell pressure`
