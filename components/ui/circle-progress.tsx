@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { cn } from "@/lib/utils"; // Assuming you have a `cn` utility for class names

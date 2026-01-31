@@ -331,19 +331,24 @@ export interface TotalActivelyDelegatedResponse {
   weekRange: { startWeek: number; endWeek: number };
   totalGlwDelegatedWei: string;
   totalWallets: number;
+  averageDelegatorApy?: string | null;
+  apyWeekRange?: { startWeek: number; endWeek: number } | null;
 }
 
-export function useTotalActivelyDelegated(options: { enabled?: boolean } = {}) {
-  const { enabled = true } = options;
+export function useTotalActivelyDelegated(
+  options: { enabled?: boolean; includeApy?: boolean } = {}
+) {
+  const { enabled = true, includeApy = false } = options;
+  const queryParam = includeApy ? "?includeApy=true" : "";
 
   const query = useQuery<TotalActivelyDelegatedResponse>({
-    queryKey: QUERY_KEYS.fractions.totalActivelyDelegated(),
+    queryKey: QUERY_KEYS.fractions.totalActivelyDelegated(includeApy),
     enabled,
     staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
     queryFn: async () =>
       await hubGet<TotalActivelyDelegatedResponse>(
-        "/fractions/total-actively-delegated"
+        `/fractions/total-actively-delegated${queryParam}`
       ),
   });
 

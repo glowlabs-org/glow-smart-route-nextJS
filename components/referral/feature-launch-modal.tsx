@@ -697,6 +697,7 @@ function SuccessScreen({
       setDisplayPercent(100);
       return;
     }
+    let rafId = 0;
     const duration = 1200;
     const startTime = Date.now();
     const tick = () => {
@@ -705,9 +706,10 @@ function SuccessScreen({
       // Ease out cubic
       const eased = 1 - Math.pow(1 - progress, 3);
       setDisplayPercent(Math.round(eased * 100));
-      if (progress < 1) requestAnimationFrame(tick);
+      if (progress < 1) rafId = requestAnimationFrame(tick);
     };
-    requestAnimationFrame(tick);
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
   }, [shouldReduceMotion]);
 
   const springIn = shouldReduceMotion
