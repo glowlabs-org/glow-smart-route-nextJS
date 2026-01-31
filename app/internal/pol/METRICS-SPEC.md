@@ -1,8 +1,8 @@
 # PoL Dashboard - Metric Computation Specs (Tightened Draft)
 
 This spec is a **working draft**. It codifies what we can say today, flags gaps,
-and separates **decisions** from **implementation**. Treat any "Decision Needed"
-item as blocking for final correctness.
+and separates **decisions** from **implementation**. Treat any **Open** item as
+blocking for final correctness.
 
 Primary narrative: **Protocol-Owned Liquidity (PoL)**. All PoL metrics are
 **liquidity-denominated (lq)** with a small USD/GLW breakdown in parentheses.
@@ -35,7 +35,11 @@ Notes:
 PoL includes **protocol-owned** GLW/USDC liquidity positions only. **External
 LPs are not PoL.**
 
-### 3) Time windows / weeks
+### 3) CCs / ICs
+
+CCs = carbon credits; ICs = impact credits (audit-reported).
+
+### 4) Time windows / weeks
 
 We need one canonical "week" for charts and rollups.
 
@@ -45,37 +49,47 @@ All "90d" metrics are **13 weeks**.
 
 ---
 
-## Decision Log (Blocking)
+## Decision Log
 
-D1) **Smoothing window** for miner-sale PoL & GCTL mint attribution: 12 weeks vs
-100 weeks (or other).
+### Resolved
 
-D2) **GCTL revenue attribution**:
+1) **Smoothing window** for miner-sale PoL & GCTL mint attribution:
+   **13 weeks** (closest to 90 days).
 
-- By region stake + farm size (carbon credits or PD size), or
-- By PD size across all farms (no region), or
-- No farm attribution (network-level only).
+2) **GCTL mint/yield attribution model**:
+   - **Region**: by GCTL staked.
+   - **Farm**: by CCs/ICs (not PD).
 
-D3) **PoL revenue scope**: Does 100% of `miner sales - bounty` become PoL, or is
-some retained as operating cash? If partial, define fraction.
+3) **PoL revenue scope**:
+   - **Yield** is *only* bot trading gains + Uniswap fees.
+   - Miner sales are **not yield** until funds are added to the bot.
 
-D4) **Circulating supply definition**:
+4) **Circulating supply** excludes:
+   - Vaulted GLW
+   - Grant tokens
+   - Locked/vesting tokens
+   - Tokens held by **bot** or **endowment** wallets
 
-- Must exclude vaulted GLW (CEO requirement).
-- Do we also exclude protocol LP balances and vesting/locked supply?
+5) **Supply slider model**:
+   - Use **xy = k**
+   - Slider floor at **circulating = 0**
+   - Slider ceiling at an **equal number of orders of magnitude larger**
 
-D5) **Supply slider model**:
+6) **Homes powered + trees**:
+   - Use the **same constants** as the user wallet stats.
 
-- Choose math (xy=k vs heuristic), and anchor points (price floor where
-  circulating goes to 0).
+7) **FDV**:
+   - Exclude tokens in **PoL wallets**.
 
-D6) **Impact conversions**: constants for homes powered and trees equivalent.
+8) **FMI section**: **Keep** (requires heavy data pipeline).
 
-D7) **FDV max supply**: confirm the max supply constant.
+### Open / Needs Review
 
-D8) **PoL APY display**: keep or remove from the Protocol Liquidity card.
+A) **PoL APY display**: CEO needs to see the card before deciding.
 
-D9) **FMI section**: **Keep** (requires heavy data pipeline).
+B) **Delegator APY display**: show **on another card** (not PoL card).
+
+C) **Vesting schedule breakdown**: awaiting updated source.
 
 ---
 
@@ -113,7 +127,7 @@ Use **spot price** for display breakdowns (not EDGAP).
 
 - **Definition**: `marketCap = glwSpotPrice * circulatingSupply`
 - **Data sources**: GLW pool price (spot), circulating supply (Section 3).
-- **Status**: Blocked by D4 (circulating definition).
+- **Status**: Blocked by circulating supply pipeline.
 
 ### 1.2 GLW Price
 
@@ -141,13 +155,13 @@ All values are **lq** with USD/GLW breakdown.
 
 ```
 polFromMinerSales = minerSalesRevenue - bountyPaidToFarm
-recognizedWeekly = polFromMinerSales / smoothingWindowWeeks
+recognizedWeekly = polFromMinerSalesAddedToBot / smoothingWindowWeeks
 ```
 
 Notes:
 
-- Smoothing window is **D1**.
-- Need to confirm if 100% of the delta becomes PoL (D3).
+- Smoothing window is **13 weeks**.
+- Miner sales are **not yield** until funds are added to the bot.
 
 **Data source**: Off-chain foundation ledger (miner sales & bounties).
 
@@ -160,19 +174,18 @@ We **spread** the mint value over the smoothing window.
 recognizedWeekly = mintUsd / smoothingWindowWeeks
 ```
 
-**Attribution (D2)**: by region stake + farm share (carbon credits or PD),
-or across all farms.
+**Attribution**:
+- Allocate to **region** by GCTL staked.
+- Allocate to **farm** within region by CCs/ICs (not PD).
 
 **Data sources**: On-chain mint events + staking targets.
 
 #### C) GCTL Yield Attribution (PoL)
 
-Yield sources:
+Yield sources (all yield):
 
-1. Bot arb revenue (off-chain logs)
-2. LP fees (on-chain)
-
-We need to confirm how much yield is retained as PoL (D3).
+1. Bot trading gains (off-chain logs)
+2. Uniswap fees (on-chain)
 
 **Data sources**: Bot PnL ledger + Uniswap fee accruals.
 
@@ -184,13 +197,13 @@ farmRevenue = minerSalesComponent(farm)
            + gctlYieldComponent * farmShare
 ```
 
-`farmShare` is defined by D2.
+`farmShare` is defined by the region-stake + CC/IC attribution rule above.
 
 ### 2.1 Lifetime Revenue
 
 - **Definition**: Sum of all recognized weekly PoL contributions for the farm
   across lifetime.
-- **Status**: Blocked by D1–D3.
+-- **Status**: Blocked by PoL revenue pipeline.
 
 ### 2.2 Active Farms
 
@@ -202,14 +215,12 @@ farmRevenue = minerSalesComponent(farm)
 ### 2.3 90d Revenue
 
 - **Definition**: Sum of recognized weekly PoL contributions over last 13 weeks.
-- **Status**: Blocked by D1–D3.
+-- **Status**: Blocked by PoL revenue pipeline.
 
 ### 2.4 90d PoL Yield
 
-- **Definition**: Needs clarity. Options:
-  - A) Same as 90d revenue (if "yield" is just a label),
-  - B) 90d revenue minus explicit costs.
-- **Decision Needed**: D1–D3 + explicit meaning.
+- **Definition**: Sum of **yield only** (bot trading gains + Uniswap fees)
+  over the last **13 weeks**.
 
 ---
 
@@ -217,25 +228,33 @@ farmRevenue = minerSalesComponent(farm)
 
 ### 3.1 Circulating Supply
 
-- **Required**: Must exclude **vaulted GLW** (CEO requirement).
-- **Decision Needed**: D4 for protocol LP and vesting.
-
-Proposed strict definition (subject to D4):
+Exclude:
+- Vaulted GLW
+- Grant tokens
+- Locked/vesting tokens
+- Tokens held by bot or endowment wallets
+- Tokens in PoL wallets (by definition of bot/endowment/PoL custody)
 
 ```
-circulating = totalSupply - vaultedGlw - protocolLpGlw - lockedGlw
+circulating =
+  totalSupply
+  - vaultedGlw
+  - grantTokens
+  - lockedOrVestingGlw
+  - botWalletGlw
+  - endowmentWalletGlw
 ```
 
 ### 3.2 Supply Breakdown Bar
 
-Segments should match D4. CEO specifically asked for:
+Segments should match the circulating definition. CEO specifically asked for:
 
 - **Circulating**
 - **Vaulted**
 - **Liquidity** (protocol LP)
 
 Avoid including "locked" in the slider (see Section 13), but it can appear in
-this bar if D4 confirms it as non-circulating.
+this bar per the circulating definition.
 
 ### 3.3 Vaulted (MiniStat)
 
@@ -250,7 +269,7 @@ this bar if D4 confirms it as non-circulating.
 ### 3.5 Weekly Net Change (Line Chart)
 
 - **Definition**: `circulating[week] - circulating[week-1]`
-- **Status**: Requires weekly snapshots using D0 week boundary.
+- **Status**: Requires weekly snapshots using protocol-week boundary.
 
 ---
 
@@ -267,7 +286,7 @@ Fields:
 - 90d delta (% change over trailing 13-week vs previous 13-week window).
 - Carbon credits (cc/week and lifetime).
 
-Status: **Blocked** until D1–D3 are resolved + revenue pipeline exists.
+Status: **Blocked** until PoL revenue pipeline exists.
 
 ---
 
@@ -288,12 +307,12 @@ Source: GCA audits (expected kWh/year).
 ### 5.3 Homes Powered
 
 `annualMWh * 1000 / avgHomeConsumptionKwh`
-Decision Needed: D6 (constant).
+Use the **same constants** as the user wallet stats.
 
 ### 5.4 Trees Equivalent
 
 `annualMWh * co2PerMwh / co2PerTree`
-Decision Needed: D6 (constants, annual vs lifetime).
+Use the **same constants** as the user wallet stats.
 
 ---
 
@@ -305,13 +324,13 @@ Same as 1.3, but can show USD breakdown.
 
 ### 6.2 PoL APY
 
-Decision Needed (D8). If kept:
+Open item (CEO review). If kept:
 
 ```
 apy = annualYieldUsd / totalPolUsd * 100
 ```
 
-Yield sources: LP fees + bot arb PnL.
+Yield sources: Uniswap fees + bot trading gains.
 
 ### 6.3 Yield / Week
 
@@ -343,24 +362,33 @@ Live via existing hooks:
 
 ### 8.1 Total Wallets
 
-`useImpactLeaderboardQuery()` → `totalWalletCount`
+Use `GET /impact/wallet-stats` → `totalWallets` (leaderboard-eligible wallet
+count, excludes internal/team wallets).
 
 ### 8.2 Delegator Count
 
-Currently derived from leaderboard rows (capped at 5,000).
-We need a dedicated endpoint for accurate counts.
+Use `GET /impact/wallet-stats` → `delegators` (active vault ownership shares).
 
 ### 8.3 New Wallets / Week
 
-`useFractionsSummary()` → wallet count by epoch. Use diffs.
+Use `GET /impact/new-wallets-by-week` (protocol week). New wallet = first week
+with **any protocol activity**, including:
+
+- fraction purchase (fraction splits)
+- reward split inclusion (rewardsSplitsHistory)
+- GCTL stake (Control API stake-by-epoch)
+- GLW balance snapshot **> 0.01 GLW** (end-of-week snapshot)
+
+Exclude internal/team wallets.
 
 ### 8.4 Wallet Breakdown
 
 Definitions required to avoid overlap:
 
-- Delegator: has vault bonus.
-- Miner: has miner multiplier.
-- GCTL holder: non-zero stake or holder count.
+- Delegator: has active vault ownership shares.
+- Miner: any **mining-center** fraction purchase (filled or expired) up to the
+  current week (not “active multiplier” only).
+- GCTL holder: non-zero stake (or holder count from Control API).
 
 Decision: if a wallet qualifies for multiple categories, do we:
 
@@ -384,7 +412,7 @@ Avoid reusing capped leaderboard counts.
 ### 9.3 Est. APY
 
 Prefer `GET /fractions/average-apy` from CRM backend.
-The naive formula in v0 is not reliable.
+Delegator APY should live on the **Delegation Metrics** card (not PoL card).
 
 ### 9.4 Delegation Growth vs APY
 
@@ -393,13 +421,13 @@ Implement as cron snapshot table.
 
 ### 9.5 Delegation Ratio
 
-`totalDelegated / circulatingSupply * 100` (blocked by D4).
+`totalDelegated / circulatingSupply * 100` (blocked by circulating supply pipeline).
 
 ---
 
 ## Section 10: Per-Region Revenue Table
 
-Same attribution rules as Section 2 & 4 (blocked by D1–D3).
+Same attribution rules as Section 2 & 4 (blocked by PoL revenue pipeline).
 
 Fields:
 
@@ -423,8 +451,8 @@ minting, LP fees, bot PnL, vesting unlocks, and trade flow analysis.
 
 ### 12.1 FDV
 
-`fdv = glwSpotPrice * maxTotalSupply`
-Decision Needed (D7): confirm max supply.
+`fdv = glwSpotPrice * (maxTotalSupply - polWalletGlw)`
+Exclude tokens held in PoL wallets.
 
 ### 12.2 Vesting Schedule
 
@@ -444,12 +472,12 @@ Log scale from $0.001 to $100 (CEO request).
 
 ### 13.2 Modeled Circulating Supply
 
-Decision Needed (D5) on model.
+Model: **xy = k**.
 
 Candidate constraints:
 
 - `circulating(P0) = currentCirculating`
-- `circulating(Pfloor) = 0` (CEO suggested Pfloor ~ $0.0003)
+- `circulating(Pfloor) = 0`
 - `circulating` increases with price.
 
 ### 13.3 Modeled USDC Liquidity
@@ -493,13 +521,11 @@ Off-chain:
 
 ---
 
-## Implementation TODOs (after decisions)
+## Implementation TODOs
 
-1. Define and document **PoL attribution + smoothing** (D1–D3).
-2. Implement PoL revenue pipeline (ledger ingestion + attribution).
-3. Define circulating supply formula (D4) and build weekly snapshot cron.
-4. Replace naive APY with CRM endpoint.
-5. Implement impact conversion constants (D6).
-6. Finalize supply slider math (D5) and update UI copy to clarify "modeled".
-7. Build FMI pipeline (miner sales, minting, LP fees, bot PnL, vesting unlocks,
+1. Implement PoL revenue pipeline (ledger ingestion + attribution + smoothing).
+2. Build circulating supply weekly snapshot cron using the new definition.
+3. Wire homes/trees constants to the same values as wallet stats.
+4. Finalize supply slider math (xy=k) and ensure floor/ceiling are correct.
+5. Build FMI pipeline (miner sales, minting, LP fees, bot PnL, vesting unlocks,
    trade flow analysis).
