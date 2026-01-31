@@ -42,9 +42,7 @@ import {
 } from "@/components/ui/chart";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
-import { Skeleton } from "@/components/ui/skeleton";
 import { GlowSymbol } from "@/components/glow-symbol";
-import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
 import {
   useGctlApi,
   useActiveRegionsSummary,
@@ -58,10 +56,10 @@ import { useFractionsSummary } from "@/hooks/hub-fractions";
 
 const SUPPLY_BASELINE = {
   total: 42_000_000,
-  circulating: 22_000_000,
+  circulating: 21_800_000,
   vaulted: 2_300_000,
-  price: 0.3148,
-  polUsd: 8_750_000,
+  price: 0.2982,
+  polUsd: 2_600_000,
 };
 const UPDATED_AT = new Date("2026-01-29T00:00:00Z");
 const PRICE_RANGE = { min: 0.001, max: 100 };
@@ -572,21 +570,10 @@ export function PolDashboardView() {
     "lifetime" | "ninetyDay" | "credits"
   >("lifetime");
 
-  // ── Live data ──
-  const {
-    glowPrice: liveGlwPrice,
-    marketCap: liveMarketCap,
-    circulatingSupply: liveCirculatingSupply,
-    isLoading: isBannerLoading,
-  } = useGlowCirculatingSupply();
-
-  // Use live price when available, fall back to static
-  const currentPrice = liveGlwPrice > 0 ? liveGlwPrice : SUPPLY_BASELINE.price;
-  const currentMarketCap = liveMarketCap > 0 ? liveMarketCap : currentPrice * SUPPLY_BASELINE.circulating;
-  const currentCirculating = liveCirculatingSupply > 0 ? liveCirculatingSupply : SUPPLY_BASELINE.circulating;
-
-  // PoL mock: ~40% of market cap in lq terms (sensible ratio for protocol-owned liquidity)
-  const polMockUsd = currentMarketCap * 0.4;
+  const currentPrice = SUPPLY_BASELINE.price;
+  const currentMarketCap = currentPrice * SUPPLY_BASELINE.circulating;
+  const currentCirculating = SUPPLY_BASELINE.circulating;
+  const polMockUsd = SUPPLY_BASELINE.polUsd;
 
   // ── GCTL live data ──
   const {
@@ -695,21 +682,9 @@ export function PolDashboardView() {
     priceToLogSlider(currentPrice),
   );
 
-  // Sync slider when live price loads
-  React.useEffect(() => {
-    if (liveGlwPrice > 0) {
-      setPrice(liveGlwPrice);
-      setSliderValue(priceToLogSlider(liveGlwPrice));
-    }
-  }, [liveGlwPrice]);
-
   const supplyModel = React.useMemo(() => {
-    const basePrice = liveGlwPrice > 0 ? liveGlwPrice : SUPPLY_BASELINE.price;
-    const priceRatio = price / basePrice;
-    const baseCirculating = liveCirculatingSupply > 0 ? liveCirculatingSupply : SUPPLY_BASELINE.circulating;
-    // Available pool = circulating + vaulted (locked/unvested is separate)
-    const availablePool = baseCirculating + SUPPLY_BASELINE.vaulted;
-    // Higher price → more vaulting (sqrt elasticity)
+    const priceRatio = price / SUPPLY_BASELINE.price;
+    const availablePool = SUPPLY_BASELINE.circulating + SUPPLY_BASELINE.vaulted;
     const vaulted = Math.min(
       availablePool,
       Math.max(0, Math.round(SUPPLY_BASELINE.vaulted * Math.sqrt(priceRatio))),
@@ -727,7 +702,7 @@ export function PolDashboardView() {
       marketCap,
       polUsd,
     };
-  }, [price, liveGlwPrice, liveCirculatingSupply, polMockUsd]);
+  }, [price, polMockUsd]);
 
   const supplyDelta = supplyModel.circulating - currentCirculating;
 
@@ -804,18 +779,10 @@ export function PolDashboardView() {
                       Market Cap
                     </div>
                     <div className="text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
-                      {isBannerLoading ? (
-                        <Skeleton className="h-12 w-40 bg-zinc-800 dark:bg-zinc-200" />
-                      ) : (
-                        formatUsdCompact(currentMarketCap)
-                      )}
+                      {formatUsdCompact(currentMarketCap)}
                     </div>
                     <div className="text-sm text-zinc-500 dark:text-zinc-400">
-                      {isBannerLoading ? (
-                        <Skeleton className="h-4 w-32 bg-zinc-800 dark:bg-zinc-200" />
-                      ) : (
-                        <>{formatCompactNumber(currentCirculating)} GLW circulating</>
-                      )}
+                      {formatCompactNumber(currentCirculating)} GLW circulating
                     </div>
                   </div>
                   <div className="flex flex-col gap-2">
@@ -823,11 +790,7 @@ export function PolDashboardView() {
                       GLW Price
                     </div>
                     <div className="text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
-                      {isBannerLoading ? (
-                        <Skeleton className="h-12 w-32 bg-zinc-800 dark:bg-zinc-200" />
-                      ) : (
-                        `$${currentPrice.toFixed(4)}`
-                      )}
+                      ${currentPrice.toFixed(4)}
                     </div>
                     <div className="text-sm text-zinc-500 dark:text-zinc-400">
                       Spot price
