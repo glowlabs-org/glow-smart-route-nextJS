@@ -1594,24 +1594,6 @@ export function MiningStats() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-2">
-                <Select
-                  value={regionFilter}
-                  onValueChange={(value) => setRegionFilter(value)}
-                >
-                  <SelectTrigger className="w-[220px]">
-                    <SelectValue placeholder="Filter by region" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All regions</SelectItem>
-                    {regionOptions.map(([regionId, name]) => (
-                      <SelectItem key={regionId} value={regionId.toString()}>
-                        {name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           </div>
 
@@ -1654,71 +1636,6 @@ export function MiningStats() {
         </div>
 
         <Card className="border-border/60 shadow-none">
-          <CardHeader>
-            <CardTitle>Delegator safety summary</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Safe = projected protocol-deposit recovery (linear to 100 weeks)
-              + inflation already earned vs delegated principal.
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-lg border border-border/60 overflow-hidden">
-              <div className="px-4 py-3 border-b border-border/60 bg-muted/30">
-                <p className="text-xs uppercase text-muted-foreground">
-                  Safe farms by region
-                </p>
-              </div>
-              <div className="max-h-60 overflow-y-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/60 bg-muted/10">
-                      <th className="text-left p-3 font-medium">Region</th>
-                      <th className="text-right p-3 font-medium">Safe</th>
-                      <th className="text-right p-3 font-medium">Total</th>
-                      <th className="text-right p-3 font-medium">%</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {safeSummaryByRegion.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={4}
-                          className="p-4 text-center text-xs text-muted-foreground"
-                        >
-                          No delegator farms with region data.
-                        </td>
-                      </tr>
-                    ) : (
-                      safeSummaryByRegion.map((row) => {
-                        const percent =
-                          row.total > 0 ? (row.safe / row.total) * 100 : 0;
-                        return (
-                          <tr
-                            key={row.regionId}
-                            className="border-b border-border/40 last:border-0"
-                          >
-                            <td className="p-3 font-medium">
-                              {row.regionName}
-                            </td>
-                            <td className="p-3 text-right font-semibold">
-                              {row.safe}
-                            </td>
-                            <td className="p-3 text-right">{row.total}</td>
-                            <td className="p-3 text-right">
-                              {formatPercent(percent)}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/60 shadow-none">
           <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
               <CardTitle>Farm summary table</CardTitle>
@@ -1726,11 +1643,29 @@ export function MiningStats() {
                 All values reuse existing delegation + mining metrics.
               </p>
             </div>
-            {isFetching && (
-              <span className="text-xs text-muted-foreground">
-                Refreshing data…
-              </span>
-            )}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Select
+                value={regionFilter}
+                onValueChange={(value) => setRegionFilter(value)}
+              >
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue placeholder="Filter by region" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All regions</SelectItem>
+                  {regionOptions.map(([regionId, name]) => (
+                    <SelectItem key={regionId} value={regionId.toString()}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {isFetching && (
+                <span className="text-xs text-muted-foreground">
+                  Refreshing data…
+                </span>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="-mx-6">
             <div className="overflow-x-auto">
