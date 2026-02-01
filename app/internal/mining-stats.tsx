@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { ArrowUpDown, ChevronRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowUpDown, ChevronRight, Info } from "lucide-react";
 import {
   ComposedChart,
   Bar,
@@ -22,6 +23,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Select,
   SelectContent,
@@ -51,6 +57,9 @@ import {
   type FarmPerPieceStats,
 } from "@/hooks/useFarmsPerPieceStats";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
+import { useCompletedFarms } from "@/hooks/useCompletedFarms";
+import { getFarmsRouter } from "@/lib/api/control-routers";
+import { generateRandomEthAddress } from "@/utils/eth";
 
 function MiningStatsSkeleton() {
   return (
@@ -309,10 +318,13 @@ interface FarmSummaryRow {
   farmName: string;
   appId: string;
   regionLabel: string;
+  regionId: number | null;
+  regionName: string;
   tags: string[];
   rewardScore: number;
   rewardDelta: number;
   combinedGlw: number;
+  sponsorSplitPercent: number | null;
   cashBountyUsd: number | null;
   health: HealthStatus;
   hasDelegation: boolean;
@@ -320,6 +332,9 @@ interface FarmSummaryRow {
   delegation: {
     totalDelegated: number;
     earnedToDate: number;
+    inflationEarned: number;
+    inflationLastWeek: number;
+    protocolDepositEarned: number;
     recoveryPercent: number;
     expectedPercent: number;
     weeksEarned: number;
@@ -349,6 +364,13 @@ interface FarmSummaryRow {
     lastWeekRewards: number;
     lastWeekUsd: number;
   };
+}
+
+interface FarmScenarioRow extends FarmSummaryRow {
+  safeRoiPercent: number;
+  isSafe: boolean;
+  inflationMultiplier: number;
+  weeksToSafeAtCurrentInflation: number | null;
 }
 
 interface TrackStatus {
@@ -385,14 +407,9 @@ function formatUsdSigned(value: number) {
   })}`;
 }
 
-function titleCase(value: string | null | undefined) {
-  if (!value) return "Unknown";
-  return value
-    .replace(/[-_]/g, " ")
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase() + part.slice(1))
-    .join(" ");
+function formatPercent(value: number, digits = 1) {
+  if (!Number.isFinite(value)) return "0%";
+  return `${value.toFixed(digits)}%`;
 }
 
 function formatWeeksLabel(weeksEarned: number, totalWeeks: number) {
@@ -618,6 +635,7 @@ const SORT_OPTIONS: Array<{ value: SortOption; label: string }> = [
 export function MiningStats() {
   const [sortBy, setSortBy] = React.useState<SortOption>("rewardScore");
   const [filterBy, setFilterBy] = React.useState<FarmFilterOption>("all");
+  const [regionFilter, setRegionFilter] = React.useState<string>("all");
   const [selectedFarmId, setSelectedFarmId] = React.useState<string | null>(
     null
   );
@@ -628,6 +646,56 @@ export function MiningStats() {
     endWeek: 114,
   });
   const { spotPrice } = useGlowSpotPrice();
+  const { farms: completedFarms } = useCompletedFarms({
+    enabled: true,
+    includeFractions: true,
+  });
+
+  const regionMetaByAppId = React.useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        id: number | null;
+        name: string;
+        sponsorSplitPercent: number | null;
+        expectedWeeklyCarbonCredits: number | null;
+      }
+    >();
+    for (const farm of completedFarms) {
+      if (!farm?.id) continue;
+      const regionId = farm.zone?.id ?? null;
+      const regionName =
+        farm.zone?.name ||
+        farm.farm?.regionFullName ||
+        farm.farm?.region ||
+        (regionId ? `Region ${regionId}` : "Unassigned");
+      const launchpadFraction =
+        farm.fractions?.find(
+          (fraction) =>
+            fraction?.type === "launchpad" &&
+            typeof fraction.sponsorSplitPercent === "number"
+        ) ?? null;
+      const sponsorSplitPercent =
+        launchpadFraction?.sponsorSplitPercent ??
+        (typeof farm.sponsorSplitPercent === "number"
+          ? farm.sponsorSplitPercent
+          : null);
+      const expectedWeeklyCarbonCredits = (() => {
+        const raw = farm.netCarbonCreditEarningWeekly;
+        if (!raw) return null;
+        const parsed = Number(raw);
+        return Number.isFinite(parsed) ? parsed : null;
+      })();
+
+      map.set(farm.id, {
+        id: regionId,
+        name: regionName,
+        sponsorSplitPercent,
+        expectedWeeklyCarbonCredits,
+      });
+    }
+    return map;
+  }, [completedFarms]);
 
   const farmsSummary = React.useMemo(() => {
     if (!data?.farms) return [];
@@ -646,21 +714,77 @@ export function MiningStats() {
               .toNumber()
           : 0;
 
-      const delegationEarned =
+      const delegationInflationEarned =
         hasDelegation || farm.delegator.stepsSold > 0
-          ? new Decimal(farm.delegator.rewardsPerPiece?.total?.allWeeks || "0")
+          ? new Decimal(
+              farm.delegator.rewardsPerPiece?.inflation?.allWeeks || "0"
+            )
               .times(farm.delegator.stepsSold)
               .div(1e18)
               .toNumber()
           : 0;
 
-      const delegationLastWeek =
+      const delegationProtocolDepositEarned =
+        hasDelegation || farm.delegator.stepsSold > 0
+          ? new Decimal(
+              farm.delegator.rewardsPerPiece?.protocolDeposit?.allWeeks || "0"
+            )
+              .times(farm.delegator.stepsSold)
+              .div(1e18)
+              .toNumber()
+          : 0;
+
+      const delegationEarned =
+        delegationInflationEarned + delegationProtocolDepositEarned;
+
+      const delegationLastWeekFromPieces =
         hasDelegation || farm.delegator.stepsSold > 0
           ? new Decimal(farm.delegator.rewardsPerPiece?.total?.lastWeek || "0")
               .times(farm.delegator.stepsSold)
               .div(1e18)
               .toNumber()
           : 0;
+      const delegationInflationLastWeekFromPieces =
+        hasDelegation || farm.delegator.stepsSold > 0
+          ? new Decimal(
+              farm.delegator.rewardsPerPiece?.inflation?.lastWeek || "0"
+            )
+              .times(farm.delegator.stepsSold)
+              .div(1e18)
+              .toNumber()
+          : 0;
+      const delegationBreakdownLastWeek = (() => {
+        const breakdown = farm.delegator.weeklyBreakdown || [];
+        if (breakdown.length === 0) return null;
+        return breakdown.reduce((acc, row) =>
+          row.weekNumber > acc.weekNumber ? row : acc
+        );
+      })();
+      const delegationInflationLastWeekFromBreakdown = delegationBreakdownLastWeek
+        ? new Decimal(delegationBreakdownLastWeek.inflationRewards)
+            .div(1e18)
+            .toNumber()
+        : 0;
+      const delegationProtocolDepositLastWeekFromBreakdown =
+        delegationBreakdownLastWeek
+          ? new Decimal(delegationBreakdownLastWeek.protocolDepositRewards)
+              .div(1e18)
+              .toNumber()
+          : 0;
+      const delegationLastWeekFromBreakdown =
+        delegationBreakdownLastWeek
+          ? new Decimal(delegationBreakdownLastWeek.totalRewards)
+              .div(1e18)
+              .toNumber()
+          : 0;
+      const delegationInflationLastWeek =
+        delegationInflationLastWeekFromBreakdown > 0
+          ? delegationInflationLastWeekFromBreakdown
+          : delegationInflationLastWeekFromPieces;
+      const delegationLastWeek =
+        delegationLastWeekFromBreakdown > 0
+          ? delegationLastWeekFromBreakdown
+          : delegationLastWeekFromPieces;
 
       const recoveryPercent =
         totalDelegated === 0 ? 0 : (delegationEarned / totalDelegated) * 100;
@@ -745,16 +869,24 @@ export function MiningStats() {
       });
 
       const cashBountyUsd = CASH_BOUNTY_BY_APPLICATION_ID[farm.appId] ?? null;
+      const regionMeta = regionMetaByAppId.get(farm.appId);
+      const regionId = regionMeta?.id ?? null;
+      const regionName =
+        regionMeta?.name || (regionId ? `Region ${regionId}` : "Unassigned");
+      const sponsorSplitPercent = regionMeta?.sponsorSplitPercent ?? null;
 
       return {
         farmId: farm.farmId,
         farmName: farm.farmName || "Unknown Farm",
         appId: farm.appId,
-        regionLabel: titleCase(farm.appId),
+        regionLabel: regionName,
+        regionId,
+        regionName,
         tags: buildFarmTags(farm, hasDelegation, hasMining),
         rewardScore,
         rewardDelta: 0,
         combinedGlw,
+        sponsorSplitPercent,
         cashBountyUsd,
         health,
         hasDelegation,
@@ -762,6 +894,9 @@ export function MiningStats() {
         delegation: {
           totalDelegated,
           earnedToDate: delegationEarned,
+          inflationEarned: delegationInflationEarned,
+          inflationLastWeek: delegationInflationLastWeek,
+          protocolDepositEarned: delegationProtocolDepositEarned,
           recoveryPercent: clampPercent(recoveryPercent),
           expectedPercent: clampPercent(expectedPercent),
           weeksEarned: farm.delegator.weeksEarned,
@@ -803,13 +938,164 @@ export function MiningStats() {
       ...row,
       rewardDelta: row.rewardScore - average,
     }));
-  }, [data, spotPrice]);
+  }, [data, spotPrice, regionMetaByAppId]);
+
+  const regionOptions = React.useMemo(() => {
+    const map = new Map<number, string>();
+    for (const farm of farmsSummary) {
+      if (typeof farm.regionId !== "number") continue;
+      if (!map.has(farm.regionId)) {
+        map.set(farm.regionId, farm.regionName);
+      }
+    }
+    return Array.from(map.entries()).sort((a, b) =>
+      a[1].localeCompare(b[1])
+    );
+  }, [farmsSummary]);
+
+  const estimationTargets = React.useMemo(() => {
+    if (!data?.farms) return [];
+    return data.farms
+      .map((farm) => {
+        const meta = regionMetaByAppId.get(farm.appId);
+        if (!meta) return null;
+        if (!meta.id) return null;
+        if (meta.sponsorSplitPercent === null) return null;
+        if (meta.expectedWeeklyCarbonCredits === null) return null;
+        if (!farm.delegator?.stepsSold) return null;
+        if (farm.delegator.weeklyBreakdown?.length) return null;
+
+        let protocolDepositAmount = BigInt(0);
+        try {
+          protocolDepositAmount =
+            BigInt(farm.delegator.weightedPieceSizeGlw || "0") *
+            BigInt(farm.delegator.stepsSold || 0);
+        } catch {
+          protocolDepositAmount = BigInt(0);
+        }
+        if (protocolDepositAmount === BigInt(0)) return null;
+
+        return {
+          appId: farm.appId,
+          farmId: farm.farmId,
+          protocolDepositAmount,
+          sponsorSplitPercent: meta.sponsorSplitPercent,
+          expectedWeeklyCarbonCredits: meta.expectedWeeklyCarbonCredits,
+          regionId: meta.id,
+        };
+      })
+      .filter(
+        (item): item is NonNullable<typeof item> => item !== null
+      );
+  }, [data, regionMetaByAppId]);
+
+  const estimateTargetsKey = React.useMemo(() => {
+    if (estimationTargets.length === 0) return "none";
+    return estimationTargets
+      .map(
+        (t) =>
+          `${t.appId}:${t.protocolDepositAmount}:${t.sponsorSplitPercent}:${t.expectedWeeklyCarbonCredits}:${t.regionId}`
+      )
+      .join("|");
+  }, [estimationTargets]);
+
+  const { data: estimatedWeeklyRewards = new Map<
+    string,
+    { glw: number; pd: number; total: number }
+  >() } =
+    useQuery({
+      queryKey: ["farm-estimated-weekly-rewards", estimateTargetsKey],
+      enabled: estimationTargets.length > 0,
+      staleTime: 5 * 60_000,
+      queryFn: async () => {
+        const farms = estimationTargets.map((target) => ({
+          userId: generateRandomEthAddress(),
+          sponsorSplitPercent: target.sponsorSplitPercent,
+          protocolDepositAmount: target.protocolDepositAmount.toString(),
+          paymentCurrency: "GLW",
+          expectedWeeklyCarbonCredits: target.expectedWeeklyCarbonCredits,
+          regionId: target.regionId,
+        }));
+
+        const response = await getFarmsRouter().estimateRewardScoresBatch({
+          farms,
+        });
+
+        const map = new Map<string, { glw: number; pd: number; total: number }>();
+        response.results.forEach((result, idx) => {
+          const target = estimationTargets[idx];
+          if (!target) return;
+          if (result && (result as any).success) {
+            const data = (result as any).data;
+            const glw = Number(data.userWeeklyGlwRewards || "0") / 1e18;
+            const pd = Number(data.userWeeklyPdRewards || "0") / 1e18;
+            map.set(target.appId, { glw, pd, total: glw + pd });
+          }
+        });
+
+        return map;
+      },
+    });
+
+  const farmsWithScenario = React.useMemo<FarmScenarioRow[]>(() => {
+    return farmsSummary.map((farm) => {
+      const inflationEarnedScenario = farm.delegation.inflationEarned;
+      const totalDelegated = farm.delegation.totalDelegated;
+      const depositOnlyRoiPercent =
+        farm.hasDelegation && totalDelegated > 0
+          ? (farm.delegation.protocolDepositEarned / totalDelegated) * 100
+          : 0;
+      const inflationEarnedPercent =
+        farm.hasDelegation && totalDelegated > 0
+          ? (inflationEarnedScenario / totalDelegated) * 100
+          : 0;
+      const estimatedWeeklyRewardsValue =
+        estimatedWeeklyRewards.get(farm.appId) ?? null;
+      const projectedDepositRoiPercent =
+        farm.hasDelegation && totalDelegated > 0
+          ? farm.delegation.weeksEarned > 0
+            ? (depositOnlyRoiPercent / farm.delegation.weeksEarned) *
+              farm.delegation.totalWeeks
+            : estimatedWeeklyRewardsValue?.pd
+            ? (estimatedWeeklyRewardsValue.pd / totalDelegated) *
+              100 *
+              farm.delegation.totalWeeks
+            : 0
+          : 0;
+      const safeRoiPercent =
+        farm.hasDelegation && totalDelegated > 0
+          ? projectedDepositRoiPercent + inflationEarnedPercent
+          : 0;
+      const remainingPercent = Math.max(0, 100 - safeRoiPercent);
+      const weeklyRewardsSource =
+        farm.delegation.lastWeekRewards > 0
+          ? farm.delegation.lastWeekRewards
+          : estimatedWeeklyRewardsValue?.total ?? 0;
+      const weeklyRewardsPercent =
+        farm.hasDelegation && totalDelegated > 0
+          ? (weeklyRewardsSource / totalDelegated) * 100
+          : 0;
+      const weeksToSafeAtCurrentInflation =
+        !farm.hasDelegation || remainingPercent <= 0
+          ? null
+          : weeklyRewardsPercent > 0
+          ? remainingPercent / weeklyRewardsPercent
+          : null;
+      return {
+        ...farm,
+        inflationMultiplier: 1,
+        safeRoiPercent,
+        isSafe: farm.hasDelegation && safeRoiPercent >= 100,
+        weeksToSafeAtCurrentInflation,
+      };
+    });
+  }, [farmsSummary, estimatedWeeklyRewards]);
 
   const miningTotals = React.useMemo(() => {
     let totalMining = 0;
     let totalBounty = 0;
 
-    for (const farm of farmsSummary) {
+    for (const farm of farmsWithScenario) {
       totalMining += farm.mining.totalSpent;
       if (farm.cashBountyUsd !== null) {
         totalBounty += farm.cashBountyUsd;
@@ -820,10 +1106,15 @@ export function MiningStats() {
       totalMining,
       totalBounty,
     };
-  }, [farmsSummary]);
+  }, [farmsWithScenario]);
 
   const filteredFarms = React.useMemo(() => {
-    return farmsSummary.filter((farm) => {
+    const regionFilterId =
+      regionFilter === "all" ? null : Number(regionFilter);
+    return farmsWithScenario.filter((farm) => {
+      if (regionFilterId !== null) {
+        if (farm.regionId !== regionFilterId) return false;
+      }
       if (filterBy === "delegation-only") {
         return farm.hasDelegation && !farm.hasMining;
       }
@@ -835,7 +1126,7 @@ export function MiningStats() {
       }
       return true;
     });
-  }, [farmsSummary, filterBy]);
+  }, [farmsWithScenario, filterBy, regionFilter]);
 
   const sortedFarms = React.useMemo(() => {
     const rows = [...filteredFarms];
@@ -857,13 +1148,44 @@ export function MiningStats() {
     return rows;
   }, [filteredFarms, sortBy]);
 
+  const safeSummaryByRegion = React.useMemo(() => {
+    const map = new Map<
+      number,
+      { regionId: number; regionName: string; safe: number; total: number }
+    >();
+    for (const farm of farmsWithScenario) {
+      if (!farm.hasDelegation) continue;
+      if (typeof farm.regionId !== "number") continue;
+      const entry =
+        map.get(farm.regionId) ?? {
+          regionId: farm.regionId,
+          regionName: farm.regionName,
+          safe: 0,
+          total: 0,
+        };
+      entry.total += 1;
+      if (farm.isSafe) {
+        entry.safe += 1;
+      }
+      map.set(farm.regionId, entry);
+    }
+    return Array.from(map.values()).sort(
+      (a, b) =>
+        b.safe - a.safe ||
+        b.total - a.total ||
+        a.regionName.localeCompare(b.regionName)
+    );
+  }, [farmsWithScenario]);
+
   const selectedFarm = React.useMemo(() => {
     if (!selectedFarmId || !data?.farms) return null;
-    const summary = farmsSummary.find((farm) => farm.farmId === selectedFarmId);
+    const summary = farmsWithScenario.find(
+      (farm) => farm.farmId === selectedFarmId
+    );
     const raw = data.farms.find((farm) => farm.farmId === selectedFarmId);
     if (!summary || !raw) return null;
     return { summary, raw };
-  }, [selectedFarmId, farmsSummary, data]);
+  }, [selectedFarmId, farmsWithScenario, data]);
 
   const resolvedDetailView = React.useMemo<DetailView>(() => {
     if (!selectedFarm) return detailView;
@@ -1272,6 +1594,24 @@ export function MiningStats() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={regionFilter}
+                  onValueChange={(value) => setRegionFilter(value)}
+                >
+                  <SelectTrigger className="w-[220px]">
+                    <SelectValue placeholder="Filter by region" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All regions</SelectItem>
+                    {regionOptions.map(([regionId, name]) => (
+                      <SelectItem key={regionId} value={regionId.toString()}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
@@ -1314,6 +1654,71 @@ export function MiningStats() {
         </div>
 
         <Card className="border-border/60 shadow-none">
+          <CardHeader>
+            <CardTitle>Delegator safety summary</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Safe = projected protocol-deposit recovery (linear to 100 weeks)
+              + inflation already earned vs delegated principal.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg border border-border/60 overflow-hidden">
+              <div className="px-4 py-3 border-b border-border/60 bg-muted/30">
+                <p className="text-xs uppercase text-muted-foreground">
+                  Safe farms by region
+                </p>
+              </div>
+              <div className="max-h-60 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/60 bg-muted/10">
+                      <th className="text-left p-3 font-medium">Region</th>
+                      <th className="text-right p-3 font-medium">Safe</th>
+                      <th className="text-right p-3 font-medium">Total</th>
+                      <th className="text-right p-3 font-medium">%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {safeSummaryByRegion.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="p-4 text-center text-xs text-muted-foreground"
+                        >
+                          No delegator farms with region data.
+                        </td>
+                      </tr>
+                    ) : (
+                      safeSummaryByRegion.map((row) => {
+                        const percent =
+                          row.total > 0 ? (row.safe / row.total) * 100 : 0;
+                        return (
+                          <tr
+                            key={row.regionId}
+                            className="border-b border-border/40 last:border-0"
+                          >
+                            <td className="p-3 font-medium">
+                              {row.regionName}
+                            </td>
+                            <td className="p-3 text-right font-semibold">
+                              {row.safe}
+                            </td>
+                            <td className="p-3 text-right">{row.total}</td>
+                            <td className="p-3 text-right">
+                              {formatPercent(percent)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 shadow-none">
           <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
               <CardTitle>Farm summary table</CardTitle>
@@ -1339,21 +1744,43 @@ export function MiningStats() {
                     <TableHead className="min-w-[200px] text-right">
                       Delegation – Size
                     </TableHead>
+                    <TableHead className="min-w-[160px] text-right">
+                      <div className="inline-flex w-full items-center justify-end gap-1">
+                        <span>Delegation – Safe</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex items-center text-muted-foreground hover:text-foreground"
+                              aria-label="Delegation safe definition"
+                            >
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            Safe = projected protocol-deposit recovery (linear
+                            to 100 weeks) + inflation already earned vs
+                            delegated principal. Does not include future
+                            inflation.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TableHead>
                     <TableHead className="min-w-[180px] text-right">
                       Mining – Progress
                     </TableHead>
-    <TableHead className="min-w-[200px] text-right">
-      Mining – Size
-    </TableHead>
-    <TableHead className="min-w-[140px] text-right">
-      Cash bounty
-    </TableHead>
-    <TableHead className="min-w-[160px] text-right">
-      Mining – Net
-    </TableHead>
-    <TableHead className="min-w-[140px] text-right">
-      Combined GLW
-    </TableHead>
+                    <TableHead className="min-w-[200px] text-right">
+                      Mining – Size
+                    </TableHead>
+                    <TableHead className="min-w-[140px] text-right">
+                      Cash bounty
+                    </TableHead>
+                    <TableHead className="min-w-[160px] text-right">
+                      Mining – Net
+                    </TableHead>
+                    <TableHead className="min-w-[140px] text-right">
+                      Combined GLW
+                    </TableHead>
                     <TableHead className="w-24 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1361,7 +1788,7 @@ export function MiningStats() {
                   {sortedFarms.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={9}
+                        colSpan={10}
                         className="h-24 text-center text-muted-foreground"
                       >
                         No farms match this filter.
@@ -1382,6 +1809,9 @@ export function MiningStats() {
                         >
                           <TableCell className="align-top py-4">
                             <div className="font-semibold">{farm.farmName}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {farm.regionLabel}
+                            </div>
                           </TableCell>
                           <TableCell className="align-top py-4 text-right">
                             {farm.hasDelegation ? (
@@ -1437,6 +1867,45 @@ export function MiningStats() {
                                   )}{" "}
                                   GLW
                                 </div>
+                                {typeof farm.sponsorSplitPercent ===
+                                  "number" && (
+                                  <div className="text-xs text-muted-foreground">
+                                    Inflation → Delegators{" "}
+                                    {farm.sponsorSplitPercent.toFixed(0)}%
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="align-top py-4 text-right">
+                            {farm.hasDelegation ? (
+                              <div className="space-y-1">
+                                <div
+                                  className={`font-semibold ${
+                                    farm.isSafe
+                                      ? "text-emerald-300"
+                                      : "text-red-200"
+                                  }`}
+                                >
+                                  {farm.safeRoiPercent.toFixed(1)}%
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {farm.isSafe ? "Safe" : "Not safe"}
+                                </div>
+                                {!farm.isSafe && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {farm.weeksToSafeAtCurrentInflation ===
+                                    null
+                                      ? "No weekly rewards yet"
+                                      : `~${Math.ceil(
+                                          farm.weeksToSafeAtCurrentInflation
+                                        )} wks @ current pace`}
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <span className="text-xs text-muted-foreground">

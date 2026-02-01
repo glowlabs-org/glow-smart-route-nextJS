@@ -16,6 +16,14 @@ export interface CompletedApplication {
   netCarbonCreditEarningWeekly: string;
   solarPanelsQuantity: number;
   paymentAmount: string;
+  sponsorSplitPercent?: number | null;
+  fractions?: Array<{
+    id?: string;
+    status?: string;
+    type?: string;
+    sponsorSplitPercent?: number | null;
+    isFilled?: boolean | null;
+  }>;
   farm?: {
     id: string;
     auditCompleteDate?: string | null;
@@ -33,20 +41,25 @@ export interface CompletedApplication {
 
 interface UseCompletedFarmsParams {
   enabled?: boolean;
+  includeFractions?: boolean;
 }
 
 const COMPLETED_FARMS_URL = `${process.env.NEXT_PUBLIC_HUB_URL}/applications/completed/summary`;
+const COMPLETED_FARMS_FULL_URL = `${process.env.NEXT_PUBLIC_HUB_URL}/applications/completed`;
 
 export function useCompletedFarms(params: UseCompletedFarmsParams = {}) {
-  const { enabled = true } = params;
+  const { enabled = true, includeFractions = false } = params;
 
   const query = useQuery<CompletedApplication[]>({
-    queryKey: ["completed-farms"],
+    queryKey: ["completed-farms", includeFractions],
     enabled,
     staleTime: 60_000,
     refetchInterval: enabled ? 60_000 : false,
     queryFn: async () => {
-      const res = await fetch(COMPLETED_FARMS_URL, {
+      const url = includeFractions
+        ? COMPLETED_FARMS_FULL_URL
+        : COMPLETED_FARMS_URL;
+      const res = await fetch(url, {
         headers: { "content-type": "application/json" },
       });
       if (!res.ok) {
