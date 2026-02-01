@@ -62,6 +62,8 @@ export interface ImpactGlowScoreProjection {
   baseMultiplier?: number;
   streakBonusMultiplier?: number;
   totalMultiplier?: number;
+  streakAsOfPreviousWeek?: number;
+  hasImpactActionThisWeek?: boolean;
   projectedPoints: {
     steeringGlwWei: string;
     inflationGlwWei: string;

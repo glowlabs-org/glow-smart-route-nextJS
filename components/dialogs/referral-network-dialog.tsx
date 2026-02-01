@@ -83,6 +83,13 @@ interface ReferralStatusResponse {
     bonusPercent: number;
     bonusProjectedPointsScaled6?: string;
   };
+  activationBonus?: {
+    awarded: boolean;
+    awardedAt?: string;
+    pointsAwarded: number;
+    celebrationSeen: boolean;
+    celebrationSeenAt?: string;
+  };
 }
 
 interface ReferralNetworkResponse {
@@ -189,6 +196,14 @@ export function ReferralNetworkDialog({
   const resolvedStatus = mockStatus ?? statusData;
   const resolvedIsLoading = mockData ? false : isLoading;
   const resolvedIsError = mockData ? false : isError;
+
+  const nextFinalizationLabel = React.useMemo(() => {
+    const now = new Date();
+    const daysUntil = (7 - now.getUTCDay()) % 7 || 7;
+    const next = new Date(now);
+    next.setUTCDate(next.getUTCDate() + daysUntil);
+    return `Finalizes ${next.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+  }, []);
 
   const activationPendingCount = React.useMemo(() => {
     if (!resolvedData) return 0;
@@ -491,6 +506,64 @@ export function ReferralNetworkDialog({
                     )}
                     </div>
 
+                    {/* Activation Bonus */}
+                    {resolvedStatus.activationBonus && (
+                      <div className={cn(
+                        "pt-3 border-t border-dashed",
+                        resolvedStatus.activationBonus.awarded && "mt-1"
+                      )}>
+                        <div className={cn(
+                          "flex items-center gap-3 rounded-xl px-3 py-2.5",
+                          resolvedStatus.activationBonus.awarded
+                            ? "bg-[color:var(--color-glow-orange)]/10"
+                            : "bg-muted/30"
+                        )}>
+                          <div className={cn(
+                            "flex items-center justify-center w-8 h-8 rounded-lg shrink-0",
+                            resolvedStatus.activationBonus.awarded
+                              ? "bg-[color:var(--color-glow-orange)]/15"
+                              : "bg-muted/50"
+                          )}>
+                            {resolvedStatus.activationBonus.awarded ? (
+                              <CheckCircle2 className="w-4 h-4 text-[color:var(--color-glow-orange)]" />
+                            ) : (
+                              <Sparkles className="w-4 h-4 text-muted-foreground/40" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className={cn(
+                                "text-xs font-semibold",
+                                resolvedStatus.activationBonus.awarded
+                                  ? "text-[color:var(--color-glow-orange)]"
+                                  : "text-muted-foreground"
+                              )}>
+                                Activation Bonus
+                              </span>
+                              <span className={cn(
+                                "text-xs font-mono font-bold",
+                                resolvedStatus.activationBonus.awarded
+                                  ? "text-[color:var(--color-glow-orange)]"
+                                  : "text-muted-foreground/50"
+                              )}>
+                                +100 pts
+                              </span>
+                            </div>
+                            <p className={cn(
+                              "text-[9px] mt-0.5",
+                              resolvedStatus.activationBonus.awarded
+                                ? "text-[color:var(--color-glow-orange)]/70"
+                                : "text-muted-foreground/50"
+                            )}>
+                              {resolvedStatus.activationBonus.awarded
+                                ? `Claimed ${new Date(resolvedStatus.activationBonus.awardedAt!).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+                                : "Earn 100 base points after linking to unlock"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {resolvedStatus.referrer.canChangeReferrer && (
                       <div className="pt-3 border-t border-dashed space-y-3">
                         <div className="flex items-center justify-between text-xs">
@@ -544,7 +617,7 @@ export function ReferralNetworkDialog({
                     )}
                   </div>
                   <div className="text-[8px] sm:text-[9px] text-muted-foreground/60 dark:text-muted-foreground/80 uppercase font-medium">
-                    Finalizes Sunday
+                    {nextFinalizationLabel}
                   </div>
                 </div>
                 <div className="group relative overflow-hidden rounded-2xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-3 sm:p-4 space-y-1 transition-all hover:bg-muted/40 dark:hover:bg-muted/60">

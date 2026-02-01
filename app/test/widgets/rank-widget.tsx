@@ -80,6 +80,9 @@ function safeNumber(value?: string) {
 
 function getIndicatorsStateFromImpactScore(
   impactScore: ImpactGlowScoreResponse,
+  options?: {
+    previousWeekHasMiner?: boolean;
+  },
 ): ImpactIndicatorsState {
   // Use currentWeekProjection for "what's active NOW" (current ongoing week)
   const projection = impactScore?.currentWeekProjection;
@@ -90,11 +93,27 @@ function getIndicatorsStateFromImpactScore(
     ? weeklyArray[weeklyArray.length - 1]
     : null;
 
-  // Prefer projection data (current week) over historical data
-  const streakBonusMultiplier =
-    projection?.streakBonusMultiplier ?? latestWeek?.streakBonusMultiplier ?? 0;
-  const hasMiner =
-    projection?.hasMinerMultiplier ?? latestWeek?.hasCashMinerBonus ?? false;
+  // If the user hasn't taken action this week yet, multipliers from the
+  // previous week are still achievable (they have until end of epoch).
+  // Show them as active so the UI doesn't prematurely mark them inactive.
+  const hasActedThisWeek = projection?.hasImpactActionThisWeek ?? true;
+  const streakFromPreviousWeek = projection?.streakAsOfPreviousWeek ?? 0;
+
+  let streakBonusMultiplier: number;
+  let hasMiner: boolean;
+
+  if (hasActedThisWeek) {
+    streakBonusMultiplier =
+      projection?.streakBonusMultiplier ?? latestWeek?.streakBonusMultiplier ?? 0;
+    hasMiner =
+      projection?.hasMinerMultiplier ?? latestWeek?.hasCashMinerBonus ?? false;
+  } else {
+    // No action yet this week; use previous week's state as effective display.
+    streakBonusMultiplier = streakFromPreviousWeek > 0
+      ? Math.min(streakFromPreviousWeek * 0.25, 1.0)
+      : 0;
+    hasMiner = options?.previousWeekHasMiner ?? false;
+  }
 
   return {
     hasMinerMultiplier: Boolean(hasMiner),
@@ -302,13 +321,18 @@ export function RankWidget({
     return `${formatted} pts`;
   }, [impactScoreQuery.isLoading, totalsPoints]);
 
-  const selfGlobalRank = React.useMemo(() => {
+  const selfLeaderboardRow = React.useMemo(() => {
     if (!normalizedWalletAddress) return null;
-    const idx = leaderboardRows.findIndex(
+    return leaderboardRows.find(
       (row) => row.walletAddress.toLowerCase() === normalizedWalletAddress,
-    );
-    return idx >= 0 ? idx + 1 : null;
+    ) ?? null;
   }, [leaderboardRows, normalizedWalletAddress]);
+
+  const selfGlobalRank = React.useMemo(() => {
+    if (!selfLeaderboardRow) return null;
+    const idx = leaderboardRows.indexOf(selfLeaderboardRow);
+    return idx >= 0 ? idx + 1 : null;
+  }, [leaderboardRows, selfLeaderboardRow]);
 
   const listThresholdPercentile = React.useMemo(() => {
     if (totalWalletCount <= 0) return NaN;
@@ -566,7 +590,9 @@ export function RankWidget({
                   )}
                 >
                   <ImpactIndicatorsRow
-                    state={getIndicatorsStateFromImpactScore(impactScore)}
+                    state={getIndicatorsStateFromImpactScore(impactScore, {
+                      previousWeekHasMiner: selfLeaderboardRow?.hasMinerMultiplier ?? false,
+                    })}
                     onIndicatorClick={handleIndicatorClick}
                   />
                 </div>

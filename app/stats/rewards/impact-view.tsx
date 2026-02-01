@@ -102,6 +102,7 @@ function getIndicatorsStateFromRow(
     hasEmissionsEarned: safeNumber(row.composition?.inflationPoints) > 0,
     hasVaultBonus: Boolean(row.hasVaultBonus),
     hasGlwWorth: safeBigIntFromString(row.glowWorthWei) > 0n,
+    hasReferralPoints: safeNumber(row.composition?.referralPoints) > 0,
   };
 }
 
@@ -111,12 +112,18 @@ function getIndicatorsStateFromProjection(
     hasSteeringStake: boolean;
     impactStreakWeeks?: number;
     streakBonusMultiplier?: number;
+    streakAsOfPreviousWeek?: number;
+    hasImpactActionThisWeek?: boolean;
     projectedPoints: {
       delegatedGlwWei: string;
       glowWorthWei: string;
       inflationGlwWei: string;
     };
   } | null,
+  options?: {
+    referralPoints?: number;
+    previousWeekHasMiner?: boolean;
+  },
 ): ImpactIndicatorsState {
   if (!projection) {
     return {
@@ -127,13 +134,33 @@ function getIndicatorsStateFromProjection(
       hasEmissionsEarned: false,
       hasVaultBonus: false,
       hasGlwWorth: false,
+      hasReferralPoints: (options?.referralPoints ?? 0) > 0,
     };
   }
 
-  const hasMinerMultiplier = Boolean(projection.hasMinerMultiplier);
-  const streakBonusMultiplier = projection.streakBonusMultiplier ?? 0;
-  const hasImpactStreak =
-    (projection.impactStreakWeeks ?? 0) > 0 && streakBonusMultiplier > 0;
+  // If the user hasn't taken action this week yet, multipliers from the
+  // previous week are still achievable (they have until end of epoch).
+  // Show them as active so the UI doesn't prematurely mark them inactive.
+  const hasActedThisWeek = projection.hasImpactActionThisWeek ?? true;
+  const streakFromPreviousWeek = projection.streakAsOfPreviousWeek ?? 0;
+
+  let hasMinerMultiplier: boolean;
+  let streakBonusMultiplier: number;
+  let hasImpactStreak: boolean;
+
+  if (hasActedThisWeek) {
+    hasMinerMultiplier = Boolean(projection.hasMinerMultiplier);
+    streakBonusMultiplier = projection.streakBonusMultiplier ?? 0;
+    hasImpactStreak =
+      (projection.impactStreakWeeks ?? 0) > 0 && streakBonusMultiplier > 0;
+  } else {
+    // No action yet this week; use previous week's state as effective display.
+    streakBonusMultiplier = streakFromPreviousWeek > 0
+      ? Math.min(streakFromPreviousWeek * 0.25, 1.0)
+      : 0;
+    hasImpactStreak = streakFromPreviousWeek > 0;
+    hasMinerMultiplier = options?.previousWeekHasMiner ?? false;
+  }
 
   const hasDelegations = (() => {
     try {
@@ -160,6 +187,7 @@ function getIndicatorsStateFromProjection(
     hasVaultBonus: hasDelegations,
     hasGlwWorth:
       safeBigIntFromString(projection.projectedPoints.glowWorthWei) > 0n,
+    hasReferralPoints: (options?.referralPoints ?? 0) > 0,
   };
 }
 
@@ -508,14 +536,24 @@ function ImpactHero(props: {
   const progressBadgeLeft = Math.min(98, Math.max(12, progressPercent));
 
   const projection = selfScoreQuery.data?.currentWeekProjection ?? null;
-  const hasMinerMultiplier = Boolean(projection?.hasMinerMultiplier);
+  const hasActedThisWeek = projection?.hasImpactActionThisWeek ?? true;
+  const streakFromPreviousWeek = projection?.streakAsOfPreviousWeek ?? 0;
+
+  const hasMinerMultiplier = hasActedThisWeek
+    ? Boolean(projection?.hasMinerMultiplier)
+    : Boolean(selfLeaderboardRow?.hasMinerMultiplier);
   const hasSteeringStake = Boolean(projection?.hasSteeringStake);
-  const impactStreakWeeks = projection?.impactStreakWeeks ?? 0;
-  const streakBonusMultiplier = projection?.streakBonusMultiplier ?? 0;
+  const impactStreakWeeks = hasActedThisWeek
+    ? (projection?.impactStreakWeeks ?? 0)
+    : streakFromPreviousWeek;
+  const streakBonusMultiplier = hasActedThisWeek
+    ? (projection?.streakBonusMultiplier ?? 0)
+    : (streakFromPreviousWeek > 0 ? Math.min(streakFromPreviousWeek * 0.25, 1.0) : 0);
   const baseMultiplier =
     projection?.baseMultiplier ?? (hasMinerMultiplier ? 3 : 1);
-  const totalMultiplier =
-    projection?.totalMultiplier ?? baseMultiplier + streakBonusMultiplier;
+  const totalMultiplier = hasActedThisWeek
+    ? (projection?.totalMultiplier ?? baseMultiplier + streakBonusMultiplier)
+    : baseMultiplier + streakBonusMultiplier;
   const hasStreakBonus = impactStreakWeeks > 0 && streakBonusMultiplier > 0;
   const projectedDelegatedGlwWei = projection?.projectedPoints?.delegatedGlwWei;
   const hasDelegations = (() => {
@@ -1024,6 +1062,9 @@ export function ImpactView() {
   const selfProjectedTotalPoints = selfScoreQuery.data?.totals?.totalPoints
     ? safeNumber(selfScoreQuery.data.totals.totalPoints)
     : null;
+  const selfReferralPoints = safeNumber(
+    selfScoreQuery.data?.composition?.referralPoints,
+  );
 
   const isLeaderboardRefreshing =
     leaderboardQuery.isFetching && !leaderboardQuery.isLoading;
@@ -1059,6 +1100,13 @@ export function ImpactView() {
     });
     return map;
   }, [allRows]);
+
+  const selfLeaderboardRow = React.useMemo(() => {
+    if (!normalizedAddress) return null;
+    return allRows.find(
+      (r) => r.walletAddress?.toLowerCase() === normalizedAddress,
+    ) ?? null;
+  }, [allRows, normalizedAddress]);
 
   const filteredRows = React.useMemo(() => {
     if (!searchLower) return allRows;
@@ -1342,7 +1390,10 @@ export function ImpactView() {
                     normalizedAddress &&
                     row.walletAddress.toLowerCase() === normalizedAddress;
                   const indicatorsState = isConnectedUser
-                    ? getIndicatorsStateFromProjection(selfProjection)
+                    ? getIndicatorsStateFromProjection(selfProjection, {
+                      referralPoints: selfReferralPoints,
+                      previousWeekHasMiner: selfLeaderboardRow?.hasMinerMultiplier ?? false,
+                    })
                     : getIndicatorsStateFromRow(row);
 
                   return (
@@ -1589,7 +1640,10 @@ export function ImpactView() {
                       normalizedAddress &&
                       row.walletAddress.toLowerCase() === normalizedAddress;
                     const indicatorsState = isConnectedUser
-                      ? getIndicatorsStateFromProjection(selfProjection)
+                      ? getIndicatorsStateFromProjection(selfProjection, {
+                      referralPoints: selfReferralPoints,
+                      previousWeekHasMiner: selfLeaderboardRow?.hasMinerMultiplier ?? false,
+                    })
                       : getIndicatorsStateFromRow(row);
 
                     return (
