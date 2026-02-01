@@ -1012,7 +1012,7 @@ export function MiningStats() {
           userId: generateRandomEthAddress(),
           sponsorSplitPercent: target.sponsorSplitPercent,
           protocolDepositAmount: target.protocolDepositAmount.toString(),
-          paymentCurrency: "GLW",
+          paymentCurrency: "GLW" as const,
           expectedWeeklyCarbonCredits: target.expectedWeeklyCarbonCredits,
           regionId: target.regionId,
         }));
