@@ -69,6 +69,7 @@ const PRICE_RANGE = { min: 0.001, max: 100 };
 
 // TODO: mock data (weekly circulating supply deltas)
 const WEEKLY_NET_CHANGES = [
+  { week: "W-12", net: 65_000 },
   { week: "W-11", net: -45_000 },
   { week: "W-10", net: 120_000 },
   { week: "W-9", net: 175_000 },
@@ -104,7 +105,7 @@ const AGGREGATE_FARM_REVENUE = {
   netPolNinetyDay: 24_500 * 13,
 };
 
-// TODO: mock data (per-farm revenue)
+// TODO: mock data (per-farm revenue + detail metrics + revenue history)
 const FARM_REVENUE_ROWS = [
   {
     name: "Sheltered Pines",
@@ -249,10 +250,6 @@ const VESTING_SCHEDULE = [
   { year: "2030", unlocked: 86 },
 ];
 
-const circulationChartConfig = {
-  net: { label: "Weekly net change", color: "hsl(142, 71%, 45%)" },
-} satisfies ChartConfig;
-
 const vestingChartConfig = {
   unlocked: { label: "Unlocked supply", color: "hsl(32, 90%, 60%)" },
 } satisfies ChartConfig;
@@ -361,6 +358,11 @@ function formatCompactNumber(value: number) {
 
 function formatPercent(value: number) {
   return `${value.toFixed(1)}%`;
+}
+
+function formatSignedPercent(value: number) {
+  const sign = value >= 0 ? "+" : "";
+  return `${sign}${value.toFixed(1)}%`;
 }
 
 function formatSignedNumber(value: number) {
@@ -602,6 +604,7 @@ export function PolDashboardView() {
   const priceDisplay = hasLivePrice ? `$${currentPrice.toFixed(4)}` : "—";
   const priceHelper = hasLivePrice ? "Spot price" : "Live data unavailable";
   const priceDetail = hasLivePrice ? currentPrice.toFixed(4) : "—";
+  const polApyDisplay = formatPercent(MARKET_OVERVIEW.polApy);
 
   // ── GCTL live data ──
   const {
@@ -875,6 +878,33 @@ export function PolDashboardView() {
     ? (vaultedMock / supplyTotal) * 100
     : 0;
 
+  // TODO: replace with live 13-week circulating supply history
+  const supplyGrowthNet13w = React.useMemo(
+    () => WEEKLY_NET_CHANGES.reduce((sum, row) => sum + row.net, 0),
+    [],
+  );
+  const supplyGrowthBaseline = hasLiveSupply ? currentCirculating : null;
+  const supplyGrowthStart =
+    supplyGrowthBaseline !== null
+      ? supplyGrowthBaseline - supplyGrowthNet13w
+      : null;
+  const supplyGrowthAnnualPct =
+    supplyGrowthStart !== null &&
+    supplyGrowthStart > 0 &&
+    supplyGrowthBaseline !== null
+      ? ((supplyGrowthBaseline - supplyGrowthStart) / supplyGrowthStart) *
+        (52 / 13) *
+        100
+      : null;
+  const supplyGrowthAnnualDisplay =
+    supplyGrowthAnnualPct !== null && Number.isFinite(supplyGrowthAnnualPct)
+      ? formatSignedPercent(supplyGrowthAnnualPct)
+      : "—";
+  const supplyGrowthHelper =
+    supplyGrowthAnnualPct !== null && Number.isFinite(supplyGrowthAnnualPct)
+      ? `${formatSignedNumber(supplyGrowthNet13w)} GLW net over 13w`
+      : "Live data unavailable";
+
   const poolUsdg = poolReserves?.usdg ?? 0;
   const poolGlw = poolReserves?.glw ?? 0;
   const hasPoolReserves = poolUsdg > 0 && poolGlw > 0;
@@ -1063,13 +1093,13 @@ export function PolDashboardView() {
             {/* ── Row 2: Aggregate Farm Revenue (left) | Circulation (right) ── */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
               {/* ── Left: Protocol Revenue (4 KPI cards) ── */}
-              <div className="grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-4 items-start">
                 {/* Lifetime Revenue */}
                 <Card className="!gap-0 relative overflow-hidden">
                   <GlowSymbol
                     className="!text-[var(--color-glow-green)] absolute -top-6 -right-6 w-32 h-32 opacity-50 dark:opacity-20 pointer-events-none rotate-12"
                   />
-                  <CardContent className="relative flex flex-col justify-center px-8 py-10 sm:px-10 sm:py-12">
+                  <CardContent className="relative flex flex-col px-8 py-8 sm:px-10 sm:py-10">
                     <div className="text-sm font-medium text-muted-foreground tracking-wide">
                       Lifetime Revenue
                     </div>
@@ -1092,7 +1122,7 @@ export function PolDashboardView() {
                   <GlowSymbol
                     className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-20 pointer-events-none -rotate-12"
                   />
-                  <CardContent className="relative flex flex-col justify-center px-8 py-10 sm:px-10 sm:py-12">
+                  <CardContent className="relative flex flex-col px-8 py-8 sm:px-10 sm:py-10">
                     <div className="text-sm font-medium text-muted-foreground tracking-wide">
                       Active Farms
                     </div>
@@ -1105,12 +1135,40 @@ export function PolDashboardView() {
                   </CardContent>
                 </Card>
 
+                {/* 90d PoL Yield */}
+                <Card className="!gap-0 relative overflow-hidden">
+                  <GlowSymbol
+                    className="!text-[var(--color-glow-yellow)] absolute -top-4 -right-4 w-24 h-24 opacity-50 dark:opacity-20 pointer-events-none -rotate-6"
+                  />
+                  <CardContent className="relative flex flex-col px-8 py-7 sm:px-10 sm:py-9">
+                    <div className="text-sm font-medium text-muted-foreground tracking-wide">
+                      90d PoL Yield
+                    </div>
+                    <div className="mt-3 flex items-end justify-between gap-4">
+                      <div className="text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                        {
+                          getLiquidityFromUsd(
+                            AGGREGATE_FARM_REVENUE.netPolNinetyDay,
+                            displayPrice,
+                          ).value
+                        }
+                      </div>
+                      <div className="text-sm text-muted-foreground font-mono tabular-nums">
+                        APY {polApyDisplay}
+                      </div>
+                    </div>
+                    <div className="mt-2.5 text-sm text-muted-foreground">
+                      ({getLiquidityFromUsd(AGGREGATE_FARM_REVENUE.netPolNinetyDay, displayPrice).breakdown})
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* 90d Revenue */}
                 <Card className="!gap-0 relative overflow-hidden">
                   <GlowSymbol
                     className="!text-[var(--color-glow-purple)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none rotate-6"
                   />
-                  <CardContent className="relative flex flex-col justify-center px-8 py-8 sm:px-10 sm:py-10">
+                  <CardContent className="relative flex flex-col px-8 py-7 sm:px-10 sm:py-9">
                     <div className="text-sm font-medium text-muted-foreground tracking-wide">
                       90d Revenue
                     </div>
@@ -1127,32 +1185,9 @@ export function PolDashboardView() {
                     </div>
                   </CardContent>
                 </Card>
-
-                {/* 90d PoL Yield */}
-                <Card className="!gap-0 relative overflow-hidden">
-                  <GlowSymbol
-                    className="!text-[var(--color-glow-yellow)] absolute -top-4 -right-4 w-24 h-24 opacity-50 dark:opacity-20 pointer-events-none -rotate-6"
-                  />
-                  <CardContent className="relative flex flex-col justify-center px-8 py-8 sm:px-10 sm:py-10">
-                    <div className="text-sm font-medium text-muted-foreground tracking-wide">
-                      90d PoL Yield
-                    </div>
-                    <div className="mt-3 text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                      {
-                        getLiquidityFromUsd(
-                          AGGREGATE_FARM_REVENUE.netPolNinetyDay,
-                          displayPrice,
-                        ).value
-                      }
-                    </div>
-                    <div className="mt-2.5 text-sm text-muted-foreground">
-                      ({getLiquidityFromUsd(AGGREGATE_FARM_REVENUE.netPolNinetyDay, displayPrice).breakdown})
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
 
-              {/* ── Right: Where the money goes ── */}
+              {/* ── Right: Supply & Circulation ── */}
               <Card className="!gap-6">
                 <CardHeader className="pb-0">
                   <div className="text-sm font-semibold">
@@ -1232,50 +1267,22 @@ export function PolDashboardView() {
                       valueClassName="text-xl sm:text-2xl tracking-tight"
                     />
                   </div>
-                  <ChartContainer
-                    config={circulationChartConfig}
-                    className="h-32 w-full"
-                  >
-                    <LineChart data={WEEKLY_NET_CHANGES}>
-                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="week"
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fontSize: 10 }}
-                        interval="preserveStartEnd"
-                      />
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        width={48}
-                        tick={{ fontSize: 10 }}
-                        tickFormatter={(v) => `${Math.round(v / 1000)}k`}
-                      />
-                      <ChartTooltip
-                        content={
-                          <ChartTooltipContent
-                            labelFormatter={(label) => `Week ${label}`}
-                            formatter={(value) =>
-                              `${formatSignedNumber(Number(value))} GLW`
-                            }
-                          />
-                        }
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="net"
-                        stroke="hsl(142, 71%, 45%)"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                    </LineChart>
-                  </ChartContainer>
+                  <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 px-4 py-3">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                      Annualized circulating growth (13w)
+                    </div>
+                    <div className="mt-1 text-2xl sm:text-3xl font-semibold font-mono tabular-nums tracking-tight">
+                      {supplyGrowthAnnualDisplay}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {supplyGrowthHelper}
+                    </div>
+                  </div>
                   <Button onClick={() => setIsSupplyDialogOpen(true)}>
                     Explore Supply Model
                   </Button>
                 </CardContent>
-              </Card>
+                </Card>
             </div>
           </section>
 
@@ -1409,60 +1416,6 @@ export function PolDashboardView() {
           </section>
 
           <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader title="Network Impact" />
-            <Card className="!gap-0">
-              <CardContent className="px-8 py-10 sm:px-10 sm:py-12">
-                <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
-                  <div className="flex flex-col gap-1">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Total Panels
-                    </div>
-                    <div className="text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
-                      {formatNullableNumber(impactTotals?.panels ?? null)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Verified installations
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Installed Capacity
-                    </div>
-                    <div className="text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
-                      {formatNullableFixed(impactTotals?.capacityMw ?? null, 1)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      MW total capacity
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Homes Powered
-                    </div>
-                    <div className="text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
-                      {formatNullableNumber(impactTotals?.homesPowered ?? null)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Equivalent households
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Trees Equivalent
-                    </div>
-                    <div className="text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
-                      {formatNullableCompact(impactTotals?.trees ?? null)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      CO2 offset equivalent
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-
-          <section className="flex flex-col gap-6 pt-16">
             <SectionHeader title="PoL, GCTL, Wallets" />
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               {/* ── Protocol Liquidity ── */}
@@ -1479,12 +1432,7 @@ export function PolDashboardView() {
                     helper={`Protocol-owned liquidity across all sources`}
                     valueClassName="text-3xl sm:text-4xl"
                   />
-                  <div className="grid grid-cols-3 gap-3">
-                    <MiniStat
-                      label="APY"
-                      value={formatPercent(MARKET_OVERVIEW.polApy)}
-                      valueClassName="text-base sm:text-lg tracking-tight"
-                    />
+                  <div className="grid grid-cols-2 gap-3">
                     <MiniStat
                       label="Yield / wk"
                       value={formatUsdCompact(MARKET_OVERVIEW.polWeeklyRevenue)}
@@ -1968,6 +1916,60 @@ export function PolDashboardView() {
           </section>
 
           <section className="flex flex-col gap-6 pt-16">
+            <SectionHeader title="Network Impact" />
+            <Card className="!gap-0">
+              <CardContent className="px-8 py-10 sm:px-10 sm:py-12">
+                <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Total Panels
+                    </div>
+                    <div className="text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
+                      {formatNullableNumber(impactTotals?.panels ?? null)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Verified installations
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Installed Capacity
+                    </div>
+                    <div className="text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
+                      {formatNullableFixed(impactTotals?.capacityMw ?? null, 1)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      MW total capacity
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Homes Powered
+                    </div>
+                    <div className="text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
+                      {formatNullableNumber(impactTotals?.homesPowered ?? null)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Equivalent households
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Trees Equivalent
+                    </div>
+                    <div className="text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
+                      {formatNullableCompact(impactTotals?.trees ?? null)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      CO2 offset equivalent
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+
+          <section className="flex flex-col gap-6 pt-16">
             <SectionHeader title="FMI" />
             <Card className="!gap-6">
               <CardHeader className="pb-0">
@@ -2399,7 +2401,7 @@ export function PolDashboardView() {
                         }
                       />
                       <Line
-                        type="stepAfter"
+                        type="monotone"
                         dataKey="unlocked"
                         stroke="var(--color-unlocked)"
                         strokeWidth={2}
