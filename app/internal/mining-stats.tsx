@@ -275,7 +275,7 @@ function ROIComparisonChart({ farms }: ROIChartProps) {
   );
 }
 
-type SortOption = "rewardScore" | "delegated" | "mined" | "risk";
+type SortOption = "rewardScore" | "delegated" | "mined" | "risk" | "safety";
 type FarmFilterOption = "all" | "delegation-only" | "mining-only" | "both";
 type DetailView = "delegation" | "mining";
 
@@ -630,6 +630,7 @@ const SORT_OPTIONS: Array<{ value: SortOption; label: string }> = [
   { value: "delegated", label: "Most delegated GLW" },
   { value: "mined", label: "Most GLW mined" },
   { value: "risk", label: "Most at risk" },
+  { value: "safety", label: "Safety margin" },
 ];
 
 export function MiningStats() {
@@ -1142,6 +1143,9 @@ export function MiningStats() {
           return a.health.score - b.health.score;
         }
         return a.rewardScore - b.rewardScore;
+      }
+      if (sortBy === "safety") {
+        return b.safeRoiPercent - a.safeRoiPercent;
       }
       return b.rewardScore - a.rewardScore;
     });
