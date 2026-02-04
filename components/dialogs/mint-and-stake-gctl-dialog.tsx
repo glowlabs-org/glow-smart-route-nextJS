@@ -12,7 +12,16 @@ import {
   usePublicClient,
   useWalletClient,
 } from "wagmi";
-import { Sun, X, ChevronLeft, Zap, Check, Loader2, Info } from "lucide-react";
+import {
+  Sun,
+  X,
+  ChevronLeft,
+  Zap,
+  Check,
+  Loader2,
+  Info,
+  Bug,
+} from "lucide-react";
 import {
   DECIMALS_BY_TOKEN,
   type Currency,
@@ -626,11 +635,6 @@ export function MintAndStakeGctlDialog({
     const remaining = gctlFromAtomic(stakeCap?.remaining);
     return remaining != null && Number.isFinite(remaining) ? remaining : null;
   }, [stakeCap?.remaining]);
-
-  const stakeCapLimitGctl = React.useMemo(() => {
-    const cap = gctlFromAtomic(stakeCap?.cap);
-    return cap != null && Number.isFinite(cap) ? cap : null;
-  }, [stakeCap?.cap]);
 
   const isStakeCapExceeded = React.useMemo(() => {
     if (!stakeCap?.capApplied) return false;
@@ -2138,27 +2142,19 @@ export function MintAndStakeGctlDialog({
                     </div>
 
                     {showStakeCapNotice ? (
-                      <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-4 space-y-3">
-                        <div className="flex items-start gap-3">
-                          <div className="h-8 w-8 rounded-lg bg-muted/50 dark:bg-muted/70 border border-border/20 dark:border-border/40 flex items-center justify-center">
-                            <Info className="h-4 w-4 text-muted-foreground" />
+                      <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-5 space-y-4">
+                        <div className="flex items-start gap-4">
+                          <div className="h-12 w-12 rounded-2xl bg-muted/50 dark:bg-muted/70 border border-border/20 dark:border-border/40 flex items-center justify-center">
+                            <Bug className="h-6 w-6 text-[color:var(--color-glow-orange)]" />
                           </div>
-                          <div className="space-y-1">
-                            <div className="text-sm font-medium text-foreground">
-                              Region stake limit reached
+                          <div className="space-y-2">
+                            <div className="text-lg font-semibold text-foreground">
+                              Something went wrong
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              This region can accept up to{" "}
-                              {formatTokenAmount(stakeCapLimitGctl ?? 50_000, {
-                                maximumFractionDigits: 0,
-                              })}{" "}
-                              GCTL in new stakes every 30 days. Remaining:{" "}
-                              {stakeCapRemainingGctl != null
-                                ? formatTokenAmount(stakeCapRemainingGctl, {
-                                    maximumFractionDigits: 2,
-                                  })
-                                : "—"}{" "}
-                              GCTL.
+                              We couldn’t complete your request. Please reach
+                              out to the devs — enter your contact info and
+                              we’ll follow up.
                             </div>
                           </div>
                         </div>
