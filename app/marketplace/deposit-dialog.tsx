@@ -92,6 +92,70 @@ const CONTRACT_ERROR_MESSAGES: Record<
   },
 };
 
+const RPC_INTERNAL_ERROR_MESSAGE =
+  "RPC/provider error. Please retry or switch RPC.";
+
+function getErrorMessage(error: unknown): string {
+  if (!error) return "Unknown error";
+  if (error instanceof Error && error.message) return error.message;
+  const anyError = error as any;
+  return (
+    anyError?.cause?.message ||
+    anyError?.cause?.data?.message ||
+    anyError?.data?.message ||
+    anyError?.error?.message ||
+    anyError?.shortMessage ||
+    anyError?.message ||
+    "Unknown error"
+  );
+}
+
+function getErrorCode(error: unknown): number | undefined {
+  const anyError = error as any;
+  const code = anyError?.cause?.code ?? anyError?.code;
+  return typeof code === "number" ? code : undefined;
+}
+
+function isInternalRpcError(error: unknown): boolean {
+  const message = getErrorMessage(error).toLowerCase();
+  const code = getErrorCode(error);
+  return (
+    code === -32603 ||
+    message.includes("internal error") ||
+    message.includes("internalrpcerror") ||
+    message.includes("could not coalesce") ||
+    message.includes("missing or invalid parameters")
+  );
+}
+
+async function withInternalRpcRetry<T>(
+  fn: () => Promise<T>,
+  options: {
+    maxRetries?: number;
+    delayMs?: number;
+    onRetry?: (attempt: number) => void;
+  } = {}
+): Promise<T> {
+  const maxRetries = options.maxRetries ?? 1;
+  const delayMs = options.delayMs ?? 1500;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      const isLastAttempt = attempt >= maxRetries;
+      if (isLastAttempt || !isInternalRpcError(error)) {
+        throw error;
+      }
+      options.onRetry?.(attempt + 1);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  // TypeScript: unreachable, but satisfies return type
+  throw new Error("Retry loop exited unexpectedly");
+}
+
 function findErrorInMessage(
   msg: string
 ): { message: string; shouldRefresh?: boolean } | null {
@@ -155,7 +219,7 @@ export function DepositDialog({
 }: DepositDialogProps) {
   const APP_DOMAIN_PLAIN_TEXT = "app.\u200Bglow.\u200Borg";
 
-  const { isConnected, address } = useAccount();
+  const { isConnected, address, connector } = useAccount();
   const isMobile = useIsMobile();
   const chainId = useChainId();
   const { signer } = useEthersSigner();
@@ -723,23 +787,33 @@ export function DepositDialog({
       // For "Swap & Delegate", we just bought GLW.
       // For "Buy Miner", we have USDC.
 
-      const costBigInt =
-        selectedCurrency === "USDC"
-          ? BigInt(activeFraction.stepPrice) * BigInt(quantity)
-          : BigInt(activeFraction.step) * BigInt(quantity);
-
       const activeStepId = isSwapDelegate ? "DELEGATE_GLW" : "BUY_FRACTIONS";
       updateStepStatus(activeStepId, "confirming");
 
-      const txHash = await fractionsHook.buyFractions({
-        creator: activeFraction.owner,
-        id: activeFraction.id,
-        stepsToBuy: BigInt(quantity),
-        minStepsToBuy: BigInt(quantity),
-        refundTo: userAddress,
-        creditTo: userAddress,
-        useCounterfactualAddressForRefund: false,
-      });
+      const txHash = await withInternalRpcRetry(
+        () =>
+          fractionsHook.buyFractions({
+            creator: activeFraction.owner,
+            id: activeFraction.id,
+            stepsToBuy: BigInt(quantity),
+            minStepsToBuy: BigInt(quantity),
+            refundTo: userAddress,
+            creditTo: userAddress,
+            useCounterfactualAddressForRefund: false,
+          }),
+        {
+          maxRetries: 1,
+          delayMs: 1500,
+          onRetry: (attempt) => {
+            trackEvent("rpc_internal_error_retry", {
+              attempt,
+              step: activeStepId,
+              application_id: application?.id ?? null,
+              fraction_id: activeFraction.id,
+            });
+          },
+        }
+      );
 
       updateStepStatus(activeStepId, "completed", { txHash });
 
@@ -803,6 +877,11 @@ export function DepositDialog({
       } catch {
         setSuccessMetrics(null);
       }
+
+      const costBigInt =
+        selectedCurrency === "USDC"
+          ? BigInt(activeFraction.stepPrice) * BigInt(quantity)
+          : BigInt(activeFraction.step) * BigInt(quantity);
 
       await sponsorMutation.mutateAsync({
         applicationId: application.id,
@@ -868,17 +947,27 @@ export function DepositDialog({
       });
     } catch (e: any) {
       console.error(e);
-      const rawMsg = e?.message || "Transaction failed";
+      const rawMsg = getErrorMessage(e) || "Transaction failed";
 
       // Check multiple places where viem might store the custom error name
       const errorName =
-        e?.cause?.data?.errorName || e?.cause?.name || e?.data?.errorName || "";
+        e?.cause?.data?.errorName ||
+        e?.cause?.name ||
+        e?.name ||
+        e?.data?.errorName ||
+        "";
+      const errorCode = getErrorCode(e);
+      const isRpcInternal = isInternalRpcError(e);
 
       // Look up user-friendly error message from the mapping
       const knownError = CONTRACT_ERROR_MESSAGES[errorName];
       const errorConfig = knownError || findErrorInMessage(rawMsg);
-      const msg = errorConfig?.message || rawMsg;
-      const shouldRefresh = errorConfig?.shouldRefresh ?? false;
+      const msg = isRpcInternal
+        ? RPC_INTERNAL_ERROR_MESSAGE
+        : errorConfig?.message || rawMsg;
+      const shouldRefresh = isRpcInternal
+        ? false
+        : errorConfig?.shouldRefresh ?? false;
 
       // Mark the current active step as error (using ref to avoid stale closure)
       const currentSteps = stepsRef.current;
@@ -925,6 +1014,11 @@ export function DepositDialog({
             quantity,
             failedStep: activeStep?.id,
             errorName: errorName || null,
+            errorCode: errorCode ?? null,
+            isInternalRpcError: isRpcInternal,
+            walletClientChainId: walletClient?.chain?.id ?? null,
+            walletClientAccount: walletClient?.account?.address ?? null,
+            connectorName: connector?.name ?? null,
             walletAddress: address,
           },
         });
