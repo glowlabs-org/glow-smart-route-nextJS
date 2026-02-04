@@ -1108,9 +1108,6 @@ export function MintAndStakeGctlDialog({
     }
     if (isStakeCapExceeded) {
       triggerStakeCapNotice();
-      toast.error(
-        "Region stake limit reached. Leave your contact to be notified."
-      );
       return;
     }
 
@@ -1419,9 +1416,6 @@ export function MintAndStakeGctlDialog({
     }
     if (isStakeCapExceeded) {
       triggerStakeCapNotice();
-      toast.error(
-        "Region stake limit reached. Leave your contact to be notified."
-      );
       return;
     }
 
@@ -2152,9 +2146,9 @@ export function MintAndStakeGctlDialog({
                               Something went wrong
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              We couldn’t complete your request. Please reach
-                              out to the devs — enter your contact info and
-                              we’ll follow up.
+                              We couldn’t complete your request. This is
+                              unexpected — please reach out to the devs so we
+                              can fix it.
                             </div>
                           </div>
                         </div>
@@ -2164,7 +2158,7 @@ export function MintAndStakeGctlDialog({
                             htmlFor="stake-cap-contact"
                             className="text-xs text-muted-foreground"
                           >
-                            Email or Telegram handle
+                            Contact info for devs
                           </Label>
                           <div className="flex gap-2">
                             <Input
@@ -2201,7 +2195,7 @@ export function MintAndStakeGctlDialog({
                               ) : stakeCapSubmitted ? (
                                 "Sent"
                               ) : (
-                                "Notify me"
+                                "Send to devs"
                               )}
                             </Button>
                           </div>
@@ -2212,7 +2206,7 @@ export function MintAndStakeGctlDialog({
                           ) : null}
                           {stakeCapSubmitted ? (
                             <div className="text-xs text-foreground">
-                              Thanks! We will notify the Glow team.
+                              Submitted. The devs will review and follow up.
                             </div>
                           ) : null}
                         </div>
