@@ -61,8 +61,10 @@ import {
   useActiveRegionsSummary,
   useGctlApi,
   useRegions,
+  useRegionStakeCap,
   useWallets,
 } from "@/hooks";
+import { useEnsNames } from "@/hooks/useEnsNames";
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { useDebouncedAsync } from "@/hooks/useDebouncedAsync";
 import { trackEvent } from "@/lib/telemetry";
@@ -205,6 +207,15 @@ function gctlAmountFromRaw(raw: string | null | undefined) {
     return Number(formatUnits(BigInt(raw || "0"), DECIMALS_BY_TOKEN.GCTL));
   } catch {
     return 0;
+  }
+}
+
+function gctlFromAtomic(raw: string | null | undefined) {
+  if (!raw) return null;
+  try {
+    return new Decimal(raw).div(1_000_000).toNumber();
+  } catch {
+    return null;
   }
 }
 
@@ -370,6 +381,11 @@ export function MintAndStakeGctlDialog({
     walletAddress: address ?? undefined,
     enabled: open && Boolean(address),
   });
+  const { ensNames } = useEnsNames({
+    addresses: address ? [address] : [],
+    enabled: open && Boolean(address),
+  });
+  const walletEnsName = address ? ensNames[address] ?? null : null;
 
   const userStakedGctlByRegionId = React.useMemo(() => {
     const map = new Map<number, number>();
@@ -406,6 +422,9 @@ export function MintAndStakeGctlDialog({
     if (!r) return "";
     return (r as any).name || (r as any).title || `Region ${r.id}`;
   }, [regions, selectedRegionId]);
+  const { stakeCap } = useRegionStakeCap(selectedRegionId, {
+    enabled: open && Boolean(selectedRegionId),
+  });
 
   const [selectedCurrency, setSelectedCurrency] =
     React.useState<SourceCurrency>("USDC");
@@ -603,6 +622,25 @@ export function MintAndStakeGctlDialog({
     stakeMode,
   ]);
 
+  const stakeCapRemainingGctl = React.useMemo(() => {
+    const remaining = gctlFromAtomic(stakeCap?.remaining);
+    return remaining != null && Number.isFinite(remaining) ? remaining : null;
+  }, [stakeCap?.remaining]);
+
+  const stakeCapLimitGctl = React.useMemo(() => {
+    const cap = gctlFromAtomic(stakeCap?.cap);
+    return cap != null && Number.isFinite(cap) ? cap : null;
+  }, [stakeCap?.cap]);
+
+  const isStakeCapExceeded = React.useMemo(() => {
+    if (!stakeCap?.capApplied) return false;
+    if (!estimatedGctl || !Number.isFinite(estimatedGctl)) return false;
+    if (estimatedGctl <= 0) return false;
+    if (stakeCapRemainingGctl == null) return false;
+    const epsilon = 0.000001;
+    return stakeCapRemainingGctl <= 0 || estimatedGctl > stakeCapRemainingGctl + epsilon;
+  }, [estimatedGctl, stakeCap?.capApplied, stakeCapRemainingGctl]);
+
   const steeringScoreBefore = React.useMemo(() => {
     return computeSteeringScorePoints({
       activeSummary,
@@ -734,6 +772,14 @@ export function MintAndStakeGctlDialog({
   >(null);
   const [stakeSteps, setStakeSteps] = React.useState<TransactionStep[]>([]);
   const stakeStepsRef = React.useRef<TransactionStep[]>([]);
+  const [stakeCapNoticeVisible, setStakeCapNoticeVisible] =
+    React.useState(false);
+  const [stakeCapContact, setStakeCapContact] = React.useState("");
+  const [stakeCapContactError, setStakeCapContactError] = React.useState<
+    string | null
+  >(null);
+  const [stakeCapSubmitting, setStakeCapSubmitting] = React.useState(false);
+  const [stakeCapSubmitted, setStakeCapSubmitted] = React.useState(false);
 
   const updateStakeStepStatus = React.useCallback(
     (
@@ -760,6 +806,22 @@ export function MintAndStakeGctlDialog({
     },
     []
   );
+
+  const showStakeCapNotice = stakeCapNoticeVisible && isStakeCapExceeded;
+
+  const triggerStakeCapNotice = React.useCallback(() => {
+    setStakeCapNoticeVisible(true);
+    setStakeCapContactError(null);
+    setStakeCapSubmitted(false);
+  }, []);
+
+  React.useEffect(() => {
+    if (!isStakeCapExceeded) {
+      setStakeCapNoticeVisible(false);
+      setStakeCapContactError(null);
+      setStakeCapSubmitted(false);
+    }
+  }, [isStakeCapExceeded, selectedRegionId]);
 
   const [trackingTxHash, setTrackingTxHash] = React.useState<string | null>(
     null
@@ -919,24 +981,6 @@ export function MintAndStakeGctlDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackingTxHash]);
 
-  const handleSetPct = React.useCallback(
-    (pct: number) => {
-      const next = (pct / 100) * (maxAmountNumber || 0);
-      if (!Number.isFinite(next) || next <= 0) {
-        setAmountInput("");
-        return;
-      }
-      const nextInput =
-        selectedCurrency === "ETH"
-          ? roundDownToDecimalsString(next, 6)
-          : roundDownToDecimalsString(next, 2);
-      setAmountInput(nextInput);
-
-      if (selectedCurrency === "ETH") runEthUsdcQuote(nextInput);
-    },
-    [maxAmountNumber, selectedCurrency]
-  );
-
   const ethUsdcQuoteRunner = React.useCallback(
     async (value: string, signal: AbortSignal) => {
       if (!value || Number(value) <= 0) return null;
@@ -968,6 +1012,24 @@ export function MintAndStakeGctlDialog({
       onError: () => setEthUsdcQuoteWei(null),
     });
 
+  const handleSetPct = React.useCallback(
+    (pct: number) => {
+      const next = (pct / 100) * (maxAmountNumber || 0);
+      if (!Number.isFinite(next) || next <= 0) {
+        setAmountInput("");
+        return;
+      }
+      const nextInput =
+        selectedCurrency === "ETH"
+          ? roundDownToDecimalsString(next, 6)
+          : roundDownToDecimalsString(next, 2);
+      setAmountInput(nextInput);
+
+      if (selectedCurrency === "ETH") runEthUsdcQuote(nextInput);
+    },
+    [maxAmountNumber, runEthUsdcQuote, selectedCurrency]
+  );
+
   const isBusy =
     isApproving ||
     isSubmitting ||
@@ -989,6 +1051,7 @@ export function MintAndStakeGctlDialog({
         stopTransferPolling();
         resetTransferPolling();
         setTrackingTxHash(null);
+        setStakeCapNoticeVisible(false);
         if (hasPerformedAction) {
           void (async () => {
             try {
@@ -1037,6 +1100,13 @@ export function MintAndStakeGctlDialog({
     }
     if (!isUnstakeAcknowledged) {
       toast.error("Please acknowledge the terms");
+      return;
+    }
+    if (isStakeCapExceeded) {
+      triggerStakeCapNotice();
+      toast.error(
+        "Region stake limit reached. Leave your contact to be notified."
+      );
       return;
     }
 
@@ -1169,6 +1239,9 @@ export function MintAndStakeGctlDialog({
       setIsApproving(false);
       setIsSubmitting(false);
       const msg = getErrorMessage(error);
+      if (msg?.includes("STAKE_CAP_EXCEEDED")) {
+        triggerStakeCapNotice();
+      }
       setStakeUiState("error");
       setStakeUiErrorMessage(msg);
       const currentSteps = stakeStepsRef.current;
@@ -1204,6 +1277,7 @@ export function MintAndStakeGctlDialog({
     amountNumber,
     invalidateAllQueries,
     isConnected,
+    isStakeCapExceeded,
     isUnstakeAcknowledged,
     latestNonce,
     selectedRegionId,
@@ -1211,13 +1285,105 @@ export function MintAndStakeGctlDialog({
     stakeGctlMutation,
     step,
     trackGctlEvent,
+    unstkedGctlBalanceNumber,
     inflationPreview?.deltaGlwPerWeek,
     inflationPreview?.nextEmissionSharePercent,
     selectedRegionLabel,
     steeringScoreAfterPreview,
     steeringScoreBefore,
     steeringImpactQuote?.deltaPerWeekPoints,
+    triggerStakeCapNotice,
     updateStakeStepStatus,
+  ]);
+
+  const handleStakeCapNotify = React.useCallback(async () => {
+    if (!showStakeCapNotice) return;
+    if (!selectedRegionId) {
+      setStakeCapContactError("Select a region first.");
+      return;
+    }
+    const trimmed = stakeCapContact.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const telegramHandleRegex = /^@?[a-zA-Z0-9_]{5,32}$/;
+    const telegramUrlRegex = /^https?:\/\/t\.me\/([a-zA-Z0-9_]{5,32})$/i;
+
+    let contactType: "email" | "telegram" | null = null;
+    let normalizedContact = trimmed;
+
+    if (emailRegex.test(trimmed)) {
+      contactType = "email";
+    } else {
+      const urlMatch = trimmed.match(telegramUrlRegex);
+      if (urlMatch?.[1]) {
+        contactType = "telegram";
+        normalizedContact = `@${urlMatch[1]}`;
+      } else if (telegramHandleRegex.test(trimmed)) {
+        contactType = "telegram";
+        normalizedContact = trimmed.startsWith("@")
+          ? trimmed
+          : `@${trimmed}`;
+      }
+    }
+
+    if (!contactType) {
+      setStakeCapContactError("Enter a valid email or Telegram handle.");
+      return;
+    }
+
+    setStakeCapSubmitting(true);
+    setStakeCapContactError(null);
+    setStakeCapSubmitted(false);
+
+    const attemptedAmountGctl =
+      stakeMode === "stake"
+        ? roundDownToDecimalsString(amountNumber, 6)
+        : roundDownToDecimalsString(estimatedGctl ?? 0, 6);
+    const remainingGctl =
+      stakeCapRemainingGctl != null
+        ? roundDownToDecimalsString(stakeCapRemainingGctl, 6)
+        : null;
+
+    try {
+      const response = await fetch("/api/gctl-stake-cap-notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contact: normalizedContact,
+          contactType,
+          wallet: address,
+          ensName: walletEnsName,
+          regionId: selectedRegionId,
+          regionName: selectedRegionLabel,
+          attemptedAmountGctl,
+          remainingCapGctl: remainingGctl,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStakeCapContactError(
+          data?.error || "Failed to send notification. Please try again."
+        );
+        return;
+      }
+      setStakeCapSubmitted(true);
+    } catch (error) {
+      console.error("Failed to submit stake cap notification:", error);
+      setStakeCapContactError("Failed to send notification. Please try again.");
+    } finally {
+      setStakeCapSubmitting(false);
+    }
+  }, [
+    address,
+    amountNumber,
+    estimatedGctl,
+    selectedRegionId,
+    selectedRegionLabel,
+    stakeCapContact,
+    stakeCapRemainingGctl,
+    stakeMode,
+    walletEnsName,
+    showStakeCapNotice,
   ]);
 
   const handleSubmit = React.useCallback(async () => {
@@ -1245,6 +1411,13 @@ export function MintAndStakeGctlDialog({
     }
     if (!isUnstakeAcknowledged) {
       toast.error("Please acknowledge the terms");
+      return;
+    }
+    if (isStakeCapExceeded) {
+      triggerStakeCapNotice();
+      toast.error(
+        "Region stake limit reached. Leave your contact to be notified."
+      );
       return;
     }
 
@@ -1427,6 +1600,9 @@ export function MintAndStakeGctlDialog({
       setIsSubmitting(false);
       setIsSwappingEth(false);
       const msg = getErrorMessage(error);
+      if (msg?.includes("STAKE_CAP_EXCEEDED")) {
+        triggerStakeCapNotice();
+      }
       setStakeUiState("error");
       setStakeUiErrorMessage(msg);
       const currentSteps = stakeStepsRef.current;
@@ -1476,6 +1652,7 @@ export function MintAndStakeGctlDialog({
     handleStakeExisting,
     isConnected,
     isEthPayEnabled,
+    isStakeCapExceeded,
     isUnstakeAcknowledged,
     mintGCTLAndStake,
     selectedCurrency,
@@ -1493,6 +1670,8 @@ export function MintAndStakeGctlDialog({
     steeringImpactQuote?.deltaPerWeekPoints,
     steeringScoreAfterPreview,
     steeringScoreBefore,
+    triggerStakeCapNotice,
+    unstkedGctlBalanceNumber,
     updateStakeStepStatus,
   ]);
 
@@ -1957,6 +2136,92 @@ export function MintAndStakeGctlDialog({
                         </div>
                       </div>
                     </div>
+
+                    {showStakeCapNotice ? (
+                      <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="h-8 w-8 rounded-lg bg-muted/50 dark:bg-muted/70 border border-border/20 dark:border-border/40 flex items-center justify-center">
+                            <Info className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-sm font-medium text-foreground">
+                              Region stake limit reached
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              This region can accept up to{" "}
+                              {formatTokenAmount(stakeCapLimitGctl ?? 50_000, {
+                                maximumFractionDigits: 0,
+                              })}{" "}
+                              GCTL in new stakes every 30 days. Remaining:{" "}
+                              {stakeCapRemainingGctl != null
+                                ? formatTokenAmount(stakeCapRemainingGctl, {
+                                    maximumFractionDigits: 2,
+                                  })
+                                : "—"}{" "}
+                              GCTL.
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="stake-cap-contact"
+                            className="text-xs text-muted-foreground"
+                          >
+                            Email or Telegram handle
+                          </Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="stake-cap-contact"
+                              type="text"
+                              placeholder="you@example.com or @handle"
+                              value={stakeCapContact}
+                              disabled={stakeCapSubmitting || stakeCapSubmitted}
+                              onChange={(event) => {
+                                setStakeCapContact(event.target.value);
+                                if (stakeCapContactError)
+                                  setStakeCapContactError(null);
+                                if (stakeCapSubmitted)
+                                  setStakeCapSubmitted(false);
+                              }}
+                              className="h-10 bg-card text-foreground placeholder:text-muted-foreground"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={handleStakeCapNotify}
+                              disabled={
+                                stakeCapSubmitting ||
+                                stakeCapSubmitted ||
+                                stakeCapContact.trim().length === 0
+                              }
+                              className="h-10"
+                            >
+                              {stakeCapSubmitting ? (
+                                <span className="inline-flex items-center gap-2">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Sending...
+                                </span>
+                              ) : stakeCapSubmitted ? (
+                                "Sent"
+                              ) : (
+                                "Notify me"
+                              )}
+                            </Button>
+                          </div>
+                          {stakeCapContactError ? (
+                            <div className="text-xs text-destructive">
+                              {stakeCapContactError}
+                            </div>
+                          ) : null}
+                          {stakeCapSubmitted ? (
+                            <div className="text-xs text-foreground">
+                              Thanks! We will notify the Glow team.
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
 
                     <div className="space-y-2">
                       <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest pl-1">

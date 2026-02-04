@@ -3,11 +3,12 @@
 import { useQuery } from "@tanstack/react-query";
 import type { RegionWithMetadata } from "@glowlabs-org/utils/browser";
 import type { ActiveRegionsSummaryResponse } from "@glowlabs-org/utils/browser";
-import { getRegionRouter } from "@/lib/api/control-routers";
+import { getControlApiUrl, getRegionRouter } from "@/lib/api/control-routers";
 
 const QUERY_KEYS = {
   regions: () => ["regions"],
   activeSummary: () => ["regions", "active-summary"],
+  stakeCap: (regionId?: number) => ["regions", "stake-cap", regionId],
 } as const;
 
 export function useRegions() {
@@ -209,5 +210,53 @@ export function useActiveRegionsSummary(options?: { enabled?: boolean }) {
     ...query,
     data: mapSummary(query.data),
     isFetching: query.isFetching,
+  } as const;
+}
+
+export interface RegionStakeCapStatus {
+  regionId: number;
+  isActive: boolean;
+  capApplied: boolean;
+  windowDays: number;
+  windowStart: string;
+  cap: string;
+  totalStaked: string;
+  remaining: string;
+}
+
+export function useRegionStakeCap(
+  regionId?: number | null,
+  options?: { enabled?: boolean }
+) {
+  const { enabled = true } = options ?? {};
+  const isConfigured = Boolean(process.env.NEXT_PUBLIC_CONTROL_API_URL);
+
+  const query = useQuery({
+    queryKey: QUERY_KEYS.stakeCap(regionId ?? undefined),
+    enabled:
+      enabled &&
+      isConfigured &&
+      Number.isFinite(regionId) &&
+      (regionId ?? 0) > 0,
+    staleTime: 30_000,
+    retry: 2,
+    queryFn: async () => {
+      const baseUrl = getControlApiUrl();
+      const response = await fetch(
+        `${baseUrl}/regions/stake-cap/${regionId}`,
+        { cache: "no-store" }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch region stake cap");
+      }
+      return (await response.json()) as RegionStakeCapStatus;
+    },
+  });
+
+  return {
+    stakeCap: query.data ?? null,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    error: query.error,
   } as const;
 }
