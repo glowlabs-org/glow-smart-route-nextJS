@@ -123,28 +123,37 @@ function isInternalRpcError(error: unknown): boolean {
     code === -32603 ||
     message.includes("internal error") ||
     message.includes("internalrpcerror") ||
-    message.includes("transaction hash")
+    message.includes("could not coalesce") ||
+    message.includes("missing or invalid parameters")
   );
 }
 
 async function withInternalRpcRetry<T>(
   fn: () => Promise<T>,
-  options: { maxRetries?: number; delayMs?: number } = {}
+  options: {
+    maxRetries?: number;
+    delayMs?: number;
+    onRetry?: (attempt: number) => void;
+  } = {}
 ): Promise<T> {
   const maxRetries = options.maxRetries ?? 1;
   const delayMs = options.delayMs ?? 1500;
-  let attempt = 0;
-  while (true) {
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error) {
-      if (attempt >= maxRetries || !isInternalRpcError(error)) {
+      const isLastAttempt = attempt >= maxRetries;
+      if (isLastAttempt || !isInternalRpcError(error)) {
         throw error;
       }
-      attempt += 1;
+      options.onRetry?.(attempt + 1);
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
+
+  // TypeScript: unreachable, but satisfies return type
+  throw new Error("Retry loop exited unexpectedly");
 }
 
 function findErrorInMessage(
@@ -778,11 +787,6 @@ export function DepositDialog({
       // For "Swap & Delegate", we just bought GLW.
       // For "Buy Miner", we have USDC.
 
-      const costBigInt =
-        selectedCurrency === "USDC"
-          ? BigInt(activeFraction.stepPrice) * BigInt(quantity)
-          : BigInt(activeFraction.step) * BigInt(quantity);
-
       const activeStepId = isSwapDelegate ? "DELEGATE_GLW" : "BUY_FRACTIONS";
       updateStepStatus(activeStepId, "confirming");
 
@@ -797,7 +801,18 @@ export function DepositDialog({
             creditTo: userAddress,
             useCounterfactualAddressForRefund: false,
           }),
-        { maxRetries: 1, delayMs: 1500 }
+        {
+          maxRetries: 1,
+          delayMs: 1500,
+          onRetry: (attempt) => {
+            trackEvent("rpc_internal_error_retry", {
+              attempt,
+              step: activeStepId,
+              application_id: application?.id ?? null,
+              fraction_id: activeFraction.id,
+            });
+          },
+        }
       );
 
       updateStepStatus(activeStepId, "completed", { txHash });
@@ -862,6 +877,11 @@ export function DepositDialog({
       } catch {
         setSuccessMetrics(null);
       }
+
+      const costBigInt =
+        selectedCurrency === "USDC"
+          ? BigInt(activeFraction.stepPrice) * BigInt(quantity)
+          : BigInt(activeFraction.step) * BigInt(quantity);
 
       await sponsorMutation.mutateAsync({
         applicationId: application.id,

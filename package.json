@@ -10,6 +10,8 @@
     "generate": "drizzle-kit generate:pg",
     "db:push": "drizzle-kit push:pg",
     "studio": "npx drizzle-kit studio",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:claim-v2": "node scripts/test-claim-v2-simple.js",
     "test:claim-v2-ts": "tsx scripts/test-claim-v2-rewards.ts",
     "prepare": "husky"
@@ -102,7 +104,8 @@
     "husky": "^9.1.7",
     "postcss": "^8.4.35",
     "tailwindcss": "^4.1.11",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "vitest": "^4.0.18"
   },
   "pnpm": {
     "overrides": {
