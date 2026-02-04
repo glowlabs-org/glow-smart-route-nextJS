@@ -1240,9 +1240,6 @@ export function MintAndStakeGctlDialog({
       setIsApproving(false);
       setIsSubmitting(false);
       const msg = getErrorMessage(error);
-      if (msg?.includes("STAKE_CAP_EXCEEDED")) {
-        triggerStakeCapNotice();
-      }
       setStakeUiState("error");
       setStakeUiErrorMessage(msg);
       const currentSteps = stakeStepsRef.current;
@@ -1598,9 +1595,6 @@ export function MintAndStakeGctlDialog({
       setIsSubmitting(false);
       setIsSwappingEth(false);
       const msg = getErrorMessage(error);
-      if (msg?.includes("STAKE_CAP_EXCEEDED")) {
-        triggerStakeCapNotice();
-      }
       setStakeUiState("error");
       setStakeUiErrorMessage(msg);
       const currentSteps = stakeStepsRef.current;
