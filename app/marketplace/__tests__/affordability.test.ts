@@ -279,7 +279,6 @@ describe("ETH payment affordability", () => {
   it("includes 3% buffer for ETH swap", () => {
     // $100 USDC at $2000/ETH = 0.05 ETH base
     // With 3% buffer = 0.0515 ETH
-    // Note: Use slightly more than 0.0515 to account for JS floating point (0.05 * 1.03 = 0.05150000000000001)
     const result = calculateAffordability(
       createInput({
         activeFraction: createFraction({ stepPrice: parseUnits("100", 6).toString() }),
@@ -287,7 +286,7 @@ describe("ETH payment affordability", () => {
         selectedCurrency: "USDC",
         selectedPaymentMethod: "ETH",
         ethSpotPrice: 2000,
-        ethBalance: parseUnits("0.0516", 18), // Slightly above 3% buffer to handle FP precision
+        ethBalance: parseUnits("0.0515", 18),
       })
     );
     expect(result.hasEnoughByMethod.ETH).toBe(true);

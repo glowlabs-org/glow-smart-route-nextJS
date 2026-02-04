@@ -15,7 +15,7 @@ export interface ActiveFraction {
   step: string; // wei string (18 decimals for GLW)
   stepPrice: string; // wei string (6 decimals for USDC)
   totalSteps: number;
-  remainingSteps: number;
+  remainingSteps: number | null;
   splitsSold?: number;
 }
 
@@ -47,8 +47,8 @@ export interface TransactionStep {
   id: string;
   title: string;
   description: string;
-  tokenFrom?: string;
-  tokenTo?: string;
+  tokenFrom?: "ETH" | "USDC" | "USDG" | "GLW";
+  tokenTo?: "ETH" | "USDC" | "USDG" | "GLW";
   status: "idle" | "waiting_signature" | "confirming" | "completed" | "error";
   startedAt?: number;
   txHash?: string;
@@ -312,14 +312,16 @@ export function calculateAffordability(
         : requiredByMethod.USDC;
 
     if (requiredUsdc != null) {
-      const requiredUsdcFloat = parseFloat(formatUnits(requiredUsdc, 6));
-      const requiredEthFloat = requiredUsdcFloat / ethSpotPrice;
-      const requiredEthWithBuffer = requiredEthFloat * 1.03; // +3% buffer
-
-      requiredByMethod.ETH =
-        Number.isFinite(requiredEthWithBuffer) && requiredEthWithBuffer > 0
-          ? parseUnits(requiredEthWithBuffer.toFixed(18), 18)
-          : null;
+      const ethPrice = parseUnits(ethSpotPrice.toFixed(6), 6);
+      if (ethPrice > 0n) {
+        const requiredEth =
+          (requiredUsdc * 10n ** 18n) / ethPrice; // 18 decimals
+        const requiredEthWithBuffer = (requiredEth * 103n) / 100n; // +3% buffer
+        requiredByMethod.ETH =
+          requiredEthWithBuffer > 0n ? requiredEthWithBuffer : null;
+      } else {
+        requiredByMethod.ETH = null;
+      }
     } else {
       requiredByMethod.ETH = null;
     }
