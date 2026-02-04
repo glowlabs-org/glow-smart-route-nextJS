@@ -5,70 +5,12 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-
-// ============================================================================
-// Helper functions (copied from deposit-dialog.tsx for isolated testing)
-// ============================================================================
-
-function getErrorMessage(error: unknown): string {
-  if (!error) return "Unknown error";
-  if (error instanceof Error && error.message) return error.message;
-  const anyError = error as any;
-  return (
-    anyError?.cause?.message ||
-    anyError?.cause?.data?.message ||
-    anyError?.data?.message ||
-    anyError?.error?.message ||
-    anyError?.shortMessage ||
-    anyError?.message ||
-    "Unknown error"
-  );
-}
-
-function getErrorCode(error: unknown): number | undefined {
-  const anyError = error as any;
-  const code = anyError?.cause?.code ?? anyError?.code;
-  return typeof code === "number" ? code : undefined;
-}
-
-function isInternalRpcError(error: unknown): boolean {
-  const message = getErrorMessage(error).toLowerCase();
-  const code = getErrorCode(error);
-  return (
-    code === -32603 ||
-    message.includes("internal error") ||
-    message.includes("internalrpcerror") ||
-    message.includes("could not coalesce") ||
-    message.includes("missing or invalid parameters")
-  );
-}
-
-async function withInternalRpcRetry<T>(
-  fn: () => Promise<T>,
-  options: {
-    maxRetries?: number;
-    delayMs?: number;
-    onRetry?: (attempt: number) => void;
-  } = {}
-): Promise<T> {
-  const maxRetries = options.maxRetries ?? 1;
-  const delayMs = options.delayMs ?? 1500;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      const isLastAttempt = attempt >= maxRetries;
-      if (isLastAttempt || !isInternalRpcError(error)) {
-        throw error;
-      }
-      options.onRetry?.(attempt + 1);
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
-  }
-
-  throw new Error("Retry loop exited unexpectedly");
-}
+import {
+  getErrorMessage,
+  getErrorCode,
+  isInternalRpcError,
+  withInternalRpcRetry,
+} from "../deposit-dialog-utils";
 
 // ============================================================================
 // Tests

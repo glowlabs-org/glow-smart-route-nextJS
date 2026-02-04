@@ -50,122 +50,27 @@ import {
 import { EmissionsIcon, VaultIcon } from "@/components/impact-icons";
 
 import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
-
-// User-friendly error messages for contract errors
-const CONTRACT_ERROR_MESSAGES: Record<
-  string,
-  { message: string; shouldRefresh?: boolean }
-> = {
-  InsufficientSharesAvailable: {
-    message:
-      "Not enough slots available. Someone else may have just purchased. Please refresh and try again.",
-    shouldRefresh: true,
-  },
-  Expired: {
-    message: "This offering has expired and is no longer accepting purchases.",
-    shouldRefresh: true,
-  },
-  AlreadyClosed: {
-    message: "This offering has been closed and is no longer available.",
-    shouldRefresh: true,
-  },
-  ZeroSteps: {
-    message: "Please select at least one unit to purchase.",
-  },
-  MinStepsToBuyCannotBeZero: {
-    message: "Please select at least one unit to purchase.",
-  },
-  InsufficientBalance: {
-    message: "Insufficient token balance. Please add funds to your wallet.",
-  },
-  AddressInsufficientBalance: {
-    message: "Insufficient token balance. Please add funds to your wallet.",
-  },
-  SafeERC20FailedOperation: {
-    message: "Token transfer failed. Please check your balance and try again.",
-  },
-  ReentrancyGuardReentrantCall: {
-    message: "Transaction in progress. Please wait and try again.",
-  },
-  FailedInnerCall: {
-    message: "Transaction failed. Please try again.",
-  },
-};
-
-const RPC_INTERNAL_ERROR_MESSAGE =
-  "RPC/provider error. Please retry or switch RPC.";
-
-function getErrorMessage(error: unknown): string {
-  if (!error) return "Unknown error";
-  if (error instanceof Error && error.message) return error.message;
-  const anyError = error as any;
-  return (
-    anyError?.cause?.message ||
-    anyError?.cause?.data?.message ||
-    anyError?.data?.message ||
-    anyError?.error?.message ||
-    anyError?.shortMessage ||
-    anyError?.message ||
-    "Unknown error"
-  );
-}
-
-function getErrorCode(error: unknown): number | undefined {
-  const anyError = error as any;
-  const code = anyError?.cause?.code ?? anyError?.code;
-  return typeof code === "number" ? code : undefined;
-}
-
-function isInternalRpcError(error: unknown): boolean {
-  const message = getErrorMessage(error).toLowerCase();
-  const code = getErrorCode(error);
-  return (
-    code === -32603 ||
-    message.includes("internal error") ||
-    message.includes("internalrpcerror") ||
-    message.includes("could not coalesce") ||
-    message.includes("missing or invalid parameters")
-  );
-}
-
-async function withInternalRpcRetry<T>(
-  fn: () => Promise<T>,
-  options: {
-    maxRetries?: number;
-    delayMs?: number;
-    onRetry?: (attempt: number) => void;
-  } = {}
-): Promise<T> {
-  const maxRetries = options.maxRetries ?? 1;
-  const delayMs = options.delayMs ?? 1500;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      const isLastAttempt = attempt >= maxRetries;
-      if (isLastAttempt || !isInternalRpcError(error)) {
-        throw error;
-      }
-      options.onRetry?.(attempt + 1);
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
-  }
-
-  // TypeScript: unreachable, but satisfies return type
-  throw new Error("Retry loop exited unexpectedly");
-}
-
-function findErrorInMessage(
-  msg: string
-): { message: string; shouldRefresh?: boolean } | null {
-  for (const [errorName, config] of Object.entries(CONTRACT_ERROR_MESSAGES)) {
-    if (msg.includes(errorName)) {
-      return config;
-    }
-  }
-  return null;
-}
+import {
+  CONTRACT_ERROR_MESSAGES,
+  RPC_INTERNAL_ERROR_MESSAGE,
+  calculateAffordability,
+  calculateCostInETH,
+  calculateCostInGLW,
+  calculateCostInUSDC,
+  calculateEstimatedRewards,
+  calculateImpactPointsBreakdown,
+  calculateSuccessMetrics,
+  clampQuantity,
+  findErrorInMessage,
+  generateShareUrl,
+  getErrorCode,
+  getErrorMessage,
+  initializeTransactionSteps,
+  isInternalRpcError,
+  parseQuantityInput,
+  withInternalRpcRetry,
+  type SuccessMetrics,
+} from "./deposit-dialog-utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -202,12 +107,6 @@ type DepositDialogProps =
 type PaymentMethod = "GLW" | "USDC" | "ETH";
 
 type Phase = "review" | "processing" | "success" | "error";
-
-interface SuccessMetrics {
-  totalSteps: number;
-  filledBeforeSteps: number;
-  userSteps: number;
-}
 
 export function DepositDialog({
   open,
@@ -259,12 +158,41 @@ export function DepositDialog({
   const [successMetrics, setSuccessMetrics] =
     React.useState<SuccessMetrics | null>(null);
 
+  const costInGLW = React.useCallback(
+    (qty: number) =>
+      calculateCostInGLW(qty, application?.activeFraction ?? null),
+    [application?.activeFraction]
+  );
+
+  const costInUSDC = React.useCallback(
+    (qty: number) =>
+      calculateCostInUSDC(
+        qty,
+        application?.activeFraction ?? null,
+        selectedCurrency,
+        glwSpotPrice
+      ),
+    [application?.activeFraction, selectedCurrency, glwSpotPrice]
+  );
+
+  const costInETH = React.useCallback(
+    (qty: number) =>
+      calculateCostInETH(
+        qty,
+        application?.activeFraction ?? null,
+        selectedCurrency,
+        glwSpotPrice,
+        ethSpotPrice
+      ),
+    [application?.activeFraction, selectedCurrency, glwSpotPrice, ethSpotPrice]
+  );
+
   // Smart auto-selection of payment method on open/connect
   React.useEffect(() => {
     if (open && isConnected && application) {
       if (selectedCurrency === "GLW") {
         // Delegation: Prefer GLW if enough, else USDC, else ETH
-        const costGLW = calculateCostInGLW(1);
+        const costGLW = costInGLW(1);
         const glwBalNum = glwBalance
           ? parseFloat(formatUnits(glwBalance, 18))
           : 0;
@@ -292,6 +220,7 @@ export function DepositDialog({
     glwBalance,
     selectedCurrency,
     application,
+    costInGLW,
   ]);
 
   // Reset on open
@@ -343,211 +272,65 @@ export function DepositDialog({
     }
     return <Coins className="h-6 w-6" />;
   }
-  const calculateCostInGLW = (qty: number) => {
-    if (!application?.activeFraction) return 0;
-    const step = parseFloat(
-      formatUnits(BigInt(application.activeFraction.step), 18)
-    );
-    return step * qty;
-  };
+  const affordability = React.useMemo(
+    () =>
+      calculateAffordability({
+        activeFraction: application?.activeFraction ?? null,
+        quantity,
+        selectedCurrency,
+        selectedPaymentMethod,
+        glwSpotPrice,
+        ethSpotPrice,
+        glwBalance: glwBalance ?? 0n,
+        usdcBalance: usdcBalance ?? 0n,
+        ethBalance: ethBalance ?? 0n,
+      }),
+    [
+      application?.activeFraction,
+      quantity,
+      selectedCurrency,
+      selectedPaymentMethod,
+      glwSpotPrice,
+      ethSpotPrice,
+      glwBalance,
+      usdcBalance,
+      ethBalance,
+    ]
+  );
 
-  const calculateCostInUSDC = (qty: number) => {
-    if (!application?.activeFraction) return 0;
-    if (selectedCurrency === "USDC") {
-      // Miner
-      const stepPrice = parseFloat(
-        formatUnits(BigInt(application.activeFraction.stepPrice), 6)
-      );
-      return stepPrice * qty;
-    } else {
-      // Delegation (via swap)
-      const glwCost = calculateCostInGLW(qty);
-      return glwCost * (glwSpotPrice || 0);
-    }
-  };
-
-  const calculateCostInETH = (qty: number) => {
-    const usdcCost = calculateCostInUSDC(qty);
-    return ethSpotPrice > 0 ? usdcCost / ethSpotPrice : 0;
-  };
-
-  const affordability = React.useMemo(() => {
-    const activeFraction = application?.activeFraction;
-    const qty = BigInt(Math.max(0, Math.floor(quantity)));
-
-    const balances = {
-      GLW: glwBalance ?? 0n,
-      USDC: usdcBalance ?? 0n,
-      ETH: ethBalance ?? 0n,
-    } as const;
-
-    const requiredByMethod: Record<PaymentMethod, bigint | null> = {
-      GLW: null,
-      USDC: null,
-      ETH: null,
-    };
-
-    if (!activeFraction || qty <= 0n) {
-      return {
-        requiredByMethod,
-        balances,
-        hasEnoughByMethod: { GLW: false, USDC: false, ETH: false } as Record<
-          PaymentMethod,
-          boolean
-        >,
-        canSubmit: false,
-      };
-    }
-
-    // GLW required (delegate directly)
-    requiredByMethod.GLW = BigInt(activeFraction.step) * qty;
-
-    // USDC required:
-    // - miners: pay stepPrice
-    // - delegations (swap): buy GLW via USDC with a 5% buffer (same as handleConfirm)
-    if (selectedCurrency === "USDC") {
-      requiredByMethod.USDC = BigInt(activeFraction.stepPrice) * qty;
-    } else {
-      if (Number.isFinite(glwSpotPrice) && glwSpotPrice > 0) {
-        const glwNeeded = BigInt(activeFraction.step) * qty; // 18 decimals
-        const glwPrice = parseUnits(glwSpotPrice.toFixed(6), 6); // USDC price (6 decimals)
-        const rawUsdcCost = (glwNeeded * glwPrice) / BigInt(1e18); // 6 decimals
-        requiredByMethod.USDC = (rawUsdcCost * 105n) / 100n;
-      } else {
-        requiredByMethod.USDC = null;
-      }
-    }
-
-    // ETH required (approx): convert required USDC -> ETH with a small buffer.
-    // We keep it conservative so the button disables when the tx is guaranteed to fail.
-    if (Number.isFinite(ethSpotPrice) && ethSpotPrice > 0) {
-      const requiredUsdc =
-        selectedCurrency === "USDC"
-          ? BigInt(activeFraction.stepPrice) * qty
-          : requiredByMethod.USDC;
-
-      if (requiredUsdc != null) {
-        const requiredUsdcFloat = parseFloat(formatUnits(requiredUsdc, 6));
-        const requiredEthFloat = requiredUsdcFloat / ethSpotPrice;
-        const requiredEthWithBuffer = requiredEthFloat * 1.03; // +3% buffer
-
-        requiredByMethod.ETH =
-          Number.isFinite(requiredEthWithBuffer) && requiredEthWithBuffer > 0
-            ? parseUnits(requiredEthWithBuffer.toFixed(18), 18)
-            : null;
-      } else {
-        requiredByMethod.ETH = null;
-      }
-    } else {
-      requiredByMethod.ETH = null;
-    }
-
-    const hasEnoughByMethod: Record<PaymentMethod, boolean> = {
-      GLW: requiredByMethod.GLW != null && balances.GLW >= requiredByMethod.GLW,
-      USDC:
-        requiredByMethod.USDC != null && balances.USDC >= requiredByMethod.USDC,
-      ETH: requiredByMethod.ETH != null && balances.ETH >= requiredByMethod.ETH,
-    };
-
-    const canSubmit = hasEnoughByMethod[selectedPaymentMethod];
-
-    return { requiredByMethod, balances, hasEnoughByMethod, canSubmit };
-  }, [
-    application?.activeFraction,
-    quantity,
-    selectedCurrency,
-    selectedPaymentMethod,
-    glwSpotPrice,
-    ethSpotPrice,
-    glwBalance,
-    usdcBalance,
-    ethBalance,
-  ]);
-
-  const estimatedRewards = React.useMemo(() => {
-    if (!application?.activeFraction || !rewardScore) return 0;
-
-    // Logic from original file to calculate per-share rewards
-    let weeklyGlw = 0;
-    const totalShares = application.activeFraction.totalSteps || 1; // avoid div 0
-
-    if ("userWeeklyGlwRewards" in rewardScore) {
-      // Launchpad
-      const glw = parseFloat(
-        formatUnits(BigInt(rewardScore.userWeeklyGlwRewards), 18)
-      );
-      const pd = parseFloat(
-        formatUnits(BigInt(rewardScore.userWeeklyPdRewards), 18)
-      );
-      weeklyGlw = (glw + pd) / totalShares;
-    } else if ("miningScore" in rewardScore) {
-      // Mining
-      if (rewardScore.weeklyGlwRewards) {
-        weeklyGlw = parseFloat(
-          formatUnits(BigInt(rewardScore.weeklyGlwRewards || "0"), 18)
-        );
-      }
-    }
-
-    return weeklyGlw * quantity;
-  }, [quantity, application, rewardScore]);
+  const estimatedRewards = React.useMemo(
+    () =>
+      calculateEstimatedRewards(
+        quantity,
+        application?.activeFraction ?? null,
+        rewardScore ?? null
+      ),
+    [quantity, application?.activeFraction, rewardScore]
+  );
 
   // Estimated weekly impact points based on GLOW-IMPACT-SCORE.md rules:
   // - Emissions: +1 point per GLW earned in emission rewards
   // - Vault bonus: +0.005 points per week per GLW delegated (launchpad only)
-  const impactPointsBreakdown = React.useMemo(() => {
-    if (!application?.activeFraction || !rewardScore) {
-      return { emissionPoints: 0, vaultBonusPoints: 0, total: 0 };
-    }
-
-    const totalShares = application.activeFraction.totalSteps || 1;
-
-    if ("userWeeklyGlwRewards" in rewardScore) {
-      // Launchpad (delegation) - earns both emission points and vault bonus
-      const emissionGlw = parseFloat(
-        formatUnits(BigInt(rewardScore.userWeeklyGlwRewards), 18)
-      );
-      const emissionPointsPerStep = emissionGlw / totalShares;
-      const emissionPoints = emissionPointsPerStep * quantity;
-
-      // Vault bonus: +0.005 points per week per GLW delegated
-      const delegatedGlw = calculateCostInGLW(quantity);
-      const vaultBonusPoints = delegatedGlw * 0.005;
-
-      return {
-        emissionPoints,
-        vaultBonusPoints,
-        total: emissionPoints + vaultBonusPoints,
-      };
-    } else if ("miningScore" in rewardScore) {
-      // Mining Center - only emission points (no vault bonus)
-      // Note: Cash miners get 3× base multiplier at rollover
-      if (rewardScore.weeklyGlwRewards) {
-        const emissionGlw = parseFloat(
-          formatUnits(BigInt(rewardScore.weeklyGlwRewards), 18)
-        );
-        const emissionPoints = emissionGlw * quantity;
-        return { emissionPoints, vaultBonusPoints: 0, total: emissionPoints };
-      }
-    }
-
-    return { emissionPoints: 0, vaultBonusPoints: 0, total: 0 };
-  }, [quantity, application, rewardScore]);
+  const impactPointsBreakdown = React.useMemo(
+    () =>
+      calculateImpactPointsBreakdown(
+        quantity,
+        application?.activeFraction ?? null,
+        rewardScore ?? null,
+        costInGLW
+      ),
+    [quantity, application?.activeFraction, rewardScore, costInGLW]
+  );
 
   const maxQuantity = application?.activeFraction?.remainingSteps ?? 0;
 
   // Handlers
   const handleQuantityChange = (delta: number) => {
-    setQuantity((prev) => Math.max(1, Math.min(maxQuantity, prev + delta)));
+    setQuantity((prev) => clampQuantity(prev + delta, 1, maxQuantity));
   };
 
   const handleQuantityInput = (value: string) => {
-    const num = parseInt(value, 10);
-    if (!isNaN(num)) {
-      setQuantity(Math.max(1, Math.min(maxQuantity, num)));
-    } else if (value === "") {
-      setQuantity(1);
-    }
+    setQuantity(parseQuantityInput(value, quantity, maxQuantity));
   };
 
   const handleSmartAccountCheck = async () => {
@@ -646,63 +429,10 @@ export function DepositDialog({
         }
       }
 
-      // Initialize transaction steps with rich metadata
-      const steps: TransactionStep[] = [];
-
-      if (selectedPaymentMethod === "ETH") {
-        steps.push({
-          id: "SWAP_ETH_TO_USDC",
-          title: "Swap ETH → USDC",
-          description: "Converting ETH to USDC via Uniswap",
-          tokenFrom: "ETH",
-          tokenTo: "USDC",
-          status: "idle",
-        });
-      }
-      if (isSwapDelegate) {
-        steps.push({
-          id: "SWAP_USDC_TO_USDG",
-          title: "Swap USDC → USDG",
-          description: "Converting USDC to USDG",
-          tokenFrom: "USDC",
-          tokenTo: "USDG",
-          status: "idle",
-        });
-        steps.push({
-          id: "SWAP_USDG_TO_GLOW",
-          title: "Swap USDG → GLW",
-          description: "Converting USDG to GLW via Uniswap",
-          tokenFrom: "USDG",
-          tokenTo: "GLW",
-          status: "idle",
-        });
-        steps.push({
-          id: "DELEGATE_GLW",
-          title: "Delegate GLW",
-          description: "Delegating GLW to the solar farm",
-          tokenFrom: "GLW",
-          status: "idle",
-        });
-      } else {
-        steps.push({
-          id: "BUY_FRACTIONS",
-          title:
-            selectedCurrency === "USDC" ? "Purchase Miners" : "Delegate GLW",
-          description:
-            selectedCurrency === "USDC"
-              ? "Purchasing miner units"
-              : "Delegating GLW to the solar farm",
-          tokenFrom: selectedCurrency === "USDC" ? "USDC" : "GLW",
-          status: "idle",
-        });
-      }
-      steps.push({
-        id: "CONFIRM_TX",
-        title: "Confirm Transaction",
-        description: "Waiting for blockchain confirmation",
-        status: "idle",
-      });
-
+      const steps = initializeTransactionSteps(
+        selectedCurrency,
+        selectedPaymentMethod
+      );
       stepsRef.current = steps;
       setTransactionSteps(steps);
 
@@ -843,40 +573,7 @@ export function DepositDialog({
         );
       }
 
-      // Calculate success metrics
-      try {
-        const totalSteps = Math.max(
-          0,
-          Math.floor(activeFraction.totalSteps || 0)
-        );
-        let filledBeforeSteps = 0;
-
-        if (totalSteps > 0) {
-          if (activeFraction.remainingSteps != null) {
-            filledBeforeSteps = Math.max(
-              0,
-              Math.min(
-                totalSteps,
-                totalSteps -
-                  Math.max(0, Math.floor(activeFraction.remainingSteps))
-              )
-            );
-          } else {
-            filledBeforeSteps = Math.max(
-              0,
-              Math.min(totalSteps, Math.floor(activeFraction.splitsSold || 0))
-            );
-          }
-        }
-
-        setSuccessMetrics({
-          totalSteps,
-          filledBeforeSteps,
-          userSteps: Math.max(0, Math.floor(quantity)),
-        });
-      } catch {
-        setSuccessMetrics(null);
-      }
+      setSuccessMetrics(calculateSuccessMetrics(activeFraction, quantity));
 
       const costBigInt =
         selectedCurrency === "USDC"
@@ -1051,39 +748,16 @@ export function DepositDialog({
     return application?.afterInstallPictures?.[0]?.url ?? null;
   }, [application]);
 
-  const shareUrl = React.useMemo(() => {
-    try {
-      if (!farmLabelForShare) return null;
-      if (!successMetrics) return null;
-
-      if (selectedCurrency === "USDC") {
-        const text = [
-          `I just bought ${quantity} miner${
-            quantity > 1 ? "s" : ""
-          } from ${farmLabelForShare} on @glowFND`,
-          "",
-          `Every miner I own earns me GLW weekly for the next 99 weeks.`,
-          "",
-          APP_DOMAIN_PLAIN_TEXT,
-        ].join("\n");
-        return `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-          text
-        )}`;
-      }
-
-      const text = [
-        `I just helped fund ${farmLabelForShare} by delegating GLW tokens.`,
-        "",
-        `You can do the same and start earning GLW weekly for 100 weeks here: ${APP_DOMAIN_PLAIN_TEXT}`,
-      ].join("\n");
-
-      return `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-        text
-      )}`;
-    } catch {
-      return null;
-    }
-  }, [selectedCurrency, farmLabelForShare, successMetrics, quantity]);
+  const shareUrl = React.useMemo(
+    () =>
+      generateShareUrl(
+        selectedCurrency,
+        quantity,
+        farmLabelForShare,
+        Boolean(successMetrics)
+      ),
+    [selectedCurrency, farmLabelForShare, successMetrics, quantity]
+  );
 
   const handleShare = async () => {
     try {
@@ -1173,25 +847,35 @@ export function DepositDialog({
   };
 
   const successDetails: TransactionDetail[] = application?.activeFraction
-    ? [
-        {
-          label: "Quantity",
-          value: quantity.toString(),
-        },
-        {
-          label: `Total ${selectedCurrency} Delegated`,
-          value: formatNumber(
-            parseFloat(
-              formatUnits(
-                BigInt(application.activeFraction.stepPrice) * BigInt(quantity),
-                DECIMALS_BY_TOKEN[selectedCurrency]
-              )
+    ? (() => {
+        const totalCost =
+          selectedCurrency === "USDC"
+            ? BigInt(application.activeFraction.stepPrice) * BigInt(quantity)
+            : BigInt(application.activeFraction.step) * BigInt(quantity);
+
+        return [
+          {
+            label: "Quantity",
+            value: quantity.toString(),
+          },
+          {
+            label:
+              selectedCurrency === "GLW"
+                ? "Total GLW Delegated"
+                : "Total USDC",
+            value: formatNumber(
+              parseFloat(
+                formatUnits(
+                  totalCost,
+                  DECIMALS_BY_TOKEN[selectedCurrency]
+                )
+              ),
+              0
             ),
-            0
-          ),
-          unit: selectedCurrency,
-        },
-      ]
+            unit: selectedCurrency,
+          },
+        ];
+      })()
     : [];
 
   const renderContent = () => {
@@ -1706,7 +1390,7 @@ export function DepositDialog({
                     !affordability.canSubmit
                   }
                   pricePreview={
-                    calculateCostInGLW(quantity).toLocaleString() + " GLW"
+                    costInGLW(quantity).toLocaleString() + " GLW"
                   }
                 />
               )}
@@ -1729,9 +1413,7 @@ export function DepositDialog({
                   selectedPaymentMethod === "USDC" &&
                   !affordability.canSubmit
                 }
-                pricePreview={
-                  calculateCostInUSDC(quantity).toLocaleString() + " USDC"
-                }
+                pricePreview={costInUSDC(quantity).toLocaleString() + " USDC"}
               />
               {/* Option: ETH */}
               <PaymentOption
@@ -1752,7 +1434,7 @@ export function DepositDialog({
                   selectedPaymentMethod === "ETH" &&
                   !affordability.canSubmit
                 }
-                pricePreview={calculateCostInETH(quantity).toFixed(4) + " ETH"}
+                pricePreview={costInETH(quantity).toFixed(4) + " ETH"}
               />
             </div>
           </div>
@@ -1764,15 +1446,15 @@ export function DepositDialog({
             <div className="text-right">
               <div className="text-xl font-bold font-mono">
                 {selectedPaymentMethod === "GLW" &&
-                  `${calculateCostInGLW(quantity).toLocaleString()} GLW`}
+                  `${costInGLW(quantity).toLocaleString()} GLW`}
                 {selectedPaymentMethod === "USDC" &&
-                  `$${calculateCostInUSDC(quantity).toLocaleString()}`}
+                  `$${costInUSDC(quantity).toLocaleString()}`}
                 {selectedPaymentMethod === "ETH" &&
-                  `${calculateCostInETH(quantity).toFixed(4)} ETH`}
+                  `${costInETH(quantity).toFixed(4)} ETH`}
               </div>
               <div className="text-xs text-muted-foreground">
                 {selectedPaymentMethod !== "USDC"
-                  ? `≈ $${calculateCostInUSDC(quantity).toLocaleString()}`
+                  ? `≈ $${costInUSDC(quantity).toLocaleString()}`
                   : "Stable"}
               </div>
             </div>

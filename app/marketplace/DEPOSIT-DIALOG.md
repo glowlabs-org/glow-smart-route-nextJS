@@ -163,18 +163,34 @@ Deposit Dialog fires telemetry events to track conversion and failures:
 
 ## Testing
 
-Unit tests for the RPC retry logic are in `app/marketplace/__tests__/rpc-retry.test.ts`.
+Unit tests are in `app/marketplace/__tests__/`. Pure utility functions are extracted to `deposit-dialog-utils.ts` for testability.
 
-Run tests:
+### Test files
+
+| File | Coverage |
+|------|----------|
+| `rpc-retry.test.ts` | RPC retry logic, error detection |
+| `error-handling.test.ts` | Contract error mapping, `findErrorInMessage` |
+| `cost-calculations.test.ts` | GLW/USDC/ETH cost calculations |
+| `affordability.test.ts` | Balance sufficiency, buffer calculations |
+| `transaction-steps.test.ts` | Step initialization for all payment flows |
+| `rewards-calculations.test.ts` | Estimated rewards, impact points |
+| `share-url.test.ts` | Share URL generation, quantity helpers |
+
+### Run tests
+
 ```bash
-pnpm test                    # Run all tests
-pnpm test:watch              # Watch mode
-pnpm vitest run app/marketplace/__tests__/rpc-retry.test.ts  # Run specific test file
+pnpm test                                    # Run all tests
+pnpm test:watch                              # Watch mode
+pnpm vitest run app/marketplace/__tests__/   # Run all deposit-dialog tests
+pnpm vitest run app/marketplace/__tests__/cost-calculations.test.ts  # Run specific file
 ```
 
-Test coverage includes:
-- Error message extraction from various error shapes (viem, ethers, raw objects)
-- Error code extraction from nested causes
-- Internal RPC error detection heuristics
-- Retry logic with success/failure scenarios
-- Integration tests simulating the `buyFractions` flow
+### Test coverage (226 tests)
+
+- **Error handling**: Error message extraction, error code extraction, RPC error detection, contract error mapping
+- **Cost calculations**: GLW/USDC/ETH cost math, precision handling, edge cases
+- **Affordability**: Balance checks, 5% USDC buffer, 3% ETH buffer, payment method switching
+- **Transaction steps**: Step initialization for all 5 payment flows, step ordering
+- **Rewards**: Launchpad vs mining rewards, impact points (emission + vault bonus)
+- **Share URLs**: Twitter intent generation, URL encoding, pluralization
