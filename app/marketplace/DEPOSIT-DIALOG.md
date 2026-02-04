@@ -118,6 +118,31 @@ Shown after confirmation. Displays a vertical stepper with per-step states:
 
 Before execution, a **smart account / delegated account** check runs. If detected, the flow is blocked and a warning dialog is shown.
 
+## Error handling
+
+### RPC error retry mechanism
+
+The `buyFractions` call is wrapped with automatic retry logic for transient RPC/provider errors. This handles cases where the RPC returns an internal error (code -32603) even though simulation succeeded.
+
+**Behavior:**
+- On internal RPC error, waits 1.5s then retries once
+- If retry succeeds, user never sees the error
+- If retry fails, shows user-friendly message: "RPC/provider error. Please retry or switch RPC."
+- Non-RPC errors (contract errors, user rejection) are not retried
+
+**Detection heuristics:**
+- Error code `-32603` (JSON-RPC internal error)
+- Message contains "internal error", "internalrpcerror", "could not coalesce", or "missing or invalid parameters"
+
+### Sentry context
+
+On error (non-user-rejection), the dialog reports to Sentry with enriched context:
+- `errorCode`: JSON-RPC error code if available
+- `isInternalRpcError`: boolean flag for RPC-level failures
+- `connectorName`: wallet connector (e.g., "MetaMask", "WalletConnect")
+- `walletClientChainId`: chain ID from wallet client
+- `walletClientAccount`: account address from wallet client
+
 ## Telemetry (events)
 
 Deposit Dialog fires telemetry events to track conversion and failures:
@@ -126,6 +151,7 @@ Deposit Dialog fires telemetry events to track conversion and failures:
 - `marketplace_deposit_error`
 - `marketplace_deposit_share_x_click`
 - `marketplace_deposit_share_native_click`
+- `rpc_internal_error_retry` - fired when an RPC error triggers a retry attempt
 
 ## Notes / constraints
 
@@ -134,3 +160,21 @@ Deposit Dialog fires telemetry events to track conversion and failures:
 - **Multi-transaction flows**: Swap + delegate can require 2-4 signatures.
 - **Backend processing delay**: splits polling may take up to ~60 seconds before success renders.
 - **Share behavior**: native share on mobile; X/Twitter intent on desktop.
+
+## Testing
+
+Unit tests for the RPC retry logic are in `app/marketplace/__tests__/rpc-retry.test.ts`.
+
+Run tests:
+```bash
+pnpm test                    # Run all tests
+pnpm test:watch              # Watch mode
+pnpm vitest run app/marketplace/__tests__/rpc-retry.test.ts  # Run specific test file
+```
+
+Test coverage includes:
+- Error message extraction from various error shapes (viem, ethers, raw objects)
+- Error code extraction from nested causes
+- Internal RPC error detection heuristics
+- Retry logic with success/failure scenarios
+- Integration tests simulating the `buyFractions` flow
