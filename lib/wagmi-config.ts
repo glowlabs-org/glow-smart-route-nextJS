@@ -1,9 +1,10 @@
 "use client";
 
-import { cookieStorage, createStorage, createConfig, http } from "wagmi";
+import { cookieStorage, createStorage, createConfig } from "wagmi";
 import { mainnet, sepolia } from "wagmi/chains";
 import { injected, coinbaseWallet, walletConnect } from "wagmi/connectors";
 import type { Connector } from "wagmi";
+import { instrumentedHttp } from "@/lib/viem-rpc-logging";
 
 if (!process.env.NEXT_PUBLIC_WALLET_CONNECT_ID)
   throw new Error("NEXT_PUBLIC_WALLET_CONNECT_ID is not set");
@@ -49,8 +50,16 @@ export const wagmiConfig = createConfig({
   ssr: true,
   chains,
   transports: {
-    [mainnet.id]: http(process.env.NEXT_PUBLIC_MAINNET_RPC_URL),
-    [sepolia.id]: http(process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL),
+    [mainnet.id]: instrumentedHttp(
+      process.env.NEXT_PUBLIC_MAINNET_RPC_URL,
+      undefined,
+      { source: "wagmi" }
+    ),
+    [sepolia.id]: instrumentedHttp(
+      process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL,
+      undefined,
+      { source: "wagmi" }
+    ),
   },
   connectors:
     typeof window === "undefined"

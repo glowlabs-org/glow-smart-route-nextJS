@@ -39,6 +39,10 @@ Features enabled:
 | `tosStage: "api_submission"` | Failed to submit signed TOS to API |
 | `tosStage: "general_error"` | Catch-all for unexpected errors |
 
+Additional tags and context for ToS errors:
+- Tags: `connectorName`, `connectorId`, `chainId`, `walletChainId`, `expectedChainId`, `signingMethod`, `signatureType`, `tosErrorType`
+- Extra fields: `errorCode`, `errorReason`, `errorShortMessage`, `errorInfo`, `errorData`, `errorCause`, `errorStack`, `rawError`, `isWrongNetwork`
+
 ### Swap Flow (`app/buy/swap-interface.tsx`, `hooks/useSwap.ts`)
 
 | Stage Tag | Description |

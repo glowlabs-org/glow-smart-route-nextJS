@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useAccount, useDisconnect } from "wagmi";
+import { useAccount, useChainId, useDisconnect } from "wagmi";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +48,65 @@ function getSignatureDebugInfo(signature: string | undefined) {
     signaturePreview,
   };
 }
+
+function toPlainObject(value: unknown) {
+  if (!value || typeof value !== "object") return value;
+  const output: Record<string, unknown> = {};
+  for (const key of Object.getOwnPropertyNames(value)) {
+    output[key] = (value as Record<string, unknown>)[key];
+  }
+  return output;
+}
+
+function safeJsonStringify(value: unknown) {
+  const seen = new WeakSet();
+  return JSON.stringify(
+    value,
+    (key, val) => {
+      if (val instanceof Error) {
+        return toPlainObject(val);
+      }
+      if (typeof val === "bigint") {
+        return val.toString();
+      }
+      if (typeof val === "object" && val !== null) {
+        if (seen.has(val)) return "[Circular]";
+        seen.add(val);
+      }
+      return val;
+    },
+    2
+  );
+}
+
+function getErrorDetails(error: unknown) {
+  const err = error as {
+    name?: string;
+    message?: string;
+    code?: string | number;
+    reason?: string;
+    shortMessage?: string;
+    data?: unknown;
+    info?: unknown;
+    error?: unknown;
+    cause?: unknown;
+    stack?: string;
+  };
+
+  return {
+    name: err?.name,
+    message: err?.message,
+    code: err?.code,
+    reason: err?.reason,
+    shortMessage: err?.shortMessage,
+    data: err?.data,
+    info: err?.info,
+    error: err?.error,
+    cause: err?.cause,
+    stack: err?.stack,
+    raw: safeJsonStringify(toPlainObject(error)),
+  };
+}
 import {
   Collapsible,
   CollapsibleContent,
@@ -63,6 +122,7 @@ type TosErrorType =
   | "deadline_invalid"
   | "signature_rejected"
   | "network_error"
+  | "wrong_network"
   | "unknown";
 
 interface TosError {
@@ -263,6 +323,7 @@ const tosEIP712Types = {
 
 export function TosDialog() {
   const { isConnected, address, connector } = useAccount();
+  const connectedChainId = useChainId();
   const { disconnect } = useDisconnect();
   const { signer, isLoading: isSignerLoading } = useEthersSigner();
   const { latestNonce } = useGctlApi(address);
@@ -278,6 +339,33 @@ export function TosDialog() {
   const [isDetailsOpen, setIsDetailsOpen] = React.useState(false);
   const [error, setError] = React.useState<TosError | null>(null);
   const [retryCount, setRetryCount] = React.useState(0);
+
+  const isWrongNetwork =
+    isConnected &&
+    typeof connectedChainId === "number" &&
+    connectedChainId !== chainId;
+
+  const getNetworkLabel = (id?: number) => {
+    if (!id) return "Unknown Network";
+    if (id === 1) return "Ethereum Mainnet";
+    if (id === 11155111) return "Sepolia";
+    if (id === 8453) return "Base";
+    return `Chain ${id}`;
+  };
+
+  const expectedNetworkLabel = getNetworkLabel(chainId);
+  const connectedNetworkLabel = getNetworkLabel(connectedChainId);
+
+  const wrongNetworkError: TosError = {
+    type: "wrong_network",
+    title: "Wrong Network",
+    message: `Your wallet is connected to ${connectedNetworkLabel}.`,
+    suggestion: `Please switch to ${expectedNetworkLabel} to sign the Terms of Service.`,
+    canRetry: true,
+  };
+
+  const showWrongNetworkAlert =
+    isWrongNetwork && (!error || error.type !== "wrong_network");
 
   React.useEffect(() => {
     if (!isConnected || !address) {
@@ -344,6 +432,12 @@ export function TosDialog() {
   const handleAcceptTos = async () => {
     if (!address) {
       toast.error("Please ensure your wallet is connected");
+      return;
+    }
+
+    if (isWrongNetwork) {
+      setError(wrongNetworkError);
+      setRetryCount((prev) => prev + 1);
       return;
     }
 
@@ -415,11 +509,16 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
             typedDataError instanceof Error
               ? typedDataError
               : new Error(String(typedDataError));
+          const errorDetails = getErrorDetails(typedDataError);
           Sentry.captureException(normalizedError, {
             tags: {
               tosStage: "eip712_signing",
               walletAddress: address,
               chainId: String(chainId),
+              walletChainId: connectedChainId
+                ? String(connectedChainId)
+                : "unknown",
+              expectedChainId: String(chainId),
               connectorName,
               connectorId,
             },
@@ -430,8 +529,16 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
               deadline,
               deadlineHuman: new Date(Number(deadline) * 1000).toISOString(),
               errorMessage: normalizedError.message,
+              errorCode: errorDetails.code,
+              errorReason: errorDetails.reason,
+              errorShortMessage: errorDetails.shortMessage,
+              errorInfo: errorDetails.info,
+              errorData: errorDetails.data,
+              errorCause: errorDetails.cause,
+              errorStack: errorDetails.stack,
+              isWrongNetwork,
               // Include raw error for better debugging
-              rawError: typeof typedDataError === "object" ? JSON.stringify(typedDataError, null, 2) : String(typedDataError),
+              rawError: errorDetails.raw || String(typedDataError),
             },
           });
         }
@@ -479,6 +586,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
           const normalizedError =
             apiError instanceof Error ? apiError : new Error(String(apiError));
           const sigDebug = getSignatureDebugInfo(signature);
+          const errorDetails = getErrorDetails(apiError);
 
           Sentry.captureException(normalizedError, {
             tags: {
@@ -486,6 +594,10 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
               walletAddress: address,
               signingMethod,
               chainId: String(chainId),
+              walletChainId: connectedChainId
+                ? String(connectedChainId)
+                : "unknown",
+              expectedChainId: String(chainId),
               connectorName,
               connectorId,
               signatureType: sigDebug.signatureType,
@@ -499,8 +611,16 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
               signatureLength: sigDebug.signatureLength,
               signaturePreview: sigDebug.signaturePreview,
               errorMessage: normalizedError.message,
+              errorCode: errorDetails.code,
+              errorReason: errorDetails.reason,
+              errorShortMessage: errorDetails.shortMessage,
+              errorInfo: errorDetails.info,
+              errorData: errorDetails.data,
+              errorCause: errorDetails.cause,
+              errorStack: errorDetails.stack,
+              isWrongNetwork,
               // Include raw error for nested error objects
-              rawError: typeof apiError === "object" ? JSON.stringify(apiError, null, 2) : String(apiError),
+              rawError: errorDetails.raw || String(apiError),
             },
           });
         }
@@ -532,6 +652,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
         const normalizedError =
           error instanceof Error ? error : new Error(String(error));
         const sigDebug = getSignatureDebugInfo(signingContext.signature);
+        const errorDetails = getErrorDetails(error);
 
         Sentry.captureException(normalizedError, {
           tags: {
@@ -539,6 +660,10 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
             tosErrorType: parsedError.type,
             walletAddress: address,
             chainId: String(chainId),
+            walletChainId: connectedChainId
+              ? String(connectedChainId)
+              : "unknown",
+            expectedChainId: String(chainId),
             connectorName,
             connectorId,
             signingMethod: signingContext.signingMethod,
@@ -555,13 +680,21 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
             signatureLength: sigDebug.signatureLength,
             signaturePreview: sigDebug.signaturePreview,
             errorMessage: normalizedError.message,
+            errorCode: errorDetails.code,
+            errorReason: errorDetails.reason,
+            errorShortMessage: errorDetails.shortMessage,
+            errorInfo: errorDetails.info,
+            errorData: errorDetails.data,
+            errorCause: errorDetails.cause,
+            errorStack: errorDetails.stack,
             errorType: typeof error,
             parsedErrorType: parsedError.type,
             parsedErrorTitle: parsedError.title,
             parsedErrorSuggestion: parsedError.suggestion,
             retryCount,
+            isWrongNetwork,
             // Include raw error for nested error objects
-            rawError: typeof error === "object" ? JSON.stringify(error, null, 2) : String(error),
+            rawError: errorDetails.raw || String(error),
           },
         });
       }
@@ -937,6 +1070,21 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
             </Alert>
           )}
 
+          {showWrongNetworkAlert && (
+            <Alert variant="destructive" className="border-red-500/50 bg-red-500/10">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle className="font-semibold">Wrong Network</AlertTitle>
+              <AlertDescription className="mt-2 space-y-2">
+                <p>
+                  Your wallet is connected to {connectedNetworkLabel}.
+                </p>
+                <p className="text-sm opacity-90">
+                  Please switch to {expectedNetworkLabel} to continue.
+                </p>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="p-3 bg-muted/40 dark:bg-muted/50 rounded-lg border border-border/30 dark:border-border/40">
             <p className="text-sm text-muted-foreground">
               <strong className="text-glow-orange">
@@ -961,7 +1109,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
           </Button>
           <Button
             onClick={handleAcceptTos}
-            disabled={isSigning || isSignerLoading}
+            disabled={isSigning || isSignerLoading || isWrongNetwork}
             variant={error?.canRetry ? "default" : "default"}
           >
             {isSigning ? (
@@ -974,6 +1122,8 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Connecting...
               </>
+            ) : isWrongNetwork ? (
+              "Wrong Network"
             ) : error?.canRetry ? (
               <>
                 <RefreshCw className="mr-2 h-4 w-4" />

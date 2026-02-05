@@ -1,8 +1,1 @@
-# Skip build if dev server is running (port 3000 in use)
-if lsof -i :3000 > /dev/null 2>&1; then
-  echo "⚠️  Dev server running - skipping pre-push build check"
-  echo "   Stop the dev server and run 'pnpm build' manually to verify"
-  exit 0
-fi
-
 pnpm build
