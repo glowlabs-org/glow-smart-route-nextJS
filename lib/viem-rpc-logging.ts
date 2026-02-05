@@ -36,6 +36,10 @@ const maskRpcUrl = (url?: string) => {
       return part;
     });
     parsed.pathname = `/${maskedParts.join("/")}`;
+    parsed.username = "";
+    parsed.password = "";
+    parsed.search = "";
+    parsed.hash = "";
     return parsed.toString();
   } catch (error) {
     return url;
