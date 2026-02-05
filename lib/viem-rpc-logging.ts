@@ -96,6 +96,7 @@ export const instrumentedHttp = (
     const chainId = params.chain?.id;
     const rpcUrl = transport.value?.url ?? url;
 
+    // Use try/catch to preserve the generic return type of transport.request.
     const request: typeof transport.request = async (
       requestParams,
       requestOptions
