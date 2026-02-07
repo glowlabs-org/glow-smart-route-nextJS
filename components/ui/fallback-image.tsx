@@ -29,6 +29,7 @@ export function FallbackImage({
   widthForProxy,
   quality = 75,
   disableProxy = false,
+  alt = "",
   onError,
   ...imgProps
 }: FallbackImageProps) {
@@ -49,7 +50,14 @@ export function FallbackImage({
     if (onError) onError(e);
   };
 
-  return <img src={currentSrc} onError={handleError} {...imgProps} />;
+  return (
+    <img
+      src={currentSrc}
+      alt={alt}
+      onError={handleError}
+      {...imgProps}
+    />
+  );
 }
 
 export default FallbackImage;

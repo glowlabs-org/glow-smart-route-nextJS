@@ -138,6 +138,7 @@ export const QUERY_KEYS = {
       ["fmi-pressure", range ?? null, address ?? null] as const,
   },
   pol: {
+    summary: () => ["pol-summary"] as const,
     liquiditySnapshot: (range?: string | null, wallets?: string[] | null) =>
       ["pol-liquidity-snapshot", range ?? null, wallets ?? null] as const,
   },

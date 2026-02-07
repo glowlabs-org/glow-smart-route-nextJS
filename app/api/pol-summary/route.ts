@@ -10,20 +10,16 @@ const CACHE_HEADERS = {
 };
 
 function getPonderUrl(): string {
+  // Prefer env, but keep a sane production default so local env misconfig
+  // doesn't break the internal dashboard.
   return process.env.NEXT_PUBLIC_POSITIONS_API_BASE || DEFAULT_PONDER_URL;
 }
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const url = new URL(req.url);
-    const range = url.searchParams.get("range") || "12w";
-
-    const params = new URLSearchParams();
-    if (range) params.set("range", range);
-
-    // Spec source: Ponder `/pol/snapshots` (12-week PoL series).
-    const target = `${getPonderUrl()}/pol/snapshots?${params.toString()}`;
+    const target = `${getPonderUrl()}/pol/summary`;
     const response = await fetch(target, { next: { revalidate: 60 } });
+
     if (!response.ok) {
       const text = await response.text();
       return NextResponse.json(
@@ -42,3 +38,4 @@ export async function GET(req: Request) {
     );
   }
 }
+

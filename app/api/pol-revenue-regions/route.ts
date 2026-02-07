@@ -2,38 +2,34 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const DEFAULT_PONDER_URL =
-  "https://glow-ponder-listener-2-production.up.railway.app";
+const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 
 const CACHE_HEADERS = {
   "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120",
 };
 
-function getPonderUrl(): string {
-  return process.env.NEXT_PUBLIC_POSITIONS_API_BASE || DEFAULT_PONDER_URL;
-}
-
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const url = new URL(req.url);
-    const range = url.searchParams.get("range") || "12w";
+    if (!HUB_URL) {
+      return NextResponse.json(
+        { error: "NEXT_PUBLIC_HUB_URL is not set" },
+        { status: 500, headers: { "Cache-Control": "no-store" } }
+      );
+    }
 
-    const params = new URLSearchParams();
-    if (range) params.set("range", range);
-
-    // Spec source: Ponder `/pol/snapshots` (12-week PoL series).
-    const target = `${getPonderUrl()}/pol/snapshots?${params.toString()}`;
+    const target = `${HUB_URL}/pol/revenue/regions?range=90d`;
     const response = await fetch(target, { next: { revalidate: 60 } });
     if (!response.ok) {
       const text = await response.text();
       return NextResponse.json(
-        { error: `Ponder error ${response.status}: ${text}` },
+        { error: `Hub error ${response.status}: ${text}` },
         { status: response.status, headers: CACHE_HEADERS }
       );
     }
 
     const payload = await response.json();
-    return NextResponse.json(payload, { headers: CACHE_HEADERS });
+    const normalized = Array.isArray(payload) ? { regions: payload } : payload;
+    return NextResponse.json(normalized, { headers: CACHE_HEADERS });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(

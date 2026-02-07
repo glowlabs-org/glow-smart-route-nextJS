@@ -4,6 +4,10 @@ This spec is a **working draft**. It codifies what we can say today, flags gaps,
 and separates **decisions** from **implementation**. Treat any **Open** item as
 blocking for final correctness.
 
+**Frontend implementation rule:** keep the **existing UI/layout** in
+`app/internal/pol/view.tsx`. The task is **data wiring only** (replace mock data
+and TODOs with live sources). Do **not** redesign or remove sections.
+
 Primary narrative: **Protocol-Owned Liquidity (PoL)**. All PoL metrics are
 **liquidity-denominated (lq)** with a small USD/GLW breakdown in parentheses.
 
@@ -19,21 +23,21 @@ Example display:
 
 ### 1) lq (liquidity units)
 
-`lq = sqrt(usdc * glw)` using the **GLW/USDC pool reserves** or a synthetic
+`lq = sqrt(usdg * glw)` using the **GLW/USDG pool reserves** or a synthetic
 50/50 split derived from USD value.
 
 Notes:
 
 - lq is **not additive** across different pools. If we sum positions, we must
-  **sum USDC + GLW reserves first**, then compute lq, **or** show per-position
+  **sum USDG + GLW reserves first**, then compute lq, **or** show per-position
   lq and sum as a **display-only approximation**.
 - If we do synthetic lq from USD value, it is **display-only** and should be
   labeled as such.
 
 ### 2) PoL (Protocol-Owned Liquidity)
 
-PoL includes **protocol-owned** GLW/USDC liquidity positions only. **External
-LPs are not PoL.**
+PoL includes **protocol-owned** GLW/USDG liquidity positions only. **External
+LPs are not PoL.** For this dashboard, PoL = **endowment + bot active**.
 
 ### 3) CCs / ICs
 
@@ -61,16 +65,16 @@ All "90d" metrics are **13 weeks**.
    - **Farm**: by CCs/ICs (not PD).
 
 3) **PoL revenue scope**:
-   - **Yield** is *only* bot trading gains + Uniswap fees.
-   - Miner sales are **not yield** until funds are added to the bot.
+   - **Yield** is *only* bot trading gains (rebalance) + Uniswap fees.
+   - **DCA/deposits/capital flows** are not yield.
+   - **Miner sales** count toward PoL **immediately at sale time**.
+   - **Bounties** are deducted from miner sales before PoL attribution.
 
 4) **Circulating supply** excludes:
    - Vaulted GLW
    - Grant tokens
    - Locked/vesting tokens
-   - Tokens held by **bot** or **endowment** wallets
-     - Endowment wallet: `0x868D99B4a6e81b4683D10ea5665f13579A9d1607`
-     - Trading bot wallet: `0x0b650820dde452b204de44885fc0fbb788fc5e37`
+   - Tokens held by **PoL wallets** (bot + endowment)
 
 5) **Supply slider model**:
    - Use **xy = k**
@@ -83,15 +87,16 @@ All "90d" metrics are **13 weeks**.
 7) **FDV**:
    - Exclude tokens in **PoL wallets**.
 
-8) **FMI section**: **Keep** (requires heavy data pipeline).
+8) **FMI section**: **Keep** (pipeline now lives in CRM + Ponder).
+   - **Sell pressure = DEX sell flow** (GLW → USDG swaps).
 
 ### Open / Needs Review
 
-A) **PoL APY display**: CEO needs to see the card before deciding.
+A) **PoL APY display**: show from CRM (90d APY is already computed).
 
 B) **Delegator APY display**: show **on another card** (not PoL card).
 
-C) **Vesting schedule breakdown**: awaiting updated source.
+C) **Vesting schedule breakdown**: CSV placeholder is acceptable for now.
 
 ---
 
@@ -100,23 +105,23 @@ C) **Vesting schedule breakdown**: awaiting updated source.
 ### A) lq from USD value (synthetic)
 
 ```
-usdcSide = totalUsd / 2
-glwSide  = usdcSide / glwSpotPrice
-lq       = sqrt(usdcSide * glwSide)
+usdgSide = totalUsd / 2
+glwSide  = usdgSide / glwSpotPrice
+lq       = sqrt(usdgSide * glwSide)
 ```
 
 ### B) lq from pool reserves (actual)
 
 ```
-lq = sqrt(usdcReserve * glwReserve)
+lq = sqrt(usdgReserve * glwReserve)
 ```
 
 ### C) USD/GLW breakdown (display only)
 
 ```
-usdcSide = totalUsd / 2
-glwSide  = usdcSide / glwSpotPrice
-display  = "$${usdcSide} / ${glwSide} GLW"
+usdgSide = totalUsd / 2
+glwSide  = usdgSide / glwSpotPrice
+display  = "$${usdgSide} / ${glwSide} GLW"
 ```
 
 Use **spot price** for display breakdowns (not EDGAP).
@@ -128,21 +133,19 @@ Use **spot price** for display breakdowns (not EDGAP).
 ### 1.1 Market Cap
 
 - **Definition**: `marketCap = glwSpotPrice * circulatingSupply`
-- **Data sources**: GLW pool price (spot), circulating supply (Section 3).
-- **Status**: Blocked by circulating supply pipeline.
+- **Data sources**: keep current `useGlowCirculatingSupply` path (on-chain).
 
 ### 1.2 GLW Price
 
-- **Definition**: Spot price from main GLW/USDC pool.
+- **Definition**: Spot price from main GLW/USDG pool.
 - **Data source**: On-chain pool (Uniswap).
 - **Status**: Live if pool read wired.
 
 ### 1.3 Total PoL (lq)
 
-- **Definition**: Protocol-owned GLW/USDC liquidity across all protocol
+- **Definition**: Protocol-owned GLW/USDG liquidity across all protocol
   positions, expressed in lq.
-- **Data sources**: Protocol-owned LP positions (Uniswap NFT positions / vaults).
-- **Status**: Needs explicit PoL position registry (and excludes external LPs).
+- **Data sources**: Ponder `/pol/summary` (endowment + bot active).
 
 ---
 
@@ -157,19 +160,19 @@ All values are **lq** with USD/GLW breakdown.
 
 ```
 polFromMinerSales = minerSalesRevenue - bountyPaidToFarm
-recognizedWeekly = polFromMinerSalesAddedToBot / smoothingWindowWeeks
+recognizedWeekly = polFromMinerSales / smoothingWindowWeeks
 ```
 
 Notes:
 
 - Smoothing window is **13 weeks**.
-- Miner sales are **not yield** until funds are added to the bot.
+- Miner sales are **counted immediately** (no deposit gating).
 
-**Data source**: Off-chain foundation ledger (miner sales & bounties).
+**Data source**: CRM pipeline (fractions ledger + bounties table).
 
 #### B) GCTL Mint Attribution (PoL)
 
-Minting introduces protocol capital (USDC) and should be recognized as PoL.
+Minting introduces protocol capital (USDG) and should be recognized as PoL.
 We **spread** the mint value over the smoothing window.
 
 ```
@@ -180,7 +183,7 @@ recognizedWeekly = mintUsd / smoothingWindowWeeks
 - Allocate to **region** by GCTL staked.
 - Allocate to **farm** within region by CCs/ICs (not PD).
 
-**Data sources**: On-chain mint events + staking targets.
+**Data sources**: Control API mint events + staking totals (via CRM).
 
 #### C) GCTL Yield Attribution (PoL)
 
@@ -189,7 +192,7 @@ Yield sources (all yield):
 1. Bot trading gains (off-chain logs)
 2. Uniswap fees (on-chain)
 
-**Data sources**: Bot PnL ledger + Uniswap fee accruals.
+**Data sources**: Ponder PoL yield (rebalance + Uni fees) via CRM.
 
 #### Farm Attribution Formula (placeholder)
 
@@ -205,19 +208,19 @@ farmRevenue = minerSalesComponent(farm)
 
 - **Definition**: Sum of all recognized weekly PoL contributions for the farm
   across lifetime.
--- **Status**: Blocked by PoL revenue pipeline.
+-- **Status**: Available via CRM `/pol/revenue/*`.
 
 ### 2.2 Active Farms
 
 - **Definition**: Farms with active protocol deposits (PD > 0) and not fully
   unwound.
 - **Data sources**: Control API farm registry or CRM farms endpoint.
-- **Status**: Likely available; needs endpoint selection.
+- **Status**: Available via CRM `/pol/revenue/aggregate` (PD > 0).
 
 ### 2.3 90d Revenue
 
 - **Definition**: Sum of recognized weekly PoL contributions over last 13 weeks.
--- **Status**: Blocked by PoL revenue pipeline.
+-- **Status**: Available via CRM `/pol/revenue/*`.
 
 ### 2.4 90d PoL Yield
 
@@ -234,8 +237,7 @@ Exclude:
 - Vaulted GLW
 - Grant tokens
 - Locked/vesting tokens
-- Tokens held by bot or endowment wallets
-- Tokens in PoL wallets (by definition of bot/endowment/PoL custody)
+- Tokens in PoL wallets (bot + endowment)
 
 ```
 circulating =
@@ -243,8 +245,7 @@ circulating =
   - vaultedGlw
   - grantTokens
   - lockedOrVestingGlw
-  - botWalletGlw
-  - endowmentWalletGlw
+  - polWalletGlw
 ```
 
 ### 3.2 Supply Breakdown Bar
@@ -265,7 +266,7 @@ this bar per the circulating definition.
 
 ### 3.4 Liquidity (MiniStat)
 
-- **Definition**: lq from main GLW/USDC pool reserves.
+- **Definition**: lq from main GLW/USDG pool reserves.
 - **Data source**: On-chain pool reserves.
 
 ### 3.5 Weekly Net Change (Line Chart)
@@ -288,7 +289,7 @@ Fields:
 - 90d delta (% change over trailing 13-week vs previous 13-week window).
 - Carbon credits (cc/week and lifetime).
 
-Status: **Blocked** until PoL revenue pipeline exists.
+Status: **Available** via CRM `/pol/revenue/farms`.
 
 ---
 
@@ -326,21 +327,15 @@ Same as 1.3, but can show USD breakdown.
 
 ### 6.2 PoL APY
 
-Open item (CEO review). If kept:
-
-```
-apy = annualYieldUsd / totalPolUsd * 100
-```
-
-Yield sources: Uniswap fees + bot trading gains.
+Use CRM `/pol/revenue/aggregate` → `ninety_day_apy` (already computed).
 
 ### 6.3 Yield / Week
 
-`weeklyYield = annualYield / 52`
+`weeklyYield = ninetyDayYieldLq / 13` (use CRM `ninety_day_yield_lq`).
 
 ### 6.4 Pool Depth (USD)
 
-`poolDepth = usdcReserve + glwReserve * spotPrice`
+`poolDepth = usdgReserve + glwReserve * spotPrice`
 
 ### 6.5 PoL Sources Breakdown
 
@@ -403,8 +398,7 @@ Decision: if a wallet qualifies for multiple categories, do we:
 
 ### 9.1 GLW Delegated
 
-Prefer `GET /fractions/total-actively-delegated` (CRM backend).
-Need to confirm if this represents **remaining principal** or **original**.
+Use `GET /fractions/total-actively-delegated` (CRM backend).
 
 ### 9.2 Delegators Count
 
@@ -413,7 +407,7 @@ Avoid reusing capped leaderboard counts.
 
 ### 9.3 Est. APY
 
-Prefer `GET /fractions/average-apy` from CRM backend.
+If displayed, use `GET /fractions/average-apy` from CRM backend.
 Delegator APY should live on the **Delegation Metrics** card (not PoL card).
 
 ### 9.4 Delegation Growth vs APY
@@ -423,13 +417,14 @@ Implement as cron snapshot table.
 
 ### 9.5 Delegation Ratio
 
-`totalDelegated / circulatingSupply * 100` (blocked by circulating supply pipeline).
+`totalDelegated / circulatingSupply * 100` (circulating supply is available via
+`useGlowCirculatingSupply`).
 
 ---
 
 ## Section 10: Per-Region Revenue Table
 
-Same attribution rules as Section 2 & 4 (blocked by PoL revenue pipeline).
+Same attribution rules as Section 2 & 4. Available via CRM `/pol/revenue/regions`.
 
 Fields:
 
@@ -444,8 +439,11 @@ Fields:
 
 ## Section 11: FMI (Flywheel Market Index)
 
-Confirmed: **Keep** for v1, but requires a full pipeline for miner sales,
-minting, LP fees, bot PnL, vesting unlocks, and trade flow analysis.
+Confirmed: **Keep** for v1. Frontend consumes CRM `/fmi/pressure` (latest week).
+
+Notes:
+- **Sell pressure** is DEX sell flow (GLW → USDG swaps) from Ponder.
+- Buy pressure already computed in CRM (miner sales + GCTL mints + PoL yield).
 
 ---
 
@@ -458,14 +456,13 @@ Exclude tokens held in PoL wallets.
 
 ### 12.2 Vesting Schedule
 
-Should be computed from vesting contracts (on-chain).
-Current mock numbers must be verified.
+Use CRM `/glw/vesting-schedule` (CSV placeholder is acceptable for now).
 
 ---
 
 ## Section 13: Supply Model Explorer (Dialog)
 
-Purpose: **illustrative model** showing how circulating supply and USDC liquidity
+Purpose: **illustrative model** showing how circulating supply and USDG liquidity
 move with price. Not a live on-chain simulation.
 
 ### 13.1 Price Slider
@@ -482,9 +479,13 @@ Candidate constraints:
 - `circulating(Pfloor) = 0`
 - `circulating` increases with price.
 
-### 13.3 Modeled USDC Liquidity
+Implementation note: use current **Uniswap reserves** from `usePoolInfo` and
+current **PoL balances** from Ponder `/pol/summary` to compute
+`total_usdg`, `total_glw`, and `k`.
 
-Should increase with price. If using xy=k, USDC side scales with `sqrt(price)`.
+### 13.3 Modeled USDG Liquidity
+
+Should increase with price. If using xy=k, USDG side scales with `sqrt(price)`.
 Must be derived from the same model as circulating.
 
 ### 13.4 What NOT to show (per CEO)
@@ -493,41 +494,36 @@ Must be derived from the same model as circulating.
 - Locked supply
 - Protocol liquidity (PoL)
 
-Only show: **circulating supply** and **USDC liquidity** as price changes.
+Only show: **circulating supply** and **USDG liquidity** as price changes.
 
 ---
 
 ## Data Source Map (Current Reality)
 
-On-chain:
+Frontend should **only consume APIs** (no new on-chain math in UI beyond
+existing hooks). Current sources:
 
-- GLW total supply
-- GLW/USDC pool price + reserves
-- Protocol LP positions
-- GCTL price + supply
-- Region staking totals
-- Vault balances
+Ponder (via Next API proxy):
+- `/pol/summary` (endowment + bot active balances, total PoL lq)
+- `/pol/snapshots` (12-week PoL series)
+- `/spot-price` (USDG per GLW, for lq↔USD display)
 
-CRM backend:
+CRM (via Next API proxy):
+- `/pol/revenue/aggregate`, `/pol/revenue/farms`, `/pol/revenue/regions`
+- `/fmi/pressure` (latest week)
+- `/glw/vesting-schedule`
+- `/impact/wallet-stats`, `/impact/new-wallets-by-week`
+- `/fractions/total-actively-delegated`, `/fractions/actively-delegated-by-week`
 
-- Impact leaderboard counts
-- Fractions summary + APY
-- Active delegated GLW
-
-Off-chain:
-
-- Miner sales ledger
-- Bounty payments
-- Bot PnL ledger
-- GCA audit reports (panels, production, carbon credits)
+On-chain (existing hooks only):
+- `usePoolInfo` for current Uniswap reserves (supply model explorer)
+- `useGlowCirculatingSupply` for market cap + circulating supply (unchanged)
 
 ---
 
 ## Implementation TODOs
 
-1. Implement PoL revenue pipeline (ledger ingestion + attribution + smoothing).
-2. Build circulating supply weekly snapshot cron using the new definition.
-3. Wire homes/trees constants to the same values as wallet stats.
-4. Finalize supply slider math (xy=k) and ensure floor/ceiling are correct.
-5. Build FMI pipeline (miner sales, minting, LP fees, bot PnL, vesting unlocks,
-   trade flow analysis).
+1. Replace mock constants in `app/internal/pol/view.tsx` with live hooks.
+2. Swap existing PoL/FMI hooks to the CRM/Ponder-backed endpoints (no UI changes).
+3. Use `usePoolInfo` + Ponder PoL balances for the supply model explorer.
+4. Ensure lq↔USD conversions use Ponder spot price when available.
