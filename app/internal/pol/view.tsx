@@ -63,11 +63,15 @@ import {
 import { usePolFarmRevenueSeries } from "@/hooks/usePolFarmRevenueSeries";
 import { useGlwVestingSchedule } from "@/hooks/useGlwVestingSchedule";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
+
 import { formatUnits } from "viem";
+import { getCurrentWeekNumber } from "@/lib/rewards/weekly-delegations";
 
 const PRICE_RANGE = { min: 0.001, max: 100 };
 const SECONDS_PER_WEEK = 7 * 24 * 60 * 60;
 const LIQUIDITY_UNIT = "Ⱡ";
+const POL_LIQUIDITY_V2_START_WEEK = 97;
+const FDV_TOTAL_TOKENS_GLW = 180_000_000;
 
 // TODO: mock data (fallback if live regions unavailable)
 const GCTL_REGIONS = [
@@ -157,6 +161,26 @@ function formatUsdCompact(value: number) {
 function formatUsdCompactNullable(value: number | null) {
   if (value === null || !Number.isFinite(value)) return "—";
   return formatUsdCompact(value);
+}
+
+// For hero KPIs where we always want compact currency formatting (e.g. `$335.7K`)
+// instead of switching to full numbers in the mid-six-fig range.
+function formatUsdCompactHero(value: number) {
+  const abs = Math.abs(value);
+  if (abs >= 1_000) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(value);
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: abs < 1 ? 4 : 2,
+  }).format(value);
 }
 
 function formatUsdCompactPrecise(value: number) {
@@ -987,22 +1011,22 @@ function PolLiquidityTooltip({
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-4">
-          <div className="text-xs text-muted-foreground">Bot active</div>
-          <div className="text-sm font-mono tabular-nums text-foreground">
-            {typeof p.botActiveLiquidity === "number"
-              ? formatLiquidityCompact(p.botActiveLiquidity)
-              : "—"}
-          </div>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-            Δ Bot active
-          </div>
-          <div className="text-xs font-mono tabular-nums text-foreground">
-            {p.deltaBotActiveLiquidity === null ||
-            p.deltaBotActiveLiquidity === undefined
-              ? "—"
+	        <div className="flex items-center justify-between gap-4">
+		          <div className="text-xs text-muted-foreground">Trading bot</div>
+		          <div className="text-sm font-mono tabular-nums text-foreground">
+		            {typeof p.botActiveLiquidity === "number"
+		              ? formatLiquidityCompact(p.botActiveLiquidity)
+		              : "—"}
+		          </div>
+		        </div>
+	        <div className="flex items-center justify-between gap-4">
+	          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+	            Δ Trading bot
+	          </div>
+		          <div className="text-xs font-mono tabular-nums text-foreground">
+		            {p.deltaBotActiveLiquidity === null ||
+		            p.deltaBotActiveLiquidity === undefined
+		              ? "—"
               : formatSignedLiquidityCompact(p.deltaBotActiveLiquidity)}
           </div>
         </div>
@@ -1383,6 +1407,12 @@ export function PolDashboardView() {
   const [sliderValue, setSliderValue] = React.useState(() =>
     priceToLogSlider(displayPrice)
   );
+  const resetSupplyModel = React.useCallback(() => {
+    if (!hasLivePrice || livePrice <= 0) return;
+    setPrice(livePrice);
+    setSliderValue(priceToLogSlider(livePrice));
+    setHasAdjustedSlider(false);
+  }, [hasLivePrice, livePrice]);
 
   React.useEffect(() => {
     if (!hasAdjustedSlider && livePrice > 0) {
@@ -1551,9 +1581,6 @@ export function PolDashboardView() {
         }
       : null;
 
-  const weeklyYieldLq =
-    ninetyDayYieldLq !== null ? ninetyDayYieldLq / 13 : null;
-
   const farmRowsAll = React.useMemo(() => {
     const farms = polRevenueFarms?.farms ?? [];
     return farms
@@ -1576,26 +1603,26 @@ export function PolDashboardView() {
         const creditsTotalRaw =
           (farm as any).credits_total ?? (farm as any).cc_lifetime ?? 0;
         const ccLifetime = Number(creditsTotalRaw) || 0;
-	        const ccPerWeekRaw = (farm as any).cc_per_week ?? 0;
-	        const ccPerWeek = Number(ccPerWeekRaw) || 0;
-	        const imageUrl = pickSolarPanelsImageUrl([
-	          (farm as any).image_url ?? null,
-	          ...(Array.isArray((farm as any).images) ? (farm as any).images : []),
-	        ]);
+        const ccPerWeekRaw = (farm as any).cc_per_week ?? 0;
+        const ccPerWeek = Number(ccPerWeekRaw) || 0;
+        const imageUrl = pickSolarPanelsImageUrl([
+          (farm as any).image_url ?? null,
+          ...(Array.isArray((farm as any).images) ? (farm as any).images : []),
+        ]);
 
-	        const auditWeekRaw =
-	          (farm as any).audit_week ?? (farm as any).auditWeek ?? null;
-	        const auditWeek =
-	          typeof auditWeekRaw === "string"
-	            ? Number(auditWeekRaw)
-	            : typeof auditWeekRaw === "number"
-	            ? auditWeekRaw
-	            : null;
+        const auditWeekRaw =
+          (farm as any).audit_week ?? (farm as any).auditWeek ?? null;
+        const auditWeek =
+          typeof auditWeekRaw === "string"
+            ? Number(auditWeekRaw)
+            : typeof auditWeekRaw === "number"
+            ? auditWeekRaw
+            : null;
 
-	        const recencyKey = (() => {
-	          // Prefer protocol week (monotonic) when available.
-	          if (auditWeek !== null && Number.isFinite(auditWeek))
-	            return auditWeek;
+        const recencyKey = (() => {
+          // Prefer protocol week (monotonic) when available.
+          if (auditWeek !== null && Number.isFinite(auditWeek))
+            return auditWeek;
 
           const rawDate =
             (farm as any).installFinishedDate ??
@@ -1743,8 +1770,13 @@ export function PolDashboardView() {
   const { data: polLiquiditySnapshot } = usePolLiquiditySnapshot({
     range: "20w",
   });
+  const polLiquidityRange = React.useMemo(() => {
+    const currentWeek = getCurrentWeekNumber(Date.now());
+    const weeks = Math.max(1, currentWeek - POL_LIQUIDITY_V2_START_WEEK + 1);
+    return `${weeks}w`;
+  }, []);
   const { data: polLiquiditySeries } = usePolLiquidity({
-    range: "12w",
+    range: polLiquidityRange,
   });
 
   const supplyGrowthAnnual = React.useMemo(() => {
@@ -1855,26 +1887,26 @@ export function PolDashboardView() {
   }, [polSummary, displayPrice, totalPolLq]);
 
   const fdvUsd = React.useMemo(() => {
-    if (!hasLiveSupply || !hasLivePrice) return null;
-    const polGlw = polWalletGlw ?? 0;
-    const maxSupplyMinusPol = Math.max(0, supplyTotal - polGlw);
-    return maxSupplyMinusPol * currentPrice;
-  }, [hasLiveSupply, hasLivePrice, polWalletGlw, supplyTotal, currentPrice]);
+    if (!hasLivePrice) return null;
+    return FDV_TOTAL_TOKENS_GLW * currentPrice;
+  }, [hasLivePrice, currentPrice]);
 
   const polLiquidityTrend = React.useMemo(() => {
-    const series = polLiquiditySeries?.series;
-    if (!series || series.length < 2) return null;
-    const sorted = series.slice().sort((a, b) => a.weekNumber - b.weekNumber);
-    const completed = sorted.length > 1 ? sorted.slice(0, -1) : sorted;
-    const tail = completed.slice(-12);
-    if (tail.length < 2) return null;
+	    const series = polLiquiditySeries?.series;
+	    if (!series || series.length < 2) return null;
+	    const sorted = series.slice().sort((a, b) => a.weekNumber - b.weekNumber);
+	    const completed = sorted.length > 1 ? sorted.slice(0, -1) : sorted;
+	    const windowed = completed.filter(
+	      (row) => row.weekNumber >= POL_LIQUIDITY_V2_START_WEEK
+	    );
+	    if (windowed.length < 2) return null;
 
-    return tail.map((row, index) => {
-      const prev = index > 0 ? tail[index - 1] : null;
-      const liquidity = parseLqUnits(row.totalLq) ?? 0;
-      const prevLiquidity = prev ? parseLqUnits(prev.totalLq) ?? 0 : null;
-      const deltaLiquidity =
-        prevLiquidity === null ? null : liquidity - prevLiquidity;
+	    return windowed.map((row, index) => {
+	      const prev = index > 0 ? windowed[index - 1] : null;
+	      const liquidity = parseLqUnits(row.totalLq) ?? 0;
+	      const prevLiquidity = prev ? parseLqUnits(prev.totalLq) ?? 0 : null;
+	      const deltaLiquidity =
+	        prevLiquidity === null ? null : liquidity - prevLiquidity;
 
       const endowmentLiquidity = parseLqUnits(row.endowmentLq) ?? 0;
       const prevEndowmentLiquidity = prev
@@ -1924,14 +1956,14 @@ export function PolDashboardView() {
         if (!raw) return null;
         const n = Number(raw);
         return Number.isFinite(n) ? n : null;
-      })();
+	      })();
 
-      return {
-        week: `W-${tail.length - index}`,
-        protocolWeek: row.weekNumber,
-        liquidity,
-        deltaLiquidity,
-        endowmentLiquidity,
+	      return {
+	        week: `W${row.weekNumber}`,
+	        protocolWeek: row.weekNumber,
+	        liquidity,
+	        deltaLiquidity,
+	        endowmentLiquidity,
         deltaEndowmentLiquidity,
         botActiveLiquidity,
         deltaBotActiveLiquidity,
@@ -1943,30 +1975,31 @@ export function PolDashboardView() {
   }, [polLiquiditySeries]);
   const polLiquidityChartData = polLiquidityTrend ?? [];
   const polLiquidityIsLive = Boolean(polLiquidityTrend);
+  const polSourceBreakdown = React.useMemo(() => {
+    const endowmentFromSummary = parseLqUnits(polSummary?.endowment?.lq ?? null);
+    const botFromSummary = parseLqUnits(polSummary?.botActive?.lq ?? null);
 
-  const polSources = React.useMemo(() => {
-    const endowmentLq = parseLqUnits(polSummary?.endowment?.lq ?? null) ?? 0;
-    const botLq = parseLqUnits(polSummary?.botActive?.lq ?? null) ?? 0;
-    const total = endowmentLq + botLq;
-    if (total <= 0) {
-      return [
-        { name: "Bot active", value: 100, color: "hsl(142, 71%, 45%)" },
-        { name: "Endowment", value: 0, color: "hsl(29, 90%, 60%)" },
-      ];
-    }
-    return [
-      {
-        name: "Bot active",
-        value: Math.round((botLq / total) * 100),
-        color: "hsl(142, 71%, 45%)",
-      },
-      {
-        name: "Endowment",
-        value: Math.max(0, 100 - Math.round((botLq / total) * 100)),
-        color: "hsl(29, 90%, 60%)",
-      },
-    ];
-  }, [polSummary]);
+    const fallbackFromSeries = (() => {
+      const series = polLiquiditySeries?.series;
+      if (!series || series.length === 0) return null;
+      const sorted = series.slice().sort((a, b) => a.weekNumber - b.weekNumber);
+      const last = sorted[sorted.length - 1];
+      if (!last) return null;
+      const endowment = parseLqUnits(last.endowmentLq) ?? null;
+      const bot = parseLqUnits(last.botActiveLq) ?? null;
+      return endowment === null || bot === null ? null : { endowment, bot };
+    })();
+
+    const endowment = endowmentFromSummary ?? fallbackFromSeries?.endowment ?? null;
+    const bot = botFromSummary ?? fallbackFromSeries?.bot ?? null;
+    if (endowment === null || bot === null) return null;
+
+    const total = endowment + bot;
+    if (!Number.isFinite(total) || total <= 0) return null;
+    const botPct = Math.round((bot / total) * 100);
+    const endowmentPct = Math.max(0, 100 - botPct);
+    return { endowmentPct, botPct };
+  }, [polLiquiditySeries, polSummary]);
 
   const regionsTableRows = React.useMemo(() => {
     const rows = polRevenueRegions?.regions ?? [];
@@ -2263,52 +2296,52 @@ export function PolDashboardView() {
                 </CardContent>
               </Card>
             </div>
-	          </section>
+          </section>
 
-	          <section className="flex flex-col gap-6 pt-16">
-	            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-	              <SectionHeader title="Every Farm Adds Value" />
+          <section className="flex flex-col gap-6 pt-16">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <SectionHeader title="Every Farm Adds Value" />
 
-	              <div className="flex items-center justify-end gap-3">
-	                {showAllFarms ? (
-	                  <div className="flex items-center gap-2">
-	                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-	                      Sort by
-	                    </span>
-	                    <select
-	                      value={farmSortKey}
-	                      onChange={(e) =>
-	                        setFarmSortKey(
-	                          e.target.value as
-	                            | "latest"
-	                            | "lifetime"
-	                            | "ninetyDay"
-	                            | "credits"
-	                        )
-	                      }
-	                      className="rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-xs font-mono cursor-pointer hover:border-border/60 transition-colors"
-	                    >
-	                      <option value="latest">Latest</option>
-	                      <option value="lifetime">Lifetime</option>
-	                      <option value="ninetyDay">90d Revenue</option>
-	                      <option value="credits">CC / Week</option>
-	                    </select>
-	                  </div>
-	                ) : null}
+              <div className="flex items-center justify-end gap-3">
+                {showAllFarms ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                      Sort by
+                    </span>
+                    <select
+                      value={farmSortKey}
+                      onChange={(e) =>
+                        setFarmSortKey(
+                          e.target.value as
+                            | "latest"
+                            | "lifetime"
+                            | "ninetyDay"
+                            | "credits"
+                        )
+                      }
+                      className="rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-xs font-mono cursor-pointer hover:border-border/60 transition-colors"
+                    >
+                      <option value="latest">Latest</option>
+                      <option value="lifetime">Lifetime</option>
+                      <option value="ninetyDay">90d Revenue</option>
+                      <option value="credits">CC / Week</option>
+                    </select>
+                  </div>
+                ) : null}
 
-	                <Button
-	                  variant="outline"
-	                  size="sm"
-	                  onClick={() => setShowAllFarms((v) => !v)}
-	                >
-	                  {showAllFarms ? "Show less" : "See all"}
-	                </Button>
-	              </div>
-	            </div>
-	            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-	              {farmRowsToRender.map((farm) => {
-		                const lifetimeLq =
-		                  farm.lifetimeLq !== null && displayPrice > 0
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAllFarms((v) => !v)}
+                >
+                  {showAllFarms ? "Show less" : "See all"}
+                </Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {farmRowsToRender.map((farm) => {
+                const lifetimeLq =
+                  farm.lifetimeLq !== null && displayPrice > 0
                     ? {
                         value: formatLiquidityCompact(farm.lifetimeLq),
                         breakdown: getBreakdownFromLq(
@@ -2433,89 +2466,99 @@ export function PolDashboardView() {
                     }
                     valueClassName="text-3xl sm:text-4xl"
                   />
-                  <div className="grid grid-cols-2 gap-3">
-                    <MiniStat
-                      label="Yield / wk"
-                      value={
-                        weeklyYieldLq !== null
-                          ? formatLiquidityCompact(weeklyYieldLq)
-                          : "—"
-                      }
-                      valueClassName="text-base sm:text-lg tracking-tight"
-                    />
-                    <MiniStat
-                      label="Pool depth"
-                      value={poolDepthDisplay}
+	                  <div className="grid grid-cols-2 gap-3">
+	                    <MiniStat
+	                      label="90d Yield"
+	                      value={ninetyDayYieldDisplay?.lq ?? "—"}
+	                      helper={
+	                        ninetyDayYieldDisplay?.breakdown
+	                          ? `(${ninetyDayYieldDisplay.breakdown})`
+	                          : "Live data unavailable"
+	                      }
+	                      valueClassName="text-base sm:text-lg tracking-tight"
+	                    />
+	                    <MiniStat
+	                      label="Pool depth"
+	                      value={poolDepthDisplay}
                       helper={poolDepthHelper}
                       valueClassName="text-base sm:text-lg tracking-tight"
                     />
                   </div>
-                  <div>
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                      PoL liquidity (12w)
-                      {polLiquidityIsLive ? "" : " · Live data unavailable"}
-                    </div>
-                    <ChartContainer
-                      config={polLiquidityChartConfig}
-                      className="h-24 w-full"
-                    >
-                      <AreaChart data={polLiquidityChartData}>
-                        <XAxis
-                          dataKey="week"
-                          tickLine={false}
-                          axisLine={false}
-                          tick={{ fontSize: 9 }}
-                          interval="preserveStartEnd"
-                        />
-                        <ChartTooltip content={<PolLiquidityTooltip />} />
-                        <Area
-                          type="monotone"
-                          dataKey="liquidity"
-                          stroke="var(--color-liquidity)"
-                          fill="var(--color-liquidity)"
-                          fillOpacity={0.2}
-                          strokeWidth={2}
-                        />
-                      </AreaChart>
-                    </ChartContainer>
-                  </div>
-                  <div className="flex-1 flex flex-col gap-3">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Sources
-                    </div>
-                    <div className="flex-1 flex flex-col justify-center gap-4">
-                      {polSources.map((segment) => (
-                        <div
-                          key={segment.name}
-                          className="flex flex-col gap-1.5"
-                        >
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="flex items-center gap-2 text-muted-foreground">
-                              <span
-                                className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
-                                style={{ backgroundColor: segment.color }}
-                              />
-                              {segment.name}
-                            </span>
-                            <span className="font-mono tabular-nums font-medium text-foreground">
-                              {segment.value}%
-                            </span>
-                          </div>
-                          <div className="h-2 w-full rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden">
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: `${segment.value}%`,
-                                backgroundColor: segment.color,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+	                  <div>
+	                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
+	                      PoL liquidity (since v2)
+	                      {polLiquidityIsLive ? "" : " · Live data unavailable"}
+	                    </div>
+	                    <ChartContainer
+	                      config={polLiquidityChartConfig}
+	                      className="h-24 w-full"
+	                    >
+	                      <AreaChart data={polLiquidityChartData}>
+	                        <XAxis
+	                          dataKey="week"
+	                          tickLine={false}
+	                          axisLine={false}
+	                          tick={{ fontSize: 9 }}
+	                          interval="preserveStartEnd"
+	                        />
+	                        <ChartTooltip content={<PolLiquidityTooltip />} />
+	                        <Area
+	                          type="monotone"
+	                          dataKey="liquidity"
+	                          stroke="var(--color-liquidity)"
+	                          fill="var(--color-liquidity)"
+	                          fillOpacity={0.2}
+	                          strokeWidth={2}
+	                          dot={false}
+	                        />
+	                      </AreaChart>
+	                    </ChartContainer>
+	                  </div>
+
+	                  <div className="pt-1">
+	                    <div className="flex flex-col gap-4">
+	                      {[
+	                        {
+	                          key: "endowment",
+	                          label: "Endowment",
+	                          color: "hsl(29, 90%, 60%)",
+	                          pct: polSourceBreakdown?.endowmentPct ?? null,
+	                        },
+	                        {
+	                          key: "bot",
+	                          label: "Trading bot",
+	                          color: "hsl(142, 71%, 45%)",
+	                          pct: polSourceBreakdown?.botPct ?? null,
+	                        },
+	                      ].map((row) => (
+	                        <div key={row.key} className="flex flex-col gap-1.5">
+	                          <div className="flex items-center justify-between text-sm">
+	                            <span className="flex items-center gap-2 text-muted-foreground">
+	                              <span
+	                                className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+	                                style={{ backgroundColor: row.color }}
+	                              />
+	                              {row.label}
+	                            </span>
+	                            <span className="font-mono tabular-nums font-medium text-foreground">
+	                              {row.pct === null ? "—" : `${row.pct}%`}
+	                            </span>
+	                          </div>
+	                          <div className="h-2 w-full rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden">
+	                            <div
+	                              className="h-full rounded-full transition-all duration-300 ease-out"
+	                              style={{
+	                                width: `${row.pct ?? 0}%`,
+	                                backgroundColor: row.color,
+	                              }}
+	                            />
+	                          </div>
+	                        </div>
+	                      ))}
+	                    </div>
+	                  </div>
+	                </CardContent>
+	              </Card>
 
               {/* ── GCTL ── */}
               <Card className="!gap-6">
@@ -3086,14 +3129,14 @@ export function PolDashboardView() {
                       value={
                         fdvUsd !== null ? formatUsdCompactPrecise(fdvUsd) : "—"
                       }
-                      helper={
-                        fdvUsd !== null && polWalletGlw !== null && hasLivePrice
-                          ? `${formatCompactNumberPrecise(
-                              Math.max(0, supplyTotal - polWalletGlw)
-                            )} GLW at $${priceDetail} (excl. PoL wallets)`
-                          : "Live data unavailable"
-                      }
-                    />
+	                      helper={
+	                        fdvUsd !== null && hasLivePrice
+	                          ? `${formatCompactNumberPrecise(
+	                              FDV_TOTAL_TOKENS_GLW
+	                            )} GLW at $${priceDetail}`
+	                          : "Live data unavailable"
+	                      }
+	                    />
                     <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 p-4">
                       <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                         Vesting breakdown
@@ -3124,58 +3167,76 @@ export function PolDashboardView() {
       <Dialog open={isSupplyDialogOpen} onOpenChange={setIsSupplyDialogOpen}>
         <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
           <div className="border-b border-border/40 pb-6 pt-8 px-6">
-            <DialogHeader>
-              <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                Supply Model Explorer
-              </DialogTitle>
-              <DialogDescription className="sr-only">
-                Supply model explorer
-              </DialogDescription>
-            </DialogHeader>
+            <div className="flex items-center justify-between gap-4">
+              <DialogHeader>
+                <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                  Supply Model Explorer
+                </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Supply model explorer
+                </DialogDescription>
+              </DialogHeader>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetSupplyModel}
+                disabled={!hasAdjustedSlider}
+              >
+                Reset
+              </Button>
+            </div>
           </div>
           <div className="p-6 space-y-6">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-              Modeled supply{" "}
-              {isAtLivePrice ? "(matches live)" : "(not live data)"}
+              Modeled supply {isAtLivePrice ? "(matches live)" : null}
             </div>
-            {/* ── Key metrics that change with price ── */}
-            <div className="grid grid-cols-2 gap-4">
-              <MetricCard
-                label="Liquid circulating"
-                value={
-                  liquidCirculatingModeled !== null
-                    ? `${formatCompactNumberPrecise(
-                        liquidCirculatingModeled
-                      )} GLW`
-                    : "—"
-                }
-                helper={
-                  supplyDelta !== null
-                    ? `${formatSignedNumber(supplyDelta)} vs current`
-                    : "Live data unavailable"
-                }
-              />
-              <MetricCard
-                label="Pool depth"
-                value={
-                  supplyModel.modeledPoolDepthUsd !== null
-                    ? formatUsdCompact(supplyModel.modeledPoolDepthUsd)
-                    : "—"
-                }
-                helper={
-                  supplyModel.modeledPoolDepthUsd !== null &&
-                  hasLivePrice &&
-                  (poolReserves?.usdg ?? 0) > 0 &&
-                  (poolReserves?.glw ?? 0) > 0
-                    ? `${formatUsdCompactPrecise(
-                        supplyModel.modeledPoolDepthUsd -
-                          ((poolReserves?.usdg ?? 0) +
-                            (poolReserves?.glw ?? 0) * displayPrice)
-                      )} vs current pool`
-                    : "Live data unavailable"
-                }
-              />
-            </div>
+	            {/* ── Key metrics that change with price ── */}
+	            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+	              <div className="min-w-0">
+	                <MetricCard
+	                  label="Liquid circulating"
+	                  value={
+	                    liquidCirculatingModeled !== null
+	                      ? `${formatCompactNumberPrecise(
+	                          liquidCirculatingModeled
+	                        )}\u00A0GLW`
+	                      : "—"
+	                  }
+	                  helper={
+	                    supplyDelta !== null
+	                      ? `${formatSignedNumber(supplyDelta)} vs current`
+	                      : "Live data unavailable"
+	                  }
+	                  // Override MetricCard defaults (`text-5xl sm:text-6xl`) so the dialog
+	                  // doesn't look comically oversized on desktop.
+	                  valueClassName="whitespace-nowrap leading-none !text-[clamp(1.5rem,6vw,2.25rem)] sm:!text-[clamp(1.75rem,3.5vw,2.5rem)]"
+	                />
+	              </div>
+	              <div className="min-w-0">
+	                <MetricCard
+	                  label="Pool depth"
+	                  value={
+	                    supplyModel.modeledPoolDepthUsd !== null
+	                      ? formatUsdCompactHero(supplyModel.modeledPoolDepthUsd)
+	                      : "—"
+	                  }
+	                  helper={
+	                    supplyModel.modeledPoolDepthUsd !== null &&
+	                    hasLivePrice &&
+	                    (poolReserves?.usdg ?? 0) > 0 &&
+	                    (poolReserves?.glw ?? 0) > 0
+	                      ? `${formatUsdCompactHero(
+	                          supplyModel.modeledPoolDepthUsd -
+	                            ((poolReserves?.usdg ?? 0) +
+	                              (poolReserves?.glw ?? 0) * displayPrice)
+	                        )} vs current pool`
+	                      : "Live data unavailable"
+	                  }
+	                  valueClassName="whitespace-nowrap leading-none !text-[clamp(1.5rem,6vw,2.25rem)] sm:!text-[clamp(1.75rem,3.5vw,2.5rem)]"
+	                />
+	              </div>
+	            </div>
 
             {/* ── Supply breakdown bar (circulating / PoL / vaulted / other) ── */}
             <div>
