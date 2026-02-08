@@ -164,12 +164,32 @@ function formatUsdCompactNullable(value: number | null) {
 }
 
 function formatUsdCompactPrecise(value: number) {
+  const abs = Math.abs(value);
+
+  // Keep USD formatting consistent with compact numbers:
+  // - Avoid confusing outputs like `$359.922K`.
+  // - For mid 6-figure values, show the full number instead of `K`.
+  if (abs >= 100_000 && abs < 1_000_000) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(value);
+  }
+
+  if (abs >= 1_000) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(value);
+  }
+
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    notation: "compact",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: value < 10_000_000 ? 3 : 2,
+    maximumFractionDigits: abs < 1 ? 4 : 2,
   }).format(value);
 }
 
@@ -198,7 +218,7 @@ function formatCompactNumberPrecise(value: number) {
 }
 
 function formatLiquidityCompact(value: number) {
-  return `${formatCompactNumber(value)} lq`;
+  return `${formatCompactNumberPrecise(value)} lq`;
 }
 
 function formatCompactNumber(value: number) {
@@ -210,6 +230,17 @@ function formatCompactNumber(value: number) {
 
 function formatPercent(value: number) {
   return `${value.toFixed(1)}%`;
+}
+
+// Backend `*_delta_pct` fields are ratios (e.g. -0.46 means -46%).
+function formatPercentFromRatio(value: number) {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatSignedPercentFromRatioNullable(value: number | null) {
+  if (value === null || !Number.isFinite(value)) return "—";
+  const sign = value >= 0 ? "+" : "";
+  return `${sign}${formatPercentFromRatio(value)}`;
 }
 
 function formatSignedNumber(value: number) {
@@ -224,7 +255,7 @@ function formatNullableNumber(value: number | null) {
 
 function formatNullableCompact(value: number | null) {
   if (value === null || !Number.isFinite(value)) return "—";
-  return formatCompactNumber(value);
+  return formatCompactNumberPrecise(value);
 }
 
 function formatNullableFixed(value: number | null, digits = 1) {
@@ -320,7 +351,7 @@ type FarmRow = {
   panels: number;
   lifetimeLq: number | null;
   ninetyDayLq: number | null;
-  ninetyDayDelta: number;
+  ninetyDayDelta: number | null;
   ccLifetime: number;
   ccPerWeek: number;
   imageUrl: string | null;
@@ -593,9 +624,9 @@ function FarmDetailsDialog({
                             <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                               <MetricCard
                                 label="Delta (90d)"
-                                value={`${(selectedFarm.ninetyDayDelta ?? 0) >= 0 ? "+" : ""}${formatPercent(
-                                  selectedFarm.ninetyDayDelta ?? 0
-                                )}`}
+                                value={formatSignedPercentFromRatioNullable(
+                                  selectedFarm.ninetyDayDelta ?? null
+                                )}
                                 helper="Trailing 13w vs previous 13w"
                                 labelClassName="text-muted-foreground/60 dark:text-muted-foreground/80"
                               />
@@ -1021,7 +1052,7 @@ export function PolDashboardView() {
     ? formatUsdCompactPrecise(currentMarketCap)
     : "—";
   const marketCapHelper = hasLiveSupply
-    ? `${formatCompactNumber(currentCirculating)} GLW circulating`
+    ? `${formatCompactNumberPrecise(currentCirculating)} GLW circulating`
     : "Live data unavailable";
   const priceDisplay = hasLivePrice ? `$${currentPrice.toFixed(4)}` : "—";
   const priceHelper = hasLivePrice ? "Spot price" : "Live data unavailable";
@@ -1244,7 +1275,7 @@ export function PolDashboardView() {
   const delegatorsCount = totalActivelyDelegatedData?.totalWallets ?? null;
   const delegatorsDisplay =
     delegatorsCount !== null && Number.isFinite(delegatorsCount)
-      ? formatCompactNumber(delegatorsCount)
+      ? formatCompactNumberPrecise(delegatorsCount)
       : "—";
   const averageDelegatorApy = React.useMemo(() => {
     const raw = totalActivelyDelegatedData?.averageDelegatorApy;
@@ -1261,7 +1292,9 @@ export function PolDashboardView() {
     return formatPercent(pct);
   }, [averageDelegatorApy]);
   const delegatedDisplay =
-    totalDelegatedGlw !== null ? formatCompactNumber(totalDelegatedGlw) : "—";
+    totalDelegatedGlw !== null
+      ? formatCompactNumberPrecise(totalDelegatedGlw)
+      : "—";
   const delegationRatioPct =
     totalDelegatedGlw !== null && currentCirculating > 0
       ? (totalDelegatedGlw / currentCirculating) * 100
@@ -1271,7 +1304,9 @@ export function PolDashboardView() {
     : 0;
   const delegationRatioDetail =
     totalDelegatedGlw !== null && currentCirculating > 0
-      ? `${formatCompactNumber(totalDelegatedGlw)} of ${formatCompactNumber(
+      ? `${formatCompactNumberPrecise(
+          totalDelegatedGlw
+        )} of ${formatCompactNumberPrecise(
           currentCirculating
         )} circulating GLW delegated`
       : "Live data unavailable";
@@ -1441,7 +1476,7 @@ export function PolDashboardView() {
         const panels = farm.panels ?? 0;
         const lifetime = parseLqUnits(farm.lifetime_lq ?? null);
         const ninetyDay = parseLqUnits(farm.ninety_day_lq ?? null);
-        const ninetyDayDelta = farm.ninety_day_delta_pct ?? 0;
+        const ninetyDayDelta = farm.ninety_day_delta_pct ?? null;
         const creditsTotalRaw =
           (farm as any).credits_total ?? (farm as any).cc_lifetime ?? 0;
         const ccLifetime = Number(creditsTotalRaw) || 0;
@@ -2185,13 +2220,14 @@ export function PolDashboardView() {
                           variant="outline"
                           className={cn(
                             "absolute top-2.5 right-2.5 text-[10px] font-mono tabular-nums shrink-0 border-0",
-                            (farm.ninetyDayDelta ?? 0) >= 0
-                              ? "bg-green-600/80 text-white"
-                              : "bg-red-600/80 text-white"
+                            farm.ninetyDayDelta === null
+                              ? "bg-slate-600/70 text-white"
+                              : farm.ninetyDayDelta >= 0
+                                ? "bg-green-600/80 text-white"
+                                : "bg-red-600/80 text-white"
                           )}
                         >
-                          {(farm.ninetyDayDelta ?? 0) >= 0 ? "+" : ""}
-                          {formatPercent(farm.ninetyDayDelta ?? 0)}
+                          {formatSignedPercentFromRatioNullable(farm.ninetyDayDelta)}
                         </Badge>
                         <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
                           <Badge
