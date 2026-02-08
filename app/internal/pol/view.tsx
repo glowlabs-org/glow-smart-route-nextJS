@@ -835,6 +835,134 @@ function priceToLogSlider(price: number) {
   return ((Math.log10(price) - logMin) / (logMax - logMin)) * 100;
 }
 
+function formatSignedCompactNumberPrecise(value: number) {
+  if (!Number.isFinite(value)) return "—";
+  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
+  const abs = Math.abs(value);
+  return `${sign}${formatCompactNumberPrecise(abs)}`;
+}
+
+function PolLiquidityTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: any }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0]?.payload as
+    | {
+        protocolWeek?: number;
+        liquidity?: number;
+        deltaLiquidity?: number | null;
+        usdg?: number;
+        deltaUsdg?: number | null;
+        glw?: number;
+        deltaGlw?: number | null;
+        deltaEndowmentEst?: number | null;
+        deltaBotActiveEst?: number | null;
+      }
+    | undefined;
+  if (!p) return null;
+
+  return (
+    <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card px-4 py-3 min-w-[240px]">
+      <div className="flex items-baseline justify-between gap-6">
+        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+          {label ?? "Week"}
+        </div>
+        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+          {p.protocolWeek !== undefined ? `Protocol W${p.protocolWeek}` : ""}
+        </div>
+      </div>
+
+      <div className="mt-2 space-y-2">
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-xs text-muted-foreground">PoL liquidity</div>
+          <div className="text-sm font-mono font-semibold tabular-nums text-foreground">
+            {typeof p.liquidity === "number"
+              ? `${formatCompactNumberPrecise(p.liquidity)} lq`
+              : "—"}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-xs text-muted-foreground">Δ vs prior</div>
+          <div className="text-sm font-mono tabular-nums text-foreground">
+            {p.deltaLiquidity === null || p.deltaLiquidity === undefined
+              ? "—"
+              : `${formatSignedCompactNumberPrecise(p.deltaLiquidity)} lq`}
+          </div>
+        </div>
+
+        <div className="h-px bg-border/10 dark:bg-border/20" />
+
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-xs text-muted-foreground">USDG</div>
+          <div className="text-sm font-mono tabular-nums text-foreground">
+            {typeof p.usdg === "number" ? `$${formatCompactNumber(p.usdg)}` : "—"}
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+            Δ USDG
+          </div>
+          <div className="text-xs font-mono tabular-nums text-foreground">
+            {p.deltaUsdg === null || p.deltaUsdg === undefined
+              ? "—"
+              : `$${formatSignedCompactNumberPrecise(p.deltaUsdg)}`}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-xs text-muted-foreground">GLW</div>
+          <div className="text-sm font-mono tabular-nums text-foreground">
+            {typeof p.glw === "number" ? formatCompactNumber(p.glw) : "—"}
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+            Δ GLW
+          </div>
+          <div className="text-xs font-mono tabular-nums text-foreground">
+            {p.deltaGlw === null || p.deltaGlw === undefined
+              ? "—"
+              : formatSignedCompactNumberPrecise(p.deltaGlw)}
+          </div>
+        </div>
+
+        <div className="mt-1 rounded-xl bg-muted/20 dark:bg-background/40 border border-border/10 dark:border-border/20 px-3 py-2">
+          <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+            Est. Δ by source (live split)
+          </div>
+          <div className="mt-1 grid grid-cols-2 gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground">Endowment</span>
+              <span className="text-xs font-mono tabular-nums text-foreground">
+                {p.deltaEndowmentEst === null ||
+                p.deltaEndowmentEst === undefined
+                  ? "—"
+                  : `${formatSignedCompactNumberPrecise(p.deltaEndowmentEst)} lq`}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground">Bot active</span>
+              <span className="text-xs font-mono tabular-nums text-foreground">
+                {p.deltaBotActiveEst === null ||
+                p.deltaBotActiveEst === undefined
+                  ? "—"
+                  : `${formatSignedCompactNumberPrecise(p.deltaBotActiveEst)} lq`}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PolDashboardView() {
   const [isSupplyDialogOpen, setIsSupplyDialogOpen] = React.useState(false);
   const [isFarmDialogOpen, setIsFarmDialogOpen] = React.useState(false);
@@ -1543,11 +1671,80 @@ export function PolDashboardView() {
     const completed = sorted.length > 1 ? sorted.slice(0, -1) : sorted;
     const tail = completed.slice(-12);
     if (tail.length < 2) return null;
-    return tail.map((row, index) => ({
-      week: `W-${tail.length - index}`,
-      liquidity: parseLqUnits(row.pol_lq) ?? 0,
-    }));
-  }, [polLiquiditySnapshot]);
+    const endowmentLq = parseLqUnits(polSummary?.endowment?.lq ?? null) ?? 0;
+    const botActiveLq = parseLqUnits(polSummary?.botActive?.lq ?? null) ?? 0;
+    const sourcesTotal = endowmentLq + botActiveLq;
+    const endowmentShare =
+      sourcesTotal > 0 ? endowmentLq / sourcesTotal : 0.5;
+    const botActiveShare = sourcesTotal > 0 ? botActiveLq / sourcesTotal : 0.5;
+
+    return tail.map((row, index) => {
+      const prev = index > 0 ? tail[index - 1] : null;
+      const liquidity = parseLqUnits(row.pol_lq) ?? 0;
+      const prevLiquidity = prev ? parseLqUnits(prev.pol_lq) ?? 0 : null;
+      const deltaLiquidity =
+        prevLiquidity === null ? null : liquidity - prevLiquidity;
+
+      const usdg = (() => {
+        try {
+          return Number(formatUnits(BigInt(row.pol_usdg), 6));
+        } catch {
+          return 0;
+        }
+      })();
+      const glw = (() => {
+        try {
+          return Number(formatUnits(BigInt(row.pol_glw), 18));
+        } catch {
+          return 0;
+        }
+      })();
+
+      const prevUsdg =
+        prev !== null
+          ? (() => {
+              try {
+                return Number(formatUnits(BigInt(prev.pol_usdg), 6));
+              } catch {
+                return null;
+              }
+            })()
+          : null;
+      const prevGlw =
+        prev !== null
+          ? (() => {
+              try {
+                return Number(formatUnits(BigInt(prev.pol_glw), 18));
+              } catch {
+                return null;
+              }
+            })()
+          : null;
+
+      const deltaUsdg = prevUsdg === null ? null : usdg - prevUsdg;
+      const deltaGlw = prevGlw === null ? null : glw - prevGlw;
+
+      // Ponder snapshots don't provide per-source series (endowment vs botActive).
+      // We show an estimate by applying today's live split to the weekly total delta.
+      const deltaEndowmentEst =
+        deltaLiquidity === null ? null : deltaLiquidity * endowmentShare;
+      const deltaBotActiveEst =
+        deltaLiquidity === null ? null : deltaLiquidity * botActiveShare;
+
+      return {
+        week: `W-${tail.length - index}`,
+        protocolWeek: row.week,
+        liquidity,
+        deltaLiquidity,
+        usdg,
+        deltaUsdg,
+        glw,
+        deltaGlw,
+        deltaEndowmentEst,
+        deltaBotActiveEst,
+      };
+    });
+  }, [polLiquiditySnapshot, polSummary]);
   const polLiquidityChartData = polLiquidityTrend ?? [];
   const polLiquidityIsLive = Boolean(polLiquidityTrend);
 
@@ -2105,19 +2302,9 @@ export function PolDashboardView() {
                           tick={{ fontSize: 9 }}
                           interval="preserveStartEnd"
                         />
-                        <ChartTooltip
-                          content={
-                            <ChartTooltipContent
-                              labelFormatter={(label) => label}
-                              formatter={(value) => [
-                                `${formatCompactNumberPrecise(
-                                  Number(value)
-                                )} lq`,
-                                "PoL liquidity",
-                              ]}
-                            />
-                          }
-                        />
+	                      <ChartTooltip
+	                        content={<PolLiquidityTooltip />}
+	                      />
                         <Area
                           type="monotone"
                           dataKey="liquidity"
