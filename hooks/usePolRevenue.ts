@@ -35,6 +35,7 @@ export interface PolRevenueAggregateResponse {
 export interface PolRevenueFarmRow {
   farm_id?: string;
   farm_name?: string;
+  audit_week?: number | string | null;
   zone_id?: number | string | null;
   panels?: number;
   image_url?: string | null;

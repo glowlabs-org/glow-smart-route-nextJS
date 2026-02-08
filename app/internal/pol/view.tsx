@@ -67,6 +67,7 @@ import { formatUnits } from "viem";
 
 const PRICE_RANGE = { min: 0.001, max: 100 };
 const SECONDS_PER_WEEK = 7 * 24 * 60 * 60;
+const LIQUIDITY_UNIT = "Ⱡ";
 
 // TODO: mock data (fallback if live regions unavailable)
 const GCTL_REGIONS = [
@@ -213,7 +214,15 @@ function formatCompactNumberPrecise(value: number) {
 }
 
 function formatLiquidityCompact(value: number) {
-  return `${formatCompactNumberPrecise(value)} lq`;
+  return `${LIQUIDITY_UNIT}${formatCompactNumberPrecise(value)}`;
+}
+
+function formatSignedLiquidityCompact(value: number) {
+  if (!Number.isFinite(value)) return "—";
+  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
+  return `${sign}${LIQUIDITY_UNIT}${formatCompactNumberPrecise(
+    Math.abs(value)
+  )}`;
 }
 
 function formatCompactNumber(value: number) {
@@ -380,8 +389,8 @@ function WalletGrowthTooltip({
     typeof payload[0]?.value === "number"
       ? payload[0]!.value
       : typeof datum?.newWallets === "number"
-        ? datum.newWallets
-        : 0;
+      ? datum.newWallets
+      : 0;
 
   const labelText = (label ?? "").toString().trim() || "Week";
   const dateText =
@@ -441,19 +450,21 @@ function FarmDetailsDialog({
   displayPrice: number;
 }) {
   const ninetyDayValue =
-    selectedFarm?.ninetyDayLq !== null && selectedFarm?.ninetyDayLq !== undefined
-      ? `${formatCompactNumberPrecise(selectedFarm.ninetyDayLq)} lq`
+    selectedFarm?.ninetyDayLq !== null &&
+    selectedFarm?.ninetyDayLq !== undefined
+      ? formatLiquidityCompact(selectedFarm.ninetyDayLq)
       : "—";
   const ninetyDayBreakdown =
     selectedFarm?.ninetyDayLq !== null &&
     selectedFarm?.ninetyDayLq !== undefined &&
     displayPrice > 0
-      ? `(${getBreakdownFromLq(selectedFarm.ninetyDayLq, displayPrice).breakdown})`
+      ? `(${
+          getBreakdownFromLq(selectedFarm.ninetyDayLq, displayPrice).breakdown
+        })`
       : null;
-  const subtitle =
-    selectedFarm
-      ? `${selectedFarm.name} · ${selectedFarm.region} · ${selectedFarm.panels} panels`
-      : "Select a farm to view details";
+  const subtitle = selectedFarm
+    ? `${selectedFarm.name} · ${selectedFarm.region} · ${selectedFarm.panels} panels`
+    : "Select a farm to view details";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -554,9 +565,9 @@ function FarmDetailsDialog({
                         const lifetime =
                           selectedFarm.lifetimeLq !== null
                             ? {
-                                value: `${formatCompactNumberPrecise(
+                                value: formatLiquidityCompact(
                                   selectedFarm.lifetimeLq
-                                )} lq`,
+                                ),
                                 breakdown:
                                   displayPrice > 0
                                     ? getBreakdownFromLq(
@@ -569,9 +580,9 @@ function FarmDetailsDialog({
                         const ninety =
                           selectedFarm.ninetyDayLq !== null
                             ? {
-                                value: `${formatCompactNumberPrecise(
+                                value: formatLiquidityCompact(
                                   selectedFarm.ninetyDayLq
-                                )} lq`,
+                                ),
                                 breakdown:
                                   displayPrice > 0
                                     ? getBreakdownFromLq(
@@ -617,10 +628,10 @@ function FarmDetailsDialog({
                                 label="Weekly avg (90d)"
                                 value={
                                   weekly !== null
-                                    ? `${formatCompactNumberPrecise(weekly)} lq`
+                                    ? formatLiquidityCompact(weekly)
                                     : "—"
                                 }
-                                helper="ninety_day_lq / 13"
+                                helper={`90d ${LIQUIDITY_UNIT} / 13`}
                                 labelClassName="text-muted-foreground/60 dark:text-muted-foreground/80"
                               />
                             </div>
@@ -628,7 +639,9 @@ function FarmDetailsDialog({
                               <MetricCard
                                 label="Delta (90d)"
                                 value={
-                                  shouldShowDeltaRatio(selectedFarm.ninetyDayDelta ?? null)
+                                  shouldShowDeltaRatio(
+                                    selectedFarm.ninetyDayDelta ?? null
+                                  )
                                     ? formatSignedPercentFromRatioNullable(
                                         selectedFarm.ninetyDayDelta ?? null
                                       )
@@ -658,7 +671,10 @@ function FarmDetailsDialog({
                       {(() => {
                         const pts = selectedFarmSeries?.series ?? null;
                         const hasData =
-                          pts && pts.some((p: any) => parseLqUnits(p.total_lq) !== null);
+                          pts &&
+                          pts.some(
+                            (p: any) => parseLqUnits(p.total_lq) !== null
+                          );
 
                         if (isSelectedFarmSeriesLoading) {
                           return (
@@ -671,8 +687,8 @@ function FarmDetailsDialog({
                         if (!pts || pts.length === 0 || !hasData) {
                           return (
                             <div className="mt-3 text-sm text-muted-foreground">
-                              No weekly data available for this farm in the selected
-                              range.
+                              No weekly data available for this farm in the
+                              selected range.
                             </div>
                           );
                         }
@@ -686,9 +702,18 @@ function FarmDetailsDialog({
                         }));
 
                         const farmSeriesChartConfig = {
-                          miner: { label: "Miner sales", color: "hsl(29, 90%, 60%)" },
-                          mints: { label: "GCTL mints", color: "hsl(270, 70%, 60%)" },
-                          yield: { label: "PoL yield", color: "hsl(142, 71%, 45%)" },
+                          miner: {
+                            label: "Miner sales",
+                            color: "hsl(29, 90%, 60%)",
+                          },
+                          mints: {
+                            label: "GCTL mints",
+                            color: "hsl(270, 70%, 60%)",
+                          },
+                          yield: {
+                            label: "PoL yield",
+                            color: "hsl(142, 71%, 45%)",
+                          },
                         } satisfies ChartConfig;
 
                         return (
@@ -698,7 +723,10 @@ function FarmDetailsDialog({
                               className="h-48 w-full"
                             >
                               <AreaChart data={chartData} stackOffset="none">
-                                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                                <CartesianGrid
+                                  vertical={false}
+                                  strokeDasharray="3 3"
+                                />
                                 <XAxis
                                   dataKey="week"
                                   tickLine={false}
@@ -725,8 +753,8 @@ function FarmDetailsDialog({
                                             ? value
                                             : Number(value);
                                         const pretty = Number.isFinite(v)
-                                          ? `${formatCompactNumberPrecise(v)} lq`
-                                          : `${String(value)} lq`;
+                                          ? formatLiquidityCompact(v)
+                                          : `${LIQUIDITY_UNIT}${String(value)}`;
                                         return [pretty, String(name)];
                                       }}
                                     />
@@ -750,7 +778,7 @@ function FarmDetailsDialog({
                                   stackId="rev"
                                   stroke="var(--color-mints)"
                                   fill="var(--color-mints)"
-                                  fillOpacity={0.10}
+                                  fillOpacity={0.1}
                                   strokeWidth={2}
                                   dot={false}
                                 />
@@ -761,7 +789,7 @@ function FarmDetailsDialog({
                                   stackId="rev"
                                   stroke="var(--color-yield)"
                                   fill="var(--color-yield)"
-                                  fillOpacity={0.10}
+                                  fillOpacity={0.1}
                                   strokeWidth={2}
                                   dot={false}
                                 />
@@ -809,7 +837,7 @@ function MetricCard({
       </div>
       <div
         className={cn(
-          "text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums",
+          "text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums",
           valueClassName
         )}
       >
@@ -923,7 +951,7 @@ function PolLiquidityTooltip({
           <div className="text-xs text-muted-foreground">PoL liquidity</div>
           <div className="text-sm font-mono font-semibold tabular-nums text-foreground">
             {typeof p.liquidity === "number"
-              ? `${formatCompactNumberPrecise(p.liquidity)} lq`
+              ? formatLiquidityCompact(p.liquidity)
               : "—"}
           </div>
         </div>
@@ -933,7 +961,7 @@ function PolLiquidityTooltip({
           <div className="text-sm font-mono tabular-nums text-foreground">
             {p.deltaLiquidity === null || p.deltaLiquidity === undefined
               ? "—"
-              : `${formatSignedCompactNumberPrecise(p.deltaLiquidity)} lq`}
+              : formatSignedLiquidityCompact(p.deltaLiquidity)}
           </div>
         </div>
 
@@ -943,7 +971,7 @@ function PolLiquidityTooltip({
           <div className="text-xs text-muted-foreground">Endowment</div>
           <div className="text-sm font-mono tabular-nums text-foreground">
             {typeof p.endowmentLiquidity === "number"
-              ? `${formatCompactNumberPrecise(p.endowmentLiquidity)} lq`
+              ? formatLiquidityCompact(p.endowmentLiquidity)
               : "—"}
           </div>
         </div>
@@ -955,7 +983,7 @@ function PolLiquidityTooltip({
             {p.deltaEndowmentLiquidity === null ||
             p.deltaEndowmentLiquidity === undefined
               ? "—"
-              : `${formatSignedCompactNumberPrecise(p.deltaEndowmentLiquidity)} lq`}
+              : formatSignedLiquidityCompact(p.deltaEndowmentLiquidity)}
           </div>
         </div>
 
@@ -963,7 +991,7 @@ function PolLiquidityTooltip({
           <div className="text-xs text-muted-foreground">Bot active</div>
           <div className="text-sm font-mono tabular-nums text-foreground">
             {typeof p.botActiveLiquidity === "number"
-              ? `${formatCompactNumberPrecise(p.botActiveLiquidity)} lq`
+              ? formatLiquidityCompact(p.botActiveLiquidity)
               : "—"}
           </div>
         </div>
@@ -975,7 +1003,7 @@ function PolLiquidityTooltip({
             {p.deltaBotActiveLiquidity === null ||
             p.deltaBotActiveLiquidity === undefined
               ? "—"
-              : `${formatSignedCompactNumberPrecise(p.deltaBotActiveLiquidity)} lq`}
+              : formatSignedLiquidityCompact(p.deltaBotActiveLiquidity)}
           </div>
         </div>
 
@@ -1025,8 +1053,8 @@ export function PolDashboardView() {
   );
   const [showAllFarms, setShowAllFarms] = React.useState(false);
   const [farmSortKey, setFarmSortKey] = React.useState<
-    "lifetime" | "ninetyDay" | "credits"
-  >("lifetime");
+    "latest" | "lifetime" | "ninetyDay" | "credits"
+  >("latest");
 
   const { poolReserves, priceRatio: poolSpotPrice } = usePoolInfo();
 
@@ -1238,6 +1266,18 @@ export function PolDashboardView() {
     }
   }, [polSummary]);
 
+  const polGlwInPol = React.useMemo(() => {
+    const endowmentGlw = polSummary?.endowment?.glw ?? null;
+    const botActiveGlw = polSummary?.botActive?.glw ?? null;
+    if (endowmentGlw === null || botActiveGlw === null) return null;
+    try {
+      const sum = BigInt(endowmentGlw) + BigInt(botActiveGlw);
+      return Number(formatUnits(sum, 18));
+    } catch {
+      return null;
+    }
+  }, [polSummary]);
+
   const walletGrowthLive = React.useMemo(() => {
     const byWeek = newWalletsByWeekData?.byWeek;
     if (!byWeek || Object.keys(byWeek).length < 3) return null;
@@ -1255,7 +1295,8 @@ export function PolDashboardView() {
       const weekNumber = tail[i];
       const count = byWeek[weekNumber] || 0;
       const label = `W-${tail.length - i}`;
-      const weekStartMs = (GENESIS_TIMESTAMP + weekNumber * SECONDS_PER_WEEK) * 1000;
+      const weekStartMs =
+        (GENESIS_TIMESTAMP + weekNumber * SECONDS_PER_WEEK) * 1000;
       const weekEndMs = weekStartMs + SECONDS_PER_WEEK * 1000;
       result.push({
         week: label,
@@ -1350,58 +1391,100 @@ export function PolDashboardView() {
     }
   }, [hasAdjustedSlider, livePrice]);
 
+  const isAtLivePrice = React.useMemo(() => {
+    if (!hasLivePrice || displayPrice <= 0 || !Number.isFinite(displayPrice))
+      return false;
+    if (!Number.isFinite(price) || price <= 0) return false;
+    // Slider is log-scale; treat "same price" with a small tolerance.
+    return Math.abs(price - displayPrice) / displayPrice < 0.0005; // 0.05%
+  }, [displayPrice, hasLivePrice, price]);
+
   const supplyModel = React.useMemo(() => {
     const poolUsdg = poolReserves?.usdg ?? 0;
     const poolGlw = poolReserves?.glw ?? 0;
 
-    const polUsdg = polSummary?.total?.breakdown?.usdg
-      ? Number(formatUnits(BigInt(polSummary.total.breakdown.usdg), 6))
-      : 0;
-    const polGlw = polSummary?.total?.breakdown?.glw
-      ? Number(formatUnits(BigInt(polSummary.total.breakdown.glw), 18))
-      : 0;
-
-    const totalUsdg = Math.max(0, poolUsdg + polUsdg);
-    const totalGlw = Math.max(0, poolGlw + polGlw);
-
     // xy = k with x=USDG, y=GLW, price = USDG/GLW
     // This gives USDG side scaling with sqrt(price), and implies GLW side scales with 1/sqrt(price).
-    const k = totalUsdg > 0 && totalGlw > 0 ? totalUsdg * totalGlw : 0;
-    const p0 = displayPrice > 0 ? displayPrice : 0;
-    const glw0 = k > 0 && p0 > 0 ? Math.sqrt(k / p0) : null;
+    // IMPORTANT: `usePoolInfo` already reads the full Uniswap reserves. Do NOT
+    // add protocol totals from `/pol/summary`, or we'd double-count.
+    const k = poolUsdg > 0 && poolGlw > 0 ? poolUsdg * poolGlw : 0;
+    const effectivePrice = isAtLivePrice ? displayPrice : price;
 
-    const modeledUsdg = k > 0 && price > 0 ? Math.sqrt(k * price) : null;
-    const modeledGlw = k > 0 && price > 0 ? Math.sqrt(k / price) : null;
+    // At the default dialog state (current price), the model should equal live data.
+    const modeledUsdg =
+      isAtLivePrice && poolUsdg > 0
+        ? poolUsdg
+        : k > 0 && effectivePrice > 0
+        ? Math.sqrt(k * effectivePrice)
+        : null;
+    const modeledGlw =
+      isAtLivePrice && poolGlw > 0
+        ? poolGlw
+        : k > 0 && effectivePrice > 0
+        ? Math.sqrt(k / effectivePrice)
+        : null;
 
-    const circulatingUnclamped =
-      modeledGlw !== null && glw0 !== null
-        ? Math.max(0, currentCirculating + (glw0 - modeledGlw))
-        : currentCirculating;
-    const circulating =
-      supplyTotal > 0
-        ? Math.min(supplyTotal, circulatingUnclamped)
-        : circulatingUnclamped;
+    const poolDepthUsd =
+      modeledUsdg !== null && modeledGlw !== null && effectivePrice > 0
+        ? modeledUsdg + modeledGlw * effectivePrice
+        : null;
 
     return {
       total: supplyTotal,
-      circulating,
-      // "USDG liquidity" is the modeled USDG side for this illustrative model.
-      usdgLiquidity: modeledUsdg,
-      // Total GLW that would sit in the combined pool (external + PoL) under the model price.
-      liquidityGlw: modeledGlw,
+      modeledPoolUsdg: modeledUsdg,
+      modeledPoolGlw: modeledGlw,
+      modeledPoolDepthUsd: poolDepthUsd,
     };
+  }, [poolReserves, displayPrice, isAtLivePrice, price, supplyTotal]);
+
+  const liquidCirculatingNow = React.useMemo(() => {
+    if (!hasLiveSupply) return null;
+    const vaulted = vaultedGlw ?? 0;
+    const pol = polWalletGlw ?? 0;
+    return Math.max(0, currentCirculating - vaulted - pol);
+  }, [currentCirculating, hasLiveSupply, polWalletGlw, vaultedGlw]);
+
+  const polShareOfLiquidity = React.useMemo(() => {
+    const poolGlw = poolReserves?.glw ?? 0;
+    const polGlw = polWalletGlw ?? 0;
+    if (poolGlw <= 0 || polGlw <= 0) return 0;
+    return Math.min(1, Math.max(0, polGlw / poolGlw));
+  }, [poolReserves, polWalletGlw]);
+
+  const modeledPolGlw = React.useMemo(() => {
+    if (!hasLiveSupply) return null;
+    if (isAtLivePrice && polWalletGlw !== null && Number.isFinite(polWalletGlw))
+      return Math.max(0, polWalletGlw);
+
+    const modeledPoolGlw = supplyModel.modeledPoolGlw;
+    if (modeledPoolGlw === null || !Number.isFinite(modeledPoolGlw))
+      return null;
+
+    const raw = modeledPoolGlw * polShareOfLiquidity;
+    const vaulted = vaultedGlw ?? 0;
+    const max = Math.max(0, currentCirculating - vaulted);
+    return Math.min(max, Math.max(0, raw));
   }, [
-    poolReserves,
-    polSummary,
-    price,
-    displayPrice,
     currentCirculating,
-    supplyTotal,
+    hasLiveSupply,
+    isAtLivePrice,
+    polShareOfLiquidity,
+    polWalletGlw,
+    supplyModel.modeledPoolGlw,
+    vaultedGlw,
   ]);
 
-  const supplyDelta = hasLiveSupply
-    ? supplyModel.circulating - currentCirculating
-    : null;
+  const liquidCirculatingModeled = React.useMemo(() => {
+    if (!hasLiveSupply || modeledPolGlw === null) return null;
+    const vaulted = vaultedGlw ?? 0;
+    return Math.max(0, currentCirculating - vaulted - modeledPolGlw);
+  }, [currentCirculating, hasLiveSupply, modeledPolGlw, vaultedGlw]);
+
+  const supplyDelta = React.useMemo(() => {
+    if (liquidCirculatingModeled === null || liquidCirculatingNow === null)
+      return null;
+    return liquidCirculatingModeled - liquidCirculatingNow;
+  }, [liquidCirculatingModeled, liquidCirculatingNow]);
 
   const { data: polRevenueAggregate } = usePolRevenueAggregate();
   const { data: polRevenueFarms } = usePolRevenueFarms();
@@ -1436,29 +1519,35 @@ export function PolDashboardView() {
       : null;
 
   const lifetimeRevenueDisplay =
-    lifetimeRevenueLq !== null && displayPrice > 0
+    lifetimeRevenueLq !== null
       ? {
-          lq: `${formatCompactNumberPrecise(lifetimeRevenueLq)} lq`,
-          breakdown: getBreakdownFromLq(lifetimeRevenueLq, displayPrice)
-            .breakdown,
+          lq: formatLiquidityCompact(lifetimeRevenueLq),
+          breakdown:
+            displayPrice > 0
+              ? getBreakdownFromLq(lifetimeRevenueLq, displayPrice).breakdown
+              : null,
         }
       : null;
 
   const ninetyDayRevenueDisplay =
-    ninetyDayRevenueLq !== null && displayPrice > 0
+    ninetyDayRevenueLq !== null
       ? {
-          lq: `${formatCompactNumberPrecise(ninetyDayRevenueLq)} lq`,
-          breakdown: getBreakdownFromLq(ninetyDayRevenueLq, displayPrice)
-            .breakdown,
+          lq: formatLiquidityCompact(ninetyDayRevenueLq),
+          breakdown:
+            displayPrice > 0
+              ? getBreakdownFromLq(ninetyDayRevenueLq, displayPrice).breakdown
+              : null,
         }
       : null;
 
   const ninetyDayYieldDisplay =
-    ninetyDayYieldLq !== null && displayPrice > 0
+    ninetyDayYieldLq !== null
       ? {
-          lq: `${formatCompactNumberPrecise(ninetyDayYieldLq)} lq`,
-          breakdown: getBreakdownFromLq(ninetyDayYieldLq, displayPrice)
-            .breakdown,
+          lq: formatLiquidityCompact(ninetyDayYieldLq),
+          breakdown:
+            displayPrice > 0
+              ? getBreakdownFromLq(ninetyDayYieldLq, displayPrice).breakdown
+              : null,
         }
       : null;
 
@@ -1487,12 +1576,43 @@ export function PolDashboardView() {
         const creditsTotalRaw =
           (farm as any).credits_total ?? (farm as any).cc_lifetime ?? 0;
         const ccLifetime = Number(creditsTotalRaw) || 0;
-        const ccPerWeekRaw = (farm as any).cc_per_week ?? 0;
-        const ccPerWeek = Number(ccPerWeekRaw) || 0;
-        const imageUrl = pickSolarPanelsImageUrl([
-          (farm as any).image_url ?? null,
-          ...(Array.isArray((farm as any).images) ? (farm as any).images : []),
-        ]);
+	        const ccPerWeekRaw = (farm as any).cc_per_week ?? 0;
+	        const ccPerWeek = Number(ccPerWeekRaw) || 0;
+	        const imageUrl = pickSolarPanelsImageUrl([
+	          (farm as any).image_url ?? null,
+	          ...(Array.isArray((farm as any).images) ? (farm as any).images : []),
+	        ]);
+
+	        const auditWeekRaw =
+	          (farm as any).audit_week ?? (farm as any).auditWeek ?? null;
+	        const auditWeek =
+	          typeof auditWeekRaw === "string"
+	            ? Number(auditWeekRaw)
+	            : typeof auditWeekRaw === "number"
+	            ? auditWeekRaw
+	            : null;
+
+	        const recencyKey = (() => {
+	          // Prefer protocol week (monotonic) when available.
+	          if (auditWeek !== null && Number.isFinite(auditWeek))
+	            return auditWeek;
+
+          const rawDate =
+            (farm as any).installFinishedDate ??
+            (farm as any).install_finished_date ??
+            (farm as any).createdAt ??
+            (farm as any).created_at ??
+            null;
+          if (typeof rawDate === "string") {
+            const ms = Date.parse(rawDate);
+            if (Number.isFinite(ms)) return ms;
+          }
+          if (typeof farmId === "string") {
+            const n = Number(farmId);
+            if (Number.isFinite(n)) return n;
+          }
+          return index;
+        })();
 
         return {
           key: farmId ? String(farmId) : `${name}-${index}`,
@@ -1506,6 +1626,8 @@ export function PolDashboardView() {
           ccLifetime,
           ccPerWeek,
           imageUrl,
+          auditWeek: auditWeek ?? null,
+          recencyKey,
         };
       })
       .filter((row) => row.name);
@@ -1538,6 +1660,8 @@ export function PolDashboardView() {
   const sortedFarmRows = React.useMemo(() => {
     const rows = [...farmRowsAll];
     rows.sort((a, b) => {
+      if (farmSortKey === "latest")
+        return (b.recencyKey ?? 0) - (a.recencyKey ?? 0);
       if (farmSortKey === "credits")
         return (b.ccPerWeek ?? 0) - (a.ccPerWeek ?? 0);
       if (farmSortKey === "ninetyDay")
@@ -1566,7 +1690,9 @@ export function PolDashboardView() {
   const farmRowsTeaser = React.useMemo(() => {
     const base =
       farmRowsAll.length > 0
-        ? farmRowsAll
+        ? [...farmRowsAll].sort(
+            (a, b) => (b.recencyKey ?? 0) - (a.recencyKey ?? 0)
+          )
         : Array.from({ length: 6 }).map((_, index) => ({
             key: `farm-placeholder-teaser-${index}`,
             name: "—",
@@ -1578,8 +1704,9 @@ export function PolDashboardView() {
             ccLifetime: 0,
             ccPerWeek: 0,
             imageUrl: null as string | null,
+            recencyKey: 0,
           }));
-    return base.slice(-6);
+    return base.slice(0, 6);
   }, [farmRowsAll]);
 
   const farmRowsToRender = showAllFarms ? farmRowsForRender : farmRowsTeaser;
@@ -1587,12 +1714,14 @@ export function PolDashboardView() {
   const circulatingSupplyForSupplyCard = React.useMemo(() => {
     if (!hasLiveSupply) return currentCirculating;
     // `getGlowMarketCap` excludes PoL wallet balances, but does not exclude
-    // GLW owned inside PoL LP positions. Subtract it here so the "Liquidity"
-    // slice (PoL LP) isn't double-counted inside "Circulating".
-    const polLpGlw = polWalletGlw ?? 0;
+    // GLW owned inside PoL positions. Subtract it here so the PoL slice
+    // isn't double-counted inside "Circulating".
+    const polLpGlw = polGlwInPol ?? 0;
     const adjusted = currentCirculating - polLpGlw;
-    return Number.isFinite(adjusted) ? Math.max(0, adjusted) : currentCirculating;
-  }, [hasLiveSupply, currentCirculating, polWalletGlw]);
+    return Number.isFinite(adjusted)
+      ? Math.max(0, adjusted)
+      : currentCirculating;
+  }, [hasLiveSupply, currentCirculating, polGlwInPol]);
 
   const circulationPercent = hasLiveSupply
     ? Math.min(100, (circulatingSupplyForSupplyCard / supplyTotal) * 100)
@@ -1607,8 +1736,8 @@ export function PolDashboardView() {
       : 0;
 
   const liquidityWidth =
-    hasLiveSupply && polWalletGlw !== null && polWalletGlw > 0
-      ? (polWalletGlw / supplyTotal) * 100
+    hasLiveSupply && polGlwInPol !== null && polGlwInPol > 0
+      ? (polGlwInPol / supplyTotal) * 100
       : 0;
 
   const { data: polLiquiditySnapshot } = usePolLiquiditySnapshot({
@@ -1627,11 +1756,13 @@ export function PolDashboardView() {
 
     const delegatedStartWei = byWeek[supplyGrowthStartWeek];
     const delegatedEndWei = byWeek[supplyGrowthEndWeek];
-    if (delegatedStartWei === undefined || delegatedEndWei === undefined) return null;
+    if (delegatedStartWei === undefined || delegatedEndWei === undefined)
+      return null;
 
     const delegatedStart = Number(delegatedStartWei) / 1e18;
     const delegatedEnd = Number(delegatedEndWei) / 1e18;
-    if (!Number.isFinite(delegatedStart) || !Number.isFinite(delegatedEnd)) return null;
+    if (!Number.isFinite(delegatedStart) || !Number.isFinite(delegatedEnd))
+      return null;
 
     const polSeries = polLiquiditySnapshot?.series ?? null;
     if (!polSeries || polSeries.length === 0) return null;
@@ -1641,7 +1772,8 @@ export function PolDashboardView() {
 
     const polGlwStart = Number(polStart.pol_glw) / 1e18;
     const polGlwEnd = Number(polEnd.pol_glw) / 1e18;
-    if (!Number.isFinite(polGlwStart) || !Number.isFinite(polGlwEnd)) return null;
+    if (!Number.isFinite(polGlwStart) || !Number.isFinite(polGlwEnd))
+      return null;
 
     // Approximate circulating at week end by back-casting from "now", using only the
     // two moving components we have weekly snapshots for (PoL + delegated).
@@ -1654,7 +1786,11 @@ export function PolDashboardView() {
       (polWalletGlw - polGlwEnd) -
       (totalDelegatedGlw - delegatedEnd);
 
-    if (!Number.isFinite(circStart) || !Number.isFinite(circEnd) || circStart <= 0)
+    if (
+      !Number.isFinite(circStart) ||
+      !Number.isFinite(circEnd) ||
+      circStart <= 0
+    )
       return null;
 
     const ratio = circEnd / circStart;
@@ -1741,16 +1877,18 @@ export function PolDashboardView() {
         prevLiquidity === null ? null : liquidity - prevLiquidity;
 
       const endowmentLiquidity = parseLqUnits(row.endowmentLq) ?? 0;
-      const prevEndowmentLiquidity =
-        prev ? parseLqUnits(prev.endowmentLq) ?? 0 : null;
+      const prevEndowmentLiquidity = prev
+        ? parseLqUnits(prev.endowmentLq) ?? 0
+        : null;
       const deltaEndowmentLiquidity =
         prevEndowmentLiquidity === null
           ? null
           : endowmentLiquidity - prevEndowmentLiquidity;
 
       const botActiveLiquidity = parseLqUnits(row.botActiveLq) ?? 0;
-      const prevBotActiveLiquidity =
-        prev ? parseLqUnits(prev.botActiveLq) ?? 0 : null;
+      const prevBotActiveLiquidity = prev
+        ? parseLqUnits(prev.botActiveLq) ?? 0
+        : null;
       const deltaBotActiveLiquidity =
         prevBotActiveLiquidity === null
           ? null
@@ -1766,19 +1904,20 @@ export function PolDashboardView() {
           return null;
         }
       })();
-      const prevUsdValue =
-        prev?.totalUsdUsdc6
-          ? (() => {
-              try {
-                const n = Number(formatUnits(BigInt(prev.totalUsdUsdc6), 6));
-                return Number.isFinite(n) ? n : null;
-              } catch {
-                return null;
-              }
-            })()
-          : null;
+      const prevUsdValue = prev?.totalUsdUsdc6
+        ? (() => {
+            try {
+              const n = Number(formatUnits(BigInt(prev.totalUsdUsdc6), 6));
+              return Number.isFinite(n) ? n : null;
+            } catch {
+              return null;
+            }
+          })()
+        : null;
       const deltaUsdValue =
-        prevUsdValue === null || usdValue === null ? null : usdValue - prevUsdValue;
+        prevUsdValue === null || usdValue === null
+          ? null
+          : usdValue - prevUsdValue;
 
       const spotPrice = (() => {
         const raw = row.spotPriceUsdgPerGlw;
@@ -1911,15 +2050,13 @@ export function PolDashboardView() {
                   </div>
                   <div className="flex flex-col gap-2">
                     <div className="text-xs font-medium text-zinc-400 dark:text-zinc-500 tracking-wide">
-                      Total PoL
+                      Lifetime Revenue
                     </div>
                     <div className="text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
-                      {totalPolLq !== null
-                        ? `${formatCompactNumberPrecise(totalPolLq)} lq`
-                        : "—"}
+                      {lifetimeRevenueDisplay?.lq ?? "—"}
                     </div>
                     <div className="text-sm text-zinc-500 dark:text-zinc-400">
-                      ({totalPolBreakdown?.breakdown ?? "—"})
+                      ({lifetimeRevenueDisplay?.breakdown ?? "—"})
                     </div>
                   </div>
                 </div>
@@ -1932,18 +2069,18 @@ export function PolDashboardView() {
               <div className="flex flex-col gap-4 items-start">
                 {/* Row 1: keep original proportions */}
                 <div className="w-full grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-4">
-                  {/* Lifetime Revenue */}
+                  {/* PoL APY */}
                   <Card className="!gap-0 relative overflow-hidden">
-                    <GlowSymbol className="!text-[var(--color-glow-green)] absolute -top-6 -right-6 w-32 h-32 opacity-50 dark:opacity-20 pointer-events-none rotate-12" />
+                    <GlowSymbol className="!text-[var(--color-glow-green)] absolute -top-6 -right-6 w-32 h-32 opacity-35 dark:opacity-15 pointer-events-none rotate-12" />
                     <CardContent className="relative flex flex-col px-8 py-8 sm:px-10 sm:py-10">
                       <div className="text-sm font-medium text-muted-foreground tracking-wide">
-                        Lifetime Revenue
+                        PoL APY
                       </div>
                       <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                        {lifetimeRevenueDisplay?.lq ?? "—"}
+                        {polApyDisplay}
                       </div>
                       <div className="mt-3 text-sm text-muted-foreground">
-                        ({lifetimeRevenueDisplay?.breakdown ?? "—"})
+                        Annualized from trailing 90d
                       </div>
                     </CardContent>
                   </Card>
@@ -2014,25 +2151,25 @@ export function PolDashboardView() {
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
                   <div>
-	                    <MetricCard
-	                      label="Circulating supply"
-	                      value={
-	                        hasLiveSupply
-	                          ? `${formatCompactNumberPrecise(
-	                              circulatingSupplyForSupplyCard
-	                            )} GLW`
-	                          : "—"
-	                      }
-	                      helper={
-	                        hasLiveSupply
-	                          ? `${formatPercent(
-	                              circulationPercent
-	                            )} of ${formatCompactNumberPrecise(
-	                              supplyTotal
-	                            )} total (excl. PoL LP)`
-	                          : "Live data unavailable"
-	                      }
-	                    />
+                    <MetricCard
+                      label="Circulating supply"
+                      value={
+                        hasLiveSupply
+                          ? `${formatCompactNumberPrecise(
+                              circulatingSupplyForSupplyCard
+                            )} GLW`
+                          : "—"
+                      }
+                      helper={
+                        hasLiveSupply
+                          ? `${formatPercent(
+                              circulationPercent
+                            )} of ${formatCompactNumberPrecise(
+                              supplyTotal
+                            )} total (excl. PoL GLW)`
+                          : "Live data unavailable"
+                      }
+                    />
                     <div className="mt-3 h-2 rounded-full overflow-hidden flex">
                       <div
                         className="h-full"
@@ -2085,34 +2222,29 @@ export function PolDashboardView() {
                           className="inline-block h-2 w-2 rounded-full shrink-0"
                           style={{ background: "hsl(29, 90%, 60%)" }}
                         />
-                        <span className="text-muted-foreground">PoL LP</span>
+                        <span className="text-muted-foreground">PoL GLW</span>
                       </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-	                    <MiniStat
-	                      label="Vaulted"
-	                      value={
-	                        vaultedGlw !== null
-	                          ? formatCompactNumberPrecise(vaultedGlw)
-	                          : "—"
-	                      }
-	                      valueClassName="text-xl sm:text-2xl tracking-tight"
-	                    />
-	                    <MiniStat
-	                      label="PoL LP"
-	                      value={
-	                        polWalletGlw !== null
-	                          ? formatCompactNumberPrecise(polWalletGlw)
-	                          : "—"
-	                      }
-	                      helper={
-	                        totalPolBreakdown?.breakdown
-	                          ? `(${totalPolBreakdown.breakdown})`
-                          : "Live data unavailable"
+                    <MiniStat
+                      label="Vaulted"
+                      value={
+                        vaultedGlw !== null
+                          ? formatCompactNumberPrecise(vaultedGlw)
+                          : "—"
                       }
-	                      valueClassName="text-xl sm:text-2xl tracking-tight"
-	                    />
+                      valueClassName="text-xl sm:text-2xl tracking-tight"
+                    />
+                    <MiniStat
+                      label="PoL GLW"
+                      value={
+                        polGlwInPol !== null
+                          ? `${formatCompactNumberPrecise(polGlwInPol)} GLW`
+                          : "—"
+                      }
+                      valueClassName="text-xl sm:text-2xl tracking-tight"
+                    />
                   </div>
                   <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 px-4 py-3">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
@@ -2131,48 +2263,54 @@ export function PolDashboardView() {
                 </CardContent>
               </Card>
             </div>
-          </section>
+	          </section>
 
-          <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader title="Every Farm Adds Value" />
-            <div className="flex items-center justify-end gap-3">
-              {showAllFarms ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                    Sort by
-                  </span>
-                  <select
-                    value={farmSortKey}
-                    onChange={(e) =>
-                      setFarmSortKey(
-                        e.target.value as "lifetime" | "ninetyDay" | "credits"
-                      )
-                    }
-                    className="rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-xs font-mono cursor-pointer hover:border-border/60 transition-colors"
-                  >
-                    <option value="lifetime">Lifetime</option>
-                    <option value="ninetyDay">90d Revenue</option>
-                    <option value="credits">CC / Week</option>
-                  </select>
-                </div>
-              ) : null}
+	          <section className="flex flex-col gap-6 pt-16">
+	            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+	              <SectionHeader title="Every Farm Adds Value" />
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAllFarms((v) => !v)}
-              >
-                {showAllFarms ? "Show less" : "See all"}
-              </Button>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {farmRowsToRender.map((farm) => {
-                const lifetimeLq =
-                  farm.lifetimeLq !== null && displayPrice > 0
+	              <div className="flex items-center justify-end gap-3">
+	                {showAllFarms ? (
+	                  <div className="flex items-center gap-2">
+	                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+	                      Sort by
+	                    </span>
+	                    <select
+	                      value={farmSortKey}
+	                      onChange={(e) =>
+	                        setFarmSortKey(
+	                          e.target.value as
+	                            | "latest"
+	                            | "lifetime"
+	                            | "ninetyDay"
+	                            | "credits"
+	                        )
+	                      }
+	                      className="rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-xs font-mono cursor-pointer hover:border-border/60 transition-colors"
+	                    >
+	                      <option value="latest">Latest</option>
+	                      <option value="lifetime">Lifetime</option>
+	                      <option value="ninetyDay">90d Revenue</option>
+	                      <option value="credits">CC / Week</option>
+	                    </select>
+	                  </div>
+	                ) : null}
+
+	                <Button
+	                  variant="outline"
+	                  size="sm"
+	                  onClick={() => setShowAllFarms((v) => !v)}
+	                >
+	                  {showAllFarms ? "Show less" : "See all"}
+	                </Button>
+	              </div>
+	            </div>
+	            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+	              {farmRowsToRender.map((farm) => {
+		                const lifetimeLq =
+		                  farm.lifetimeLq !== null && displayPrice > 0
                     ? {
-                        value: `${formatCompactNumberPrecise(
-                          farm.lifetimeLq
-                        )} lq`,
+                        value: formatLiquidityCompact(farm.lifetimeLq),
                         breakdown: getBreakdownFromLq(
                           farm.lifetimeLq,
                           displayPrice
@@ -2182,9 +2320,7 @@ export function PolDashboardView() {
                 const ninetyDayLq =
                   farm.ninetyDayLq !== null && displayPrice > 0
                     ? {
-                        value: `${formatCompactNumberPrecise(
-                          farm.ninetyDayLq
-                        )} lq`,
+                        value: formatLiquidityCompact(farm.ninetyDayLq),
                         breakdown: getBreakdownFromLq(
                           farm.ninetyDayLq,
                           displayPrice
@@ -2287,7 +2423,7 @@ export function PolDashboardView() {
                     label="Total PoL"
                     value={
                       totalPolLq !== null
-                        ? `${formatCompactNumberPrecise(totalPolLq)} lq`
+                        ? formatLiquidityCompact(totalPolLq)
                         : "—"
                     }
                     helper={
@@ -2302,7 +2438,7 @@ export function PolDashboardView() {
                       label="Yield / wk"
                       value={
                         weeklyYieldLq !== null
-                          ? `${formatCompactNumberPrecise(weeklyYieldLq)} lq`
+                          ? formatLiquidityCompact(weeklyYieldLq)
                           : "—"
                       }
                       valueClassName="text-base sm:text-lg tracking-tight"
@@ -2310,9 +2446,7 @@ export function PolDashboardView() {
                     <MiniStat
                       label="Pool depth"
                       value={poolDepthDisplay}
-                      helper={
-                        poolDepthHelper
-                      }
+                      helper={poolDepthHelper}
                       valueClassName="text-base sm:text-lg tracking-tight"
                     />
                   </div>
@@ -2333,9 +2467,7 @@ export function PolDashboardView() {
                           tick={{ fontSize: 9 }}
                           interval="preserveStartEnd"
                         />
-	                      <ChartTooltip
-	                        content={<PolLiquidityTooltip />}
-	                      />
+                        <ChartTooltip content={<PolLiquidityTooltip />} />
                         <Area
                           type="monotone"
                           dataKey="liquidity"
@@ -2391,13 +2523,13 @@ export function PolDashboardView() {
                   <div className="text-sm font-semibold">GCTL</div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
-	                  <MetricCard
-	                    label="Total GCTL"
-	                    value={
-	                      isGctlLoading
-	                        ? "..."
-	                        : formatCompactNumberPrecise(gctlTotalSupply)
-	                    }
+                  <MetricCard
+                    label="Total GCTL"
+                    value={
+                      isGctlLoading
+                        ? "..."
+                        : formatCompactNumberPrecise(gctlTotalSupply)
+                    }
                     helper={
                       isGctlLoading
                         ? "Loading..."
@@ -2422,22 +2554,22 @@ export function PolDashboardView() {
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4 mt-3">
-	                      <MiniStat
-	                        label="Staked"
-	                        value={
-	                          isGctlLoading
-	                            ? "..."
-	                            : formatCompactNumberPrecise(gctlTotalStaked)
-	                        }
+                      <MiniStat
+                        label="Staked"
+                        value={
+                          isGctlLoading
+                            ? "..."
+                            : formatCompactNumberPrecise(gctlTotalStaked)
+                        }
                         valueClassName="text-base sm:text-lg tracking-tight"
                       />
-	                      <MiniStat
-	                        label="Unstaked"
-	                        value={
-	                          isGctlLoading
-	                            ? "..."
-	                            : formatCompactNumberPrecise(gctlUnstaked)
-	                        }
+                      <MiniStat
+                        label="Unstaked"
+                        value={
+                          isGctlLoading
+                            ? "..."
+                            : formatCompactNumberPrecise(gctlUnstaked)
+                        }
                         valueClassName="text-base sm:text-lg tracking-tight"
                       />
                     </div>
@@ -2463,20 +2595,20 @@ export function PolDashboardView() {
                             strokeWidth={2}
                             stroke="var(--color-card)"
                           />
-	                          <ChartTooltip
-	                            content={
-	                              <ChartTooltipContent
-	                                formatter={(value, name) => {
-	                                  const region = gctlRegionPieData.find(
-	                                    (r) => r.name === name
-	                                  );
-	                                  return `${formatCompactNumberPrecise(
-	                                    Number(value)
-	                                  )} (${region?.pct ?? 0}%)`;
-	                                }}
-	                              />
-	                            }
-	                          />
+                          <ChartTooltip
+                            content={
+                              <ChartTooltipContent
+                                formatter={(value, name) => {
+                                  const region = gctlRegionPieData.find(
+                                    (r) => r.name === name
+                                  );
+                                  return `${formatCompactNumberPrecise(
+                                    Number(value)
+                                  )} (${region?.pct ?? 0}%)`;
+                                }}
+                              />
+                            }
+                          />
                         </PieChart>
                       </ChartContainer>
                       <div className="flex-1 grid gap-1.5">
@@ -2492,9 +2624,9 @@ export function PolDashboardView() {
                               />
                               {region.name}
                             </span>
-	                            <span className="font-mono tabular-nums text-foreground">
-	                              {formatCompactNumberPrecise(region.value)}
-	                            </span>
+                            <span className="font-mono tabular-nums text-foreground">
+                              {formatCompactNumberPrecise(region.value)}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -2753,9 +2885,9 @@ export function PolDashboardView() {
                           const lifetimeLiquidity =
                             region.lifetimeLq !== null && displayPrice > 0
                               ? {
-                                  value: `${formatCompactNumberPrecise(
+                                  value: formatLiquidityCompact(
                                     region.lifetimeLq
-                                  )} lq`,
+                                  ),
                                   breakdown: getBreakdownFromLq(
                                     region.lifetimeLq,
                                     displayPrice
@@ -2765,9 +2897,9 @@ export function PolDashboardView() {
                           const ninetyDayLiquidity =
                             region.ninetyDayLq !== null && displayPrice > 0
                               ? {
-                                  value: `${formatCompactNumberPrecise(
+                                  value: formatLiquidityCompact(
                                     region.ninetyDayLq
-                                  )} lq`,
+                                  ),
                                   breakdown: getBreakdownFromLq(
                                     region.ninetyDayLq,
                                     displayPrice
@@ -2879,13 +3011,13 @@ export function PolDashboardView() {
                 </div>
               </CardContent>
             </Card>
-	          </section>
+          </section>
 
-	          {/* FMI temporarily hidden (extracted to app/internal/pol/fmi-widget.tsx). */}
+          {/* FMI temporarily hidden (extracted to app/internal/pol/fmi-widget.tsx). */}
 
-	          <section className="flex flex-col gap-6 pt-16">
-	            <SectionHeader title="Unlock / FDV" />
-	            <Card className="!gap-6">
+          <section className="flex flex-col gap-6 pt-16">
+            <SectionHeader title="Unlock / FDV" />
+            <Card className="!gap-6">
               <CardHeader className="pb-0">
                 <div className="text-sm font-semibold">Unlock / FDV</div>
               </CardHeader>
@@ -2916,7 +3048,9 @@ export function PolDashboardView() {
                         width={44}
                         tick={{ fontSize: 9 }}
                         tickMargin={8}
-                        tickFormatter={(value) => `${Math.round(Number(value))}M`}
+                        tickFormatter={(value) =>
+                          `${Math.round(Number(value))}M`
+                        }
                       />
                       <ChartTooltip
                         content={
@@ -2924,8 +3058,12 @@ export function PolDashboardView() {
                             labelFormatter={(label) => `Year ${label}`}
                             formatter={(value) => {
                               const numeric =
-                                typeof value === "number" ? value : Number(value);
-                              const v = Number.isFinite(numeric) ? Math.round(numeric) : 0;
+                                typeof value === "number"
+                                  ? value
+                                  : Number(value);
+                              const v = Number.isFinite(numeric)
+                                ? Math.round(numeric)
+                                : 0;
                               return `${formatNumber(v)}M GLW`;
                             }}
                           />
@@ -2948,13 +3086,13 @@ export function PolDashboardView() {
                       value={
                         fdvUsd !== null ? formatUsdCompactPrecise(fdvUsd) : "—"
                       }
-	                      helper={
-	                        fdvUsd !== null && polWalletGlw !== null && hasLivePrice
-	                          ? `${formatCompactNumberPrecise(
-	                              Math.max(0, supplyTotal - polWalletGlw)
-	                            )} GLW at $${priceDetail} (excl. PoL wallets)`
-	                          : "Live data unavailable"
-	                      }
+                      helper={
+                        fdvUsd !== null && polWalletGlw !== null && hasLivePrice
+                          ? `${formatCompactNumberPrecise(
+                              Math.max(0, supplyTotal - polWalletGlw)
+                            )} GLW at $${priceDetail} (excl. PoL wallets)`
+                          : "Live data unavailable"
+                      }
                     />
                     <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 p-4">
                       <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
@@ -2997,32 +3135,42 @@ export function PolDashboardView() {
           </div>
           <div className="p-6 space-y-6">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-              Modeled supply (not live data)
+              Modeled supply{" "}
+              {isAtLivePrice ? "(matches live)" : "(not live data)"}
             </div>
             {/* ── Key metrics that change with price ── */}
-	            <div className="grid grid-cols-2 gap-4">
-	              <MetricCard
-	                label="Circulating supply"
-	                value={`${formatCompactNumberPrecise(
-	                  supplyModel.circulating
-	                )} GLW`}
-	                helper={
-	                  supplyDelta !== null
-	                    ? `${formatSignedNumber(supplyDelta)} vs current`
-	                    : "Live data unavailable"
-	                }
-	              />
+            <div className="grid grid-cols-2 gap-4">
               <MetricCard
-                label="USDG liquidity"
+                label="Liquid circulating"
                 value={
-                  supplyModel.usdgLiquidity !== null
-                    ? formatUsdCompact(supplyModel.usdgLiquidity)
+                  liquidCirculatingModeled !== null
+                    ? `${formatCompactNumberPrecise(
+                        liquidCirculatingModeled
+                      )} GLW`
                     : "—"
                 }
                 helper={
-                  supplyModel.usdgLiquidity !== null && poolUsdg > 0
-                    ? `${formatSignedNumber(
-                        Math.round(supplyModel.usdgLiquidity - poolUsdg)
+                  supplyDelta !== null
+                    ? `${formatSignedNumber(supplyDelta)} vs current`
+                    : "Live data unavailable"
+                }
+              />
+              <MetricCard
+                label="Pool depth"
+                value={
+                  supplyModel.modeledPoolDepthUsd !== null
+                    ? formatUsdCompact(supplyModel.modeledPoolDepthUsd)
+                    : "—"
+                }
+                helper={
+                  supplyModel.modeledPoolDepthUsd !== null &&
+                  hasLivePrice &&
+                  (poolReserves?.usdg ?? 0) > 0 &&
+                  (poolReserves?.glw ?? 0) > 0
+                    ? `${formatUsdCompactPrecise(
+                        supplyModel.modeledPoolDepthUsd -
+                          ((poolReserves?.usdg ?? 0) +
+                            (poolReserves?.glw ?? 0) * displayPrice)
                       )} vs current pool`
                     : "Live data unavailable"
                 }
@@ -3033,37 +3181,31 @@ export function PolDashboardView() {
             <div>
               {(() => {
                 const denom = supplyModel.total > 0 ? supplyModel.total : 1;
-                const vaulted = vaultedGlw !== null ? vaultedGlw : 0;
 
-                const totalLiquidityGlwCurrent = Math.max(
-                  0,
-                  (poolReserves?.glw ?? 0) + (polWalletGlw ?? 0)
-                );
-                const polShareOfLiquidity =
-                  totalLiquidityGlwCurrent > 0 && polWalletGlw !== null
-                    ? Math.min(1, Math.max(0, polWalletGlw / totalLiquidityGlwCurrent))
-                    : 0;
-                const modeledLiquidityGlw = supplyModel.liquidityGlw ?? totalLiquidityGlwCurrent;
-                const modeledPolGlw = Math.max(0, modeledLiquidityGlw * polShareOfLiquidity);
+                // Fixed buckets.
+                const vaulted = vaultedGlw ?? 0;
+                const other = hasLiveSupply
+                  ? Math.max(0, supplyTotal - currentCirculating)
+                  : 0;
 
-                const circulatingExPol = Math.max(
-                  0,
-                  supplyModel.circulating - modeledPolGlw
-                );
-                const other = Math.max(0, denom - circulatingExPol - modeledPolGlw - vaulted);
+                // Variable buckets: PoL eats liquid circulating.
+                const pol = modeledPolGlw ?? 0;
+                const circulating = hasLiveSupply
+                  ? Math.max(0, currentCirculating - vaulted - pol)
+                  : 0;
 
-                const circulatingPct = (circulatingExPol / denom) * 100;
-                const polPct = (modeledPolGlw / denom) * 100;
+                const circulatingPct = (circulating / denom) * 100;
+                const polPct = (pol / denom) * 100;
                 const vaultedPct = (vaulted / denom) * 100;
                 const otherPct = (other / denom) * 100;
                 return (
                   <>
-	                    <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-	                      <span>Supply breakdown</span>
-	                      <span>
-	                        {formatCompactNumberPrecise(supplyModel.total)} total
-	                      </span>
-	                    </div>
+                    <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
+                      <span>Supply breakdown</span>
+                      <span>
+                        {formatCompactNumberPrecise(supplyModel.total)} total
+                      </span>
+                    </div>
                     <div className="h-6 rounded-full bg-muted/50 overflow-hidden flex">
                       <div
                         className="h-full transition-all duration-300 ease-out"
@@ -3101,9 +3243,11 @@ export function PolDashboardView() {
                           className="inline-block h-2 w-2 rounded-full shrink-0"
                           style={{ background: "hsl(142, 71%, 45%)" }}
                         />
-                        <span className="text-muted-foreground">Circulating</span>
+                        <span className="text-muted-foreground">
+                          Circulating
+                        </span>
                         <span className="font-mono tabular-nums ml-auto">
-                          {formatPercent(circulatingPct)}
+                          {formatCompactNumberPrecise(circulating)} GLW
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -3113,7 +3257,7 @@ export function PolDashboardView() {
                         />
                         <span className="text-muted-foreground">PoL</span>
                         <span className="font-mono tabular-nums ml-auto">
-                          {formatNumber(Math.round(modeledPolGlw))} GLW
+                          {formatCompactNumberPrecise(pol)} GLW
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -3123,7 +3267,7 @@ export function PolDashboardView() {
                         />
                         <span className="text-muted-foreground">Vaulted</span>
                         <span className="font-mono tabular-nums ml-auto">
-                          {formatPercent(vaultedPct)}
+                          {formatCompactNumberPrecise(vaulted)} GLW
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -3136,7 +3280,7 @@ export function PolDashboardView() {
                         />
                         <span className="text-muted-foreground">Other</span>
                         <span className="font-mono tabular-nums ml-auto">
-                          {formatPercent(otherPct)}
+                          {formatCompactNumberPrecise(other)} GLW
                         </span>
                       </div>
                     </div>
