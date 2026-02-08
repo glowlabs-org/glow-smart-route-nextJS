@@ -2238,9 +2238,6 @@ export function PolDashboardView() {
                           <span className="font-mono uppercase tracking-widest">
                             {farm.region}
                           </span>
-                          <span className="font-mono tabular-nums">
-                            {farm.panels} panels
-                          </span>
                         </div>
                       </div>
                       {/* Revenue metrics */}
@@ -2266,22 +2263,6 @@ export function PolDashboardView() {
                           <div className="text-[10px] text-muted-foreground leading-tight">
                             ({ninetyDayLq.breakdown})
                           </div>
-                        </div>
-                      </div>
-                      {/* Footer with carbon stats */}
-                      <div className="px-5 py-3 border-t border-border/10 dark:border-border/20 bg-muted/20 dark:bg-background/30 flex items-center gap-4">
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500/60" />
-                          <span className="font-mono tabular-nums">
-                            {(farm.ccPerWeek ?? 0).toFixed(3)}
-                          </span>
-                          <span>cc/wk</span>
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          <span className="font-mono tabular-nums">
-                            {(farm.ccLifetime ?? 0).toFixed(1)}
-                          </span>{" "}
-                          total credits
                         </div>
                       </div>
                     </CardContent>
