@@ -180,10 +180,26 @@ function formatUsdCompactPrecise(value: number) {
 }
 
 function formatCompactNumberPrecise(value: number) {
+  const abs = Math.abs(value);
+
+  // Avoid confusing outputs like `359.922K`:
+  // - If we use compact (K/M/B), cap at 1 decimal.
+  // - For mid 6-figure values, show the full number instead of a highly precise `K`.
+  if (abs >= 100_000 && abs < 1_000_000) {
+    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(
+      value
+    );
+  }
+
+  if (abs >= 1_000) {
+    return new Intl.NumberFormat("en-US", {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(value);
+  }
+
   return new Intl.NumberFormat("en-US", {
-    notation: "compact",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: value < 10_000_000 ? 3 : 2,
+    maximumFractionDigits: abs < 10 ? 2 : 1,
   }).format(value);
 }
 
@@ -1434,11 +1450,21 @@ export function PolDashboardView() {
 
   const farmRowsToRender = showAllFarms ? farmRowsForRender : farmRowsTeaser;
 
+  const circulatingSupplyForSupplyCard = React.useMemo(() => {
+    if (!hasLiveSupply) return currentCirculating;
+    // `getGlowMarketCap` excludes PoL wallet balances, but does not exclude
+    // GLW owned inside PoL LP positions. Subtract it here so the "Liquidity"
+    // slice (PoL LP) isn't double-counted inside "Circulating".
+    const polLpGlw = polWalletGlw ?? 0;
+    const adjusted = currentCirculating - polLpGlw;
+    return Number.isFinite(adjusted) ? Math.max(0, adjusted) : currentCirculating;
+  }, [hasLiveSupply, currentCirculating, polWalletGlw]);
+
   const circulationPercent = hasLiveSupply
-    ? Math.min(100, (currentCirculating / supplyTotal) * 100)
+    ? Math.min(100, (circulatingSupplyForSupplyCard / supplyTotal) * 100)
     : 0;
   const circulatingWidth = hasLiveSupply
-    ? (currentCirculating / supplyTotal) * 100
+    ? (circulatingSupplyForSupplyCard / supplyTotal) * 100
     : 0;
 
   const vaultedWidth =
@@ -1895,14 +1921,14 @@ export function PolDashboardView() {
                       label="Circulating supply"
                       value={
                         hasLiveSupply
-                          ? `${formatCompactNumber(currentCirculating)} GLW`
+                          ? `${formatCompactNumber(circulatingSupplyForSupplyCard)} GLW`
                           : "—"
                       }
                       helper={
                         hasLiveSupply
                           ? `${formatPercent(
                               circulationPercent
-                            )} of ${formatCompactNumber(supplyTotal)} total`
+                            )} of ${formatCompactNumber(supplyTotal)} total (excl. PoL LP)`
                           : "Live data unavailable"
                       }
                     />
@@ -1958,7 +1984,7 @@ export function PolDashboardView() {
                           className="inline-block h-2 w-2 rounded-full shrink-0"
                           style={{ background: "hsl(29, 90%, 60%)" }}
                         />
-                        <span className="text-muted-foreground">Liquidity</span>
+                        <span className="text-muted-foreground">PoL LP</span>
                       </div>
                     </div>
                   </div>
@@ -1973,11 +1999,15 @@ export function PolDashboardView() {
                       valueClassName="text-xl sm:text-2xl tracking-tight"
                     />
                     <MiniStat
-                      label="Liquidity"
-                      value={poolLiquidityBreakdown.value}
+                      label="PoL LP"
+                      value={
+                        polWalletGlw !== null
+                          ? formatCompactNumber(polWalletGlw)
+                          : "—"
+                      }
                       helper={
-                        hasPoolReserves
-                          ? `(${poolLiquidityBreakdown.breakdown})`
+                        totalPolBreakdown?.breakdown
+                          ? `(${totalPolBreakdown.breakdown})`
                           : "Live data unavailable"
                       }
                       valueClassName="text-xl sm:text-2xl tracking-tight"
