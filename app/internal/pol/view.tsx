@@ -2227,19 +2227,6 @@ export function PolDashboardView() {
                           </div>
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
-                        {shouldShowDeltaRatio(farm.ninetyDayDelta) ? (
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "absolute top-2.5 right-2.5 text-[10px] font-mono tabular-nums shrink-0 border-0",
-                              (farm.ninetyDayDelta ?? 0) >= 0
-                                ? "bg-green-600/80 text-white"
-                                : "bg-red-600/80 text-white"
-                            )}
-                          >
-                            {formatSignedPercentFromRatioNullable(farm.ninetyDayDelta)}
-                          </Badge>
-                        ) : null}
                         <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
                           <Badge
                             variant="secondary"
