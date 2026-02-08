@@ -52,6 +52,7 @@ import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
 import { usePoolInfo } from "@/hooks/useLiquidityPositionsOptimized";
 import { useImpactMetrics } from "@/hooks/useImpactMetrics";
 import { usePolLiquiditySnapshot } from "@/hooks/usePolLiquiditySnapshot";
+import { usePolLiquidity } from "@/hooks/usePolLiquidity";
 import { usePolSummary } from "@/hooks/usePolSummary";
 import {
   parseLqUnits,
@@ -857,12 +858,13 @@ function PolLiquidityTooltip({
         protocolWeek?: number;
         liquidity?: number;
         deltaLiquidity?: number | null;
-        usdg?: number;
-        deltaUsdg?: number | null;
-        glw?: number;
-        deltaGlw?: number | null;
-        deltaEndowmentEst?: number | null;
-        deltaBotActiveEst?: number | null;
+        endowmentLiquidity?: number;
+        deltaEndowmentLiquidity?: number | null;
+        botActiveLiquidity?: number;
+        deltaBotActiveLiquidity?: number | null;
+        usdValue?: number | null;
+        deltaUsdValue?: number | null;
+        spotPrice?: number | null;
       }
     | undefined;
   if (!p) return null;
@@ -900,60 +902,74 @@ function PolLiquidityTooltip({
         <div className="h-px bg-border/10 dark:bg-border/20" />
 
         <div className="flex items-center justify-between gap-4">
-          <div className="text-xs text-muted-foreground">USDG</div>
+          <div className="text-xs text-muted-foreground">Endowment</div>
           <div className="text-sm font-mono tabular-nums text-foreground">
-            {typeof p.usdg === "number" ? `$${formatCompactNumber(p.usdg)}` : "—"}
+            {typeof p.endowmentLiquidity === "number"
+              ? `${formatCompactNumberPrecise(p.endowmentLiquidity)} lq`
+              : "—"}
           </div>
         </div>
         <div className="flex items-center justify-between gap-4">
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-            Δ USDG
+            Δ Endowment
           </div>
           <div className="text-xs font-mono tabular-nums text-foreground">
-            {p.deltaUsdg === null || p.deltaUsdg === undefined
+            {p.deltaEndowmentLiquidity === null ||
+            p.deltaEndowmentLiquidity === undefined
               ? "—"
-              : `$${formatSignedCompactNumberPrecise(p.deltaUsdg)}`}
+              : `${formatSignedCompactNumberPrecise(p.deltaEndowmentLiquidity)} lq`}
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-4">
-          <div className="text-xs text-muted-foreground">GLW</div>
+          <div className="text-xs text-muted-foreground">Bot active</div>
           <div className="text-sm font-mono tabular-nums text-foreground">
-            {typeof p.glw === "number" ? formatCompactNumber(p.glw) : "—"}
+            {typeof p.botActiveLiquidity === "number"
+              ? `${formatCompactNumberPrecise(p.botActiveLiquidity)} lq`
+              : "—"}
           </div>
         </div>
         <div className="flex items-center justify-between gap-4">
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-            Δ GLW
+            Δ Bot active
           </div>
           <div className="text-xs font-mono tabular-nums text-foreground">
-            {p.deltaGlw === null || p.deltaGlw === undefined
+            {p.deltaBotActiveLiquidity === null ||
+            p.deltaBotActiveLiquidity === undefined
               ? "—"
-              : formatSignedCompactNumberPrecise(p.deltaGlw)}
+              : `${formatSignedCompactNumberPrecise(p.deltaBotActiveLiquidity)} lq`}
           </div>
         </div>
 
         <div className="mt-1 rounded-xl bg-muted/20 dark:bg-background/40 border border-border/10 dark:border-border/20 px-3 py-2">
           <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-            Est. Δ by source (live split)
+            As-of snapshot
           </div>
-          <div className="mt-1 grid grid-cols-2 gap-2">
+          <div className="mt-1 space-y-1">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground">Endowment</span>
+              <span className="text-xs text-muted-foreground">Spot</span>
               <span className="text-xs font-mono tabular-nums text-foreground">
-                {p.deltaEndowmentEst === null ||
-                p.deltaEndowmentEst === undefined
+                {p.spotPrice === null || p.spotPrice === undefined
                   ? "—"
-                  : `${formatSignedCompactNumberPrecise(p.deltaEndowmentEst)} lq`}
+                  : `$${formatNullableFixed(p.spotPrice, 4)}`}
               </span>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground">Bot active</span>
+              <span className="text-xs text-muted-foreground">USD value</span>
               <span className="text-xs font-mono tabular-nums text-foreground">
-                {p.deltaBotActiveEst === null ||
-                p.deltaBotActiveEst === undefined
+                {p.usdValue === null || p.usdValue === undefined
                   ? "—"
-                  : `${formatSignedCompactNumberPrecise(p.deltaBotActiveEst)} lq`}
+                  : formatUsdCompactNullable(p.usdValue)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                Δ USD
+              </span>
+              <span className="text-xs font-mono tabular-nums text-foreground">
+                {p.deltaUsdValue === null || p.deltaUsdValue === undefined
+                  ? "—"
+                  : formatUsdCompactNullable(p.deltaUsdValue)}
               </span>
             </div>
           </div>
@@ -1556,6 +1572,9 @@ export function PolDashboardView() {
   const { data: polLiquiditySnapshot } = usePolLiquiditySnapshot({
     range: "20w",
   });
+  const { data: polLiquiditySeries } = usePolLiquidity({
+    range: "12w",
+  });
 
   const supplyGrowthAnnual = React.useMemo(() => {
     if (!hasLiveSupply) return null;
@@ -1665,86 +1684,82 @@ export function PolDashboardView() {
   }, [hasLiveSupply, hasLivePrice, polWalletGlw, supplyTotal, currentPrice]);
 
   const polLiquidityTrend = React.useMemo(() => {
-    const series = polLiquiditySnapshot?.series;
+    const series = polLiquiditySeries?.series;
     if (!series || series.length < 2) return null;
-    const sorted = series.slice().sort((a, b) => a.week - b.week);
+    const sorted = series.slice().sort((a, b) => a.weekNumber - b.weekNumber);
     const completed = sorted.length > 1 ? sorted.slice(0, -1) : sorted;
     const tail = completed.slice(-12);
     if (tail.length < 2) return null;
-    const endowmentLq = parseLqUnits(polSummary?.endowment?.lq ?? null) ?? 0;
-    const botActiveLq = parseLqUnits(polSummary?.botActive?.lq ?? null) ?? 0;
-    const sourcesTotal = endowmentLq + botActiveLq;
-    const endowmentShare =
-      sourcesTotal > 0 ? endowmentLq / sourcesTotal : 0.5;
-    const botActiveShare = sourcesTotal > 0 ? botActiveLq / sourcesTotal : 0.5;
 
     return tail.map((row, index) => {
       const prev = index > 0 ? tail[index - 1] : null;
-      const liquidity = parseLqUnits(row.pol_lq) ?? 0;
-      const prevLiquidity = prev ? parseLqUnits(prev.pol_lq) ?? 0 : null;
+      const liquidity = parseLqUnits(row.totalLq) ?? 0;
+      const prevLiquidity = prev ? parseLqUnits(prev.totalLq) ?? 0 : null;
       const deltaLiquidity =
         prevLiquidity === null ? null : liquidity - prevLiquidity;
 
-      const usdg = (() => {
-        try {
-          return Number(formatUnits(BigInt(row.pol_usdg), 6));
-        } catch {
-          return 0;
-        }
-      })();
-      const glw = (() => {
-        try {
-          return Number(formatUnits(BigInt(row.pol_glw), 18));
-        } catch {
-          return 0;
-        }
-      })();
+      const endowmentLiquidity = parseLqUnits(row.endowmentLq) ?? 0;
+      const prevEndowmentLiquidity =
+        prev ? parseLqUnits(prev.endowmentLq) ?? 0 : null;
+      const deltaEndowmentLiquidity =
+        prevEndowmentLiquidity === null
+          ? null
+          : endowmentLiquidity - prevEndowmentLiquidity;
 
-      const prevUsdg =
-        prev !== null
+      const botActiveLiquidity = parseLqUnits(row.botActiveLq) ?? 0;
+      const prevBotActiveLiquidity =
+        prev ? parseLqUnits(prev.botActiveLq) ?? 0 : null;
+      const deltaBotActiveLiquidity =
+        prevBotActiveLiquidity === null
+          ? null
+          : botActiveLiquidity - prevBotActiveLiquidity;
+
+      const usdValue = (() => {
+        const raw = row.totalUsdUsdc6;
+        if (!raw) return null;
+        try {
+          const n = Number(formatUnits(BigInt(raw), 6));
+          return Number.isFinite(n) ? n : null;
+        } catch {
+          return null;
+        }
+      })();
+      const prevUsdValue =
+        prev?.totalUsdUsdc6
           ? (() => {
               try {
-                return Number(formatUnits(BigInt(prev.pol_usdg), 6));
+                const n = Number(formatUnits(BigInt(prev.totalUsdUsdc6), 6));
+                return Number.isFinite(n) ? n : null;
               } catch {
                 return null;
               }
             })()
           : null;
-      const prevGlw =
-        prev !== null
-          ? (() => {
-              try {
-                return Number(formatUnits(BigInt(prev.pol_glw), 18));
-              } catch {
-                return null;
-              }
-            })()
-          : null;
+      const deltaUsdValue =
+        prevUsdValue === null || usdValue === null ? null : usdValue - prevUsdValue;
 
-      const deltaUsdg = prevUsdg === null ? null : usdg - prevUsdg;
-      const deltaGlw = prevGlw === null ? null : glw - prevGlw;
-
-      // Ponder snapshots don't provide per-source series (endowment vs botActive).
-      // We show an estimate by applying today's live split to the weekly total delta.
-      const deltaEndowmentEst =
-        deltaLiquidity === null ? null : deltaLiquidity * endowmentShare;
-      const deltaBotActiveEst =
-        deltaLiquidity === null ? null : deltaLiquidity * botActiveShare;
+      const spotPrice = (() => {
+        const raw = row.spotPriceUsdgPerGlw;
+        if (!raw) return null;
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : null;
+      })();
 
       return {
         week: `W-${tail.length - index}`,
-        protocolWeek: row.week,
+        protocolWeek: row.weekNumber,
         liquidity,
         deltaLiquidity,
-        usdg,
-        deltaUsdg,
-        glw,
-        deltaGlw,
-        deltaEndowmentEst,
-        deltaBotActiveEst,
+        endowmentLiquidity,
+        deltaEndowmentLiquidity,
+        botActiveLiquidity,
+        deltaBotActiveLiquidity,
+        usdValue,
+        deltaUsdValue,
+        spotPrice,
       };
     });
-  }, [polLiquiditySnapshot, polSummary]);
+  }, [polLiquiditySeries]);
   const polLiquidityChartData = polLiquidityTrend ?? [];
   const polLiquidityIsLive = Boolean(polLiquidityTrend);
 

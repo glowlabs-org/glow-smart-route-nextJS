@@ -141,6 +141,7 @@ export const QUERY_KEYS = {
     summary: () => ["pol-summary"] as const,
     liquiditySnapshot: (range?: string | null, wallets?: string[] | null) =>
       ["pol-liquidity-snapshot", range ?? null, wallets ?? null] as const,
+    liquidity: (range?: string | null) => ["pol-liquidity", range ?? null] as const,
   },
   unclaimed: {
     all: ["unclaimed-glw-rewards"] as const,

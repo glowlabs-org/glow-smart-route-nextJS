@@ -505,11 +505,11 @@ existing hooks). Current sources:
 
 Ponder (via Next API proxy):
 - `/pol/summary` (endowment + bot active balances, total PoL lq)
-- `/pol/snapshots` (12-week PoL series)
 - `/spot-price` (USDG per GLW, for lq↔USD display)
 
 CRM (via Next API proxy):
 - `/pol/revenue/aggregate`, `/pol/revenue/farms`, `/pol/revenue/regions`
+- `/pol/liquidity` (12-week PoL liquidity series derived from Ponder `/pol/points`)
 - `/fmi/pressure` (latest week)
 - `/glw/vesting-schedule`
 - `/impact/wallet-stats`, `/impact/new-wallets-by-week`
