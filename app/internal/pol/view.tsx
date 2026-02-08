@@ -1255,6 +1255,8 @@ export function PolDashboardView() {
       circulating,
       // "USDG liquidity" is the modeled USDG side for this illustrative model.
       usdgLiquidity: modeledUsdg,
+      // Total GLW that would sit in the combined pool (external + PoL) under the model price.
+      liquidityGlw: modeledGlw,
     };
   }, [
     poolReserves,
@@ -3377,13 +3379,33 @@ export function PolDashboardView() {
               />
             </div>
 
-            {/* ── Supply breakdown bar (circulating / vaulted) ── */}
+            {/* ── Supply breakdown bar (circulating / PoL / vaulted / other) ── */}
             <div>
               {(() => {
                 const denom = supplyModel.total > 0 ? supplyModel.total : 1;
                 const vaulted = vaultedGlw !== null ? vaultedGlw : 0;
-                const circulatingPct = (supplyModel.circulating / denom) * 100;
+
+                const totalLiquidityGlwCurrent = Math.max(
+                  0,
+                  (poolReserves?.glw ?? 0) + (polWalletGlw ?? 0)
+                );
+                const polShareOfLiquidity =
+                  totalLiquidityGlwCurrent > 0 && polWalletGlw !== null
+                    ? Math.min(1, Math.max(0, polWalletGlw / totalLiquidityGlwCurrent))
+                    : 0;
+                const modeledLiquidityGlw = supplyModel.liquidityGlw ?? totalLiquidityGlwCurrent;
+                const modeledPolGlw = Math.max(0, modeledLiquidityGlw * polShareOfLiquidity);
+
+                const circulatingExPol = Math.max(
+                  0,
+                  supplyModel.circulating - modeledPolGlw
+                );
+                const other = Math.max(0, denom - circulatingExPol - modeledPolGlw - vaulted);
+
+                const circulatingPct = (circulatingExPol / denom) * 100;
+                const polPct = (modeledPolGlw / denom) * 100;
                 const vaultedPct = (vaulted / denom) * 100;
+                const otherPct = (other / denom) * 100;
                 return (
                   <>
                     <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
@@ -3403,22 +3425,45 @@ export function PolDashboardView() {
                       <div
                         className="h-full transition-all duration-300 ease-out"
                         style={{
+                          width: `${polPct}%`,
+                          background: "hsl(29, 90%, 60%)",
+                        }}
+                      />
+                      <div
+                        className="h-full transition-all duration-300 ease-out"
+                        style={{
                           width: `${vaultedPct}%`,
                           background: "hsl(270, 70%, 60%)",
                         }}
                       />
+                      <div
+                        className="h-full transition-all duration-300 ease-out"
+                        style={{
+                          width: `${otherPct}%`,
+                          background: "hsl(240, 3.8%, 46.1%)",
+                          opacity: 0.35,
+                        }}
+                      />
                     </div>
-                    <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                    <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
                       <div className="flex items-center gap-1.5">
                         <span
                           className="inline-block h-2 w-2 rounded-full shrink-0"
                           style={{ background: "hsl(142, 71%, 45%)" }}
                         />
-                        <span className="text-muted-foreground">
-                          Circulating
-                        </span>
+                        <span className="text-muted-foreground">Circulating</span>
                         <span className="font-mono tabular-nums ml-auto">
                           {formatPercent(circulatingPct)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="inline-block h-2 w-2 rounded-full shrink-0"
+                          style={{ background: "hsl(29, 90%, 60%)" }}
+                        />
+                        <span className="text-muted-foreground">PoL</span>
+                        <span className="font-mono tabular-nums ml-auto">
+                          {formatNumber(Math.round(modeledPolGlw))} GLW
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -3429,6 +3474,19 @@ export function PolDashboardView() {
                         <span className="text-muted-foreground">Vaulted</span>
                         <span className="font-mono tabular-nums ml-auto">
                           {formatPercent(vaultedPct)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="inline-block h-2 w-2 rounded-full shrink-0"
+                          style={{
+                            background: "hsl(240, 3.8%, 46.1%)",
+                            opacity: 0.5,
+                          }}
+                        />
+                        <span className="text-muted-foreground">Other</span>
+                        <span className="font-mono tabular-nums ml-auto">
+                          {formatPercent(otherPct)}
                         </span>
                       </div>
                     </div>
