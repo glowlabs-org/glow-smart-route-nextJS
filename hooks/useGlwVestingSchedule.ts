@@ -26,7 +26,10 @@ function normalizeAmountToGlw(amount: unknown): number | null {
 function parseJsonToYearlyPoints(json: unknown): VestingChartPoint[] | null {
   if (!Array.isArray(json)) return null;
 
-  const byYear = new Map<string, number>();
+  // CRM `/glw/vesting-schedule` rows are a time series where `unlocked` is
+  // cumulative (not "amount unlocked during this period"). For the yearly chart
+  // we want the year-end unlocked value, not the sum of monthly cumulative rows.
+  const byYear = new Map<string, { dateLike: string | null; unlocked: number }>();
 
   for (const row of json) {
     if (!row || typeof row !== "object") continue;
@@ -54,14 +57,32 @@ function parseJsonToYearlyPoints(json: unknown): VestingChartPoint[] | null {
       normalizeAmountToGlw(r.unlockedWei);
 
     if (amount === null) continue;
-    byYear.set(year, (byYear.get(year) ?? 0) + amount);
+
+    const prev = byYear.get(year) ?? null;
+    const next = { dateLike: dateLike ?? null, unlocked: amount };
+
+    if (!prev) {
+      byYear.set(year, next);
+      continue;
+    }
+
+    // Prefer the latest dated row when available; otherwise take the max value.
+    if (prev.dateLike && next.dateLike) {
+      byYear.set(year, prev.dateLike >= next.dateLike ? prev : next);
+      continue;
+    }
+
+    byYear.set(year, {
+      dateLike: prev.dateLike ?? next.dateLike,
+      unlocked: Math.max(prev.unlocked, next.unlocked),
+    });
   }
 
   const points = Array.from(byYear.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([year, amountGlw]) => ({
+    .map(([year, row]) => ({
       year,
-      unlocked: amountGlw / 1_000_000,
+      unlocked: row.unlocked / 1_000_000,
     }));
 
   return points.length ? points : null;
