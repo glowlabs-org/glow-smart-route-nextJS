@@ -150,12 +150,7 @@ function formatNumber(value: number) {
 }
 
 function formatUsdCompact(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
+  return formatUsdCompactPrecise(value);
 }
 
 function formatUsdCompactNullable(value: number | null) {
@@ -237,10 +232,18 @@ function formatPercentFromRatio(value: number) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+const MATERIAL_NEGATIVE_DELTA_RATIO = 0.05; // 5% drop
+
 function formatSignedPercentFromRatioNullable(value: number | null) {
   if (value === null || !Number.isFinite(value)) return "—";
   const sign = value >= 0 ? "+" : "";
   return `${sign}${formatPercentFromRatio(value)}`;
+}
+
+function shouldShowDeltaRatio(value: number | null): boolean {
+  if (value === null || !Number.isFinite(value)) return false;
+  if (value >= 0) return true;
+  return Math.abs(value) >= MATERIAL_NEGATIVE_DELTA_RATIO;
 }
 
 function formatSignedNumber(value: number) {
@@ -624,9 +627,13 @@ function FarmDetailsDialog({
                             <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                               <MetricCard
                                 label="Delta (90d)"
-                                value={formatSignedPercentFromRatioNullable(
-                                  selectedFarm.ninetyDayDelta ?? null
-                                )}
+                                value={
+                                  shouldShowDeltaRatio(selectedFarm.ninetyDayDelta ?? null)
+                                    ? formatSignedPercentFromRatioNullable(
+                                        selectedFarm.ninetyDayDelta ?? null
+                                      )
+                                    : "—"
+                                }
                                 helper="Trailing 13w vs previous 13w"
                                 labelClassName="text-muted-foreground/60 dark:text-muted-foreground/80"
                               />
@@ -2007,21 +2014,25 @@ export function PolDashboardView() {
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
                   <div>
-                    <MetricCard
-                      label="Circulating supply"
-                      value={
-                        hasLiveSupply
-                          ? `${formatCompactNumber(circulatingSupplyForSupplyCard)} GLW`
-                          : "—"
-                      }
-                      helper={
-                        hasLiveSupply
-                          ? `${formatPercent(
-                              circulationPercent
-                            )} of ${formatCompactNumber(supplyTotal)} total (excl. PoL LP)`
-                          : "Live data unavailable"
-                      }
-                    />
+	                    <MetricCard
+	                      label="Circulating supply"
+	                      value={
+	                        hasLiveSupply
+	                          ? `${formatCompactNumberPrecise(
+	                              circulatingSupplyForSupplyCard
+	                            )} GLW`
+	                          : "—"
+	                      }
+	                      helper={
+	                        hasLiveSupply
+	                          ? `${formatPercent(
+	                              circulationPercent
+	                            )} of ${formatCompactNumberPrecise(
+	                              supplyTotal
+	                            )} total (excl. PoL LP)`
+	                          : "Live data unavailable"
+	                      }
+	                    />
                     <div className="mt-3 h-2 rounded-full overflow-hidden flex">
                       <div
                         className="h-full"
@@ -2079,29 +2090,29 @@ export function PolDashboardView() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <MiniStat
-                      label="Vaulted"
-                      value={
-                        vaultedGlw !== null
-                          ? formatCompactNumber(vaultedGlw)
-                          : "—"
-                      }
-                      valueClassName="text-xl sm:text-2xl tracking-tight"
-                    />
-                    <MiniStat
-                      label="PoL LP"
-                      value={
-                        polWalletGlw !== null
-                          ? formatCompactNumber(polWalletGlw)
-                          : "—"
-                      }
-                      helper={
-                        totalPolBreakdown?.breakdown
-                          ? `(${totalPolBreakdown.breakdown})`
+	                    <MiniStat
+	                      label="Vaulted"
+	                      value={
+	                        vaultedGlw !== null
+	                          ? formatCompactNumberPrecise(vaultedGlw)
+	                          : "—"
+	                      }
+	                      valueClassName="text-xl sm:text-2xl tracking-tight"
+	                    />
+	                    <MiniStat
+	                      label="PoL LP"
+	                      value={
+	                        polWalletGlw !== null
+	                          ? formatCompactNumberPrecise(polWalletGlw)
+	                          : "—"
+	                      }
+	                      helper={
+	                        totalPolBreakdown?.breakdown
+	                          ? `(${totalPolBreakdown.breakdown})`
                           : "Live data unavailable"
                       }
-                      valueClassName="text-xl sm:text-2xl tracking-tight"
-                    />
+	                      valueClassName="text-xl sm:text-2xl tracking-tight"
+	                    />
                   </div>
                   <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 px-4 py-3">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
@@ -2216,19 +2227,19 @@ export function PolDashboardView() {
                           </div>
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "absolute top-2.5 right-2.5 text-[10px] font-mono tabular-nums shrink-0 border-0",
-                            farm.ninetyDayDelta === null
-                              ? "bg-slate-600/70 text-white"
-                              : farm.ninetyDayDelta >= 0
+                        {shouldShowDeltaRatio(farm.ninetyDayDelta) ? (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "absolute top-2.5 right-2.5 text-[10px] font-mono tabular-nums shrink-0 border-0",
+                              (farm.ninetyDayDelta ?? 0) >= 0
                                 ? "bg-green-600/80 text-white"
                                 : "bg-red-600/80 text-white"
-                          )}
-                        >
-                          {formatSignedPercentFromRatioNullable(farm.ninetyDayDelta)}
-                        </Badge>
+                            )}
+                          >
+                            {formatSignedPercentFromRatioNullable(farm.ninetyDayDelta)}
+                          </Badge>
+                        ) : null}
                         <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
                           <Badge
                             variant="secondary"
@@ -2411,13 +2422,13 @@ export function PolDashboardView() {
                   <div className="text-sm font-semibold">GCTL</div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
-                  <MetricCard
-                    label="Total GCTL"
-                    value={
-                      isGctlLoading
-                        ? "..."
-                        : formatCompactNumber(gctlTotalSupply)
-                    }
+	                  <MetricCard
+	                    label="Total GCTL"
+	                    value={
+	                      isGctlLoading
+	                        ? "..."
+	                        : formatCompactNumberPrecise(gctlTotalSupply)
+	                    }
                     helper={
                       isGctlLoading
                         ? "Loading..."
@@ -2442,22 +2453,22 @@ export function PolDashboardView() {
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4 mt-3">
-                      <MiniStat
-                        label="Staked"
-                        value={
-                          isGctlLoading
-                            ? "..."
-                            : formatCompactNumber(gctlTotalStaked)
-                        }
+	                      <MiniStat
+	                        label="Staked"
+	                        value={
+	                          isGctlLoading
+	                            ? "..."
+	                            : formatCompactNumberPrecise(gctlTotalStaked)
+	                        }
                         valueClassName="text-base sm:text-lg tracking-tight"
                       />
-                      <MiniStat
-                        label="Unstaked"
-                        value={
-                          isGctlLoading
-                            ? "..."
-                            : formatCompactNumber(gctlUnstaked)
-                        }
+	                      <MiniStat
+	                        label="Unstaked"
+	                        value={
+	                          isGctlLoading
+	                            ? "..."
+	                            : formatCompactNumberPrecise(gctlUnstaked)
+	                        }
                         valueClassName="text-base sm:text-lg tracking-tight"
                       />
                     </div>
@@ -2483,20 +2494,20 @@ export function PolDashboardView() {
                             strokeWidth={2}
                             stroke="var(--color-card)"
                           />
-                          <ChartTooltip
-                            content={
-                              <ChartTooltipContent
-                                formatter={(value, name) => {
-                                  const region = gctlRegionPieData.find(
-                                    (r) => r.name === name
-                                  );
-                                  return `${formatCompactNumber(
-                                    Number(value)
-                                  )} (${region?.pct ?? 0}%)`;
-                                }}
-                              />
-                            }
-                          />
+	                          <ChartTooltip
+	                            content={
+	                              <ChartTooltipContent
+	                                formatter={(value, name) => {
+	                                  const region = gctlRegionPieData.find(
+	                                    (r) => r.name === name
+	                                  );
+	                                  return `${formatCompactNumberPrecise(
+	                                    Number(value)
+	                                  )} (${region?.pct ?? 0}%)`;
+	                                }}
+	                              />
+	                            }
+	                          />
                         </PieChart>
                       </ChartContainer>
                       <div className="flex-1 grid gap-1.5">
@@ -2512,9 +2523,9 @@ export function PolDashboardView() {
                               />
                               {region.name}
                             </span>
-                            <span className="font-mono tabular-nums text-foreground">
-                              {formatCompactNumber(region.value)}
-                            </span>
+	                            <span className="font-mono tabular-nums text-foreground">
+	                              {formatCompactNumberPrecise(region.value)}
+	                            </span>
                           </div>
                         ))}
                       </div>
@@ -2968,13 +2979,13 @@ export function PolDashboardView() {
                       value={
                         fdvUsd !== null ? formatUsdCompactPrecise(fdvUsd) : "—"
                       }
-                      helper={
-                        fdvUsd !== null && polWalletGlw !== null && hasLivePrice
-                          ? `${formatCompactNumber(
-                              Math.max(0, supplyTotal - polWalletGlw)
-                            )} GLW at $${priceDetail} (excl. PoL wallets)`
-                          : "Live data unavailable"
-                      }
+	                      helper={
+	                        fdvUsd !== null && polWalletGlw !== null && hasLivePrice
+	                          ? `${formatCompactNumberPrecise(
+	                              Math.max(0, supplyTotal - polWalletGlw)
+	                            )} GLW at $${priceDetail} (excl. PoL wallets)`
+	                          : "Live data unavailable"
+	                      }
                     />
                     <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 p-4">
                       <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
@@ -3020,16 +3031,18 @@ export function PolDashboardView() {
               Modeled supply (not live data)
             </div>
             {/* ── Key metrics that change with price ── */}
-            <div className="grid grid-cols-2 gap-4">
-              <MetricCard
-                label="Circulating supply"
-                value={`${formatCompactNumber(supplyModel.circulating)} GLW`}
-                helper={
-                  supplyDelta !== null
-                    ? `${formatSignedNumber(supplyDelta)} vs current`
-                    : "Live data unavailable"
-                }
-              />
+	            <div className="grid grid-cols-2 gap-4">
+	              <MetricCard
+	                label="Circulating supply"
+	                value={`${formatCompactNumberPrecise(
+	                  supplyModel.circulating
+	                )} GLW`}
+	                helper={
+	                  supplyDelta !== null
+	                    ? `${formatSignedNumber(supplyDelta)} vs current`
+	                    : "Live data unavailable"
+	                }
+	              />
               <MetricCard
                 label="USDG liquidity"
                 value={
@@ -3076,12 +3089,12 @@ export function PolDashboardView() {
                 const otherPct = (other / denom) * 100;
                 return (
                   <>
-                    <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                      <span>Supply breakdown</span>
-                      <span>
-                        {formatCompactNumber(supplyModel.total)} total
-                      </span>
-                    </div>
+	                    <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
+	                      <span>Supply breakdown</span>
+	                      <span>
+	                        {formatCompactNumberPrecise(supplyModel.total)} total
+	                      </span>
+	                    </div>
                     <div className="h-6 rounded-full bg-muted/50 overflow-hidden flex">
                       <div
                         className="h-full transition-all duration-300 ease-out"
