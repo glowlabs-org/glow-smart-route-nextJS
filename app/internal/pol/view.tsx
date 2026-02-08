@@ -2228,18 +2228,19 @@ export function PolDashboardView() {
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
                         <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-                          <Badge
-                            variant="secondary"
-                            className="bg-white/20 hover:bg-white/30 text-white border-0 text-[9px] px-1.5 h-4 mb-1.5 font-medium w-fit"
-                          >
-                            {farm.region}
-                          </Badge>
                           <h3 className="font-bold text-white text-sm leading-tight truncate">
                             {farm.name}
                           </h3>
-                          <p className="text-white/60 text-[11px] mt-0.5">
+                        </div>
+                      </div>
+                      <div className="px-5 pt-4 pb-0">
+                        <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                          <span className="font-mono uppercase tracking-widest">
+                            {farm.region}
+                          </span>
+                          <span className="font-mono tabular-nums">
                             {farm.panels} panels
-                          </p>
+                          </span>
                         </div>
                       </div>
                       {/* Revenue metrics */}
