@@ -1435,7 +1435,7 @@ export function PolDashboardView() {
     const base =
       farmRowsAll.length > 0
         ? farmRowsAll
-        : Array.from({ length: 3 }).map((_, index) => ({
+        : Array.from({ length: 6 }).map((_, index) => ({
             key: `farm-placeholder-teaser-${index}`,
             name: "—",
             region: "—",
@@ -1447,7 +1447,7 @@ export function PolDashboardView() {
             ccPerWeek: 0,
             imageUrl: null as string | null,
           }));
-    return base.slice(-3);
+    return base.slice(-6);
   }, [farmRowsAll]);
 
   const farmRowsToRender = showAllFarms ? farmRowsForRender : farmRowsTeaser;
@@ -1872,8 +1872,24 @@ export function PolDashboardView() {
                   </Card>
                 </div>
 
-                {/* Row 2: give 20% width from yield -> revenue (swap ratio) */}
-                <div className="w-full grid grid-cols-1 sm:grid-cols-[4fr_3fr] gap-4">
+                {/* Row 2: 90d Revenue before yield (revenue wider than yield) */}
+                <div className="w-full grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-4">
+                  {/* 90d Revenue */}
+                  <Card className="!gap-0 relative overflow-hidden">
+                    <GlowSymbol className="!text-[var(--color-glow-purple)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none rotate-6" />
+                    <CardContent className="relative flex flex-col px-8 py-7 sm:px-10 sm:py-9">
+                      <div className="text-sm font-medium text-muted-foreground tracking-wide">
+                        90d Revenue
+                      </div>
+                      <div className="mt-3 text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                        {ninetyDayRevenueDisplay?.lq ?? "—"}
+                      </div>
+                      <div className="mt-2.5 text-sm text-muted-foreground">
+                        ({ninetyDayRevenueDisplay?.breakdown ?? "—"})
+                      </div>
+                    </CardContent>
+                  </Card>
+
                   {/* 90d PoL Yield */}
                   <Card className="!gap-0 relative overflow-hidden">
                     <GlowSymbol className="!text-[var(--color-glow-yellow)] absolute -top-4 -right-4 w-24 h-24 opacity-50 dark:opacity-20 pointer-events-none -rotate-6" />
@@ -1888,22 +1904,6 @@ export function PolDashboardView() {
                       </div>
                       <div className="mt-2.5 text-sm text-muted-foreground">
                         ({ninetyDayYieldDisplay?.breakdown ?? "—"})
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* 90d Revenue */}
-                  <Card className="!gap-0 relative overflow-hidden">
-                    <GlowSymbol className="!text-[var(--color-glow-purple)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none rotate-6" />
-                    <CardContent className="relative flex flex-col px-8 py-7 sm:px-10 sm:py-9">
-                      <div className="text-sm font-medium text-muted-foreground tracking-wide">
-                        90d Revenue
-                      </div>
-                      <div className="mt-3 text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                        {ninetyDayRevenueDisplay?.lq ?? "—"}
-                      </div>
-                      <div className="mt-2.5 text-sm text-muted-foreground">
-                        ({ninetyDayRevenueDisplay?.breakdown ?? "—"})
                       </div>
                     </CardContent>
                   </Card>
