@@ -28,6 +28,19 @@ export interface VestingBreakdownTotals {
   categories: Record<VestingBreakdownKey, number>; // GLW tokens
 }
 
+export interface VestingCategoryChartPoint {
+  /** YYYY-MM for monthly data, YYYY for yearly fallback */
+  period: string;
+  solarFarms: number;
+  grants: number;
+  governance: number;
+  ecosystem: number;
+  earlyStageFunding: number;
+  lateStageFunding: number;
+  grantsBootstrap: number;
+  earlyLiquidityBootstrap: number;
+}
+
 function normalizeAmountToGlw(amount: unknown): number | null {
   if (amount === null || amount === undefined) return null;
   const n = typeof amount === "string" ? Number(amount) : (amount as number);
@@ -102,6 +115,88 @@ function parseJsonToYearlyPoints(json: unknown): VestingChartPoint[] | null {
     }));
 
   return points.length ? points : null;
+}
+
+const CATEGORY_ALIASES: Record<VestingBreakdownKey, string[]> = {
+  solarFarms: ["solarFarms", "solar_farms", "solarFarmsGlw"],
+  grants: ["grants"],
+  governance: ["governance"],
+  ecosystem: ["ecosystem"],
+  earlyStageFunding: ["earlyStageFunding", "early_stage_funding"],
+  lateStageFunding: ["lateStageFunding", "late_stage_funding"],
+  grantsBootstrap: ["grantsBootstrap", "grants_bootstrap"],
+  earlyLiquidityBootstrap: [
+    "earlyLiquidityBootstrap",
+    "early_liquidity_bootstrap",
+  ],
+};
+
+const CATEGORY_KEYS: VestingBreakdownKey[] = Object.keys(
+  CATEGORY_ALIASES
+) as VestingBreakdownKey[];
+
+function parseJsonToCategoryPoints(
+  json: unknown
+): VestingCategoryChartPoint[] | null {
+  if (!Array.isArray(json)) return null;
+
+  const points: VestingCategoryChartPoint[] = [];
+
+  for (const row of json) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as Record<string, unknown>;
+
+    const dateLike =
+      (typeof r.date === "string" && r.date) ||
+      (typeof r.timestamp === "string" && r.timestamp) ||
+      (typeof r.start_date === "string" && r.start_date) ||
+      null;
+
+    // Use YYYY-MM if a date is available, otherwise fall back to year field.
+    let period: string | null = null;
+    if (dateLike && /^\d{4}-\d{2}/.test(dateLike)) {
+      period = dateLike.slice(0, 7); // "YYYY-MM"
+    } else {
+      const yearRaw =
+        (typeof r.year === "string" && r.year) ||
+        (typeof r.vesting_year === "string" && r.vesting_year) ||
+        null;
+      period = yearRaw ?? (dateLike ? dateLike.slice(0, 4) : null);
+    }
+    if (!period) continue;
+
+    const categories = {} as Record<VestingBreakdownKey, number>;
+    let hasAny = false;
+    for (const key of CATEGORY_KEYS) {
+      let val: number | null = null;
+      for (const alias of CATEGORY_ALIASES[key]) {
+        if (alias in r) {
+          val = normalizeAmountToGlw(r[alias]);
+          if (val !== null) break;
+        }
+      }
+      categories[key] = val ?? 0;
+      if (val !== null && val > 0) hasAny = true;
+    }
+    if (!hasAny) continue;
+
+    const pt = { period } as VestingCategoryChartPoint;
+    for (const key of CATEGORY_KEYS) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (pt as any)[key] = categories[key] / 1_000_000;
+    }
+    points.push(pt);
+  }
+
+  // Sort chronologically and deduplicate periods (keep last entry per period).
+  points.sort((a, b) => a.period.localeCompare(b.period));
+  const deduped = new Map<string, VestingCategoryChartPoint>();
+  for (const pt of points) {
+    deduped.set(pt.period, pt);
+  }
+  const result = Array.from(deduped.values());
+
+  return result.length >= 2 ? result : null;
 }
 
 function parseJsonToBreakdownTotals(json: unknown): VestingBreakdownTotals | null {
@@ -221,7 +316,11 @@ export function useGlwVestingSchedule(params: { enabled?: boolean } = {}) {
             : null;
       const breakdown =
         payload?.type === "json" ? parseJsonToBreakdownTotals(payload.json) : null;
-      return { raw: payload, points, breakdown };
+      const categoryPoints =
+        payload?.type === "json"
+          ? parseJsonToCategoryPoints(payload.json)
+          : null;
+      return { raw: payload, points, categoryPoints, breakdown };
     },
   });
 }

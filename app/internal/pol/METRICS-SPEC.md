@@ -49,7 +49,7 @@ We need one canonical "week" for charts and rollups.
 
 Week boundary: **Protocol week (Sunday 00:00 UTC).** (Confirmed)
 
-All "90d" metrics are **13 weeks**.
+All "Quarterly" metrics are **13 weeks**.
 
 ---
 
@@ -92,7 +92,7 @@ All "90d" metrics are **13 weeks**.
 
 ### Open / Needs Review
 
-A) **PoL APY display**: show from CRM (90d APY is already computed).
+A) **PoL APY display**: show from CRM (quarterly APY is already computed).
 
 B) **Delegator APY display**: show **on another card** (not PoL card).
 
@@ -217,12 +217,25 @@ farmRevenue = minerSalesComponent(farm)
 - **Data sources**: Control API farm registry or CRM farms endpoint.
 - **Status**: Available via CRM `/pol/revenue/aggregate` (PD > 0).
 
-### 2.3 90d Revenue
+### 2.3 Quarterly Trailing PoL Growth
 
-- **Definition**: Sum of recognized weekly PoL contributions over last 13 weeks.
--- **Status**: Available via CRM `/pol/revenue/*`.
+- **Definition (headline KPI: "Quarterly Trailing PoL Growth")**: Delta in total PoL
+  liquidity between **now** and **13 weeks ago**.
 
-### 2.4 90d PoL Yield
+  ```
+  trailingRevenueLq = totalPolLq(now) - totalPolLq(13w_ago)
+  ```
+
+  Notes:
+  - This is a **stock delta** computed from PoL snapshots (Ponder), not the
+    CRM-recognized attribution flow.
+  - CRM quarterly revenue is still used for **per-farm** / **per-region** attribution,
+    but should not be expected to match `Δ total PoL` due to smoothing and lq
+    non-linearity.
+
+-- **Status**: Available via Ponder PoL snapshots.
+
+### 2.4 Quarterly PoL Yield
 
 - **Definition**: Sum of **yield only** (bot trading gains + Uniswap fees)
   over the last **13 weeks**.
@@ -285,8 +298,8 @@ Fields:
 
 - Name, Region, Panels, Image (from farm registry / audit data).
 - Lifetime revenue (lq).
-- 90d revenue (lq).
-- 90d delta (% change over trailing 13-week vs previous 13-week window).
+- Quarterly revenue (lq).
+- Quarterly delta (% change over trailing 13-week vs previous 13-week window).
 - Carbon credits (cc/week and lifetime).
 
 Status: **Available** via CRM `/pol/revenue/farms`.
@@ -430,7 +443,7 @@ Fields:
 
 - Region name (active regions summary)
 - Lifetime revenue (lq)
-- 90d revenue (lq)
+- Quarterly revenue (lq)
 - CC/week
 - Farm count
 - GCTL staked

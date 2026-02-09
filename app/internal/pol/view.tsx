@@ -8,8 +8,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Line,
-  LineChart,
   Pie,
   PieChart,
   XAxis,
@@ -94,8 +92,39 @@ const VESTING_SCHEDULE = [
   { year: "2030", unlocked: 86 },
 ];
 
+const VESTING_CATEGORIES = [
+  { key: "solarFarms" as const, label: "Solar farms", color: "#4ade80" },
+  { key: "grants" as const, label: "Grants", color: "#ffb472" },
+  { key: "governance" as const, label: "Governance", color: "#a855f7" },
+  { key: "ecosystem" as const, label: "Ecosystem", color: "#2081e2" },
+  {
+    key: "earlyStageFunding" as const,
+    label: "Early stage funding",
+    color: "#d792ff",
+  },
+  {
+    key: "lateStageFunding" as const,
+    label: "Late stage funding",
+    color: "#06b6d4",
+  },
+  {
+    key: "grantsBootstrap" as const,
+    label: "Grants bootstrap",
+    color: "#facc15",
+  },
+  {
+    key: "earlyLiquidityBootstrap" as const,
+    label: "Liquidity bootstrap",
+    color: "#f87171",
+  },
+];
+
+const vestingCategoryChartConfig = Object.fromEntries(
+  VESTING_CATEGORIES.map((c) => [c.key, { label: c.label, color: c.color }])
+) as Record<string, { label: string; color: string }> satisfies ChartConfig;
+
 const vestingChartConfig = {
-  unlocked: { label: "Unlocked supply", color: "hsl(32, 90%, 60%)" },
+  unlocked: { label: "Unlocked supply", color: "#ffb472" },
 } satisfies ChartConfig;
 
 const delegationTrendChartConfig = {
@@ -633,11 +662,12 @@ function FarmDetailsDialog({
                                     : "Live data unavailable"
                                 }
                                 labelClassName="text-muted-foreground/60 dark:text-muted-foreground/80"
+                                valueClassName="text-2xl sm:text-3xl"
                               />
                             </div>
                             <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                               <MetricCard
-                                label="90d revenue"
+                                label="Quarterly revenue"
                                 value={ninety?.value ?? "—"}
                                 helper={
                                   ninety?.breakdown
@@ -645,23 +675,25 @@ function FarmDetailsDialog({
                                     : "Live data unavailable"
                                 }
                                 labelClassName="text-muted-foreground/60 dark:text-muted-foreground/80"
+                                valueClassName="text-2xl sm:text-3xl"
                               />
                             </div>
                             <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                               <MetricCard
-                                label="Weekly avg (90d)"
+                                label="Weekly avg (Quarterly)"
                                 value={
                                   weekly !== null
                                     ? formatLiquidityCompact(weekly)
                                     : "—"
                                 }
-                                helper={`90d ${LIQUIDITY_UNIT} / 13`}
+                                helper={`Quarterly ${LIQUIDITY_UNIT} / 13`}
                                 labelClassName="text-muted-foreground/60 dark:text-muted-foreground/80"
+                                valueClassName="text-2xl sm:text-3xl"
                               />
                             </div>
                             <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                               <MetricCard
-                                label="Delta (90d)"
+                                label="Delta (Quarterly)"
                                 value={
                                   shouldShowDeltaRatio(
                                     selectedFarm.ninetyDayDelta ?? null
@@ -671,8 +703,9 @@ function FarmDetailsDialog({
                                       )
                                     : "—"
                                 }
-                                helper="Trailing 13w vs previous 13w"
+                                helper="Trailing quarterly vs previous quarterly"
                                 labelClassName="text-muted-foreground/60 dark:text-muted-foreground/80"
+                                valueClassName="text-2xl sm:text-3xl"
                               />
                             </div>
                           </div>
@@ -1011,22 +1044,22 @@ function PolLiquidityTooltip({
           </div>
         </div>
 
-	        <div className="flex items-center justify-between gap-4">
-		          <div className="text-xs text-muted-foreground">Trading bot</div>
-		          <div className="text-sm font-mono tabular-nums text-foreground">
-		            {typeof p.botActiveLiquidity === "number"
-		              ? formatLiquidityCompact(p.botActiveLiquidity)
-		              : "—"}
-		          </div>
-		        </div>
-	        <div className="flex items-center justify-between gap-4">
-	          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-	            Δ Trading bot
-	          </div>
-		          <div className="text-xs font-mono tabular-nums text-foreground">
-		            {p.deltaBotActiveLiquidity === null ||
-		            p.deltaBotActiveLiquidity === undefined
-		              ? "—"
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-xs text-muted-foreground">Trading bot</div>
+          <div className="text-sm font-mono tabular-nums text-foreground">
+            {typeof p.botActiveLiquidity === "number"
+              ? formatLiquidityCompact(p.botActiveLiquidity)
+              : "—"}
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+            Δ Trading bot
+          </div>
+          <div className="text-xs font-mono tabular-nums text-foreground">
+            {p.deltaBotActiveLiquidity === null ||
+            p.deltaBotActiveLiquidity === undefined
+              ? "—"
               : formatSignedLiquidityCompact(p.deltaBotActiveLiquidity)}
           </div>
         </div>
@@ -1269,6 +1302,9 @@ export function PolDashboardView() {
     startWeek: supplyGrowthStartWeek,
     endWeek: supplyGrowthEndWeek,
   });
+  const { data: polLiquiditySnapshot } = usePolLiquiditySnapshot({
+    range: "20w",
+  });
 
   const vaultedGlw = React.useMemo(() => {
     const raw = totalActivelyDelegatedData?.totalGlwDelegatedWei;
@@ -1300,6 +1336,12 @@ export function PolDashboardView() {
     } catch {
       return null;
     }
+  }, [polSummary]);
+
+  const totalPolLq = React.useMemo(() => {
+    const raw = polSummary?.total?.lq;
+    if (raw === null || raw === undefined) return null;
+    return parseLqUnits(raw);
   }, [polSummary]);
 
   const walletGrowthLive = React.useMemo(() => {
@@ -1554,9 +1596,6 @@ export function PolDashboardView() {
   const lifetimeRevenueLq = parseLqUnits(
     polRevenueAggregate?.lifetime_lq ?? null
   );
-  const ninetyDayRevenueLq = parseLqUnits(
-    polRevenueAggregate?.ninety_day_lq ?? null
-  );
   const ninetyDayYieldLq = parseLqUnits(
     polRevenueAggregate?.ninety_day_yield_lq ?? null
   );
@@ -1576,13 +1615,30 @@ export function PolDashboardView() {
         }
       : null;
 
-  const ninetyDayRevenueDisplay =
-    ninetyDayRevenueLq !== null
+  // Quarterly Trailing PoL Growth (headline KPI) is defined as the delta in total PoL
+  // liquidity between now and 13 weeks ago, not the CRM-recognized contribution flow.
+  const polLqThirteenWeeksAgo = React.useMemo(() => {
+    const series = polLiquiditySnapshot?.series ?? null;
+    if (!series || series.length === 0) return null;
+    const row = series.find((r) => r.week === supplyGrowthStartWeek) ?? null;
+    if (!row) return null;
+    return parseLqUnits(row.pol_lq ?? null);
+  }, [polLiquiditySnapshot, supplyGrowthStartWeek]);
+
+  const polTrailingPolGrowthLq = React.useMemo(() => {
+    if (totalPolLq === null || polLqThirteenWeeksAgo === null) return null;
+    const delta = totalPolLq - polLqThirteenWeeksAgo;
+    return Number.isFinite(delta) ? delta : null;
+  }, [polLqThirteenWeeksAgo, totalPolLq]);
+
+  const polTrailingPolGrowthDisplay =
+    polTrailingPolGrowthLq !== null
       ? {
-          lq: formatLiquidityCompact(ninetyDayRevenueLq),
+          lq: formatLiquidityCompact(polTrailingPolGrowthLq),
           breakdown:
             displayPrice > 0
-              ? getBreakdownFromLq(ninetyDayRevenueLq, displayPrice).breakdown
+              ? getBreakdownFromLq(polTrailingPolGrowthLq, displayPrice)
+                  .breakdown
               : null,
         }
       : null;
@@ -1770,10 +1826,6 @@ export function PolDashboardView() {
   const circulationPercent = hasLiveSupply
     ? Math.min(100, (circulatingSupplyForSupplyCard / supplyTotal) * 100)
     : 0;
-  const circulatingWidth = hasLiveSupply
-    ? (circulatingSupplyForSupplyCard / supplyTotal) * 100
-    : 0;
-
   const vaultedWidth =
     hasLiveSupply && vaultedGlw !== null && vaultedGlw > 0
       ? (vaultedGlw / supplyTotal) * 100
@@ -1784,9 +1836,6 @@ export function PolDashboardView() {
       ? (polGlwInPol / supplyTotal) * 100
       : 0;
 
-  const { data: polLiquiditySnapshot } = usePolLiquiditySnapshot({
-    range: "20w",
-  });
   const polLiquidityRange = React.useMemo(() => {
     const currentWeek = getCurrentWeekNumber(Date.now());
     const weeks = Math.max(1, currentWeek - POL_LIQUIDITY_V2_START_WEEK + 1);
@@ -1865,6 +1914,35 @@ export function PolDashboardView() {
       ? "Approx from PoL + delegated weekly snapshots (protocol weeks)"
       : "Requires weekly circulating supply snapshots (or PoL + delegated history)";
 
+  const polGrowthAnnual = React.useMemo(() => {
+    const series = polLiquiditySnapshot?.series ?? null;
+    if (!series || series.length === 0) return null;
+    const start = series.find((r) => r.week === supplyGrowthStartWeek);
+    const end = series.find((r) => r.week === supplyGrowthEndWeek);
+    if (!start || !end) return null;
+    const startLq = parseLqUnits(start.pol_lq ?? null);
+    const endLq = parseLqUnits(end.pol_lq ?? null);
+    if (
+      startLq === null ||
+      endLq === null ||
+      !Number.isFinite(startLq) ||
+      !Number.isFinite(endLq) ||
+      startLq <= 0
+    )
+      return null;
+    const ratio = endLq / startLq;
+    if (!Number.isFinite(ratio) || ratio <= 0) return null;
+    const annualized = Math.pow(ratio, 52 / 13) - 1;
+    return Number.isFinite(annualized) ? annualized : null;
+  }, [polLiquiditySnapshot, supplyGrowthEndWeek, supplyGrowthStartWeek]);
+
+  const polGrowthAnnualDisplay =
+    polGrowthAnnual !== null ? formatPercent(polGrowthAnnual * 100) : "—";
+  const polGrowthHelper =
+    polGrowthAnnual !== null
+      ? "Trailing quarterly growth from PoL liquidity snapshots (Ⱡ)"
+      : "Requires PoL liquidity snapshots";
+
   const poolUsdg = poolReserves?.usdg ?? 0;
   const poolGlw = poolReserves?.glw ?? 0;
   const hasPoolReserves = poolUsdg > 0 && poolGlw > 0;
@@ -1875,12 +1953,6 @@ export function PolDashboardView() {
   const poolDepthHelper = hasPoolReserves
     ? `(${poolLiquidityBreakdown.breakdown})`
     : "Live data unavailable";
-
-  const totalPolLq = React.useMemo(() => {
-    const raw = polSummary?.total?.lq;
-    if (raw === null || raw === undefined) return null;
-    return parseLqUnits(raw);
-  }, [polSummary]);
 
   const totalPolBreakdown = React.useMemo(() => {
     if (!polSummary || !displayPrice || displayPrice <= 0) return null;
@@ -1909,21 +1981,21 @@ export function PolDashboardView() {
   }, [hasLivePrice, currentPrice]);
 
   const polLiquidityTrend = React.useMemo(() => {
-	    const series = polLiquiditySeries?.series;
-	    if (!series || series.length < 2) return null;
-	    const sorted = series.slice().sort((a, b) => a.weekNumber - b.weekNumber);
-	    const completed = sorted.length > 1 ? sorted.slice(0, -1) : sorted;
-	    const windowed = completed.filter(
-	      (row) => row.weekNumber >= POL_LIQUIDITY_V2_START_WEEK
-	    );
-	    if (windowed.length < 2) return null;
+    const series = polLiquiditySeries?.series;
+    if (!series || series.length < 2) return null;
+    const sorted = series.slice().sort((a, b) => a.weekNumber - b.weekNumber);
+    const completed = sorted.length > 1 ? sorted.slice(0, -1) : sorted;
+    const windowed = completed.filter(
+      (row) => row.weekNumber >= POL_LIQUIDITY_V2_START_WEEK
+    );
+    if (windowed.length < 2) return null;
 
-	    return windowed.map((row, index) => {
-	      const prev = index > 0 ? windowed[index - 1] : null;
-	      const liquidity = parseLqUnits(row.totalLq) ?? 0;
-	      const prevLiquidity = prev ? parseLqUnits(prev.totalLq) ?? 0 : null;
-	      const deltaLiquidity =
-	        prevLiquidity === null ? null : liquidity - prevLiquidity;
+    return windowed.map((row, index) => {
+      const prev = index > 0 ? windowed[index - 1] : null;
+      const liquidity = parseLqUnits(row.totalLq) ?? 0;
+      const prevLiquidity = prev ? parseLqUnits(prev.totalLq) ?? 0 : null;
+      const deltaLiquidity =
+        prevLiquidity === null ? null : liquidity - prevLiquidity;
 
       const endowmentLiquidity = parseLqUnits(row.endowmentLq) ?? 0;
       const prevEndowmentLiquidity = prev
@@ -1973,14 +2045,14 @@ export function PolDashboardView() {
         if (!raw) return null;
         const n = Number(raw);
         return Number.isFinite(n) ? n : null;
-	      })();
+      })();
 
-	      return {
-	        week: `W${row.weekNumber}`,
-	        protocolWeek: row.weekNumber,
-	        liquidity,
-	        deltaLiquidity,
-	        endowmentLiquidity,
+      return {
+        week: `W${row.weekNumber}`,
+        protocolWeek: row.weekNumber,
+        liquidity,
+        deltaLiquidity,
+        endowmentLiquidity,
         deltaEndowmentLiquidity,
         botActiveLiquidity,
         deltaBotActiveLiquidity,
@@ -1992,32 +2064,6 @@ export function PolDashboardView() {
   }, [polLiquiditySeries]);
   const polLiquidityChartData = polLiquidityTrend ?? [];
   const polLiquidityIsLive = Boolean(polLiquidityTrend);
-  const polSourceBreakdown = React.useMemo(() => {
-    const endowmentFromSummary = parseLqUnits(polSummary?.endowment?.lq ?? null);
-    const botFromSummary = parseLqUnits(polSummary?.botActive?.lq ?? null);
-
-    const fallbackFromSeries = (() => {
-      const series = polLiquiditySeries?.series;
-      if (!series || series.length === 0) return null;
-      const sorted = series.slice().sort((a, b) => a.weekNumber - b.weekNumber);
-      const last = sorted[sorted.length - 1];
-      if (!last) return null;
-      const endowment = parseLqUnits(last.endowmentLq) ?? null;
-      const bot = parseLqUnits(last.botActiveLq) ?? null;
-      return endowment === null || bot === null ? null : { endowment, bot };
-    })();
-
-    const endowment = endowmentFromSummary ?? fallbackFromSeries?.endowment ?? null;
-    const bot = botFromSummary ?? fallbackFromSeries?.bot ?? null;
-    if (endowment === null || bot === null) return null;
-
-    const total = endowment + bot;
-    if (!Number.isFinite(total) || total <= 0) return null;
-    const botPct = Math.round((bot / total) * 100);
-    const endowmentPct = Math.max(0, 100 - botPct);
-    return { endowmentPct, botPct };
-  }, [polLiquiditySeries, polSummary]);
-
   const regionsTableRows = React.useMemo(() => {
     const rows = polRevenueRegions?.regions ?? [];
     return rows.map((r, idx) => ({
@@ -2064,6 +2110,7 @@ export function PolDashboardView() {
 
   const { data: vestingSchedule } = useGlwVestingSchedule();
   const vestingSeries = vestingSchedule?.points ?? VESTING_SCHEDULE;
+  const vestingCategorySeries = vestingSchedule?.categoryPoints ?? null;
   const vestingBreakdown = vestingSchedule?.breakdown ?? null;
 
   return (
@@ -2075,7 +2122,7 @@ export function PolDashboardView() {
 
             {/* ── Row 1: Headline banner ── */}
             <Card className="!gap-0 !bg-zinc-950 dark:!bg-white border-zinc-800/60 dark:border-zinc-200/60">
-              <CardContent className="px-8 py-10 sm:px-10 sm:py-12">
+              <CardContent className="px-4 py-6 sm:px-10 sm:py-12">
                 <div className="grid grid-cols-1 gap-10 sm:grid-cols-3 sm:gap-8">
                   <div className="flex flex-col gap-2">
                     <div className="text-xs font-medium text-zinc-400 dark:text-zinc-500 tracking-wide">
@@ -2101,13 +2148,15 @@ export function PolDashboardView() {
                   </div>
                   <div className="flex flex-col gap-2">
                     <div className="text-xs font-medium text-zinc-400 dark:text-zinc-500 tracking-wide">
-                      Lifetime Revenue
+                      Total PoL
                     </div>
                     <div className="text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
-                      {lifetimeRevenueDisplay?.lq ?? "—"}
+                      {totalPolLq !== null
+                        ? formatLiquidityCompact(totalPolLq)
+                        : "—"}
                     </div>
                     <div className="text-sm text-zinc-500 dark:text-zinc-400">
-                      ({lifetimeRevenueDisplay?.breakdown ?? "—"})
+                      ({totalPolBreakdown?.breakdown ?? "—"})
                     </div>
                   </div>
                 </div>
@@ -2116,30 +2165,13 @@ export function PolDashboardView() {
 
             {/* ── Row 2: Aggregate Farm Revenue (left) | Circulation (right) ── */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
-              {/* ── Left: Protocol Revenue (4 KPI cards) ── */}
+              {/* ── Left: Top KPIs (4 cards) ── */}
               <div className="flex flex-col gap-4 items-start">
-                {/* Row 1: keep original proportions */}
-                <div className="w-full grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-4">
-                  {/* PoL APY */}
-                  <Card className="!gap-0 relative overflow-hidden">
-                    <GlowSymbol className="!text-[var(--color-glow-green)] absolute -top-6 -right-6 w-32 h-32 opacity-35 dark:opacity-15 pointer-events-none rotate-12" />
-                    <CardContent className="relative flex flex-col px-8 py-8 sm:px-10 sm:py-10">
-                      <div className="text-sm font-medium text-muted-foreground tracking-wide">
-                        PoL APY
-                      </div>
-                      <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                        {polApyDisplay}
-                      </div>
-                      <div className="mt-3 text-sm text-muted-foreground">
-                        Annualized from trailing 90d
-                      </div>
-                    </CardContent>
-                  </Card>
-
+                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Active Farms */}
                   <Card className="!gap-0 relative overflow-hidden">
                     <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-20 pointer-events-none -rotate-12" />
-                    <CardContent className="relative flex flex-col px-8 py-8 sm:px-10 sm:py-10">
+                    <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
                       <div className="text-sm font-medium text-muted-foreground tracking-wide">
                         Active Farms
                       </div>
@@ -2153,40 +2185,55 @@ export function PolDashboardView() {
                       </div>
                     </CardContent>
                   </Card>
-                </div>
 
-                {/* Row 2: 90d Revenue before yield (revenue wider than yield) */}
-                <div className="w-full grid grid-cols-1 sm:grid-cols-[3fr_2fr] gap-4">
-                  {/* 90d Revenue */}
+                  {/* Quarterly Trailing PoL Growth */}
                   <Card className="!gap-0 relative overflow-hidden">
                     <GlowSymbol className="!text-[var(--color-glow-purple)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none rotate-6" />
-                    <CardContent className="relative flex flex-col px-8 py-7 sm:px-10 sm:py-9">
+                    <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
                       <div className="text-sm font-medium text-muted-foreground tracking-wide">
-                        90d Revenue
+                        Quarterly Trailing PoL Growth
                       </div>
-                      <div className="mt-3 text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                        {ninetyDayRevenueDisplay?.lq ?? "—"}
+                      <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                        {polTrailingPolGrowthDisplay?.lq ?? "—"}
                       </div>
-                      <div className="mt-2.5 text-sm text-muted-foreground">
-                        ({ninetyDayRevenueDisplay?.breakdown ?? "—"})
+                      <div className="mt-3 text-sm text-muted-foreground">
+                        {polTrailingPolGrowthDisplay?.breakdown
+                          ? `(${polTrailingPolGrowthDisplay.breakdown})`
+                          : "Live data unavailable"}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Annualized Circulating Supply Growth */}
+                  <Card className="!gap-0 relative overflow-hidden">
+                    <GlowSymbol className="!text-[var(--color-glow-green)] absolute -top-6 -right-6 w-32 h-32 opacity-25 dark:opacity-15 pointer-events-none rotate-12" />
+                    <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
+                      <div className="text-sm font-medium text-muted-foreground tracking-wide">
+                        Annualized Circulating Supply Growth
+                      </div>
+                      <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                        {supplyGrowthAnnualDisplay}
+                      </div>
+                      <div className="mt-3 text-sm text-muted-foreground">
+                        {supplyGrowthHelper}
                       </div>
                     </CardContent>
                   </Card>
 
-                  {/* 90d PoL Yield */}
+                  {/* Annualized PoL Growth */}
                   <Card className="!gap-0 relative overflow-hidden">
-                    <GlowSymbol className="!text-[var(--color-glow-yellow)] absolute -top-4 -right-4 w-24 h-24 opacity-50 dark:opacity-20 pointer-events-none -rotate-6" />
-                    <CardContent className="relative flex flex-col px-8 py-7 sm:px-10 sm:py-9">
+                    <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none -rotate-6" />
+                    <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
                       <div className="text-sm font-medium text-muted-foreground tracking-wide">
-                        90d PoL Yield
+                        Annualized PoL Growth
                       </div>
-                      <div className="mt-3 flex items-end justify-between gap-4">
-                        <div className="text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                          {ninetyDayYieldDisplay?.lq ?? "—"}
-                        </div>
+                      <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                        {polGrowthAnnualDisplay}
                       </div>
-                      <div className="mt-2.5 text-sm text-muted-foreground">
-                        ({ninetyDayYieldDisplay?.breakdown ?? "—"})
+                      <div className="mt-3 text-sm text-muted-foreground">
+                        {polGrowthHelper}
                       </div>
                     </CardContent>
                   </Card>
@@ -2221,59 +2268,86 @@ export function PolDashboardView() {
                           : "Live data unavailable"
                       }
                     />
-                    <div className="mt-3 h-2 rounded-full overflow-hidden flex">
-                      <div
-                        className="h-full"
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            Math.max(0, circulatingWidth)
-                          )}%`,
-                          background: "hsl(142, 71%, 45%)",
-                        }}
-                      />
-                      <div
-                        className="h-full"
-                        style={{
-                          width: `${Math.min(100, Math.max(0, vaultedWidth))}%`,
-                          background: "hsl(270, 70%, 60%)",
-                        }}
-                      />
-                      <div
-                        className="h-full"
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            Math.max(0, liquidityWidth)
-                          )}%`,
-                          background: "hsl(29, 90%, 60%)",
-                        }}
-                      />
-                      <div className="h-full flex-1 bg-muted-foreground/30 dark:bg-muted-foreground/50" />
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="inline-block h-2 w-2 rounded-full shrink-0"
-                          style={{ background: "hsl(142, 71%, 45%)" }}
-                        />
-                        <span className="text-muted-foreground">
-                          Circulating
-                        </span>
+                    {/* Donut + legend row */}
+                    <div className="flex items-center justify-center gap-4 mt-4">
+                      <div className="relative shrink-0">
+                        <ChartContainer
+                          config={{
+                            circulating: { label: "Circulating", color: "#4ade80" },
+                            vaulted: { label: "Vaulted", color: "#a855f7" },
+                            pol: { label: "PoL GLW", color: "#ffb472" },
+                            other: { label: "Other", color: "hsl(0 0% 80%)" },
+                          }}
+                          className="h-36 w-36"
+                        >
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: "Circulating", value: Math.round(circulatingSupplyForSupplyCard), fill: "#4ade80" },
+                                { name: "Vaulted", value: Math.round(vaultedGlw ?? 0), fill: "#a855f7" },
+                                { name: "PoL GLW", value: Math.round(polGlwInPol ?? 0), fill: "#ffb472" },
+                                { name: "Other", value: Math.max(0, Math.round(supplyTotal - circulatingSupplyForSupplyCard - (vaultedGlw ?? 0) - (polGlwInPol ?? 0))), fill: "hsl(0 0% 85%)" },
+                              ].filter((d) => d.value > 0)}
+                              dataKey="value"
+                              nameKey="name"
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={38}
+                              outerRadius={62}
+                              strokeWidth={2}
+                              stroke="var(--color-card)"
+                            />
+                            <ChartTooltip
+                              content={
+                                <ChartTooltipContent
+                                  formatter={(value) => {
+                                    const n = typeof value === "number" ? value : Number(value);
+                                    return `${formatCompactNumberPrecise(n)} GLW`;
+                                  }}
+                                />
+                              }
+                            />
+                          </PieChart>
+                        </ChartContainer>
+                        {/* Center label */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                          <span className="text-lg font-semibold tracking-tight font-mono tabular-nums">
+                            {hasLiveSupply ? formatPercent(circulationPercent) : "—"}
+                          </span>
+                          <span className="text-[7px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                            Circulating
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="inline-block h-2 w-2 rounded-full shrink-0"
-                          style={{ background: "hsl(270, 70%, 60%)" }}
-                        />
-                        <span className="text-muted-foreground">Vaulted</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="inline-block h-2 w-2 rounded-full shrink-0"
-                          style={{ background: "hsl(29, 90%, 60%)" }}
-                        />
-                        <span className="text-muted-foreground">PoL GLW</span>
+                      <div className="flex flex-col gap-3 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="inline-block h-2 w-2 rounded-full shrink-0"
+                            style={{ background: "#4ade80" }}
+                          />
+                          <span className="text-muted-foreground">Circulating</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="inline-block h-2 w-2 rounded-full shrink-0"
+                            style={{ background: "#a855f7" }}
+                          />
+                          <span className="text-muted-foreground">Vaulted</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="inline-block h-2 w-2 rounded-full shrink-0"
+                            style={{ background: "#ffb472" }}
+                          />
+                          <span className="text-muted-foreground">PoL GLW</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="inline-block h-2 w-2 rounded-full shrink-0"
+                            style={{ background: "hsl(0 0% 85%)" }}
+                          />
+                          <span className="text-muted-foreground">Other</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2296,17 +2370,6 @@ export function PolDashboardView() {
                       }
                       valueClassName="text-xl sm:text-2xl tracking-tight"
                     />
-                  </div>
-                  <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 px-4 py-3">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                      Annualized circulating growth (13w)
-                    </div>
-                    <div className="mt-1 text-2xl sm:text-3xl font-semibold font-mono tabular-nums tracking-tight">
-                      {supplyGrowthAnnualDisplay}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {supplyGrowthHelper}
-                    </div>
                   </div>
                   <Button onClick={() => setIsSupplyDialogOpen(true)}>
                     Explore Supply Model
@@ -2341,7 +2404,7 @@ export function PolDashboardView() {
                     >
                       <option value="latest">Latest</option>
                       <option value="lifetime">Lifetime</option>
-                      <option value="ninetyDay">90d Revenue</option>
+                      <option value="ninetyDay">Quarterly Revenue</option>
                       <option value="credits">CC / Week</option>
                     </select>
                   </div>
@@ -2442,7 +2505,7 @@ export function PolDashboardView() {
                         </div>
                         <div className="flex flex-col gap-0.5">
                           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                            90d
+                            Quarterly
                           </div>
                           <div className="text-xl font-semibold font-mono tabular-nums tracking-tight">
                             {ninetyDayLq.value}
@@ -2470,113 +2533,82 @@ export function PolDashboardView() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
-                  <MetricCard
-                    label="Total PoL"
-                    value={
-                      totalPolLq !== null
-                        ? formatLiquidityCompact(totalPolLq)
-                        : "—"
-                    }
-                    helper={
-                      totalPolBreakdown?.breakdown
-                        ? `(${totalPolBreakdown.breakdown})`
-                        : "Live data unavailable"
-                    }
-                    valueClassName="text-3xl sm:text-4xl"
-                  />
-	                  <div className="grid grid-cols-2 gap-3">
-	                    <MiniStat
-	                      label="90d Yield"
-	                      value={ninetyDayYieldDisplay?.lq ?? "—"}
-	                      helper={
-	                        ninetyDayYieldDisplay?.breakdown
-	                          ? `(${ninetyDayYieldDisplay.breakdown})`
-	                          : "Live data unavailable"
-	                      }
-	                      valueClassName="text-base sm:text-lg tracking-tight"
-	                    />
-	                    <MiniStat
-	                      label="Pool depth"
-	                      value={poolDepthDisplay}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <MetricCard
+                      label="Total PoL"
+                      value={
+                        totalPolLq !== null
+                          ? formatLiquidityCompact(totalPolLq)
+                          : "—"
+                      }
+                      helper={
+                        totalPolBreakdown?.breakdown
+                          ? `(${totalPolBreakdown.breakdown})`
+                          : "Live data unavailable"
+                      }
+                      valueClassName="text-3xl sm:text-4xl"
+                    />
+                    <MetricCard
+                      label="PoL APY"
+                      value={polApyDisplay}
+                      helper={
+                        ninetyDayApy !== null
+                          ? "Trailing quarterly"
+                          : "Live data unavailable"
+                      }
+                      valueClassName="text-3xl sm:text-4xl"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <MiniStat
+                      label="Quarterly Yield"
+                      value={ninetyDayYieldDisplay?.lq ?? "—"}
+                      helper={
+                        ninetyDayYieldDisplay?.breakdown
+                          ? `(${ninetyDayYieldDisplay.breakdown})`
+                          : "Live data unavailable"
+                      }
+                      valueClassName="text-base sm:text-lg tracking-tight"
+                    />
+                    <MiniStat
+                      label="Pool depth"
+                      value={poolDepthDisplay}
                       helper={poolDepthHelper}
                       valueClassName="text-base sm:text-lg tracking-tight"
                     />
                   </div>
-	                  <div>
-	                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-	                      PoL liquidity (since v2)
-	                      {polLiquidityIsLive ? "" : " · Live data unavailable"}
-	                    </div>
-	                    <ChartContainer
-	                      config={polLiquidityChartConfig}
-	                      className="h-24 w-full"
-	                    >
-	                      <AreaChart data={polLiquidityChartData}>
-	                        <XAxis
-	                          dataKey="week"
-	                          tickLine={false}
-	                          axisLine={false}
-	                          tick={{ fontSize: 9 }}
-	                          interval="preserveStartEnd"
-	                        />
-	                        <ChartTooltip content={<PolLiquidityTooltip />} />
-	                        <Area
-	                          type="monotone"
-	                          dataKey="liquidity"
-	                          stroke="var(--color-liquidity)"
-	                          fill="var(--color-liquidity)"
-	                          fillOpacity={0.2}
-	                          strokeWidth={2}
-	                          dot={false}
-	                        />
-	                      </AreaChart>
-	                    </ChartContainer>
-	                  </div>
-
-	                  <div className="pt-1">
-	                    <div className="flex flex-col gap-4">
-	                      {[
-	                        {
-	                          key: "endowment",
-	                          label: "Endowment",
-	                          color: "hsl(29, 90%, 60%)",
-	                          pct: polSourceBreakdown?.endowmentPct ?? null,
-	                        },
-	                        {
-	                          key: "bot",
-	                          label: "Trading bot",
-	                          color: "hsl(142, 71%, 45%)",
-	                          pct: polSourceBreakdown?.botPct ?? null,
-	                        },
-	                      ].map((row) => (
-	                        <div key={row.key} className="flex flex-col gap-1.5">
-	                          <div className="flex items-center justify-between text-sm">
-	                            <span className="flex items-center gap-2 text-muted-foreground">
-	                              <span
-	                                className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
-	                                style={{ backgroundColor: row.color }}
-	                              />
-	                              {row.label}
-	                            </span>
-	                            <span className="font-mono tabular-nums font-medium text-foreground">
-	                              {row.pct === null ? "—" : `${row.pct}%`}
-	                            </span>
-	                          </div>
-	                          <div className="h-2 w-full rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden">
-	                            <div
-	                              className="h-full rounded-full transition-all duration-300 ease-out"
-	                              style={{
-	                                width: `${row.pct ?? 0}%`,
-	                                backgroundColor: row.color,
-	                              }}
-	                            />
-	                          </div>
-	                        </div>
-	                      ))}
-	                    </div>
-	                  </div>
-	                </CardContent>
-	              </Card>
+                  <div className="flex-1 flex flex-col min-h-0">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
+                      PoL liquidity (since v2)
+                      {polLiquidityIsLive ? "" : " · Live data unavailable"}
+                    </div>
+                    <ChartContainer
+                      config={polLiquidityChartConfig}
+                      className="min-h-[120px] flex-1 w-full"
+                    >
+                      <AreaChart data={polLiquidityChartData}>
+                        <XAxis
+                          dataKey="week"
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fontSize: 9 }}
+                          interval="preserveStartEnd"
+                        />
+                        <ChartTooltip content={<PolLiquidityTooltip />} />
+                        <Area
+                          type="monotone"
+                          dataKey="liquidity"
+                          stroke="var(--color-liquidity)"
+                          fill="var(--color-liquidity)"
+                          fillOpacity={0.2}
+                          strokeWidth={2}
+                          dot={false}
+                        />
+                      </AreaChart>
+                    </ChartContainer>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* ── GCTL ── */}
               <Card className="!gap-6">
@@ -2756,7 +2788,7 @@ export function PolDashboardView() {
                       Wallet breakdown
                       {hasWalletBreakdown ? "" : " · Live data unavailable"}
                     </div>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-3">
                       {hasWalletBreakdown ? (
                         walletStats.breakdown.map((row) => (
                           <div
@@ -2764,7 +2796,7 @@ export function PolDashboardView() {
                             className="flex items-center gap-3"
                           >
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between text-xs mb-1">
+                              <div className="flex items-center justify-between text-xs mb-1.5">
                                 <span className="flex items-center gap-1.5">
                                   <span
                                     className="inline-block h-2 w-2 rounded-full shrink-0"
@@ -2778,7 +2810,7 @@ export function PolDashboardView() {
                                   {row.count.toLocaleString()}
                                 </span>
                               </div>
-                              <div className="h-1.5 w-full rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden">
+                              <div className="h-3 w-full rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden">
                                 <div
                                   className="h-full rounded-full"
                                   style={{
@@ -2815,13 +2847,14 @@ export function PolDashboardView() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-6 h-full">
-                  <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="grid grid-cols-3 gap-3 sm:gap-4">
                     <MiniStat
                       label="GLW delegated"
                       value={delegatedDisplay}
                       helper={
                         hasDelegationData ? undefined : "Live data unavailable"
                       }
+                      valueClassName="text-lg sm:text-2xl tracking-tight"
                     />
                     <MiniStat
                       label="Delegators"
@@ -2831,6 +2864,7 @@ export function PolDashboardView() {
                           ? undefined
                           : "Live data unavailable"
                       }
+                      valueClassName="text-lg sm:text-2xl tracking-tight"
                     />
                     <MiniStat
                       label="Est. APY"
@@ -2840,6 +2874,7 @@ export function PolDashboardView() {
                           ? undefined
                           : "Live data unavailable"
                       }
+                      valueClassName="text-lg sm:text-2xl tracking-tight"
                     />
                   </div>
 
@@ -2935,10 +2970,10 @@ export function PolDashboardView() {
                     <table className="w-full text-sm">
                       <thead className="bg-muted/40 dark:bg-background/40">
                         <tr className="text-left text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                          <th className="px-4 py-3">Region</th>
-                          <th className="px-4 py-3">Lifetime</th>
-                          <th className="px-4 py-3">90d</th>
-                          <th className="px-4 py-3">Farms</th>
+                          <th className="px-3 sm:px-4 py-3">Region</th>
+                          <th className="px-3 sm:px-4 py-3">Lifetime</th>
+                          <th className="px-3 sm:px-4 py-3">Quarterly</th>
+                          <th className="px-3 sm:px-4 py-3 hidden sm:table-cell">Farms</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2973,11 +3008,11 @@ export function PolDashboardView() {
                               key={region.region}
                               className="border-t border-border/10 dark:border-border/20 hover:bg-muted/40 dark:hover:bg-background/60 transition-colors"
                             >
-                              <td className="px-4 py-3">
-                                <div className="font-semibold">
+                              <td className="px-3 sm:px-4 py-3">
+                                <div className="font-semibold text-xs sm:text-sm">
                                   {region.region}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-[10px] sm:text-xs text-muted-foreground">
                                   {region.stakedGctl !== null
                                     ? `${formatNumber(
                                         region.stakedGctl
@@ -2985,28 +3020,28 @@ export function PolDashboardView() {
                                     : "—"}
                                 </div>
                               </td>
-                              <td className="px-4 py-3">
-                                <div className="font-mono tabular-nums">
+                              <td className="px-3 sm:px-4 py-3">
+                                <div className="font-mono tabular-nums text-xs sm:text-sm">
                                   {lifetimeLiquidity.value}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-[10px] sm:text-xs text-muted-foreground">
                                   ({lifetimeLiquidity.breakdown})
                                 </div>
                               </td>
-                              <td className="px-4 py-3">
-                                <div className="font-mono tabular-nums">
+                              <td className="px-3 sm:px-4 py-3">
+                                <div className="font-mono tabular-nums text-xs sm:text-sm">
                                   {ninetyDayLiquidity.value}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-[10px] sm:text-xs text-muted-foreground">
                                   ({ninetyDayLiquidity.breakdown})
                                 </div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-[10px] sm:text-xs text-muted-foreground">
                                   {region.ccPerWeek !== null
                                     ? `${region.ccPerWeek.toFixed(1)} cc/wk`
                                     : "—"}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 font-mono tabular-nums">
+                              <td className="px-3 sm:px-4 py-3 font-mono tabular-nums hidden sm:table-cell">
                                 {region.farms}
                               </td>
                             </tr>
@@ -3023,8 +3058,8 @@ export function PolDashboardView() {
           <section className="flex flex-col gap-6 pt-16">
             <SectionHeader title="Network Impact" />
             <Card className="!gap-0">
-              <CardContent className="px-8 py-10 sm:px-10 sm:py-12">
-                <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+              <CardContent className="px-4 py-6 sm:px-10 sm:py-12">
+                <div className="grid grid-cols-2 gap-4 sm:gap-8 sm:grid-cols-4">
                   <div className="flex flex-col gap-1">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                       Total Panels
@@ -3077,212 +3112,263 @@ export function PolDashboardView() {
           {/* FMI temporarily hidden (extracted to app/internal/pol/fmi-widget.tsx). */}
 
           <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader title="Unlock / FDV" />
+            <SectionHeader title="Token Supply Over Time" />
             <Card className="!gap-6">
               <CardHeader className="pb-0">
-                <div className="text-sm font-semibold">Unlock / FDV</div>
+                <div className="text-sm font-semibold">Token Supply Over Time</div>
               </CardHeader>
               <CardContent className="grid gap-8 xl:grid-cols-12">
                 <div className="xl:col-span-7">
-                  <ChartContainer
-                    config={vestingChartConfig}
-                    className="h-56 w-full pb-2 pl-2 pr-3 [&_.recharts-yAxis]:translate-x-0"
-                  >
-                    <LineChart
-                      data={vestingSeries}
-                      margin={{ top: 8, right: 10, bottom: 10, left: 0 }}
+                  {vestingCategorySeries ? (
+                    <ChartContainer
+                      config={vestingCategoryChartConfig}
+                      className="!aspect-auto h-full min-h-[120px] w-full pb-2 pl-2 pr-3 [&_.recharts-yAxis]:translate-x-0"
                     >
-                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="year"
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fontSize: 9 }}
-                        tickMargin={8}
-                        interval="preserveStartEnd"
-                        minTickGap={14}
-                        padding={{ left: 8, right: 8 }}
-                      />
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        width={44}
-                        tick={{ fontSize: 9 }}
-                        tickMargin={8}
-                        tickFormatter={(value) =>
-                          `${Math.round(Number(value))}M`
-                        }
-                      />
-                      <ChartTooltip
-                        content={
-                          <ChartTooltipContent
-                            labelFormatter={(label) => `Year ${label}`}
-                            formatter={(value) => {
-                              const numeric =
-                                typeof value === "number"
-                                  ? value
-                                  : Number(value);
-                              const v = Number.isFinite(numeric)
-                                ? Math.round(numeric)
-                                : 0;
-                              return `${formatNumber(v)}M GLW`;
-                            }}
+                      <AreaChart
+                        data={vestingCategorySeries}
+                        margin={{ top: 8, right: 10, bottom: 10, left: 0 }}
+                        stackOffset="none"
+                      >
+                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="period"
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
+                          tickMargin={10}
+                          interval="preserveStartEnd"
+                          minTickGap={40}
+                          padding={{ left: 4, right: 4 }}
+                          tickFormatter={(v) => {
+                            if (typeof v === "string" && /^\d{4}-\d{2}$/.test(v)) {
+                              const [y, m] = v.split("-");
+                              const month = new Date(Number(y), Number(m) - 1).toLocaleString("en-US", { month: "short" });
+                              return `${month} ${y!.slice(2)}`;
+                            }
+                            return String(v);
+                          }}
+                        />
+                        <YAxis
+                          tickLine={false}
+                          axisLine={false}
+                          width={44}
+                          tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                          tickMargin={8}
+                          tickFormatter={(value) =>
+                            `${Math.round(Number(value))}M`
+                          }
+                        />
+                        <ChartTooltip
+                          content={
+                            <ChartTooltipContent
+                              labelFormatter={(label) => {
+                                if (typeof label === "string" && /^\d{4}-\d{2}$/.test(label)) {
+                                  const [y, m] = label.split("-");
+                                  const month = new Date(Number(y), Number(m) - 1).toLocaleString("en-US", { month: "long" });
+                                  return `${month} ${y}`;
+                                }
+                                return `Year ${label}`;
+                              }}
+                              formatter={(value, name, item) => {
+                                const n = typeof value === "number" ? value : Number(value);
+                                const color = item?.color || (item?.payload as Record<string, unknown>)?.fill;
+                                return (
+                                  <>
+                                    <div
+                                      className="shrink-0 h-2.5 w-2.5 rounded-full"
+                                      style={{ backgroundColor: color as string }}
+                                    />
+                                    <div className="flex flex-1 items-center justify-between gap-4 leading-none">
+                                      <span className="text-muted-foreground">{name}</span>
+                                      <span className="font-mono font-medium tabular-nums text-foreground">
+                                        {Math.round(n)}M GLW
+                                      </span>
+                                    </div>
+                                  </>
+                                );
+                              }}
+                            />
+                          }
+                        />
+                        {[...VESTING_CATEGORIES].reverse().map((c) => (
+                          <Area
+                            key={c.key}
+                            type="monotone"
+                            dataKey={c.key}
+                            name={c.label}
+                            stackId="1"
+                            stroke={c.color}
+                            strokeWidth={1}
+                            fill={c.color}
+                            fillOpacity={0.85}
+                            dot={false}
+                            activeDot={false}
                           />
-                        }
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="unlocked"
-                        stroke="var(--color-unlocked)"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                    </LineChart>
-                  </ChartContainer>
+                        ))}
+                      </AreaChart>
+                    </ChartContainer>
+                  ) : (
+                    <ChartContainer
+                      config={vestingChartConfig}
+                      className="!aspect-auto h-full min-h-[120px] w-full pb-2 pl-2 pr-3 [&_.recharts-yAxis]:translate-x-0"
+                    >
+                      <AreaChart
+                        data={vestingSeries}
+                        margin={{ top: 8, right: 10, bottom: 10, left: 0 }}
+                      >
+                        <defs>
+                          <linearGradient id="vestingGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#ffb472" stopOpacity={0.4} />
+                            <stop offset="100%" stopColor="#ffb472" stopOpacity={0.05} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="year"
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                          tickMargin={10}
+                          padding={{ left: 8, right: 8 }}
+                        />
+                        <YAxis
+                          tickLine={false}
+                          axisLine={false}
+                          width={44}
+                          tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                          tickMargin={8}
+                          tickFormatter={(value) =>
+                            `${Math.round(Number(value))}M`
+                          }
+                        />
+                        <ChartTooltip
+                          content={
+                            <ChartTooltipContent
+                              labelFormatter={(label) => `Year ${label}`}
+                              formatter={(value) => {
+                                const n = typeof value === "number" ? value : Number(value);
+                                return `${Math.round(n)}M GLW unlocked`;
+                              }}
+                            />
+                          }
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="unlocked"
+                          stroke="#ffb472"
+                          strokeWidth={2.5}
+                          fill="url(#vestingGradient)"
+                          dot={false}
+                          activeDot={{
+                            r: 5,
+                            fill: "#ffb472",
+                            stroke: "var(--card)",
+                            strokeWidth: 2,
+                          }}
+                        />
+                      </AreaChart>
+                    </ChartContainer>
+                  )}
                 </div>
                 <div className="xl:col-span-5">
                   <div className="grid gap-4">
-	                    <MetricCard
-	                      label="FDV"
-	                      value={
-	                        fdvUsd !== null ? formatUsdCompactPrecise(fdvUsd) : "—"
-	                      }
-	                      helper={
-	                        fdvUsd !== null && hasLivePrice
-	                          ? `${formatCompactNumberPrecise(
-	                              FDV_TOTAL_TOKENS_GLW
-	                            )} GLW at $${priceDetail}`
-	                          : "Live data unavailable"
-	                      }
-	                    />
-	                    <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 p-4">
-	                      <div className="flex items-center justify-between gap-4">
-	                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-	                          Token breakdown
-	                        </div>
-	                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-	                          {vestingBreakdown
-	                            ? `${formatCompactNumberPrecise(
-	                                vestingBreakdown.total
-	                              )} GLW total`
-	                            : `${formatCompactNumberPrecise(
-	                                FDV_TOTAL_TOKENS_GLW
-	                              )} GLW total`}
-	                        </div>
-	                      </div>
+                    <MetricCard
+                      label="FDV"
+                      value={
+                        fdvUsd !== null ? formatUsdCompactPrecise(fdvUsd) : "—"
+                      }
+                      helper={
+                        fdvUsd !== null && hasLivePrice
+                          ? `${formatCompactNumberPrecise(
+                              FDV_TOTAL_TOKENS_GLW
+                            )} GLW at $${priceDetail}`
+                          : "Live data unavailable"
+                      }
+                    />
+                    <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 p-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                          Token breakdown
+                        </div>
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                          {vestingBreakdown
+                            ? `${formatCompactNumberPrecise(
+                                vestingBreakdown.total
+                              )} GLW total`
+                            : `${formatCompactNumberPrecise(
+                                FDV_TOTAL_TOKENS_GLW
+                              )} GLW total`}
+                        </div>
+                      </div>
 
-	                      {vestingBreakdown ? (
-	                        (() => {
-	                          const total = Math.max(1, vestingBreakdown.total);
-	                          const rows = [
-	                            {
-	                              key: "solarFarms",
-	                              label: "Solar farms",
-	                              color: "hsl(142, 71%, 45%)",
-	                              value: vestingBreakdown.categories.solarFarms,
-	                            },
-	                            {
-	                              key: "grants",
-	                              label: "Grants",
-	                              color: "hsl(29, 90%, 60%)",
-	                              value: vestingBreakdown.categories.grants,
-	                            },
-	                            {
-	                              key: "governance",
-	                              label: "Governance",
-	                              color: "hsl(270, 70%, 60%)",
-	                              value: vestingBreakdown.categories.governance,
-	                            },
-	                            {
-	                              key: "ecosystem",
-	                              label: "Ecosystem",
-	                              color: "hsl(215, 90%, 55%)",
-	                              value: vestingBreakdown.categories.ecosystem,
-	                            },
-	                            {
-	                              key: "earlyStageFunding",
-	                              label: "Early stage funding",
-	                              color: "hsl(325, 70%, 60%)",
-	                              value:
-	                                vestingBreakdown.categories.earlyStageFunding,
-	                            },
-	                            {
-	                              key: "lateStageFunding",
-	                              label: "Late stage funding",
-	                              color: "hsl(186, 70%, 45%)",
-	                              value: vestingBreakdown.categories.lateStageFunding,
-	                            },
-	                            {
-	                              key: "grantsBootstrap",
-	                              label: "Grants bootstrap",
-	                              color: "hsl(52, 90%, 55%)",
-	                              value: vestingBreakdown.categories.grantsBootstrap,
-	                            },
-	                            {
-	                              key: "earlyLiquidityBootstrap",
-	                              label: "Liquidity bootstrap",
-	                              color: "hsl(240, 3.8%, 46.1%)",
-	                              value:
-	                                vestingBreakdown.categories
-	                                  .earlyLiquidityBootstrap,
-	                            },
-	                          ].filter((r) => Number.isFinite(r.value) && r.value > 0);
+                      {vestingBreakdown ? (
+                        (() => {
+                          const total = Math.max(1, vestingBreakdown.total);
+                          const rows = VESTING_CATEGORIES.map((c) => ({
+                            key: c.key,
+                            label: c.label,
+                            color: c.color,
+                            value: vestingBreakdown.categories[c.key],
+                          })).filter(
+                            (r) => Number.isFinite(r.value) && r.value > 0
+                          );
 
-	                          const pct = (value: number) =>
-	                            Math.max(0, (value / total) * 100);
+                          const pct = (value: number) =>
+                            Math.max(0, (value / total) * 100);
 
-	                          return (
-	                            <div className="mt-4">
-	                              <div className="h-2.5 rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden flex">
-	                                {rows.map((r) => (
-	                                  <div
-	                                    key={r.key}
-	                                    className="h-full"
-	                                    style={{
-	                                      width: `${pct(r.value)}%`,
-	                                      background: r.color,
-	                                    }}
-	                                  />
-	                                ))}
-	                              </div>
+                          return (
+                            <div className="mt-4">
+                              <div className="h-2.5 rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden flex">
+                                {rows.map((r) => (
+                                  <div
+                                    key={r.key}
+                                    className="h-full"
+                                    style={{
+                                      width: `${pct(r.value)}%`,
+                                      background: r.color,
+                                    }}
+                                  />
+                                ))}
+                              </div>
 
-	                              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-	                                {rows.map((r) => (
-	                                  <div
-	                                    key={r.key}
-	                                    className="flex items-center justify-between gap-3"
-	                                  >
-	                                    <div className="flex items-center gap-2 min-w-0">
-	                                      <span
-	                                        className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
-	                                        style={{ background: r.color }}
-	                                      />
-	                                      <span className="text-xs text-muted-foreground truncate">
-	                                        {r.label}
-	                                      </span>
-	                                    </div>
-	                                    <div className="flex items-baseline gap-2 shrink-0">
-	                                      <span className="text-xs font-mono tabular-nums text-foreground">
-	                                        {formatCompactNumberPrecise(r.value)} GLW
-	                                      </span>
-	                                      <span className="text-[10px] font-mono tabular-nums text-muted-foreground/70">
-	                                        {pct(r.value).toFixed(1)}%
-	                                      </span>
-	                                    </div>
-	                                  </div>
-	                                ))}
-	                              </div>
-	                            </div>
-	                          );
-	                        })()
-	                      ) : (
-	                        <div className="mt-3 text-sm text-muted-foreground">
-	                          Live breakdown unavailable.
-	                        </div>
-	                      )}
-	                    </div>
-	                  </div>
-	                </div>
+                              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {rows.map((r) => (
+                                  <div
+                                    key={r.key}
+                                    className="flex items-center justify-between gap-3"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span
+                                        className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+                                        style={{ background: r.color }}
+                                      />
+                                      <span className="text-xs text-muted-foreground truncate">
+                                        {r.label}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-baseline gap-2 shrink-0">
+                                      <span className="text-xs font-mono tabular-nums text-foreground">
+                                        {formatCompactNumberPrecise(r.value)}{" "}
+                                        GLW
+                                      </span>
+                                      <span className="text-[10px] font-mono tabular-nums text-muted-foreground/70">
+                                        {pct(r.value).toFixed(1)}%
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        <div className="mt-3 text-sm text-muted-foreground">
+                          Live breakdown unavailable.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </section>
@@ -3316,52 +3402,52 @@ export function PolDashboardView() {
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
               Modeled supply {isAtLivePrice ? "(matches live)" : null}
             </div>
-	            {/* ── Key metrics that change with price ── */}
-	            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-	              <div className="min-w-0">
-	                <MetricCard
-	                  label="Liquid circulating"
-	                  value={
-	                    liquidCirculatingModeled !== null
-	                      ? `${formatCompactNumberPrecise(
-	                          liquidCirculatingModeled
-	                        )}\u00A0GLW`
-	                      : "—"
-	                  }
-	                  helper={
-	                    supplyDelta !== null
-	                      ? `${formatSignedNumber(supplyDelta)} vs current`
-	                      : "Live data unavailable"
-	                  }
-	                  // Override MetricCard defaults (`text-5xl sm:text-6xl`) so the dialog
-	                  // doesn't look comically oversized on desktop.
-	                  valueClassName="whitespace-nowrap leading-none !text-[clamp(1.5rem,6vw,2.25rem)] sm:!text-[clamp(1.75rem,3.5vw,2.5rem)]"
-	                />
-	              </div>
-	              <div className="min-w-0">
-	                <MetricCard
-	                  label="Pool depth"
-	                  value={
-	                    supplyModel.modeledPoolDepthUsd !== null
-	                      ? formatUsdCompactHero(supplyModel.modeledPoolDepthUsd)
-	                      : "—"
-	                  }
-	                  helper={
-	                    supplyModel.modeledPoolDepthUsd !== null &&
-	                    hasLivePrice &&
-	                    (poolReserves?.usdg ?? 0) > 0 &&
-	                    (poolReserves?.glw ?? 0) > 0
-	                      ? `${formatUsdCompactHero(
-	                          supplyModel.modeledPoolDepthUsd -
-	                            ((poolReserves?.usdg ?? 0) +
-	                              (poolReserves?.glw ?? 0) * displayPrice)
-	                        )} vs current pool`
-	                      : "Live data unavailable"
-	                  }
-	                  valueClassName="whitespace-nowrap leading-none !text-[clamp(1.5rem,6vw,2.25rem)] sm:!text-[clamp(1.75rem,3.5vw,2.5rem)]"
-	                />
-	              </div>
-	            </div>
+            {/* ── Key metrics that change with price ── */}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div className="min-w-0">
+                <MetricCard
+                  label="Liquid circulating"
+                  value={
+                    liquidCirculatingModeled !== null
+                      ? `${formatCompactNumberPrecise(
+                          liquidCirculatingModeled
+                        )}\u00A0GLW`
+                      : "—"
+                  }
+                  helper={
+                    supplyDelta !== null
+                      ? `${formatSignedNumber(supplyDelta)} vs current`
+                      : "Live data unavailable"
+                  }
+                  // Override MetricCard defaults (`text-5xl sm:text-6xl`) so the dialog
+                  // doesn't look comically oversized on desktop.
+                  valueClassName="whitespace-nowrap leading-none !text-[clamp(1.5rem,6vw,2.25rem)] sm:!text-[clamp(1.75rem,3.5vw,2.5rem)]"
+                />
+              </div>
+              <div className="min-w-0">
+                <MetricCard
+                  label="Pool depth"
+                  value={
+                    supplyModel.modeledPoolDepthUsd !== null
+                      ? formatUsdCompactHero(supplyModel.modeledPoolDepthUsd)
+                      : "—"
+                  }
+                  helper={
+                    supplyModel.modeledPoolDepthUsd !== null &&
+                    hasLivePrice &&
+                    (poolReserves?.usdg ?? 0) > 0 &&
+                    (poolReserves?.glw ?? 0) > 0
+                      ? `${formatUsdCompactHero(
+                          supplyModel.modeledPoolDepthUsd -
+                            ((poolReserves?.usdg ?? 0) +
+                              (poolReserves?.glw ?? 0) * displayPrice)
+                        )} vs current pool`
+                      : "Live data unavailable"
+                  }
+                  valueClassName="whitespace-nowrap leading-none !text-[clamp(1.5rem,6vw,2.25rem)] sm:!text-[clamp(1.75rem,3.5vw,2.5rem)]"
+                />
+              </div>
+            </div>
 
             {/* ── Supply breakdown bar (circulating / PoL / vaulted / other) ── */}
             <div>
