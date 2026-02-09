@@ -1474,33 +1474,50 @@ export function PolDashboardView() {
     return Math.max(0, currentCirculating - vaulted - pol);
   }, [currentCirculating, hasLiveSupply, polWalletGlw, vaultedGlw]);
 
-  const polShareOfLiquidity = React.useMemo(() => {
-    const poolGlw = poolReserves?.glw ?? 0;
-    const polGlw = polWalletGlw ?? 0;
-    if (poolGlw <= 0 || polGlw <= 0) return 0;
-    return Math.min(1, Math.max(0, polGlw / poolGlw));
-  }, [poolReserves, polWalletGlw]);
-
   const modeledPolGlw = React.useMemo(() => {
     if (!hasLiveSupply) return null;
-    if (isAtLivePrice && polWalletGlw !== null && Number.isFinite(polWalletGlw))
-      return Math.max(0, polWalletGlw);
 
-    const modeledPoolGlw = supplyModel.modeledPoolGlw;
-    if (modeledPoolGlw === null || !Number.isFinite(modeledPoolGlw))
+    // Model protocol-owned reserves directly (endowment LP position + trading bot active),
+    // per spec: k = Total_USDG_Reserves_current * Total_GLW_Reserves_current.
+    const polUsdgMicroRaw = polSummary?.total?.breakdown?.usdg ?? null;
+    const polGlwWeiRaw = polSummary?.total?.breakdown?.glw ?? null;
+    const effectivePrice = Number.isFinite(price) && price > 0 ? price : null;
+
+    if (
+      polUsdgMicroRaw === null ||
+      polGlwWeiRaw === null ||
+      effectivePrice === null
+    ) {
+      // Best-effort: fall back to current PoL GLW (so UI doesn't show nonsense).
+      return polWalletGlw !== null && Number.isFinite(polWalletGlw)
+        ? Math.max(0, polWalletGlw)
+        : null;
+    }
+
+    const polUsdg = Number(formatUnits(BigInt(polUsdgMicroRaw), 6));
+    const polGlw = Number(formatUnits(BigInt(polGlwWeiRaw), 18));
+    if (
+      !Number.isFinite(polUsdg) ||
+      !Number.isFinite(polGlw) ||
+      polUsdg <= 0 ||
+      polGlw <= 0
+    )
       return null;
 
-    const raw = modeledPoolGlw * polShareOfLiquidity;
+    const k = polUsdg * polGlw;
+    if (!Number.isFinite(k) || k <= 0) return null;
+
+    // At the live price (default), this equals `polGlw` by construction.
+    const raw = Math.sqrt(k / effectivePrice);
     const vaulted = vaultedGlw ?? 0;
     const max = Math.max(0, currentCirculating - vaulted);
     return Math.min(max, Math.max(0, raw));
   }, [
     currentCirculating,
     hasLiveSupply,
-    isAtLivePrice,
-    polShareOfLiquidity,
+    polSummary,
     polWalletGlw,
-    supplyModel.modeledPoolGlw,
+    price,
     vaultedGlw,
   ]);
 
@@ -2047,6 +2064,7 @@ export function PolDashboardView() {
 
   const { data: vestingSchedule } = useGlwVestingSchedule();
   const vestingSeries = vestingSchedule?.points ?? VESTING_SCHEDULE;
+  const vestingBreakdown = vestingSchedule?.breakdown ?? null;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -3124,11 +3142,11 @@ export function PolDashboardView() {
                 </div>
                 <div className="xl:col-span-5">
                   <div className="grid gap-4">
-                    <MetricCard
-                      label="FDV"
-                      value={
-                        fdvUsd !== null ? formatUsdCompactPrecise(fdvUsd) : "—"
-                      }
+	                    <MetricCard
+	                      label="FDV"
+	                      value={
+	                        fdvUsd !== null ? formatUsdCompactPrecise(fdvUsd) : "—"
+	                      }
 	                      helper={
 	                        fdvUsd !== null && hasLivePrice
 	                          ? `${formatCompactNumberPrecise(
@@ -3137,27 +3155,134 @@ export function PolDashboardView() {
 	                          : "Live data unavailable"
 	                      }
 	                    />
-                    <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 p-4">
-                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                        Vesting breakdown
-                      </div>
-                      <div className="mt-3 space-y-2 text-sm text-muted-foreground">
-                        <div className="flex items-center justify-between">
-                          <span>Founding contributors</span>
-                          <span>40M (Dec 2026 to Dec 2029)</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span>Early investors</span>
-                          <span>32M (Dec 2026 to Dec 2029)</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span>Weekly emissions</span>
-                          <span>175k / week ongoing</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+	                    <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 p-4">
+	                      <div className="flex items-center justify-between gap-4">
+	                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+	                          Token breakdown
+	                        </div>
+	                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+	                          {vestingBreakdown
+	                            ? `${formatCompactNumberPrecise(
+	                                vestingBreakdown.total
+	                              )} GLW total`
+	                            : `${formatCompactNumberPrecise(
+	                                FDV_TOTAL_TOKENS_GLW
+	                              )} GLW total`}
+	                        </div>
+	                      </div>
+
+	                      {vestingBreakdown ? (
+	                        (() => {
+	                          const total = Math.max(1, vestingBreakdown.total);
+	                          const rows = [
+	                            {
+	                              key: "solarFarms",
+	                              label: "Solar farms",
+	                              color: "hsl(142, 71%, 45%)",
+	                              value: vestingBreakdown.categories.solarFarms,
+	                            },
+	                            {
+	                              key: "grants",
+	                              label: "Grants",
+	                              color: "hsl(29, 90%, 60%)",
+	                              value: vestingBreakdown.categories.grants,
+	                            },
+	                            {
+	                              key: "governance",
+	                              label: "Governance",
+	                              color: "hsl(270, 70%, 60%)",
+	                              value: vestingBreakdown.categories.governance,
+	                            },
+	                            {
+	                              key: "ecosystem",
+	                              label: "Ecosystem",
+	                              color: "hsl(215, 90%, 55%)",
+	                              value: vestingBreakdown.categories.ecosystem,
+	                            },
+	                            {
+	                              key: "earlyStageFunding",
+	                              label: "Early stage funding",
+	                              color: "hsl(325, 70%, 60%)",
+	                              value:
+	                                vestingBreakdown.categories.earlyStageFunding,
+	                            },
+	                            {
+	                              key: "lateStageFunding",
+	                              label: "Late stage funding",
+	                              color: "hsl(186, 70%, 45%)",
+	                              value: vestingBreakdown.categories.lateStageFunding,
+	                            },
+	                            {
+	                              key: "grantsBootstrap",
+	                              label: "Grants bootstrap",
+	                              color: "hsl(52, 90%, 55%)",
+	                              value: vestingBreakdown.categories.grantsBootstrap,
+	                            },
+	                            {
+	                              key: "earlyLiquidityBootstrap",
+	                              label: "Liquidity bootstrap",
+	                              color: "hsl(240, 3.8%, 46.1%)",
+	                              value:
+	                                vestingBreakdown.categories
+	                                  .earlyLiquidityBootstrap,
+	                            },
+	                          ].filter((r) => Number.isFinite(r.value) && r.value > 0);
+
+	                          const pct = (value: number) =>
+	                            Math.max(0, (value / total) * 100);
+
+	                          return (
+	                            <div className="mt-4">
+	                              <div className="h-2.5 rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden flex">
+	                                {rows.map((r) => (
+	                                  <div
+	                                    key={r.key}
+	                                    className="h-full"
+	                                    style={{
+	                                      width: `${pct(r.value)}%`,
+	                                      background: r.color,
+	                                    }}
+	                                  />
+	                                ))}
+	                              </div>
+
+	                              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+	                                {rows.map((r) => (
+	                                  <div
+	                                    key={r.key}
+	                                    className="flex items-center justify-between gap-3"
+	                                  >
+	                                    <div className="flex items-center gap-2 min-w-0">
+	                                      <span
+	                                        className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+	                                        style={{ background: r.color }}
+	                                      />
+	                                      <span className="text-xs text-muted-foreground truncate">
+	                                        {r.label}
+	                                      </span>
+	                                    </div>
+	                                    <div className="flex items-baseline gap-2 shrink-0">
+	                                      <span className="text-xs font-mono tabular-nums text-foreground">
+	                                        {formatCompactNumberPrecise(r.value)} GLW
+	                                      </span>
+	                                      <span className="text-[10px] font-mono tabular-nums text-muted-foreground/70">
+	                                        {pct(r.value).toFixed(1)}%
+	                                      </span>
+	                                    </div>
+	                                  </div>
+	                                ))}
+	                              </div>
+	                            </div>
+	                          );
+	                        })()
+	                      ) : (
+	                        <div className="mt-3 text-sm text-muted-foreground">
+	                          Live breakdown unavailable.
+	                        </div>
+	                      )}
+	                    </div>
+	                  </div>
+	                </div>
               </CardContent>
             </Card>
           </section>

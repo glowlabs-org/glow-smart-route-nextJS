@@ -17,8 +17,25 @@ export async function GET() {
       );
     }
 
-    const target = `${HUB_URL}/glw/vesting-schedule`;
-    const response = await fetch(target, { next: { revalidate: 300 } });
+    // Prefer the breakdown endpoint (richer data for token allocation UI). Fallback
+    // to the legacy schedule endpoint if needed.
+    const targets = [`${HUB_URL}/glw/vesting-breakdown`, `${HUB_URL}/glw/vesting-schedule`];
+    let response: Response | null = null;
+    let lastErrorText: string | null = null;
+    for (const target of targets) {
+      const res = await fetch(target, { next: { revalidate: 300 } });
+      if (res.ok) {
+        response = res;
+        break;
+      }
+      lastErrorText = await res.text();
+    }
+    if (!response) {
+      return NextResponse.json(
+        { error: `Hub error: ${lastErrorText ?? "Unknown error"}` },
+        { status: 502, headers: CACHE_HEADERS }
+      );
+    }
     if (!response.ok) {
       const text = await response.text();
       return NextResponse.json(
@@ -50,4 +67,3 @@ export async function GET() {
     );
   }
 }
-

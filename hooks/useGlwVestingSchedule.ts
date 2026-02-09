@@ -13,6 +13,21 @@ export interface VestingChartPoint {
   unlocked: number; // in millions (for chart labeling)
 }
 
+export type VestingBreakdownKey =
+  | "solarFarms"
+  | "grants"
+  | "governance"
+  | "ecosystem"
+  | "earlyStageFunding"
+  | "lateStageFunding"
+  | "grantsBootstrap"
+  | "earlyLiquidityBootstrap";
+
+export interface VestingBreakdownTotals {
+  total: number; // GLW tokens
+  categories: Record<VestingBreakdownKey, number>; // GLW tokens
+}
+
 function normalizeAmountToGlw(amount: unknown): number | null {
   if (amount === null || amount === undefined) return null;
   const n = typeof amount === "string" ? Number(amount) : (amount as number);
@@ -51,6 +66,7 @@ function parseJsonToYearlyPoints(json: unknown): VestingChartPoint[] | null {
 
     const amount =
       normalizeAmountToGlw(r.unlocked) ??
+      normalizeAmountToGlw(r.total) ??
       normalizeAmountToGlw(r.amount) ??
       normalizeAmountToGlw(r.glw) ??
       normalizeAmountToGlw(r.unlocked_glw) ??
@@ -86,6 +102,55 @@ function parseJsonToYearlyPoints(json: unknown): VestingChartPoint[] | null {
     }));
 
   return points.length ? points : null;
+}
+
+function parseJsonToBreakdownTotals(json: unknown): VestingBreakdownTotals | null {
+  if (!Array.isArray(json) || json.length === 0) return null;
+
+  // Prefer the latest dated row (schedule is cumulative).
+  const rows = json
+    .filter((r): r is Record<string, unknown> => Boolean(r && typeof r === "object"))
+    .map((r) => ({
+      r,
+      date:
+        (typeof (r as any).date === "string" && (r as any).date) ||
+        (typeof (r as any).timestamp === "string" && (r as any).timestamp) ||
+        null,
+    }))
+    .sort((a, b) => String(a.date ?? "").localeCompare(String(b.date ?? "")));
+
+  const last = rows[rows.length - 1]?.r ?? null;
+  if (!last) return null;
+
+  const read = (keys: string[]): number | null => {
+    for (const k of keys) {
+      if (k in last) {
+        const v = normalizeAmountToGlw((last as any)[k]);
+        if (v !== null) return v;
+      }
+    }
+    return null;
+  };
+
+  const total =
+    read(["total", "unlocked", "total_tokens", "totalGlw", "unlocked_glw"]) ?? null;
+  if (total === null) return null;
+
+  const categories: Record<VestingBreakdownKey, number> = {
+    solarFarms: read(["solarFarms", "solar_farms", "solarFarmsGlw"]) ?? 0,
+    grants: read(["grants"]) ?? 0,
+    governance: read(["governance"]) ?? 0,
+    ecosystem: read(["ecosystem"]) ?? 0,
+    earlyStageFunding: read(["earlyStageFunding", "early_stage_funding"]) ?? 0,
+    lateStageFunding: read(["lateStageFunding", "late_stage_funding"]) ?? 0,
+    grantsBootstrap: read(["grantsBootstrap", "grants_bootstrap"]) ?? 0,
+    earlyLiquidityBootstrap: read([
+      "earlyLiquidityBootstrap",
+      "early_liquidity_bootstrap",
+    ]) ?? 0,
+  };
+
+  return { total, categories };
 }
 
 function parseCsvToYearlyPoints(csv: string): VestingChartPoint[] | null {
@@ -154,7 +219,9 @@ export function useGlwVestingSchedule(params: { enabled?: boolean } = {}) {
           : csv
             ? parseCsvToYearlyPoints(csv)
             : null;
-      return { raw: payload, points };
+      const breakdown =
+        payload?.type === "json" ? parseJsonToBreakdownTotals(payload.json) : null;
+      return { raw: payload, points, breakdown };
     },
   });
 }
