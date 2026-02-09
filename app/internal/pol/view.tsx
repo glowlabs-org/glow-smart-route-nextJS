@@ -667,7 +667,7 @@ function FarmDetailsDialog({
                             </div>
                             <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                               <MetricCard
-                                label="Quarterly revenue"
+                                label="Three month revenue"
                                 value={ninety?.value ?? "—"}
                                 helper={
                                   ninety?.breakdown
@@ -680,20 +680,20 @@ function FarmDetailsDialog({
                             </div>
                             <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                               <MetricCard
-                                label="Weekly avg (Quarterly)"
+                                label="Weekly avg (Three month)"
                                 value={
                                   weekly !== null
                                     ? formatLiquidityCompact(weekly)
                                     : "—"
                                 }
-                                helper={`Quarterly ${LIQUIDITY_UNIT} / 13`}
+                                helper={`Three month ${LIQUIDITY_UNIT} / 13`}
                                 labelClassName="text-muted-foreground/60 dark:text-muted-foreground/80"
                                 valueClassName="text-2xl sm:text-3xl"
                               />
                             </div>
                             <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                               <MetricCard
-                                label="Delta (Quarterly)"
+                                label="Delta (Three month)"
                                 value={
                                   shouldShowDeltaRatio(
                                     selectedFarm.ninetyDayDelta ?? null
@@ -1615,7 +1615,7 @@ export function PolDashboardView() {
         }
       : null;
 
-  // Quarterly Trailing PoL Growth (headline KPI) is defined as the delta in total PoL
+  // Three month Trailing PoL Growth (headline KPI) is defined as the delta in total PoL
   // liquidity between now and 13 weeks ago, not the CRM-recognized contribution flow.
   const polLqThirteenWeeksAgo = React.useMemo(() => {
     const series = polLiquiditySnapshot?.series ?? null;
@@ -2186,12 +2186,12 @@ export function PolDashboardView() {
                     </CardContent>
                   </Card>
 
-                  {/* Quarterly Trailing PoL Growth */}
-                  <Card className="!gap-0 relative overflow-hidden">
+	                  {/* Three month Trailing PoL Growth */}
+	                  <Card className="!gap-0 relative overflow-hidden">
                     <GlowSymbol className="!text-[var(--color-glow-purple)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none rotate-6" />
                     <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
                       <div className="text-sm font-medium text-muted-foreground tracking-wide">
-                        Quarterly Trailing PoL Growth
+	                        Three month Trailing PoL Growth
                       </div>
                       <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                         {polTrailingPolGrowthDisplay?.lq ?? "—"}
@@ -2404,7 +2404,7 @@ export function PolDashboardView() {
                     >
                       <option value="latest">Latest</option>
                       <option value="lifetime">Lifetime</option>
-                      <option value="ninetyDay">Quarterly Revenue</option>
+                      <option value="ninetyDay">Three month Revenue</option>
                       <option value="credits">CC / Week</option>
                     </select>
                   </div>
@@ -2505,7 +2505,7 @@ export function PolDashboardView() {
                         </div>
                         <div className="flex flex-col gap-0.5">
                           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                            Quarterly
+                            Three month
                           </div>
                           <div className="text-xl font-semibold font-mono tabular-nums tracking-tight">
                             {ninetyDayLq.value}
@@ -2561,7 +2561,7 @@ export function PolDashboardView() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <MiniStat
-                      label="Quarterly Yield"
+	                      label="Three month Yield"
                       value={ninetyDayYieldDisplay?.lq ?? "—"}
                       helper={
                         ninetyDayYieldDisplay?.breakdown
@@ -2972,7 +2972,7 @@ export function PolDashboardView() {
                         <tr className="text-left text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                           <th className="px-3 sm:px-4 py-3">Region</th>
                           <th className="px-3 sm:px-4 py-3">Lifetime</th>
-                          <th className="px-3 sm:px-4 py-3">Quarterly</th>
+                          <th className="px-3 sm:px-4 py-3">Three month</th>
                           <th className="px-3 sm:px-4 py-3 hidden sm:table-cell">Farms</th>
                         </tr>
                       </thead>
