@@ -1954,6 +1954,44 @@ export function PolDashboardView() {
     ? `(${poolLiquidityBreakdown.breakdown})`
     : "Live data unavailable";
 
+  // What % of the market cap can be exited through PoL?
+  // Model: dump the full circulating supply into the PoL constant-product invariant.
+  // x=USDG, y=GLW, k=x*y. Add S to y, solve x' = k/(y+S), dollars out = x - x'.
+  const polExitabilityPct = React.useMemo(() => {
+    if (!hasLiveMarketCap || currentMarketCap <= 0) return null;
+    if (!hasLiveSupply || currentCirculating <= 0) return null;
+
+    const usdgMicroRaw = polSummary?.total?.breakdown?.usdg ?? null;
+    const glwWeiRaw = polSummary?.total?.breakdown?.glw ?? null;
+    if (usdgMicroRaw === null || glwWeiRaw === null) return null;
+
+    const x = Number(formatUnits(BigInt(usdgMicroRaw), 6));
+    const y = Number(formatUnits(BigInt(glwWeiRaw), 18));
+    if (!Number.isFinite(x) || !Number.isFinite(y) || x <= 0 || y <= 0)
+      return null;
+
+    const k = x * y;
+    if (!Number.isFinite(k) || k <= 0) return null;
+
+    const yAfter = y + currentCirculating;
+    if (!Number.isFinite(yAfter) || yAfter <= 0) return null;
+
+    const xAfter = k / yAfter;
+    const usdOut = Math.max(0, Math.min(x, x - xAfter));
+    const ratio = usdOut / currentMarketCap;
+    if (!Number.isFinite(ratio) || ratio < 0) return null;
+    return Math.min(1, ratio) * 100;
+  }, [
+    currentCirculating,
+    currentMarketCap,
+    hasLiveMarketCap,
+    hasLiveSupply,
+    polSummary,
+  ]);
+
+  const polExitabilityDisplay =
+    polExitabilityPct !== null ? formatPercent(polExitabilityPct) : "—";
+
   const totalPolBreakdown = React.useMemo(() => {
     if (!polSummary || !displayPrice || displayPrice <= 0) return null;
     const usdMicroRaw = polSummary?.total?.usd ?? null;
@@ -2559,10 +2597,10 @@ export function PolDashboardView() {
                       valueClassName="text-3xl sm:text-4xl"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <MiniStat
+	                  <div className="grid grid-cols-2 gap-3">
+	                    <MiniStat
 	                      label="Three month Yield"
-                      value={ninetyDayYieldDisplay?.lq ?? "—"}
+	                      value={ninetyDayYieldDisplay?.lq ?? "—"}
                       helper={
                         ninetyDayYieldDisplay?.breakdown
                           ? `(${ninetyDayYieldDisplay.breakdown})`
@@ -2571,13 +2609,21 @@ export function PolDashboardView() {
                       valueClassName="text-base sm:text-lg tracking-tight"
                     />
                     <MiniStat
-                      label="Pool depth"
-                      value={poolDepthDisplay}
+	                      label="Pool depth"
+	                      value={poolDepthDisplay}
                       helper={poolDepthHelper}
                       valueClassName="text-base sm:text-lg tracking-tight"
                     />
+                    <div className="col-span-2">
+                      <MiniStat
+                        label="Market cap exitable"
+                        value={polExitabilityDisplay}
+                        helper="Sell 100% of circulating into PoL (xy=k)"
+                        valueClassName="text-base sm:text-lg tracking-tight"
+                      />
+                    </div>
                   </div>
-                  <div className="flex-1 flex flex-col min-h-0">
+	                  <div className="flex-1 flex flex-col min-h-0">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
                       PoL liquidity (since v2)
                       {polLiquidityIsLive ? "" : " · Live data unavailable"}
