@@ -47,6 +47,7 @@ import {
   useImpactWalletStats,
 } from "@/hooks/hub-impact";
 import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
+import { useGlowCirculatingSnapshot } from "@/hooks/useGlowCirculatingSnapshot";
 import { usePoolInfo } from "@/hooks/useLiquidityPositionsOptimized";
 import { useImpactMetrics } from "@/hooks/useImpactMetrics";
 import { usePolLiquiditySnapshot } from "@/hooks/usePolLiquiditySnapshot";
@@ -1307,6 +1308,10 @@ export function PolDashboardView() {
   const { data: polLiquiditySnapshot } = usePolLiquiditySnapshot({
     range: "20w",
   });
+  const { data: glowCirculatingSnapshot } = useGlowCirculatingSnapshot({
+    range: "20w",
+    includePartialWeek: true,
+  });
 
   const vaultedGlw = React.useMemo(() => {
     const raw = totalActivelyDelegatedData?.totalGlwDelegatedWei;
@@ -1851,51 +1856,40 @@ export function PolDashboardView() {
 
   const supplyGrowthTrailing = React.useMemo(() => {
     if (!hasLiveSupply) return null;
-    if (polWalletGlw === null || totalDelegatedGlw === null) return null;
+    const series = glowCirculatingSnapshot?.series ?? null;
+    if (!series || series.length === 0) return null;
 
+    const startRow = series.find((r) => r.week === trailing3MonthStartWeek);
+    if (!startRow) return null;
+
+    let onchainStart: number;
+    try {
+      onchainStart = Number(formatUnits(BigInt(startRow.circulating_wei), 18));
+    } catch {
+      return null;
+    }
+    if (!Number.isFinite(onchainStart)) return null;
+
+    // Ponder circulating excludes the off-chain "vaulted/actively delegated" term.
+    // Adjust the start-week point using Hub's weekly snapshot so the growth is computed
+    // on the same canonical definition used by `getGlowMarketCap` today.
     const byWeek = activelyDelegatedByWeekData?.byWeek ?? null;
     if (!byWeek) return null;
+    const vaultedStartWei = byWeek[trailing3MonthStartWeek];
+    if (vaultedStartWei === undefined) return null;
 
-    const delegatedStartWei = byWeek[trailing3MonthStartWeek];
-    if (delegatedStartWei === undefined) return null;
-
-    const delegatedStart = Number(delegatedStartWei) / 1e18;
-    if (!Number.isFinite(delegatedStart)) return null;
-
-    const polSeries = polLiquiditySnapshot?.series ?? null;
-    if (!polSeries || polSeries.length === 0) return null;
-    const polStart = polSeries.find((r) => r.week === trailing3MonthStartWeek);
-    if (!polStart) return null;
-
-    const polGlwStart = Number(polStart.pol_glw) / 1e18;
-    if (!Number.isFinite(polGlwStart)) return null;
-
-    // Circulating supply includes a deterministic inflation allocation term that grows by
-    // ~230k GLW / week (miners + other protocol allocations).
-    // When back-casting circulating at week boundaries, adjust for this delta too,
-    // otherwise the approximation can look strongly negative even when the protocol
-    // is inflating.
-    const INFLATION_PER_WEEK_GLOW = 230_000;
-    const inflationAllocatedNow = currentEpoch * INFLATION_PER_WEEK_GLOW;
-    const inflationAllocatedStart =
-      trailing3MonthStartWeek * INFLATION_PER_WEEK_GLOW;
-
-    // Approximate circulating ~3 months ago by back-casting from "now", using only the
-    // moving components we have weekly snapshots for (PoL + delegated) plus inflation
-    // allocation growth (deterministic by week).
-    const circStart =
-      currentCirculating +
-      (polWalletGlw - polGlwStart) +
-      (totalDelegatedGlw - delegatedStart) -
-      (inflationAllocatedNow - inflationAllocatedStart);
-
-    if (
-      !Number.isFinite(circStart) ||
-      circStart <= 0
-    )
+    let vaultedStart: number;
+    try {
+      vaultedStart = Number(formatUnits(BigInt(vaultedStartWei), 18));
+    } catch {
       return null;
+    }
+    if (!Number.isFinite(vaultedStart)) return null;
 
-    const ratio = currentCirculating / circStart;
+    const canonicalStart = onchainStart - vaultedStart;
+    if (!Number.isFinite(canonicalStart) || canonicalStart <= 0) return null;
+
+    const ratio = currentCirculating / canonicalStart;
     if (!Number.isFinite(ratio) || ratio <= 0) return null;
 
     const trailing = ratio - 1;
@@ -1903,11 +1897,8 @@ export function PolDashboardView() {
   }, [
     activelyDelegatedByWeekData,
     currentCirculating,
-    currentEpoch,
     hasLiveSupply,
-    polLiquiditySnapshot,
-    polWalletGlw,
-    totalDelegatedGlw,
+    glowCirculatingSnapshot,
     trailing3MonthStartWeek,
   ]);
 
@@ -1917,8 +1908,8 @@ export function PolDashboardView() {
       : "—";
   const supplyGrowthHelper =
     supplyGrowthTrailing !== null
-      ? "Approx from PoL + delegated weekly snapshots + inflation allocation (protocol weeks)"
-      : "Requires weekly circulating supply snapshots (or PoL + delegated history)";
+      ? "Trailing 3 Month growth from Ponder circulating snapshots (excl vault) adjusted by Hub vaulted GLW (protocol weeks)"
+      : "Requires Ponder /glow/circulating and Hub vaulted GLW weekly snapshots";
 
   const polGrowthAnnual = React.useMemo(() => {
     const series = polLiquiditySnapshot?.series ?? null;
