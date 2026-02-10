@@ -2322,7 +2322,13 @@ export function MintAndStakeGctlDialog({
                             onCheckedChange={(v) =>
                               setIsUnstakeAcknowledged(Boolean(v))
                             }
-                            className="mt-0.5 border-muted-foreground/40"
+                            onClick={(e) => e.stopPropagation()}
+                            className={cn(
+                              "mt-0.5",
+                              isUnstakeAcknowledged
+                                ? ""
+                                : "border-destructive data-[state=unchecked]:border-destructive"
+                            )}
                           />
                           <div className="space-y-2">
                             <div className="text-sm font-medium text-foreground">
