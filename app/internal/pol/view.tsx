@@ -1298,6 +1298,8 @@ export function PolDashboardView() {
   // Pull just enough weeks to cover the 13w annualized growth computation and charts.
   const supplyGrowthEndWeek = Math.max(97, currentEpoch - 1);
   const supplyGrowthStartWeek = Math.max(97, supplyGrowthEndWeek - 13);
+  // "Today vs 3 months ago" should anchor on the current week, not the last completed week.
+  const trailing3MonthStartWeek = Math.max(97, currentEpoch - 13);
   const { data: activelyDelegatedByWeekData } = useActivelyDelegatedByWeek({
     startWeek: supplyGrowthStartWeek,
     endWeek: supplyGrowthEndWeek,
@@ -1622,14 +1624,14 @@ export function PolDashboardView() {
       : null;
 
   // 3 Month Trailing PoL Growth (headline KPI) is defined as the delta in total PoL
-  // liquidity between now and 13 weeks ago, not the CRM-recognized contribution flow.
+  // liquidity between now and ~3 months ago (13 weeks), not the CRM-recognized contribution flow.
   const polLqThirteenWeeksAgo = React.useMemo(() => {
     const series = polLiquiditySnapshot?.series ?? null;
     if (!series || series.length === 0) return null;
-    const row = series.find((r) => r.week === supplyGrowthStartWeek) ?? null;
+    const row = series.find((r) => r.week === trailing3MonthStartWeek) ?? null;
     if (!row) return null;
     return parseLqUnits(row.pol_lq ?? null);
-  }, [polLiquiditySnapshot, supplyGrowthStartWeek]);
+  }, [polLiquiditySnapshot, trailing3MonthStartWeek]);
 
   const polTrailingPolGrowthLq = React.useMemo(() => {
     if (totalPolLq === null || polLqThirteenWeeksAgo === null) return null;
@@ -1847,33 +1849,26 @@ export function PolDashboardView() {
     range: polLiquidityRange,
   });
 
-  const supplyGrowthAnnual = React.useMemo(() => {
+  const supplyGrowthTrailing = React.useMemo(() => {
     if (!hasLiveSupply) return null;
     if (polWalletGlw === null || totalDelegatedGlw === null) return null;
 
     const byWeek = activelyDelegatedByWeekData?.byWeek ?? null;
     if (!byWeek) return null;
 
-    const delegatedStartWei = byWeek[supplyGrowthStartWeek];
-    const delegatedEndWei = byWeek[supplyGrowthEndWeek];
-    if (delegatedStartWei === undefined || delegatedEndWei === undefined)
-      return null;
+    const delegatedStartWei = byWeek[trailing3MonthStartWeek];
+    if (delegatedStartWei === undefined) return null;
 
     const delegatedStart = Number(delegatedStartWei) / 1e18;
-    const delegatedEnd = Number(delegatedEndWei) / 1e18;
-    if (!Number.isFinite(delegatedStart) || !Number.isFinite(delegatedEnd))
-      return null;
+    if (!Number.isFinite(delegatedStart)) return null;
 
     const polSeries = polLiquiditySnapshot?.series ?? null;
     if (!polSeries || polSeries.length === 0) return null;
-    const polStart = polSeries.find((r) => r.week === supplyGrowthStartWeek);
-    const polEnd = polSeries.find((r) => r.week === supplyGrowthEndWeek);
-    if (!polStart || !polEnd) return null;
+    const polStart = polSeries.find((r) => r.week === trailing3MonthStartWeek);
+    if (!polStart) return null;
 
     const polGlwStart = Number(polStart.pol_glw) / 1e18;
-    const polGlwEnd = Number(polEnd.pol_glw) / 1e18;
-    if (!Number.isFinite(polGlwStart) || !Number.isFinite(polGlwEnd))
-      return null;
+    if (!Number.isFinite(polGlwStart)) return null;
 
     // Circulating supply includes a deterministic inflation allocation term that grows by
     // ~230k GLW / week (miners + other protocol allocations).
@@ -1883,11 +1878,9 @@ export function PolDashboardView() {
     const INFLATION_PER_WEEK_GLOW = 230_000;
     const inflationAllocatedNow = currentEpoch * INFLATION_PER_WEEK_GLOW;
     const inflationAllocatedStart =
-      supplyGrowthStartWeek * INFLATION_PER_WEEK_GLOW;
-    const inflationAllocatedEnd =
-      supplyGrowthEndWeek * INFLATION_PER_WEEK_GLOW;
+      trailing3MonthStartWeek * INFLATION_PER_WEEK_GLOW;
 
-    // Approximate circulating at week end by back-casting from "now", using only the
+    // Approximate circulating ~3 months ago by back-casting from "now", using only the
     // moving components we have weekly snapshots for (PoL + delegated) plus inflation
     // allocation growth (deterministic by week).
     const circStart =
@@ -1895,24 +1888,18 @@ export function PolDashboardView() {
       (polWalletGlw - polGlwStart) +
       (totalDelegatedGlw - delegatedStart) -
       (inflationAllocatedNow - inflationAllocatedStart);
-    const circEnd =
-      currentCirculating +
-      (polWalletGlw - polGlwEnd) +
-      (totalDelegatedGlw - delegatedEnd) -
-      (inflationAllocatedNow - inflationAllocatedEnd);
 
     if (
       !Number.isFinite(circStart) ||
-      !Number.isFinite(circEnd) ||
       circStart <= 0
     )
       return null;
 
-    const ratio = circEnd / circStart;
+    const ratio = currentCirculating / circStart;
     if (!Number.isFinite(ratio) || ratio <= 0) return null;
 
-    const annualized = Math.pow(ratio, 52 / 13) - 1;
-    return Number.isFinite(annualized) ? annualized : null;
+    const trailing = ratio - 1;
+    return Number.isFinite(trailing) ? trailing : null;
   }, [
     activelyDelegatedByWeekData,
     currentCirculating,
@@ -1920,15 +1907,16 @@ export function PolDashboardView() {
     hasLiveSupply,
     polLiquiditySnapshot,
     polWalletGlw,
-    supplyGrowthEndWeek,
-    supplyGrowthStartWeek,
     totalDelegatedGlw,
+    trailing3MonthStartWeek,
   ]);
 
-  const supplyGrowthAnnualDisplay =
-    supplyGrowthAnnual !== null ? formatPercent(supplyGrowthAnnual * 100) : "—";
+  const supplyGrowthTrailingDisplay =
+    supplyGrowthTrailing !== null
+      ? formatPercent(supplyGrowthTrailing * 100)
+      : "—";
   const supplyGrowthHelper =
-    supplyGrowthAnnual !== null
+    supplyGrowthTrailing !== null
       ? "Approx from PoL + delegated weekly snapshots + inflation allocation (protocol weeks)"
       : "Requires weekly circulating supply snapshots (or PoL + delegated history)";
 
@@ -2262,15 +2250,15 @@ export function PolDashboardView() {
                 </div>
 
                 <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Annualized Circulating Supply Growth */}
+                  {/* 3 Month Circulating Supply Growth (Trailing) */}
                   <Card className="!gap-0 relative overflow-hidden">
                     <GlowSymbol className="!text-[var(--color-glow-green)] absolute -top-6 -right-6 w-32 h-32 opacity-25 dark:opacity-15 pointer-events-none rotate-12" />
                     <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
                       <div className="text-sm font-medium text-muted-foreground tracking-wide">
-                        Annualized Circulating Supply Growth
+                        3 Month Circulating Supply Growth
                       </div>
                       <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                        {supplyGrowthAnnualDisplay}
+                        {supplyGrowthTrailingDisplay}
                       </div>
                       <div className="mt-3 text-sm text-muted-foreground">
                         {supplyGrowthHelper}
