@@ -137,14 +137,10 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
   const [isClaimingWeek, setIsClaimingWeek] = useState<number | null>(null);
   const [isClaimingAll, setIsClaimingAll] = useState(false);
 
-  const rewardsKernel = React.useMemo(
-    () =>
-      useRewardsKernel(
-        walletClient || undefined,
-        publicClient || undefined,
-        CHAIN_ID
-      ),
-    [walletClient, publicClient]
+  const rewardsKernel = useRewardsKernel(
+    walletClient || undefined,
+    publicClient || undefined,
+    CHAIN_ID
   );
 
   // MinerPoolAndGCA contract (read-only; does not require a connected wallet)
@@ -516,6 +512,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
           error?.message ||
           error?.shortMessage ||
           error?.cause?.shortMessage ||
+          error?.cause?.message ||
           "Unknown error";
 
         if (errorMessage.includes(RewardsKernelError.ALREADY_CLAIMED)) {
@@ -538,6 +535,14 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         } else if (errorMessage.includes("User rejected")) {
           toast.info("Transaction cancelled");
           return { status: "error", message: "Transaction cancelled" };
+        } else if (/device disconnected during action/i.test(errorMessage)) {
+          toast.error("Wallet disconnected", {
+            description: "Reconnect your wallet/device and try again.",
+          });
+          return {
+            status: "error",
+            message: "Wallet disconnected. Please reconnect and try again.",
+          };
         }
 
         toast.error("Failed to claim protocol deposits", {
@@ -844,7 +849,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         return false;
       }
     },
-    [rewardsKernel]
+    [getWalletClaimIndex, rewardsKernel]
   );
 
   // Check if nonce is finalized

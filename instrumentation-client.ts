@@ -128,6 +128,15 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
         exceptionValues.some((v) => v.type === "UserRejectedRequestError");
       if (isWalletRejection) return null;
 
+      // Filter wallet connectivity / hardware wallet transient errors.
+      // These are user-environment issues (device unplugged, transport reset) and are not actionable in Sentry.
+      const isWalletConnectivityIssue =
+        /device disconnected during action/i.test(message) ||
+        /device disconnected during action/i.test(exceptionText) ||
+        /device disconnected/i.test(message) ||
+        /device disconnected/i.test(exceptionText);
+      if (isWalletConnectivityIssue) return null;
+
       // Filter a known noisy client-side error coming from Sentry Replay network scrapers
       // (e.g. `app:///scrapers/PrebidScraper.js`) attempting to JSON.parse an undefined
       // request/response body.

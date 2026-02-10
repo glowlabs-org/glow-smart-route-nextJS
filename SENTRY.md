@@ -95,6 +95,9 @@ Additional tags and context for ToS errors:
 
 Note: User signature rejections (code 4001) are excluded from Sentry reporting.
 
+Additional client-side filtering (in `instrumentation-client.ts` `beforeSend`):
+- Wallet connectivity/hardware wallet transient failures (e.g. `device disconnected during action`) are dropped to avoid noisy, non-actionable errors.
+
 ---
 
 ## Gaps - Missing Error Tracking
