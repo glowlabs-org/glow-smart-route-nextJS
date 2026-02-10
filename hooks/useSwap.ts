@@ -44,6 +44,27 @@ export enum SwapError {
   USDC_NOT_AVAILABLE = "USDC not available",
 }
 
+function isUserRejectedRequest(err: unknown, errorMessage?: string): boolean {
+  const e: any = err;
+  const code = e?.code ?? e?.cause?.code ?? e?.error?.code;
+  const name = e?.name ?? e?.cause?.name;
+  const message = String(
+    e?.shortMessage ?? e?.message ?? e?.cause?.message ?? ""
+  );
+  const combined = `${message}\n${errorMessage ?? ""}`;
+
+  // Common EVM wallet/provider rejection signals
+  if (code === 4001) return true;
+  if (code === "ACTION_REJECTED") return true;
+  if (name === "UserRejectedRequestError") return true;
+  if (/user rejected/i.test(combined)) return true;
+  if (/user denied/i.test(combined)) return true;
+  if (/transaction canceled/i.test(combined)) return true;
+  if (/request rejected/i.test(combined)) return true;
+
+  return false;
+}
+
 function extractErrorMessage(err: any, defaultMessage: string): string {
   let errorMessage: string = defaultMessage;
 
@@ -411,7 +432,10 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         );
 
         // Log approval errors to Sentry
-        if (typeof window !== "undefined") {
+        if (
+          typeof window !== "undefined" &&
+          !isUserRejectedRequest(err, errorMessage)
+        ) {
           const normalizedError =
             err instanceof Error ? err : new Error(errorMessage);
           Sentry.captureException(normalizedError, {
@@ -465,7 +489,10 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       const errorMessage = extractErrorMessage(err, SwapError.FAILED_TO_SWAP);
 
       // Log swap errors to Sentry
-      if (typeof window !== "undefined") {
+      if (
+        typeof window !== "undefined" &&
+        !isUserRejectedRequest(err, errorMessage)
+      ) {
         const normalizedError =
           err instanceof Error ? err : new Error(errorMessage);
         Sentry.captureException(normalizedError, {
@@ -628,7 +655,10 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
         );
 
         // Log GLOW approval errors to Sentry
-        if (typeof window !== "undefined") {
+        if (
+          typeof window !== "undefined" &&
+          !isUserRejectedRequest(err, errorMessage)
+        ) {
           const normalizedError =
             err instanceof Error ? err : new Error(errorMessage);
           Sentry.captureException(normalizedError, {
@@ -684,7 +714,10 @@ export const useSwap = ({ tokenA_address, tokenB_address }: UseSwapProps) => {
       const errorMessage = extractErrorMessage(err, SwapError.FAILED_TO_SWAP);
 
       // Log GLOW to USDG swap errors to Sentry
-      if (typeof window !== "undefined") {
+      if (
+        typeof window !== "undefined" &&
+        !isUserRejectedRequest(err, errorMessage)
+      ) {
         const normalizedError =
           err instanceof Error ? err : new Error(errorMessage);
         Sentry.captureException(normalizedError, {
