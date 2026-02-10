@@ -667,7 +667,7 @@ function FarmDetailsDialog({
                             </div>
                             <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                               <MetricCard
-                                label="Three month revenue"
+                                label="3 Month revenue"
                                 value={ninety?.value ?? "—"}
                                 helper={
                                   ninety?.breakdown
@@ -680,20 +680,20 @@ function FarmDetailsDialog({
                             </div>
                             <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                               <MetricCard
-                                label="Weekly avg (Three month)"
+                                label="Weekly avg (3 Month)"
                                 value={
                                   weekly !== null
                                     ? formatLiquidityCompact(weekly)
                                     : "—"
                                 }
-                                helper={`Three month ${LIQUIDITY_UNIT} / 13`}
+                                helper={`3 Month ${LIQUIDITY_UNIT} / 13`}
                                 labelClassName="text-muted-foreground/60 dark:text-muted-foreground/80"
                                 valueClassName="text-2xl sm:text-3xl"
                               />
                             </div>
                             <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                               <MetricCard
-                                label="Delta (Three month)"
+                                label="Delta (3 Month)"
                                 value={
                                   shouldShowDeltaRatio(
                                     selectedFarm.ninetyDayDelta ?? null
@@ -703,7 +703,7 @@ function FarmDetailsDialog({
                                       )
                                     : "—"
                                 }
-                                helper="Trailing quarterly vs previous quarterly"
+                                helper="Trailing 3 Month vs previous 3 Month"
                                 labelClassName="text-muted-foreground/60 dark:text-muted-foreground/80"
                                 valueClassName="text-2xl sm:text-3xl"
                               />
@@ -1615,7 +1615,7 @@ export function PolDashboardView() {
         }
       : null;
 
-  // Three month Trailing PoL Growth (headline KPI) is defined as the delta in total PoL
+  // 3 Month Trailing PoL Growth (headline KPI) is defined as the delta in total PoL
   // liquidity between now and 13 weeks ago, not the CRM-recognized contribution flow.
   const polLqThirteenWeeksAgo = React.useMemo(() => {
     const series = polLiquiditySnapshot?.series ?? null;
@@ -1940,7 +1940,7 @@ export function PolDashboardView() {
     polGrowthAnnual !== null ? formatPercent(polGrowthAnnual * 100) : "—";
   const polGrowthHelper =
     polGrowthAnnual !== null
-      ? "Trailing quarterly growth from PoL liquidity snapshots (Ⱡ)"
+      ? "Trailing 3 Month growth from PoL liquidity snapshots (Ⱡ)"
       : "Requires PoL liquidity snapshots";
 
   const poolUsdg = poolReserves?.usdg ?? 0;
@@ -2224,12 +2224,12 @@ export function PolDashboardView() {
                     </CardContent>
                   </Card>
 
-	                  {/* Three month Trailing PoL Growth */}
+	                  {/* 3 Month Trailing PoL Growth */}
 	                  <Card className="!gap-0 relative overflow-hidden">
                     <GlowSymbol className="!text-[var(--color-glow-purple)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none rotate-6" />
                     <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
                       <div className="text-sm font-medium text-muted-foreground tracking-wide">
-	                        Three month Trailing PoL Growth
+	                        3 Month Trailing PoL Growth
                       </div>
                       <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                         {polTrailingPolGrowthDisplay?.lq ?? "—"}
@@ -2442,7 +2442,7 @@ export function PolDashboardView() {
                     >
                       <option value="latest">Latest</option>
                       <option value="lifetime">Lifetime</option>
-                      <option value="ninetyDay">Three month Revenue</option>
+                      <option value="ninetyDay">3 Month Revenue</option>
                       <option value="credits">CC / Week</option>
                     </select>
                   </div>
@@ -2543,7 +2543,7 @@ export function PolDashboardView() {
                         </div>
                         <div className="flex flex-col gap-0.5">
                           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                            Three month
+                            3 Month
                           </div>
                           <div className="text-xl font-semibold font-mono tabular-nums tracking-tight">
                             {ninetyDayLq.value}
@@ -2591,38 +2591,34 @@ export function PolDashboardView() {
                       value={polApyDisplay}
                       helper={
                         ninetyDayApy !== null
-                          ? "Trailing quarterly"
+                          ? "Trailing 3 Month"
                           : "Live data unavailable"
                       }
                       valueClassName="text-3xl sm:text-4xl"
                     />
                   </div>
 	                  <div className="grid grid-cols-2 gap-3">
-	                    <MiniStat
-	                      label="Three month Yield"
-	                      value={ninetyDayYieldDisplay?.lq ?? "—"}
-                      helper={
-                        ninetyDayYieldDisplay?.breakdown
-                          ? `(${ninetyDayYieldDisplay.breakdown})`
-                          : "Live data unavailable"
-                      }
-                      valueClassName="text-base sm:text-lg tracking-tight"
-                    />
-                    <MiniStat
-	                      label="Pool depth"
-	                      value={poolDepthDisplay}
-                      helper={poolDepthHelper}
-                      valueClassName="text-base sm:text-lg tracking-tight"
-                    />
-                    <div className="col-span-2">
-                      <MiniStat
-                        label="Market cap exitable"
-                        value={polExitabilityDisplay}
-                        helper="Sell 100% of circulating into PoL (xy=k)"
-                        valueClassName="text-base sm:text-lg tracking-tight"
-                      />
-                    </div>
-                  </div>
+	                    <div className="col-span-2">
+	                      <MiniStat
+	                        label="3 Month Yield"
+	                        value={ninetyDayYieldDisplay?.lq ?? "—"}
+	                        helper={
+	                          ninetyDayYieldDisplay?.breakdown
+	                            ? `(${ninetyDayYieldDisplay.breakdown})`
+	                            : "Live data unavailable"
+	                        }
+	                        valueClassName="text-base sm:text-lg tracking-tight"
+	                      />
+	                    </div>
+	                    <div className="col-span-2">
+	                      <MiniStat
+	                        label="Market cap exitable"
+	                        value={polExitabilityDisplay}
+	                        helper="Sell 100% of circulating into PoL (xy=k)"
+	                        valueClassName="text-base sm:text-lg tracking-tight"
+	                      />
+	                    </div>
+	                  </div>
 	                  <div className="flex-1 flex flex-col min-h-0">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
                       PoL liquidity (since v2)
@@ -3018,7 +3014,7 @@ export function PolDashboardView() {
                         <tr className="text-left text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
                           <th className="px-3 sm:px-4 py-3">Region</th>
                           <th className="px-3 sm:px-4 py-3">Lifetime</th>
-                          <th className="px-3 sm:px-4 py-3">Three month</th>
+                          <th className="px-3 sm:px-4 py-3">3 Month</th>
                           <th className="px-3 sm:px-4 py-3 hidden sm:table-cell">Farms</th>
                         </tr>
                       </thead>
