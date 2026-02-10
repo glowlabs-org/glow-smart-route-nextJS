@@ -1565,13 +1565,7 @@ export function PolDashboardView() {
     const polNow = polWalletGlw ?? 0;
     const max = Math.max(0, currentCirculating + polNow);
     return Math.min(max, Math.max(0, raw));
-  }, [
-    currentCirculating,
-    hasLiveSupply,
-    polSummary,
-    polWalletGlw,
-    price,
-  ]);
+  }, [currentCirculating, hasLiveSupply, polSummary, polWalletGlw, price]);
 
   const liquidCirculatingModeled = React.useMemo(() => {
     if (!hasLiveSupply || modeledPolGlw === null) return null;
@@ -1937,8 +1931,8 @@ export function PolDashboardView() {
       : "—";
   const supplyGrowthHelper =
     supplyGrowthTrailing !== null
-      ? "Trailing 3 Month growth from Ponder circulating snapshots adjusted by Hub vaulted GLW (protocol weeks)"
-      : "Requires Ponder /glow/circulating and Hub vaulted GLW weekly snapshots";
+      ? "Trailing 3 Month growth"
+      : "Trailing 3 Month growth";
 
   const polGrowthAnnual = React.useMemo(() => {
     const series = polLiquiditySnapshot?.series ?? null;
@@ -1966,7 +1960,7 @@ export function PolDashboardView() {
     polGrowthAnnual !== null ? formatPercent(polGrowthAnnual * 100) : "—";
   const polGrowthHelper =
     polGrowthAnnual !== null
-      ? "Trailing 3 Month growth from PoL liquidity snapshots (Ⱡ)"
+      ? "Annualized growth from PoL liquidity snapshots (Ⱡ)"
       : "Requires PoL liquidity snapshots";
 
   const poolUsdg = poolReserves?.usdg ?? 0;
@@ -2250,12 +2244,12 @@ export function PolDashboardView() {
                     </CardContent>
                   </Card>
 
-	                  {/* 3 Month Trailing PoL Growth */}
-	                  <Card className="!gap-0 relative overflow-hidden">
+                  {/* 3 Month Trailing PoL Growth */}
+                  <Card className="!gap-0 relative overflow-hidden">
                     <GlowSymbol className="!text-[var(--color-glow-purple)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none rotate-6" />
                     <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
                       <div className="text-sm font-medium text-muted-foreground tracking-wide">
-	                        3 Month Trailing PoL Growth
+                        3 Month Trailing PoL Growth
                       </div>
                       <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                         {polTrailingPolGrowthDisplay?.lq ?? "—"}
@@ -2337,7 +2331,10 @@ export function PolDashboardView() {
                       <div className="relative shrink-0">
                         <ChartContainer
                           config={{
-                            circulating: { label: "Circulating", color: "#4ade80" },
+                            circulating: {
+                              label: "Circulating",
+                              color: "#4ade80",
+                            },
                             vaulted: { label: "Vaulted", color: "#a855f7" },
                             pol: { label: "PoL GLW", color: "#ffb472" },
                             other: { label: "Other", color: "hsl(0 0% 80%)" },
@@ -2347,10 +2344,36 @@ export function PolDashboardView() {
                           <PieChart>
                             <Pie
                               data={[
-                                { name: "Circulating", value: Math.round(circulatingSupplyForSupplyCard), fill: "#4ade80" },
-                                { name: "Vaulted", value: Math.round(vaultedGlw ?? 0), fill: "#a855f7" },
-                                { name: "PoL GLW", value: Math.round(polGlwInPol ?? 0), fill: "#ffb472" },
-                                { name: "Other", value: Math.max(0, Math.round(supplyTotal - circulatingSupplyForSupplyCard - (vaultedGlw ?? 0) - (polGlwInPol ?? 0))), fill: "hsl(0 0% 85%)" },
+                                {
+                                  name: "Circulating",
+                                  value: Math.round(
+                                    circulatingSupplyForSupplyCard
+                                  ),
+                                  fill: "#4ade80",
+                                },
+                                {
+                                  name: "Vaulted",
+                                  value: Math.round(vaultedGlw ?? 0),
+                                  fill: "#a855f7",
+                                },
+                                {
+                                  name: "PoL GLW",
+                                  value: Math.round(polGlwInPol ?? 0),
+                                  fill: "#ffb472",
+                                },
+                                {
+                                  name: "Other",
+                                  value: Math.max(
+                                    0,
+                                    Math.round(
+                                      supplyTotal -
+                                        circulatingSupplyForSupplyCard -
+                                        (vaultedGlw ?? 0) -
+                                        (polGlwInPol ?? 0)
+                                    )
+                                  ),
+                                  fill: "hsl(0 0% 85%)",
+                                },
                               ].filter((d) => d.value > 0)}
                               dataKey="value"
                               nameKey="name"
@@ -2365,8 +2388,13 @@ export function PolDashboardView() {
                               content={
                                 <ChartTooltipContent
                                   formatter={(value) => {
-                                    const n = typeof value === "number" ? value : Number(value);
-                                    return `${formatCompactNumberPrecise(n)} GLW`;
+                                    const n =
+                                      typeof value === "number"
+                                        ? value
+                                        : Number(value);
+                                    return `${formatCompactNumberPrecise(
+                                      n
+                                    )} GLW`;
                                   }}
                                 />
                               }
@@ -2376,7 +2404,9 @@ export function PolDashboardView() {
                         {/* Center label */}
                         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                           <span className="text-lg font-semibold tracking-tight font-mono tabular-nums">
-                            {hasLiveSupply ? formatPercent(circulationPercent) : "—"}
+                            {hasLiveSupply
+                              ? formatPercent(circulationPercent)
+                              : "—"}
                           </span>
                           <span className="text-[7px] font-mono uppercase tracking-widest text-muted-foreground/60">
                             Circulating
@@ -2389,7 +2419,9 @@ export function PolDashboardView() {
                             className="inline-block h-2 w-2 rounded-full shrink-0"
                             style={{ background: "#4ade80" }}
                           />
-                          <span className="text-muted-foreground">Circulating</span>
+                          <span className="text-muted-foreground">
+                            Circulating
+                          </span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span
@@ -2623,29 +2655,27 @@ export function PolDashboardView() {
                       valueClassName="text-3xl sm:text-4xl"
                     />
                   </div>
-	                  <div className="grid grid-cols-2 gap-3">
-	                    <div className="col-span-2">
-	                      <MiniStat
-	                        label="3 Month Yield"
-	                        value={ninetyDayYieldDisplay?.lq ?? "—"}
-	                        helper={
-	                          ninetyDayYieldDisplay?.breakdown
-	                            ? `(${ninetyDayYieldDisplay.breakdown})`
-	                            : "Live data unavailable"
-	                        }
-	                        valueClassName="text-base sm:text-lg tracking-tight"
-	                      />
-	                    </div>
-	                    <div className="col-span-2">
-	                      <MiniStat
-	                        label="Market cap exitable"
-	                        value={polExitabilityDisplay}
-	                        helper="Sell 100% of circulating into PoL (xy=k)"
-	                        valueClassName="text-base sm:text-lg tracking-tight"
-	                      />
-	                    </div>
-	                  </div>
-	                  <div className="flex-1 flex flex-col min-h-0">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-1">
+                      <MiniStat
+                        label="3 Month Yield"
+                        value={ninetyDayYieldDisplay?.lq ?? "—"}
+                        helper={
+                          ninetyDayYieldDisplay?.breakdown
+                            ? `(${ninetyDayYieldDisplay.breakdown})`
+                            : "Live data unavailable"
+                        }
+                        valueClassName="text-base sm:text-lg tracking-tight"
+                      />
+                    </div>
+                    <MiniStat
+                      label="Market cap exitable"
+                      value={polExitabilityDisplay}
+                      helper="Sell 100% of circulating into PoL "
+                      valueClassName="text-base sm:text-lg tracking-tight"
+                    />
+                  </div>
+                  <div className="flex-1 flex flex-col min-h-0">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
                       PoL liquidity (since v2)
                       {polLiquidityIsLive ? "" : " · Live data unavailable"}
@@ -3041,7 +3071,9 @@ export function PolDashboardView() {
                           <th className="px-3 sm:px-4 py-3">Region</th>
                           <th className="px-3 sm:px-4 py-3">Lifetime</th>
                           <th className="px-3 sm:px-4 py-3">3 Month</th>
-                          <th className="px-3 sm:px-4 py-3 hidden sm:table-cell">Farms</th>
+                          <th className="px-3 sm:px-4 py-3 hidden sm:table-cell">
+                            Farms
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3183,7 +3215,9 @@ export function PolDashboardView() {
             <SectionHeader title="Token Supply Over Time" />
             <Card className="!gap-6">
               <CardHeader className="pb-0">
-                <div className="text-sm font-semibold">Token Supply Over Time</div>
+                <div className="text-sm font-semibold">
+                  Token Supply Over Time
+                </div>
               </CardHeader>
               <CardContent className="grid gap-8 xl:grid-cols-12">
                 <div className="xl:col-span-7">
@@ -3202,15 +3236,24 @@ export function PolDashboardView() {
                           dataKey="period"
                           tickLine={false}
                           axisLine={false}
-                          tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
+                          tick={{
+                            fontSize: 9,
+                            fill: "var(--muted-foreground)",
+                          }}
                           tickMargin={10}
                           interval="preserveStartEnd"
                           minTickGap={40}
                           padding={{ left: 4, right: 4 }}
                           tickFormatter={(v) => {
-                            if (typeof v === "string" && /^\d{4}-\d{2}$/.test(v)) {
+                            if (
+                              typeof v === "string" &&
+                              /^\d{4}-\d{2}$/.test(v)
+                            ) {
                               const [y, m] = v.split("-");
-                              const month = new Date(Number(y), Number(m) - 1).toLocaleString("en-US", { month: "short" });
+                              const month = new Date(
+                                Number(y),
+                                Number(m) - 1
+                              ).toLocaleString("en-US", { month: "short" });
                               return `${month} ${y!.slice(2)}`;
                             }
                             return String(v);
@@ -3220,7 +3263,10 @@ export function PolDashboardView() {
                           tickLine={false}
                           axisLine={false}
                           width={44}
-                          tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                          tick={{
+                            fontSize: 10,
+                            fill: "var(--muted-foreground)",
+                          }}
                           tickMargin={8}
                           tickFormatter={(value) =>
                             `${Math.round(Number(value))}M`
@@ -3230,24 +3276,40 @@ export function PolDashboardView() {
                           content={
                             <ChartTooltipContent
                               labelFormatter={(label) => {
-                                if (typeof label === "string" && /^\d{4}-\d{2}$/.test(label)) {
+                                if (
+                                  typeof label === "string" &&
+                                  /^\d{4}-\d{2}$/.test(label)
+                                ) {
                                   const [y, m] = label.split("-");
-                                  const month = new Date(Number(y), Number(m) - 1).toLocaleString("en-US", { month: "long" });
+                                  const month = new Date(
+                                    Number(y),
+                                    Number(m) - 1
+                                  ).toLocaleString("en-US", { month: "long" });
                                   return `${month} ${y}`;
                                 }
                                 return `Year ${label}`;
                               }}
                               formatter={(value, name, item) => {
-                                const n = typeof value === "number" ? value : Number(value);
-                                const color = item?.color || (item?.payload as Record<string, unknown>)?.fill;
+                                const n =
+                                  typeof value === "number"
+                                    ? value
+                                    : Number(value);
+                                const color =
+                                  item?.color ||
+                                  (item?.payload as Record<string, unknown>)
+                                    ?.fill;
                                 return (
                                   <>
                                     <div
                                       className="shrink-0 h-2.5 w-2.5 rounded-full"
-                                      style={{ backgroundColor: color as string }}
+                                      style={{
+                                        backgroundColor: color as string,
+                                      }}
                                     />
                                     <div className="flex flex-1 items-center justify-between gap-4 leading-none">
-                                      <span className="text-muted-foreground">{name}</span>
+                                      <span className="text-muted-foreground">
+                                        {name}
+                                      </span>
                                       <span className="font-mono font-medium tabular-nums text-foreground">
                                         {Math.round(n)}M GLW
                                       </span>
@@ -3285,9 +3347,23 @@ export function PolDashboardView() {
                         margin={{ top: 8, right: 10, bottom: 10, left: 0 }}
                       >
                         <defs>
-                          <linearGradient id="vestingGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#ffb472" stopOpacity={0.4} />
-                            <stop offset="100%" stopColor="#ffb472" stopOpacity={0.05} />
+                          <linearGradient
+                            id="vestingGradient"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="0%"
+                              stopColor="#ffb472"
+                              stopOpacity={0.4}
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#ffb472"
+                              stopOpacity={0.05}
+                            />
                           </linearGradient>
                         </defs>
                         <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -3295,7 +3371,10 @@ export function PolDashboardView() {
                           dataKey="year"
                           tickLine={false}
                           axisLine={false}
-                          tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                          tick={{
+                            fontSize: 10,
+                            fill: "var(--muted-foreground)",
+                          }}
                           tickMargin={10}
                           padding={{ left: 8, right: 8 }}
                         />
@@ -3303,7 +3382,10 @@ export function PolDashboardView() {
                           tickLine={false}
                           axisLine={false}
                           width={44}
-                          tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                          tick={{
+                            fontSize: 10,
+                            fill: "var(--muted-foreground)",
+                          }}
                           tickMargin={8}
                           tickFormatter={(value) =>
                             `${Math.round(Number(value))}M`
@@ -3314,7 +3396,10 @@ export function PolDashboardView() {
                             <ChartTooltipContent
                               labelFormatter={(label) => `Year ${label}`}
                               formatter={(value) => {
-                                const n = typeof value === "number" ? value : Number(value);
+                                const n =
+                                  typeof value === "number"
+                                    ? value
+                                    : Number(value);
                                 return `${Math.round(n)}M GLW unlocked`;
                               }}
                             />
@@ -3527,7 +3612,10 @@ export function PolDashboardView() {
                 const polNow = polWalletGlw ?? 0;
                 // "Other" is everything excluded from circulating + PoL + vaulted.
                 const other = hasLiveSupply
-                  ? Math.max(0, supplyTotal - (currentCirculating + polNow + vaulted))
+                  ? Math.max(
+                      0,
+                      supplyTotal - (currentCirculating + polNow + vaulted)
+                    )
                   : 0;
 
                 // Variable buckets: PoL eats liquid circulating.
