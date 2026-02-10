@@ -1859,47 +1859,76 @@ export function PolDashboardView() {
     const series = glowCirculatingSnapshot?.series ?? null;
     if (!series || series.length === 0) return null;
 
-    const startRow = series.find((r) => r.week === trailing3MonthStartWeek);
-    if (!startRow) return null;
-
-    let onchainStart: number;
-    try {
-      onchainStart = Number(formatUnits(BigInt(startRow.circulating_wei), 18));
-    } catch {
-      return null;
-    }
-    if (!Number.isFinite(onchainStart)) return null;
-
-    // Ponder circulating excludes the off-chain "vaulted/actively delegated" term.
-    // Adjust the start-week point using Hub's weekly snapshot so the growth is computed
-    // on the same canonical definition used by `getGlowMarketCap` today.
     const byWeek = activelyDelegatedByWeekData?.byWeek ?? null;
     if (!byWeek) return null;
-    const vaultedStartWei = byWeek[trailing3MonthStartWeek];
+
+    // Prefer the partial "current week" point when present; otherwise use the last completed
+    // week (endWeek = currentEpoch - 1) so the series is comparable week-to-week.
+    const partialEnd =
+      series.find((r) => r.is_partial) ??
+      series.find((r) => r.week === supplyGrowthEndWeek) ??
+      null;
+    if (!partialEnd) return null;
+
+    const endWeek = partialEnd.week;
+    const startWeek = Math.max(97, endWeek - 12); // 13 weeks inclusive
+
+    const startRow = series.find((r) => r.week === startWeek) ?? null;
+    if (!startRow) return null;
+
+    const vaultedStartWei = byWeek[startWeek];
     if (vaultedStartWei === undefined) return null;
 
+    // Completed-week end vault is available in byWeek; partial-week uses "now" total.
+    const vaultedEndWei =
+      partialEnd.is_partial === true
+        ? totalActivelyDelegatedData?.totalGlwDelegatedWei ?? null
+        : byWeek[endWeek];
+    if (vaultedEndWei === undefined || vaultedEndWei === null) return null;
+
+    let onchainStart: number;
+    let onchainEnd: number;
     let vaultedStart: number;
+    let vaultedEnd: number;
     try {
+      onchainStart = Number(formatUnits(BigInt(startRow.circulating_wei), 18));
+      onchainEnd = Number(formatUnits(BigInt(partialEnd.circulating_wei), 18));
       vaultedStart = Number(formatUnits(BigInt(vaultedStartWei), 18));
+      vaultedEnd = Number(formatUnits(BigInt(vaultedEndWei), 18));
     } catch {
       return null;
     }
-    if (!Number.isFinite(vaultedStart)) return null;
+    if (
+      !Number.isFinite(onchainStart) ||
+      !Number.isFinite(onchainEnd) ||
+      !Number.isFinite(vaultedStart) ||
+      !Number.isFinite(vaultedEnd)
+    )
+      return null;
 
+    // Ponder circulating excludes the off-chain "vaulted/actively delegated" term.
+    // Build a canonical weekly series point by subtracting the vaulted GLW for that week.
     const canonicalStart = onchainStart - vaultedStart;
-    if (!Number.isFinite(canonicalStart) || canonicalStart <= 0) return null;
+    const canonicalEnd = onchainEnd - vaultedEnd;
+    if (
+      !Number.isFinite(canonicalStart) ||
+      !Number.isFinite(canonicalEnd) ||
+      canonicalStart <= 0 ||
+      canonicalEnd <= 0
+    )
+      return null;
 
-    const ratio = currentCirculating / canonicalStart;
+    const ratio = canonicalEnd / canonicalStart;
     if (!Number.isFinite(ratio) || ratio <= 0) return null;
 
     const trailing = ratio - 1;
     return Number.isFinite(trailing) ? trailing : null;
   }, [
     activelyDelegatedByWeekData,
-    currentCirculating,
-    hasLiveSupply,
     glowCirculatingSnapshot,
-    trailing3MonthStartWeek,
+    hasLiveSupply,
+    supplyGrowthEndWeek,
+    totalActivelyDelegatedData,
   ]);
 
   const supplyGrowthTrailingDisplay =
@@ -1908,7 +1937,7 @@ export function PolDashboardView() {
       : "—";
   const supplyGrowthHelper =
     supplyGrowthTrailing !== null
-      ? "Trailing 3 Month growth from Ponder circulating snapshots (excl vault) adjusted by Hub vaulted GLW (protocol weeks)"
+      ? "Trailing 3 Month growth from Ponder circulating snapshots adjusted by Hub vaulted GLW (protocol weeks)"
       : "Requires Ponder /glow/circulating and Hub vaulted GLW weekly snapshots";
 
   const polGrowthAnnual = React.useMemo(() => {
