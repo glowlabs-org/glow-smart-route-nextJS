@@ -17,6 +17,37 @@ if (process.env.NODE_ENV === "production") {
 if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
   const controlApiUrl = process.env.NEXT_PUBLIC_CONTROL_API_URL!;
   const hubUrl = process.env.NEXT_PUBLIC_HUB_URL!;
+
+  // Prevent a known noisy unhandledrejection from Sentry Replay network scrapers
+  // from reaching Sentry's GlobalHandlers integration.
+  window.addEventListener(
+    "unhandledrejection",
+    (event: PromiseRejectionEvent) => {
+      const reason = event.reason as unknown;
+
+      const message =
+        reason instanceof Error
+          ? reason.message
+          : typeof reason === "string"
+            ? reason
+            : "";
+      const stack = reason instanceof Error ? reason.stack || "" : "";
+
+      const isUndefinedJsonParse =
+        message.includes('"undefined" is not valid JSON') ||
+        message.includes("undefined is not valid JSON");
+      const isReplayScraper =
+        stack.includes("/scrapers/") ||
+        stack.includes("PrebidScraper") ||
+        stack.includes("NetworkRequest2Scraper");
+
+      if (isUndefinedJsonParse && isReplayScraper) {
+        event.preventDefault();
+      }
+    },
+    { capture: true }
+  );
+
   Sentry.init({
     dsn: "https://1334fda901e8976224deb1286b64c68f@o4507374658846720.ingest.us.sentry.io/4510134559375360",
 
