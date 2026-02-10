@@ -8,8 +8,28 @@ const erc20Abi = parseAbi([
   "function totalSupply() view returns (uint256)",
 ]);
 
-const ENDOWMENT_WALLET = "0x868D99B4a6e81b4683D10ea5665f13579A9d1607";
-const TRADING_BOT_WALLET = "0x0b650820dde452b204de44885fc0fbb788fc5e37";
+const DEFAULT_PONDER_URL =
+  "https://glow-ponder-listener-2-production.up.railway.app";
+
+async function getPolGlwInPositionsWei(): Promise<bigint> {
+  // Prefer same-origin API route in the browser (avoids CORS).
+  // Fallback to direct Ponder fetch in non-browser contexts.
+  try {
+    const url =
+      typeof window !== "undefined"
+        ? "/api/pol-summary"
+        : `${process.env.NEXT_PUBLIC_POSITIONS_API_BASE || DEFAULT_PONDER_URL}/pol/summary`;
+
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!res.ok) return 0n;
+    const payload = (await res.json()) as any;
+    const raw = payload?.total?.breakdown?.glw ?? null;
+    if (raw === null || raw === undefined) return 0n;
+    return BigInt(raw);
+  } catch {
+    return 0n;
+  }
+}
 
 /**
  * The Market Cap Of Glow Is The Total Circulating Supply Of Glow Multiplied By The Current Price Of Glow
@@ -21,8 +41,7 @@ const TRADING_BOT_WALLET = "0x0b650820dde452b204de44885fc0fbb788fc5e37";
  *  5. the total amount of staked / locked tokens in the glow contract
  *  6. Early liquidity balance
  *  7. Vault balance (from CRM)
- *  8. Endowment balance
- *  9. Trading bot balance
+ *  8. PoL GLW in positions (protocol-owned share of the GLW/USDG pool reserves)
  * @param glowPrice - The current price of glow in USD ($2.70) as an example
  *
  */
@@ -74,19 +93,6 @@ export async function getGlowMarketCap(
     args: [addresses.earlyLiquidity],
   };
 
-  const endowmentBalanceCall = {
-    address: addresses.glow,
-    abi: erc20Abi,
-    functionName: "balanceOf",
-    args: [ENDOWMENT_WALLET],
-  };
-  const tradingBotBalanceCall = {
-    address: addresses.glow,
-    abi: erc20Abi,
-    functionName: "balanceOf",
-    args: [TRADING_BOT_WALLET],
-  };
-
   const calls = [
     totalSupplyCall,
     carbonCreditAuctionBalanceCall,
@@ -95,8 +101,6 @@ export async function getGlowMarketCap(
     minerPoolAndGcaContractBalanceCall,
     glowStakedOrLockedBalanceCall,
     earlyLiquidityBalanceCall,
-    endowmentBalanceCall,
-    tradingBotBalanceCall,
   ];
 
   let multicall: Awaited<ReturnType<typeof publicClient.multicall>>;
@@ -146,8 +150,6 @@ export async function getGlowMarketCap(
     minerPoolAndGcaContractBalance,
     glowStakedOrLockedBalance,
     earlyLiquidityBalance,
-    endowmentBalance,
-    tradingBotBalance,
   ] = results;
 
   const vaultBalanceWei = BigInt(
@@ -165,6 +167,8 @@ export async function getGlowMarketCap(
   const yetToBeClaimedFromMiners =
     totalAllocatedToMiners - totalMinerClaimedGlow;
 
+  const polGlwInPositionsWei = await getPolGlwInPositionsWei();
+
   const circulatingSupply =
     totalSupply.result -
     carbonCreditAuctionBalance.result -
@@ -175,8 +179,7 @@ export async function getGlowMarketCap(
     glowStakedOrLockedBalance.result -
     earlyLiquidityBalance.result -
     vaultBalanceWei -
-    endowmentBalance.result -
-    tradingBotBalance.result;
+    polGlwInPositionsWei;
   const formattedTotalSupplyMinusRest = Number(
     formatUnits(circulatingSupply, 18)
   );

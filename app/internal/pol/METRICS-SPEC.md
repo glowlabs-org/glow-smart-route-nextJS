@@ -74,7 +74,7 @@ All "Quarterly" metrics are **13 weeks**.
    - Vaulted GLW
    - Grant tokens
    - Locked/vesting tokens
-   - Tokens held by **PoL wallets** (bot + endowment)
+   - GLW held inside **protocol-owned PoL positions** (endowment LP + bot active)
 
 5) **Supply slider model**:
    - Use **xy = k**
@@ -85,7 +85,7 @@ All "Quarterly" metrics are **13 weeks**.
    - Use the **same constants** as the user wallet stats.
 
 7) **FDV**:
-   - Exclude tokens in **PoL wallets**.
+   - Use the full token supply (see Section 12).
 
 8) **FMI section**: **Keep** (pipeline now lives in CRM + Ponder).
    - **Sell pressure = DEX sell flow** (GLW → USDG swaps).
@@ -250,7 +250,7 @@ Exclude:
 - Vaulted GLW
 - Grant tokens
 - Locked/vesting tokens
-- Tokens in PoL wallets (bot + endowment)
+- GLW held inside protocol-owned PoL positions (endowment LP + bot active)
 
 ```
 circulating =
@@ -258,7 +258,7 @@ circulating =
   - vaultedGlw
   - grantTokens
   - lockedOrVestingGlw
-  - polWalletGlw
+  - polGlwInPositions
 ```
 
 ### 3.2 Supply Breakdown Bar
@@ -464,8 +464,9 @@ Notes:
 
 ### 12.1 FDV
 
-`fdv = glwSpotPrice * (maxTotalSupply - polWalletGlw)`
-Exclude tokens held in PoL wallets.
+FDV should use the full token supply:
+
+`fdv = glwSpotPrice * 180,000,000`
 
 ### 12.2 Vesting Schedule
 

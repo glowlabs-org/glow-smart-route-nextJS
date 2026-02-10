@@ -1511,10 +1511,11 @@ export function PolDashboardView() {
 
   const liquidCirculatingNow = React.useMemo(() => {
     if (!hasLiveSupply) return null;
-    const vaulted = vaultedGlw ?? 0;
-    const pol = polWalletGlw ?? 0;
-    return Math.max(0, currentCirculating - vaulted - pol);
-  }, [currentCirculating, hasLiveSupply, polWalletGlw, vaultedGlw]);
+    // `currentCirculating` is the canonical circulating supply. It excludes:
+    // - Vaulted GLW (delegated)
+    // - PoL GLW in protocol-owned positions
+    return currentCirculating;
+  }, [currentCirculating, hasLiveSupply]);
 
   const modeledPolGlw = React.useMemo(() => {
     if (!hasLiveSupply) return null;
@@ -1551,8 +1552,11 @@ export function PolDashboardView() {
 
     // At the live price (default), this equals `polGlw` by construction.
     const raw = Math.sqrt(k / effectivePrice);
-    const vaulted = vaultedGlw ?? 0;
-    const max = Math.max(0, currentCirculating - vaulted);
+    // PoL can only absorb from circulating (not from vaulted/other). Since
+    // `currentCirculating` already excludes current PoL GLW, the max PoL GLW
+    // is (current PoL GLW + current circulating).
+    const polNow = polWalletGlw ?? 0;
+    const max = Math.max(0, currentCirculating + polNow);
     return Math.min(max, Math.max(0, raw));
   }, [
     currentCirculating,
@@ -1560,14 +1564,16 @@ export function PolDashboardView() {
     polSummary,
     polWalletGlw,
     price,
-    vaultedGlw,
   ]);
 
   const liquidCirculatingModeled = React.useMemo(() => {
     if (!hasLiveSupply || modeledPolGlw === null) return null;
-    const vaulted = vaultedGlw ?? 0;
-    return Math.max(0, currentCirculating - vaulted - modeledPolGlw);
-  }, [currentCirculating, hasLiveSupply, modeledPolGlw, vaultedGlw]);
+    const polNow = polWalletGlw;
+    if (polNow === null || polNow === undefined) return null;
+    // If PoL GLW increases by Δ, circulating decreases by Δ (and vice versa).
+    const deltaPol = modeledPolGlw - polNow;
+    return Math.max(0, currentCirculating - deltaPol);
+  }, [currentCirculating, hasLiveSupply, modeledPolGlw, polWalletGlw]);
 
   const supplyDelta = React.useMemo(() => {
     if (liquidCirculatingModeled === null || liquidCirculatingNow === null)
@@ -1813,15 +1819,11 @@ export function PolDashboardView() {
 
   const circulatingSupplyForSupplyCard = React.useMemo(() => {
     if (!hasLiveSupply) return currentCirculating;
-    // `getGlowMarketCap` excludes PoL wallet balances, but does not exclude
-    // GLW owned inside PoL positions. Subtract it here so the PoL slice
-    // isn't double-counted inside "Circulating".
-    const polLpGlw = polGlwInPol ?? 0;
-    const adjusted = currentCirculating - polLpGlw;
-    return Number.isFinite(adjusted)
-      ? Math.max(0, adjusted)
-      : currentCirculating;
-  }, [hasLiveSupply, currentCirculating, polGlwInPol]);
+    // Circulating supply is the canonical value from `getGlowMarketCap`.
+    // It now excludes PoL GLW inside protocol-owned positions, so it should
+    // match the top banner circulating number.
+    return currentCirculating;
+  }, [hasLiveSupply, currentCirculating]);
 
   const circulationPercent = hasLiveSupply
     ? Math.min(100, (circulatingSupplyForSupplyCard / supplyTotal) * 100)
@@ -1876,12 +1878,12 @@ export function PolDashboardView() {
     // Approximate circulating at week end by back-casting from "now", using only the
     // two moving components we have weekly snapshots for (PoL + delegated).
     const circStart =
-      currentCirculating -
-      (polWalletGlw - polGlwStart) -
+      currentCirculating +
+      (polWalletGlw - polGlwStart) +
       (totalDelegatedGlw - delegatedStart);
     const circEnd =
-      currentCirculating -
-      (polWalletGlw - polGlwEnd) -
+      currentCirculating +
+      (polWalletGlw - polGlwEnd) +
       (totalDelegatedGlw - delegatedEnd);
 
     if (
@@ -3498,14 +3500,17 @@ export function PolDashboardView() {
 
                 // Fixed buckets.
                 const vaulted = vaultedGlw ?? 0;
+                const polNow = polWalletGlw ?? 0;
+                // "Other" is everything excluded from circulating + PoL + vaulted.
                 const other = hasLiveSupply
-                  ? Math.max(0, supplyTotal - currentCirculating)
+                  ? Math.max(0, supplyTotal - (currentCirculating + polNow + vaulted))
                   : 0;
 
                 // Variable buckets: PoL eats liquid circulating.
                 const pol = modeledPolGlw ?? 0;
+                const deltaPol = pol - polNow;
                 const circulating = hasLiveSupply
-                  ? Math.max(0, currentCirculating - vaulted - pol)
+                  ? Math.max(0, currentCirculating - deltaPol)
                   : 0;
 
                 const circulatingPct = (circulating / denom) * 100;
