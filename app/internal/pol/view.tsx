@@ -1875,16 +1875,31 @@ export function PolDashboardView() {
     if (!Number.isFinite(polGlwStart) || !Number.isFinite(polGlwEnd))
       return null;
 
+    // Circulating supply includes a deterministic inflation allocation term that grows by
+    // ~230k GLW / week (miners + other protocol allocations).
+    // When back-casting circulating at week boundaries, adjust for this delta too,
+    // otherwise the approximation can look strongly negative even when the protocol
+    // is inflating.
+    const INFLATION_PER_WEEK_GLOW = 230_000;
+    const inflationAllocatedNow = currentEpoch * INFLATION_PER_WEEK_GLOW;
+    const inflationAllocatedStart =
+      supplyGrowthStartWeek * INFLATION_PER_WEEK_GLOW;
+    const inflationAllocatedEnd =
+      supplyGrowthEndWeek * INFLATION_PER_WEEK_GLOW;
+
     // Approximate circulating at week end by back-casting from "now", using only the
-    // two moving components we have weekly snapshots for (PoL + delegated).
+    // moving components we have weekly snapshots for (PoL + delegated) plus inflation
+    // allocation growth (deterministic by week).
     const circStart =
       currentCirculating +
       (polWalletGlw - polGlwStart) +
-      (totalDelegatedGlw - delegatedStart);
+      (totalDelegatedGlw - delegatedStart) -
+      (inflationAllocatedNow - inflationAllocatedStart);
     const circEnd =
       currentCirculating +
       (polWalletGlw - polGlwEnd) +
-      (totalDelegatedGlw - delegatedEnd);
+      (totalDelegatedGlw - delegatedEnd) -
+      (inflationAllocatedNow - inflationAllocatedEnd);
 
     if (
       !Number.isFinite(circStart) ||
@@ -1901,6 +1916,7 @@ export function PolDashboardView() {
   }, [
     activelyDelegatedByWeekData,
     currentCirculating,
+    currentEpoch,
     hasLiveSupply,
     polLiquiditySnapshot,
     polWalletGlw,
@@ -1913,7 +1929,7 @@ export function PolDashboardView() {
     supplyGrowthAnnual !== null ? formatPercent(supplyGrowthAnnual * 100) : "—";
   const supplyGrowthHelper =
     supplyGrowthAnnual !== null
-      ? "Approx from PoL + delegated weekly snapshots (protocol weeks)"
+      ? "Approx from PoL + delegated weekly snapshots + inflation allocation (protocol weeks)"
       : "Requires weekly circulating supply snapshots (or PoL + delegated history)";
 
   const polGrowthAnnual = React.useMemo(() => {
