@@ -54,7 +54,8 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
 
       const frames =
         event.exception?.values?.[0]?.stacktrace?.frames || [];
-      const message = event.exception?.values?.[0]?.value || "";
+      const message =
+        event.exception?.values?.[0]?.value || event.message || "";
 
       // Filter browser extension errors (crypto wallets, etc.)
       const isExtensionError = frames.some(
@@ -78,6 +79,24 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
         message.includes("User rejected") ||
         message.includes("user rejected");
       if (isWalletRejection) return null;
+
+      // Filter a known noisy client-side error coming from Sentry Replay network scrapers
+      // (e.g. `app:///scrapers/PrebidScraper.js`) attempting to JSON.parse an undefined
+      // request/response body.
+      const isReplayScraperFrame = frames.some((frame) => {
+        const filename = frame.filename || "";
+        const absPath = frame.abs_path || "";
+        const frameModule = frame.module || "";
+        return (
+          filename.includes("/scrapers/") ||
+          absPath.includes("/scrapers/") ||
+          frameModule.includes("scrapers/")
+        );
+      });
+      const isUndefinedJsonParse =
+        message.includes('"undefined" is not valid JSON') ||
+        message.includes("undefined is not valid JSON");
+      if (isReplayScraperFrame && isUndefinedJsonParse) return null;
 
       return event;
     },
