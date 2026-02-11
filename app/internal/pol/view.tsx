@@ -69,6 +69,8 @@ const SECONDS_PER_WEEK = 7 * 24 * 60 * 60;
 const LIQUIDITY_UNIT = "Ⱡ";
 const POL_LIQUIDITY_V2_START_WEEK = 97;
 const FDV_TOTAL_TOKENS_GLW = 180_000_000;
+const DEFINED_FI_GLOW_URL =
+  "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d";
 
 // TODO: mock data (fallback if live regions unavailable)
 const GCTL_REGIONS = [
@@ -983,8 +985,17 @@ function PolLiquidityTooltip({
 }
 
 export function PolDashboardView() {
+  const [isBannerBlogOpen, setIsBannerBlogOpen] = React.useState(false);
   const [isSupplyDialogOpen, setIsSupplyDialogOpen] = React.useState(false);
   const [isFarmDialogOpen, setIsFarmDialogOpen] = React.useState(false);
+  const [isInstallationsDialogOpen, setIsInstallationsDialogOpen] =
+    React.useState(false);
+  const [isLiquidityGrowthDialogOpen, setIsLiquidityGrowthDialogOpen] =
+    React.useState(false);
+  const [isCirculatingGrowthDialogOpen, setIsCirculatingGrowthDialogOpen] =
+    React.useState(false);
+  const [isEmbeddedGrowthDialogOpen, setIsEmbeddedGrowthDialogOpen] =
+    React.useState(false);
   const [isPolLiquidityDialogOpen, setIsPolLiquidityDialogOpen] =
     React.useState(false);
   const [isGctlDialogOpen, setIsGctlDialogOpen] = React.useState(false);
@@ -1183,6 +1194,7 @@ export function PolDashboardView() {
         : null;
     return {
       panels: impactMetrics.solarPanelsInstalled ?? null,
+      totalFarms: impactMetrics.totalFarms ?? null,
       capacityMw,
       homesPowered: impactMetrics.homesPowered ?? null,
       trees: impactMetrics.adultTreesEquivalent ?? null,
@@ -1470,6 +1482,44 @@ export function PolDashboardView() {
     return Math.min(max, Math.max(0, raw));
   }, [currentCirculating, hasLiveSupply, polSummary, polWalletGlw, price]);
 
+  const modeledPolUsdg = React.useMemo(() => {
+    if (!hasLiveSupply) return null;
+
+    const polUsdgMicroRaw = polSummary?.total?.breakdown?.usdg ?? null;
+    const polGlwWeiRaw = polSummary?.total?.breakdown?.glw ?? null;
+    const effectivePrice = Number.isFinite(price) && price > 0 ? price : null;
+
+    if (
+      polUsdgMicroRaw === null ||
+      polGlwWeiRaw === null ||
+      effectivePrice === null
+    ) {
+      try {
+        const fallbackRaw = polSummary?.total?.breakdown?.usdg ?? null;
+        if (fallbackRaw === null || fallbackRaw === undefined) return null;
+        const fallback = Number(formatUnits(BigInt(fallbackRaw), 6));
+        return Number.isFinite(fallback) ? Math.max(0, fallback) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    const polUsdg = Number(formatUnits(BigInt(polUsdgMicroRaw), 6));
+    const polGlw = Number(formatUnits(BigInt(polGlwWeiRaw), 18));
+    if (
+      !Number.isFinite(polUsdg) ||
+      !Number.isFinite(polGlw) ||
+      polUsdg <= 0 ||
+      polGlw <= 0
+    )
+      return null;
+
+    const k = polUsdg * polGlw;
+    if (!Number.isFinite(k) || k <= 0) return null;
+    const modeled = Math.sqrt(k * effectivePrice);
+    return Number.isFinite(modeled) ? Math.max(0, modeled) : null;
+  }, [hasLiveSupply, polSummary, price]);
+
   const liquidCirculatingModeled = React.useMemo(() => {
     if (!hasLiveSupply || modeledPolGlw === null) return null;
     const polNow = polWalletGlw;
@@ -1513,6 +1563,13 @@ export function PolDashboardView() {
     polRevenueAggregate?.active_farms && polRevenueAggregate.active_farms > 0
       ? polRevenueAggregate.active_farms
       : null;
+  const totalSolarInstallations = React.useMemo(() => {
+    const fromImpact = impactTotals?.totalFarms ?? null;
+    if (fromImpact !== null && Number.isFinite(fromImpact) && fromImpact > 0) {
+      return Math.round(fromImpact);
+    }
+    return activeFarmsCount;
+  }, [activeFarmsCount, impactTotals?.totalFarms]);
 
   const lifetimeRevenueDisplay =
     lifetimeRevenueLq !== null
@@ -1856,14 +1913,16 @@ export function PolDashboardView() {
     supplyGrowthEndWeek,
   ]);
 
-  const supplyGrowthTrailingDisplay =
-    supplyGrowthTrailing !== null
-      ? formatPercent(supplyGrowthTrailing * 100)
-      : "—";
-  const supplyGrowthHelper =
-    supplyGrowthTrailing !== null
-      ? "Trailing 3 Month growth (completed weeks)"
-      : "Trailing 3 Month growth (completed weeks)";
+  const supplyGrowthAnnual = React.useMemo(() => {
+    if (supplyGrowthTrailing === null) return null;
+    const ratio = 1 + supplyGrowthTrailing;
+    if (!Number.isFinite(ratio) || ratio <= 0) return null;
+    const annualized = Math.pow(ratio, 52 / 13) - 1;
+    return Number.isFinite(annualized) ? annualized : null;
+  }, [supplyGrowthTrailing]);
+
+  const supplyGrowthAnnualDisplay =
+    supplyGrowthAnnual !== null ? formatPercent(supplyGrowthAnnual * 100) : "—";
 
   const polGrowthAnnual = React.useMemo(() => {
     const series = polLiquiditySnapshot?.series ?? null;
@@ -2120,77 +2179,167 @@ export function PolDashboardView() {
             <SectionHeader title="Overview" />
 
             {/* ── Row 1: Headline banner ── */}
-            <Card className="!gap-0 !bg-zinc-950 dark:!bg-white border-zinc-800/60 dark:border-zinc-200/60">
-              <CardContent className="px-4 py-6 sm:px-10 sm:py-12">
+            <Card
+              className={cn(
+                "!gap-0 !bg-zinc-950 dark:!bg-white border-zinc-800/60 dark:border-zinc-200/60 transition-colors cursor-pointer hover:border-zinc-700/70 dark:hover:border-zinc-300/70",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              )}
+              role="button"
+              tabIndex={0}
+              aria-label="Open Glow economy basics"
+              onClick={() => setIsBannerBlogOpen((v) => !v)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setIsBannerBlogOpen((v) => !v);
+                }
+              }}
+            >
+              <CardContent className="px-4 py-8 sm:px-10 sm:py-14">
+                <div className="mb-6 flex items-center justify-end">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-500">
+                    Click for basics ↗
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 gap-10 sm:grid-cols-3 sm:gap-8">
-                  <div className="flex flex-col gap-2">
-                    <div className="text-xs font-medium text-zinc-400 dark:text-zinc-500 tracking-wide">
+                  <div className="flex flex-col gap-3">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-500">
                       Market Cap
                     </div>
-                    <div className="text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
+                    <div className="text-6xl lg:text-7xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
                       {marketCapDisplay}
                     </div>
-                    <div className="text-sm text-zinc-500 dark:text-zinc-400">
-                      {marketCapHelper}
-                    </div>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <div className="text-xs font-medium text-zinc-400 dark:text-zinc-500 tracking-wide">
+                  <div className="flex flex-col gap-3">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-500">
                       GLW Price
                     </div>
-                    <div className="text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
+                    <div className="text-6xl lg:text-7xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
                       {priceDisplay}
                     </div>
-                    <div className="text-sm text-zinc-500 dark:text-zinc-400">
-                      {priceHelper}
-                    </div>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <div className="text-xs font-medium text-zinc-400 dark:text-zinc-500 tracking-wide">
+                  <div className="flex flex-col gap-3">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-500">
                       Embedded Liquidity
                     </div>
-                    <div className="text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
+                    <div className="text-6xl lg:text-7xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
                       {totalPolLq !== null
                         ? formatLiquidityCompact(totalPolLq)
                         : "—"}
-                    </div>
-                    <div className="text-sm text-zinc-500 dark:text-zinc-400">
-                      ({totalPolBreakdown?.breakdown ?? "—"})
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
+            {isBannerBlogOpen ? (
+              <Card className="!gap-0">
+                <CardContent className="p-6 sm:p-8 space-y-4">
+                  <Link
+                    href={DEFINED_FI_GLOW_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex text-xs font-mono uppercase tracking-widest text-muted-foreground/80 hover:text-foreground"
+                  >
+                    defined.fi price page ↗
+                  </Link>
+                  <p className="text-sm text-muted-foreground">
+                    Just as Bitcoin turned tokens into mining machines, Glow
+                    turns tokens into solar farms. Glow generates revenue by
+                    selling the ability to control where these solar farms get
+                    built.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Just as BTC is the central token of the Bitcoin economy,
+                    GLW is the central token of the Glow economy. Every week,
+                    new GLW is minted via inflation and distributed to farms
+                    being built on the protocol.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    As users pay for control rights, protocol revenue is used to
+                    permanently add liquidity to GLW. In Glow terms, this is
+                    called Embedded Liquidity.
+                  </p>
+                  <div className="flex flex-wrap gap-4 pt-1">
+                    <Link
+                      href="/blog/glw-tokenomics"
+                      className="text-xs font-mono uppercase tracking-widest text-muted-foreground/80 hover:text-foreground"
+                    >
+                      Learn More: Tokenomics
+                    </Link>
+                    <Link
+                      href="/internal/referral"
+                      className="text-xs font-mono uppercase tracking-widest text-muted-foreground/80 hover:text-foreground"
+                    >
+                      Learn More: Ecosystem
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
 
-            {/* ── Row 2: Aggregate Farm Revenue (left) | Circulation (right) ── */}
+            {/* ── Row 2: Growth cards + Supply/Circulation ── */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
-              {/* ── Left: Top KPIs (4 cards) ── */}
               <div className="flex flex-col gap-4 items-start">
                 <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Active Farms */}
-                  <Card className="!gap-0 relative overflow-hidden">
+                  <Card
+                    className={cn(
+                      "!gap-0 relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    )}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Open total solar installations notes"
+                    onClick={() => setIsInstallationsDialogOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsInstallationsDialogOpen(true);
+                      }
+                    }}
+                  >
                     <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-20 pointer-events-none -rotate-12" />
                     <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
-                      <div className="text-sm font-medium text-muted-foreground tracking-wide">
-                        Active Farms
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                          Total Solar Installations
+                        </div>
+                        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                          Click ↗
+                        </div>
                       </div>
                       <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                        {activeFarmsCount !== null
-                          ? formatNumber(activeFarmsCount)
+                        {totalSolarInstallations !== null
+                          ? formatNumber(totalSolarInstallations)
                           : "—"}
-                      </div>
-                      <div className="mt-3 text-sm text-muted-foreground">
-                        Across all regions
                       </div>
                     </CardContent>
                   </Card>
 
-                  {/* 3 Month Trailing PoL Growth */}
-                  <Card className="!gap-0 relative overflow-hidden">
+                  <Card
+                    className={cn(
+                      "!gap-0 relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    )}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Open embedded liquidity growth notes"
+                    onClick={() => setIsLiquidityGrowthDialogOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsLiquidityGrowthDialogOpen(true);
+                      }
+                    }}
+                  >
                     <GlowSymbol className="!text-[var(--color-glow-purple)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none rotate-6" />
                     <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
-                      <div className="text-sm font-medium text-muted-foreground tracking-wide">
-                        3 Month Trailing PoL Growth
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                          Embedded Liquidity Growth (3 Months)
+                        </div>
+                        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                          Click ↗
+                        </div>
                       </div>
                       <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                         {polTrailingPolGrowthDisplay?.lq ?? "—"}
@@ -2205,45 +2354,96 @@ export function PolDashboardView() {
                 </div>
 
                 <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* 3 Month Circulating Supply Growth (Trailing) */}
-                  <Card className="!gap-0 relative overflow-hidden">
+                  <Card
+                    className={cn(
+                      "!gap-0 relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    )}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Open annualized circulating growth notes"
+                    onClick={() => setIsCirculatingGrowthDialogOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsCirculatingGrowthDialogOpen(true);
+                      }
+                    }}
+                  >
                     <GlowSymbol className="!text-[var(--color-glow-green)] absolute -top-6 -right-6 w-32 h-32 opacity-25 dark:opacity-15 pointer-events-none rotate-12" />
                     <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
-                      <div className="text-sm font-medium text-muted-foreground tracking-wide">
-                        3 Month Circulating Supply Growth
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                          Annualized Circulating Supply Growth
+                        </div>
+                        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                          Click ↗
+                        </div>
                       </div>
                       <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                        {supplyGrowthTrailingDisplay}
-                      </div>
-                      <div className="mt-3 text-sm text-muted-foreground">
-                        {supplyGrowthHelper}
+                        {supplyGrowthAnnualDisplay}
                       </div>
                     </CardContent>
                   </Card>
 
-                  {/* Annualized PoL Growth */}
-                  <Card className="!gap-0 relative overflow-hidden">
+                  <Card
+                    className={cn(
+                      "!gap-0 relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    )}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Open annualized embedded liquidity growth notes"
+                    onClick={() => setIsEmbeddedGrowthDialogOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsEmbeddedGrowthDialogOpen(true);
+                      }
+                    }}
+                  >
                     <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none -rotate-6" />
                     <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
-                      <div className="text-sm font-medium text-muted-foreground tracking-wide">
-                        Annualized PoL Growth
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                          Annualized Embedded Liquidity Growth
+                        </div>
+                        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                          Click ↗
+                        </div>
                       </div>
                       <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                         {polGrowthAnnualDisplay}
-                      </div>
-                      <div className="mt-3 text-sm text-muted-foreground">
-                        {polGrowthHelper}
                       </div>
                     </CardContent>
                   </Card>
                 </div>
               </div>
 
-              {/* ── Right: Supply & Circulation ── */}
-              <Card className="!gap-6">
+              <Card
+                className={cn(
+                  "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                )}
+                role="button"
+                tabIndex={0}
+                aria-label="Open supply model explorer"
+                onClick={() => setIsSupplyDialogOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setIsSupplyDialogOpen(true);
+                  }
+                }}
+              >
                 <CardHeader className="pb-0">
-                  <div className="text-sm font-semibold">
-                    Supply &amp; Circulation
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-semibold">
+                      Supply &amp; Circulation
+                    </div>
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                      Click to explore ↗
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
@@ -2257,17 +2457,7 @@ export function PolDashboardView() {
                             )} GLW`
                           : "—"
                       }
-                      helper={
-                        hasLiveSupply
-                          ? `${formatPercent(
-                              circulationPercent
-                            )} of ${formatCompactNumberPrecise(
-                              supplyTotal
-                            )} total (excl. PoL GLW)`
-                          : "Live data unavailable"
-                      }
                     />
-                    {/* Donut + legend row */}
                     <div className="flex items-center justify-center gap-4 mt-4">
                       <div className="relative shrink-0">
                         <ChartContainer
@@ -2278,7 +2468,10 @@ export function PolDashboardView() {
                             },
                             vaulted: { label: "Vaulted", color: "#a855f7" },
                             pol: { label: "PoL GLW", color: "#ffb472" },
-                            other: { label: "Other", color: "hsl(0 0% 80%)" },
+                            other: {
+                              label: "Structurally Locked",
+                              color: "hsl(0 0% 80%)",
+                            },
                           }}
                           className="h-36 w-36"
                         >
@@ -2303,7 +2496,7 @@ export function PolDashboardView() {
                                   fill: "#ffb472",
                                 },
                                 {
-                                  name: "Other",
+                                  name: "Structurally Locked",
                                   value: Math.max(
                                     0,
                                     Math.round(
@@ -2342,17 +2535,6 @@ export function PolDashboardView() {
                             />
                           </PieChart>
                         </ChartContainer>
-                        {/* Center label */}
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                          <span className="text-lg font-semibold tracking-tight font-mono tabular-nums">
-                            {hasLiveSupply
-                              ? formatPercent(circulationPercent)
-                              : "—"}
-                          </span>
-                          <span className="text-[7px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                            Circulating
-                          </span>
-                        </div>
                       </div>
                       <div className="flex flex-col gap-3 text-xs">
                         <div className="flex items-center gap-1.5">
@@ -2383,7 +2565,9 @@ export function PolDashboardView() {
                             className="inline-block h-2 w-2 rounded-full shrink-0"
                             style={{ background: "hsl(0 0% 85%)" }}
                           />
-                          <span className="text-muted-foreground">Other</span>
+                          <span className="text-muted-foreground">
+                            Structurally Locked
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -2408,7 +2592,12 @@ export function PolDashboardView() {
                       valueClassName="text-xl sm:text-2xl tracking-tight"
                     />
                   </div>
-                  <Button onClick={() => setIsSupplyDialogOpen(true)}>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsSupplyDialogOpen(true);
+                    }}
+                  >
                     Explore Supply Model
                   </Button>
                 </CardContent>
@@ -3534,36 +3723,33 @@ export function PolDashboardView() {
 
       <Dialog open={isSupplyDialogOpen} onOpenChange={setIsSupplyDialogOpen}>
         <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
-          <div className="border-b border-border/40 pb-6 pt-8 px-6">
-            <div className="flex items-center justify-between gap-4">
-              <DialogHeader>
-                <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                  Supply Model Explorer
-                </DialogTitle>
-                <DialogDescription className="sr-only">
-                  Supply model explorer
-                </DialogDescription>
-              </DialogHeader>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={resetSupplyModel}
-                disabled={!hasAdjustedSlider}
-              >
-                Reset
-              </Button>
-            </div>
-          </div>
+          <DialogHeader className="sr-only">
+            <DialogTitle>Explore Supply Model</DialogTitle>
+            <DialogDescription>
+              Interactive supply model for circulating and embedded liquidity.
+            </DialogDescription>
+          </DialogHeader>
           <div className="p-6 space-y-6">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-              Modeled supply {isAtLivePrice ? "(matches live)" : null}
-            </div>
-            {/* ── Key metrics that change with price ── */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <p className="text-sm text-muted-foreground">
+              Embedded liquidity is a protocol-owned portfolio that is perfectly
+              balanced between GLW and USDC. This means that as the GLW price
+              drops, the portfolio automatically buys up GLW tokens, taking them
+              out of circulation until the price recovers. In other words, the
+              GLW supply contracts as the price goes down. This also means that
+              as the GLW price increases, the portfolio automatically sells GLW,
+              increasing the total amount of USDC that is available as exit
+              liquidity to GLW holders.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              You can play with the slider to see the relationship between
+              circulating supply and available exit liquidity as the GLW price
+              changes.
+            </p>
+
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
               <div className="min-w-0">
                 <MetricCard
-                  label="Liquid circulating"
+                  label="Circulating Supply"
                   value={
                     liquidCirculatingModeled !== null
                       ? `${formatCompactNumberPrecise(
@@ -3571,58 +3757,44 @@ export function PolDashboardView() {
                         )}\u00A0GLW`
                       : "—"
                   }
-                  helper={
-                    supplyDelta !== null
-                      ? `${formatSignedNumber(supplyDelta)} vs current`
-                      : "Live data unavailable"
-                  }
-                  // Override MetricCard defaults (`text-5xl sm:text-6xl`) so the dialog
-                  // doesn't look comically oversized on desktop.
-                  valueClassName="whitespace-nowrap leading-none !text-[clamp(1.5rem,6vw,2.25rem)] sm:!text-[clamp(1.75rem,3.5vw,2.5rem)]"
+                  valueClassName="whitespace-nowrap leading-none !text-[clamp(1.4rem,6vw,2rem)] sm:!text-[clamp(1.55rem,3.4vw,2.2rem)]"
                 />
               </div>
               <div className="min-w-0">
                 <MetricCard
-                  label="Pool depth"
+                  label="Embedded GLW"
                   value={
-                    supplyModel.modeledPoolDepthUsd !== null
-                      ? formatUsdCompactHero(supplyModel.modeledPoolDepthUsd)
+                    modeledPolGlw !== null
+                      ? `${formatCompactNumberPrecise(modeledPolGlw)} GLW`
                       : "—"
                   }
-                  helper={
-                    supplyModel.modeledPoolDepthUsd !== null &&
-                    hasLivePrice &&
-                    (poolReserves?.usdg ?? 0) > 0 &&
-                    (poolReserves?.glw ?? 0) > 0
-                      ? `${formatUsdCompactHero(
-                          supplyModel.modeledPoolDepthUsd -
-                            ((poolReserves?.usdg ?? 0) +
-                              (poolReserves?.glw ?? 0) * displayPrice)
-                        )} vs current pool`
-                      : "Live data unavailable"
+                  valueClassName="whitespace-nowrap leading-none !text-[clamp(1.4rem,6vw,2rem)] sm:!text-[clamp(1.55rem,3.4vw,2.2rem)]"
+                />
+              </div>
+              <div className="min-w-0">
+                <MetricCard
+                  label="Embedded USDC"
+                  value={
+                    modeledPolUsdg !== null
+                      ? formatUsdCompactHero(modeledPolUsdg)
+                      : "—"
                   }
-                  valueClassName="whitespace-nowrap leading-none !text-[clamp(1.5rem,6vw,2.25rem)] sm:!text-[clamp(1.75rem,3.5vw,2.5rem)]"
+                  valueClassName="whitespace-nowrap leading-none !text-[clamp(1.4rem,6vw,2rem)] sm:!text-[clamp(1.55rem,3.4vw,2.2rem)]"
                 />
               </div>
             </div>
 
-            {/* ── Supply breakdown bar (circulating / PoL / vaulted / other) ── */}
             <div>
               {(() => {
                 const denom = supplyModel.total > 0 ? supplyModel.total : 1;
-
-                // Fixed buckets.
                 const vaulted = vaultedGlw ?? 0;
                 const polNow = polWalletGlw ?? 0;
-                // "Other" is everything excluded from circulating + PoL + vaulted.
                 const other = hasLiveSupply
                   ? Math.max(
                       0,
                       supplyTotal - (currentCirculating + polNow + vaulted)
                     )
                   : 0;
-
-                // Variable buckets: PoL eats liquid circulating.
                 const pol = modeledPolGlw ?? 0;
                 const deltaPol = pol - polNow;
                 const circulating = hasLiveSupply
@@ -3635,12 +3807,6 @@ export function PolDashboardView() {
                 const otherPct = (other / denom) * 100;
                 return (
                   <>
-                    <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                      <span>Supply breakdown</span>
-                      <span>
-                        {formatCompactNumberPrecise(supplyModel.total)} total
-                      </span>
-                    </div>
                     <div className="h-6 rounded-full bg-muted/50 overflow-hidden flex">
                       <div
                         className="h-full transition-all duration-300 ease-out"
@@ -3681,18 +3847,14 @@ export function PolDashboardView() {
                         <span className="text-muted-foreground">
                           Circulating
                         </span>
-                        <span className="font-mono tabular-nums ml-auto">
-                          {formatCompactNumberPrecise(circulating)} GLW
-                        </span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span
                           className="inline-block h-2 w-2 rounded-full shrink-0"
                           style={{ background: "hsl(29, 90%, 60%)" }}
                         />
-                        <span className="text-muted-foreground">PoL</span>
-                        <span className="font-mono tabular-nums ml-auto">
-                          {formatCompactNumberPrecise(pol)} GLW
+                        <span className="text-muted-foreground">
+                          Embedded GLW
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -3701,9 +3863,6 @@ export function PolDashboardView() {
                           style={{ background: "hsl(270, 70%, 60%)" }}
                         />
                         <span className="text-muted-foreground">Vaulted</span>
-                        <span className="font-mono tabular-nums ml-auto">
-                          {formatCompactNumberPrecise(vaulted)} GLW
-                        </span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span
@@ -3713,9 +3872,8 @@ export function PolDashboardView() {
                             opacity: 0.5,
                           }}
                         />
-                        <span className="text-muted-foreground">Other</span>
-                        <span className="font-mono tabular-nums ml-auto">
-                          {formatCompactNumberPrecise(other)} GLW
+                        <span className="text-muted-foreground">
+                          Structurally Locked
                         </span>
                       </div>
                     </div>
@@ -3724,7 +3882,6 @@ export function PolDashboardView() {
               })()}
             </div>
 
-            {/* ── Log-scale price slider (prominent) ── */}
             <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 font-semibold">
@@ -3753,13 +3910,21 @@ export function PolDashboardView() {
               </div>
             </div>
 
-            <div className="pt-2">
+            <div className="flex items-center justify-between gap-3">
               <Link
                 href="/blog/glw-tokenomics"
                 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/70 dark:text-muted-foreground/90 hover:text-foreground"
               >
-                Read GLW tokenomics
+                Learn more about structurally locked tokens
               </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetSupplyModel}
+                disabled={!hasAdjustedSlider}
+              >
+                Reset
+              </Button>
             </div>
           </div>
         </DialogContent>
@@ -3774,6 +3939,74 @@ export function PolDashboardView() {
         selectedFarm={selectedFarm}
         displayPrice={displayPrice}
       />
+
+      <MiniBlogDialog
+        open={isInstallationsDialogOpen}
+        onOpenChange={setIsInstallationsDialogOpen}
+        title="Total Solar Installations"
+      >
+        <p className="text-sm text-muted-foreground">
+          This count includes every solar installation Glow has funded and
+          built, including installations that are no longer earning rewards.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Glow uses the term “solar farm” broadly. Even smaller deployments
+          with a limited number of panels are often referred to as solar farms
+          in protocol reporting.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Installations vary meaningfully in size across regions, from small
+          collections of panels to larger commercial deployments.
+        </p>
+      </MiniBlogDialog>
+
+      <MiniBlogDialog
+        open={isLiquidityGrowthDialogOpen}
+        onOpenChange={setIsLiquidityGrowthDialogOpen}
+        title="Embedded Liquidity Growth (3 Months)"
+      >
+        <p className="text-sm text-muted-foreground">
+          Embedded liquidity growth over the last 3 months mainly comes from
+          three sources: miner sales, GCTL sales, and liquidity yield generated
+          by trading activity.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          These flows accumulate into protocol-owned liquidity and expand total
+          exit liquidity over time.
+        </p>
+      </MiniBlogDialog>
+
+      <MiniBlogDialog
+        open={isCirculatingGrowthDialogOpen}
+        onOpenChange={setIsCirculatingGrowthDialogOpen}
+        title="Annualized Circulating Supply Growth"
+      >
+        <p className="text-sm text-muted-foreground">
+          This value is annualized from the last 13 weeks of data. Glow uses 13
+          weeks because protocol metrics update on a strict weekly cadence.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Major growth drivers include inflation and unlocked vault supply.
+          Anti-growth forces include new delegations and new embedded liquidity
+          that remove liquid GLW from circulation.
+        </p>
+      </MiniBlogDialog>
+
+      <MiniBlogDialog
+        open={isEmbeddedGrowthDialogOpen}
+        onOpenChange={setIsEmbeddedGrowthDialogOpen}
+        title="Annualized Embedded Liquidity Growth"
+      >
+        <p className="text-sm text-muted-foreground">
+          Glow is still a relatively young protocol, so embedded liquidity can
+          compound quickly from a smaller base even when the absolute level is
+          already meaningful.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Embedded liquidity is permanent protocol-owned liquidity and is not
+          designed to be withdrawn during downturns.
+        </p>
+      </MiniBlogDialog>
 
       <MiniBlogDialog
         open={isPolLiquidityDialogOpen}
