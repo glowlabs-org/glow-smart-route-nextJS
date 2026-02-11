@@ -2278,12 +2278,11 @@ export function PolDashboardView() {
             ) : null}
 
             {/* ── Row 2: Growth cards + Supply/Circulation ── */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
-              <div className="flex flex-col gap-4 items-start">
-                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr] lg:items-stretch">
+              <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:h-full lg:grid-rows-2">
                   <Card
                     className={cn(
-                      "!gap-0 relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                      "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     )}
                     role="button"
@@ -2298,26 +2297,24 @@ export function PolDashboardView() {
                     }}
                   >
                     <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-20 pointer-events-none -rotate-12" />
-                    <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                          Total Solar Installations
-                        </div>
-                        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                          Click ↗
-                        </div>
+                    <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
+                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                        Total Solar Installations
                       </div>
                       <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                         {totalSolarInstallations !== null
                           ? formatNumber(totalSolarInstallations)
                           : "—"}
                       </div>
+                      <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
+                        ↗
+                      </div>
                     </CardContent>
                   </Card>
 
                   <Card
                     className={cn(
-                      "!gap-0 relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                      "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     )}
                     role="button"
@@ -2332,14 +2329,9 @@ export function PolDashboardView() {
                     }}
                   >
                     <GlowSymbol className="!text-[var(--color-glow-purple)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none rotate-6" />
-                    <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                          Embedded Liquidity Growth (3 Months)
-                        </div>
-                        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                          Click ↗
-                        </div>
+                    <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
+                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                        Embedded Liquidity Growth (3 Months)
                       </div>
                       <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                         {polTrailingPolGrowthDisplay?.lq ?? "—"}
@@ -2349,14 +2341,14 @@ export function PolDashboardView() {
                           ? `(${polTrailingPolGrowthDisplay.breakdown})`
                           : "Live data unavailable"}
                       </div>
+                      <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
+                        ↗
+                      </div>
                     </CardContent>
                   </Card>
-                </div>
-
-                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Card
                     className={cn(
-                      "!gap-0 relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                      "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     )}
                     role="button"
@@ -2371,24 +2363,22 @@ export function PolDashboardView() {
                     }}
                   >
                     <GlowSymbol className="!text-[var(--color-glow-green)] absolute -top-6 -right-6 w-32 h-32 opacity-25 dark:opacity-15 pointer-events-none rotate-12" />
-                    <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                          Annualized Circulating Supply Growth
-                        </div>
-                        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                          Click ↗
-                        </div>
+                    <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
+                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                        Annualized Circulating Supply Growth
                       </div>
                       <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                         {supplyGrowthAnnualDisplay}
+                      </div>
+                      <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
+                        ↗
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card
                     className={cn(
-                      "!gap-0 relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                      "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     )}
                     role="button"
@@ -2403,26 +2393,23 @@ export function PolDashboardView() {
                     }}
                   >
                     <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none -rotate-6" />
-                    <CardContent className="relative flex flex-col px-5 py-6 sm:px-10 sm:py-10">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                          Annualized Embedded Liquidity Growth
-                        </div>
-                        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                          Click ↗
-                        </div>
+                    <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
+                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                        Annualized Embedded Liquidity Growth
                       </div>
                       <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                         {polGrowthAnnualDisplay}
                       </div>
+                      <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
+                        ↗
+                      </div>
                     </CardContent>
                   </Card>
-                </div>
               </div>
 
               <Card
                 className={cn(
-                  "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                  "!gap-6 lg:h-full transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 )}
                 role="button"
