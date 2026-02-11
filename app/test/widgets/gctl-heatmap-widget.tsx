@@ -151,10 +151,12 @@ export default function GctlControlWidget({
   walletAddress,
   onMintAndStakeClick,
   variant = "default",
+  readOnly = false,
 }: {
   walletAddress?: string | null;
   onMintAndStakeClick?: () => void;
   variant?: "default" | "flow" | "minimal";
+  readOnly?: boolean;
 }) {
   const { isConnecting, isReconnecting } = useAccount();
   const isEnabled = Boolean(walletAddress);
@@ -232,8 +234,7 @@ export default function GctlControlWidget({
             weeklyEmissions: regionData?.weeklyEmissions ?? 0,
           };
         })
-        .sort((a, b) => b.amountGctl - a.amountGctl)
-        .slice(0, 4) ?? []
+        .sort((a, b) => b.amountGctl - a.amountGctl) ?? []
     );
   }, [isEnabled, regions, walletDetails?.regions, regionDataMap]);
 
@@ -331,10 +332,13 @@ export default function GctlControlWidget({
           <div className="flex-1 flex flex-col justify-center items-center text-center gap-5">
             {/* Hero Visual */}
             <div
-              className="group cursor-pointer"
-              onClick={handleMintAndStakeClick}
+              className={cn("group", !readOnly && "cursor-pointer")}
+              onClick={readOnly ? undefined : handleMintAndStakeClick}
             >
-              <div className="flex items-center justify-center w-20 h-20 rounded-full bg-[#22D3EE]/10 group-hover:bg-[#22D3EE]/15 transition-colors">
+              <div className={cn(
+                "flex items-center justify-center w-20 h-20 rounded-full bg-[#22D3EE]/10 transition-colors",
+                !readOnly && "group-hover:bg-[#22D3EE]/15",
+              )}>
                 <SteeringIcon className="w-10 h-10 text-[#22D3EE]" />
               </div>
             </div>
@@ -342,24 +346,28 @@ export default function GctlControlWidget({
             {/* Value Prop */}
             <div className="space-y-2">
               <h3 className="text-xl font-semibold text-foreground">
-                Direct Global Emissions
+                {readOnly ? "No GCTL Holdings" : "Direct Global Emissions"}
               </h3>
               <p className="text-sm text-muted-foreground max-w-[280px] mx-auto">
-                Decide where solar gets built.
+                {readOnly ? "This wallet has no GCTL staked." : "Decide where solar gets built."}
               </p>
             </div>
 
-            {/* Gamification Hook */}
-            <div className="bg-[#22D3EE]/10 rounded-xl px-4 py-2.5 flex items-center gap-2">
-              <Zap className="h-4 w-4 text-[#22D3EE]" />
-              <span className="text-xs font-medium text-[#22D3EE]">
-                Earn <span className="font-semibold">3 Points</span> per GLW Steered
-              </span>
-            </div>
+            {!readOnly && (
+              <>
+                {/* Gamification Hook */}
+                <div className="bg-[#22D3EE]/10 rounded-xl px-4 py-2.5 flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-[#22D3EE]" />
+                  <span className="text-xs font-medium text-[#22D3EE]">
+                    Earn <span className="font-semibold">3 Points</span> per GLW Steered
+                  </span>
+                </div>
 
-            <Button className="w-full" onClick={handleMintAndStakeClick}>
-              Mint & Stake GCTL
-            </Button>
+                <Button className="w-full" onClick={handleMintAndStakeClick}>
+                  Mint & Stake GCTL
+                </Button>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -387,15 +395,17 @@ export default function GctlControlWidget({
             </TooltipProvider>
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs gap-1.5 border-border/40 bg-transparent hover:bg-transparent hover:text-[#22D3EE] hover:border-[#22D3EE] transition-colors"
-            onClick={handleMintAndStakeClick}
-          >
-            <TrendingUp className="h-3 w-3" />
-            Boost
-          </Button>
+          {!readOnly && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5 border-border/40 bg-transparent hover:bg-transparent hover:text-[#22D3EE] hover:border-[#22D3EE] transition-colors"
+              onClick={handleMintAndStakeClick}
+            >
+              <TrendingUp className="h-3 w-3" />
+              Boost
+            </Button>
+          )}
         </div>
       </CardHeader>
 
@@ -468,24 +478,35 @@ export default function GctlControlWidget({
             ))
           ) : (
             <div
-              className="flex-1 flex flex-col items-center justify-center border border-dashed border-border/40 rounded-xl p-4 cursor-pointer hover:bg-muted/30 hover:border-border/60 transition-all group"
-              onClick={handleMintAndStakeClick}
+              className={cn(
+                "flex-1 flex flex-col items-center justify-center border border-dashed border-border/40 rounded-xl p-4 transition-all group",
+                !readOnly && "cursor-pointer hover:bg-muted/30 hover:border-border/60",
+              )}
+              onClick={readOnly ? undefined : handleMintAndStakeClick}
             >
-              <div className="h-12 w-12 rounded-lg bg-muted/50 flex items-center justify-center mb-2 group-hover:bg-[#22D3EE]/10 transition-colors">
-                <SteeringIcon className="h-6 w-6 text-muted-foreground/40 group-hover:text-[#22D3EE] transition-colors" />
+              <div className={cn(
+                "h-12 w-12 rounded-lg bg-muted/50 flex items-center justify-center mb-2 transition-colors",
+                !readOnly && "group-hover:bg-[#22D3EE]/10",
+              )}>
+                <SteeringIcon className={cn(
+                  "h-6 w-6 text-muted-foreground/40 transition-colors",
+                  !readOnly && "group-hover:text-[#22D3EE]",
+                )} />
               </div>
               <span className="text-xs font-medium text-muted-foreground">
                 No Active Steering
               </span>
-              <span className="text-[10px] text-[#22D3EE] mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                Stake GCTL to Direct Emissions
-              </span>
+              {!readOnly && (
+                <span className="text-[10px] text-[#22D3EE] mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Stake GCTL to Direct Emissions
+                </span>
+              )}
             </div>
           )}
         </div>
 
         {/* Warning if Liquid GCTL exists */}
-        {hasLiquidGctl && (
+        {hasLiquidGctl && !readOnly && (
           <div className="mt-auto pt-3 border-t border-border/20 flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <div className="h-6 w-6 rounded-lg bg-[color:var(--color-glow-orange)]/10 flex items-center justify-center">

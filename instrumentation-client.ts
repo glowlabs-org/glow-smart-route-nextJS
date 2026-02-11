@@ -17,6 +17,37 @@ if (process.env.NODE_ENV === "production") {
 if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
   const controlApiUrl = process.env.NEXT_PUBLIC_CONTROL_API_URL!;
   const hubUrl = process.env.NEXT_PUBLIC_HUB_URL!;
+
+  // Prevent a known noisy unhandledrejection from Sentry Replay network scrapers
+  // from reaching Sentry's GlobalHandlers integration.
+  window.addEventListener(
+    "unhandledrejection",
+    (event: PromiseRejectionEvent) => {
+      const reason = event.reason as unknown;
+
+      const message =
+        reason instanceof Error
+          ? reason.message
+          : typeof reason === "string"
+            ? reason
+            : "";
+      const stack = reason instanceof Error ? reason.stack || "" : "";
+
+      const isUndefinedJsonParse =
+        message.includes('"undefined" is not valid JSON') ||
+        message.includes("undefined is not valid JSON");
+      const isReplayScraper =
+        stack.includes("/scrapers/") ||
+        stack.includes("PrebidScraper") ||
+        stack.includes("NetworkRequest2Scraper");
+
+      if (isUndefinedJsonParse && isReplayScraper) {
+        event.preventDefault();
+      }
+    },
+    { capture: true }
+  );
+
   Sentry.init({
     dsn: "https://1334fda901e8976224deb1286b64c68f@o4507374658846720.ingest.us.sentry.io/4510134559375360",
 
@@ -54,7 +85,12 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
 
       const frames =
         event.exception?.values?.[0]?.stacktrace?.frames || [];
-      const message = event.exception?.values?.[0]?.value || "";
+      const exceptionValues = event.exception?.values || [];
+      const message =
+        event.exception?.values?.[0]?.value || event.message || "";
+      const exceptionText = exceptionValues
+        .map((v) => `${v.type ?? ""}: ${v.value ?? ""}`)
+        .join("\n");
 
       // Filter browser extension errors (crypto wallets, etc.)
       const isExtensionError = frames.some(
@@ -73,11 +109,51 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
       if (isChunkLoadError) return null;
 
       // Filter wallet rejection errors (user declined connection/signature)
+      const extraAny = event.extra as any;
+      const errorCode =
+        extraAny?.errorCode ??
+        extraAny?.code ??
+        extraAny?.cause?.code ??
+        extraAny?.originalException?.code;
       const isWalletRejection =
-        message.includes("Object captured as promise rejection with keys: code, message") ||
-        message.includes("User rejected") ||
-        message.includes("user rejected");
+        message.includes(
+          "Object captured as promise rejection with keys: code, message"
+        ) ||
+        /user rejected/i.test(message) ||
+        /user rejected/i.test(exceptionText) ||
+        /user denied/i.test(exceptionText) ||
+        /transaction canceled/i.test(exceptionText) ||
+        errorCode === 4001 ||
+        errorCode === "ACTION_REJECTED" ||
+        exceptionValues.some((v) => v.type === "UserRejectedRequestError");
       if (isWalletRejection) return null;
+
+      // Filter wallet connectivity / hardware wallet transient errors.
+      // These are user-environment issues (device unplugged, transport reset) and are not actionable in Sentry.
+      const isWalletConnectivityIssue =
+        /device disconnected during action/i.test(message) ||
+        /device disconnected during action/i.test(exceptionText) ||
+        /device disconnected/i.test(message) ||
+        /device disconnected/i.test(exceptionText);
+      if (isWalletConnectivityIssue) return null;
+
+      // Filter a known noisy client-side error coming from Sentry Replay network scrapers
+      // (e.g. `app:///scrapers/PrebidScraper.js`) attempting to JSON.parse an undefined
+      // request/response body.
+      const isReplayScraperFrame = frames.some((frame) => {
+        const filename = frame.filename || "";
+        const absPath = frame.abs_path || "";
+        const frameModule = frame.module || "";
+        return (
+          filename.includes("/scrapers/") ||
+          absPath.includes("/scrapers/") ||
+          frameModule.includes("scrapers/")
+        );
+      });
+      const isUndefinedJsonParse =
+        message.includes('"undefined" is not valid JSON') ||
+        message.includes("undefined is not valid JSON");
+      if (isReplayScraperFrame && isUndefinedJsonParse) return null;
 
       return event;
     },

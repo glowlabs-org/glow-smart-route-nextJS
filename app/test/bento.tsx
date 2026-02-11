@@ -56,6 +56,8 @@ import { WidgetErrorBoundary } from "@/components/widget-error-boundary";
 import { FeatureLaunchModal } from "@/components/referral/feature-launch-modal";
 import { ActivationCelebrationModal } from "@/components/referral/activation-celebration-modal";
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
+import { useEnsNames } from "@/hooks/useEnsNames";
+import { shortAddress } from "@/utils/impact";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
@@ -175,6 +177,23 @@ export default function GlowSoftDashboard({
   } = useAccount();
   const walletAddress = walletAddressOverride ?? connectedAddress ?? null;
   const hasWallet = Boolean(walletAddress);
+  const isOwnWallet =
+    !walletAddressOverride ||
+    (Boolean(connectedAddress) &&
+      walletAddressOverride.toLowerCase() ===
+        connectedAddress!.toLowerCase());
+  const readOnly = !isOwnWallet;
+
+  const { ensNames } = useEnsNames({
+    addresses: walletAddress ? [walletAddress] : [],
+    enabled: readOnly && Boolean(walletAddress),
+  });
+  const profileDisplayName = React.useMemo(() => {
+    if (!walletAddress) return null;
+    const ens = ensNames[walletAddress];
+    return ens || shortAddress(walletAddress);
+  }, [walletAddress, ensNames]);
+
   const { signer } = useEthersSigner();
   const { usdcBalance, usdgBalance } = useER20Balances({ signer });
   const [isMintAndStakeOpen, setIsMintAndStakeOpen] = React.useState(false);
@@ -300,7 +319,7 @@ export default function GlowSoftDashboard({
   }, [hasWallet, isMigrationLoading, migrationError, migrationData]);
 
   // Handle migration toast inline during render to avoid useEffect
-  if (prevHasMigrationClaimRef.current !== hasPendingMigrationClaim) {
+  if (!readOnly && prevHasMigrationClaimRef.current !== hasPendingMigrationClaim) {
     prevHasMigrationClaimRef.current = hasPendingMigrationClaim;
 
     if (!hasPendingMigrationClaim) {
@@ -324,7 +343,7 @@ export default function GlowSoftDashboard({
     }
   }
 
-  if (prevHasRefundsRef.current !== hasRefunds) {
+  if (!readOnly && prevHasRefundsRef.current !== hasRefunds) {
     prevHasRefundsRef.current = hasRefunds;
     const existingToastId = refundToastIdRef.current;
 
@@ -428,7 +447,7 @@ export default function GlowSoftDashboard({
               className="flex flex-col gap-8"
             >
               {/* Launchpad Live/Approaching Section - First Row */}
-              {shouldShowLaunchpadHeroRow && (
+              {!readOnly && shouldShowLaunchpadHeroRow && (
                 <section className="flex flex-col gap-8">
                   <SectionHeader
                     title={
@@ -449,7 +468,13 @@ export default function GlowSoftDashboard({
 
               {/* Dashboard Overview */}
               <section className="flex flex-col gap-8">
-                <SectionHeader title="Overview" />
+                <SectionHeader
+                  title={
+                    readOnly && profileDisplayName
+                      ? `${profileDisplayName}'s Dashboard`
+                      : "Overview"
+                  }
+                />
                 <div className="rounded-3xl bg-card dark:bg-card border border-border/20 p-4 sm:p-6 lg:p-12">
                   <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
                     <div className="lg:col-span-3 flex">
@@ -457,7 +482,8 @@ export default function GlowSoftDashboard({
                         <RankWidget
                           walletAddress={walletAddress}
                           variant="hero"
-                          onMintAndStakeClick={(forceStep1) => {
+                          readOnly={readOnly}
+                          onMintAndStakeClick={readOnly ? undefined : (forceStep1) => {
                             setMintAndStakeForceStep1(Boolean(forceStep1));
                             setIsMintAndStakeOpen(true);
                           }}
@@ -465,24 +491,26 @@ export default function GlowSoftDashboard({
                       </WidgetErrorBoundary>
                     </div>
 
-                    <div className="lg:col-span-5 flex">
+                    <div className={readOnly ? "lg:col-span-7 flex" : "lg:col-span-5 flex"}>
                       <WidgetErrorBoundary>
                         <NetWorthWidget
                           walletAddress={walletAddress}
                           variant="minimal"
-                          onBuyGlowClick={handleBuyGlowClick}
+                          onBuyGlowClick={readOnly ? undefined : handleBuyGlowClick}
                         />
                       </WidgetErrorBoundary>
                     </div>
 
-                    <div className="lg:col-span-2 flex">
-                      <WidgetErrorBoundary>
-                        <WalletWidget
-                          walletAddress={walletAddress}
-                          variant="minimal"
-                        />
-                      </WidgetErrorBoundary>
-                    </div>
+                    {!readOnly && (
+                      <div className="lg:col-span-2 flex">
+                        <WidgetErrorBoundary>
+                          <WalletWidget
+                            walletAddress={walletAddress}
+                            variant="minimal"
+                          />
+                        </WidgetErrorBoundary>
+                      </div>
+                    )}
                   </div>
                 </div>
               </section>
@@ -509,6 +537,7 @@ export default function GlowSoftDashboard({
                           walletAddress={walletAddress}
                           hideIfEmpty={false}
                           variant="minimal"
+                          readOnly={readOnly}
                         />
                       </WidgetErrorBoundary>
                     </div>
@@ -528,7 +557,7 @@ export default function GlowSoftDashboard({
                       <WidgetErrorBoundary>
                         <LaunchpadStatusWidget
                           variant="minimal"
-                          onPayDeposit={handlePayDeposit}
+                          onPayDeposit={readOnly ? undefined : handlePayDeposit}
                           isApproaching={isApproachingLaunchpad}
                         />
                       </WidgetErrorBoundary>
@@ -538,7 +567,8 @@ export default function GlowSoftDashboard({
                         <GctlHeatmapWidget
                           walletAddress={walletAddress}
                           variant="minimal"
-                          onMintAndStakeClick={() =>
+                          readOnly={readOnly}
+                          onMintAndStakeClick={readOnly ? undefined : () =>
                             setIsMintAndStakeOpen(true)
                           }
                         />
@@ -555,6 +585,7 @@ export default function GlowSoftDashboard({
                   <WidgetErrorBoundary>
                     <SolarCollectorWidget
                       walletAddress={walletAddress}
+                      readOnly={readOnly}
                       onFarmClick={(farmId) => {
                         // Scroll to the farm card in the grid below
                         const el = document.querySelector(
@@ -776,77 +807,81 @@ export default function GlowSoftDashboard({
         </AnimatePresence>
       </div>
 
-      <Dialog open={isRefundDialogOpen} onOpenChange={setIsRefundDialogOpen}>
-        <DialogContent
-          className="bg-background rounded-2xl p-0 sm:max-w-[980px] w-full border-border shadow-2xl overflow-hidden"
-          onInteractOutside={(e) => e.preventDefault()}
-        >
-          <RefundClaimsPanel
-            variant="dialog"
-            walletAddress={walletAddress ?? undefined}
-            onClaimSuccess={handleRefundClaimSuccess}
+      {!readOnly && (
+        <>
+          <Dialog open={isRefundDialogOpen} onOpenChange={setIsRefundDialogOpen}>
+            <DialogContent
+              className="bg-background rounded-2xl p-0 sm:max-w-[980px] w-full border-border shadow-2xl overflow-hidden"
+              onInteractOutside={(e) => e.preventDefault()}
+            >
+              <RefundClaimsPanel
+                variant="dialog"
+                walletAddress={walletAddress ?? undefined}
+                onClaimSuccess={handleRefundClaimSuccess}
+              />
+            </DialogContent>
+          </Dialog>
+
+          <Dialog
+            open={isMigrationDialogOpen}
+            onOpenChange={setIsMigrationDialogOpen}
+          >
+            <DialogContent
+              className="bg-background rounded-2xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden"
+              onInteractOutside={(e) => e.preventDefault()}
+            >
+              <MigrationClaimPanel
+                walletAddress={walletAddress ?? undefined}
+                migrationData={migrationData}
+                isLoading={isMigrationLoading}
+                isError={!!migrationError}
+                onClaim={handleMigrationClaimSuccess}
+              />
+            </DialogContent>
+          </Dialog>
+
+          <MintAndStakeGctlDialog
+            key={
+              isMintAndStakeOpen ? "mint-and-stake-open" : "mint-and-stake-closed"
+            }
+            open={isMintAndStakeOpen}
+            onOpenChange={(open) => {
+              setIsMintAndStakeOpen(open);
+              if (!open) setMintAndStakeForceStep1(false);
+            }}
+            usdcBalance={usdcBalance}
+            usdgBalance={usdgBalance}
+            forceStep1={mintAndStakeForceStep1}
           />
-        </DialogContent>
-      </Dialog>
 
-      <Dialog
-        open={isMigrationDialogOpen}
-        onOpenChange={setIsMigrationDialogOpen}
-      >
-        <DialogContent
-          className="bg-background rounded-2xl p-0 sm:max-w-sm w-full border-border shadow-2xl overflow-hidden"
-          onInteractOutside={(e) => e.preventDefault()}
-        >
-          <MigrationClaimPanel
-            walletAddress={walletAddress ?? undefined}
-            migrationData={migrationData}
-            isLoading={isMigrationLoading}
-            isError={!!migrationError}
-            onClaim={handleMigrationClaimSuccess}
+          {selectedApplicationForDeposit?._type === "miners" ? (
+            <DepositDialog
+              open={isDepositDialogOpen}
+              onOpenChange={handleDepositOpenChange}
+              application={selectedApplicationForDeposit}
+              selectedCurrency="USDC"
+              rewardScore={selectedRewardScore as MiningCenterScore | null}
+            />
+          ) : (
+            <DepositDialog
+              open={isDepositDialogOpen}
+              onOpenChange={handleDepositOpenChange}
+              application={selectedApplicationForDeposit}
+              selectedCurrency="GLW"
+              rewardScore={selectedRewardScore as LaunchpadRewardScore | null}
+            />
+          )}
+
+          <BuyGlowDialog
+            open={isBuyGlowDialogOpen}
+            onOpenChange={setIsBuyGlowDialogOpen}
+            usdcBalance={usdcBalance ?? null}
+            glowSpotPrice={glwSpotPrice}
+            source="bento"
+            defaultUsdcAmount="20"
           />
-        </DialogContent>
-      </Dialog>
-
-      <MintAndStakeGctlDialog
-        key={
-          isMintAndStakeOpen ? "mint-and-stake-open" : "mint-and-stake-closed"
-        }
-        open={isMintAndStakeOpen}
-        onOpenChange={(open) => {
-          setIsMintAndStakeOpen(open);
-          if (!open) setMintAndStakeForceStep1(false);
-        }}
-        usdcBalance={usdcBalance}
-        usdgBalance={usdgBalance}
-        forceStep1={mintAndStakeForceStep1}
-      />
-
-      {selectedApplicationForDeposit?._type === "miners" ? (
-        <DepositDialog
-          open={isDepositDialogOpen}
-          onOpenChange={handleDepositOpenChange}
-          application={selectedApplicationForDeposit}
-          selectedCurrency="USDC"
-          rewardScore={selectedRewardScore as MiningCenterScore | null}
-        />
-      ) : (
-        <DepositDialog
-          open={isDepositDialogOpen}
-          onOpenChange={handleDepositOpenChange}
-          application={selectedApplicationForDeposit}
-          selectedCurrency="GLW"
-          rewardScore={selectedRewardScore as LaunchpadRewardScore | null}
-        />
+        </>
       )}
-
-      <BuyGlowDialog
-        open={isBuyGlowDialogOpen}
-        onOpenChange={setIsBuyGlowDialogOpen}
-        usdcBalance={usdcBalance ?? null}
-        glowSpotPrice={glwSpotPrice}
-        source="bento"
-        defaultUsdcAmount="20"
-      />
     </div>
   );
 }

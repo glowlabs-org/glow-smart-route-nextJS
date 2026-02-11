@@ -286,6 +286,7 @@ interface SolarCollectorWidgetProps {
   onHowItWorksClick?: () => void;
   onShareClick?: () => void;
   onFarmClick?: (farmId: string) => void;
+  readOnly?: boolean;
 }
 
 function ImpactSummarySkeleton() {
@@ -329,6 +330,7 @@ export default function SolarCollectorWidget({
   onHowItWorksClick,
   onShareClick,
   onFarmClick,
+  readOnly = false,
 }: SolarCollectorWidgetProps) {
   const chainId = useChainId();
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
@@ -883,14 +885,16 @@ export default function SolarCollectorWidget({
             )}
 
             {/* Action Button - matches height of Latest Verified Addition */}
-            <button
-              type="button"
-              className="shrink-0 min-h-12 rounded-xl px-6 text-xs font-medium bg-foreground text-background hover:bg-foreground/90 transition-colors flex items-center justify-center gap-2 md:min-w-[100px]"
-              onClick={handleShare}
-            >
-              <ArrowUpRight className="h-4 w-4" />
-              Share
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                className="shrink-0 min-h-12 rounded-xl px-6 text-xs font-medium bg-foreground text-background hover:bg-foreground/90 transition-colors flex items-center justify-center gap-2 md:min-w-[100px]"
+                onClick={handleShare}
+              >
+                <ArrowUpRight className="h-4 w-4" />
+                Share
+              </button>
+            )}
           </div>
 
           {/* Impact Charts Section */}

@@ -7,7 +7,7 @@ import { useAccount, useDisconnect } from "wagmi";
 import { hubGet } from "@/lib/api/hub-client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowRight, Copy, Check, Users } from "lucide-react";
+import { ArrowRight, Copy, Check, Users, ExternalLink } from "lucide-react";
 import Image from "next/image";
 import { ConnectButton } from "@/components/connect-button";
 import { useReferral } from "@/hooks/use-referral";
@@ -412,6 +412,16 @@ export default function ReferralLandingPage() {
                   earning rewards for doing so, and now you can too. Sign up
                   below and let&apos;s build a brighter future together.
                 </p>
+
+                <a
+                  href="https://glow.org/blog/the-simple-way-to-fund-solar"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 sm:mb-8"
+                >
+                  Learn how it works
+                  <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                </a>
 
                 <div className="space-y-4">
                   {!isConnected ? (

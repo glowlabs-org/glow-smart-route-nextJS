@@ -118,6 +118,31 @@ Shown after confirmation. Displays a vertical stepper with per-step states:
 
 Before execution, a **smart account / delegated account** check runs. If detected, the flow is blocked and a warning dialog is shown.
 
+## Error handling
+
+### RPC error retry mechanism
+
+The `buyFractions` call is wrapped with automatic retry logic for transient RPC/provider errors. This handles cases where the RPC returns an internal error (code -32603) even though simulation succeeded.
+
+**Behavior:**
+- On internal RPC error, waits 1.5s then retries once
+- If retry succeeds, user never sees the error
+- If retry fails, shows user-friendly message: "RPC/provider error. Please retry or switch RPC."
+- Non-RPC errors (contract errors, user rejection) are not retried
+
+**Detection heuristics:**
+- Error code `-32603` (JSON-RPC internal error)
+- Message contains "internal error", "internalrpcerror", "could not coalesce", or "missing or invalid parameters"
+
+### Sentry context
+
+On error (non-user-rejection), the dialog reports to Sentry with enriched context:
+- `errorCode`: JSON-RPC error code if available
+- `isInternalRpcError`: boolean flag for RPC-level failures
+- `connectorName`: wallet connector (e.g., "MetaMask", "WalletConnect")
+- `walletClientChainId`: chain ID from wallet client
+- `walletClientAccount`: account address from wallet client
+
 ## Telemetry (events)
 
 Deposit Dialog fires telemetry events to track conversion and failures:
@@ -126,6 +151,7 @@ Deposit Dialog fires telemetry events to track conversion and failures:
 - `marketplace_deposit_error`
 - `marketplace_deposit_share_x_click`
 - `marketplace_deposit_share_native_click`
+- `rpc_internal_error_retry` - fired when an RPC error triggers a retry attempt
 
 ## Notes / constraints
 
@@ -134,3 +160,37 @@ Deposit Dialog fires telemetry events to track conversion and failures:
 - **Multi-transaction flows**: Swap + delegate can require 2-4 signatures.
 - **Backend processing delay**: splits polling may take up to ~60 seconds before success renders.
 - **Share behavior**: native share on mobile; X/Twitter intent on desktop.
+
+## Testing
+
+Unit tests are in `app/marketplace/__tests__/`. Pure utility functions are extracted to `deposit-dialog-utils.ts` for testability.
+
+### Test files
+
+| File | Coverage |
+|------|----------|
+| `rpc-retry.test.ts` | RPC retry logic, error detection |
+| `error-handling.test.ts` | Contract error mapping, `findErrorInMessage` |
+| `cost-calculations.test.ts` | GLW/USDC/ETH cost calculations |
+| `affordability.test.ts` | Balance sufficiency, buffer calculations |
+| `transaction-steps.test.ts` | Step initialization for all payment flows |
+| `rewards-calculations.test.ts` | Estimated rewards, impact points |
+| `share-url.test.ts` | Share URL generation, quantity helpers |
+
+### Run tests
+
+```bash
+pnpm test                                    # Run all tests
+pnpm test:watch                              # Watch mode
+pnpm vitest run app/marketplace/__tests__/   # Run all deposit-dialog tests
+pnpm vitest run app/marketplace/__tests__/cost-calculations.test.ts  # Run specific file
+```
+
+### Test coverage (226 tests)
+
+- **Error handling**: Error message extraction, error code extraction, RPC error detection, contract error mapping
+- **Cost calculations**: GLW/USDC/ETH cost math, precision handling, edge cases
+- **Affordability**: Balance checks, 5% USDC buffer, 3% ETH buffer, payment method switching
+- **Transaction steps**: Step initialization for all 5 payment flows, step ordering
+- **Rewards**: Launchpad vs mining rewards, impact points (emission + vault bonus)
+- **Share URLs**: Twitter intent generation, URL encoding, pluralization

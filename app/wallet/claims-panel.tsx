@@ -29,6 +29,7 @@ import {
   CheckCircle,
   RefreshCw,
   ExternalLink,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
@@ -539,11 +540,21 @@ function ClaimButtonsWrapper({
   }
 
   if (!isGlwFinalized && !isPdFinalized) {
+    const weekSeconds = 7 * 86_400;
+    const pendingWeeksToWait = hasProtocolDeposits ? 4 : 3;
+    const claimableTs =
+      (GENESIS_TIMESTAMP +
+        (weekData.week + pendingWeeksToWait) * weekSeconds) *
+      1000;
+    const claimableDateLabel = new Date(claimableTs).toLocaleDateString(
+      "en-US",
+      { month: "short", day: "numeric" }
+    );
     return (
       <div className="w-full md:ml-4 md:w-44">
         <Button size="default" className="w-full" disabled>
-          <Clock className="w-4 h-4 mr-2" />
-          Pending
+          <Shield className="w-4 h-4 mr-2" />
+          Claimable {claimableDateLabel}
         </Button>
       </div>
     );
@@ -932,15 +943,18 @@ function ClaimsAboutInfo() {
     <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-background border border-border/40 shrink-0">
-          <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          <Shield className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="space-y-1">
           <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
-            About Claims
+            Security &amp; Finality
           </div>
           <div className="text-sm text-foreground/80 dark:text-foreground/70">
-            Rewards become claimable after a 3-week finality period. Week 96 and
-            earlier are available to claim on the{" "}
+            Every batch of rewards goes through a 3-week finalization buffer
+            before it can be claimed. This window gives the protocol team time to
+            pause distributions if an exploit or anomaly is ever detected,
+            protecting all participants. Once finalized, rewards are claimable
+            on-chain at any time. Week 96 and earlier are available on the{" "}
             <a
               href="https://hub.glow.org"
               target="_blank"
@@ -950,6 +964,66 @@ function ClaimsAboutInfo() {
               Hub Dashboard
             </a>{" "}
             for V1 Solar Farms.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PendingRewardsNotice({
+  pendingWeeks,
+}: {
+  pendingWeeks: WeeklyClaimableRewards[];
+}) {
+  if (pendingWeeks.length === 0) return null;
+
+  const totalPendingGlw = pendingWeeks.reduce((sum, w) => {
+    const glw = parseFloat(w.totalGlw || "0");
+    const pd = Array.from(w.totalProtocolDeposit.entries()).reduce(
+      (s, [, amount]) => s + parseFloat(amount || "0"),
+      0
+    );
+    return sum + glw + pd;
+  }, 0);
+
+  const earliestPending = pendingWeeks.reduce((earliest, w) =>
+    w.week < earliest.week ? w : earliest
+  , pendingWeeks[0]);
+  const earliestHasPd = earliestPending.rewards.some(
+    (r) => r.type === "protocolDeposit"
+  );
+  const earliestWait = earliestHasPd ? 4 : 3;
+  const weekSeconds = 7 * 86_400;
+  const claimableTimestamp =
+    (GENESIS_TIMESTAMP + (earliestPending.week + earliestWait) * weekSeconds) * 1000;
+  const claimableDate = new Date(claimableTimestamp);
+  const dateLabel = claimableDate.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+
+  return (
+    <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-background border border-border/40 shrink-0">
+          <Shield className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <div className="space-y-1">
+          <div className="text-sm font-medium text-foreground">
+            {totalPendingGlw > 0
+              ? `${totalPendingGlw.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} GLW finalizing`
+              : "Rewards finalizing"}
+          </div>
+          <div className="text-sm text-foreground/80 dark:text-foreground/70">
+            New rewards go through a 3-week security verification period before
+            they become claimable. This buffer allows the protocol team to pause
+            distributions if an exploit is ever detected, protecting all
+            participants. Your next batch becomes claimable around{" "}
+            <span className="font-semibold text-foreground">{dateLabel}</span>.
           </div>
         </div>
       </div>
@@ -1680,6 +1754,11 @@ export function ClaimsPanel({
     );
   }, [stageList, hasTxHashes, isTimeoutError, address, chainId]);
 
+  const pendingWeeks = React.useMemo(
+    () => weeklyBreakdown.filter((w) => !w.isFinalized),
+    [weeklyBreakdown]
+  );
+
   const isDialog = variant === "dialog";
 
   // Loading state
@@ -1828,6 +1907,8 @@ export function ClaimsPanel({
         />
       </div>
 
+      <PendingRewardsNotice pendingWeeks={pendingWeeks} />
+
       <div className="space-y-3">
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
           Weekly Breakdown
@@ -1887,8 +1968,8 @@ export function ClaimsPanel({
                           </>
                         ) : (
                           <>
-                            <Clock className="mr-1 h-3 w-3" />
-                            Pending
+                            <Shield className="mr-1 h-3 w-3" />
+                            Finalizing
                           </>
                         )}
                       </Badge>

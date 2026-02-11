@@ -39,6 +39,10 @@ Features enabled:
 | `tosStage: "api_submission"` | Failed to submit signed TOS to API |
 | `tosStage: "general_error"` | Catch-all for unexpected errors |
 
+Additional tags and context for ToS errors:
+- Tags: `connectorName`, `connectorId`, `chainId`, `walletChainId`, `expectedChainId`, `signingMethod`, `signatureType`, `tosErrorType`
+- Extra fields: `errorCode`, `errorReason`, `errorShortMessage`, `errorInfo`, `errorData`, `errorCause`, `errorStack`, `rawError`, `isWrongNetwork`
+
 ### Swap Flow (`app/buy/swap-interface.tsx`, `hooks/useSwap.ts`)
 
 | Stage Tag | Description |
@@ -90,6 +94,9 @@ Features enabled:
 | `app/wallet/claims-panel.tsx` | `walletStage: "claim_confirmation"` | Claim confirmation failed |
 
 Note: User signature rejections (code 4001) are excluded from Sentry reporting.
+
+Additional client-side filtering (in `instrumentation-client.ts` `beforeSend`):
+- Wallet connectivity/hardware wallet transient failures (e.g. `device disconnected during action`) are dropped to avoid noisy, non-actionable errors.
 
 ---
 

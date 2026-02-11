@@ -198,27 +198,6 @@ export default function WeeklyActivityWidget({
     },
   });
 
-  const currentMultiplier = React.useMemo(() => {
-    const impactScore = impactScoreQuery.data;
-
-    const projection = impactScore?.currentWeekProjection ?? null;
-    if (projection) {
-      const hasCashMinerBonus = projection.hasMinerMultiplier;
-      const streakBonusMultiplier = projection.streakBonusMultiplier ?? 0;
-      const baseMultiplier = hasCashMinerBonus ? 3 : 1;
-      const totalMultiplier = baseMultiplier + streakBonusMultiplier;
-      return {
-        base: baseMultiplier,
-        streakBonus: streakBonusMultiplier,
-        total: totalMultiplier,
-        hasCashMinerBonus,
-        isFromApi: true,
-      };
-    }
-
-    return null;
-  }, [impactScoreQuery.data]);
-
   const rewardsDelegations = React.useMemo(
     () => buildWeeklyDelegations(rewardsData),
     [rewardsData]
@@ -243,6 +222,44 @@ export default function WeeklyActivityWidget({
   }, [rewardsDelegations, splitDelegations]);
 
   const currentWeek = React.useMemo(() => getCurrentWeekNumber(), []);
+
+  const currentMultiplier = React.useMemo(() => {
+    const impactScore = impactScoreQuery.data;
+
+    const projection = impactScore?.currentWeekProjection ?? null;
+    if (projection) {
+      const hasActedThisWeek = projection.hasImpactActionThisWeek ?? true;
+
+      let hasCashMinerBonus: boolean;
+      let streakBonusMultiplier: number;
+
+      if (hasActedThisWeek) {
+        hasCashMinerBonus = projection.hasMinerMultiplier;
+        streakBonusMultiplier = projection.streakBonusMultiplier ?? 0;
+      } else {
+        // No action yet this week; use previous week's state because the user
+        // still has the rest of the epoch to maintain these multipliers.
+        const streakFromPrev = projection.streakAsOfPreviousWeek ?? 0;
+        streakBonusMultiplier = streakFromPrev > 0
+          ? Math.min(streakFromPrev * 0.25, 1.0)
+          : 0;
+        hasCashMinerBonus = minerWeeks.has(currentWeek - 1);
+      }
+
+      const baseMultiplier = hasCashMinerBonus ? 3 : 1;
+      const totalMultiplier = baseMultiplier + streakBonusMultiplier;
+      return {
+        base: baseMultiplier,
+        streakBonus: streakBonusMultiplier,
+        total: totalMultiplier,
+        hasCashMinerBonus,
+        isFromApi: true,
+      };
+    }
+
+    return null;
+  }, [impactScoreQuery.data, minerWeeks, currentWeek]);
+
   const impactEndWeek = impactLeaderboardQuery.data?.weekRange?.endWeek ?? null;
 
   const lastKnownWeek = React.useMemo(() => {
