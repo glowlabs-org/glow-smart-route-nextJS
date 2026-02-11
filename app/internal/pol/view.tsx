@@ -14,7 +14,6 @@ import {
   YAxis,
 } from "recharts";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { FallbackImage } from "@/components/ui/fallback-image";
@@ -59,7 +58,6 @@ import {
   usePolRevenueFarms,
   usePolRevenueRegions,
 } from "@/hooks/usePolRevenue";
-import { usePolFarmRevenueSeries } from "@/hooks/usePolFarmRevenueSeries";
 import { useGlwVestingSchedule } from "@/hooks/useGlwVestingSchedule";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
 
@@ -290,25 +288,6 @@ function formatPercent(value: number) {
   return `${value.toFixed(1)}%`;
 }
 
-// Backend `*_delta_pct` fields are ratios (e.g. -0.46 means -46%).
-function formatPercentFromRatio(value: number) {
-  return `${(value * 100).toFixed(1)}%`;
-}
-
-const MATERIAL_NEGATIVE_DELTA_RATIO = 0.05; // 5% drop
-
-function formatSignedPercentFromRatioNullable(value: number | null) {
-  if (value === null || !Number.isFinite(value)) return "—";
-  const sign = value >= 0 ? "+" : "";
-  return `${sign}${formatPercentFromRatio(value)}`;
-}
-
-function shouldShowDeltaRatio(value: number | null): boolean {
-  if (value === null || !Number.isFinite(value)) return false;
-  if (value >= 0) return true;
-  return Math.abs(value) >= MATERIAL_NEGATIVE_DELTA_RATIO;
-}
-
 function formatSignedNumber(value: number) {
   const sign = value >= 0 ? "+" : "";
   return `${sign}${formatNumber(value)}`;
@@ -329,14 +308,6 @@ function formatNullableFixed(value: number | null, digits = 1) {
   return value.toFixed(digits);
 }
 
-function formatDateShort(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(value);
-}
-
 function formatDateShortUtc(value: Date) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -344,6 +315,56 @@ function formatDateShortUtc(value: Date) {
     year: "numeric",
     timeZone: "UTC",
   }).format(value);
+}
+
+function formatDateAxisUtc(value: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(value);
+}
+
+function getWeekStartMs(weekNumber: number) {
+  return (GENESIS_TIMESTAMP + weekNumber * SECONDS_PER_WEEK) * 1000;
+}
+
+function getWeekEndMs(weekNumber: number) {
+  return getWeekStartMs(weekNumber) + SECONDS_PER_WEEK * 1000;
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+      ? Number(value)
+      : null;
+  if (parsed === null || !Number.isFinite(parsed)) return null;
+  return parsed;
+}
+
+function mulberry32(seed: number) {
+  let t = seed;
+  return () => {
+    t += 0x6d2b79f5;
+    let x = Math.imul(t ^ (t >>> 15), 1 | t);
+    x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffleWithSeed<T>(items: T[], seed: number): T[] {
+  const shuffled = [...items];
+  const random = mulberry32(seed);
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    const tmp = shuffled[i];
+    shuffled[i] = shuffled[j];
+    shuffled[j] = tmp;
+  }
+  return shuffled;
 }
 
 function reservesToLiquidity(usdc: number, glw: number) {
@@ -416,11 +437,15 @@ type FarmRow = {
   region: string;
   panels: number;
   lifetimeLq: number | null;
-  ninetyDayLq: number | null;
-  ninetyDayDelta: number | null;
   ccLifetime: number;
   ccPerWeek: number;
+  projectedLifetimeCredits: number | null;
+  creditType: string;
+  lifetimeWeeksElapsed: number | null;
+  lifetimeWeeksTarget: number;
   imageUrl: string | null;
+  recencyKey?: number;
+  auditWeek?: number | null;
 };
 
 function WalletGrowthTooltip({
@@ -435,7 +460,6 @@ function WalletGrowthTooltip({
   if (!active || !payload?.length) return null;
 
   const datum = payload[0]?.payload;
-  const weekNumber = datum?.weekNumber ?? null;
   const weekStart = datum?.weekStartMs ? new Date(datum.weekStartMs) : null;
   const weekEnd = datum?.weekEndMs ? new Date(datum.weekEndMs - 1) : null;
 
@@ -458,9 +482,6 @@ function WalletGrowthTooltip({
         <div className="min-w-0">
           <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
             {labelText}
-            {weekNumber !== null ? (
-              <span className="text-muted-foreground/40">{` · wk ${weekNumber}`}</span>
-            ) : null}
           </div>
           {dateText ? (
             <div className="mt-0.5 text-[11px] text-muted-foreground">
@@ -492,37 +513,50 @@ function FarmDetailsDialog({
   open,
   onOpenChange,
   selectedFarm,
-  selectedFarmSeries,
-  isSelectedFarmSeriesLoading,
   displayPrice,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedFarm: FarmRow | null;
-  selectedFarmSeries: any;
-  isSelectedFarmSeriesLoading: boolean;
   displayPrice: number;
 }) {
-  const ninetyDayValue =
-    selectedFarm?.ninetyDayLq !== null &&
-    selectedFarm?.ninetyDayLq !== undefined
-      ? formatLiquidityCompact(selectedFarm.ninetyDayLq)
+  const lifetimeValue =
+    selectedFarm?.lifetimeLq !== null && selectedFarm?.lifetimeLq !== undefined
+      ? formatLiquidityCompact(selectedFarm.lifetimeLq)
       : "—";
-  const ninetyDayBreakdown =
-    selectedFarm?.ninetyDayLq !== null &&
-    selectedFarm?.ninetyDayLq !== undefined &&
+  const lifetimeBreakdown =
+    selectedFarm?.lifetimeLq !== null &&
+    selectedFarm?.lifetimeLq !== undefined &&
     displayPrice > 0
       ? `(${
-          getBreakdownFromLq(selectedFarm.ninetyDayLq, displayPrice).breakdown
+          getBreakdownFromLq(selectedFarm.lifetimeLq, displayPrice).breakdown
         })`
       : null;
+  const lifetimeProgress =
+    selectedFarm?.lifetimeWeeksElapsed !== null &&
+    selectedFarm?.lifetimeWeeksElapsed !== undefined
+      ? `${selectedFarm.lifetimeWeeksElapsed} / ${selectedFarm.lifetimeWeeksTarget} wks`
+      : "—";
+  const generatedCredits =
+    selectedFarm?.ccLifetime !== null && selectedFarm?.ccLifetime !== undefined
+      ? formatCompactNumberPrecise(selectedFarm.ccLifetime)
+      : "—";
+  const projectedCredits =
+    selectedFarm?.projectedLifetimeCredits !== null &&
+    selectedFarm?.projectedLifetimeCredits !== undefined
+      ? formatCompactNumberPrecise(selectedFarm.projectedLifetimeCredits)
+      : "—";
+  const panels =
+    selectedFarm?.panels !== null && selectedFarm?.panels !== undefined
+      ? formatNumber(selectedFarm.panels)
+      : "—";
   const subtitle = selectedFarm
     ? `${selectedFarm.name} · ${selectedFarm.region} · ${selectedFarm.panels} panels`
     : "Select a farm to view details";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[820px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+      <DialogContent className="sm:max-w-[980px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
         <div className="border-b border-border/40 pb-6 pt-8 px-6">
           <div className="flex flex-col items-center text-center space-y-2">
             <DialogHeader>
@@ -535,11 +569,11 @@ function FarmDetailsDialog({
             </DialogHeader>
 
             <div className="text-5xl sm:text-6xl font-mono font-semibold text-foreground tracking-tighter tabular-nums">
-              {ninetyDayValue}
+              {lifetimeValue}
             </div>
-            {ninetyDayBreakdown ? (
+            {lifetimeBreakdown ? (
               <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70 uppercase tracking-wider">
-                {ninetyDayBreakdown}
+                {lifetimeBreakdown}
               </div>
             ) : null}
             <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70 uppercase tracking-wider">
@@ -556,8 +590,7 @@ function FarmDetailsDialog({
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-[300px_1fr]">
-                  {/* Image + quick stats */}
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-[280px_1fr]">
                   <div className="rounded-xl overflow-hidden bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
                     <div className="relative h-44 w-full bg-muted/40 dark:bg-muted/60">
                       {selectedFarm.imageUrl ? (
@@ -587,275 +620,91 @@ function FarmDetailsDialog({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-xl bg-card border border-border/20 dark:border-border/40 p-3">
-                          <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                            CC / week
-                          </div>
-                          <div className="mt-1 font-mono font-semibold tabular-nums text-foreground">
-                            {(selectedFarm.ccPerWeek ?? 0).toFixed(3)}
-                          </div>
+                      <div className="rounded-xl bg-card border border-border/20 dark:border-border/40 p-3">
+                        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                          Lifetime Progress
                         </div>
-                        <div className="rounded-xl bg-card border border-border/20 dark:border-border/40 p-3">
-                          <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                            Total credits
-                          </div>
-                          <div className="mt-1 font-mono font-semibold tabular-nums text-foreground">
-                            {(selectedFarm.ccLifetime ?? 0).toFixed(1)}
-                          </div>
+                        <div className="mt-1 font-mono font-semibold tabular-nums text-foreground">
+                          {lifetimeProgress}
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Metrics */}
-                  <div className="space-y-6">
-                    <div className="space-y-3">
-                      <h3 className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                        Revenue Summary
-                      </h3>
-
-                      {(() => {
-                        const lifetime =
-                          selectedFarm.lifetimeLq !== null
-                            ? {
-                                value: formatLiquidityCompact(
-                                  selectedFarm.lifetimeLq
-                                ),
-                                breakdown:
-                                  displayPrice > 0
-                                    ? getBreakdownFromLq(
-                                        selectedFarm.lifetimeLq,
-                                        displayPrice
-                                      ).breakdown
-                                    : null,
-                              }
-                            : null;
-                        const ninety =
-                          selectedFarm.ninetyDayLq !== null
-                            ? {
-                                value: formatLiquidityCompact(
-                                  selectedFarm.ninetyDayLq
-                                ),
-                                breakdown:
-                                  displayPrice > 0
-                                    ? getBreakdownFromLq(
-                                        selectedFarm.ninetyDayLq,
-                                        displayPrice
-                                      ).breakdown
-                                    : null,
-                              }
-                            : null;
-                        const weekly =
-                          selectedFarm.ninetyDayLq !== null
-                            ? selectedFarm.ninetyDayLq / 13
-                            : null;
-
-                        return (
-                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
-                              <MetricCard
-                                label="Lifetime revenue"
-                                value={lifetime?.value ?? "—"}
-                                helper={
-                                  lifetime?.breakdown
-                                    ? `(${lifetime.breakdown})`
-                                    : "Live data unavailable"
-                                }
-                                labelClassName="text-muted-foreground/60 dark:text-muted-foreground/80"
-                                valueClassName="text-2xl sm:text-3xl"
-                              />
-                            </div>
-                            <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
-                              <MetricCard
-                                label="3 Month revenue"
-                                value={ninety?.value ?? "—"}
-                                helper={
-                                  ninety?.breakdown
-                                    ? `(${ninety.breakdown})`
-                                    : "Live data unavailable"
-                                }
-                                labelClassName="text-muted-foreground/60 dark:text-muted-foreground/80"
-                                valueClassName="text-2xl sm:text-3xl"
-                              />
-                            </div>
-                            <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
-                              <MetricCard
-                                label="Weekly avg (3 Month)"
-                                value={
-                                  weekly !== null
-                                    ? formatLiquidityCompact(weekly)
-                                    : "—"
-                                }
-                                helper={`3 Month ${LIQUIDITY_UNIT} / 13`}
-                                labelClassName="text-muted-foreground/60 dark:text-muted-foreground/80"
-                                valueClassName="text-2xl sm:text-3xl"
-                              />
-                            </div>
-                            <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
-                              <MetricCard
-                                label="Delta (3 Month)"
-                                value={
-                                  shouldShowDeltaRatio(
-                                    selectedFarm.ninetyDayDelta ?? null
-                                  )
-                                    ? formatSignedPercentFromRatioNullable(
-                                        selectedFarm.ninetyDayDelta ?? null
-                                      )
-                                    : "—"
-                                }
-                                helper="Trailing 3 Month vs previous 3 Month"
-                                labelClassName="text-muted-foreground/60 dark:text-muted-foreground/80"
-                                valueClassName="text-2xl sm:text-3xl"
-                              />
-                            </div>
-                          </div>
-                        );
-                      })()}
+                  <div className="space-y-4">
+                    <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
+                      Solar Farm Economics
                     </div>
-
-                    <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                            Revenue Over Time
-                          </div>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            Weekly components (miner sales, mints, yield)
-                          </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                          Generated Revenue (Lifetime)
+                        </div>
+                        <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
+                          {lifetimeValue}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {lifetimeBreakdown ?? "Live data unavailable"}
                         </div>
                       </div>
+                      <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                          Lifetime Progress
+                        </div>
+                        <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
+                          {lifetimeProgress}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                          Credit Type
+                        </div>
+                        <div className="mt-1 text-xl sm:text-2xl font-semibold tracking-tight">
+                          {selectedFarm.creditType}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                          Generated Credits (Lifetime)
+                        </div>
+                        <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
+                          {generatedCredits}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                          Projected Lifetime Credits
+                        </div>
+                        <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
+                          {projectedCredits}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                          Number of Panels
+                        </div>
+                        <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
+                          {panels}
+                        </div>
+                      </div>
+                    </div>
 
-                      {(() => {
-                        const pts = selectedFarmSeries?.series ?? null;
-                        const hasData =
-                          pts &&
-                          pts.some(
-                            (p: any) => parseLqUnits(p.total_lq) !== null
-                          );
-
-                        if (isSelectedFarmSeriesLoading) {
-                          return (
-                            <div className="mt-3 text-sm text-muted-foreground">
-                              Loading weekly series...
-                            </div>
-                          );
-                        }
-
-                        if (!pts || pts.length === 0 || !hasData) {
-                          return (
-                            <div className="mt-3 text-sm text-muted-foreground">
-                              No weekly data available for this farm in the
-                              selected range.
-                            </div>
-                          );
-                        }
-
-                        const chartData = pts.map((p: any) => ({
-                          week: `W${p.week}`,
-                          total: parseLqUnits(p.total_lq) ?? 0,
-                          miner: parseLqUnits(p.miner_sales_lq) ?? 0,
-                          mints: parseLqUnits(p.gctl_mints_lq) ?? 0,
-                          yield: parseLqUnits(p.pol_yield_lq) ?? 0,
-                        }));
-
-                        const farmSeriesChartConfig = {
-                          miner: {
-                            label: "Miner sales",
-                            color: "hsl(29, 90%, 60%)",
-                          },
-                          mints: {
-                            label: "GCTL mints",
-                            color: "hsl(270, 70%, 60%)",
-                          },
-                          yield: {
-                            label: "PoL yield",
-                            color: "hsl(142, 71%, 45%)",
-                          },
-                        } satisfies ChartConfig;
-
-                        return (
-                          <div className="mt-4 rounded-xl bg-card border border-border/20 dark:border-border/40 p-3">
-                            <ChartContainer
-                              config={farmSeriesChartConfig}
-                              className="h-48 w-full"
-                            >
-                              <AreaChart data={chartData} stackOffset="none">
-                                <CartesianGrid
-                                  vertical={false}
-                                  strokeDasharray="3 3"
-                                />
-                                <XAxis
-                                  dataKey="week"
-                                  tickLine={false}
-                                  axisLine={false}
-                                  interval="preserveStartEnd"
-                                  minTickGap={18}
-                                />
-                                <YAxis
-                                  tickLine={false}
-                                  axisLine={false}
-                                  width={46}
-                                  tickFormatter={(v) =>
-                                    typeof v === "number"
-                                      ? formatCompactNumberPrecise(v)
-                                      : String(v)
-                                  }
-                                />
-                                <ChartTooltip
-                                  content={
-                                    <ChartTooltipContent
-                                      formatter={(value, name) => {
-                                        const v =
-                                          typeof value === "number"
-                                            ? value
-                                            : Number(value);
-                                        const pretty = Number.isFinite(v)
-                                          ? formatLiquidityCompact(v)
-                                          : `${LIQUIDITY_UNIT}${String(value)}`;
-                                        return [pretty, String(name)];
-                                      }}
-                                    />
-                                  }
-                                />
-                                <Area
-                                  type="monotone"
-                                  dataKey="miner"
-                                  name="Miner sales"
-                                  stackId="rev"
-                                  stroke="var(--color-miner)"
-                                  fill="var(--color-miner)"
-                                  fillOpacity={0.12}
-                                  strokeWidth={2}
-                                  dot={false}
-                                />
-                                <Area
-                                  type="monotone"
-                                  dataKey="mints"
-                                  name="GCTL mints"
-                                  stackId="rev"
-                                  stroke="var(--color-mints)"
-                                  fill="var(--color-mints)"
-                                  fillOpacity={0.1}
-                                  strokeWidth={2}
-                                  dot={false}
-                                />
-                                <Area
-                                  type="monotone"
-                                  dataKey="yield"
-                                  name="PoL yield"
-                                  stackId="rev"
-                                  stroke="var(--color-yield)"
-                                  fill="var(--color-yield)"
-                                  fillOpacity={0.1}
-                                  strokeWidth={2}
-                                  dot={false}
-                                />
-                              </AreaChart>
-                            </ChartContainer>
-                          </div>
-                        );
-                      })()}
+                    <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 space-y-3">
+                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                        How Farm Revenue Works
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Each region earns protocol revenue based on the amount
+                        of GCTL staked to that region and the miner sales
+                        generated there. Miner-sale proceeds are split across
+                        farm subsidies, hard operating costs like audits, and
+                        protocol revenue.
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Within a region, that revenue is attributed to farms by
+                        projected lifetime credit production, so farms expected
+                        to generate more credits also generate more revenue.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -863,6 +712,34 @@ function FarmDetailsDialog({
             )}
           </div>
         </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MiniBlogDialog({
+  open,
+  onOpenChange,
+  title,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[640px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <div className="border-b border-border/40 pb-5 pt-7 px-6">
+          <DialogHeader>
+            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+              {title}
+            </DialogTitle>
+            <DialogDescription className="sr-only">{title}</DialogDescription>
+          </DialogHeader>
+        </div>
+        <div className="p-6 space-y-4">{children}</div>
       </DialogContent>
     </Dialog>
   );
@@ -960,13 +837,6 @@ function priceToLogSlider(price: number) {
   return ((Math.log10(price) - logMin) / (logMax - logMin)) * 100;
 }
 
-function formatSignedCompactNumberPrecise(value: number) {
-  if (!Number.isFinite(value)) return "—";
-  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
-  const abs = Math.abs(value);
-  return `${sign}${formatCompactNumberPrecise(abs)}`;
-}
-
 function PolLiquidityTooltip({
   active,
   payload,
@@ -979,7 +849,8 @@ function PolLiquidityTooltip({
   if (!active || !payload?.length) return null;
   const p = payload[0]?.payload as
     | {
-        protocolWeek?: number;
+        weekStartMs?: number;
+        weekEndMs?: number;
         liquidity?: number;
         deltaLiquidity?: number | null;
         endowmentLiquidity?: number;
@@ -992,16 +863,24 @@ function PolLiquidityTooltip({
       }
     | undefined;
   if (!p) return null;
+  const weekStart =
+    typeof p.weekStartMs === "number" ? new Date(p.weekStartMs) : null;
+  const weekEnd =
+    typeof p.weekEndMs === "number" ? new Date(p.weekEndMs - 1) : null;
+  const dateRangeLabel =
+    weekStart && weekEnd
+      ? `${formatDateShortUtc(weekStart)} - ${formatDateShortUtc(weekEnd)} UTC`
+      : null;
 
   return (
     <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-card px-4 py-3 min-w-[240px]">
-      <div className="flex items-baseline justify-between gap-6">
+      <div className="flex flex-col gap-0.5">
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
           {label ?? "Week"}
         </div>
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-          {p.protocolWeek !== undefined ? `Protocol W${p.protocolWeek}` : ""}
-        </div>
+        {dateRangeLabel ? (
+          <div className="text-[11px] text-muted-foreground">{dateRangeLabel}</div>
+        ) : null}
       </div>
 
       <div className="mt-2 space-y-2">
@@ -1106,12 +985,17 @@ function PolLiquidityTooltip({
 export function PolDashboardView() {
   const [isSupplyDialogOpen, setIsSupplyDialogOpen] = React.useState(false);
   const [isFarmDialogOpen, setIsFarmDialogOpen] = React.useState(false);
+  const [isPolLiquidityDialogOpen, setIsPolLiquidityDialogOpen] =
+    React.useState(false);
+  const [isGctlDialogOpen, setIsGctlDialogOpen] = React.useState(false);
+  const [isWalletStatsDialogOpen, setIsWalletStatsDialogOpen] =
+    React.useState(false);
   const [selectedFarmId, setSelectedFarmId] = React.useState<string | null>(
     null
   );
   const [showAllFarms, setShowAllFarms] = React.useState(false);
   const [farmSortKey, setFarmSortKey] = React.useState<
-    "latest" | "lifetime" | "ninetyDay" | "credits"
+    "latest" | "lifetime" | "credits"
   >("latest");
 
   const { poolReserves, priceRatio: poolSpotPrice } = usePoolInfo();
@@ -1188,10 +1072,6 @@ export function PolDashboardView() {
     gctlCirculatingSupplyNumber > 0 ? gctlCirculatingSupplyNumber : 350_000;
   const gctlTotalStaked = activeRegionsSummary?.totalGctlStaked ?? 0;
   const gctlUnstaked = Math.max(0, gctlTotalSupply - gctlTotalStaked);
-  const gctlStakedPct =
-    gctlTotalSupply > 0
-      ? Math.round((gctlTotalStaked / gctlTotalSupply) * 100)
-      : 0;
 
   const gctlRegionPieData = React.useMemo(() => {
     if (!activeRegionsSummary?.regions?.length) return GCTL_REGION_PIE_DATA;
@@ -1227,18 +1107,42 @@ export function PolDashboardView() {
 
   const walletStats = React.useMemo(() => {
     const totalWallets = impactWalletStats?.totalWallets ?? 0;
+    const glwHoldersRaw =
+      toFiniteNumber((impactWalletStats as any)?.glwHolders) ??
+      toFiniteNumber((impactWalletStats as any)?.glw_holders) ??
+      toFiniteNumber((impactWalletStats as any)?.holders) ??
+      toFiniteNumber((impactWalletStats as any)?.holdersCount) ??
+      null;
+    const glwHolders =
+      glwHoldersRaw !== null
+        ? Math.max(0, Math.min(Math.round(glwHoldersRaw), totalWallets))
+        : totalWallets;
     const delegatorCount = impactWalletStats?.delegators ?? 0;
     const minerCount = impactWalletStats?.miners ?? 0;
     const gctlCount =
       gctlHoldersCount > 0 ? Math.min(gctlHoldersCount, totalWallets) : 0;
-    const otherCount = Math.max(
-      0,
-      totalWallets - delegatorCount - minerCount - gctlCount
-    );
+    const protocolParticipantsRaw =
+      toFiniteNumber((impactWalletStats as any)?.protocolParticipants) ??
+      toFiniteNumber((impactWalletStats as any)?.protocol_participants) ??
+      toFiniteNumber((impactWalletStats as any)?.participantWallets) ??
+      toFiniteNumber((impactWalletStats as any)?.participant_wallets) ??
+      toFiniteNumber((impactWalletStats as any)?.activeWallets) ??
+      toFiniteNumber((impactWalletStats as any)?.active_wallets) ??
+      null;
+    const protocolParticipants =
+      protocolParticipantsRaw !== null
+        ? Math.max(0, Math.min(Math.round(protocolParticipantsRaw), totalWallets))
+        : Math.max(delegatorCount, minerCount, gctlCount);
+    const nonParticipants = Math.max(0, totalWallets - protocolParticipants);
     const total = totalWallets || 1; // avoid division by zero
     return {
       totalWallets,
+      glwHolders,
+      protocolParticipants,
       delegatorCount,
+      minerCount,
+      gctlCount,
+      nonParticipants,
       breakdown: [
         {
           label: "Delegators",
@@ -1259,9 +1163,9 @@ export function PolDashboardView() {
           color: "#22d3ee",
         },
         {
-          label: "Other",
-          count: otherCount,
-          pct: Math.round((otherCount / total) * 1000) / 10,
+          label: "Non-Participants",
+          count: nonParticipants,
+          pct: Math.round((nonParticipants / total) * 1000) / 10,
           color: "#4ade80",
         },
       ],
@@ -1367,10 +1271,9 @@ export function PolDashboardView() {
     for (let i = 0; i < tail.length; i++) {
       const weekNumber = tail[i];
       const count = byWeek[weekNumber] || 0;
-      const label = `W-${tail.length - i}`;
-      const weekStartMs =
-        (GENESIS_TIMESTAMP + weekNumber * SECONDS_PER_WEEK) * 1000;
-      const weekEndMs = weekStartMs + SECONDS_PER_WEEK * 1000;
+      const weekStartMs = getWeekStartMs(weekNumber);
+      const weekEndMs = getWeekEndMs(weekNumber);
+      const label = formatDateAxisUtc(new Date(weekEndMs - 1));
       result.push({
         week: label,
         newWallets: Math.max(0, count),
@@ -1678,13 +1581,16 @@ export function PolDashboardView() {
           "—";
         const panels = farm.panels ?? 0;
         const lifetime = parseLqUnits(farm.lifetime_lq ?? null);
-        const ninetyDay = parseLqUnits(farm.ninety_day_lq ?? null);
-        const ninetyDayDelta = farm.ninety_day_delta_pct ?? null;
         const creditsTotalRaw =
           (farm as any).credits_total ?? (farm as any).cc_lifetime ?? 0;
         const ccLifetime = Number(creditsTotalRaw) || 0;
         const ccPerWeekRaw = (farm as any).cc_per_week ?? 0;
         const ccPerWeek = Number(ccPerWeekRaw) || 0;
+        const creditType =
+          (farm as any).credit_type ??
+          (farm as any).creditType ??
+          (farm as any).credits_type ??
+          "Carbon Credits";
         const imageUrl = pickSolarPanelsImageUrl([
           (farm as any).image_url ?? null,
           ...(Array.isArray((farm as any).images) ? (farm as any).images : []),
@@ -1697,6 +1603,35 @@ export function PolDashboardView() {
             ? Number(auditWeekRaw)
             : typeof auditWeekRaw === "number"
             ? auditWeekRaw
+            : null;
+        const lifetimeWeeksTargetRaw =
+          toFiniteNumber((farm as any).lifetime_weeks) ??
+          toFiniteNumber((farm as any).projected_lifetime_weeks) ??
+          toFiniteNumber((farm as any).lifetimeWeeks) ??
+          toFiniteNumber((farm as any).projectedLifetimeWeeks) ??
+          100;
+        const lifetimeWeeksTarget = Math.max(
+          1,
+          Math.round(lifetimeWeeksTargetRaw)
+        );
+        const lifetimeWeeksElapsed =
+          auditWeek !== null && Number.isFinite(auditWeek)
+            ? Math.min(
+                lifetimeWeeksTarget,
+                Math.max(0, Math.floor(currentEpoch - auditWeek))
+              )
+            : null;
+        const projectedLifetimeCreditsRaw =
+          toFiniteNumber((farm as any).projected_lifetime_credits) ??
+          toFiniteNumber((farm as any).projected_credits_total) ??
+          toFiniteNumber((farm as any).projectedCreditsLifetime) ??
+          toFiniteNumber((farm as any).credits_projection_total) ??
+          null;
+        const projectedLifetimeCredits =
+          projectedLifetimeCreditsRaw !== null
+            ? Math.max(0, projectedLifetimeCreditsRaw)
+            : ccPerWeek > 0
+            ? ccPerWeek * lifetimeWeeksTarget
             : null;
 
         const recencyKey = (() => {
@@ -1728,17 +1663,19 @@ export function PolDashboardView() {
           region,
           panels,
           lifetimeLq: lifetime,
-          ninetyDayLq: ninetyDay,
-          ninetyDayDelta,
           ccLifetime,
           ccPerWeek,
+          projectedLifetimeCredits,
+          creditType,
+          lifetimeWeeksElapsed,
+          lifetimeWeeksTarget,
           imageUrl,
           auditWeek: auditWeek ?? null,
           recencyKey,
         };
       })
       .filter((row) => row.name);
-  }, [polRevenueFarms, resolveRegionName]);
+  }, [currentEpoch, polRevenueFarms, resolveRegionName]);
 
   const selectedFarm = React.useMemo(() => {
     if (!selectedFarmId) return null;
@@ -1748,13 +1685,6 @@ export function PolDashboardView() {
       null
     );
   }, [farmRowsAll, selectedFarmId]);
-
-  const { data: selectedFarmSeries, isLoading: isSelectedFarmSeriesLoading } =
-    usePolFarmRevenueSeries({
-      farmId: selectedFarm?.farmId ?? null,
-      range: "20w",
-      enabled: isFarmDialogOpen,
-    });
 
   const openFarmDialog = React.useCallback((farm: any) => {
     if (!farm || farm.name === "—") return;
@@ -1771,8 +1701,6 @@ export function PolDashboardView() {
         return (b.recencyKey ?? 0) - (a.recencyKey ?? 0);
       if (farmSortKey === "credits")
         return (b.ccPerWeek ?? 0) - (a.ccPerWeek ?? 0);
-      if (farmSortKey === "ninetyDay")
-        return (b.ninetyDayLq ?? 0) - (a.ninetyDayLq ?? 0);
       return (b.lifetimeLq ?? 0) - (a.lifetimeLq ?? 0);
     });
     return rows;
@@ -1782,39 +1710,50 @@ export function PolDashboardView() {
     if (sortedFarmRows.length > 0) return sortedFarmRows;
     return Array.from({ length: 6 }).map((_, index) => ({
       key: `farm-placeholder-${index}`,
+      farmId: null as string | null,
       name: "—",
       region: "—",
       panels: 0,
       lifetimeLq: null as number | null,
-      ninetyDayLq: null as number | null,
-      ninetyDayDelta: 0,
       ccLifetime: 0,
       ccPerWeek: 0,
+      projectedLifetimeCredits: null as number | null,
+      creditType: "Carbon Credits",
+      lifetimeWeeksElapsed: null as number | null,
+      lifetimeWeeksTarget: 100,
       imageUrl: null as string | null,
     }));
   }, [sortedFarmRows]);
 
+  const teaserSeed = React.useMemo(() => {
+    const utcDate = new Date().toISOString().slice(0, 10);
+    return utcDate.split("-").join("").split("").reduce((acc, c) => {
+      return acc * 31 + c.charCodeAt(0);
+    }, 7);
+  }, []);
+
   const farmRowsTeaser = React.useMemo(() => {
     const base =
       farmRowsAll.length > 0
-        ? [...farmRowsAll].sort(
-            (a, b) => (b.recencyKey ?? 0) - (a.recencyKey ?? 0)
-          )
+        ? shuffleWithSeed(farmRowsAll, teaserSeed)
         : Array.from({ length: 6 }).map((_, index) => ({
             key: `farm-placeholder-teaser-${index}`,
+            farmId: null as string | null,
             name: "—",
             region: "—",
             panels: 0,
             lifetimeLq: null as number | null,
-            ninetyDayLq: null as number | null,
-            ninetyDayDelta: 0,
             ccLifetime: 0,
             ccPerWeek: 0,
+            projectedLifetimeCredits: null as number | null,
+            creditType: "Carbon Credits",
+            lifetimeWeeksElapsed: null as number | null,
+            lifetimeWeeksTarget: 100,
             imageUrl: null as string | null,
             recencyKey: 0,
           }));
     return base.slice(0, 6);
-  }, [farmRowsAll]);
+  }, [farmRowsAll, teaserSeed]);
 
   const farmRowsToRender = showAllFarms ? farmRowsForRender : farmRowsTeaser;
 
@@ -2096,10 +2035,20 @@ export function PolDashboardView() {
         const n = Number(raw);
         return Number.isFinite(n) ? n : null;
       })();
+      const weekEndMs =
+        row.asOfTimestamp && Number.isFinite(row.asOfTimestamp)
+          ? row.asOfTimestamp * 1000
+          : getWeekEndMs(row.weekNumber);
+      const weekStartMs = Math.max(
+        0,
+        weekEndMs - SECONDS_PER_WEEK * 1000
+      );
+      const epochEndMs = getWeekEndMs(row.weekNumber);
 
       return {
-        week: `W${row.weekNumber}`,
-        protocolWeek: row.weekNumber,
+        week: formatDateAxisUtc(new Date(epochEndMs - 1)),
+        weekStartMs,
+        weekEndMs,
         liquidity,
         deltaLiquidity,
         endowmentLiquidity,
@@ -2198,7 +2147,7 @@ export function PolDashboardView() {
                   </div>
                   <div className="flex flex-col gap-2">
                     <div className="text-xs font-medium text-zinc-400 dark:text-zinc-500 tracking-wide">
-                      Total PoL
+                      Embedded Liquidity
                     </div>
                     <div className="text-4xl sm:text-5xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
                       {totalPolLq !== null
@@ -2469,7 +2418,7 @@ export function PolDashboardView() {
 
           <section className="flex flex-col gap-6 pt-16">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <SectionHeader title="Every Farm Adds Value" />
+              <SectionHeader title="Solar Farm Economics" />
 
               <div className="flex items-center justify-end gap-3">
                 {showAllFarms ? (
@@ -2484,7 +2433,6 @@ export function PolDashboardView() {
                           e.target.value as
                             | "latest"
                             | "lifetime"
-                            | "ninetyDay"
                             | "credits"
                         )
                       }
@@ -2492,7 +2440,6 @@ export function PolDashboardView() {
                     >
                       <option value="latest">Latest</option>
                       <option value="lifetime">Lifetime</option>
-                      <option value="ninetyDay">3 Month Revenue</option>
                       <option value="credits">CC / Week</option>
                     </select>
                   </div>
@@ -2519,16 +2466,10 @@ export function PolDashboardView() {
                         ).breakdown,
                       }
                     : { value: "—", breakdown: "—" };
-                const ninetyDayLq =
-                  farm.ninetyDayLq !== null && displayPrice > 0
-                    ? {
-                        value: formatLiquidityCompact(farm.ninetyDayLq),
-                        breakdown: getBreakdownFromLq(
-                          farm.ninetyDayLq,
-                          displayPrice
-                        ).breakdown,
-                      }
-                    : { value: "—", breakdown: "—" };
+                const lifetimeProgress =
+                  farm.lifetimeWeeksElapsed !== null
+                    ? `${farm.lifetimeWeeksElapsed} / ${farm.lifetimeWeeksTarget} wks`
+                    : "—";
                 return (
                   <Card
                     key={farm.key}
@@ -2570,6 +2511,9 @@ export function PolDashboardView() {
                             {farm.name}
                           </h3>
                         </div>
+                        <div className="absolute top-3 right-3 z-10 rounded-full border border-white/30 bg-black/40 px-2 py-0.5 text-[9px] font-mono uppercase tracking-widest text-white/80">
+                          Open ↗
+                        </div>
                       </div>
                       <div className="px-5 pt-4 pb-0">
                         <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
@@ -2582,7 +2526,7 @@ export function PolDashboardView() {
                       <div className="px-5 pt-4 pb-4 grid grid-cols-2 gap-4">
                         <div className="flex flex-col gap-0.5">
                           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                            Lifetime
+                            Generated Revenue (Lifetime)
                           </div>
                           <div className="text-xl font-semibold font-mono tabular-nums tracking-tight">
                             {lifetimeLq.value}
@@ -2593,13 +2537,10 @@ export function PolDashboardView() {
                         </div>
                         <div className="flex flex-col gap-0.5">
                           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                            3 Month
+                            Lifetime Progress
                           </div>
                           <div className="text-xl font-semibold font-mono tabular-nums tracking-tight">
-                            {ninetyDayLq.value}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground leading-tight">
-                            ({ninetyDayLq.breakdown})
+                            {lifetimeProgress}
                           </div>
                         </div>
                       </div>
@@ -2608,22 +2549,63 @@ export function PolDashboardView() {
                 );
               })}
             </div>
+            <Card className="!gap-0">
+              <CardContent className="p-6 sm:p-8">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                  Mini Blog
+                </div>
+                <div className="mt-3 space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Each region generates revenue from GCTL staked to that
+                    region and from miner sales that originate there. When a
+                    miner is sold, part of the cash subsidizes solar farms,
+                    part covers hard costs like auditing, and part becomes
+                    protocol revenue.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Within each region, revenue is attributed to farms based on
+                    projected lifetime credit production. Farms projected to
+                    produce more credits are attributed more revenue.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </section>
 
           <section className="flex flex-col gap-6 pt-16">
             <SectionHeader title="PoL, GCTL, Wallets" />
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               {/* ── Protocol Liquidity ── */}
-              <Card className="!gap-6">
+              <Card
+                className={cn(
+                  "!gap-6 h-full transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                )}
+                role="button"
+                tabIndex={0}
+                aria-label="Open protocol liquidity notes"
+                onClick={() => setIsPolLiquidityDialogOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setIsPolLiquidityDialogOpen(true);
+                  }
+                }}
+              >
                 <CardHeader className="pb-0">
-                  <div className="text-sm font-semibold">
-                    Protocol Liquidity
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-semibold">
+                      Protocol Liquidity
+                    </div>
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                      Click for notes ↗
+                    </div>
                   </div>
                 </CardHeader>
-                <CardContent className="flex flex-col gap-5">
+                <CardContent className="flex flex-col gap-5 h-full">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <MetricCard
-                      label="Total PoL"
+                      label="Embedded Liquidity"
                       value={
                         totalPolLq !== null
                           ? formatLiquidityCompact(totalPolLq)
@@ -2637,11 +2619,11 @@ export function PolDashboardView() {
                       valueClassName="text-3xl sm:text-4xl"
                     />
                     <MetricCard
-                      label="PoL APY"
+                      label="APY"
                       value={polApyDisplay}
                       helper={
                         ninetyDayApy !== null
-                          ? "Trailing 3 Month"
+                          ? "From recent trading activity"
                           : "Live data unavailable"
                       }
                       valueClassName="text-3xl sm:text-4xl"
@@ -2663,13 +2645,12 @@ export function PolDashboardView() {
                     <MiniStat
                       label="Market cap exitable"
                       value={polExitabilityDisplay}
-                      helper="Sell 100% of circulating into PoL "
                       valueClassName="text-base sm:text-lg tracking-tight"
                     />
                   </div>
                   <div className="flex-1 flex flex-col min-h-0">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                      PoL liquidity (since v2)
+                      Embedded Liquidity
                       {polLiquidityIsLive ? "" : " · Live data unavailable"}
                     </div>
                     <ChartContainer
@@ -2701,70 +2682,75 @@ export function PolDashboardView() {
               </Card>
 
               {/* ── GCTL ── */}
-              <Card className="!gap-6">
+              <Card
+                className={cn(
+                  "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                )}
+                role="button"
+                tabIndex={0}
+                aria-label="Open GCTL notes"
+                onClick={() => setIsGctlDialogOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setIsGctlDialogOpen(true);
+                  }
+                }}
+              >
                 <CardHeader className="pb-0">
-                  <div className="text-sm font-semibold">GCTL</div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-5">
-                  <MetricCard
-                    label="Total GCTL"
-                    value={
-                      isGctlLoading
-                        ? "..."
-                        : formatCompactNumberPrecise(gctlTotalSupply)
-                    }
-                    helper={
-                      isGctlLoading
-                        ? "Loading..."
-                        : `$${gctlPriceNumber.toFixed(2)} mint price`
-                    }
-                    valueClassName="text-3xl sm:text-4xl"
-                  />
-                  <div>
-                    <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                      <span>Staked vs unstaked</span>
-                      <span>
-                        {isGctlLoading ? "..." : `${gctlStakedPct}% staked`}
-                      </span>
-                    </div>
-                    <div className="h-2.5 rounded-full bg-muted overflow-hidden flex">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${gctlStakedPct}%`,
-                          background: "hsl(270, 70%, 60%)",
-                        }}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 mt-3">
-                      <MiniStat
-                        label="Staked"
-                        value={
-                          isGctlLoading
-                            ? "..."
-                            : formatCompactNumberPrecise(gctlTotalStaked)
-                        }
-                        valueClassName="text-base sm:text-lg tracking-tight"
-                      />
-                      <MiniStat
-                        label="Unstaked"
-                        value={
-                          isGctlLoading
-                            ? "..."
-                            : formatCompactNumberPrecise(gctlUnstaked)
-                        }
-                        valueClassName="text-base sm:text-lg tracking-tight"
-                      />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-semibold">GCTL</div>
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                      Click for notes ↗
                     </div>
                   </div>
-                  <div>
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
+                </CardHeader>
+                <CardContent className="flex flex-col gap-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <MetricCard
+                      label="Total GCTL"
+                      value={
+                        isGctlLoading
+                          ? "..."
+                          : formatCompactNumberPrecise(gctlTotalSupply)
+                      }
+                      valueClassName="text-3xl sm:text-4xl"
+                    />
+                    <MetricCard
+                      label="Mint Price"
+                      value={isGctlLoading ? "..." : `$${gctlPriceNumber.toFixed(2)}`}
+                      valueClassName="text-3xl sm:text-4xl"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <MiniStat
+                      label="Staked"
+                      value={
+                        isGctlLoading
+                          ? "..."
+                          : formatCompactNumberPrecise(gctlTotalStaked)
+                      }
+                      valueClassName="text-base sm:text-lg tracking-tight"
+                    />
+                    <MiniStat
+                      label="Unstaked"
+                      value={
+                        isGctlLoading
+                          ? "..."
+                          : formatCompactNumberPrecise(gctlUnstaked)
+                      }
+                      valueClassName="text-base sm:text-lg tracking-tight"
+                    />
+                  </div>
+                  <div className="flex-1 flex flex-col">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                       Staking by region
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex-1 flex flex-col items-center justify-center gap-5 pt-2">
                       <ChartContainer
                         config={gctlRegionChartConfigLive}
-                        className="h-36 w-36 shrink-0"
+                        className="h-48 w-48 shrink-0"
                       >
                         <PieChart>
                           <Pie
@@ -2773,8 +2759,8 @@ export function PolDashboardView() {
                             nameKey="name"
                             cx="50%"
                             cy="50%"
-                            innerRadius={30}
-                            outerRadius={60}
+                            innerRadius={42}
+                            outerRadius={82}
                             strokeWidth={2}
                             stroke="var(--color-card)"
                           />
@@ -2794,52 +2780,72 @@ export function PolDashboardView() {
                           />
                         </PieChart>
                       </ChartContainer>
-                      <div className="flex-1 grid gap-1.5">
-                        {gctlRegionPieData.map((region) => (
-                          <div
-                            key={region.name}
-                            className="flex items-center justify-between text-xs"
-                          >
-                            <span className="flex items-center gap-1.5 text-muted-foreground">
-                              <span
-                                className="inline-block h-2 w-2 rounded-full shrink-0"
-                                style={{ backgroundColor: region.fill }}
-                              />
-                              {region.name}
-                            </span>
-                            <span className="font-mono tabular-nums text-foreground">
-                              {formatCompactNumberPrecise(region.value)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                    </div>
+                    <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
+                      {gctlRegionPieData.map((region) => (
+                        <div
+                          key={region.name}
+                          className="flex items-center justify-between text-xs"
+                        >
+                          <span className="flex items-center gap-1.5 text-muted-foreground min-w-0">
+                            <span
+                              className="inline-block h-2 w-2 rounded-full shrink-0"
+                              style={{ backgroundColor: region.fill }}
+                            />
+                            <span className="truncate">{region.name}</span>
+                          </span>
+                          <span className="font-mono tabular-nums text-foreground shrink-0">
+                            {formatCompactNumberPrecise(region.value)}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* ── Wallet Stats ── */}
-              <Card className="!gap-6">
+              <Card
+                className={cn(
+                  "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                )}
+                role="button"
+                tabIndex={0}
+                aria-label="Open wallet stats notes"
+                onClick={() => setIsWalletStatsDialogOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setIsWalletStatsDialogOpen(true);
+                  }
+                }}
+              >
                 <CardHeader className="pb-0">
-                  <div className="text-sm font-semibold">Wallet Stats</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-semibold">Wallet Stats</div>
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                      Click for notes ↗
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
                   <div className="grid grid-cols-2 gap-4">
                     <MiniStat
-                      label="Wallets"
+                      label="GLW Holders"
                       value={
                         isWalletStatsLoading
                           ? "..."
-                          : formatNumber(walletStats.totalWallets)
+                          : formatNumber(walletStats.glwHolders)
                       }
                       valueClassName="text-xl sm:text-2xl tracking-tight"
                     />
                     <MiniStat
-                      label="Delegators"
+                      label="Protocol Participants"
                       value={
                         isWalletStatsLoading
                           ? "..."
-                          : formatNumber(walletStats.delegatorCount)
+                          : formatNumber(walletStats.protocolParticipants)
                       }
                       valueClassName="text-xl sm:text-2xl tracking-tight"
                     />
@@ -2878,6 +2884,12 @@ export function PolDashboardView() {
                       Wallet breakdown
                       {hasWalletBreakdown ? "" : " · Live data unavailable"}
                     </div>
+                    {hasWalletBreakdown ? (
+                      <div className="mb-2 text-[10px] text-muted-foreground">
+                        Category percentages can total over 100% because a
+                        wallet can be a delegator, miner, and GCTL holder.
+                      </div>
+                    ) : null}
                     <div className="flex flex-col gap-3">
                       {hasWalletBreakdown ? (
                         walletStats.breakdown.map((row) => (
@@ -3760,10 +3772,54 @@ export function PolDashboardView() {
           if (!open) setSelectedFarmId(null);
         }}
         selectedFarm={selectedFarm}
-        selectedFarmSeries={selectedFarmSeries}
-        isSelectedFarmSeriesLoading={isSelectedFarmSeriesLoading}
         displayPrice={displayPrice}
       />
+
+      <MiniBlogDialog
+        open={isPolLiquidityDialogOpen}
+        onOpenChange={setIsPolLiquidityDialogOpen}
+        title="Protocol Liquidity Notes"
+      >
+        <p className="text-sm text-muted-foreground">
+          APY here comes from trading activity in protocol-owned liquidity, not
+          from protocol revenue. That means embedded liquidity can continue
+          increasing even in periods with no miner or GCTL sale revenue.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Market cap exitable is the estimated share of GLW market cap that can
+          currently be exited through PoL depth.
+        </p>
+      </MiniBlogDialog>
+
+      <MiniBlogDialog
+        open={isGctlDialogOpen}
+        onOpenChange={setIsGctlDialogOpen}
+        title="GCTL Notes"
+      >
+        <p className="text-sm text-muted-foreground">
+          GCTL is the asset used to direct where solar is built on the
+          protocol. Staking GCTL toward a region helps route deployment and
+          revenue there.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          GCTL is currently a control asset and is not tradable.
+        </p>
+      </MiniBlogDialog>
+
+      <MiniBlogDialog
+        open={isWalletStatsDialogOpen}
+        onOpenChange={setIsWalletStatsDialogOpen}
+        title="Wallet Stats Notes"
+      >
+        <p className="text-sm text-muted-foreground">
+          A wallet is counted if it holds at least 0.01 GLW or at least 0.01
+          points.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Breakdown percentages can add up to more than 100% because one wallet
+          can be a delegator, a miner, and a GCTL holder at the same time.
+        </p>
+      </MiniBlogDialog>
     </div>
   );
 }
