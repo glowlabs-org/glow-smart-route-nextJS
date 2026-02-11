@@ -2187,11 +2187,11 @@ export function PolDashboardView() {
               role="button"
               tabIndex={0}
               aria-label="Open Glow economy basics"
-              onClick={() => setIsBannerBlogOpen((v) => !v)}
+              onClick={() => setIsBannerBlogOpen(true)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  setIsBannerBlogOpen((v) => !v);
+                  setIsBannerBlogOpen(true);
                 }
               }}
             >
@@ -2231,51 +2231,6 @@ export function PolDashboardView() {
                 </div>
               </CardContent>
             </Card>
-            {isBannerBlogOpen ? (
-              <Card className="!gap-0">
-                <CardContent className="p-6 sm:p-8 space-y-4">
-                  <Link
-                    href={DEFINED_FI_GLOW_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex text-xs font-mono uppercase tracking-widest text-muted-foreground/80 hover:text-foreground"
-                  >
-                    defined.fi price page ↗
-                  </Link>
-                  <p className="text-sm text-muted-foreground">
-                    Just as Bitcoin turned tokens into mining machines, Glow
-                    turns tokens into solar farms. Glow generates revenue by
-                    selling the ability to control where these solar farms get
-                    built.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Just as BTC is the central token of the Bitcoin economy,
-                    GLW is the central token of the Glow economy. Every week,
-                    new GLW is minted via inflation and distributed to farms
-                    being built on the protocol.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    As users pay for control rights, protocol revenue is used to
-                    permanently add liquidity to GLW. In Glow terms, this is
-                    called Embedded Liquidity.
-                  </p>
-                  <div className="flex flex-wrap gap-4 pt-1">
-                    <Link
-                      href="/blog/glw-tokenomics"
-                      className="text-xs font-mono uppercase tracking-widest text-muted-foreground/80 hover:text-foreground"
-                    >
-                      Learn More: Tokenomics
-                    </Link>
-                    <Link
-                      href="/internal/referral"
-                      className="text-xs font-mono uppercase tracking-widest text-muted-foreground/80 hover:text-foreground"
-                    >
-                      Learn More: Ecosystem
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : null}
 
             {/* ── Row 2: Growth cards + Supply/Circulation ── */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr] lg:items-stretch">
@@ -3709,7 +3664,7 @@ export function PolDashboardView() {
       </section>
 
       <Dialog open={isSupplyDialogOpen} onOpenChange={setIsSupplyDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[720px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Explore Supply Model</DialogTitle>
             <DialogDescription>
@@ -3717,34 +3672,16 @@ export function PolDashboardView() {
             </DialogDescription>
           </DialogHeader>
           <div className="p-6 space-y-6">
-            <p className="text-sm text-muted-foreground">
-              Embedded liquidity is a protocol-owned portfolio that is perfectly
-              balanced between GLW and USDC. This means that as the GLW price
-              drops, the portfolio automatically buys up GLW tokens, taking them
-              out of circulation until the price recovers. In other words, the
-              GLW supply contracts as the price goes down. This also means that
-              as the GLW price increases, the portfolio automatically sells GLW,
-              increasing the total amount of USDC that is available as exit
-              liquidity to GLW holders.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              You can play with the slider to see the relationship between
-              circulating supply and available exit liquidity as the GLW price
-              changes.
-            </p>
-
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
               <div className="min-w-0">
                 <MetricCard
                   label="Circulating Supply"
                   value={
                     liquidCirculatingModeled !== null
-                      ? `${formatCompactNumberPrecise(
-                          liquidCirculatingModeled
-                        )}\u00A0GLW`
+                      ? `${formatCompactNumberPrecise(liquidCirculatingModeled)} GLW`
                       : "—"
                   }
-                  valueClassName="whitespace-nowrap leading-none !text-[clamp(1.4rem,6vw,2rem)] sm:!text-[clamp(1.55rem,3.4vw,2.2rem)]"
+                  valueClassName="break-words leading-tight !text-[clamp(1.2rem,5vw,1.9rem)] md:!text-[clamp(1.3rem,2.6vw,2rem)]"
                 />
               </div>
               <div className="min-w-0">
@@ -3755,7 +3692,7 @@ export function PolDashboardView() {
                       ? `${formatCompactNumberPrecise(modeledPolGlw)} GLW`
                       : "—"
                   }
-                  valueClassName="whitespace-nowrap leading-none !text-[clamp(1.4rem,6vw,2rem)] sm:!text-[clamp(1.55rem,3.4vw,2.2rem)]"
+                  valueClassName="break-words leading-tight !text-[clamp(1.2rem,5vw,1.9rem)] md:!text-[clamp(1.3rem,2.6vw,2rem)]"
                 />
               </div>
               <div className="min-w-0">
@@ -3766,7 +3703,7 @@ export function PolDashboardView() {
                       ? formatUsdCompactHero(modeledPolUsdg)
                       : "—"
                   }
-                  valueClassName="whitespace-nowrap leading-none !text-[clamp(1.4rem,6vw,2rem)] sm:!text-[clamp(1.55rem,3.4vw,2.2rem)]"
+                  valueClassName="break-words leading-tight !text-[clamp(1.2rem,5vw,1.9rem)] md:!text-[clamp(1.3rem,2.6vw,2rem)]"
                 />
               </div>
             </div>
@@ -3897,6 +3834,24 @@ export function PolDashboardView() {
               </div>
             </div>
 
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Embedded liquidity is a protocol-owned portfolio that is
+                perfectly balanced between GLW and USDC. This means that as the
+                GLW price drops, the portfolio automatically buys up GLW
+                tokens, taking them out of circulation until the price
+                recovers. In other words, the GLW supply contracts as the price
+                goes down. This also means that as the GLW price increases, the
+                portfolio automatically sells GLW, increasing the total amount
+                of USDC that is available as exit liquidity to GLW holders.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                You can play with the slider to see the relationship between
+                circulating supply and available exit liquidity as the GLW
+                price changes.
+              </p>
+            </div>
+
             <div className="flex items-center justify-between gap-3">
               <Link
                 href="/blog/glw-tokenomics"
@@ -3926,6 +3881,50 @@ export function PolDashboardView() {
         selectedFarm={selectedFarm}
         displayPrice={displayPrice}
       />
+
+      <MiniBlogDialog
+        open={isBannerBlogOpen}
+        onOpenChange={setIsBannerBlogOpen}
+        title="Glow Economy Basics"
+      >
+        <Link
+          href={DEFINED_FI_GLOW_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex text-xs font-mono uppercase tracking-widest text-muted-foreground/80 hover:text-foreground"
+        >
+          defined.fi price page ↗
+        </Link>
+        <p className="text-sm text-muted-foreground">
+          Just as Bitcoin turned tokens into mining machines, Glow turns tokens
+          into solar farms. Glow generates revenue by selling the ability to
+          control where these solar farms get built.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Just as BTC is the central token of the Bitcoin economy, GLW is the
+          central token of the Glow economy. Every week, new GLW is minted via
+          inflation and distributed to farms being built on the protocol.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          As users pay for control rights, protocol revenue is used to
+          permanently add liquidity to GLW. In Glow terms, this is called
+          Embedded Liquidity.
+        </p>
+        <div className="flex flex-wrap gap-4 pt-1">
+          <Link
+            href="/blog/glw-tokenomics"
+            className="text-xs font-mono uppercase tracking-widest text-muted-foreground/80 hover:text-foreground"
+          >
+            Learn More: Tokenomics
+          </Link>
+          <Link
+            href="/internal/referral"
+            className="text-xs font-mono uppercase tracking-widest text-muted-foreground/80 hover:text-foreground"
+          >
+            Learn More: Ecosystem
+          </Link>
+        </div>
+      </MiniBlogDialog>
 
       <MiniBlogDialog
         open={isInstallationsDialogOpen}
