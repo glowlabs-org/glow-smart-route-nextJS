@@ -234,8 +234,7 @@ export default function GctlControlWidget({
             weeklyEmissions: regionData?.weeklyEmissions ?? 0,
           };
         })
-        .sort((a, b) => b.amountGctl - a.amountGctl)
-        .slice(0, 4) ?? []
+        .sort((a, b) => b.amountGctl - a.amountGctl) ?? []
     );
   }, [isEnabled, regions, walletDetails?.regions, regionDataMap]);
 
