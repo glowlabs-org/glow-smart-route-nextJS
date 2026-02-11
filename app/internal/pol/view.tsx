@@ -2181,7 +2181,7 @@ export function PolDashboardView() {
             {/* ── Row 1: Headline banner ── */}
             <Card
               className={cn(
-                "!gap-0 !bg-zinc-950 dark:!bg-white border-zinc-800/60 dark:border-zinc-200/60 transition-colors cursor-pointer hover:border-zinc-700/70 dark:hover:border-zinc-300/70",
+                "!gap-0 transition-colors cursor-pointer hover:border-border/40 dark:hover:border-border/60",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               )}
               role="button"
@@ -2197,32 +2197,32 @@ export function PolDashboardView() {
             >
               <CardContent className="px-4 py-8 sm:px-10 sm:py-14">
                 <div className="mb-6 flex items-center justify-end">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-500">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                     Click for basics ↗
                   </div>
                 </div>
                 <div className="grid grid-cols-1 gap-10 sm:grid-cols-3 sm:gap-8">
                   <div className="flex flex-col gap-3">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-500">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                       Market Cap
                     </div>
-                    <div className="text-6xl lg:text-7xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
+                    <div className="text-6xl lg:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none glow-gradient-c-text">
                       {marketCapDisplay}
                     </div>
                   </div>
                   <div className="flex flex-col gap-3">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-500">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                       GLW Price
                     </div>
-                    <div className="text-6xl lg:text-7xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
+                    <div className="text-6xl lg:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none glow-gradient-c-text">
                       {priceDisplay}
                     </div>
                   </div>
                   <div className="flex flex-col gap-3">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-500">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                       Embedded Liquidity
                     </div>
-                    <div className="text-6xl lg:text-7xl font-semibold tracking-tight font-mono tabular-nums text-white dark:text-zinc-950 leading-none">
+                    <div className="text-6xl lg:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none glow-gradient-c-text">
                       {totalPolLq !== null
                         ? formatLiquidityCompact(totalPolLq)
                         : "—"}

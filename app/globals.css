@@ -579,6 +579,27 @@
   background: linear-gradient(111.06deg, #dcc4ff 12.01%, #f7fcc4 93.61%);
 }
 
+.glow-gradient-c-text {
+  background: linear-gradient(111.06deg, #ccffd4 0%, #dcc4ff 50%, #ccffd4 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient-slide 6s ease infinite;
+}
+
+@keyframes gradient-slide {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 /* Heatmap specific gradient - from glow-yellow to glow-orange */
 .glow-gradient-heatmap {
   background: linear-gradient(to right, #f7fcc4 0%, #fbe898 50%, #ffb472 100%);
