@@ -1856,15 +1856,12 @@ export function PolDashboardView() {
     const byWeek = activelyDelegatedByWeekData?.byWeek ?? null;
     if (!byWeek) return null;
 
-    // Prefer the partial "current week" point when present; otherwise use the last completed
-    // week (endWeek = currentEpoch - 1) so the series is comparable week-to-week.
-    const partialEnd =
-      series.find((r) => r.is_partial) ??
-      series.find((r) => r.week === supplyGrowthEndWeek) ??
-      null;
-    if (!partialEnd) return null;
+    // For a trailing 3-month KPI, use strictly completed weeks so the number doesn't
+    // drift mid-week.
+    const endRow = series.find((r) => r.week === supplyGrowthEndWeek) ?? null;
+    if (!endRow) return null;
 
-    const endWeek = partialEnd.week;
+    const endWeek = supplyGrowthEndWeek;
     const startWeek = Math.max(97, endWeek - 12); // 13 weeks inclusive
 
     const startRow = series.find((r) => r.week === startWeek) ?? null;
@@ -1873,12 +1870,8 @@ export function PolDashboardView() {
     const vaultedStartWei = byWeek[startWeek];
     if (vaultedStartWei === undefined) return null;
 
-    // Completed-week end vault is available in byWeek; partial-week uses "now" total.
-    const vaultedEndWei =
-      partialEnd.is_partial === true
-        ? totalActivelyDelegatedData?.totalGlwDelegatedWei ?? null
-        : byWeek[endWeek];
-    if (vaultedEndWei === undefined || vaultedEndWei === null) return null;
+    const vaultedEndWei = byWeek[endWeek];
+    if (vaultedEndWei === undefined) return null;
 
     let onchainStart: number;
     let onchainEnd: number;
@@ -1886,7 +1879,7 @@ export function PolDashboardView() {
     let vaultedEnd: number;
     try {
       onchainStart = Number(formatUnits(BigInt(startRow.circulating_wei), 18));
-      onchainEnd = Number(formatUnits(BigInt(partialEnd.circulating_wei), 18));
+      onchainEnd = Number(formatUnits(BigInt(endRow.circulating_wei), 18));
       vaultedStart = Number(formatUnits(BigInt(vaultedStartWei), 18));
       vaultedEnd = Number(formatUnits(BigInt(vaultedEndWei), 18));
     } catch {
@@ -1922,7 +1915,6 @@ export function PolDashboardView() {
     glowCirculatingSnapshot,
     hasLiveSupply,
     supplyGrowthEndWeek,
-    totalActivelyDelegatedData,
   ]);
 
   const supplyGrowthTrailingDisplay =
@@ -1931,8 +1923,8 @@ export function PolDashboardView() {
       : "—";
   const supplyGrowthHelper =
     supplyGrowthTrailing !== null
-      ? "Trailing 3 Month growth"
-      : "Trailing 3 Month growth";
+      ? "Trailing 3 Month growth (completed weeks)"
+      : "Trailing 3 Month growth (completed weeks)";
 
   const polGrowthAnnual = React.useMemo(() => {
     const series = polLiquiditySnapshot?.series ?? null;
