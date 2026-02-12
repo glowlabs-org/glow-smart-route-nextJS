@@ -10,8 +10,8 @@
     "generate": "drizzle-kit generate:pg",
     "db:push": "drizzle-kit push:pg",
     "studio": "npx drizzle-kit studio",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "pnpm dlx vitest run",
+    "test:watch": "pnpm dlx vitest",
     "test:claim-v2": "node scripts/test-claim-v2-simple.js",
     "test:claim-v2-ts": "tsx scripts/test-claim-v2-rewards.ts",
     "prepare": "husky"
