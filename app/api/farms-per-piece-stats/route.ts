@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
 
-const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
-
-if (!HUB_URL) {
-  throw new Error("NEXT_PUBLIC_HUB_URL is not set");
-}
+export const dynamic = "force-dynamic";
 
 interface CacheEntry {
   data: any;
@@ -39,6 +35,14 @@ export async function GET(request: NextRequest) {
     if (farmId) hubSearchParams.append("farmId", farmId);
     if (startWeek) hubSearchParams.append("startWeek", startWeek);
     if (endWeek) hubSearchParams.append("endWeek", endWeek);
+
+    const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
+    if (!HUB_URL) {
+      return NextResponse.json(
+        { error: "NEXT_PUBLIC_HUB_URL is not set" },
+        { status: 500 }
+      );
+    }
 
     const url = `${HUB_URL}/fractions/farms-per-piece-stats?${hubSearchParams.toString()}`;
     const response = await fetch(url);

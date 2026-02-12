@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: ["heic-decode"],
   experimental: {
     optimizePackageImports: [
       "lucide-react",
