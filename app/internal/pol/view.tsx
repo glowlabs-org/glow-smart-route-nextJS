@@ -1405,7 +1405,7 @@ export function PolDashboardView() {
       .filter((week) => week >= POL_LIQUIDITY_V2_START_WEEK)
       .sort((a, b) => a - b);
     if (!weeks.length) return null;
-    const historical = weeks.map((week) => {
+    const historical: DelegationTrendDatum[] = weeks.map((week) => {
       const raw = byWeek[week] ?? "0";
       const weekStartMs = getWeekStartMs(week);
       const weekEndMs = getWeekEndMs(week);
