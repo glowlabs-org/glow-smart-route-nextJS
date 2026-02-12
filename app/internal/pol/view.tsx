@@ -69,6 +69,7 @@ const SECONDS_PER_WEEK = 7 * 24 * 60 * 60;
 const LIQUIDITY_UNIT = "Ⱡ";
 const POL_LIQUIDITY_V2_START_WEEK = 97;
 const FDV_TOTAL_TOKENS_GLW = 180_000_000;
+const MIN_LIFETIME_REVENUE_LQ = 2_000;
 const DEFINED_FI_GLOW_URL =
   "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d";
 
@@ -243,6 +244,14 @@ function formatUsdCompactPrecise(value: number) {
   }).format(value);
 }
 
+function formatUsdWhole(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 function formatCompactNumberPrecise(value: number) {
   const abs = Math.abs(value);
 
@@ -264,6 +273,21 @@ function formatCompactNumberPrecise(value: number) {
 
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: abs < 10 ? 2 : 1,
+  }).format(value);
+}
+
+function formatCompactNumberTwoDecimals(value: number) {
+  const abs = Math.abs(value);
+  if (abs >= 1_000) {
+    return new Intl.NumberFormat("en-US", {
+      notation: "compact",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(value);
 }
 
@@ -323,6 +347,13 @@ function formatDateAxisUtc(value: Date) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
+    timeZone: "UTC",
+  }).format(value);
+}
+
+function formatMonthAxisUtc(value: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
     timeZone: "UTC",
   }).format(value);
 }
@@ -430,6 +461,14 @@ type WalletGrowthDatum = {
   weekNumber?: number;
   weekStartMs?: number;
   weekEndMs?: number;
+};
+
+type DelegationTrendDatum = {
+  week: string;
+  delegated: number;
+  weekNumber: number;
+  weekStartMs: number;
+  weekEndMs: number;
 };
 
 type FarmRow = {
@@ -881,7 +920,9 @@ function PolLiquidityTooltip({
           {label ?? "Week"}
         </div>
         {dateRangeLabel ? (
-          <div className="text-[11px] text-muted-foreground">{dateRangeLabel}</div>
+          <div className="text-[11px] text-muted-foreground">
+            {dateRangeLabel}
+          </div>
         ) : null}
       </div>
 
@@ -1037,13 +1078,9 @@ export function PolDashboardView() {
   const displayPrice = hasLivePrice ? livePrice : 0;
 
   const marketCapDisplay = hasLiveMarketCap
-    ? formatUsdCompactPrecise(currentMarketCap)
+    ? formatUsdWhole(currentMarketCap)
     : "—";
-  const marketCapHelper = hasLiveSupply
-    ? `${formatCompactNumberPrecise(currentCirculating)} GLW circulating`
-    : "Live data unavailable";
   const priceDisplay = hasLivePrice ? `$${currentPrice.toFixed(4)}` : "—";
-  const priceHelper = hasLivePrice ? "Spot price" : "Live data unavailable";
   const priceDetail = hasLivePrice ? currentPrice.toFixed(4) : "—";
 
   // ── GCTL live data ──
@@ -1142,7 +1179,10 @@ export function PolDashboardView() {
       null;
     const protocolParticipants =
       protocolParticipantsRaw !== null
-        ? Math.max(0, Math.min(Math.round(protocolParticipantsRaw), totalWallets))
+        ? Math.max(
+            0,
+            Math.min(Math.round(protocolParticipantsRaw), totalWallets)
+          )
         : Math.max(delegatorCount, minerCount, gctlCount);
     const nonParticipants = Math.max(0, totalWallets - protocolParticipants);
     const total = totalWallets || 1; // avoid division by zero
@@ -1212,13 +1252,14 @@ export function PolDashboardView() {
   const { data: totalActivelyDelegatedData } = useTotalActivelyDelegated({
     includeApy: true,
   });
-  // Pull just enough weeks to cover the 13w annualized growth computation and charts.
+  // Pull full V2 history for the delegation chart, while growth KPIs still read
+  // the exact weeks they need from this shared payload.
   const supplyGrowthEndWeek = Math.max(97, currentEpoch - 1);
   const supplyGrowthStartWeek = Math.max(97, supplyGrowthEndWeek - 13);
   // "Today vs 3 months ago" should anchor on the current week, not the last completed week.
   const trailing3MonthStartWeek = Math.max(97, currentEpoch - 13);
   const { data: activelyDelegatedByWeekData } = useActivelyDelegatedByWeek({
-    startWeek: supplyGrowthStartWeek,
+    startWeek: POL_LIQUIDITY_V2_START_WEEK,
     endWeek: supplyGrowthEndWeek,
   });
   const { data: polLiquiditySnapshot } = usePolLiquiditySnapshot({
@@ -1303,8 +1344,12 @@ export function PolDashboardView() {
   const totalDelegatedGlw = React.useMemo(() => {
     const raw = totalActivelyDelegatedData?.totalGlwDelegatedWei;
     if (raw === null || raw === undefined) return null;
-    const value = Number(raw) / 1e18;
-    return Number.isFinite(value) ? value : null;
+    try {
+      const value = Number(formatUnits(BigInt(raw), 18));
+      return Number.isFinite(value) ? value : null;
+    } catch {
+      return null;
+    }
   }, [totalActivelyDelegatedData]);
 
   const hasDelegationData = totalDelegatedGlw !== null;
@@ -1329,7 +1374,7 @@ export function PolDashboardView() {
   }, [averageDelegatorApy]);
   const delegatedDisplay =
     totalDelegatedGlw !== null
-      ? formatCompactNumberPrecise(totalDelegatedGlw)
+      ? formatCompactNumberTwoDecimals(totalDelegatedGlw)
       : "—";
   const delegationRatioPct =
     totalDelegatedGlw !== null && currentCirculating > 0
@@ -1340,9 +1385,9 @@ export function PolDashboardView() {
     : 0;
   const delegationRatioDetail =
     totalDelegatedGlw !== null && currentCirculating > 0
-      ? `${formatCompactNumberPrecise(
+      ? `${formatCompactNumberTwoDecimals(
           totalDelegatedGlw
-        )} of ${formatCompactNumberPrecise(
+        )} of ${formatCompactNumberTwoDecimals(
           currentCirculating
         )} circulating GLW delegated`
       : "Live data unavailable";
@@ -1352,18 +1397,56 @@ export function PolDashboardView() {
     if (!byWeek || Object.keys(byWeek).length < 2) return null;
     const weeks = Object.keys(byWeek)
       .map(Number)
+      .filter((week) => week >= POL_LIQUIDITY_V2_START_WEEK)
       .sort((a, b) => a - b);
-    const tail = weeks.slice(-12);
-    if (!tail.length) return null;
-    return tail.map((week, idx) => {
+    if (!weeks.length) return null;
+    return weeks.map((week) => {
       const raw = byWeek[week] ?? "0";
-      const glw = Number(raw) / 1e18;
+      const weekStartMs = getWeekStartMs(week);
+      const weekEndMs = getWeekEndMs(week);
+      const label = formatMonthAxisUtc(new Date(weekEndMs - 1));
+
+      let glw = 0;
+      try {
+        glw = Number(formatUnits(BigInt(raw), 18));
+      } catch {
+        glw = 0;
+      }
       const delegatedM = Number.isFinite(glw) ? glw / 1_000_000 : 0;
-      const label =
-        idx === tail.length - 1 ? "Now" : `W-${tail.length - 1 - idx}`;
-      return { week: label, delegated: delegatedM };
+      return {
+        week: label,
+        delegated: delegatedM,
+        weekNumber: week,
+        weekStartMs,
+        weekEndMs,
+      } satisfies DelegationTrendDatum;
     });
   }, [activelyDelegatedByWeekData]);
+
+  const delegationTrendTicks = React.useMemo(() => {
+    if (!delegationTrendLive || delegationTrendLive.length === 0) return [];
+    const ticks: number[] = [];
+    const seenMonths = new Set<string>();
+
+    for (const row of delegationTrendLive) {
+      const d = new Date(row.weekEndMs - 1);
+      const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+      if (!seenMonths.has(key)) {
+        seenMonths.add(key);
+        ticks.push(row.weekEndMs);
+      }
+    }
+
+    const lastTick = delegationTrendLive[delegationTrendLive.length - 1]?.weekEndMs;
+    if (
+      typeof lastTick === "number" &&
+      Number.isFinite(lastTick) &&
+      ticks[ticks.length - 1] !== lastTick
+    ) {
+      ticks.push(lastTick);
+    }
+    return ticks;
+  }, [delegationTrendLive]);
 
   // ── Supply model slider ──
   const [price, setPrice] = React.useState(displayPrice);
@@ -1731,7 +1814,22 @@ export function PolDashboardView() {
           recencyKey,
         };
       })
-      .filter((row) => row.name);
+      .filter((row) => {
+        if (!row.name) return false;
+
+        // Exclude farms that have no realized revenue yet (e.g., first week at 0).
+        if (row.lifetimeLq !== null && row.lifetimeLq <= 0) return false;
+
+        // Exclude low-signal rows from the Solar Farm Economics cards.
+        if (
+          row.lifetimeLq !== null &&
+          row.lifetimeLq < MIN_LIFETIME_REVENUE_LQ
+        ) {
+          return false;
+        }
+
+        return true;
+      });
   }, [currentEpoch, polRevenueFarms, resolveRegionName]);
 
   const selectedFarm = React.useMemo(() => {
@@ -1784,9 +1882,13 @@ export function PolDashboardView() {
 
   const teaserSeed = React.useMemo(() => {
     const utcDate = new Date().toISOString().slice(0, 10);
-    return utcDate.split("-").join("").split("").reduce((acc, c) => {
-      return acc * 31 + c.charCodeAt(0);
-    }, 7);
+    return utcDate
+      .split("-")
+      .join("")
+      .split("")
+      .reduce((acc, c) => {
+        return acc * 31 + c.charCodeAt(0);
+      }, 7);
   }, []);
 
   const farmRowsTeaser = React.useMemo(() => {
@@ -1858,7 +1960,7 @@ export function PolDashboardView() {
     if (!endRow) return null;
 
     const endWeek = supplyGrowthEndWeek;
-    const startWeek = Math.max(97, endWeek - 12); // 13 weeks inclusive
+    const startWeek = Math.max(97, endWeek - 13); // 13 elapsed weeks
 
     const startRow = series.find((r) => r.week === startWeek) ?? null;
     if (!startRow) return null;
@@ -2098,10 +2200,7 @@ export function PolDashboardView() {
         row.asOfTimestamp && Number.isFinite(row.asOfTimestamp)
           ? row.asOfTimestamp * 1000
           : getWeekEndMs(row.weekNumber);
-      const weekStartMs = Math.max(
-        0,
-        weekEndMs - SECONDS_PER_WEEK * 1000
-      );
+      const weekStartMs = Math.max(0, weekEndMs - SECONDS_PER_WEEK * 1000);
       const epochEndMs = getWeekEndMs(row.weekNumber);
 
       return {
@@ -2181,7 +2280,7 @@ export function PolDashboardView() {
             {/* ── Row 1: Headline banner ── */}
             <Card
               className={cn(
-                "!gap-0 transition-colors cursor-pointer hover:border-border/40 dark:hover:border-border/60",
+                "!gap-0 glow-gradient border border-border/20 transition-colors cursor-pointer hover:border-border/40 dark:hover:border-border/60",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               )}
               role="button"
@@ -2195,37 +2294,53 @@ export function PolDashboardView() {
                 }
               }}
             >
-              <CardContent className="px-4 py-8 sm:px-10 sm:py-14">
-                <div className="mb-6 flex items-center justify-end">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+              <CardContent className="relative px-5 py-10 pt-14 sm:px-12 sm:py-14 sm:pt-16 lg:py-16 lg:pt-16">
+                <div className="absolute right-[32px] top-[0px]">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-black/55">
                     Click for basics ↗
                   </div>
                 </div>
-                <div className="grid grid-cols-1 gap-10 sm:grid-cols-3 sm:gap-8">
-                  <div className="flex flex-col gap-3">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                <div className="mx-auto w-full max-w-5xl grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-x-16 md:gap-y-8 md:items-end">
+                  <div className="grid grid-rows-[auto_auto] gap-3 md:col-span-2 md:justify-self-center md:items-center md:text-center">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-black/55">
                       Market Cap
                     </div>
-                    <div className="text-6xl lg:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none glow-gradient-c-text">
+                    <div className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight font-mono tabular-nums leading-none text-black">
                       {marketCapDisplay}
                     </div>
                   </div>
-                  <div className="flex flex-col gap-3">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+
+                  <div className="grid grid-rows-[auto_auto_auto] gap-3 md:justify-self-start md:items-center md:text-center">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-black/55">
                       GLW Price
                     </div>
-                    <div className="text-6xl lg:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none glow-gradient-c-text">
+                    <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-black">
                       {priceDisplay}
                     </div>
+                    <Link
+                      href={DEFINED_FI_GLOW_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-black/60 hover:text-black/80 transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Pool activity ↗
+                    </Link>
                   </div>
-                  <div className="flex flex-col gap-3">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+
+                  <div className="grid grid-rows-[auto_auto_auto] gap-3 md:justify-self-end md:items-center md:text-center">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-black/55">
                       Embedded Liquidity
                     </div>
-                    <div className="text-6xl lg:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none glow-gradient-c-text">
+                    <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-black">
                       {totalPolLq !== null
                         ? formatLiquidityCompact(totalPolLq)
                         : "—"}
+                    </div>
+                    <div className="text-sm text-black/60 text-center">
+                      {totalPolBreakdown?.breakdown
+                        ? `(${totalPolBreakdown.breakdown})`
+                        : "Live data unavailable"}
                     </div>
                   </div>
                 </div>
@@ -2235,131 +2350,131 @@ export function PolDashboardView() {
             {/* ── Row 2: Growth cards + Supply/Circulation ── */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr] lg:items-stretch">
               <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:h-full lg:grid-rows-2">
-                  <Card
-                    className={cn(
-                      "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    )}
-                    role="button"
-                    tabIndex={0}
-                    aria-label="Open total solar installations notes"
-                    onClick={() => setIsInstallationsDialogOpen(true)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setIsInstallationsDialogOpen(true);
-                      }
-                    }}
-                  >
-                    <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-20 pointer-events-none -rotate-12" />
-                    <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
-                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                        Total Solar Installations
-                      </div>
-                      <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                        {totalSolarInstallations !== null
-                          ? formatNumber(totalSolarInstallations)
-                          : "—"}
-                      </div>
-                      <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
-                        ↗
-                      </div>
-                    </CardContent>
-                  </Card>
+                <Card
+                  className={cn(
+                    "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  )}
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Open total solar installations notes"
+                  onClick={() => setIsInstallationsDialogOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setIsInstallationsDialogOpen(true);
+                    }
+                  }}
+                >
+                  <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-20 pointer-events-none -rotate-12" />
+                  <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Total Solar Installations
+                    </div>
+                    <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                      {totalSolarInstallations !== null
+                        ? formatNumber(totalSolarInstallations)
+                        : "—"}
+                    </div>
+                    <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
+                      ↗
+                    </div>
+                  </CardContent>
+                </Card>
 
-                  <Card
-                    className={cn(
-                      "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    )}
-                    role="button"
-                    tabIndex={0}
-                    aria-label="Open embedded liquidity growth notes"
-                    onClick={() => setIsLiquidityGrowthDialogOpen(true)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setIsLiquidityGrowthDialogOpen(true);
-                      }
-                    }}
-                  >
-                    <GlowSymbol className="!text-[var(--color-glow-purple)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none rotate-6" />
-                    <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
-                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                        Embedded Liquidity Growth (3 Months)
-                      </div>
-                      <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                        {polTrailingPolGrowthDisplay?.lq ?? "—"}
-                      </div>
-                      <div className="mt-3 text-sm text-muted-foreground">
-                        {polTrailingPolGrowthDisplay?.breakdown
-                          ? `(${polTrailingPolGrowthDisplay.breakdown})`
-                          : "Live data unavailable"}
-                      </div>
-                      <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
-                        ↗
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card
-                    className={cn(
-                      "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    )}
-                    role="button"
-                    tabIndex={0}
-                    aria-label="Open annualized circulating growth notes"
-                    onClick={() => setIsCirculatingGrowthDialogOpen(true)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setIsCirculatingGrowthDialogOpen(true);
-                      }
-                    }}
-                  >
-                    <GlowSymbol className="!text-[var(--color-glow-green)] absolute -top-6 -right-6 w-32 h-32 opacity-25 dark:opacity-15 pointer-events-none rotate-12" />
-                    <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
-                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                        Annualized Circulating Supply Growth
-                      </div>
-                      <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                        {supplyGrowthAnnualDisplay}
-                      </div>
-                      <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
-                        ↗
-                      </div>
-                    </CardContent>
-                  </Card>
+                <Card
+                  className={cn(
+                    "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  )}
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Open embedded liquidity growth notes"
+                  onClick={() => setIsLiquidityGrowthDialogOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setIsLiquidityGrowthDialogOpen(true);
+                    }
+                  }}
+                >
+                  <GlowSymbol className="!text-[var(--color-glow-purple)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none rotate-6" />
+                  <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Embedded Liquidity Growth (3 Months)
+                    </div>
+                    <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                      {polTrailingPolGrowthDisplay?.lq ?? "—"}
+                    </div>
+                    <div className="mt-3 text-sm text-muted-foreground">
+                      {polTrailingPolGrowthDisplay?.breakdown
+                        ? `(${polTrailingPolGrowthDisplay.breakdown})`
+                        : "Live data unavailable"}
+                    </div>
+                    <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
+                      ↗
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card
+                  className={cn(
+                    "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  )}
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Open annualized circulating growth notes"
+                  onClick={() => setIsCirculatingGrowthDialogOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setIsCirculatingGrowthDialogOpen(true);
+                    }
+                  }}
+                >
+                  <GlowSymbol className="!text-[var(--color-glow-green)] absolute -top-6 -right-6 w-32 h-32 opacity-25 dark:opacity-15 pointer-events-none rotate-12" />
+                  <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Annualized Circulating Supply Growth
+                    </div>
+                    <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                      {supplyGrowthAnnualDisplay}
+                    </div>
+                    <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
+                      ↗
+                    </div>
+                  </CardContent>
+                </Card>
 
-                  <Card
-                    className={cn(
-                      "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    )}
-                    role="button"
-                    tabIndex={0}
-                    aria-label="Open annualized embedded liquidity growth notes"
-                    onClick={() => setIsEmbeddedGrowthDialogOpen(true)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setIsEmbeddedGrowthDialogOpen(true);
-                      }
-                    }}
-                  >
-                    <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none -rotate-6" />
-                    <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
-                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                        Annualized Embedded Liquidity Growth
-                      </div>
-                      <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                        {polGrowthAnnualDisplay}
-                      </div>
-                      <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
-                        ↗
-                      </div>
-                    </CardContent>
-                  </Card>
+                <Card
+                  className={cn(
+                    "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  )}
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Open annualized embedded liquidity growth notes"
+                  onClick={() => setIsEmbeddedGrowthDialogOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setIsEmbeddedGrowthDialogOpen(true);
+                    }
+                  }}
+                >
+                  <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none -rotate-6" />
+                  <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Annualized Embedded Liquidity Growth
+                    </div>
+                    <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                      {polGrowthAnnualDisplay}
+                    </div>
+                    <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
+                      ↗
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
 
               <Card
@@ -2561,10 +2676,7 @@ export function PolDashboardView() {
                       value={farmSortKey}
                       onChange={(e) =>
                         setFarmSortKey(
-                          e.target.value as
-                            | "latest"
-                            | "lifetime"
-                            | "credits"
+                          e.target.value as "latest" | "lifetime" | "credits"
                         )
                       }
                       className="rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-xs font-mono cursor-pointer hover:border-border/60 transition-colors"
@@ -2689,9 +2801,9 @@ export function PolDashboardView() {
                   <p className="text-sm text-muted-foreground">
                     Each region generates revenue from GCTL staked to that
                     region and from miner sales that originate there. When a
-                    miner is sold, part of the cash subsidizes solar farms,
-                    part covers hard costs like auditing, and part becomes
-                    protocol revenue.
+                    miner is sold, part of the cash subsidizes solar farms, part
+                    covers hard costs like auditing, and part becomes protocol
+                    revenue.
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Within each region, revenue is attributed to farms based on
@@ -2850,7 +2962,9 @@ export function PolDashboardView() {
                     />
                     <MetricCard
                       label="Mint Price"
-                      value={isGctlLoading ? "..." : `$${gctlPriceNumber.toFixed(2)}`}
+                      value={
+                        isGctlLoading ? "..." : `$${gctlPriceNumber.toFixed(2)}`
+                      }
                       valueClassName="text-3xl sm:text-4xl"
                     />
                   </div>
@@ -3113,7 +3227,7 @@ export function PolDashboardView() {
 
                   <div className="flex flex-col">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-3">
-                      Delegation growth (12w)
+                      Delegation growth (V2)
                     </div>
                     <ChartContainer
                       config={delegationTrendChartConfig}
@@ -3122,11 +3236,17 @@ export function PolDashboardView() {
                       <AreaChart data={delegationTrendLive ?? []}>
                         <CartesianGrid vertical={false} strokeDasharray="3 3" />
                         <XAxis
-                          dataKey="week"
+                          dataKey="weekEndMs"
+                          type="number"
+                          domain={["dataMin", "dataMax"]}
+                          ticks={delegationTrendTicks}
+                          tickFormatter={(value) =>
+                            formatMonthAxisUtc(new Date(Number(value) - 1))
+                          }
                           tickLine={false}
                           axisLine={false}
                           tick={{ fontSize: 9 }}
-                          interval="preserveStartEnd"
+                          interval={0}
                         />
                         <YAxis
                           tickLine={false}
@@ -3138,7 +3258,29 @@ export function PolDashboardView() {
                         <ChartTooltip
                           content={
                             <ChartTooltipContent
-                              labelFormatter={(label) => label}
+                              labelFormatter={(label, payload) => {
+                                const datum = (payload?.[0] as any)
+                                  ?.payload as DelegationTrendDatum | undefined;
+                                const weekStart = datum?.weekStartMs
+                                  ? new Date(datum.weekStartMs)
+                                  : null;
+                                const weekEnd = datum?.weekEndMs
+                                  ? new Date(datum.weekEndMs - 1)
+                                  : null;
+
+                                if (weekStart && weekEnd) {
+                                  return `${formatDateShortUtc(
+                                    weekStart
+                                  )} - ${formatDateShortUtc(weekEnd)} UTC`;
+                                }
+
+                                if (typeof label === "number") {
+                                  return formatDateAxisUtc(
+                                    new Date(Number(label) - 1)
+                                  );
+                                }
+                                return String(label ?? "");
+                              }}
                               formatter={(value) => {
                                 const numeric =
                                   typeof value === "number"
@@ -3678,7 +3820,9 @@ export function PolDashboardView() {
                   label="Circulating Supply"
                   value={
                     liquidCirculatingModeled !== null
-                      ? `${formatCompactNumberPrecise(liquidCirculatingModeled)} GLW`
+                      ? `${formatCompactNumberPrecise(
+                          liquidCirculatingModeled
+                        )} GLW`
                       : "—"
                   }
                   valueClassName="break-words leading-tight !text-[clamp(1.2rem,5vw,1.9rem)] md:!text-[clamp(1.3rem,2.6vw,2rem)]"
@@ -3838,17 +3982,17 @@ export function PolDashboardView() {
               <p className="text-sm text-muted-foreground">
                 Embedded liquidity is a protocol-owned portfolio that is
                 perfectly balanced between GLW and USDC. This means that as the
-                GLW price drops, the portfolio automatically buys up GLW
-                tokens, taking them out of circulation until the price
-                recovers. In other words, the GLW supply contracts as the price
-                goes down. This also means that as the GLW price increases, the
-                portfolio automatically sells GLW, increasing the total amount
-                of USDC that is available as exit liquidity to GLW holders.
+                GLW price drops, the portfolio automatically buys up GLW tokens,
+                taking them out of circulation until the price recovers. In
+                other words, the GLW supply contracts as the price goes down.
+                This also means that as the GLW price increases, the portfolio
+                automatically sells GLW, increasing the total amount of USDC
+                that is available as exit liquidity to GLW holders.
               </p>
               <p className="text-sm text-muted-foreground">
                 You can play with the slider to see the relationship between
-                circulating supply and available exit liquidity as the GLW
-                price changes.
+                circulating supply and available exit liquidity as the GLW price
+                changes.
               </p>
             </div>
 
@@ -3936,9 +4080,9 @@ export function PolDashboardView() {
           built, including installations that are no longer earning rewards.
         </p>
         <p className="text-sm text-muted-foreground">
-          Glow uses the term “solar farm” broadly. Even smaller deployments
-          with a limited number of panels are often referred to as solar farms
-          in protocol reporting.
+          Glow uses the term “solar farm” broadly. Even smaller deployments with
+          a limited number of panels are often referred to as solar farms in
+          protocol reporting.
         </p>
         <p className="text-sm text-muted-foreground">
           Installations vary meaningfully in size across regions, from small
@@ -4016,9 +4160,8 @@ export function PolDashboardView() {
         title="GCTL Notes"
       >
         <p className="text-sm text-muted-foreground">
-          GCTL is the asset used to direct where solar is built on the
-          protocol. Staking GCTL toward a region helps route deployment and
-          revenue there.
+          GCTL is the asset used to direct where solar is built on the protocol.
+          Staking GCTL toward a region helps route deployment and revenue there.
         </p>
         <p className="text-sm text-muted-foreground">
           GCTL is currently a control asset and is not tradable.
