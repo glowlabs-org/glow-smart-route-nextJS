@@ -471,6 +471,7 @@ type DelegationTrendDatum = {
   weekNumber: number;
   weekStartMs: number;
   weekEndMs: number;
+  isCurrent?: boolean;
 };
 
 type FarmRow = {
@@ -681,7 +682,7 @@ function FarmDetailsDialog({
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
                         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                          Generated Revenue (Lifetime)
+                          Generated Revenue
                         </div>
                         <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
                           {lifetimeValue}
@@ -1040,6 +1041,8 @@ export function PolDashboardView() {
   const [isEmbeddedGrowthDialogOpen, setIsEmbeddedGrowthDialogOpen] =
     React.useState(false);
   const [isPolLiquidityDialogOpen, setIsPolLiquidityDialogOpen] =
+    React.useState(false);
+  const [isSolarFarmNotesDialogOpen, setIsSolarFarmNotesDialogOpen] =
     React.useState(false);
   const [isGctlDialogOpen, setIsGctlDialogOpen] = React.useState(false);
   const [isWalletStatsDialogOpen, setIsWalletStatsDialogOpen] =
@@ -1402,7 +1405,7 @@ export function PolDashboardView() {
       .filter((week) => week >= POL_LIQUIDITY_V2_START_WEEK)
       .sort((a, b) => a - b);
     if (!weeks.length) return null;
-    return weeks.map((week) => {
+    const historical = weeks.map((week) => {
       const raw = byWeek[week] ?? "0";
       const weekStartMs = getWeekStartMs(week);
       const weekEndMs = getWeekEndMs(week);
@@ -1423,7 +1426,30 @@ export function PolDashboardView() {
         weekEndMs,
       } satisfies DelegationTrendDatum;
     });
-  }, [activelyDelegatedByWeekData]);
+
+    if (totalDelegatedGlw !== null && Number.isFinite(totalDelegatedGlw)) {
+      const currentWeek = getCurrentWeekNumber(Date.now());
+      const currentDelegatedM = totalDelegatedGlw / 1_000_000;
+      const currentWeekStartMs = getWeekStartMs(currentWeek);
+      const nowMs = Date.now();
+      historical.push({
+        week: "Current",
+        delegated: Number.isFinite(currentDelegatedM) ? currentDelegatedM : 0,
+        weekNumber: currentWeek,
+        weekStartMs: currentWeekStartMs,
+        weekEndMs: nowMs,
+        isCurrent: true,
+      });
+    }
+
+    return historical;
+  }, [activelyDelegatedByWeekData, totalDelegatedGlw]);
+
+  const delegationCurrentTickValue = React.useMemo(() => {
+    if (!delegationTrendLive || delegationTrendLive.length === 0) return null;
+    const last = delegationTrendLive[delegationTrendLive.length - 1];
+    return last?.isCurrent ? last.weekEndMs : null;
+  }, [delegationTrendLive]);
 
   const delegationTrendTicks = React.useMemo(() => {
     if (!delegationTrendLive || delegationTrendLive.length === 0) return [];
@@ -2305,7 +2331,7 @@ export function PolDashboardView() {
             {/* ── Row 1: Headline banner ── */}
             <Card
               className={cn(
-                "!gap-0 glow-gradient border border-border/20 transition-colors cursor-pointer hover:border-border/40 dark:hover:border-border/60",
+                "!gap-0 !py-0 relative overflow-hidden border border-border/20 transition-colors cursor-pointer hover:border-border/40 dark:hover:border-border/60",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               )}
               role="button"
@@ -2319,34 +2345,44 @@ export function PolDashboardView() {
                 }
               }}
             >
-              <CardContent className="relative px-5 py-10 pt-14 sm:px-12 sm:py-14 sm:pt-16 lg:py-16 lg:pt-16">
-                <div className="absolute right-[32px] top-[0px]">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-black/55">
+              <CardContent className="relative px-0 py-0">
+                <div className="absolute inset-0">
+                  <div
+                    className="absolute inset-0 bg-cover bg-center"
+                    style={{
+                      backgroundImage: "url('/images/pol-banner-crop.jpg')",
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-black/35" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-black/45 via-black/25 to-black/45" />
+                </div>
+                <div className="absolute right-[24px] top-[16px]">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
                     Click for basics ↗
                   </div>
                 </div>
-                <div className="mx-auto w-full max-w-5xl grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-x-16 md:gap-y-8 md:items-end">
+                <div className="relative z-10 mx-auto w-full max-w-5xl px-5 py-10 pt-14 sm:px-12 sm:py-14 sm:pt-16 lg:py-16 lg:pt-16 grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-x-16 md:gap-y-8 md:items-end">
                   <div className="grid grid-rows-[auto_auto] gap-3 md:col-span-2 md:justify-self-center md:items-center md:text-center">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-black/55">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
                       Market Cap
                     </div>
-                    <div className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight font-mono tabular-nums leading-none text-black">
+                    <div className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight font-mono tabular-nums leading-none text-white">
                       {marketCapDisplay}
                     </div>
                   </div>
 
                   <div className="grid grid-rows-[auto_auto_auto] gap-3 md:justify-self-start md:items-center md:text-center">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-black/55">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
                       GLW Price
                     </div>
-                    <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-black">
+                    <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-white">
                       {priceDisplay}
                     </div>
                     <Link
                       href={DEFINED_FI_GLOW_URL}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-black/60 hover:text-black/80 transition-colors"
+                      className="text-sm text-white/75 hover:text-white transition-colors"
                       onClick={(e) => e.stopPropagation()}
                     >
                       Pool activity ↗
@@ -2354,15 +2390,15 @@ export function PolDashboardView() {
                   </div>
 
                   <div className="grid grid-rows-[auto_auto_auto] gap-3 md:justify-self-end md:items-center md:text-center">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-black/55">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
                       Embedded Liquidity
                     </div>
-                    <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-black">
+                    <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-white">
                       {totalPolLq !== null
                         ? formatLiquidityCompact(totalPolLq)
                         : "—"}
                     </div>
-                    <div className="text-sm text-black/60 text-center">
+                    <div className="text-sm text-white/75 text-center">
                       {totalPolBreakdown?.breakdown
                         ? `(${totalPolBreakdown.breakdown})`
                         : "Live data unavailable"}
@@ -2714,6 +2750,15 @@ export function PolDashboardView() {
                 ) : null}
 
                 <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsSolarFarmNotesDialogOpen(true)}
+                  className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/70 hover:text-foreground"
+                >
+                  Click for notes ↗
+                </Button>
+
+                <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowAllFarms((v) => !v)}
@@ -2794,7 +2839,7 @@ export function PolDashboardView() {
                       <div className="px-5 pt-4 pb-4 grid grid-cols-2 gap-4">
                         <div className="flex flex-col gap-0.5">
                           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                            Generated Revenue (Lifetime)
+                            Generated Revenue
                           </div>
                           <div className="text-xl font-semibold font-mono tabular-nums tracking-tight">
                             {lifetimeLq.value}
@@ -2817,27 +2862,6 @@ export function PolDashboardView() {
                 );
               })}
             </div>
-            <Card className="!gap-0">
-              <CardContent className="p-6 sm:p-8">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                  Mini Blog
-                </div>
-                <div className="mt-3 space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Each region generates revenue from GCTL staked to that
-                    region and from miner sales that originate there. When a
-                    miner is sold, part of the cash subsidizes solar farms, part
-                    covers hard costs like auditing, and part becomes protocol
-                    revenue.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Within each region, revenue is attributed to farms based on
-                    projected lifetime credit production. Farms projected to
-                    produce more credits are attributed more revenue.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
           </section>
 
           <section className="flex flex-col gap-6 pt-16">
@@ -3265,9 +3289,16 @@ export function PolDashboardView() {
                           type="number"
                           domain={["dataMin", "dataMax"]}
                           ticks={delegationTrendTicks}
-                          tickFormatter={(value) =>
-                            formatMonthAxisUtc(new Date(Number(value) - 1))
-                          }
+                          tickFormatter={(value) => {
+                            const n = Number(value);
+                            if (
+                              delegationCurrentTickValue !== null &&
+                              n === delegationCurrentTickValue
+                            ) {
+                              return "Current";
+                            }
+                            return formatMonthAxisUtc(new Date(n - 1));
+                          }}
                           tickLine={false}
                           axisLine={false}
                           tick={{ fontSize: 9 }}
@@ -3292,6 +3323,10 @@ export function PolDashboardView() {
                                 const weekEnd = datum?.weekEndMs
                                   ? new Date(datum.weekEndMs - 1)
                                   : null;
+
+                                if (datum?.isCurrent) {
+                                  return "Current";
+                                }
 
                                 if (weekStart && weekEnd) {
                                   return `${formatDateShortUtc(
@@ -4112,6 +4147,24 @@ export function PolDashboardView() {
         <p className="text-sm text-muted-foreground">
           Installations vary meaningfully in size across regions, from small
           collections of panels to larger commercial deployments.
+        </p>
+      </MiniBlogDialog>
+
+      <MiniBlogDialog
+        open={isSolarFarmNotesDialogOpen}
+        onOpenChange={setIsSolarFarmNotesDialogOpen}
+        title="Solar Farm Economics"
+      >
+        <p className="text-sm text-muted-foreground">
+          Each region generates revenue from GCTL staked to that region and
+          from miner sales that originate there. When a miner is sold, part of
+          the cash subsidizes solar farms, part covers hard costs like audits,
+          and part becomes protocol revenue.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Within each region, revenue is attributed to farms based on projected
+          lifetime credit production. Farms projected to produce more credits
+          are attributed more revenue.
         </p>
       </MiniBlogDialog>
 
