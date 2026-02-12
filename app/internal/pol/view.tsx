@@ -69,6 +69,8 @@ const SECONDS_PER_WEEK = 7 * 24 * 60 * 60;
 const LIQUIDITY_UNIT = "Ⱡ";
 const POL_LIQUIDITY_V2_START_WEEK = 97;
 const FDV_TOTAL_TOKENS_GLW = 180_000_000;
+const MINER_INFLATION_PER_WEEK_GLW = 175_000;
+const VETO_COUNCIL_INFLATION_PER_WEEK_GLW = 5_000;
 const MIN_LIFETIME_REVENUE_LQ = 2_000;
 const DEFINED_FI_GLOW_URL =
   "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d";
@@ -1964,6 +1966,12 @@ export function PolDashboardView() {
 
     const startRow = series.find((r) => r.week === startWeek) ?? null;
     if (!startRow) return null;
+    const elapsedWeeks = Math.max(0, endWeek - startWeek);
+    const vetoUnchanged =
+      startRow.breakdown.veto_council_wei === endRow.breakdown.veto_council_wei;
+    const syntheticVetoAccrualGlw = vetoUnchanged
+      ? VETO_COUNCIL_INFLATION_PER_WEEK_GLW * elapsedWeeks
+      : 0;
 
     const vaultedStartWei = byWeek[startWeek];
     if (vaultedStartWei === undefined) return null;
@@ -1975,11 +1983,19 @@ export function PolDashboardView() {
     let onchainEnd: number;
     let vaultedStart: number;
     let vaultedEnd: number;
+    let totalSupplyStart: number;
+    let totalSupplyEnd: number;
     try {
       onchainStart = Number(formatUnits(BigInt(startRow.circulating_wei), 18));
       onchainEnd = Number(formatUnits(BigInt(endRow.circulating_wei), 18));
       vaultedStart = Number(formatUnits(BigInt(vaultedStartWei), 18));
       vaultedEnd = Number(formatUnits(BigInt(vaultedEndWei), 18));
+      totalSupplyStart = Number(
+        formatUnits(BigInt(startRow.breakdown.total_supply_wei), 18)
+      );
+      totalSupplyEnd = Number(
+        formatUnits(BigInt(endRow.breakdown.total_supply_wei), 18)
+      );
     } catch {
       return null;
     }
@@ -1987,14 +2003,23 @@ export function PolDashboardView() {
       !Number.isFinite(onchainStart) ||
       !Number.isFinite(onchainEnd) ||
       !Number.isFinite(vaultedStart) ||
-      !Number.isFinite(vaultedEnd)
+      !Number.isFinite(vaultedEnd) ||
+      !Number.isFinite(totalSupplyStart) ||
+      !Number.isFinite(totalSupplyEnd)
     )
       return null;
 
     // Ponder circulating excludes the off-chain "vaulted/actively delegated" term.
     // Build a canonical weekly series point by subtracting the vaulted GLW for that week.
-    const canonicalStart = onchainStart - vaultedStart;
-    const canonicalEnd = onchainEnd - vaultedEnd;
+    const canonicalStartRaw = onchainStart - vaultedStart;
+    const canonicalEnd = onchainEnd - vaultedEnd - syntheticVetoAccrualGlw;
+    // Normalize miner inflation in-window to exactly 175k/week by assigning any
+    // observed mint residual to the starting baseline (carryover from prior weeks).
+    const observedTotalSupplyDelta = totalSupplyEnd - totalSupplyStart;
+    const expectedMinerInflationDelta = MINER_INFLATION_PER_WEEK_GLW * elapsedWeeks;
+    const mintResidualCarryover =
+      observedTotalSupplyDelta - expectedMinerInflationDelta;
+    const canonicalStart = canonicalStartRaw + mintResidualCarryover;
     if (
       !Number.isFinite(canonicalStart) ||
       !Number.isFinite(canonicalEnd) ||
