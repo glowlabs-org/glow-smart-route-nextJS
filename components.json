@@ -16,6 +16,7 @@
   },
   "registries": {
     "@magicui": "https://magicui.design/r/{name}.json",
-    "@lucide-animated": "https://lucide-animated.com/r/{name}.json"
+    "@lucide-animated": "https://lucide-animated.com/r/{name}.json",
+    "@mapcn": "https://mapcn.dev/r/{name}.json"
   }
 }

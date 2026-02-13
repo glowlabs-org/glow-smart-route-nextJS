@@ -60,6 +60,7 @@ import {
 } from "@/hooks/usePolRevenue";
 import { useGlwVestingSchedule } from "@/hooks/useGlwVestingSchedule";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
+import { NetworkImpactSection } from "./network-impact-section";
 
 import { formatUnits } from "viem";
 import { getCurrentWeekNumber } from "@/lib/rewards/weekly-delegations";
@@ -3366,59 +3367,9 @@ export function PolDashboardView() {
             </div>
           </section>
 
-          <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader title="Network Impact" />
-            <Card className="!gap-0">
-              <CardContent className="px-4 py-6 sm:px-10 sm:py-12">
-                <div className="grid grid-cols-2 gap-4 sm:gap-8 sm:grid-cols-4">
-                  <div className="flex flex-col gap-1">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Total Panels
-                    </div>
-                    <div className="text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
-                      {formatNullableNumber(impactTotals?.panels ?? null)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Verified installations
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Installed Capacity
-                    </div>
-                    <div className="text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
-                      {formatNullableFixed(impactTotals?.capacityMw ?? null, 1)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      MW total capacity
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Homes Powered
-                    </div>
-                    <div className="text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
-                      {formatNullableNumber(impactTotals?.homesPowered ?? null)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Equivalent households
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Trees Equivalent
-                    </div>
-                    <div className="text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
-                      {formatNullableCompact(impactTotals?.trees ?? null)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      CO2 offset equivalent
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
+          <NetworkImpactSection
+            impactTotals={impactTotals}
+          />
 
           {/* FMI temporarily hidden (extracted to app/internal/pol/fmi-widget.tsx). */}
 
