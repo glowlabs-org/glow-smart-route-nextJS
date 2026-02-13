@@ -346,10 +346,16 @@ export function useTotalActivelyDelegated(
     enabled,
     staleTime: QUERY_CONFIG.DEFAULT.staleTime,
     refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
-    queryFn: async () =>
-      await hubGet<TotalActivelyDelegatedResponse>(
-        `/fractions/total-actively-delegated${queryParam}`
-      ),
+    queryFn: async () => {
+      const res = await fetch(`/api/fractions/total-actively-delegated${queryParam}`);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(
+          `Failed to load total actively delegated (${res.status}) - ${text}`
+        );
+      }
+      return (await res.json()) as TotalActivelyDelegatedResponse;
+    },
   });
 
   return {
@@ -381,13 +387,29 @@ export function useActivelyDelegatedByWeek(
     enabled,
     staleTime: QUERY_CONFIG.DEFAULT.staleTime * 2,
     refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
-    queryFn: async () =>
-      await hubGet<ActivelyDelegatedByWeekResponse>(
-        "/fractions/actively-delegated-by-week",
-        {
-          params: { startWeek, endWeek },
-        }
-      ),
+    queryFn: async () => {
+      const search = new URLSearchParams();
+      if (typeof startWeek === "number" && Number.isFinite(startWeek)) {
+        search.set("startWeek", String(startWeek));
+      }
+      if (typeof endWeek === "number" && Number.isFinite(endWeek)) {
+        search.set("endWeek", String(endWeek));
+      }
+
+      const query = search.toString();
+      const path = query
+        ? `/api/fractions/actively-delegated-by-week?${query}`
+        : "/api/fractions/actively-delegated-by-week";
+
+      const res = await fetch(path);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(
+          `Failed to load actively delegated by week (${res.status}) - ${text}`
+        );
+      }
+      return (await res.json()) as ActivelyDelegatedByWeekResponse;
+    },
   });
 
   return {

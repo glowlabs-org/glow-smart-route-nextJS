@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useActivelyDelegatedByWeek } from "@/hooks/hub-fractions";
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useGlowCirculatingSnapshot } from "@/hooks/useGlowCirculatingSnapshot";
 import { deriveGlowCirculatingSupplyMetrics } from "@/hooks/glow-circulating-supply-utils";
@@ -23,20 +24,61 @@ export function useGlowCirculatingSupply(options?: { enabled?: boolean }) {
     return series[series.length - 1];
   }, [snapshotQuery.data?.series]);
 
+  const latestWeek =
+    typeof latestSnapshot?.week === "number" && Number.isFinite(latestSnapshot.week)
+      ? latestSnapshot.week
+      : null;
+
+  const delegatedByWeekQuery = useActivelyDelegatedByWeek({
+    startWeek: latestWeek ?? undefined,
+    endWeek: latestWeek ?? undefined,
+    enabled: enabled && latestWeek !== null,
+  });
+
+  const delegatedByWeekWei = React.useMemo(() => {
+    if (latestWeek === null) return null;
+    const byWeek = delegatedByWeekQuery.data?.byWeek;
+    if (!byWeek) return null;
+    const fromNumericIndex = byWeek[latestWeek];
+    if (typeof fromNumericIndex === "string") return fromNumericIndex;
+
+    const fromStringIndex = (byWeek as Record<string, string | undefined>)[
+      String(latestWeek)
+    ];
+    return typeof fromStringIndex === "string" ? fromStringIndex : null;
+  }, [delegatedByWeekQuery.data?.byWeek, latestWeek]);
+
   const { circulatingSupply, totalSupply, marketCap, glowPrice } =
     React.useMemo(
-      () => deriveGlowCirculatingSupplyMetrics(latestSnapshot, spotPrice),
-      [latestSnapshot, spotPrice]
+      () =>
+        deriveGlowCirculatingSupplyMetrics(
+          latestSnapshot,
+          spotPrice,
+          delegatedByWeekWei
+        ),
+      [delegatedByWeekWei, latestSnapshot, spotPrice]
     );
+
+  const refetchMarketCap = React.useCallback(async () => {
+    await Promise.all([
+      snapshotQuery.refetch(),
+      latestWeek !== null
+        ? delegatedByWeekQuery.refetch()
+        : Promise.resolve(undefined),
+    ]);
+  }, [delegatedByWeekQuery, latestWeek, snapshotQuery]);
+
+  const isDelegatedWeekLoading =
+    latestWeek !== null && (delegatedByWeekQuery.isLoading || delegatedByWeekQuery.isFetching);
 
   return {
     circulatingSupply,
     totalSupply,
     marketCap,
     glowPrice,
-    isLoading: isSpotPriceLoading || snapshotQuery.isLoading,
-    isFetching: snapshotQuery.isFetching,
-    error: snapshotQuery.error,
-    refetchMarketCap: snapshotQuery.refetch,
+    isLoading: isSpotPriceLoading || snapshotQuery.isLoading || isDelegatedWeekLoading,
+    isFetching: snapshotQuery.isFetching || delegatedByWeekQuery.isFetching,
+    error: snapshotQuery.error ?? delegatedByWeekQuery.error,
+    refetchMarketCap,
   };
 }

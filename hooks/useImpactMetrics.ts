@@ -1,7 +1,9 @@
 "use client";
 
+import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { QUERY_CONFIG } from "@/hooks/query-config";
+import { millisecondsUntilNextSundayUtc } from "@/lib/time/sunday-cache";
 
 export interface ImpactMetrics {
   totalWeeklyExpectedCarbonCredits: number;
@@ -20,18 +22,18 @@ export interface ImpactMetrics {
 
 export function useImpactMetrics(options: { enabled?: boolean } = {}) {
   const { enabled = true } = options;
+  const staleForMs = React.useMemo(() => millisecondsUntilNextSundayUtc(), []);
 
   const query = useQuery<ImpactMetrics | null>({
     queryKey: ["impact-metrics"],
     enabled,
-    staleTime: QUERY_CONFIG.DEFAULT.staleTime,
-    refetchInterval: enabled ? QUERY_CONFIG.DEFAULT.staleTime : false,
+    staleTime: staleForMs,
+    gcTime: staleForMs,
+    refetchInterval: false,
     refetchOnWindowFocus: QUERY_CONFIG.DEFAULT.refetchOnWindowFocus,
     queryFn: async () => {
       try {
-        const res = await fetch("/api/impact-metrics", {
-          cache: "no-store",
-        });
+        const res = await fetch("/api/impact-metrics");
         if (!res.ok) return null;
         return (await res.json()) as ImpactMetrics;
       } catch {

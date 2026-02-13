@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
 import { deriveGlowCirculatingSupplyMetrics } from "../hooks/glow-circulating-supply-utils";
 import type { GlowCirculatingSnapshotRow } from "../hooks/useGlowCirculatingSnapshot";
 
@@ -45,6 +45,54 @@ describe("deriveGlowCirculatingSupplyMetrics", () => {
     expect(result.totalSupply).toBeCloseTo(179999999.5, 6);
     expect(result.glowPrice).toBe(0.3105);
     expect(result.marketCap).toBeCloseTo(result.circulatingSupply * 0.3105, 6);
+  });
+
+  it("replaces snapshot vaulted delegated term with delegated-by-week override", () => {
+    const row = createSnapshotRow({
+      circulating_wei: "23796774472425106952085797",
+      breakdown: {
+        ...createSnapshotRow().breakdown,
+        total_supply_wei: "43144454480820105769093366",
+        vaulted_delegated_wei: "0",
+      },
+    });
+    const delegatedByWeekWei = "2484459260955067821057365";
+
+    const result = deriveGlowCirculatingSupplyMetrics(
+      row,
+      0.31209756002327427,
+      delegatedByWeekWei
+    );
+
+    const expectedCirculating = Number(
+      formatUnits(BigInt(row.circulating_wei) - BigInt(delegatedByWeekWei), 18)
+    );
+
+    expect(result.circulatingSupply).toBeCloseTo(expectedCirculating, 8);
+    expect(result.marketCap).toBeCloseTo(
+      expectedCirculating * 0.31209756002327427,
+      6
+    );
+  });
+
+  it("does not double-subtract when snapshot already includes vaulted delegated", () => {
+    const row = createSnapshotRow({
+      circulating_wei: parseUnits("100", 18).toString(),
+      breakdown: {
+        ...createSnapshotRow().breakdown,
+        total_supply_wei: parseUnits("150", 18).toString(),
+        vaulted_delegated_wei: parseUnits("20", 18).toString(),
+      },
+    });
+
+    const result = deriveGlowCirculatingSupplyMetrics(
+      row,
+      1,
+      parseUnits("20", 18).toString()
+    );
+
+    expect(result.circulatingSupply).toBe(100);
+    expect(result.marketCap).toBe(100);
   });
 
   it("returns zeros when snapshot row is missing", () => {
@@ -94,5 +142,14 @@ describe("deriveGlowCirculatingSupplyMetrics", () => {
       marketCap: 0,
       glowPrice: 0.25,
     });
+  });
+
+  it("ignores malformed delegated override and keeps snapshot circulating value", () => {
+    const row = createSnapshotRow({
+      circulating_wei: parseUnits("123.456", 18).toString(),
+    });
+
+    const result = deriveGlowCirculatingSupplyMetrics(row, 1, "bad-value");
+    expect(result.circulatingSupply).toBeCloseTo(123.456, 6);
   });
 });

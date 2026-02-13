@@ -96,30 +96,49 @@ const VESTING_SCHEDULE = [
   { year: "2030", unlocked: 86 },
 ];
 
+const POL_LIQUIDITY_GREEN = "hsl(142, 71%, 45%)";
+
+// Token Supply chart palette from app/globals.css design tokens.
 const VESTING_CATEGORIES = [
-  { key: "solarFarms" as const, label: "Solar farms", color: "#4ade80" },
-  { key: "grants" as const, label: "Grants", color: "#ffb472" },
-  { key: "governance" as const, label: "Governance", color: "#a855f7" },
-  { key: "ecosystem" as const, label: "Ecosystem", color: "#2081e2" },
+  {
+    key: "solarFarms" as const,
+    label: "Solar farms",
+    color: POL_LIQUIDITY_GREEN,
+  },
+  {
+    key: "grants" as const,
+    label: "Grants",
+    color: "var(--color-glow-orange)",
+  },
+  {
+    key: "governance" as const,
+    label: "Governance",
+    color: "var(--color-governance-accent)",
+  },
+  {
+    key: "ecosystem" as const,
+    label: "Ecosystem",
+    color: "var(--color-miner)",
+  },
   {
     key: "earlyStageFunding" as const,
     label: "Early stage funding",
-    color: "#d792ff",
+    color: "var(--color-4)",
   },
   {
     key: "lateStageFunding" as const,
     label: "Late stage funding",
-    color: "#06b6d4",
+    color: "var(--color-glow-purple)",
   },
   {
     key: "grantsBootstrap" as const,
     label: "Grants bootstrap",
-    color: "#facc15",
+    color: "var(--color-5)",
   },
   {
     key: "earlyLiquidityBootstrap" as const,
     label: "Liquidity bootstrap",
-    color: "#f87171",
+    color: "var(--color-1)",
   },
 ];
 
@@ -128,7 +147,7 @@ const vestingCategoryChartConfig = Object.fromEntries(
 ) as Record<string, { label: string; color: string }> satisfies ChartConfig;
 
 const vestingChartConfig = {
-  unlocked: { label: "Unlocked supply", color: "#ffb472" },
+  unlocked: { label: "Unlocked supply", color: "var(--color-glow-orange)" },
 } satisfies ChartConfig;
 
 const delegationTrendChartConfig = {
@@ -151,7 +170,7 @@ const walletGrowthChartConfig = {
 } satisfies ChartConfig;
 
 const polLiquidityChartConfig = {
-  liquidity: { label: "PoL liquidity", color: "hsl(142, 71%, 45%)" },
+  liquidity: { label: "PoL liquidity", color: POL_LIQUIDITY_GREEN },
 } satisfies ChartConfig;
 
 const REGION_COLORS: Record<string, string> = {
@@ -189,11 +208,6 @@ function formatNumber(value: number) {
 
 function formatUsdCompact(value: number) {
   return formatUsdCompactPrecise(value);
-}
-
-function formatUsdCompactNullable(value: number | null) {
-  if (value === null || !Number.isFinite(value)) return "—";
-  return formatUsdCompact(value);
 }
 
 // For hero KPIs where we always want compact currency formatting (e.g. `$335.7K`)
@@ -295,14 +309,6 @@ function formatCompactNumberTwoDecimals(value: number) {
 
 function formatLiquidityCompact(value: number) {
   return `${LIQUIDITY_UNIT}${formatCompactNumberPrecise(value)}`;
-}
-
-function formatSignedLiquidityCompact(value: number) {
-  if (!Number.isFinite(value)) return "—";
-  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
-  return `${sign}${LIQUIDITY_UNIT}${formatCompactNumberPrecise(
-    Math.abs(value)
-  )}`;
 }
 
 function formatCompactNumber(value: number) {
@@ -896,14 +902,8 @@ function PolLiquidityTooltip({
         weekStartMs?: number;
         weekEndMs?: number;
         liquidity?: number;
-        deltaLiquidity?: number | null;
         endowmentLiquidity?: number;
-        deltaEndowmentLiquidity?: number | null;
         botActiveLiquidity?: number;
-        deltaBotActiveLiquidity?: number | null;
-        usdValue?: number | null;
-        deltaUsdValue?: number | null;
-        spotPrice?: number | null;
       }
     | undefined;
   if (!p) return null;
@@ -938,35 +938,12 @@ function PolLiquidityTooltip({
               : "—"}
           </div>
         </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <div className="text-xs text-muted-foreground">Δ vs prior</div>
-          <div className="text-sm font-mono tabular-nums text-foreground">
-            {p.deltaLiquidity === null || p.deltaLiquidity === undefined
-              ? "—"
-              : formatSignedLiquidityCompact(p.deltaLiquidity)}
-          </div>
-        </div>
-
-        <div className="h-px bg-border/10 dark:bg-border/20" />
-
         <div className="flex items-center justify-between gap-4">
           <div className="text-xs text-muted-foreground">Endowment</div>
           <div className="text-sm font-mono tabular-nums text-foreground">
             {typeof p.endowmentLiquidity === "number"
               ? formatLiquidityCompact(p.endowmentLiquidity)
               : "—"}
-          </div>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-            Δ Endowment
-          </div>
-          <div className="text-xs font-mono tabular-nums text-foreground">
-            {p.deltaEndowmentLiquidity === null ||
-            p.deltaEndowmentLiquidity === undefined
-              ? "—"
-              : formatSignedLiquidityCompact(p.deltaEndowmentLiquidity)}
           </div>
         </div>
 
@@ -976,51 +953,6 @@ function PolLiquidityTooltip({
             {typeof p.botActiveLiquidity === "number"
               ? formatLiquidityCompact(p.botActiveLiquidity)
               : "—"}
-          </div>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-            Δ Trading bot
-          </div>
-          <div className="text-xs font-mono tabular-nums text-foreground">
-            {p.deltaBotActiveLiquidity === null ||
-            p.deltaBotActiveLiquidity === undefined
-              ? "—"
-              : formatSignedLiquidityCompact(p.deltaBotActiveLiquidity)}
-          </div>
-        </div>
-
-        <div className="mt-1 rounded-xl bg-muted/20 dark:bg-background/40 border border-border/10 dark:border-border/20 px-3 py-2">
-          <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-            As-of snapshot
-          </div>
-          <div className="mt-1 space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground">Spot</span>
-              <span className="text-xs font-mono tabular-nums text-foreground">
-                {p.spotPrice === null || p.spotPrice === undefined
-                  ? "—"
-                  : `$${formatNullableFixed(p.spotPrice, 4)}`}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground">USD value</span>
-              <span className="text-xs font-mono tabular-nums text-foreground">
-                {p.usdValue === null || p.usdValue === undefined
-                  ? "—"
-                  : formatUsdCompactNullable(p.usdValue)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                Δ USD
-              </span>
-              <span className="text-xs font-mono tabular-nums text-foreground">
-                {p.deltaUsdValue === null || p.deltaUsdValue === undefined
-                  ? "—"
-                  : formatUsdCompactNullable(p.deltaUsdValue)}
-              </span>
-            </div>
           </div>
         </div>
       </div>
@@ -2191,62 +2123,10 @@ export function PolDashboardView() {
     );
     if (windowed.length < 2) return null;
 
-    return windowed.map((row, index) => {
-      const prev = index > 0 ? windowed[index - 1] : null;
+    return windowed.map((row) => {
       const liquidity = parseLqUnits(row.totalLq) ?? 0;
-      const prevLiquidity = prev ? parseLqUnits(prev.totalLq) ?? 0 : null;
-      const deltaLiquidity =
-        prevLiquidity === null ? null : liquidity - prevLiquidity;
-
       const endowmentLiquidity = parseLqUnits(row.endowmentLq) ?? 0;
-      const prevEndowmentLiquidity = prev
-        ? parseLqUnits(prev.endowmentLq) ?? 0
-        : null;
-      const deltaEndowmentLiquidity =
-        prevEndowmentLiquidity === null
-          ? null
-          : endowmentLiquidity - prevEndowmentLiquidity;
-
       const botActiveLiquidity = parseLqUnits(row.botActiveLq) ?? 0;
-      const prevBotActiveLiquidity = prev
-        ? parseLqUnits(prev.botActiveLq) ?? 0
-        : null;
-      const deltaBotActiveLiquidity =
-        prevBotActiveLiquidity === null
-          ? null
-          : botActiveLiquidity - prevBotActiveLiquidity;
-
-      const usdValue = (() => {
-        const raw = row.totalUsdUsdc6;
-        if (!raw) return null;
-        try {
-          const n = Number(formatUnits(BigInt(raw), 6));
-          return Number.isFinite(n) ? n : null;
-        } catch {
-          return null;
-        }
-      })();
-      const prevUsdValue = prev?.totalUsdUsdc6
-        ? (() => {
-            try {
-              const n = Number(formatUnits(BigInt(prev.totalUsdUsdc6), 6));
-              return Number.isFinite(n) ? n : null;
-            } catch {
-              return null;
-            }
-          })()
-        : null;
-      const deltaUsdValue =
-        prevUsdValue === null || usdValue === null
-          ? null
-          : usdValue - prevUsdValue;
-
-      const spotPrice = (() => {
-        const raw = row.spotPriceUsdgPerGlw;
-        if (!raw) return null;
-        const n = Number(raw);
-        return Number.isFinite(n) ? n : null;
-      })();
       const weekEndMs =
         row.asOfTimestamp && Number.isFinite(row.asOfTimestamp)
           ? row.asOfTimestamp * 1000
@@ -2259,14 +2139,8 @@ export function PolDashboardView() {
         weekStartMs,
         weekEndMs,
         liquidity,
-        deltaLiquidity,
         endowmentLiquidity,
-        deltaEndowmentLiquidity,
         botActiveLiquidity,
-        deltaBotActiveLiquidity,
-        usdValue,
-        deltaUsdValue,
-        spotPrice,
       };
     });
   }, [polLiquiditySeries]);
@@ -3667,7 +3541,7 @@ export function PolDashboardView() {
                             stroke={c.color}
                             strokeWidth={1}
                             fill={c.color}
-                            fillOpacity={0.85}
+                            fillOpacity={0.2}
                             dot={false}
                             activeDot={false}
                           />
@@ -3693,13 +3567,13 @@ export function PolDashboardView() {
                           >
                             <stop
                               offset="0%"
-                              stopColor="#ffb472"
-                              stopOpacity={0.4}
+                              stopColor="var(--color-glow-orange)"
+                              stopOpacity={0.2}
                             />
                             <stop
                               offset="100%"
-                              stopColor="#ffb472"
-                              stopOpacity={0.05}
+                              stopColor="var(--color-glow-orange)"
+                              stopOpacity={0.2}
                             />
                           </linearGradient>
                         </defs>
@@ -3745,13 +3619,13 @@ export function PolDashboardView() {
                         <Area
                           type="monotone"
                           dataKey="unlocked"
-                          stroke="#ffb472"
+                          stroke="var(--color-glow-orange)"
                           strokeWidth={2.5}
                           fill="url(#vestingGradient)"
                           dot={false}
                           activeDot={{
                             r: 5,
-                            fill: "#ffb472",
+                            fill: "var(--color-glow-orange)",
                             stroke: "var(--card)",
                             strokeWidth: 2,
                           }}

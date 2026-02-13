@@ -58,6 +58,7 @@
   --color-glow-yellow: #f7fcc4;
   --color-glow-green: #ccffd4;
   --color-glow-purple: #dcc4ff;
+  --color-governance-accent: #050505;
   --color-delegation-purple: var(--delegation-purple);
 
   /* Animation keyframes and utilities */
@@ -272,6 +273,7 @@
   --color-glow-yellow: #f7fcc4;
   --color-glow-green: #ccffd4;
   --color-glow-purple: #d792ff;
+  --color-governance-accent: #050505;
   --delegation-purple: #a855f7;
 
   /* Semantic: Protocol role colors */
@@ -358,6 +360,7 @@
   --color-glow-yellow: #f7fcc4;
   --color-glow-green: #ccffd4;
   --color-glow-purple: #d792ff;
+  --color-governance-accent: #ffffff;
   --delegation-purple: #d792ff;
 
   /* Semantic: Protocol role colors */
