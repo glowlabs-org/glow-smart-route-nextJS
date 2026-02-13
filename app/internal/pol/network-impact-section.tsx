@@ -78,6 +78,7 @@ type ZoneLegendItem = {
   clusterCount: number;
   farmCount: number;
 };
+type PositionedFarm = PolFarmLocationRow & { lat: number; lng: number };
 
 interface ImpactTotals {
   panels: number | null;
@@ -268,9 +269,9 @@ export function NetworkImpactSection({
     if (!activeZone) return allClusters;
     return allClusters.filter((cluster) => cluster.zoneName === activeZone);
   }, [allClusters, activeZone]);
-  const visibleFarmsForBounds = React.useMemo(
+  const visibleFarmsForBounds = React.useMemo<PositionedFarm[]>(
     () =>
-      (data?.farms ?? []).filter((farm) => {
+      (data?.farms ?? []).filter((farm): farm is PositionedFarm => {
         if (!isFiniteNumber(farm.lat) || !isFiniteNumber(farm.lng)) return false;
         if (activeZone === US_FILTER_KEY) return isUsCoordinate(farm.lat, farm.lng);
         if (!activeZone) return true;
@@ -465,7 +466,6 @@ export function NetworkImpactSection({
                         key={cluster.id}
                         longitude={cluster.lng}
                         latitude={cluster.lat}
-                        tabIndex={-1}
                         onClick={() => handleClusterClick(cluster)}
                       >
                         <MarkerContent>
