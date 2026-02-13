@@ -618,7 +618,7 @@ export function NetworkImpactSection({
           </div>
 
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3 lg:gap-6">
-            <div className="rounded-xl border border-border/20 bg-muted/20 p-5 lg:p-6">
+            <div className="rounded-xl border border-border/20 bg-muted/40 dark:bg-muted/80 p-5 lg:p-6">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                 Total Panels
               </div>
@@ -626,7 +626,7 @@ export function NetworkImpactSection({
                 {formatWholeNumber(impactTotals?.panels ?? null)}
               </div>
             </div>
-            <div className="rounded-xl border border-border/20 bg-muted/20 p-5 lg:p-6">
+            <div className="rounded-xl border border-border/20 bg-muted/40 dark:bg-muted/80 p-5 lg:p-6">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                 Installed Capacity
               </div>
@@ -635,7 +635,7 @@ export function NetworkImpactSection({
               </div>
               <div className="text-xs text-muted-foreground mt-1">MW</div>
             </div>
-            <div className="rounded-xl border border-border/20 bg-muted/20 p-5 lg:p-6">
+            <div className="rounded-xl border border-border/20 bg-muted/40 dark:bg-muted/80 p-5 lg:p-6">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                 Trees Equivalent
               </div>
