@@ -143,9 +143,20 @@ function clusterStepForZoom(zoom: number): number {
   return COARSE_CLUSTER_STEP_DEGREES;
 }
 
+function clusterStepForZoomMobile(zoom: number): number {
+  if (zoom >= 5.4) return 0.02;
+  if (zoom >= 4.8) return 0.04;
+  if (zoom >= 4.2) return 0.06;
+  if (zoom >= 3.6) return 0.1;
+  if (zoom >= 3.0) return 0.16;
+  if (zoom >= 2.4) return 0.26;
+  return 0.4;
+}
+
 function buildClusters(
   farms: PolFarmLocationRow[] | undefined,
-  clusterStepDegrees: number
+  clusterStepDegrees: number,
+  isMobile: boolean
 ): MapCluster[] {
   const groups = new Map<
     string,
@@ -241,9 +252,11 @@ function buildClusters(
   return clustered
     .map((cluster) => {
       const intensity = Math.max(0.2, cluster.panels / maxPanels);
+      const baseRadius = isMobile ? 5.2 : 4;
+      const scaleRadius = isMobile ? 11.8 : 10;
       return {
         ...cluster,
-        radius: 4 + intensity * 10,
+        radius: baseRadius + intensity * scaleRadius,
       };
     })
     .sort((a, b) => b.panels - a.panels);
@@ -256,11 +269,31 @@ export function NetworkImpactSection({
   const mapRef = React.useRef<MapRef | null>(null);
   const [activeZone, setActiveZone] = React.useState<string | null>(US_FILTER_KEY);
   const [mapZoom, setMapZoom] = React.useState(DEFAULT_US_ZOOM);
+  const [isMobile, setIsMobile] = React.useState(false);
 
-  const clusterStepDegrees = React.useMemo(() => clusterStepForZoom(mapZoom), [mapZoom]);
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(max-width: 768px)");
+    const apply = () => setIsMobile(mediaQuery.matches);
+    apply();
+
+    const onChange = () => apply();
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", onChange);
+      return () => mediaQuery.removeEventListener("change", onChange);
+    }
+    mediaQuery.addListener(onChange);
+    return () => mediaQuery.removeListener(onChange);
+  }, []);
+
+  const clusterStepDegrees = React.useMemo(
+    () =>
+      isMobile ? clusterStepForZoomMobile(mapZoom) : clusterStepForZoom(mapZoom),
+    [isMobile, mapZoom]
+  );
   const allClusters = React.useMemo(
-    () => buildClusters(data?.farms, clusterStepDegrees),
-    [data?.farms, clusterStepDegrees]
+    () => buildClusters(data?.farms, clusterStepDegrees, isMobile),
+    [data?.farms, clusterStepDegrees, isMobile]
   );
   const visibleClusters = React.useMemo(() => {
     if (activeZone === US_FILTER_KEY) {
@@ -324,16 +357,16 @@ export function NetworkImpactSection({
         map.easeTo({
           center: [cluster.lng, cluster.lat],
           zoom: Math.min(7, currentZoom + 2.6),
-          duration: 750,
+          duration: isMobile ? 600 : 750,
           essential: true,
         });
         return;
       }
 
       map.fitBounds(cluster.bounds, {
-        padding: 88,
-        maxZoom: 6.8,
-        duration: 760,
+        padding: isMobile ? 56 : 88,
+        maxZoom: isMobile ? 7 : 6.8,
+        duration: isMobile ? 620 : 760,
       });
       return;
     }
@@ -342,10 +375,10 @@ export function NetworkImpactSection({
     map.easeTo({
       center: [cluster.lng, cluster.lat],
       zoom: Math.min(7, Math.max(2.2, currentZoom + 1.2)),
-      duration: 650,
+      duration: isMobile ? 560 : 650,
       essential: true,
     });
-  }, []);
+  }, [isMobile]);
 
   React.useEffect(() => {
     const map = mapRef.current;
@@ -355,7 +388,7 @@ export function NetworkImpactSection({
       map.easeTo({
         center: [8, 22],
         zoom: 1.25,
-        duration: 650,
+        duration: isMobile ? 520 : 650,
         essential: true,
       });
       return;
@@ -366,8 +399,8 @@ export function NetworkImpactSection({
     if (visibleFarmsForBounds.length === 1) {
       map.easeTo({
         center: [visibleFarmsForBounds[0]!.lng, visibleFarmsForBounds[0]!.lat],
-        zoom: 5.2,
-        duration: 650,
+        zoom: isMobile ? 5.8 : 5.2,
+        duration: isMobile ? 520 : 650,
         essential: true,
       });
       return;
@@ -386,16 +419,19 @@ export function NetworkImpactSection({
         [maxLng, maxLat],
       ],
       {
-        padding: 72,
-        maxZoom: 5.6,
-        duration: 700,
+        padding: isMobile ? 44 : 72,
+        maxZoom: isMobile ? 6 : 5.6,
+        duration: isMobile ? 560 : 700,
       }
     );
-  }, [activeZone, visibleFarmsForBounds]);
+  }, [activeZone, isMobile, visibleFarmsForBounds]);
 
   const handleViewportChange = React.useCallback((viewport: { zoom: number }) => {
-    setMapZoom((current) => (Math.abs(current - viewport.zoom) > 0.07 ? viewport.zoom : current));
-  }, []);
+    const deltaThreshold = isMobile ? 0.2 : 0.08;
+    setMapZoom((current) =>
+      Math.abs(current - viewport.zoom) > deltaThreshold ? viewport.zoom : current
+    );
+  }, [isMobile]);
 
   return (
     <section className="flex flex-col gap-6 pt-16">
@@ -441,7 +477,7 @@ export function NetworkImpactSection({
 
             <div className="xl:col-span-8">
               <div className="rounded-2xl border border-border/20 bg-muted/20 dark:bg-[#0b1220] overflow-hidden">
-                <div className="h-[320px] sm:h-[360px] w-full">
+                <div className="h-[280px] sm:h-[340px] lg:h-[360px] w-full">
                   <UiMap
                     ref={mapRef}
                     className="h-full w-full"
@@ -471,14 +507,20 @@ export function NetworkImpactSection({
                         <MarkerContent>
                           <div className="group relative flex items-center justify-center">
                             <span
-                              className="pointer-events-none absolute rounded-full animate-pulse"
+                              className={`pointer-events-none absolute rounded-full${
+                                isMobile ? "" : " animate-pulse"
+                              }`}
                               style={{
                                 width: `${cluster.radius * 3.6}px`,
                                 height: `${cluster.radius * 3.6}px`,
                                 backgroundColor: cluster.color,
                                 opacity: index < 8 ? 0.36 : 0.24,
-                                animationDuration: `${2 + (index % 4) * 0.4}s`,
-                                animationDelay: `${(index % 8) * 120}ms`,
+                                animationDuration: isMobile
+                                  ? undefined
+                                  : `${2 + (index % 4) * 0.4}s`,
+                                animationDelay: isMobile
+                                  ? undefined
+                                  : `${(index % 8) * 120}ms`,
                               }}
                             />
                             <span
@@ -532,7 +574,12 @@ export function NetworkImpactSection({
                       </MapMarker>
                     ))}
 
-                    <MapControls position="bottom-right" showZoom showCompass={false} showFullscreen={false} />
+                    <MapControls
+                      position={isMobile ? "top-right" : "bottom-right"}
+                      showZoom
+                      showCompass={false}
+                      showFullscreen={false}
+                    />
                   </UiMap>
                 </div>
               </div>
@@ -548,14 +595,14 @@ export function NetworkImpactSection({
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible sm:pb-0 sm:pr-0">
                 <button
                   type="button"
                   onClick={() => setActiveZone(null)}
                   className={
                     activeZone === null
-                      ? "inline-flex items-center gap-1.5 rounded-full border border-border/30 bg-foreground px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-background"
-                      : "inline-flex items-center gap-1.5 rounded-full border border-border/20 bg-muted/30 px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/80 transition-colors hover:bg-muted/50"
+                      ? "shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/30 bg-foreground px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-background"
+                      : "shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/20 bg-muted/30 px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/80 transition-colors hover:bg-muted/50"
                   }
                 >
                   All
@@ -569,8 +616,8 @@ export function NetworkImpactSection({
                   }
                   className={
                     activeZone === US_FILTER_KEY
-                      ? "inline-flex items-center gap-1.5 rounded-full border border-border/30 bg-foreground px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-background"
-                      : "inline-flex items-center gap-1.5 rounded-full border border-border/20 bg-muted/30 px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/80 transition-colors hover:bg-muted/50"
+                      ? "shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/30 bg-foreground px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-background"
+                      : "shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/20 bg-muted/30 px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/80 transition-colors hover:bg-muted/50"
                   }
                 >
                   <span className="text-[11px] leading-none">🇺🇸</span>
@@ -598,8 +645,8 @@ export function NetworkImpactSection({
                       }
                       className={
                         isActive
-                          ? "inline-flex items-center gap-1.5 rounded-full border border-border/30 bg-foreground px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-background"
-                          : "inline-flex items-center gap-1.5 rounded-full border border-border/20 bg-muted/30 px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/80 transition-colors hover:bg-muted/50"
+                          ? "shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/30 bg-foreground px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-background"
+                          : "shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/20 bg-muted/30 px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/80 transition-colors hover:bg-muted/50"
                       }
                     >
                       <span

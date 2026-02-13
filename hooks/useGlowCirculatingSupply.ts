@@ -48,7 +48,14 @@ export function useGlowCirculatingSupply(options?: { enabled?: boolean }) {
     return typeof fromStringIndex === "string" ? fromStringIndex : null;
   }, [delegatedByWeekQuery.data?.byWeek, latestWeek]);
 
-  const { circulatingSupply, totalSupply, marketCap, glowPrice } =
+  const isDelegatedNormalizationPending =
+    enabled &&
+    latestWeek !== null &&
+    delegatedByWeekWei === null &&
+    !delegatedByWeekQuery.isError &&
+    (delegatedByWeekQuery.isLoading || delegatedByWeekQuery.isFetching);
+
+  const derivedMetrics =
     React.useMemo(
       () =>
         deriveGlowCirculatingSupplyMetrics(
@@ -58,6 +65,13 @@ export function useGlowCirculatingSupply(options?: { enabled?: boolean }) {
         ),
       [delegatedByWeekWei, latestSnapshot, spotPrice]
     );
+
+  const circulatingSupply = isDelegatedNormalizationPending
+    ? 0
+    : derivedMetrics.circulatingSupply;
+  const marketCap = isDelegatedNormalizationPending ? 0 : derivedMetrics.marketCap;
+  const totalSupply = derivedMetrics.totalSupply;
+  const glowPrice = derivedMetrics.glowPrice;
 
   const refetchMarketCap = React.useCallback(async () => {
     await Promise.all([
@@ -76,7 +90,11 @@ export function useGlowCirculatingSupply(options?: { enabled?: boolean }) {
     totalSupply,
     marketCap,
     glowPrice,
-    isLoading: isSpotPriceLoading || snapshotQuery.isLoading || isDelegatedWeekLoading,
+    isLoading:
+      isSpotPriceLoading ||
+      snapshotQuery.isLoading ||
+      isDelegatedWeekLoading ||
+      isDelegatedNormalizationPending,
     isFetching: snapshotQuery.isFetching || delegatedByWeekQuery.isFetching,
     error: snapshotQuery.error ?? delegatedByWeekQuery.error,
     refetchMarketCap,
