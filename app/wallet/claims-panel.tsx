@@ -488,11 +488,13 @@ function ClaimButtonsWrapper({
     claimDialogStatus,
     checkIfClaimed,
     checkIfGlwClaimed,
+    glwClaimed,
     hasGlwRewards,
     hasProtocolDeposits,
     isGlwFinalized,
     isPdFinalized,
     onClaimStatusChange,
+    protocolClaimed,
     weekData.week,
   ]);
 
@@ -1488,6 +1490,7 @@ export function ClaimsPanel({
     }
   }, [
     activeClaim,
+    address,
     checkSmartAccount,
     claimWeekRewards,
     updateStageStatus,
