@@ -308,8 +308,21 @@ function formatCompactNumberTwoDecimals(value: number) {
   }).format(value);
 }
 
+function formatCompactNumberForceCompact(value: number) {
+  const abs = Math.abs(value);
+  if (abs >= 1_000) {
+    return new Intl.NumberFormat("en-US", {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(value);
+  }
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: abs < 10 ? 2 : 1,
+  }).format(value);
+}
+
 function formatLiquidityCompact(value: number) {
-  return `${LIQUIDITY_UNIT}${formatCompactNumberPrecise(value)}`;
+  return `${LIQUIDITY_UNIT}${formatCompactNumberForceCompact(value)}`;
 }
 
 function formatCompactNumber(value: number) {
@@ -499,6 +512,233 @@ type FarmRow = {
   auditWeek?: number | null;
 };
 
+type GrowthCardKey =
+  | "installations"
+  | "liquidityGrowth"
+  | "circulatingGrowth"
+  | "embeddedGrowth";
+
+type MiniBlogId =
+  | "glow-economy-basics"
+  | "glw-token-basics"
+  | "liquidity-basics"
+  | "control-basics"
+  | "solar-installations-basics"
+  | "uniswap-vs-protocol-liquidity"
+  | "circulating-vs-non-circulating"
+  | "embedded-liquidity-growth-basics"
+  | "circulating-supply-basics"
+  | "why-liquidity-instead-of-dollars"
+  | "farm-revenue-distribution"
+  | "gctl-basics"
+  | "wallet-participants-basics"
+  | "delegation-metrics-basics"
+  | "region-revenue-basics";
+
+type MiniBlogEntry = {
+  title: string;
+  paragraphs: string[];
+  learnMore: [MiniBlogId, MiniBlogId, MiniBlogId];
+};
+
+type ModalBlogKey =
+  | "overview"
+  | "growthCards"
+  | "supply"
+  | "farm"
+  | "polLiquidity"
+  | "gctl"
+  | "walletStats"
+  | "delegation"
+  | "regions";
+
+type ModalBlogState = {
+  current: MiniBlogId;
+  history: MiniBlogId[];
+};
+
+const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
+  "glow-economy-basics": {
+    title: "Glow Economy Basics",
+    paragraphs: [
+      "Just as Bitcoin turned tokens into mining machines, Glow turns tokens into solar farms. And just as BTC is the main token of the Bitcoin economy, GLW is the main token of the Glow economy. Each week, new GLW is minted via inflation and distributed to solar farms being built on the protocol.",
+      "Glow generates revenue by selling the ability to control where these solar farms get built. As users pay for control rights, revenue is used to permanently add liquidity to GLW. Because the liquidity is permanently part of the protocol, it is called Embedded Liquidity.",
+    ],
+    learnMore: ["glw-token-basics", "liquidity-basics", "control-basics"],
+  },
+  "glw-token-basics": {
+    title: "GLW Token Basics",
+    paragraphs: [
+      "GLW is the core token of the Glow economy. Weekly inflation mints new GLW and routes it into protocol activity tied to real-world solar deployment.",
+      "As protocol activity grows, GLW utility compounds across delegation, control rights, and embedded liquidity mechanics.",
+    ],
+    learnMore: ["liquidity-basics", "control-basics", "glow-economy-basics"],
+  },
+  "liquidity-basics": {
+    title: "Liquidity Basics",
+    paragraphs: [
+      "Embedded liquidity is protocol-owned GLW/USDC depth that remains permanently in the system.",
+      "Because the protocol owns the liquidity directly, it can expand exit depth over time without relying on temporary external incentives.",
+    ],
+    learnMore: [
+      "why-liquidity-instead-of-dollars",
+      "glw-token-basics",
+      "control-basics",
+    ],
+  },
+  "control-basics": {
+    title: "Control Basics",
+    paragraphs: [
+      "Glow revenue comes from users paying for control rights that influence where solar farms are built.",
+      "That control-driven revenue is recycled into embedded liquidity and broader protocol growth.",
+    ],
+    learnMore: ["gctl-basics", "liquidity-basics", "glw-token-basics"],
+  },
+  "solar-installations-basics": {
+    title: "Total Solar Installations",
+    paragraphs: [
+      "This count includes every solar installation Glow has funded and built, including installations that are no longer earning rewards.",
+      "Installations vary by size, region, and production profile, but all contribute to the protocol's deployment footprint.",
+    ],
+    learnMore: [
+      "farm-revenue-distribution",
+      "circulating-vs-non-circulating",
+      "liquidity-basics",
+    ],
+  },
+  "uniswap-vs-protocol-liquidity": {
+    title: "Uniswap Liquidity vs Protocol Liquidity",
+    paragraphs: [
+      "Uniswap liquidity can be mercenary and leave during volatility. Protocol liquidity is owned by Glow and designed to persist through market cycles.",
+      "That permanence is why embedded liquidity is treated as strategic infrastructure rather than short-term incentives.",
+    ],
+    learnMore: [
+      "liquidity-basics",
+      "why-liquidity-instead-of-dollars",
+      "control-basics",
+    ],
+  },
+  "circulating-vs-non-circulating": {
+    title: "Circulating vs Non-Circulating",
+    paragraphs: [
+      "Glow classifies supply as circulating when tokens are liquid and economically available to the market.",
+      "Tokens structurally locked in protocol mechanisms are tracked separately so circulating growth reflects practical market float.",
+    ],
+    learnMore: [
+      "circulating-supply-basics",
+      "liquidity-basics",
+      "why-liquidity-instead-of-dollars",
+    ],
+  },
+  "embedded-liquidity-growth-basics": {
+    title: "Annualized Embedded Liquidity Growth",
+    paragraphs: [
+      "Embedded liquidity growth measures how quickly protocol-owned depth is compounding from revenue and market activity.",
+      "Because the base is still scaling, annualized growth can remain high while absolute depth also rises.",
+    ],
+    learnMore: [
+      "uniswap-vs-protocol-liquidity",
+      "liquidity-basics",
+      "control-basics",
+    ],
+  },
+  "circulating-supply-basics": {
+    title: "Circulating Supply Basics",
+    paragraphs: [
+      "Circulating supply is modeled as liquid GLW available to market participants after accounting for embedded and delegated balances.",
+      "As price and protocol allocation shift, circulating levels adapt dynamically rather than remaining static.",
+    ],
+    learnMore: [
+      "liquidity-basics",
+      "why-liquidity-instead-of-dollars",
+      "circulating-vs-non-circulating",
+    ],
+  },
+  "why-liquidity-instead-of-dollars": {
+    title: "Why Liquidity Instead of Dollars",
+    paragraphs: [
+      "Glow routes value into persistent liquidity instead of distributing all revenue directly as dollars.",
+      "That design prioritizes long-term exit depth and token resilience over short-term payout optics.",
+    ],
+    learnMore: [
+      "liquidity-basics",
+      "circulating-supply-basics",
+      "uniswap-vs-protocol-liquidity",
+    ],
+  },
+  "farm-revenue-distribution": {
+    title: "How Farm Revenue Is Distributed",
+    paragraphs: [
+      "Regional revenue is driven by control rights and miner flows tied to that region.",
+      "Inside each region, revenue attribution follows projected lifetime credit production, so higher projected output receives more revenue share.",
+    ],
+    learnMore: [
+      "solar-installations-basics",
+      "control-basics",
+      "region-revenue-basics",
+    ],
+  },
+  "gctl-basics": {
+    title: "GCTL Basics",
+    paragraphs: [
+      "GCTL directs where protocol deployment and associated revenue are routed.",
+      "Staking distribution across regions reveals where control demand is concentrated.",
+    ],
+    learnMore: ["control-basics", "region-revenue-basics", "liquidity-basics"],
+  },
+  "wallet-participants-basics": {
+    title: "Wallet Participants Basics",
+    paragraphs: [
+      "Protocol participants include wallets interacting with delegation, mining, and control mechanics.",
+      "A single wallet can appear in multiple categories, so category percentages are not mutually exclusive.",
+    ],
+    learnMore: [
+      "delegation-metrics-basics",
+      "gctl-basics",
+      "glw-token-basics",
+    ],
+  },
+  "delegation-metrics-basics": {
+    title: "Delegation Metrics Basics",
+    paragraphs: [
+      "Delegation tracks how much GLW is actively committed in protocol voting and routing mechanisms.",
+      "Growth trends help contextualize participation depth and the share of supply committed long term.",
+    ],
+    learnMore: [
+      "wallet-participants-basics",
+      "circulating-supply-basics",
+      "control-basics",
+    ],
+  },
+  "region-revenue-basics": {
+    title: "Per-Region Revenue Basics",
+    paragraphs: [
+      "Region-level revenue compares where protocol flows are concentrated and how efficiently each region converts staked control into outcomes.",
+      "Comparing two regions side-by-side is useful for understanding strategic differences in routing and production.",
+    ],
+    learnMore: ["gctl-basics", "farm-revenue-distribution", "control-basics"],
+  },
+};
+
+const INITIAL_MODAL_BLOGS: Record<ModalBlogKey, MiniBlogId> = {
+  overview: "glow-economy-basics",
+  growthCards: "solar-installations-basics",
+  supply: "circulating-supply-basics",
+  farm: "farm-revenue-distribution",
+  polLiquidity: "uniswap-vs-protocol-liquidity",
+  gctl: "gctl-basics",
+  walletStats: "wallet-participants-basics",
+  delegation: "delegation-metrics-basics",
+  regions: "region-revenue-basics",
+};
+
+const GROWTH_CARD_BLOG: Record<GrowthCardKey, MiniBlogId> = {
+  installations: "solar-installations-basics",
+  liquidityGrowth: "uniswap-vs-protocol-liquidity",
+  circulatingGrowth: "circulating-vs-non-circulating",
+  embeddedGrowth: "uniswap-vs-protocol-liquidity",
+};
+
 function WalletGrowthTooltip({
   active,
   payload,
@@ -565,11 +805,19 @@ function FarmDetailsDialog({
   onOpenChange,
   selectedFarm,
   displayPrice,
+  blogId,
+  onSelectBlog,
+  onBackBlog,
+  canGoBack,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedFarm: FarmRow | null;
   displayPrice: number;
+  blogId: MiniBlogId;
+  onSelectBlog: (blogId: MiniBlogId) => void;
+  onBackBlog: () => void;
+  canGoBack: boolean;
 }) {
   const lifetimeValue =
     selectedFarm?.lifetimeLq !== null && selectedFarm?.lifetimeLq !== undefined
@@ -601,164 +849,113 @@ function FarmDetailsDialog({
     selectedFarm?.panels !== null && selectedFarm?.panels !== undefined
       ? formatNumber(selectedFarm.panels)
       : "—";
-  const subtitle = selectedFarm
-    ? `${selectedFarm.name} · ${selectedFarm.region} · ${selectedFarm.panels} panels`
-    : "Select a farm to view details";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[980px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
-        <div className="border-b border-border/40 pb-6 pt-8 px-6">
-          <div className="flex flex-col items-center text-center space-y-2">
-            <DialogHeader>
-              <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                Farm Details
-              </DialogTitle>
-              <DialogDescription className="sr-only">
-                Farm details dialog
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="text-5xl sm:text-6xl font-mono font-semibold text-foreground tracking-tighter tabular-nums">
-              {lifetimeValue}
-            </div>
-            {lifetimeBreakdown ? (
-              <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70 uppercase tracking-wider">
-                {lifetimeBreakdown}
-              </div>
-            ) : null}
-            <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70 uppercase tracking-wider">
-              {subtitle}
-            </div>
-          </div>
-        </div>
+        <DialogHeader className="sr-only">
+          <DialogTitle>Solar Farm Economics</DialogTitle>
+          <DialogDescription>Solar farm details and revenue stats.</DialogDescription>
+        </DialogHeader>
 
         <ScrollArea className="max-h-[70vh]">
-          <div className="p-5 space-y-8">
+          <div className="p-6 space-y-6">
             {!selectedFarm ? (
               <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 text-sm text-muted-foreground">
                 Select a farm to view details.
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-[280px_1fr]">
-                  <div className="rounded-xl overflow-hidden bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40">
-                    <div className="relative h-44 w-full bg-muted/40 dark:bg-muted/60">
-                      {selectedFarm.imageUrl ? (
-                        <FallbackImage
-                          src={selectedFarm.imageUrl}
-                          widthForProxy={900}
-                          quality={85}
-                          alt={selectedFarm.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-muted/40 dark:bg-muted/60 flex items-center justify-center">
-                          <span className="text-3xl opacity-25">&#9728;</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-4 space-y-4">
-                      <div>
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                          {selectedFarm.region}
-                        </div>
-                        <div className="mt-1 text-lg font-semibold tracking-tight text-foreground">
-                          {selectedFarm.name}
-                        </div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {selectedFarm.panels} panels
-                        </div>
+                <div className="rounded-2xl overflow-hidden border border-border/20 bg-muted/20">
+                  <div className="relative h-56 w-full bg-muted/40 dark:bg-muted/60">
+                    {selectedFarm.imageUrl ? (
+                      <FallbackImage
+                        src={selectedFarm.imageUrl}
+                        widthForProxy={900}
+                        quality={85}
+                        alt={selectedFarm.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-muted/40 dark:bg-muted/60 flex items-center justify-center">
+                        <span className="text-3xl opacity-25">&#9728;</span>
                       </div>
-
-                      <div className="rounded-xl bg-card border border-border/20 dark:border-border/40 p-3">
-                        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                          Lifetime Progress
-                        </div>
-                        <div className="mt-1 font-mono font-semibold tabular-nums text-foreground">
-                          {lifetimeProgress}
-                        </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/10" />
+                    <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
+                      <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
+                        {selectedFarm.region}
                       </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="text-xs font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
-                      Solar Farm Economics
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                          Generated Revenue
-                        </div>
-                        <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
-                          {lifetimeValue}
-                        </div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {lifetimeBreakdown ?? "Live data unavailable"}
-                        </div>
+                      <h3 className="mt-1 text-xl sm:text-2xl font-semibold tracking-tight text-white">
+                        {selectedFarm.name}
+                      </h3>
+                      <div className="mt-1 text-xs font-mono uppercase tracking-widest text-white/70">
+                        {selectedFarm.panels} panels
                       </div>
-                      <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                          Lifetime Progress
-                        </div>
-                        <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
-                          {lifetimeProgress}
-                        </div>
-                      </div>
-                      <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                          Credit Type
-                        </div>
-                        <div className="mt-1 text-xl sm:text-2xl font-semibold tracking-tight">
-                          {selectedFarm.creditType}
-                        </div>
-                      </div>
-                      <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                          Generated Credits (Lifetime)
-                        </div>
-                        <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
-                          {generatedCredits}
-                        </div>
-                      </div>
-                      <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                          Projected Lifetime Credits
-                        </div>
-                        <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
-                          {projectedCredits}
-                        </div>
-                      </div>
-                      <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                          Number of Panels
-                        </div>
-                        <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
-                          {panels}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 space-y-3">
-                      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                        How Farm Revenue Works
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Each region earns protocol revenue based on the amount
-                        of GCTL staked to that region and the miner sales
-                        generated there. Miner-sale proceeds are split across
-                        farm subsidies, hard operating costs like audits, and
-                        protocol revenue.
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Within a region, that revenue is attributed to farms by
-                        projected lifetime credit production, so farms expected
-                        to generate more credits also generate more revenue.
-                      </p>
                     </div>
                   </div>
                 </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Generated Revenue
+                    </div>
+                    <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
+                      {lifetimeValue}
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {lifetimeBreakdown ?? "Live data unavailable"}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Lifetime Progress
+                    </div>
+                    <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
+                      {lifetimeProgress}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Credit Type
+                    </div>
+                    <div className="mt-1 text-xl sm:text-2xl font-semibold tracking-tight">
+                      {selectedFarm.creditType}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Generated Credits (Lifetime)
+                    </div>
+                    <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
+                      {generatedCredits}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Projected Lifetime Credits
+                    </div>
+                    <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
+                      {projectedCredits}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Number of Panels
+                    </div>
+                    <div className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight font-mono tabular-nums">
+                      {panels}
+                    </div>
+                  </div>
+                </div>
+
+                <MiniBlogPanel
+                  blogId={blogId}
+                  onSelectBlog={onSelectBlog}
+                  onBack={onBackBlog}
+                  canGoBack={canGoBack}
+                />
               </>
             )}
           </div>
@@ -768,31 +965,70 @@ function FarmDetailsDialog({
   );
 }
 
-function MiniBlogDialog({
-  open,
-  onOpenChange,
-  title,
-  children,
+function MiniBlogPanel({
+  blogId,
+  onSelectBlog,
+  onBack,
+  canGoBack,
+  className,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  children: React.ReactNode;
+  blogId: MiniBlogId;
+  onSelectBlog: (blogId: MiniBlogId) => void;
+  onBack: () => void;
+  canGoBack: boolean;
+  className?: string;
 }) {
+  const blog = MINI_BLOGS[blogId];
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[640px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
-        <div className="border-b border-border/40 pb-5 pt-7 px-6">
-          <DialogHeader>
-            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-              {title}
-            </DialogTitle>
-            <DialogDescription className="sr-only">{title}</DialogDescription>
-          </DialogHeader>
+    <div
+      className={cn(
+        "rounded-2xl border border-border/20 bg-muted/20 p-4 sm:p-5 space-y-4",
+        className
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+          {blog.title}
         </div>
-        <div className="p-6 space-y-4">{children}</div>
-      </DialogContent>
-    </Dialog>
+        {canGoBack ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/70"
+            onClick={onBack}
+          >
+            Back
+          </Button>
+        ) : null}
+      </div>
+      <div className="space-y-3">
+        {blog.paragraphs.map((paragraph, index) => (
+          <p key={`${blogId}-${index}`} className="text-sm text-muted-foreground">
+            {paragraph}
+          </p>
+        ))}
+      </div>
+      <div className="space-y-2">
+        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+          LEARN MORE
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {blog.learnMore.map((learnId) => (
+            <Button
+              key={`${blogId}-${learnId}`}
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-[10px] font-mono uppercase tracking-widest"
+              onClick={() => onSelectBlog(learnId)}
+            >
+              {MINI_BLOGS[learnId].title}
+            </Button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -872,6 +1108,77 @@ function MiniStat({
       {helper ? (
         <div className="text-xs text-muted-foreground">{helper}</div>
       ) : null}
+    </div>
+  );
+}
+
+function RegionCompareCard({
+  title,
+  row,
+}: {
+  title: string;
+  row:
+    | {
+        region: string;
+        glwPerWeek: number | null;
+        ccPerWeek: number | null;
+        stakedGctl: number | null;
+        shareOfTotal: number | null;
+        totalPds: number | null;
+        gctlPerPd: number | null;
+      }
+    | null;
+}) {
+  if (!row) {
+    return (
+      <div className="rounded-xl border border-border/20 bg-muted/20 p-4 text-sm text-muted-foreground">
+        No region selected.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-border/20 bg-muted/20 p-4 space-y-4">
+      <div>
+        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+          {title}
+        </div>
+        <div className="mt-1 text-lg font-semibold tracking-tight">{row.region}</div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <MiniStat
+          label="GLW / Week"
+          value={
+            row.glwPerWeek !== null
+              ? formatCompactNumberPrecise(row.glwPerWeek)
+              : row.ccPerWeek !== null
+              ? formatCompactNumberPrecise(row.ccPerWeek)
+              : "—"
+          }
+          helper={row.glwPerWeek === null && row.ccPerWeek !== null ? "Fallback from CC / week" : undefined}
+          valueClassName="text-base sm:text-lg tracking-tight"
+        />
+        <MiniStat
+          label="Staked GCTL"
+          value={row.stakedGctl !== null ? formatCompactNumberPrecise(row.stakedGctl) : "—"}
+          valueClassName="text-base sm:text-lg tracking-tight"
+        />
+        <MiniStat
+          label="Share of Total"
+          value={row.shareOfTotal !== null ? `${row.shareOfTotal.toFixed(1)}%` : "—"}
+          valueClassName="text-base sm:text-lg tracking-tight"
+        />
+        <MiniStat
+          label="Total PDs"
+          value={row.totalPds !== null ? formatCompactNumberPrecise(row.totalPds) : "—"}
+          valueClassName="text-base sm:text-lg tracking-tight"
+        />
+        <MiniStat
+          label="GCTL / PD"
+          value={row.gctlPerPd !== null ? formatCompactNumberTwoDecimals(row.gctlPerPd) : "—"}
+          valueClassName="text-base sm:text-lg tracking-tight"
+        />
+      </div>
     </div>
   );
 }
@@ -965,28 +1272,83 @@ export function PolDashboardView() {
   const [isBannerBlogOpen, setIsBannerBlogOpen] = React.useState(false);
   const [isSupplyDialogOpen, setIsSupplyDialogOpen] = React.useState(false);
   const [isFarmDialogOpen, setIsFarmDialogOpen] = React.useState(false);
-  const [isInstallationsDialogOpen, setIsInstallationsDialogOpen] =
+  const [isGrowthCardsDialogOpen, setIsGrowthCardsDialogOpen] =
     React.useState(false);
-  const [isLiquidityGrowthDialogOpen, setIsLiquidityGrowthDialogOpen] =
-    React.useState(false);
-  const [isCirculatingGrowthDialogOpen, setIsCirculatingGrowthDialogOpen] =
-    React.useState(false);
-  const [isEmbeddedGrowthDialogOpen, setIsEmbeddedGrowthDialogOpen] =
-    React.useState(false);
+  const [selectedGrowthCard, setSelectedGrowthCard] =
+    React.useState<GrowthCardKey>("installations");
   const [isPolLiquidityDialogOpen, setIsPolLiquidityDialogOpen] =
-    React.useState(false);
-  const [isSolarFarmNotesDialogOpen, setIsSolarFarmNotesDialogOpen] =
     React.useState(false);
   const [isGctlDialogOpen, setIsGctlDialogOpen] = React.useState(false);
   const [isWalletStatsDialogOpen, setIsWalletStatsDialogOpen] =
     React.useState(false);
+  const [isDelegationDialogOpen, setIsDelegationDialogOpen] =
+    React.useState(false);
+  const [isRegionsDialogOpen, setIsRegionsDialogOpen] = React.useState(false);
   const [selectedFarmId, setSelectedFarmId] = React.useState<string | null>(
     null
   );
+  const [selectedRegionPrimary, setSelectedRegionPrimary] =
+    React.useState<string>("");
+  const [selectedRegionSecondary, setSelectedRegionSecondary] =
+    React.useState<string>("");
   const [showAllFarms, setShowAllFarms] = React.useState(false);
   const [farmSortKey, setFarmSortKey] = React.useState<
     "latest" | "lifetime" | "credits"
   >("latest");
+  const [modalBlogs, setModalBlogs] = React.useState<
+    Record<ModalBlogKey, ModalBlogState>
+  >(() => ({
+    overview: { current: INITIAL_MODAL_BLOGS.overview, history: [] },
+    growthCards: { current: INITIAL_MODAL_BLOGS.growthCards, history: [] },
+    supply: { current: INITIAL_MODAL_BLOGS.supply, history: [] },
+    farm: { current: INITIAL_MODAL_BLOGS.farm, history: [] },
+    polLiquidity: { current: INITIAL_MODAL_BLOGS.polLiquidity, history: [] },
+    gctl: { current: INITIAL_MODAL_BLOGS.gctl, history: [] },
+    walletStats: { current: INITIAL_MODAL_BLOGS.walletStats, history: [] },
+    delegation: { current: INITIAL_MODAL_BLOGS.delegation, history: [] },
+    regions: { current: INITIAL_MODAL_BLOGS.regions, history: [] },
+  }));
+
+  const navigateModalBlog = React.useCallback(
+    (modal: ModalBlogKey, next: MiniBlogId) => {
+      setModalBlogs((prev) => {
+        const current = prev[modal];
+        if (current.current === next) return prev;
+        return {
+          ...prev,
+          [modal]: {
+            current: next,
+            history: [...current.history, current.current],
+          },
+        };
+      });
+    },
+    []
+  );
+
+  const goBackModalBlog = React.useCallback((modal: ModalBlogKey) => {
+    setModalBlogs((prev) => {
+      const current = prev[modal];
+      if (current.history.length === 0) return prev;
+      const nextHistory = current.history.slice(0, -1);
+      const nextCurrent = current.history[current.history.length - 1]!;
+      return {
+        ...prev,
+        [modal]: { current: nextCurrent, history: nextHistory },
+      };
+    });
+  }, []);
+
+  const resetModalBlog = React.useCallback(
+    (modal: ModalBlogKey, next?: MiniBlogId) => {
+      const defaultBlog = next ?? INITIAL_MODAL_BLOGS[modal];
+      setModalBlogs((prev) => ({
+        ...prev,
+        [modal]: { current: defaultBlog, history: [] },
+      }));
+    },
+    []
+  );
 
   const { poolReserves, priceRatio: poolSpotPrice } = usePoolInfo();
 
@@ -1597,12 +1959,6 @@ export function PolDashboardView() {
     return formatPercent(pct);
   }, [ninetyDayApy]);
 
-  const lifetimeRevenueLq = parseLqUnits(
-    polRevenueAggregate?.lifetime_lq ?? null
-  );
-  const ninetyDayYieldLq = parseLqUnits(
-    polRevenueAggregate?.ninety_day_yield_lq ?? null
-  );
   const activeFarmsCount =
     polRevenueAggregate?.active_farms && polRevenueAggregate.active_farms > 0
       ? polRevenueAggregate.active_farms
@@ -1614,17 +1970,6 @@ export function PolDashboardView() {
     }
     return activeFarmsCount;
   }, [activeFarmsCount, impactTotals?.totalFarms]);
-
-  const lifetimeRevenueDisplay =
-    lifetimeRevenueLq !== null
-      ? {
-          lq: formatLiquidityCompact(lifetimeRevenueLq),
-          breakdown:
-            displayPrice > 0
-              ? getBreakdownFromLq(lifetimeRevenueLq, displayPrice).breakdown
-              : null,
-        }
-      : null;
 
   // 3 Month Trailing PoL Growth (headline KPI) is defined as the delta in total PoL
   // liquidity between now and ~3 months ago (13 weeks), not the CRM-recognized contribution flow.
@@ -1650,17 +1995,6 @@ export function PolDashboardView() {
             displayPrice > 0
               ? getBreakdownFromLq(polTrailingPolGrowthLq, displayPrice)
                   .breakdown
-              : null,
-        }
-      : null;
-
-  const ninetyDayYieldDisplay =
-    ninetyDayYieldLq !== null
-      ? {
-          lq: formatLiquidityCompact(ninetyDayYieldLq),
-          breakdown:
-            displayPrice > 0
-              ? getBreakdownFromLq(ninetyDayYieldLq, displayPrice).breakdown
               : null,
         }
       : null;
@@ -1807,8 +2141,9 @@ export function PolDashboardView() {
     const id = farm.farmId ?? farm.key ?? null;
     if (!id) return;
     setSelectedFarmId(String(id));
+    resetModalBlog("farm");
     setIsFarmDialogOpen(true);
-  }, []);
+  }, [resetModalBlog]);
 
   const sortedFarmRows = React.useMemo(() => {
     const rows = [...farmRowsAll];
@@ -2149,19 +2484,13 @@ export function PolDashboardView() {
   const polLiquidityIsLive = Boolean(polLiquidityTrend);
   const regionsTableRows = React.useMemo(() => {
     const rows = polRevenueRegions?.regions ?? [];
-    return rows.map((r, idx) => ({
-      region:
-        resolveRegionName((r as any).zone_id ?? null) ??
-        (r as any).region ??
-        `Region ${idx + 1}`,
-      lifetimeLq: parseLqUnits(r.lifetime_lq ?? null),
-      ninetyDayLq: parseLqUnits(r.ninety_day_lq ?? null),
-      farms: (r as any).farm_count ?? (r as any).farms ?? 0,
-      ccPerWeek:
-        (r as any).cc_per_week !== null && (r as any).cc_per_week !== undefined
-          ? Number((r as any).cc_per_week)
-          : null,
-      stakedGctl: (() => {
+    const parseMetricNumber = (value: unknown) => {
+      if (value === null || value === undefined) return null;
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
+    };
+    const parsed = rows.map((r, idx) => {
+      const stakedGctl = (() => {
         const raw = (r as any).staked_gctl ?? (r as any).gctl_staked ?? null;
         if (raw === null || raw === undefined) return null;
         try {
@@ -2175,7 +2504,49 @@ export function PolDashboardView() {
           const n = Number(raw);
           return Number.isFinite(n) ? n / 1e6 : null;
         }
-      })(),
+      })();
+      const totalPds =
+        parseMetricNumber((r as any).total_pds) ??
+        parseMetricNumber((r as any).totalPds) ??
+        parseMetricNumber((r as any).pd_total) ??
+        parseMetricNumber((r as any).total_pd_count);
+
+      return {
+        region:
+          resolveRegionName((r as any).zone_id ?? null) ??
+          (r as any).region ??
+          `Region ${idx + 1}`,
+        lifetimeLq: parseLqUnits(r.lifetime_lq ?? null),
+        ninetyDayLq: parseLqUnits(r.ninety_day_lq ?? null),
+        farms: (r as any).farm_count ?? (r as any).farms ?? 0,
+        ccPerWeek:
+          (r as any).cc_per_week !== null &&
+          (r as any).cc_per_week !== undefined
+            ? Number((r as any).cc_per_week)
+            : null,
+        glwPerWeek:
+          parseMetricNumber((r as any).glw_per_week) ??
+          parseMetricNumber((r as any).weekly_glw) ??
+          parseMetricNumber((r as any).glwWeek) ??
+          null,
+        stakedGctl,
+        totalPds,
+      };
+    });
+    const totalStakedAcrossRegions = parsed.reduce(
+      (sum, row) => sum + (row.stakedGctl ?? 0),
+      0
+    );
+    return parsed.map((row) => ({
+      ...row,
+      shareOfTotal:
+        totalStakedAcrossRegions > 0 && row.stakedGctl !== null
+          ? (row.stakedGctl / totalStakedAcrossRegions) * 100
+          : null,
+      gctlPerPd:
+        row.stakedGctl !== null && row.totalPds !== null && row.totalPds > 0
+          ? row.stakedGctl / row.totalPds
+          : null,
     }));
   }, [polRevenueRegions, resolveRegionName]);
 
@@ -2188,13 +2559,95 @@ export function PolDashboardView() {
       farms: 0,
       ccPerWeek: null as number | null,
       stakedGctl: null as number | null,
+      glwPerWeek: null as number | null,
+      totalPds: null as number | null,
+      shareOfTotal: null as number | null,
+      gctlPerPd: null as number | null,
     }));
   }, [regionsTableRows]);
+
+  React.useEffect(() => {
+    if (!regionsTableRows.length) {
+      setSelectedRegionPrimary("");
+      setSelectedRegionSecondary("");
+      return;
+    }
+    const hasPrimary = regionsTableRows.some(
+      (r) => r.region === selectedRegionPrimary
+    );
+    if (!hasPrimary) {
+      setSelectedRegionPrimary(regionsTableRows[0]!.region);
+    }
+    if (
+      selectedRegionSecondary &&
+      !regionsTableRows.some((r) => r.region === selectedRegionSecondary)
+    ) {
+      setSelectedRegionSecondary("");
+    }
+  }, [regionsTableRows, selectedRegionPrimary, selectedRegionSecondary]);
+
+  const openGrowthCardsDialog = React.useCallback(
+    (card: GrowthCardKey) => {
+      setSelectedGrowthCard(card);
+      resetModalBlog("growthCards", GROWTH_CARD_BLOG[card]);
+      setIsGrowthCardsDialogOpen(true);
+    },
+    [resetModalBlog]
+  );
 
   const { data: vestingSchedule } = useGlwVestingSchedule();
   const vestingSeries = vestingSchedule?.points ?? VESTING_SCHEDULE;
   const vestingCategorySeries = vestingSchedule?.categoryPoints ?? null;
   const vestingBreakdown = vestingSchedule?.breakdown ?? null;
+  const growthCardsModalItems = React.useMemo(
+    () => [
+      {
+        key: "installations" as const,
+        label: "Total Solar Installations",
+        value:
+          totalSolarInstallations !== null
+            ? formatNumber(totalSolarInstallations)
+            : "—",
+      },
+      {
+        key: "liquidityGrowth" as const,
+        label: "Embedded Liquidity Growth (3 Months)",
+        value: polTrailingPolGrowthDisplay?.lq ?? "—",
+      },
+      {
+        key: "circulatingGrowth" as const,
+        label: "Annualized Circulating Supply Growth",
+        value: supplyGrowthAnnualDisplay,
+      },
+      {
+        key: "embeddedGrowth" as const,
+        label: "Annualized Embedded Liquidity Growth",
+        value: polGrowthAnnualDisplay,
+      },
+    ],
+    [
+      polGrowthAnnualDisplay,
+      polTrailingPolGrowthDisplay?.lq,
+      supplyGrowthAnnualDisplay,
+      totalSolarInstallations,
+    ]
+  );
+
+  const primaryRegionRow = React.useMemo(() => {
+    if (!regionsTableRows.length) return null;
+    return (
+      regionsTableRows.find((r) => r.region === selectedRegionPrimary) ??
+      regionsTableRows[0] ??
+      null
+    );
+  }, [regionsTableRows, selectedRegionPrimary]);
+
+  const secondaryRegionRow = React.useMemo(() => {
+    if (!selectedRegionSecondary) return null;
+    return (
+      regionsTableRows.find((r) => r.region === selectedRegionSecondary) ?? null
+    );
+  }, [regionsTableRows, selectedRegionSecondary]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -2212,10 +2665,14 @@ export function PolDashboardView() {
               role="button"
               tabIndex={0}
               aria-label="Open Glow economy basics"
-              onClick={() => setIsBannerBlogOpen(true)}
+              onClick={() => {
+                resetModalBlog("overview");
+                setIsBannerBlogOpen(true);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
+                  resetModalBlog("overview");
                   setIsBannerBlogOpen(true);
                 }
               }}
@@ -2293,12 +2750,12 @@ export function PolDashboardView() {
                   )}
                   role="button"
                   tabIndex={0}
-                  aria-label="Open total solar installations notes"
-                  onClick={() => setIsInstallationsDialogOpen(true)}
+                  aria-label="Open growth cards modal on total solar installations"
+                  onClick={() => openGrowthCardsDialog("installations")}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      setIsInstallationsDialogOpen(true);
+                      openGrowthCardsDialog("installations");
                     }
                   }}
                 >
@@ -2325,12 +2782,12 @@ export function PolDashboardView() {
                   )}
                   role="button"
                   tabIndex={0}
-                  aria-label="Open embedded liquidity growth notes"
-                  onClick={() => setIsLiquidityGrowthDialogOpen(true)}
+                  aria-label="Open growth cards modal on embedded liquidity growth"
+                  onClick={() => openGrowthCardsDialog("liquidityGrowth")}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      setIsLiquidityGrowthDialogOpen(true);
+                      openGrowthCardsDialog("liquidityGrowth");
                     }
                   }}
                 >
@@ -2359,12 +2816,12 @@ export function PolDashboardView() {
                   )}
                   role="button"
                   tabIndex={0}
-                  aria-label="Open annualized circulating growth notes"
-                  onClick={() => setIsCirculatingGrowthDialogOpen(true)}
+                  aria-label="Open growth cards modal on annualized circulating growth"
+                  onClick={() => openGrowthCardsDialog("circulatingGrowth")}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      setIsCirculatingGrowthDialogOpen(true);
+                      openGrowthCardsDialog("circulatingGrowth");
                     }
                   }}
                 >
@@ -2389,12 +2846,12 @@ export function PolDashboardView() {
                   )}
                   role="button"
                   tabIndex={0}
-                  aria-label="Open annualized embedded liquidity growth notes"
-                  onClick={() => setIsEmbeddedGrowthDialogOpen(true)}
+                  aria-label="Open growth cards modal on annualized embedded liquidity growth"
+                  onClick={() => openGrowthCardsDialog("embeddedGrowth")}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      setIsEmbeddedGrowthDialogOpen(true);
+                      openGrowthCardsDialog("embeddedGrowth");
                     }
                   }}
                 >
@@ -2421,10 +2878,14 @@ export function PolDashboardView() {
                 role="button"
                 tabIndex={0}
                 aria-label="Open supply model explorer"
-                onClick={() => setIsSupplyDialogOpen(true)}
+                onClick={() => {
+                  resetModalBlog("supply");
+                  setIsSupplyDialogOpen(true);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
+                    resetModalBlog("supply");
                     setIsSupplyDialogOpen(true);
                   }
                 }}
@@ -2588,6 +3049,7 @@ export function PolDashboardView() {
                   <Button
                     onClick={(e) => {
                       e.stopPropagation();
+                      resetModalBlog("supply");
                       setIsSupplyDialogOpen(true);
                     }}
                   >
@@ -2623,15 +3085,6 @@ export function PolDashboardView() {
                     </select>
                   </div>
                 ) : null}
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsSolarFarmNotesDialogOpen(true)}
-                  className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/70 hover:text-foreground"
-                >
-                  Click for notes ↗
-                </Button>
 
                 <Button
                   variant="outline"
@@ -2679,7 +3132,7 @@ export function PolDashboardView() {
                   >
                     <CardContent className="p-0">
                       {/* Farm image header */}
-                      <div className="relative h-40 w-full overflow-hidden bg-muted/30">
+                      <div className="relative h-48 w-full overflow-hidden bg-muted/30">
                         {farm.imageUrl ? (
                           <FallbackImage
                             src={farm.imageUrl}
@@ -2711,7 +3164,7 @@ export function PolDashboardView() {
                         </div>
                       </div>
                       {/* Revenue metrics */}
-                      <div className="px-5 pt-4 pb-4 grid grid-cols-2 gap-4">
+                      <div className="px-5 pt-5 pb-5 grid grid-cols-2 gap-5">
                         <div className="flex flex-col gap-0.5">
                           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                             Generated Revenue
@@ -2751,10 +3204,14 @@ export function PolDashboardView() {
                 role="button"
                 tabIndex={0}
                 aria-label="Open protocol liquidity notes"
-                onClick={() => setIsPolLiquidityDialogOpen(true)}
+                onClick={() => {
+                  resetModalBlog("polLiquidity");
+                  setIsPolLiquidityDialogOpen(true);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
+                    resetModalBlog("polLiquidity");
                     setIsPolLiquidityDialogOpen(true);
                   }
                 }}
@@ -2788,27 +3245,11 @@ export function PolDashboardView() {
                     <MetricCard
                       label="APY"
                       value={polApyDisplay}
-                      helper={
-                        ninetyDayApy !== null
-                          ? "From recent trading activity"
-                          : "Live data unavailable"
-                      }
+                      helper={ninetyDayApy !== null ? undefined : "Live data unavailable"}
                       valueClassName="text-3xl sm:text-4xl"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-1">
-                      <MiniStat
-                        label="3 Month Yield"
-                        value={ninetyDayYieldDisplay?.lq ?? "—"}
-                        helper={
-                          ninetyDayYieldDisplay?.breakdown
-                            ? `(${ninetyDayYieldDisplay.breakdown})`
-                            : "Live data unavailable"
-                        }
-                        valueClassName="text-base sm:text-lg tracking-tight"
-                      />
-                    </div>
+                  <div className="grid grid-cols-1 gap-3">
                     <MiniStat
                       label="Market cap exitable"
                       value={polExitabilityDisplay}
@@ -2857,10 +3298,14 @@ export function PolDashboardView() {
                 role="button"
                 tabIndex={0}
                 aria-label="Open GCTL notes"
-                onClick={() => setIsGctlDialogOpen(true)}
+                onClick={() => {
+                  resetModalBlog("gctl");
+                  setIsGctlDialogOpen(true);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
+                    resetModalBlog("gctl");
                     setIsGctlDialogOpen(true);
                   }
                 }}
@@ -2916,10 +3361,10 @@ export function PolDashboardView() {
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                       Staking by region
                     </div>
-                    <div className="flex-1 flex flex-col items-center justify-center gap-5 pt-2">
+                    <div className="flex-1 flex flex-col items-center justify-center gap-6 pt-4 pb-2">
                       <ChartContainer
                         config={gctlRegionChartConfigLive}
-                        className="h-48 w-48 shrink-0"
+                        className="h-40 w-40 shrink-0"
                       >
                         <PieChart>
                           <Pie
@@ -2928,8 +3373,8 @@ export function PolDashboardView() {
                             nameKey="name"
                             cx="50%"
                             cy="50%"
-                            innerRadius={42}
-                            outerRadius={82}
+                            innerRadius={35}
+                            outerRadius={70}
                             strokeWidth={2}
                             stroke="var(--color-card)"
                           />
@@ -2950,7 +3395,7 @@ export function PolDashboardView() {
                         </PieChart>
                       </ChartContainer>
                     </div>
-                    <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
+                    <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2 pt-2">
                       {gctlRegionPieData.map((region) => (
                         <div
                           key={region.name}
@@ -2982,10 +3427,14 @@ export function PolDashboardView() {
                 role="button"
                 tabIndex={0}
                 aria-label="Open wallet stats notes"
-                onClick={() => setIsWalletStatsDialogOpen(true)}
+                onClick={() => {
+                  resetModalBlog("walletStats");
+                  setIsWalletStatsDialogOpen(true);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
+                    resetModalBlog("walletStats");
                     setIsWalletStatsDialogOpen(true);
                   }
                 }}
@@ -3022,7 +3471,7 @@ export function PolDashboardView() {
 
                   <div>
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                      New wallets per week (12w)
+                      New wallets per week
                       {isWalletGrowthMock ? " · Live data unavailable" : ""}
                     </div>
                     <ChartContainer
@@ -3053,12 +3502,6 @@ export function PolDashboardView() {
                       Wallet breakdown
                       {hasWalletBreakdown ? "" : " · Live data unavailable"}
                     </div>
-                    {hasWalletBreakdown ? (
-                      <div className="mb-2 text-[10px] text-muted-foreground">
-                        Category percentages can total over 100% because a
-                        wallet can be a delegator, miner, and GCTL holder.
-                      </div>
-                    ) : null}
                     <div className="flex flex-col gap-3">
                       {hasWalletBreakdown ? (
                         walletStats.breakdown.map((row) => (
@@ -3111,10 +3554,34 @@ export function PolDashboardView() {
           <section className="flex flex-col gap-6 pt-16">
             <SectionHeader title="Delegation + Regions" />
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
-              <Card className="!gap-6 flex flex-col">
+              <Card
+                className={cn(
+                  "!gap-6 flex flex-col transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                )}
+                role="button"
+                tabIndex={0}
+                aria-label="Open delegation metrics notes"
+                onClick={() => {
+                  resetModalBlog("delegation");
+                  setIsDelegationDialogOpen(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    resetModalBlog("delegation");
+                    setIsDelegationDialogOpen(true);
+                  }
+                }}
+              >
                 <CardHeader className="pb-0">
-                  <div className="text-sm font-semibold">
-                    Delegation Metrics
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-semibold">
+                      Delegation Metrics
+                    </div>
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                      Click for notes ↗
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-6 h-full">
@@ -3269,10 +3736,34 @@ export function PolDashboardView() {
                 </CardContent>
               </Card>
 
-              <Card className="!gap-6">
+              <Card
+                className={cn(
+                  "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                )}
+                role="button"
+                tabIndex={0}
+                aria-label="Open per-region protocol revenue notes"
+                onClick={() => {
+                  resetModalBlog("regions");
+                  setIsRegionsDialogOpen(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    resetModalBlog("regions");
+                    setIsRegionsDialogOpen(true);
+                  }
+                }}
+              >
                 <CardHeader className="pb-0">
-                  <div className="text-sm font-semibold">
-                    Per-Region Protocol Revenue
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-semibold">
+                      Per-Region Protocol Revenue
+                    </div>
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                      Click for notes ↗
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -3690,7 +4181,13 @@ export function PolDashboardView() {
         </div>
       </section>
 
-      <Dialog open={isSupplyDialogOpen} onOpenChange={setIsSupplyDialogOpen}>
+      <Dialog
+        open={isSupplyDialogOpen}
+        onOpenChange={(open) => {
+          setIsSupplyDialogOpen(open);
+          if (!open) resetModalBlog("supply");
+        }}
+      >
         <DialogContent className="sm:max-w-[720px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Explore Supply Model</DialogTitle>
@@ -3863,31 +4360,14 @@ export function PolDashboardView() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Embedded liquidity is a protocol-owned portfolio that is
-                perfectly balanced between GLW and USDC. This means that as the
-                GLW price drops, the portfolio automatically buys up GLW tokens,
-                taking them out of circulation until the price recovers. In
-                other words, the GLW supply contracts as the price goes down.
-                This also means that as the GLW price increases, the portfolio
-                automatically sells GLW, increasing the total amount of USDC
-                that is available as exit liquidity to GLW holders.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                You can play with the slider to see the relationship between
-                circulating supply and available exit liquidity as the GLW price
-                changes.
-              </p>
-            </div>
+            <MiniBlogPanel
+              blogId={modalBlogs.supply.current}
+              onSelectBlog={(blogId) => navigateModalBlog("supply", blogId)}
+              onBack={() => goBackModalBlog("supply")}
+              canGoBack={modalBlogs.supply.history.length > 0}
+            />
 
-            <div className="flex items-center justify-between gap-3">
-              <Link
-                href="/blog/glw-tokenomics"
-                className="text-xs font-mono uppercase tracking-widest text-muted-foreground/70 dark:text-muted-foreground/90 hover:text-foreground"
-              >
-                Learn more about structurally locked tokens
-              </Link>
+            <div className="flex items-center justify-end">
               <Button
                 variant="outline"
                 size="sm"
@@ -3905,186 +4385,565 @@ export function PolDashboardView() {
         open={isFarmDialogOpen}
         onOpenChange={(open) => {
           setIsFarmDialogOpen(open);
-          if (!open) setSelectedFarmId(null);
+          if (!open) {
+            setSelectedFarmId(null);
+            resetModalBlog("farm");
+          }
         }}
         selectedFarm={selectedFarm}
         displayPrice={displayPrice}
+        blogId={modalBlogs.farm.current}
+        onSelectBlog={(blogId) => navigateModalBlog("farm", blogId)}
+        onBackBlog={() => goBackModalBlog("farm")}
+        canGoBack={modalBlogs.farm.history.length > 0}
       />
 
-      <MiniBlogDialog
+      <Dialog
         open={isBannerBlogOpen}
-        onOpenChange={setIsBannerBlogOpen}
-        title="Glow Economy Basics"
+        onOpenChange={(open) => {
+          setIsBannerBlogOpen(open);
+          if (!open) resetModalBlog("overview");
+        }}
       >
-        <Link
-          href={DEFINED_FI_GLOW_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex text-xs font-mono uppercase tracking-widest text-muted-foreground/80 hover:text-foreground"
-        >
-          defined.fi price page ↗
-        </Link>
-        <p className="text-sm text-muted-foreground">
-          Just as Bitcoin turned tokens into mining machines, Glow turns tokens
-          into solar farms. Glow generates revenue by selling the ability to
-          control where these solar farms get built.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Just as BTC is the central token of the Bitcoin economy, GLW is the
-          central token of the Glow economy. Every week, new GLW is minted via
-          inflation and distributed to farms being built on the protocol.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          As users pay for control rights, protocol revenue is used to
-          permanently add liquidity to GLW. In Glow terms, this is called
-          Embedded Liquidity.
-        </p>
-        <div className="flex flex-wrap gap-4 pt-1">
-          <Link
-            href="/blog/glw-tokenomics"
-            className="text-xs font-mono uppercase tracking-widest text-muted-foreground/80 hover:text-foreground"
-          >
-            Learn More: Tokenomics
-          </Link>
-          <Link
-            href="/internal/referral"
-            className="text-xs font-mono uppercase tracking-widest text-muted-foreground/80 hover:text-foreground"
-          >
-            Learn More: Ecosystem
-          </Link>
-        </div>
-      </MiniBlogDialog>
+        <DialogContent className="sm:max-w-[860px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Glow Economy Basics</DialogTitle>
+            <DialogDescription>
+              Glow economy overview and learn-more mini blog.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="relative">
+            <div className="absolute inset-0">
+              <div
+                className="absolute inset-0 bg-cover bg-center"
+                style={{ backgroundImage: "url('/images/pol-banner-crop.jpg')" }}
+              />
+              <div className="absolute inset-0 bg-black/40" />
+              <div className="absolute inset-0 bg-gradient-to-br from-black/50 via-black/30 to-black/45" />
+            </div>
+            <div className="relative z-10 px-5 py-7 sm:px-8 sm:py-8">
+              <div className="flex justify-end">
+                <Link
+                  href={DEFINED_FI_GLOW_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] font-mono uppercase tracking-widest text-white/80 hover:text-white"
+                >
+                  Price History ↗
+                </Link>
+              </div>
+              <div className="mt-3 grid grid-cols-1 gap-5 sm:grid-cols-3">
+                <div className="space-y-1">
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-white/75">
+                    Market Cap
+                  </div>
+                  <div className="text-3xl sm:text-4xl font-semibold font-mono tabular-nums tracking-tight text-white">
+                    {marketCapDisplay}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-white/75">
+                    GLW Price
+                  </div>
+                  <div className="text-3xl sm:text-4xl font-semibold font-mono tabular-nums tracking-tight text-white">
+                    {priceDisplay}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-white/75">
+                    Embedded Liquidity
+                  </div>
+                  <div className="text-3xl sm:text-4xl font-semibold font-mono tabular-nums tracking-tight text-white">
+                    {totalPolLq !== null ? formatLiquidityCompact(totalPolLq) : "—"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="p-6">
+            <MiniBlogPanel
+              blogId={modalBlogs.overview.current}
+              onSelectBlog={(blogId) => navigateModalBlog("overview", blogId)}
+              onBack={() => goBackModalBlog("overview")}
+              canGoBack={modalBlogs.overview.history.length > 0}
+              className="bg-transparent border-transparent p-0"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      <MiniBlogDialog
-        open={isInstallationsDialogOpen}
-        onOpenChange={setIsInstallationsDialogOpen}
-        title="Total Solar Installations"
+      <Dialog
+        open={isGrowthCardsDialogOpen}
+        onOpenChange={(open) => {
+          setIsGrowthCardsDialogOpen(open);
+          if (!open) resetModalBlog("growthCards");
+        }}
       >
-        <p className="text-sm text-muted-foreground">
-          This count includes every solar installation Glow has funded and
-          built, including installations that are no longer earning rewards.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Glow uses the term “solar farm” broadly. Even smaller deployments with
-          a limited number of panels are often referred to as solar farms in
-          protocol reporting.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Installations vary meaningfully in size across regions, from small
-          collections of panels to larger commercial deployments.
-        </p>
-      </MiniBlogDialog>
+        <DialogContent className="sm:max-w-[920px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+          <DialogHeader className="px-6 pt-6 pb-0">
+            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
+              The Four Cards
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Growth card details and mini-blog.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {growthCardsModalItems.map((item) => {
+                const isActive = selectedGrowthCard === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={cn(
+                      "rounded-2xl border p-4 text-left transition-colors",
+                      isActive
+                        ? "border-border/40 bg-muted/40"
+                        : "border-border/20 bg-card hover:border-border/40"
+                    )}
+                    onClick={() => {
+                      setSelectedGrowthCard(item.key);
+                      resetModalBlog("growthCards", GROWTH_CARD_BLOG[item.key]);
+                    }}
+                  >
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                      {item.label}
+                    </div>
+                    <div className="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight font-mono tabular-nums">
+                      {item.value}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <MiniBlogPanel
+              blogId={modalBlogs.growthCards.current}
+              onSelectBlog={(blogId) => navigateModalBlog("growthCards", blogId)}
+              onBack={() => goBackModalBlog("growthCards")}
+              canGoBack={modalBlogs.growthCards.history.length > 0}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      <MiniBlogDialog
-        open={isSolarFarmNotesDialogOpen}
-        onOpenChange={setIsSolarFarmNotesDialogOpen}
-        title="Solar Farm Economics"
-      >
-        <p className="text-sm text-muted-foreground">
-          Each region generates revenue from GCTL staked to that region and
-          from miner sales that originate there. When a miner is sold, part of
-          the cash subsidizes solar farms, part covers hard costs like audits,
-          and part becomes protocol revenue.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Within each region, revenue is attributed to farms based on projected
-          lifetime credit production. Farms projected to produce more credits
-          are attributed more revenue.
-        </p>
-      </MiniBlogDialog>
-
-      <MiniBlogDialog
-        open={isLiquidityGrowthDialogOpen}
-        onOpenChange={setIsLiquidityGrowthDialogOpen}
-        title="Embedded Liquidity Growth (3 Months)"
-      >
-        <p className="text-sm text-muted-foreground">
-          Embedded liquidity growth over the last 3 months mainly comes from
-          three sources: miner sales, GCTL sales, and liquidity yield generated
-          by trading activity.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          These flows accumulate into protocol-owned liquidity and expand total
-          exit liquidity over time.
-        </p>
-      </MiniBlogDialog>
-
-      <MiniBlogDialog
-        open={isCirculatingGrowthDialogOpen}
-        onOpenChange={setIsCirculatingGrowthDialogOpen}
-        title="Annualized Circulating Supply Growth"
-      >
-        <p className="text-sm text-muted-foreground">
-          This value is annualized from the last 13 weeks of data. Glow uses 13
-          weeks because protocol metrics update on a strict weekly cadence.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Major growth drivers include inflation and unlocked vault supply.
-          Anti-growth forces include new delegations and new embedded liquidity
-          that remove liquid GLW from circulation.
-        </p>
-      </MiniBlogDialog>
-
-      <MiniBlogDialog
-        open={isEmbeddedGrowthDialogOpen}
-        onOpenChange={setIsEmbeddedGrowthDialogOpen}
-        title="Annualized Embedded Liquidity Growth"
-      >
-        <p className="text-sm text-muted-foreground">
-          Glow is still a relatively young protocol, so embedded liquidity can
-          compound quickly from a smaller base even when the absolute level is
-          already meaningful.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Embedded liquidity is permanent protocol-owned liquidity and is not
-          designed to be withdrawn during downturns.
-        </p>
-      </MiniBlogDialog>
-
-      <MiniBlogDialog
+      <Dialog
         open={isPolLiquidityDialogOpen}
-        onOpenChange={setIsPolLiquidityDialogOpen}
-        title="Protocol Liquidity Notes"
+        onOpenChange={(open) => {
+          setIsPolLiquidityDialogOpen(open);
+          if (!open) resetModalBlog("polLiquidity");
+        }}
       >
-        <p className="text-sm text-muted-foreground">
-          APY here comes from trading activity in protocol-owned liquidity, not
-          from protocol revenue. That means embedded liquidity can continue
-          increasing even in periods with no miner or GCTL sale revenue.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Market cap exitable is the estimated share of GLW market cap that can
-          currently be exited through PoL depth.
-        </p>
-      </MiniBlogDialog>
+        <DialogContent className="sm:max-w-[760px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+          <DialogHeader className="px-6 pt-6 pb-0">
+            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
+              Protocol Liquidity
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Embedded liquidity and trend chart.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <MetricCard
+              label="Embedded Liquidity"
+              value={totalPolLq !== null ? formatLiquidityCompact(totalPolLq) : "—"}
+              helper={
+                totalPolBreakdown?.breakdown
+                  ? `(${totalPolBreakdown.breakdown})`
+                  : "Live data unavailable"
+              }
+              valueClassName="text-4xl sm:text-5xl"
+            />
+            <div className="rounded-xl border border-border/20 bg-muted/20 p-4">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 mb-2">
+                Embedded Liquidity
+                {polLiquidityIsLive ? "" : " · Live data unavailable"}
+              </div>
+              <ChartContainer
+                config={polLiquidityChartConfig}
+                className="min-h-[180px] w-full"
+              >
+                <AreaChart data={polLiquidityChartData}>
+                  <XAxis
+                    dataKey="week"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 9 }}
+                    interval="preserveStartEnd"
+                  />
+                  <ChartTooltip content={<PolLiquidityTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="liquidity"
+                    stroke="var(--color-liquidity)"
+                    fill="var(--color-liquidity)"
+                    fillOpacity={0.2}
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </AreaChart>
+              </ChartContainer>
+            </div>
+            <MiniBlogPanel
+              blogId={modalBlogs.polLiquidity.current}
+              onSelectBlog={(blogId) => navigateModalBlog("polLiquidity", blogId)}
+              onBack={() => goBackModalBlog("polLiquidity")}
+              canGoBack={modalBlogs.polLiquidity.history.length > 0}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      <MiniBlogDialog
+      <Dialog
         open={isGctlDialogOpen}
-        onOpenChange={setIsGctlDialogOpen}
-        title="GCTL Notes"
+        onOpenChange={(open) => {
+          setIsGctlDialogOpen(open);
+          if (!open) resetModalBlog("gctl");
+        }}
       >
-        <p className="text-sm text-muted-foreground">
-          GCTL is the asset used to direct where solar is built on the protocol.
-          Staking GCTL toward a region helps route deployment and revenue there.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          GCTL is currently a control asset and is not tradable.
-        </p>
-      </MiniBlogDialog>
+        <DialogContent className="sm:max-w-[760px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+          <DialogHeader className="px-6 pt-6 pb-0">
+            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
+              GCTL
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              GCTL total and staking distribution.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <MetricCard
+              label="Total GCTL"
+              value={
+                isGctlLoading ? "..." : formatCompactNumberPrecise(gctlTotalSupply)
+              }
+              valueClassName="text-4xl sm:text-5xl"
+            />
+            <div className="rounded-xl border border-border/20 bg-muted/20 p-4">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 mb-3">
+                Staking by region
+              </div>
+              <div className="flex flex-col items-center gap-6">
+                <ChartContainer
+                  config={gctlRegionChartConfigLive}
+                  className="h-44 w-44 shrink-0"
+                >
+                  <PieChart>
+                    <Pie
+                      data={gctlRegionPieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={36}
+                      outerRadius={74}
+                      strokeWidth={2}
+                      stroke="var(--color-card)"
+                    />
+                    <ChartTooltip
+                      content={
+                        <ChartTooltipContent
+                          formatter={(value, name) => {
+                            const region = gctlRegionPieData.find(
+                              (r) => r.name === name
+                            );
+                            return `${formatCompactNumberPrecise(Number(value))} (${region?.pct ?? 0}%)`;
+                          }}
+                        />
+                      }
+                    />
+                  </PieChart>
+                </ChartContainer>
+                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
+                  {gctlRegionPieData.map((region) => (
+                    <div
+                      key={`dialog-${region.name}`}
+                      className="flex items-center justify-between text-xs"
+                    >
+                      <span className="flex items-center gap-1.5 text-muted-foreground min-w-0">
+                        <span
+                          className="inline-block h-2 w-2 rounded-full shrink-0"
+                          style={{ backgroundColor: region.fill }}
+                        />
+                        <span className="truncate">{region.name}</span>
+                      </span>
+                      <span className="font-mono tabular-nums text-foreground shrink-0">
+                        {formatCompactNumberPrecise(region.value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <MiniBlogPanel
+              blogId={modalBlogs.gctl.current}
+              onSelectBlog={(blogId) => navigateModalBlog("gctl", blogId)}
+              onBack={() => goBackModalBlog("gctl")}
+              canGoBack={modalBlogs.gctl.history.length > 0}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      <MiniBlogDialog
+      <Dialog
         open={isWalletStatsDialogOpen}
-        onOpenChange={setIsWalletStatsDialogOpen}
-        title="Wallet Stats Notes"
+        onOpenChange={(open) => {
+          setIsWalletStatsDialogOpen(open);
+          if (!open) resetModalBlog("walletStats");
+        }}
       >
-        <p className="text-sm text-muted-foreground">
-          A wallet is counted if it holds at least 0.01 GLW or at least 0.01
-          points.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Breakdown percentages can add up to more than 100% because one wallet
-          can be a delegator, a miner, and a GCTL holder at the same time.
-        </p>
-      </MiniBlogDialog>
+        <DialogContent className="sm:max-w-[760px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+          <DialogHeader className="px-6 pt-6 pb-0">
+            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
+              Wallet Stats
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Protocol participants and new wallet growth.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <MetricCard
+              label="Protocol Participants"
+              value={
+                isWalletStatsLoading
+                  ? "..."
+                  : formatNumber(walletStats.protocolParticipants)
+              }
+              valueClassName="text-4xl sm:text-5xl"
+            />
+            <div className="rounded-xl border border-border/20 bg-muted/20 p-4">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 mb-2">
+                New wallets per week
+                {isWalletGrowthMock ? " · Live data unavailable" : ""}
+              </div>
+              <ChartContainer
+                config={walletGrowthChartConfig}
+                className="h-44 w-full"
+              >
+                <BarChart data={walletGrowthLive ?? []} barGap={2}>
+                  <XAxis
+                    dataKey="week"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 9 }}
+                    interval="preserveStartEnd"
+                  />
+                  <ChartTooltip content={<WalletGrowthTooltip />} />
+                  <Bar
+                    dataKey="newWallets"
+                    fill="var(--color-newWallets)"
+                    radius={[3, 3, 0, 0]}
+                    fillOpacity={0.7}
+                  />
+                </BarChart>
+              </ChartContainer>
+            </div>
+            <MiniBlogPanel
+              blogId={modalBlogs.walletStats.current}
+              onSelectBlog={(blogId) => navigateModalBlog("walletStats", blogId)}
+              onBack={() => goBackModalBlog("walletStats")}
+              canGoBack={modalBlogs.walletStats.history.length > 0}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isDelegationDialogOpen}
+        onOpenChange={(open) => {
+          setIsDelegationDialogOpen(open);
+          if (!open) resetModalBlog("delegation");
+        }}
+      >
+        <DialogContent className="sm:max-w-[760px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+          <DialogHeader className="px-6 pt-6 pb-0">
+            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
+              Delegation Metrics
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Delegated GLW and delegation trend.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <MetricCard
+              label="GLW delegated"
+              value={delegatedDisplay}
+              helper={hasDelegationData ? undefined : "Live data unavailable"}
+              valueClassName="text-4xl sm:text-5xl"
+            />
+            <div className="rounded-xl border border-border/20 bg-muted/20 p-4">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 mb-2">
+                Delegation growth (V2)
+              </div>
+              <ChartContainer
+                config={delegationTrendChartConfig}
+                className="h-44 w-full"
+              >
+                <AreaChart data={delegationTrendLive ?? []}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="weekEndMs"
+                    type="number"
+                    domain={["dataMin", "dataMax"]}
+                    ticks={delegationTrendTicks}
+                    tickFormatter={(value) => {
+                      const n = Number(value);
+                      if (
+                        delegationCurrentTickValue !== null &&
+                        n === delegationCurrentTickValue
+                      ) {
+                        return "Current";
+                      }
+                      return formatMonthAxisUtc(new Date(n - 1));
+                    }}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 9 }}
+                    interval={0}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    width={36}
+                    tick={{ fontSize: 9 }}
+                    tickFormatter={(v) => `${v}M`}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        labelFormatter={(label, payload) => {
+                          const datum = (payload?.[0] as any)
+                            ?.payload as DelegationTrendDatum | undefined;
+                          const weekStart = datum?.weekStartMs
+                            ? new Date(datum.weekStartMs)
+                            : null;
+                          const weekEnd = datum?.weekEndMs
+                            ? new Date(datum.weekEndMs - 1)
+                            : null;
+
+                          if (datum?.isCurrent) return "Current";
+
+                          if (weekStart && weekEnd) {
+                            return `${formatDateShortUtc(
+                              weekStart
+                            )} - ${formatDateShortUtc(weekEnd)} UTC`;
+                          }
+
+                          if (typeof label === "number") {
+                            return formatDateAxisUtc(new Date(Number(label) - 1));
+                          }
+                          return String(label ?? "");
+                        }}
+                        formatter={(value) => {
+                          const numeric =
+                            typeof value === "number" ? value : Number(value);
+                          const formatted = Number.isFinite(numeric)
+                            ? numeric.toFixed(3)
+                            : value;
+                          return [`${formatted}M GLW`, "Delegated"];
+                        }}
+                      />
+                    }
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="delegated"
+                    stroke="var(--color-delegated)"
+                    fill="var(--color-delegated)"
+                    fillOpacity={0.15}
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ChartContainer>
+            </div>
+            <MiniBlogPanel
+              blogId={modalBlogs.delegation.current}
+              onSelectBlog={(blogId) => navigateModalBlog("delegation", blogId)}
+              onBack={() => goBackModalBlog("delegation")}
+              canGoBack={modalBlogs.delegation.history.length > 0}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isRegionsDialogOpen}
+        onOpenChange={(open) => {
+          setIsRegionsDialogOpen(open);
+          if (!open) resetModalBlog("regions");
+        }}
+      >
+        <DialogContent className="sm:max-w-[980px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+          <DialogHeader className="px-6 pt-6 pb-0">
+            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
+              Per-Region Protocol Revenue
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Region comparison for weekly GLW, staked GCTL, share, PDs, and
+              GCTL per PD.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                  Region A
+                </span>
+                <select
+                  value={selectedRegionPrimary}
+                  onChange={(e) => setSelectedRegionPrimary(e.target.value)}
+                  className="rounded-lg border border-border/20 bg-card px-3 py-2 text-sm"
+                >
+                  {regionsTableRows.length > 0 ? (
+                    regionsTableRows.map((row) => (
+                      <option key={`primary-${row.region}`} value={row.region}>
+                        {row.region}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">No region data</option>
+                  )}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                  Region B (optional)
+                </span>
+                <select
+                  value={selectedRegionSecondary}
+                  onChange={(e) => setSelectedRegionSecondary(e.target.value)}
+                  className="rounded-lg border border-border/20 bg-card px-3 py-2 text-sm"
+                >
+                  <option value="">None</option>
+                  {regionsTableRows
+                    .filter((row) => row.region !== selectedRegionPrimary)
+                    .map((row) => (
+                      <option key={`secondary-${row.region}`} value={row.region}>
+                        {row.region}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            </div>
+            <div
+              className={cn(
+                "grid gap-4",
+                secondaryRegionRow ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
+              )}
+            >
+              <RegionCompareCard title="Region A" row={primaryRegionRow} />
+              {secondaryRegionRow ? (
+                <RegionCompareCard title="Region B" row={secondaryRegionRow} />
+              ) : null}
+            </div>
+            <MiniBlogPanel
+              blogId={modalBlogs.regions.current}
+              onSelectBlog={(blogId) => navigateModalBlog("regions", blogId)}
+              onBack={() => goBackModalBlog("regions")}
+              canGoBack={modalBlogs.regions.history.length > 0}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
