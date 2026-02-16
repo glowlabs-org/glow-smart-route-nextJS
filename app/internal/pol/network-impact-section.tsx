@@ -460,8 +460,8 @@ export function NetworkImpactSection({
         }}
       >
         <CardContent className="p-6 sm:p-8 lg:p-10">
-          <div className="grid gap-8 xl:grid-cols-12 xl:items-center">
-            <div className="xl:col-span-4 flex flex-col gap-3">
+          <div className="grid gap-8 xl:grid-cols-12 xl:items-center overflow-hidden">
+            <div className="xl:col-span-4 flex flex-col gap-3 min-w-0">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                 Homes powered by clean energy
               </div>
@@ -489,7 +489,7 @@ export function NetworkImpactSection({
               </a>
             </div>
 
-            <div className="xl:col-span-8">
+            <div className="xl:col-span-8 min-w-0" onClick={(e) => e.stopPropagation()}>
               <div className="rounded-2xl border border-border/20 bg-muted/20 dark:bg-[#0b1220] overflow-hidden">
                 <div className="h-[280px] sm:h-[340px] lg:h-[360px] w-full">
                   <UiMap

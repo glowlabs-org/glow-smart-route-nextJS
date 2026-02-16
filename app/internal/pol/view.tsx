@@ -853,7 +853,7 @@ function FarmDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[980px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+      <DialogContent className="sm:max-w-[980px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
         <DialogHeader className="sr-only">
           <DialogTitle>Solar Farm Economics</DialogTitle>
           <DialogDescription>
@@ -1624,7 +1624,7 @@ export function PolDashboardView() {
     endWeek: supplyGrowthEndWeek,
   });
   const { data: polLiquiditySnapshot } = usePolLiquiditySnapshot({
-    range: "20w",
+    range: "13w",
   });
   const { data: glowCirculatingSnapshot } = useGlowCirculatingSnapshot({
     range: "20w",
@@ -3953,11 +3953,11 @@ export function PolDashboardView() {
           {/* FMI temporarily hidden (extracted to app/internal/pol/fmi-widget.tsx). */}
 
           <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader title="Token Emitted Over Time" />
+            <SectionHeader title="Token Emissions Over Time" />
             <Card className="!gap-6">
               <CardHeader className="pb-0">
                 <div className="text-sm font-semibold">
-                  Token Emitted Over Time
+                  Token Emissions Over Time
                 </div>
               </CardHeader>
               <CardContent className="grid gap-8 xl:grid-cols-12">
@@ -4276,7 +4276,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("supply");
         }}
       >
-        <DialogContent className="sm:max-w-[920px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[920px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Explore Supply Model</DialogTitle>
             <DialogDescription>
@@ -4495,7 +4495,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("overview");
         }}
       >
-        <DialogContent className="sm:max-w-[860px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[860px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>The Glow Economy</DialogTitle>
             <DialogDescription>
@@ -4575,7 +4575,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("growthCards");
         }}
       >
-        <DialogContent className="sm:max-w-[920px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[920px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
               The Four Cards
@@ -4634,7 +4634,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("polLiquidity");
         }}
       >
-        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Protocol Liquidity</DialogTitle>
             <DialogDescription>
@@ -4729,7 +4729,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("gctl");
         }}
       >
-        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>GCTL</DialogTitle>
             <DialogDescription>
@@ -4830,7 +4830,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("walletStats");
         }}
       >
-        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Wallet Stats</DialogTitle>
             <DialogDescription>
@@ -4902,7 +4902,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("delegation");
         }}
       >
-        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Delegation Metrics</DialogTitle>
             <DialogDescription>
@@ -5018,7 +5018,9 @@ export function PolDashboardView() {
             <div className="flex-1 min-w-0 p-6">
               <MiniBlogPanel
                 blogId={modalBlogs.delegation.current}
-                onSelectBlog={(blogId) => navigateModalBlog("delegation", blogId)}
+                onSelectBlog={(blogId) =>
+                  navigateModalBlog("delegation", blogId)
+                }
                 onBack={() => goBackModalBlog("delegation")}
                 canGoBack={modalBlogs.delegation.history.length > 0}
                 parentBlogId={modalBlogs.delegation.history.at(-1)}
@@ -5036,7 +5038,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("regions");
         }}
       >
-        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Per-Region Protocol Revenue</DialogTitle>
             <DialogDescription>
@@ -5079,9 +5081,13 @@ export function PolDashboardView() {
                       label="GLW / Week"
                       value={
                         primaryRegionRow.glwPerWeek !== null
-                          ? formatCompactNumberPrecise(primaryRegionRow.glwPerWeek)
+                          ? formatCompactNumberPrecise(
+                              primaryRegionRow.glwPerWeek
+                            )
                           : primaryRegionRow.ccPerWeek !== null
-                          ? formatCompactNumberPrecise(primaryRegionRow.ccPerWeek)
+                          ? formatCompactNumberPrecise(
+                              primaryRegionRow.ccPerWeek
+                            )
                           : "—"
                       }
                       valueClassName="text-lg sm:text-xl tracking-tight"
@@ -5090,7 +5096,9 @@ export function PolDashboardView() {
                       label="Staked GCTL"
                       value={
                         primaryRegionRow.stakedGctl !== null
-                          ? formatCompactNumberPrecise(primaryRegionRow.stakedGctl)
+                          ? formatCompactNumberPrecise(
+                              primaryRegionRow.stakedGctl
+                            )
                           : "—"
                       }
                       valueClassName="text-lg sm:text-xl tracking-tight"
@@ -5108,7 +5116,9 @@ export function PolDashboardView() {
                       label="Total PDs"
                       value={
                         primaryRegionRow.totalPds !== null
-                          ? formatCompactNumberPrecise(primaryRegionRow.totalPds)
+                          ? formatCompactNumberPrecise(
+                              primaryRegionRow.totalPds
+                            )
                           : "—"
                       }
                       valueClassName="text-lg sm:text-xl tracking-tight"
@@ -5117,7 +5127,9 @@ export function PolDashboardView() {
                       label="GCTL / PD"
                       value={
                         primaryRegionRow.gctlPerPd !== null
-                          ? formatCompactNumberTwoDecimals(primaryRegionRow.gctlPerPd)
+                          ? formatCompactNumberTwoDecimals(
+                              primaryRegionRow.gctlPerPd
+                            )
                           : "—"
                       }
                       valueClassName="text-lg sm:text-xl tracking-tight"
@@ -5144,7 +5156,9 @@ export function PolDashboardView() {
                         </div>
                         <div className="mt-1 text-xl font-mono font-semibold tabular-nums text-foreground tracking-tight">
                           {primaryRegionRow.lifetimeLq !== null
-                            ? formatLiquidityCompact(primaryRegionRow.lifetimeLq)
+                            ? formatLiquidityCompact(
+                                primaryRegionRow.lifetimeLq
+                              )
                             : "—"}
                         </div>
                       </div>
@@ -5154,7 +5168,9 @@ export function PolDashboardView() {
                         </div>
                         <div className="mt-1 text-xl font-mono font-semibold tabular-nums text-foreground tracking-tight">
                           {primaryRegionRow.ninetyDayLq !== null
-                            ? formatLiquidityCompact(primaryRegionRow.ninetyDayLq)
+                            ? formatLiquidityCompact(
+                                primaryRegionRow.ninetyDayLq
+                              )
                             : "—"}
                         </div>
                       </div>
@@ -5189,7 +5205,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("networkImpact");
         }}
       >
-        <DialogContent className="sm:max-w-[760px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40">
+        <DialogContent className="sm:max-w-[760px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40">
           <div className="border-b border-border/20 dark:border-border/40 pb-6 pt-8 px-6">
             <div className="flex flex-col items-center text-center space-y-2">
               <DialogHeader className="p-0">
@@ -5211,22 +5227,22 @@ export function PolDashboardView() {
             </div>
           </div>
           <div className="p-6 space-y-6">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+              <div className="min-w-0 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-3 sm:p-4">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                   Total Panels
                 </div>
-                <div className="mt-2 text-2xl sm:text-3xl font-semibold font-mono tabular-nums">
+                <div className="mt-2 text-xl sm:text-3xl font-semibold font-mono tabular-nums">
                   {impactTotals?.panels != null
                     ? formatNumber(impactTotals.panels)
                     : "—"}
                 </div>
               </div>
-              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+              <div className="min-w-0 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-3 sm:p-4">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                   Installed Capacity
                 </div>
-                <div className="mt-2 text-2xl sm:text-3xl font-semibold font-mono tabular-nums">
+                <div className="mt-2 text-xl sm:text-3xl font-semibold font-mono tabular-nums">
                   {impactTotals?.capacityMw != null
                     ? `${impactTotals.capacityMw.toFixed(1)}`
                     : "—"}
@@ -5235,11 +5251,11 @@ export function PolDashboardView() {
                   MW
                 </div>
               </div>
-              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+              <div className="min-w-0 rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-3 sm:p-4">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                   Trees Equivalent
                 </div>
-                <div className="mt-2 text-2xl sm:text-3xl font-semibold font-mono tabular-nums">
+                <div className="mt-2 text-xl sm:text-3xl font-semibold font-mono tabular-nums">
                   {impactTotals?.trees != null
                     ? formatCompactNumberPrecise(impactTotals.trees)
                     : "—"}
