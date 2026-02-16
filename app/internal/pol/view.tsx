@@ -171,7 +171,7 @@ const walletGrowthChartConfig = {
 } satisfies ChartConfig;
 
 const polLiquidityChartConfig = {
-  liquidity: { label: "PoL liquidity", color: POL_LIQUIDITY_GREEN },
+  liquidity: { label: "Embedded liquidity", color: POL_LIQUIDITY_GREEN },
 } satisfies ChartConfig;
 
 const REGION_COLORS: Record<string, string> = {
@@ -525,6 +525,7 @@ type MiniBlogId =
   | "control-basics"
   | "solar-installations-basics"
   | "uniswap-vs-protocol-liquidity"
+  | "glow-endowment"
   | "circulating-vs-non-circulating"
   | "embedded-liquidity-growth-basics"
   | "circulating-supply-basics"
@@ -533,12 +534,13 @@ type MiniBlogId =
   | "gctl-basics"
   | "wallet-participants-basics"
   | "delegation-metrics-basics"
-  | "region-revenue-basics";
+  | "region-revenue-basics"
+  | "network-impact-basics";
 
 type MiniBlogEntry = {
   title: string;
   paragraphs: string[];
-  learnMore: [MiniBlogId, MiniBlogId, MiniBlogId];
+  learnMore?: MiniBlogId[];
 };
 
 type ModalBlogKey =
@@ -550,7 +552,8 @@ type ModalBlogKey =
   | "gctl"
   | "walletStats"
   | "delegation"
-  | "regions";
+  | "regions"
+  | "networkImpact";
 
 type ModalBlogState = {
   current: MiniBlogId;
@@ -559,46 +562,43 @@ type ModalBlogState = {
 
 const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
   "glow-economy-basics": {
-    title: "Glow Economy Basics",
+    title: "The Glow Economy",
     paragraphs: [
-      "Just as Bitcoin turned tokens into mining machines, Glow turns tokens into solar farms. And just as BTC is the main token of the Bitcoin economy, GLW is the main token of the Glow economy. Each week, new GLW is minted via inflation and distributed to solar farms being built on the protocol.",
-      "Glow generates revenue by selling the ability to control where these solar farms get built. As users pay for control rights, revenue is used to permanently add liquidity to GLW. Because the liquidity is permanently part of the protocol, it is called Embedded Liquidity.",
+      "Just as Bitcoin turned tokens into mining machines, Glow turns tokens into solar farms. And just as BTC is the main token of the Bitcoin economy, GLW is the main token of the Glow economy. Each week, new GLW is minted and distributed to solar farms being built on the protocol.",
+      "Glow generates revenue by selling the ability to control where these solar farms get built. As participants pay for control rights, the revenue is used to permanently add liquidity to GLW. Because this liquidity is permanently part of the protocol, it is called Embedded Liquidity.",
     ],
-    learnMore: ["glw-token-basics", "liquidity-basics", "control-basics"],
+    learnMore: ["glw-token-basics", "control-basics", "liquidity-basics"],
   },
   "glw-token-basics": {
-    title: "GLW Token Basics",
+    title: "The GLW Token",
     paragraphs: [
-      "GLW is the core token of the Glow economy. Weekly inflation mints new GLW and routes it into protocol activity tied to real-world solar deployment.",
-      "As protocol activity grows, GLW utility compounds across delegation, control rights, and embedded liquidity mechanics.",
+      "GLW is the native token of the Glow protocol. Each week, the protocol mints GLW and distributes them across three economic stakeholder groups: active solar farms competing for mining rewards, the Grants Pool, and the Glow Foundation for operational expenses.",
+      "Solar farms earn GLW by producing verified clean energy and competing on impact per dollar of electricity revenue earned. Token holders delegate GLW to solar farms, providing the protocol deposits that farms need to participate in the competitive mining system.",
+      "When users mint GCTL to steer where Glow rewards are directed, the funds flow into the Glow Endowment, which continuously acquires GLW to deepen the token economy's embedded liquidity.",
+      "These three functions create a reinforcing loop. Farms produce energy to earn network subsidies, delegators commit GLW to support farms, and GCTL minters strengthen the token's underlying fundamental and liquidity foundation. The result is a token economy where every participant's activity compounds the value and stability of the network.",
     ],
-    learnMore: ["liquidity-basics", "control-basics", "glow-economy-basics"],
   },
   "liquidity-basics": {
-    title: "Liquidity Basics",
+    title: "Liquidity Fundamentals",
     paragraphs: [
-      "Embedded liquidity is protocol-owned GLW/USDC depth that remains permanently in the system.",
-      "Because the protocol owns the liquidity directly, it can expand exit depth over time without relying on temporary external incentives.",
-    ],
-    learnMore: [
-      "why-liquidity-instead-of-dollars",
-      "glw-token-basics",
-      "control-basics",
+      "A liquidity pool holds reserves of two tokens and enables swapping between them. The pool guarantees that there will be a buyer when someone wants to sell and that there will be a seller when someone wants to buy. In exchange for this service, the pool collects a fee on each swap.",
+      "The pool always maintains a balanced value of both tokens. This means that if the GLW price falls, the pool will buy GLW, and if the GLW price increases, the pool will sell GLW. Regardless of price movements, this mechanism ensures that the pool will always have the same amount or more of tokens at the same price. The underlying rule is a constant-product formula: x * y = k, where x is the quantity of one token, y is the quantity of the other, and k is a constant. When someone swaps tokens, they increase one reserve and decrease the other, but the product of the two reserves remains constant.",
     ],
   },
   "control-basics": {
-    title: "Control Basics",
+    title: "GLOW Control",
     paragraphs: [
-      "Glow revenue comes from users paying for control rights that influence where solar farms are built.",
-      "That control-driven revenue is recycled into embedded liquidity and broader protocol growth.",
+      "GCTL is the Glow Control Token, and minting GCTL is the mechanism through which participants direct where Glow builds solar infrastructure. GCTL holders stake their tokens to specific geographic regions, and the protocol allocates rewards proportionally. The more GCTL staked to a region, the larger share of protocol resources and farm rewards that region receives.",
+      "When GCTL is minted, the funds paid flow directly into the Glow Endowment, permanently deepening the embedded liquidity behind GLW. This creates a direct link between governance participation and protocol strength: every decision to steer where solar gets built simultaneously reinforces the economic foundation of the token.",
+      "GCTL staking also determines how revenue is attributed at the farm level. Within each region, individual farms earn their share of GCTL-sourced revenue based on their verified impact credits. Farms that produce more verified clean energy capture a larger portion of the revenue directed to their region.",
     ],
-    learnMore: ["gctl-basics", "liquidity-basics", "glw-token-basics"],
   },
   "solar-installations-basics": {
     title: "Total Solar Installations",
     paragraphs: [
-      "This count includes every solar installation Glow has funded and built, including installations that are no longer earning rewards.",
-      "Installations vary by size, region, and production profile, but all contribute to the protocol's deployment footprint.",
+      'On Glow, the term "solar farm" refers to any solar installation of any size, ranging from 4kW residential rooftop systems to 16 MW utility-scale arrays. Each farm competes for GLW rewards based on its impact efficiency relative to all other participating farms.',
+      "Farms are active on the Glow protocol for exactly 100 weeks. During this window, they earn GLW tokens, compete with farms in their region, and recover delegator protocol deposits based on performance. After 100 weeks, the farm stops receiving GLW rewards and its protocol deposit has been fully distributed, but the solar installation itself continues producing clean energy and generating verified carbon displacement for decades beyond the initial reward window.",
+      "The 100-week window defines the reward lifecycle for each farm, and sets a fixed horizon over which deposits are recovered, rewards are earned, and competitive performance is measured. New farms continuously enter the protocol, maintaining the competitive pressure that drives the network's efficiency upward over time.",
     ],
     learnMore: [
       "farm-revenue-distribution",
@@ -607,31 +607,31 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
     ],
   },
   "uniswap-vs-protocol-liquidity": {
-    title: "Uniswap Liquidity vs Protocol Liquidity",
+    title: "Uniswap Liquidity vs Embedded Liquidity",
     paragraphs: [
-      "Uniswap liquidity can be mercenary and leave during volatility. Protocol liquidity is owned by Glow and designed to persist through market cycles.",
-      "That permanence is why embedded liquidity is treated as strategic infrastructure rather than short-term incentives.",
+      "Liquidity on standard DEXs like Uniswap is owned by individual LPs. These are humans, traders, funds, and institutions who deposit tokens to earn trading fees and they can withdraw their liquidity at any time. If markets experience higher than expected volatility, rational LPs pull their capital to avoid further impermanent losses.",
+      "This means that LPs face the strongest incentive to withdraw at exactly the moment liquidity matters most. If enough LPs withdraw simultaneously, the pool's available entry or exit liquidity can shrink to a fraction of its prior depth before other participants have had the opportunity to trade. Every LP voluntarily revokes their commitment under stress, and liquidity evaporates, degrading the structural integrity of the token economy.",
     ],
-    learnMore: [
-      "liquidity-basics",
-      "why-liquidity-instead-of-dollars",
-      "control-basics",
+    learnMore: ["glow-endowment"],
+  },
+  "glow-endowment": {
+    title: "The Glow Endowment",
+    paragraphs: [
+      "The Glow Endowment is embedded liquidity in the GLW/USDC Uniswap pool. When Glow earns protocol revenue, it is used to purchase GLW tokens on the open market. The resulting GLW and remaining USDC are committed together as a liquidity position. This commitment is a one-way transaction. Once the liquidity enters the pool, it cannot be withdrawn.",
+      "Because the Endowment is a Uniswap LP position, it automatically rebalances through trading activity. When GLW appreciates, the pool sells GLW and accumulates USDC. When GLW declines, the pool uses its USDC reserves to absorb GLW from circulation. This rebalancing requires no new capital inflows and no human intervention. The Endowment continuously provides depth for traders in both directions regardless of market conditions. Since this liquidity is structurally required to remain available even during turbulence, it provides a much stronger guarantee of stability to token holders.",
+      "The Endowment also earns trading fees on every swap proportional to its share of the pool's total liquidity. These fees compound directly back into the position. A larger position earns more fees, and more fees grow the position faster. Revenue from GCTL minting adds new capital, and trading fees compound on top of it. The result is a liquidity position that gains momentum over time, providing deeper markets, lower slippage, and greater price stability for every GLW participant as it grows.",
     ],
   },
   "circulating-vs-non-circulating": {
-    title: "Circulating vs Non-Circulating",
+    title: "Circulating Supply Basics",
     paragraphs: [
-      "Glow classifies supply as circulating when tokens are liquid and economically available to the market.",
-      "Tokens structurally locked in protocol mechanisms are tracked separately so circulating growth reflects practical market float.",
-    ],
-    learnMore: [
-      "circulating-supply-basics",
-      "liquidity-basics",
-      "why-liquidity-instead-of-dollars",
+      "Not all GLW is freely tradeable. The protocol holds significant amounts of GLW across several contract wallets, including the Grants Treasury, the Veto Council, the GCA and Miner Pool, and the Early Liquidity allocation, none of which are available on the open market. GLW held inside the Endowment's liquidity position is also excluded, since it is permanently committed to the pool and cannot be withdrawn.",
+      "Circulating supply is the portion of total GLW supply that remains after removing all protocol-held balances and actively delegated GLW. Delegated GLW is excluded because it is locked into vaults that back solar farms, making it unavailable for trading until earned back. The result is a metric that reflects the tokens genuinely accessible to market participants at any given time.",
+      "The dashboard tracks annualized circulating supply growth measured over rolling 13-week windows. This metric accounts for the predictable weekly minting schedule and isolates organic change in circulation from inflation timing, providing a clear view of how the tradeable supply evolves over time.",
     ],
   },
   "embedded-liquidity-growth-basics": {
-    title: "Annualized Embedded Liquidity Growth",
+    title: "Embedded Liquidity Growth (MoM)",
     paragraphs: [
       "Embedded liquidity growth measures how quickly protocol-owned depth is compounding from revenue and market activity.",
       "Because the base is still scaling, annualized growth can remain high while absolute depth also rises.",
@@ -645,37 +645,35 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
   "circulating-supply-basics": {
     title: "Circulating Supply Basics",
     paragraphs: [
-      "Circulating supply is modeled as liquid GLW available to market participants after accounting for embedded and delegated balances.",
-      "As price and protocol allocation shift, circulating levels adapt dynamically rather than remaining static.",
+      "Not all GLW is freely tradeable. The protocol holds significant amounts of GLW across several contract wallets, including the Grants Treasury, the Veto Council, the GCA and Miner Pool, and the Early Liquidity allocation, none of which are available on the open market. GLW held inside the Endowment's liquidity position is also excluded, since it is permanently committed to the pool and cannot be withdrawn.",
+      "Circulating supply is the portion of total GLW supply that remains after removing all protocol-held balances and actively delegated GLW. Delegated GLW is excluded because it is locked into vaults that back solar farms, making it unavailable for trading until earned back. The result is a metric that reflects the tokens genuinely accessible to market participants at any given time.",
     ],
     learnMore: [
       "liquidity-basics",
       "why-liquidity-instead-of-dollars",
-      "circulating-vs-non-circulating",
-    ],
-  },
-  "why-liquidity-instead-of-dollars": {
-    title: "Why Liquidity Instead of Dollars",
-    paragraphs: [
-      "Glow routes value into persistent liquidity instead of distributing all revenue directly as dollars.",
-      "That design prioritizes long-term exit depth and token resilience over short-term payout optics.",
-    ],
-    learnMore: [
-      "liquidity-basics",
-      "circulating-supply-basics",
       "uniswap-vs-protocol-liquidity",
     ],
   },
-  "farm-revenue-distribution": {
-    title: "How Farm Revenue Is Distributed",
+  "why-liquidity-instead-of-dollars": {
+    title: "Why Liquidity Instead of Dollars?",
     paragraphs: [
-      "Regional revenue is driven by control rights and miner flows tied to that region.",
-      "Inside each region, revenue attribution follows projected lifetime credit production, so higher projected output receives more revenue share.",
+      "Liquidity monotonically increases for a given LP position. As the price moves, the LP's dollar amount and token counts shift, but their liquidity amount strictly stays the same or grows from accumulated trading fees. A position that started at 1,000 units of liquidity will never fall below 1,000 units of liquidity, regardless of what happens to the price.",
+      "Dollar-denominated metrics fluctuate with price. If GLW doubles in value, the dollar value of GLW reserves in the pool doubles too, but the pool now holds fewer GLW tokens and more USDC due to rebalancing. The pool's actual capacity to absorb a large GLW sale has decreased, even though the dollar figure went up. Using liquidity instead of dollar-denominated price as the reference metric for token health tracks the compounding growth and stability of the Glow token ecosystem over time.",
+      "This property is especially significant for the Glow Endowment. The Endowment is a permanent LP position in the GLW/USDC pool that earns fees on every swap. Those fees compound directly back into the position, so the Endowment's liquidity grows even without new protocol revenue inflows. Revenue from GCTL minting adds new capital, and trading fees compound on top of it. The result is a liquidity position that gains momentum and only increases in depth over time.",
+    ],
+    learnMore: ["glow-endowment"],
+  },
+  "farm-revenue-distribution": {
+    title: "Solar Farm Economics",
+    paragraphs: [
+      "Every solar farm on Glow generates revenue that flows into the protocol's embedded liquidity. This revenue comes from three sources: miner sales, GCTL mint attribution, and GCTL yield attribution.",
+      "Miner sales occur when farms sell a portions of their GLW reward streams. The proceeds, minus operational bounties paid to the farm, enter the Endowment as new liquidity. GCTL mint attribution distributes a share of new GCTL minting revenue to each farm based on the GCTL staked in its region and the farm's verified impact credits within that region. GCTL yield attribution works the same way, but distributes the Endowment's earned trading fees and rebalancing gains rather than new capital.",
+      "All three revenue streams are smoothed over 13-week windows to reduce noise from week-to-week variation. The dashboard displays each farm's lifetime revenue contribution and its quarterly trailing performance, showing both the cumulative impact and the current trajectory of every installation on the network.",
     ],
     learnMore: [
+      "region-revenue-basics",
       "solar-installations-basics",
       "control-basics",
-      "region-revenue-basics",
     ],
   },
   "gctl-basics": {
@@ -687,36 +685,36 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
     learnMore: ["control-basics", "region-revenue-basics", "liquidity-basics"],
   },
   "wallet-participants-basics": {
-    title: "Wallet Participants Basics",
+    title: "Wallet Stats",
     paragraphs: [
-      "Protocol participants include wallets interacting with delegation, mining, and control mechanics.",
-      "A single wallet can appear in multiple categories, so category percentages are not mutually exclusive.",
-    ],
-    learnMore: [
-      "delegation-metrics-basics",
-      "gctl-basics",
-      "glw-token-basics",
+      "Protocol participants are wallets that have engaged in meaningful on-chain activity within the Glow ecosystem. A wallet qualifies as a participant the first time it performs any protocol action, purchasing a mining fraction, appearing in a reward distribution, staking GCTL, or holding a GLW balance above a minimum threshold.",
+      "Participants break down into three overlapping categories. Delegators hold active vault ownership shares and have committed GLW to back solar farms. Miners have purchased mining-center fractions to participate in the competitive reward system. GCTL holders maintain a non-zero stake, directing where the protocol builds solar infrastructure.",
+      "The dashboard tracks the total number of protocol participants alongside the rate of new wallet activity per week. This provides a view of both the current size of the Glow economy and the pace at which new participants are entering.",
     ],
   },
   "delegation-metrics-basics": {
-    title: "Delegation Metrics Basics",
+    title: "Delegation Metrics",
     paragraphs: [
-      "Delegation tracks how much GLW is actively committed in protocol voting and routing mechanisms.",
-      "Growth trends help contextualize participation depth and the share of supply committed long term.",
-    ],
-    learnMore: [
-      "wallet-participants-basics",
-      "circulating-supply-basics",
-      "control-basics",
+      "Delegation is the process of committing GLW to solar farms' protocol deposits. Farms need these deposits to participate in the competitive mining system, and delegators provide them by locking GLW into vaults that back specific farms. In return, delegators earn yield proportional to the farm's performance over its 100-week reward lifecycle.",
+      "The delegation ratio measures the percentage of circulating supply that is actively delegated. A higher ratio signals stronger community commitment to supporting the network's farms. As more GLW is delegated, farms receive deeper backing, and the remaining circulating supply tightens.",
+      "The dashboard displays total GLW delegated, the current number of active delegators, estimated delegator GLW-denominated APY, and the delegation ratio over time. These metrics together show how much of the token economy is actively engaged in supporting solar infrastructure rather than sitting idle.",
     ],
   },
   "region-revenue-basics": {
-    title: "Per-Region Revenue Basics",
+    title: "Per-Region Protocol Revenue",
     paragraphs: [
-      "Region-level revenue compares where protocol flows are concentrated and how efficiently each region converts staked control into outcomes.",
-      "Comparing two regions side-by-side is useful for understanding strategic differences in routing and production.",
+      "Glow operates across multiple geographic regions, each with its own pool of competing solar farms. GCTL staking determines how protocol resources are allocated across these regions, the more GCTL staked to a region, the larger its share of new farm capacity and reward distribution.",
+      "Within each region, farms compete on verified impact efficiency. Farms that produce more carbon displacement per dollar of electricity revenue capture a larger share of the region's allocated rewards. This two-layer competition, between regions for allocation and between farms within a region for performance, drives capital toward the locations and installations where solar has the highest impact.",
+      "The dashboard breaks down each region's lifetime and quarterly revenue contribution, carbon credits generated per week, total farm count, and GCTL staked. Comparing regions side by side reveals where the protocol's solar capacity is concentrated and how staking decisions are shaping the geographic distribution of Glow's impact.",
     ],
-    learnMore: ["gctl-basics", "farm-revenue-distribution", "control-basics"],
+  },
+  "network-impact-basics": {
+    title: "Network Impact",
+    paragraphs: [
+      "Network impact measures the aggregate environmental output of every solar installation on the Glow protocol. These figures represent the real-world energy production and carbon displacement generated by the farms that the token economy supports.",
+      "The dashboard tracks four headline metrics: total solar panels installed across all farms, total energy generation capacity in megawatts per year, the equivalent number of homes powered by that energy, and the equivalent number of adult trees needed to offset the same amount of carbon. Each metric grows as new farms join and existing installations continue producing clean energy beyond their 100-week reward window.",
+      "These metrics are the heartbeat the Glow protocol. Every token minted, every delegation made, and every GCTL staked ultimately exists to drive these impact figures higher. The network impact dashboard connects the token economy back to its physical purpose: building and sustaining verified solar infrastructure at scale.",
+    ],
   },
 };
 
@@ -726,10 +724,11 @@ const INITIAL_MODAL_BLOGS: Record<ModalBlogKey, MiniBlogId> = {
   supply: "circulating-supply-basics",
   farm: "farm-revenue-distribution",
   polLiquidity: "uniswap-vs-protocol-liquidity",
-  gctl: "gctl-basics",
+  gctl: "control-basics",
   walletStats: "wallet-participants-basics",
   delegation: "delegation-metrics-basics",
   regions: "region-revenue-basics",
+  networkImpact: "network-impact-basics",
 };
 
 const GROWTH_CARD_BLOG: Record<GrowthCardKey, MiniBlogId> = {
@@ -809,6 +808,7 @@ function FarmDetailsDialog({
   onSelectBlog,
   onBackBlog,
   canGoBack,
+  parentBlogId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -818,6 +818,7 @@ function FarmDetailsDialog({
   onSelectBlog: (blogId: MiniBlogId) => void;
   onBackBlog: () => void;
   canGoBack: boolean;
+  parentBlogId?: MiniBlogId;
 }) {
   const lifetimeValue =
     selectedFarm?.lifetimeLq !== null && selectedFarm?.lifetimeLq !== undefined
@@ -855,10 +856,12 @@ function FarmDetailsDialog({
       <DialogContent className="sm:max-w-[980px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
         <DialogHeader className="sr-only">
           <DialogTitle>Solar Farm Economics</DialogTitle>
-          <DialogDescription>Solar farm details and revenue stats.</DialogDescription>
+          <DialogDescription>
+            Solar farm details and revenue stats.
+          </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[70vh]">
+        <ScrollArea className="max-h-[80vh]">
           <div className="p-6 space-y-6">
             {!selectedFarm ? (
               <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 text-sm text-muted-foreground">
@@ -955,6 +958,7 @@ function FarmDetailsDialog({
                   onSelectBlog={onSelectBlog}
                   onBack={onBackBlog}
                   canGoBack={canGoBack}
+                  parentBlogId={parentBlogId}
                 />
               </>
             )}
@@ -965,69 +969,103 @@ function FarmDetailsDialog({
   );
 }
 
+const MINI_BLOG_TITLE_MAX_CHARS = 36;
+
+function truncateBlogTitle(title: string) {
+  if (title.length <= MINI_BLOG_TITLE_MAX_CHARS) return title;
+  return `${title.slice(0, MINI_BLOG_TITLE_MAX_CHARS - 1)}\u2026`;
+}
+
 function MiniBlogPanel({
   blogId,
   onSelectBlog,
   onBack,
   canGoBack,
+  parentBlogId,
   className,
+  defaultExpanded,
 }: {
   blogId: MiniBlogId;
   onSelectBlog: (blogId: MiniBlogId) => void;
   onBack: () => void;
   canGoBack: boolean;
+  parentBlogId?: MiniBlogId;
   className?: string;
+  defaultExpanded?: boolean;
 }) {
   const blog = MINI_BLOGS[blogId];
+  const parentTitle = parentBlogId ? MINI_BLOGS[parentBlogId].title : null;
+  const [expanded, setExpanded] = React.useState(defaultExpanded ?? false);
+  const hasMore = blog.paragraphs.length > 1;
+
+  React.useEffect(() => {
+    setExpanded(defaultExpanded ?? false);
+  }, [blogId, defaultExpanded]);
+
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border/20 bg-muted/20 p-4 sm:p-5 space-y-4",
+        "rounded-2xl border border-border/40 bg-muted/20 p-4 sm:p-5 space-y-4",
         className
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
           {blog.title}
         </div>
-        {canGoBack ? (
-          <Button
+        {canGoBack && parentTitle ? (
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
-            className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/70"
+            className="shrink-0 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 hover:text-foreground transition-colors"
             onClick={onBack}
           >
-            Back
-          </Button>
+            <span aria-hidden>&#8592;</span>
+            {parentTitle}
+          </button>
         ) : null}
       </div>
-      <div className="space-y-3">
-        {blog.paragraphs.map((paragraph, index) => (
-          <p key={`${blogId}-${index}`} className="text-sm text-muted-foreground">
-            {paragraph}
-          </p>
-        ))}
-      </div>
-      <div className="space-y-2">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
-          LEARN MORE
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {blog.learnMore.map((learnId) => (
-            <Button
-              key={`${blogId}-${learnId}`}
-              type="button"
-              variant="outline"
-              size="sm"
-              className="text-[10px] font-mono uppercase tracking-widest"
-              onClick={() => onSelectBlog(learnId)}
+      <div className="space-y-4">
+        <p className="text-[13px] leading-relaxed text-muted-foreground/90 dark:text-muted-foreground">
+          {blog.paragraphs[0]}
+        </p>
+        {expanded &&
+          blog.paragraphs.slice(1).map((paragraph, index) => (
+            <p
+              key={`${blogId}-${index + 1}`}
+              className="text-[13px] leading-relaxed text-muted-foreground/80 dark:text-muted-foreground/90"
             >
-              {MINI_BLOGS[learnId].title}
-            </Button>
+              {paragraph}
+            </p>
           ))}
-        </div>
       </div>
+      {hasMore && !defaultExpanded && (
+        <button
+          type="button"
+          className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 hover:text-foreground transition-colors"
+          onClick={() => setExpanded((e) => !e)}
+        >
+          {expanded ? "Show less" : "Read more"}
+        </button>
+      )}
+      {blog.learnMore && blog.learnMore.length > 0 ? (
+        <div className="space-y-3 pt-1">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+            LEARN MORE
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {blog.learnMore.map((learnId) => (
+              <button
+                key={`${blogId}-${learnId}`}
+                type="button"
+                className="rounded-lg border border-border/60 bg-card px-3.5 py-2.5 text-xs font-mono uppercase tracking-wider text-foreground/80 hover:bg-foreground hover:text-background transition-colors text-left leading-snug"
+                onClick={() => onSelectBlog(learnId)}
+              >
+                {truncateBlogTitle(MINI_BLOGS[learnId].title)}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1117,17 +1155,15 @@ function RegionCompareCard({
   row,
 }: {
   title: string;
-  row:
-    | {
-        region: string;
-        glwPerWeek: number | null;
-        ccPerWeek: number | null;
-        stakedGctl: number | null;
-        shareOfTotal: number | null;
-        totalPds: number | null;
-        gctlPerPd: number | null;
-      }
-    | null;
+  row: {
+    region: string;
+    glwPerWeek: number | null;
+    ccPerWeek: number | null;
+    stakedGctl: number | null;
+    shareOfTotal: number | null;
+    totalPds: number | null;
+    gctlPerPd: number | null;
+  } | null;
 }) {
   if (!row) {
     return (
@@ -1143,7 +1179,9 @@ function RegionCompareCard({
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
           {title}
         </div>
-        <div className="mt-1 text-lg font-semibold tracking-tight">{row.region}</div>
+        <div className="mt-1 text-lg font-semibold tracking-tight">
+          {row.region}
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <MiniStat
@@ -1155,27 +1193,45 @@ function RegionCompareCard({
               ? formatCompactNumberPrecise(row.ccPerWeek)
               : "—"
           }
-          helper={row.glwPerWeek === null && row.ccPerWeek !== null ? "Fallback from CC / week" : undefined}
+          helper={
+            row.glwPerWeek === null && row.ccPerWeek !== null
+              ? "Fallback from CC / week"
+              : undefined
+          }
           valueClassName="text-base sm:text-lg tracking-tight"
         />
         <MiniStat
           label="Staked GCTL"
-          value={row.stakedGctl !== null ? formatCompactNumberPrecise(row.stakedGctl) : "—"}
+          value={
+            row.stakedGctl !== null
+              ? formatCompactNumberPrecise(row.stakedGctl)
+              : "—"
+          }
           valueClassName="text-base sm:text-lg tracking-tight"
         />
         <MiniStat
           label="Share of Total"
-          value={row.shareOfTotal !== null ? `${row.shareOfTotal.toFixed(1)}%` : "—"}
+          value={
+            row.shareOfTotal !== null ? `${row.shareOfTotal.toFixed(1)}%` : "—"
+          }
           valueClassName="text-base sm:text-lg tracking-tight"
         />
         <MiniStat
           label="Total PDs"
-          value={row.totalPds !== null ? formatCompactNumberPrecise(row.totalPds) : "—"}
+          value={
+            row.totalPds !== null
+              ? formatCompactNumberPrecise(row.totalPds)
+              : "—"
+          }
           valueClassName="text-base sm:text-lg tracking-tight"
         />
         <MiniStat
           label="GCTL / PD"
-          value={row.gctlPerPd !== null ? formatCompactNumberTwoDecimals(row.gctlPerPd) : "—"}
+          value={
+            row.gctlPerPd !== null
+              ? formatCompactNumberTwoDecimals(row.gctlPerPd)
+              : "—"
+          }
           valueClassName="text-base sm:text-lg tracking-tight"
         />
       </div>
@@ -1239,7 +1295,9 @@ function PolLiquidityTooltip({
 
       <div className="mt-2 space-y-2">
         <div className="flex items-center justify-between gap-4">
-          <div className="text-xs text-muted-foreground">PoL liquidity</div>
+          <div className="text-xs text-muted-foreground">
+            Embedded liquidity
+          </div>
           <div className="text-sm font-mono font-semibold tabular-nums text-foreground">
             {typeof p.liquidity === "number"
               ? formatLiquidityCompact(p.liquidity)
@@ -1284,6 +1342,8 @@ export function PolDashboardView() {
   const [isDelegationDialogOpen, setIsDelegationDialogOpen] =
     React.useState(false);
   const [isRegionsDialogOpen, setIsRegionsDialogOpen] = React.useState(false);
+  const [isNetworkImpactDialogOpen, setIsNetworkImpactDialogOpen] =
+    React.useState(false);
   const [selectedFarmId, setSelectedFarmId] = React.useState<string | null>(
     null
   );
@@ -1307,6 +1367,7 @@ export function PolDashboardView() {
     walletStats: { current: INITIAL_MODAL_BLOGS.walletStats, history: [] },
     delegation: { current: INITIAL_MODAL_BLOGS.delegation, history: [] },
     regions: { current: INITIAL_MODAL_BLOGS.regions, history: [] },
+    networkImpact: { current: INITIAL_MODAL_BLOGS.networkImpact, history: [] },
   }));
 
   const navigateModalBlog = React.useCallback(
@@ -1722,23 +1783,10 @@ export function PolDashboardView() {
       } satisfies DelegationTrendDatum;
     });
 
-    if (totalDelegatedGlw !== null && Number.isFinite(totalDelegatedGlw)) {
-      const currentWeek = getCurrentWeekNumber(Date.now());
-      const currentDelegatedM = totalDelegatedGlw / 1_000_000;
-      const currentWeekStartMs = getWeekStartMs(currentWeek);
-      const nowMs = Date.now();
-      historical.push({
-        week: "Current",
-        delegated: Number.isFinite(currentDelegatedM) ? currentDelegatedM : 0,
-        weekNumber: currentWeek,
-        weekStartMs: currentWeekStartMs,
-        weekEndMs: nowMs,
-        isCurrent: true,
-      });
-    }
-
+    // Omit the current (incomplete) week to avoid a misleading flattening
+    // effect at the end of the chart while the farm is still being delegated.
     return historical;
-  }, [activelyDelegatedByWeekData, totalDelegatedGlw]);
+  }, [activelyDelegatedByWeekData]);
 
   const delegationCurrentTickValue = React.useMemo(() => {
     if (!delegationTrendLive || delegationTrendLive.length === 0) return null;
@@ -1760,7 +1808,8 @@ export function PolDashboardView() {
       }
     }
 
-    const lastTick = delegationTrendLive[delegationTrendLive.length - 1]?.weekEndMs;
+    const lastTick =
+      delegationTrendLive[delegationTrendLive.length - 1]?.weekEndMs;
     if (
       typeof lastTick === "number" &&
       Number.isFinite(lastTick) &&
@@ -2136,14 +2185,17 @@ export function PolDashboardView() {
     );
   }, [farmRowsAll, selectedFarmId]);
 
-  const openFarmDialog = React.useCallback((farm: any) => {
-    if (!farm || farm.name === "—") return;
-    const id = farm.farmId ?? farm.key ?? null;
-    if (!id) return;
-    setSelectedFarmId(String(id));
-    resetModalBlog("farm");
-    setIsFarmDialogOpen(true);
-  }, [resetModalBlog]);
+  const openFarmDialog = React.useCallback(
+    (farm: any) => {
+      if (!farm || farm.name === "—") return;
+      const id = farm.farmId ?? farm.key ?? null;
+      if (!id) return;
+      setSelectedFarmId(String(id));
+      resetModalBlog("farm");
+      setIsFarmDialogOpen(true);
+    },
+    [resetModalBlog]
+  );
 
   const sortedFarmRows = React.useMemo(() => {
     const rows = [...farmRowsAll];
@@ -2176,16 +2228,11 @@ export function PolDashboardView() {
     }));
   }, [sortedFarmRows]);
 
-  const teaserSeed = React.useMemo(() => {
-    const utcDate = new Date().toISOString().slice(0, 10);
-    return utcDate
-      .split("-")
-      .join("")
-      .split("")
-      .reduce((acc, c) => {
-        return acc * 31 + c.charCodeAt(0);
-      }, 7);
-  }, []);
+  // Randomize teaser order on every page load.
+  const teaserSeed = React.useMemo(
+    () => Math.floor(Math.random() * 2147483647),
+    []
+  );
 
   const farmRowsTeaser = React.useMemo(() => {
     const base =
@@ -2310,7 +2357,8 @@ export function PolDashboardView() {
     // Normalize miner inflation in-window to exactly 175k/week by assigning any
     // observed mint residual to the starting baseline (carryover from prior weeks).
     const observedTotalSupplyDelta = totalSupplyEnd - totalSupplyStart;
-    const expectedMinerInflationDelta = MINER_INFLATION_PER_WEEK_GLW * elapsedWeeks;
+    const expectedMinerInflationDelta =
+      MINER_INFLATION_PER_WEEK_GLW * elapsedWeeks;
     const mintResidualCarryover =
       observedTotalSupplyDelta - expectedMinerInflationDelta;
     const canonicalStart = canonicalStartRaw + mintResidualCarryover;
@@ -2345,33 +2393,44 @@ export function PolDashboardView() {
   const supplyGrowthAnnualDisplay =
     supplyGrowthAnnual !== null ? formatPercent(supplyGrowthAnnual * 100) : "—";
 
-  const polGrowthAnnual = React.useMemo(() => {
+  const polGrowthMoM = React.useMemo(() => {
     const series = polLiquiditySnapshot?.series ?? null;
-    if (!series || series.length === 0) return null;
-    const start = series.find((r) => r.week === supplyGrowthStartWeek);
-    const end = series.find((r) => r.week === supplyGrowthEndWeek);
-    if (!start || !end) return null;
-    const startLq = parseLqUnits(start.pol_lq ?? null);
-    const endLq = parseLqUnits(end.pol_lq ?? null);
-    if (
-      startLq === null ||
-      endLq === null ||
-      !Number.isFinite(startLq) ||
-      !Number.isFinite(endLq) ||
-      startLq <= 0
-    )
-      return null;
-    const ratio = endLq / startLq;
-    if (!Number.isFinite(ratio) || ratio <= 0) return null;
-    const annualized = Math.pow(ratio, 52 / 13) - 1;
-    return Number.isFinite(annualized) ? annualized : null;
-  }, [polLiquiditySnapshot, supplyGrowthEndWeek, supplyGrowthStartWeek]);
+    if (!series || series.length < 5) return null;
 
-  const polGrowthAnnualDisplay =
-    polGrowthAnnual !== null ? formatPercent(polGrowthAnnual * 100) : "—";
+    const sorted = [...series].sort((a, b) => a.week - b.week);
+
+    // Parse L[t] = end-of-week pol_lq level for each week.
+    const levels: number[] = [];
+    for (const row of sorted) {
+      const lq = parseLqUnits(row.pol_lq ?? null);
+      if (lq !== null && Number.isFinite(lq)) levels.push(lq);
+    }
+    if (levels.length < 5) return null;
+
+    // Step 1: MoM[t] = (L[t] - L[t-4]) / L[t-4] for each t >= 4.
+    let sum = 0;
+    let observations = 0;
+    for (let t = 4; t < levels.length; t++) {
+      const base = levels[t - 4];
+      if (base === 0) continue;
+      const mom = (levels[t] - base) / base;
+      if (!Number.isFinite(mom)) continue;
+      sum += mom;
+      observations++;
+    }
+
+    if (observations === 0) return null;
+
+    // Step 2: average of all valid MoM observations.
+    const avg = sum / observations;
+    return Number.isFinite(avg) ? avg : null;
+  }, [polLiquiditySnapshot]);
+
+  const polGrowthMoMDisplay =
+    polGrowthMoM !== null ? formatPercent(polGrowthMoM * 100) : "—";
   const polGrowthHelper =
-    polGrowthAnnual !== null
-      ? "Annualized growth from PoL liquidity snapshots (Ⱡ)"
+    polGrowthMoM !== null
+      ? "Avg monthly growth (4-week rolling) from PoL liquidity snapshots (Ⱡ)"
       : "Requires PoL liquidity snapshots";
 
   const poolUsdg = poolReserves?.usdg ?? 0;
@@ -2484,6 +2543,7 @@ export function PolDashboardView() {
   const polLiquidityIsLive = Boolean(polLiquidityTrend);
   const regionsTableRows = React.useMemo(() => {
     const rows = polRevenueRegions?.regions ?? [];
+    const summaryRegions = activeRegionsSummary?.regions ?? [];
     const parseMetricNumber = (value: unknown) => {
       if (value === null || value === undefined) return null;
       const n = Number(value);
@@ -2505,20 +2565,31 @@ export function PolDashboardView() {
           return Number.isFinite(n) ? n / 1e6 : null;
         }
       })();
+      const regionName =
+        resolveRegionName((r as any).zone_id ?? null) ??
+        (r as any).region ??
+        `Region ${idx + 1}`;
+
+      // Enrich with activeRegionsSummary data for PDs
+      const summaryMatch = summaryRegions.find((s) => s.name === regionName);
       const totalPds =
         parseMetricNumber((r as any).total_pds) ??
         parseMetricNumber((r as any).totalPds) ??
         parseMetricNumber((r as any).pd_total) ??
-        parseMetricNumber((r as any).total_pd_count);
+        parseMetricNumber((r as any).total_pd_count) ??
+        (summaryMatch && summaryMatch.totalProtocolDepositsUsd > 0
+          ? summaryMatch.totalProtocolDepositsUsd
+          : null);
 
       return {
-        region:
-          resolveRegionName((r as any).zone_id ?? null) ??
-          (r as any).region ??
-          `Region ${idx + 1}`,
+        region: regionName,
         lifetimeLq: parseLqUnits(r.lifetime_lq ?? null),
         ninetyDayLq: parseLqUnits(r.ninety_day_lq ?? null),
-        farms: (r as any).farm_count ?? (r as any).farms ?? 0,
+        farms:
+          (r as any).farm_count ??
+          (r as any).farms ??
+          summaryMatch?.solarFarmCount ??
+          0,
         ccPerWeek:
           (r as any).cc_per_week !== null &&
           (r as any).cc_per_week !== undefined
@@ -2528,8 +2599,14 @@ export function PolDashboardView() {
           parseMetricNumber((r as any).glw_per_week) ??
           parseMetricNumber((r as any).weekly_glw) ??
           parseMetricNumber((r as any).glwWeek) ??
-          null,
-        stakedGctl,
+          (summaryMatch && summaryMatch.glwPerWeek > 0
+            ? summaryMatch.glwPerWeek
+            : null),
+        stakedGctl:
+          stakedGctl ??
+          (summaryMatch && summaryMatch.stakedGctl > 0
+            ? summaryMatch.stakedGctl
+            : null),
         totalPds,
       };
     });
@@ -2548,7 +2625,7 @@ export function PolDashboardView() {
           ? row.stakedGctl / row.totalPds
           : null,
     }));
-  }, [polRevenueRegions, resolveRegionName]);
+  }, [polRevenueRegions, resolveRegionName, activeRegionsSummary]);
 
   const regionsRowsForRender = React.useMemo(() => {
     if (regionsTableRows.length > 0) return regionsTableRows;
@@ -2621,12 +2698,12 @@ export function PolDashboardView() {
       },
       {
         key: "embeddedGrowth" as const,
-        label: "Annualized Embedded Liquidity Growth",
-        value: polGrowthAnnualDisplay,
+        label: "Embedded Liquidity Growth (MoM)",
+        value: polGrowthMoMDisplay,
       },
     ],
     [
-      polGrowthAnnualDisplay,
+      polGrowthMoMDisplay,
       polTrailingPolGrowthDisplay?.lq,
       supplyGrowthAnnualDisplay,
       totalSolarInstallations,
@@ -2664,7 +2741,7 @@ export function PolDashboardView() {
               )}
               role="button"
               tabIndex={0}
-              aria-label="Open Glow economy basics"
+              aria-label="Open The Glow economy"
               onClick={() => {
                 resetModalBlog("overview");
                 setIsBannerBlogOpen(true);
@@ -2764,7 +2841,7 @@ export function PolDashboardView() {
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                       Total Solar Installations
                     </div>
-                    <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                    <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                       {totalSolarInstallations !== null
                         ? formatNumber(totalSolarInstallations)
                         : "—"}
@@ -2796,7 +2873,7 @@ export function PolDashboardView() {
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                       Embedded Liquidity Growth (3 Months)
                     </div>
-                    <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                    <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                       {polTrailingPolGrowthDisplay?.lq ?? "—"}
                     </div>
                     <div className="mt-3 text-sm text-muted-foreground">
@@ -2830,7 +2907,7 @@ export function PolDashboardView() {
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                       Annualized Circulating Supply Growth
                     </div>
-                    <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                    <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                       {supplyGrowthAnnualDisplay}
                     </div>
                     <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
@@ -2846,7 +2923,7 @@ export function PolDashboardView() {
                   )}
                   role="button"
                   tabIndex={0}
-                  aria-label="Open growth cards modal on annualized embedded liquidity growth"
+                  aria-label="Open growth cards modal on embedded liquidity growth MoM"
                   onClick={() => openGrowthCardsDialog("embeddedGrowth")}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
@@ -2858,10 +2935,10 @@ export function PolDashboardView() {
                   <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none -rotate-6" />
                   <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
                     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Annualized Embedded Liquidity Growth
+                      Embedded Liquidity Growth (MoM)
                     </div>
-                    <div className="mt-4 text-5xl sm:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                      {polGrowthAnnualDisplay}
+                    <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                      {polGrowthMoMDisplay}
                     </div>
                     <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
                       ↗
@@ -2921,7 +2998,7 @@ export function PolDashboardView() {
                               color: "#4ade80",
                             },
                             vaulted: { label: "Vaulted", color: "#a855f7" },
-                            pol: { label: "PoL GLW", color: "#ffb472" },
+                            pol: { label: "Embedded GLW", color: "#ffb472" },
                             other: {
                               label: "Structurally Locked",
                               color: "hsl(0 0% 80%)",
@@ -2945,7 +3022,7 @@ export function PolDashboardView() {
                                   fill: "#a855f7",
                                 },
                                 {
-                                  name: "PoL GLW",
+                                  name: "Embedded GLW",
                                   value: Math.round(polGlwInPol ?? 0),
                                   fill: "#ffb472",
                                 },
@@ -3012,7 +3089,9 @@ export function PolDashboardView() {
                             className="inline-block h-2 w-2 rounded-full shrink-0"
                             style={{ background: "#ffb472" }}
                           />
-                          <span className="text-muted-foreground">PoL GLW</span>
+                          <span className="text-muted-foreground">
+                            Embedded GLW
+                          </span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span
@@ -3037,7 +3116,7 @@ export function PolDashboardView() {
                       valueClassName="text-xl sm:text-2xl tracking-tight"
                     />
                     <MiniStat
-                      label="PoL GLW"
+                      label="Embedded GLW"
                       value={
                         polGlwInPol !== null
                           ? `${formatCompactNumberPrecise(polGlwInPol)} GLW`
@@ -3193,7 +3272,7 @@ export function PolDashboardView() {
           </section>
 
           <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader title="PoL, GCTL, Wallets" />
+            <SectionHeader title="Embedded Liquidity, GCTL, Wallets" />
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               {/* ── Protocol Liquidity ── */}
               <Card
@@ -3245,7 +3324,11 @@ export function PolDashboardView() {
                     <MetricCard
                       label="APY"
                       value={polApyDisplay}
-                      helper={ninetyDayApy !== null ? undefined : "Live data unavailable"}
+                      helper={
+                        ninetyDayApy !== null
+                          ? undefined
+                          : "Live data unavailable"
+                      }
                       valueClassName="text-3xl sm:text-4xl"
                     />
                   </div>
@@ -3657,8 +3740,9 @@ export function PolDashboardView() {
                           content={
                             <ChartTooltipContent
                               labelFormatter={(label, payload) => {
-                                const datum = (payload?.[0] as any)
-                                  ?.payload as DelegationTrendDatum | undefined;
+                                const datum = (payload?.[0] as any)?.payload as
+                                  | DelegationTrendDatum
+                                  | undefined;
                                 const weekStart = datum?.weekStartMs
                                   ? new Date(datum.weekStartMs)
                                   : null;
@@ -3860,16 +3944,20 @@ export function PolDashboardView() {
 
           <NetworkImpactSection
             impactTotals={impactTotals}
+            onOpenDialog={() => {
+              resetModalBlog("networkImpact");
+              setIsNetworkImpactDialogOpen(true);
+            }}
           />
 
           {/* FMI temporarily hidden (extracted to app/internal/pol/fmi-widget.tsx). */}
 
           <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader title="Token Supply Over Time" />
+            <SectionHeader title="Token Emitted Over Time" />
             <Card className="!gap-6">
               <CardHeader className="pb-0">
                 <div className="text-sm font-semibold">
-                  Token Supply Over Time
+                  Token Emitted Over Time
                 </div>
               </CardHeader>
               <CardContent className="grid gap-8 xl:grid-cols-12">
@@ -4188,7 +4276,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("supply");
         }}
       >
-        <DialogContent className="sm:max-w-[720px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[920px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Explore Supply Model</DialogTitle>
             <DialogDescription>
@@ -4365,6 +4453,7 @@ export function PolDashboardView() {
               onSelectBlog={(blogId) => navigateModalBlog("supply", blogId)}
               onBack={() => goBackModalBlog("supply")}
               canGoBack={modalBlogs.supply.history.length > 0}
+              parentBlogId={modalBlogs.supply.history.at(-1)}
             />
 
             <div className="flex items-center justify-end">
@@ -4396,6 +4485,7 @@ export function PolDashboardView() {
         onSelectBlog={(blogId) => navigateModalBlog("farm", blogId)}
         onBackBlog={() => goBackModalBlog("farm")}
         canGoBack={modalBlogs.farm.history.length > 0}
+        parentBlogId={modalBlogs.farm.history.at(-1)}
       />
 
       <Dialog
@@ -4407,7 +4497,7 @@ export function PolDashboardView() {
       >
         <DialogContent className="sm:max-w-[860px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
-            <DialogTitle>Glow Economy Basics</DialogTitle>
+            <DialogTitle>The Glow Economy</DialogTitle>
             <DialogDescription>
               Glow economy overview and learn-more mini blog.
             </DialogDescription>
@@ -4416,12 +4506,14 @@ export function PolDashboardView() {
             <div className="absolute inset-0">
               <div
                 className="absolute inset-0 bg-cover bg-center"
-                style={{ backgroundImage: "url('/images/pol-banner-crop.jpg')" }}
+                style={{
+                  backgroundImage: "url('/images/pol-banner-crop.jpg')",
+                }}
               />
               <div className="absolute inset-0 bg-black/40" />
               <div className="absolute inset-0 bg-gradient-to-br from-black/50 via-black/30 to-black/45" />
             </div>
-            <div className="relative z-10 px-5 py-7 sm:px-8 sm:py-8">
+            <div className="relative z-10 px-6 py-10 sm:px-10 sm:py-12">
               <div className="flex justify-end">
                 <Link
                   href={DEFINED_FI_GLOW_URL}
@@ -4432,29 +4524,31 @@ export function PolDashboardView() {
                   Price History ↗
                 </Link>
               </div>
-              <div className="mt-3 grid grid-cols-1 gap-5 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <div className="text-[9px] font-mono uppercase tracking-widest text-white/75">
+              <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-x-12 sm:gap-y-8">
+                <div className="space-y-1.5 sm:col-span-2 sm:justify-self-center sm:text-center">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-white/70">
                     Market Cap
                   </div>
-                  <div className="text-3xl sm:text-4xl font-semibold font-mono tabular-nums tracking-tight text-white">
+                  <div className="text-5xl sm:text-6xl font-bold font-mono tabular-nums tracking-tight leading-none text-white">
                     {marketCapDisplay}
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <div className="text-[9px] font-mono uppercase tracking-widest text-white/75">
+                <div className="space-y-1.5 sm:justify-self-start sm:text-center">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-white/70">
                     GLW Price
                   </div>
-                  <div className="text-3xl sm:text-4xl font-semibold font-mono tabular-nums tracking-tight text-white">
+                  <div className="text-3xl sm:text-4xl font-semibold font-mono tabular-nums tracking-tight leading-none text-white">
                     {priceDisplay}
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <div className="text-[9px] font-mono uppercase tracking-widest text-white/75">
+                <div className="space-y-1.5 sm:justify-self-end sm:text-center">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-white/70">
                     Embedded Liquidity
                   </div>
-                  <div className="text-3xl sm:text-4xl font-semibold font-mono tabular-nums tracking-tight text-white">
-                    {totalPolLq !== null ? formatLiquidityCompact(totalPolLq) : "—"}
+                  <div className="text-3xl sm:text-4xl font-semibold font-mono tabular-nums tracking-tight leading-none text-white">
+                    {totalPolLq !== null
+                      ? formatLiquidityCompact(totalPolLq)
+                      : "—"}
                   </div>
                 </div>
               </div>
@@ -4466,7 +4560,9 @@ export function PolDashboardView() {
               onSelectBlog={(blogId) => navigateModalBlog("overview", blogId)}
               onBack={() => goBackModalBlog("overview")}
               canGoBack={modalBlogs.overview.history.length > 0}
+              parentBlogId={modalBlogs.overview.history.at(-1)}
               className="bg-transparent border-transparent p-0"
+              defaultExpanded
             />
           </div>
         </DialogContent>
@@ -4497,9 +4593,9 @@ export function PolDashboardView() {
                     key={item.key}
                     type="button"
                     className={cn(
-                      "rounded-2xl border p-4 text-left transition-colors",
+                      "rounded-2xl border p-4 text-left transition-all duration-200",
                       isActive
-                        ? "border-border/40 bg-muted/40"
+                        ? "border-glow-orange/40 bg-glow-orange/5 ring-1 ring-glow-orange/20"
                         : "border-border/20 bg-card hover:border-border/40"
                     )}
                     onClick={() => {
@@ -4519,9 +4615,13 @@ export function PolDashboardView() {
             </div>
             <MiniBlogPanel
               blogId={modalBlogs.growthCards.current}
-              onSelectBlog={(blogId) => navigateModalBlog("growthCards", blogId)}
+              onSelectBlog={(blogId) =>
+                navigateModalBlog("growthCards", blogId)
+              }
               onBack={() => goBackModalBlog("growthCards")}
               canGoBack={modalBlogs.growthCards.history.length > 0}
+              parentBlogId={modalBlogs.growthCards.history.at(-1)}
+              defaultExpanded
             />
           </div>
         </DialogContent>
@@ -4534,62 +4634,90 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("polLiquidity");
         }}
       >
-        <DialogContent className="sm:max-w-[760px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
-          <DialogHeader className="px-6 pt-6 pb-0">
-            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
-              Protocol Liquidity
-            </DialogTitle>
-            <DialogDescription className="sr-only">
+        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Protocol Liquidity</DialogTitle>
+            <DialogDescription>
               Embedded liquidity and trend chart.
             </DialogDescription>
           </DialogHeader>
-          <div className="p-6 space-y-6">
-            <MetricCard
-              label="Embedded Liquidity"
-              value={totalPolLq !== null ? formatLiquidityCompact(totalPolLq) : "—"}
-              helper={
-                totalPolBreakdown?.breakdown
-                  ? `(${totalPolBreakdown.breakdown})`
-                  : "Live data unavailable"
-              }
-              valueClassName="text-4xl sm:text-5xl"
-            />
-            <div className="rounded-xl border border-border/20 bg-muted/20 p-4">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 mb-2">
-                Embedded Liquidity
-                {polLiquidityIsLive ? "" : " · Live data unavailable"}
+          <div className="flex flex-col sm:flex-row">
+            {/* Left: KPIs + chart */}
+            <div className="sm:w-[520px] shrink-0 border-b sm:border-b-0 sm:border-r border-border/20 dark:border-border/40 p-6 space-y-6">
+              <div className="space-y-1">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                  Embedded Liquidity
+                </div>
+                <div className="text-5xl font-mono font-semibold text-foreground tracking-tighter">
+                  {totalPolLq !== null
+                    ? formatLiquidityCompact(totalPolLq)
+                    : "—"}
+                </div>
+                {totalPolBreakdown?.breakdown && (
+                  <div className="text-xs text-muted-foreground/60 dark:text-muted-foreground/80 font-mono">
+                    ({totalPolBreakdown.breakdown})
+                  </div>
+                )}
               </div>
-              <ChartContainer
-                config={polLiquidityChartConfig}
-                className="min-h-[180px] w-full"
-              >
-                <AreaChart data={polLiquidityChartData}>
-                  <XAxis
-                    dataKey="week"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 9 }}
-                    interval="preserveStartEnd"
-                  />
-                  <ChartTooltip content={<PolLiquidityTooltip />} />
-                  <Area
-                    type="monotone"
-                    dataKey="liquidity"
-                    stroke="var(--color-liquidity)"
-                    fill="var(--color-liquidity)"
-                    fillOpacity={0.2}
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </AreaChart>
-              </ChartContainer>
+              <div className="grid grid-cols-2 gap-4">
+                <MiniStat
+                  label="APY"
+                  value={polApyDisplay}
+                  helper={
+                    ninetyDayApy !== null ? undefined : "Live data unavailable"
+                  }
+                  valueClassName="text-2xl sm:text-3xl tracking-tight"
+                />
+                <MiniStat
+                  label="Market cap exitable"
+                  value={polExitabilityDisplay}
+                  valueClassName="text-2xl sm:text-3xl tracking-tight"
+                />
+              </div>
+              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-2">
+                  Embedded Liquidity
+                  {polLiquidityIsLive ? "" : " · Live data unavailable"}
+                </div>
+                <ChartContainer
+                  config={polLiquidityChartConfig}
+                  className="h-[160px] w-full"
+                >
+                  <AreaChart data={polLiquidityChartData}>
+                    <XAxis
+                      dataKey="week"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 9 }}
+                      interval="preserveStartEnd"
+                    />
+                    <ChartTooltip content={<PolLiquidityTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="liquidity"
+                      stroke="var(--color-liquidity)"
+                      fill="var(--color-liquidity)"
+                      fillOpacity={0.2}
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </AreaChart>
+                </ChartContainer>
+              </div>
             </div>
-            <MiniBlogPanel
-              blogId={modalBlogs.polLiquidity.current}
-              onSelectBlog={(blogId) => navigateModalBlog("polLiquidity", blogId)}
-              onBack={() => goBackModalBlog("polLiquidity")}
-              canGoBack={modalBlogs.polLiquidity.history.length > 0}
-            />
+            {/* Right: blog text */}
+            <div className="flex-1 min-w-0 p-6">
+              <MiniBlogPanel
+                blogId={modalBlogs.polLiquidity.current}
+                onSelectBlog={(blogId) =>
+                  navigateModalBlog("polLiquidity", blogId)
+                }
+                onBack={() => goBackModalBlog("polLiquidity")}
+                canGoBack={modalBlogs.polLiquidity.history.length > 0}
+                parentBlogId={modalBlogs.polLiquidity.history.at(-1)}
+                defaultExpanded
+              />
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -4601,85 +4729,96 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("gctl");
         }}
       >
-        <DialogContent className="sm:max-w-[760px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
-          <DialogHeader className="px-6 pt-6 pb-0">
-            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
-              GCTL
-            </DialogTitle>
-            <DialogDescription className="sr-only">
+        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>GCTL</DialogTitle>
+            <DialogDescription>
               GCTL total and staking distribution.
             </DialogDescription>
           </DialogHeader>
-          <div className="p-6 space-y-6">
-            <MetricCard
-              label="Total GCTL"
-              value={
-                isGctlLoading ? "..." : formatCompactNumberPrecise(gctlTotalSupply)
-              }
-              valueClassName="text-4xl sm:text-5xl"
-            />
-            <div className="rounded-xl border border-border/20 bg-muted/20 p-4">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 mb-3">
-                Staking by region
+          <div className="flex flex-col sm:flex-row">
+            {/* Left: KPI + chart */}
+            <div className="sm:w-[420px] shrink-0 border-b sm:border-b-0 sm:border-r border-border/20 dark:border-border/40 p-6 space-y-6">
+              <div className="space-y-1">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                  Total GCTL
+                </div>
+                <div className="text-5xl font-mono font-semibold text-foreground tracking-tighter">
+                  {isGctlLoading
+                    ? "..."
+                    : formatCompactNumberPrecise(gctlTotalSupply)}
+                </div>
               </div>
-              <div className="flex flex-col items-center gap-6">
-                <ChartContainer
-                  config={gctlRegionChartConfigLive}
-                  className="h-44 w-44 shrink-0"
-                >
-                  <PieChart>
-                    <Pie
-                      data={gctlRegionPieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={36}
-                      outerRadius={74}
-                      strokeWidth={2}
-                      stroke="var(--color-card)"
-                    />
-                    <ChartTooltip
-                      content={
-                        <ChartTooltipContent
-                          formatter={(value, name) => {
-                            const region = gctlRegionPieData.find(
-                              (r) => r.name === name
-                            );
-                            return `${formatCompactNumberPrecise(Number(value))} (${region?.pct ?? 0}%)`;
-                          }}
-                        />
-                      }
-                    />
-                  </PieChart>
-                </ChartContainer>
-                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
-                  {gctlRegionPieData.map((region) => (
-                    <div
-                      key={`dialog-${region.name}`}
-                      className="flex items-center justify-between text-xs"
-                    >
-                      <span className="flex items-center gap-1.5 text-muted-foreground min-w-0">
-                        <span
-                          className="inline-block h-2 w-2 rounded-full shrink-0"
-                          style={{ backgroundColor: region.fill }}
-                        />
-                        <span className="truncate">{region.name}</span>
-                      </span>
-                      <span className="font-mono tabular-nums text-foreground shrink-0">
-                        {formatCompactNumberPrecise(region.value)}
-                      </span>
-                    </div>
-                  ))}
+              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-3">
+                  Staking by region
+                </div>
+                <div className="flex flex-col items-center gap-4">
+                  <ChartContainer
+                    config={gctlRegionChartConfigLive}
+                    className="h-40 w-40 shrink-0"
+                  >
+                    <PieChart>
+                      <Pie
+                        data={gctlRegionPieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={32}
+                        outerRadius={68}
+                        strokeWidth={2}
+                        stroke="var(--color-card)"
+                      />
+                      <ChartTooltip
+                        content={
+                          <ChartTooltipContent
+                            formatter={(value, name) => {
+                              const region = gctlRegionPieData.find(
+                                (r) => r.name === name
+                              );
+                              return `${formatCompactNumberPrecise(
+                                Number(value)
+                              )} (${region?.pct ?? 0}%)`;
+                            }}
+                          />
+                        }
+                      />
+                    </PieChart>
+                  </ChartContainer>
+                  <div className="w-full grid grid-cols-1 gap-y-2">
+                    {gctlRegionPieData.map((region) => (
+                      <div
+                        key={`dialog-${region.name}`}
+                        className="flex items-center justify-between text-xs"
+                      >
+                        <span className="flex items-center gap-1.5 text-muted-foreground min-w-0">
+                          <span
+                            className="inline-block h-2 w-2 rounded-full shrink-0"
+                            style={{ backgroundColor: region.fill }}
+                          />
+                          <span className="truncate">{region.name}</span>
+                        </span>
+                        <span className="font-mono tabular-nums text-foreground shrink-0">
+                          {formatCompactNumberPrecise(region.value)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-            <MiniBlogPanel
-              blogId={modalBlogs.gctl.current}
-              onSelectBlog={(blogId) => navigateModalBlog("gctl", blogId)}
-              onBack={() => goBackModalBlog("gctl")}
-              canGoBack={modalBlogs.gctl.history.length > 0}
-            />
+            {/* Right: blog text */}
+            <div className="flex-1 min-w-0 p-6">
+              <MiniBlogPanel
+                blogId={modalBlogs.gctl.current}
+                onSelectBlog={(blogId) => navigateModalBlog("gctl", blogId)}
+                onBack={() => goBackModalBlog("gctl")}
+                canGoBack={modalBlogs.gctl.history.length > 0}
+                parentBlogId={modalBlogs.gctl.history.at(-1)}
+                defaultExpanded
+              />
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -4691,58 +4830,67 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("walletStats");
         }}
       >
-        <DialogContent className="sm:max-w-[760px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
-          <DialogHeader className="px-6 pt-6 pb-0">
-            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
-              Wallet Stats
-            </DialogTitle>
-            <DialogDescription className="sr-only">
+        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Wallet Stats</DialogTitle>
+            <DialogDescription>
               Protocol participants and new wallet growth.
             </DialogDescription>
           </DialogHeader>
-          <div className="p-6 space-y-6">
-            <MetricCard
-              label="Protocol Participants"
-              value={
-                isWalletStatsLoading
-                  ? "..."
-                  : formatNumber(walletStats.protocolParticipants)
-              }
-              valueClassName="text-4xl sm:text-5xl"
-            />
-            <div className="rounded-xl border border-border/20 bg-muted/20 p-4">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 mb-2">
-                New wallets per week
-                {isWalletGrowthMock ? " · Live data unavailable" : ""}
+          <div className="flex flex-col sm:flex-row">
+            {/* Left: KPI + chart */}
+            <div className="sm:w-[520px] shrink-0 border-b sm:border-b-0 sm:border-r border-border/20 dark:border-border/40 p-6 space-y-6">
+              <div className="space-y-1">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                  Protocol Participants
+                </div>
+                <div className="text-5xl font-mono font-semibold text-foreground tracking-tighter">
+                  {isWalletStatsLoading
+                    ? "..."
+                    : formatNumber(walletStats.protocolParticipants)}
+                </div>
               </div>
-              <ChartContainer
-                config={walletGrowthChartConfig}
-                className="h-44 w-full"
-              >
-                <BarChart data={walletGrowthLive ?? []} barGap={2}>
-                  <XAxis
-                    dataKey="week"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 9 }}
-                    interval="preserveStartEnd"
-                  />
-                  <ChartTooltip content={<WalletGrowthTooltip />} />
-                  <Bar
-                    dataKey="newWallets"
-                    fill="var(--color-newWallets)"
-                    radius={[3, 3, 0, 0]}
-                    fillOpacity={0.7}
-                  />
-                </BarChart>
-              </ChartContainer>
+              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-2">
+                  New wallets per week
+                  {isWalletGrowthMock ? " · Live data unavailable" : ""}
+                </div>
+                <ChartContainer
+                  config={walletGrowthChartConfig}
+                  className="h-44 w-full"
+                >
+                  <BarChart data={walletGrowthLive ?? []} barGap={2}>
+                    <XAxis
+                      dataKey="week"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 9 }}
+                      interval="preserveStartEnd"
+                    />
+                    <ChartTooltip content={<WalletGrowthTooltip />} />
+                    <Bar
+                      dataKey="newWallets"
+                      fill="var(--color-newWallets)"
+                      radius={[3, 3, 0, 0]}
+                      fillOpacity={0.7}
+                    />
+                  </BarChart>
+                </ChartContainer>
+              </div>
             </div>
-            <MiniBlogPanel
-              blogId={modalBlogs.walletStats.current}
-              onSelectBlog={(blogId) => navigateModalBlog("walletStats", blogId)}
-              onBack={() => goBackModalBlog("walletStats")}
-              canGoBack={modalBlogs.walletStats.history.length > 0}
-            />
+            {/* Right: blog text */}
+            <div className="flex-1 min-w-0 p-6">
+              <MiniBlogPanel
+                blogId={modalBlogs.walletStats.current}
+                onSelectBlog={(blogId) =>
+                  navigateModalBlog("walletStats", blogId)
+                }
+                onBack={() => goBackModalBlog("walletStats")}
+                canGoBack={modalBlogs.walletStats.history.length > 0}
+                parentBlogId={modalBlogs.walletStats.history.at(-1)}
+                defaultExpanded
+              />
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -4754,113 +4902,129 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("delegation");
         }}
       >
-        <DialogContent className="sm:max-w-[760px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
-          <DialogHeader className="px-6 pt-6 pb-0">
-            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
-              Delegation Metrics
-            </DialogTitle>
-            <DialogDescription className="sr-only">
+        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Delegation Metrics</DialogTitle>
+            <DialogDescription>
               Delegated GLW and delegation trend.
             </DialogDescription>
           </DialogHeader>
-          <div className="p-6 space-y-6">
-            <MetricCard
-              label="GLW delegated"
-              value={delegatedDisplay}
-              helper={hasDelegationData ? undefined : "Live data unavailable"}
-              valueClassName="text-4xl sm:text-5xl"
-            />
-            <div className="rounded-xl border border-border/20 bg-muted/20 p-4">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 mb-2">
-                Delegation growth (V2)
+          <div className="flex flex-col sm:flex-row">
+            {/* Left: KPI + chart */}
+            <div className="sm:w-[520px] shrink-0 border-b sm:border-b-0 sm:border-r border-border/20 dark:border-border/40 p-6 space-y-6">
+              <div className="space-y-1">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                  GLW Delegated
+                </div>
+                <div className="text-5xl font-mono font-semibold text-foreground tracking-tighter">
+                  {delegatedDisplay}
+                </div>
+                {!hasDelegationData && (
+                  <div className="text-xs text-muted-foreground/60 dark:text-muted-foreground/80 font-mono">
+                    Live data unavailable
+                  </div>
+                )}
               </div>
-              <ChartContainer
-                config={delegationTrendChartConfig}
-                className="h-44 w-full"
-              >
-                <AreaChart data={delegationTrendLive ?? []}>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="weekEndMs"
-                    type="number"
-                    domain={["dataMin", "dataMax"]}
-                    ticks={delegationTrendTicks}
-                    tickFormatter={(value) => {
-                      const n = Number(value);
-                      if (
-                        delegationCurrentTickValue !== null &&
-                        n === delegationCurrentTickValue
-                      ) {
-                        return "Current";
+              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-2">
+                  Delegation growth (V2)
+                </div>
+                <ChartContainer
+                  config={delegationTrendChartConfig}
+                  className="h-44 w-full"
+                >
+                  <AreaChart data={delegationTrendLive ?? []}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="weekEndMs"
+                      type="number"
+                      domain={["dataMin", "dataMax"]}
+                      ticks={delegationTrendTicks}
+                      tickFormatter={(value) => {
+                        const n = Number(value);
+                        if (
+                          delegationCurrentTickValue !== null &&
+                          n === delegationCurrentTickValue
+                        ) {
+                          return "Current";
+                        }
+                        return formatMonthAxisUtc(new Date(n - 1));
+                      }}
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 9 }}
+                      interval={0}
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      width={36}
+                      tick={{ fontSize: 9 }}
+                      tickFormatter={(v) => `${v}M`}
+                    />
+                    <ChartTooltip
+                      content={
+                        <ChartTooltipContent
+                          labelFormatter={(label, payload) => {
+                            const datum = (payload?.[0] as any)?.payload as
+                              | DelegationTrendDatum
+                              | undefined;
+                            const weekStart = datum?.weekStartMs
+                              ? new Date(datum.weekStartMs)
+                              : null;
+                            const weekEnd = datum?.weekEndMs
+                              ? new Date(datum.weekEndMs - 1)
+                              : null;
+
+                            if (datum?.isCurrent) return "Current";
+
+                            if (weekStart && weekEnd) {
+                              return `${formatDateShortUtc(
+                                weekStart
+                              )} - ${formatDateShortUtc(weekEnd)} UTC`;
+                            }
+
+                            if (typeof label === "number") {
+                              return formatDateAxisUtc(
+                                new Date(Number(label) - 1)
+                              );
+                            }
+                            return String(label ?? "");
+                          }}
+                          formatter={(value) => {
+                            const numeric =
+                              typeof value === "number" ? value : Number(value);
+                            const formatted = Number.isFinite(numeric)
+                              ? numeric.toFixed(3)
+                              : value;
+                            return [`${formatted}M GLW`, "Delegated"];
+                          }}
+                        />
                       }
-                      return formatMonthAxisUtc(new Date(n - 1));
-                    }}
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 9 }}
-                    interval={0}
-                  />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    width={36}
-                    tick={{ fontSize: 9 }}
-                    tickFormatter={(v) => `${v}M`}
-                  />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        labelFormatter={(label, payload) => {
-                          const datum = (payload?.[0] as any)
-                            ?.payload as DelegationTrendDatum | undefined;
-                          const weekStart = datum?.weekStartMs
-                            ? new Date(datum.weekStartMs)
-                            : null;
-                          const weekEnd = datum?.weekEndMs
-                            ? new Date(datum.weekEndMs - 1)
-                            : null;
-
-                          if (datum?.isCurrent) return "Current";
-
-                          if (weekStart && weekEnd) {
-                            return `${formatDateShortUtc(
-                              weekStart
-                            )} - ${formatDateShortUtc(weekEnd)} UTC`;
-                          }
-
-                          if (typeof label === "number") {
-                            return formatDateAxisUtc(new Date(Number(label) - 1));
-                          }
-                          return String(label ?? "");
-                        }}
-                        formatter={(value) => {
-                          const numeric =
-                            typeof value === "number" ? value : Number(value);
-                          const formatted = Number.isFinite(numeric)
-                            ? numeric.toFixed(3)
-                            : value;
-                          return [`${formatted}M GLW`, "Delegated"];
-                        }}
-                      />
-                    }
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="delegated"
-                    stroke="var(--color-delegated)"
-                    fill="var(--color-delegated)"
-                    fillOpacity={0.15}
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ChartContainer>
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="delegated"
+                      stroke="var(--color-delegated)"
+                      fill="var(--color-delegated)"
+                      fillOpacity={0.15}
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
+                </ChartContainer>
+              </div>
             </div>
-            <MiniBlogPanel
-              blogId={modalBlogs.delegation.current}
-              onSelectBlog={(blogId) => navigateModalBlog("delegation", blogId)}
-              onBack={() => goBackModalBlog("delegation")}
-              canGoBack={modalBlogs.delegation.history.length > 0}
-            />
+            {/* Right: blog text */}
+            <div className="flex-1 min-w-0 p-6">
+              <MiniBlogPanel
+                blogId={modalBlogs.delegation.current}
+                onSelectBlog={(blogId) => navigateModalBlog("delegation", blogId)}
+                onBack={() => goBackModalBlog("delegation")}
+                canGoBack={modalBlogs.delegation.history.length > 0}
+                parentBlogId={modalBlogs.delegation.history.at(-1)}
+                defaultExpanded
+              />
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -4872,74 +5036,225 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("regions");
         }}
       >
-        <DialogContent className="sm:max-w-[980px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
-          <DialogHeader className="px-6 pt-6 pb-0">
-            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
-              Per-Region Protocol Revenue
-            </DialogTitle>
-            <DialogDescription className="sr-only">
+        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Per-Region Protocol Revenue</DialogTitle>
+            <DialogDescription>
               Region comparison for weekly GLW, staked GCTL, share, PDs, and
               GCTL per PD.
             </DialogDescription>
           </DialogHeader>
-          <div className="p-6 space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                  Region A
-                </span>
-                <select
-                  value={selectedRegionPrimary}
-                  onChange={(e) => setSelectedRegionPrimary(e.target.value)}
-                  className="rounded-lg border border-border/20 bg-card px-3 py-2 text-sm"
-                >
-                  {regionsTableRows.length > 0 ? (
-                    regionsTableRows.map((row) => (
-                      <option key={`primary-${row.region}`} value={row.region}>
-                        {row.region}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">No region data</option>
-                  )}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                  Region B (optional)
-                </span>
-                <select
-                  value={selectedRegionSecondary}
-                  onChange={(e) => setSelectedRegionSecondary(e.target.value)}
-                  className="rounded-lg border border-border/20 bg-card px-3 py-2 text-sm"
-                >
-                  <option value="">None</option>
-                  {regionsTableRows
-                    .filter((row) => row.region !== selectedRegionPrimary)
-                    .map((row) => (
-                      <option key={`secondary-${row.region}`} value={row.region}>
-                        {row.region}
-                      </option>
-                    ))}
-                </select>
-              </label>
-            </div>
-            <div
-              className={cn(
-                "grid gap-4",
-                secondaryRegionRow ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
+          <div className="flex flex-col sm:flex-row">
+            {/* Left: tabs + region stats */}
+            <div className="sm:w-[520px] shrink-0 border-b sm:border-b-0 sm:border-r border-border/20 dark:border-border/40 p-6 space-y-5">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                Per-Region Protocol Revenue
+              </div>
+              {/* Region tabs */}
+              <div className="flex flex-wrap gap-1.5">
+                {regionsTableRows.map((row) => (
+                  <button
+                    key={`region-tab-${row.region}`}
+                    type="button"
+                    className={cn(
+                      "rounded-lg px-3 py-1.5 text-xs font-mono transition-colors",
+                      selectedRegionPrimary === row.region
+                        ? "bg-foreground text-background"
+                        : "bg-muted/30 dark:bg-muted/50 text-muted-foreground hover:bg-muted/50 dark:hover:bg-muted/70"
+                    )}
+                    onClick={() => setSelectedRegionPrimary(row.region)}
+                  >
+                    {row.region}
+                  </button>
+                ))}
+              </div>
+              {/* Active region stats */}
+              {primaryRegionRow ? (
+                <div className="space-y-5">
+                  <div className="text-2xl font-semibold tracking-tight">
+                    {primaryRegionRow.region}
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <MiniStat
+                      label="GLW / Week"
+                      value={
+                        primaryRegionRow.glwPerWeek !== null
+                          ? formatCompactNumberPrecise(primaryRegionRow.glwPerWeek)
+                          : primaryRegionRow.ccPerWeek !== null
+                          ? formatCompactNumberPrecise(primaryRegionRow.ccPerWeek)
+                          : "—"
+                      }
+                      valueClassName="text-lg sm:text-xl tracking-tight"
+                    />
+                    <MiniStat
+                      label="Staked GCTL"
+                      value={
+                        primaryRegionRow.stakedGctl !== null
+                          ? formatCompactNumberPrecise(primaryRegionRow.stakedGctl)
+                          : "—"
+                      }
+                      valueClassName="text-lg sm:text-xl tracking-tight"
+                    />
+                    <MiniStat
+                      label="Share"
+                      value={
+                        primaryRegionRow.shareOfTotal !== null
+                          ? `${primaryRegionRow.shareOfTotal.toFixed(1)}%`
+                          : "—"
+                      }
+                      valueClassName="text-lg sm:text-xl tracking-tight"
+                    />
+                    <MiniStat
+                      label="Total PDs"
+                      value={
+                        primaryRegionRow.totalPds !== null
+                          ? formatCompactNumberPrecise(primaryRegionRow.totalPds)
+                          : "—"
+                      }
+                      valueClassName="text-lg sm:text-xl tracking-tight"
+                    />
+                    <MiniStat
+                      label="GCTL / PD"
+                      value={
+                        primaryRegionRow.gctlPerPd !== null
+                          ? formatCompactNumberTwoDecimals(primaryRegionRow.gctlPerPd)
+                          : "—"
+                      }
+                      valueClassName="text-lg sm:text-xl tracking-tight"
+                    />
+                    <MiniStat
+                      label="Farms"
+                      value={
+                        primaryRegionRow.farms > 0
+                          ? String(primaryRegionRow.farms)
+                          : "—"
+                      }
+                      valueClassName="text-lg sm:text-xl tracking-tight"
+                    />
+                  </div>
+                  {/* Revenue breakdown */}
+                  <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4 space-y-3">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                      Revenue contribution
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                          Lifetime
+                        </div>
+                        <div className="mt-1 text-xl font-mono font-semibold tabular-nums text-foreground tracking-tight">
+                          {primaryRegionRow.lifetimeLq !== null
+                            ? formatLiquidityCompact(primaryRegionRow.lifetimeLq)
+                            : "—"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                          Last 90 days
+                        </div>
+                        <div className="mt-1 text-xl font-mono font-semibold tabular-nums text-foreground tracking-tight">
+                          {primaryRegionRow.ninetyDayLq !== null
+                            ? formatLiquidityCompact(primaryRegionRow.ninetyDayLq)
+                            : "—"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground py-6">
+                  No region data available.
+                </div>
               )}
-            >
-              <RegionCompareCard title="Region A" row={primaryRegionRow} />
-              {secondaryRegionRow ? (
-                <RegionCompareCard title="Region B" row={secondaryRegionRow} />
-              ) : null}
+            </div>
+            {/* Right: blog text */}
+            <div className="flex-1 min-w-0 p-6">
+              <MiniBlogPanel
+                blogId={modalBlogs.regions.current}
+                onSelectBlog={(blogId) => navigateModalBlog("regions", blogId)}
+                onBack={() => goBackModalBlog("regions")}
+                canGoBack={modalBlogs.regions.history.length > 0}
+                parentBlogId={modalBlogs.regions.history.at(-1)}
+                defaultExpanded
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isNetworkImpactDialogOpen}
+        onOpenChange={(open) => {
+          setIsNetworkImpactDialogOpen(open);
+          if (!open) resetModalBlog("networkImpact");
+        }}
+      >
+        <DialogContent className="sm:max-w-[760px] p-0 gap-0 overflow-hidden rounded-[24px] bg-card border border-border/40">
+          <div className="border-b border-border/20 dark:border-border/40 pb-6 pt-8 px-6">
+            <div className="flex flex-col items-center text-center space-y-2">
+              <DialogHeader className="p-0">
+                <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                  Network Impact
+                </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Aggregate environmental output of Glow solar installations.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="text-6xl font-mono font-semibold text-foreground tracking-tighter">
+                {impactTotals?.homesPowered != null
+                  ? formatNumber(impactTotals.homesPowered)
+                  : "—"}
+              </div>
+              <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70 uppercase tracking-wider mt-2">
+                Homes powered by clean energy
+              </div>
+            </div>
+          </div>
+          <div className="p-6 space-y-6">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                  Total Panels
+                </div>
+                <div className="mt-2 text-2xl sm:text-3xl font-semibold font-mono tabular-nums">
+                  {impactTotals?.panels != null
+                    ? formatNumber(impactTotals.panels)
+                    : "—"}
+                </div>
+              </div>
+              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                  Installed Capacity
+                </div>
+                <div className="mt-2 text-2xl sm:text-3xl font-semibold font-mono tabular-nums">
+                  {impactTotals?.capacityMw != null
+                    ? `${impactTotals.capacityMw.toFixed(1)}`
+                    : "—"}
+                </div>
+                <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70 uppercase tracking-wider mt-1">
+                  MW
+                </div>
+              </div>
+              <div className="rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                  Trees Equivalent
+                </div>
+                <div className="mt-2 text-2xl sm:text-3xl font-semibold font-mono tabular-nums">
+                  {impactTotals?.trees != null
+                    ? formatCompactNumberPrecise(impactTotals.trees)
+                    : "—"}
+                </div>
+              </div>
             </div>
             <MiniBlogPanel
-              blogId={modalBlogs.regions.current}
-              onSelectBlog={(blogId) => navigateModalBlog("regions", blogId)}
-              onBack={() => goBackModalBlog("regions")}
-              canGoBack={modalBlogs.regions.history.length > 0}
+              blogId={modalBlogs.networkImpact.current}
+              onSelectBlog={(blogId) =>
+                navigateModalBlog("networkImpact", blogId)
+              }
+              onBack={() => goBackModalBlog("networkImpact")}
+              canGoBack={modalBlogs.networkImpact.history.length > 0}
+              parentBlogId={modalBlogs.networkImpact.history.at(-1)}
+              defaultExpanded
             />
           </div>
         </DialogContent>

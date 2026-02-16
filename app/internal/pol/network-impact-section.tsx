@@ -90,6 +90,7 @@ interface ImpactTotals {
 
 interface NetworkImpactSectionProps {
   impactTotals: ImpactTotals | null;
+  onOpenDialog?: () => void;
 }
 
 function isFiniteNumber(value: number | null | undefined): value is number {
@@ -264,6 +265,7 @@ function buildClusters(
 
 export function NetworkImpactSection({
   impactTotals,
+  onOpenDialog,
 }: NetworkImpactSectionProps) {
   const { data, isLoading } = usePolFarmLocations();
   const mapRef = React.useRef<MapRef | null>(null);
@@ -444,7 +446,19 @@ export function NetworkImpactSection({
         </p>
       </div>
 
-      <Card className="!gap-0 overflow-hidden border-border/20">
+      <Card
+        className="!gap-0 overflow-hidden border-border/20 cursor-pointer"
+        role="button"
+        tabIndex={0}
+        aria-label="Open network impact notes"
+        onClick={onOpenDialog}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpenDialog?.();
+          }
+        }}
+      >
         <CardContent className="p-6 sm:p-8 lg:p-10">
           <div className="grid gap-8 xl:grid-cols-12 xl:items-center">
             <div className="xl:col-span-4 flex flex-col gap-3">
