@@ -163,6 +163,19 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
     });
   }, [publicClient, walletClient]);
 
+  // `useRewardsKernel` returns a new object per render; keep refs in sync so
+  // checker callbacks remain referentially stable for row-level effects.
+  const rewardsKernelRef = React.useRef(rewardsKernel);
+  const minerPoolReadContractRef = React.useRef(minerPoolReadContract);
+
+  React.useEffect(() => {
+    rewardsKernelRef.current = rewardsKernel;
+  }, [rewardsKernel]);
+
+  React.useEffect(() => {
+    minerPoolReadContractRef.current = minerPoolReadContract;
+  }, [minerPoolReadContract]);
+
   const getWalletClaimIndex = useCallback(
     async (walletAddress: `0x${string}`) => {
       const addressLower = asLowerHexAddress(walletAddress);
@@ -843,26 +856,26 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       }
 
       try {
-        return await rewardsKernel.isClaimed(addressLower, nonce);
+        return await rewardsKernelRef.current.isClaimed(addressLower, nonce);
       } catch (error) {
         console.error("Error checking claim status:", error);
         return false;
       }
     },
-    [getWalletClaimIndex, rewardsKernel]
+    [getWalletClaimIndex]
   );
 
   // Check if nonce is finalized
   const isFinalized = useCallback(
     async (nonce: bigint): Promise<boolean> => {
       try {
-        return await rewardsKernel.isFinalized(nonce);
+        return await rewardsKernelRef.current.isFinalized(nonce);
       } catch (error) {
         console.error("Error checking finalization:", error);
         return false;
       }
     },
-    [rewardsKernel]
+    []
   );
 
   // Check if GLW inflation is claimed for a specific week
@@ -880,11 +893,12 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         console.error("Error checking GLW claim status via API:", error);
       }
 
-      if (!minerPoolReadContract) return false;
+      const readContract = minerPoolReadContractRef.current;
+      if (!readContract) return false;
 
       try {
         const bucketId = BigInt(week);
-        const bitmap = (await minerPoolReadContract.read.bucketClaimBitmap([
+        const bitmap = (await readContract.read.bucketClaimBitmap([
           bucketId,
           addressLower,
         ])) as bigint;
@@ -894,7 +908,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         return false;
       }
     },
-    [getWalletClaimIndex, minerPoolReadContract]
+    [getWalletClaimIndex]
   );
 
   // Check if the connected wallet is a smart account
