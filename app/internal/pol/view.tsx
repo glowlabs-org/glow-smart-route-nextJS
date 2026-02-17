@@ -98,48 +98,49 @@ const VESTING_SCHEDULE = [
 ];
 
 const POL_LIQUIDITY_GREEN = "hsl(142, 71%, 45%)";
+const TOKEN_EMISSION_ACCENT = "var(--color-token-emission-3)";
 
 // Token Supply chart palette from app/globals.css design tokens.
 const VESTING_CATEGORIES = [
   {
     key: "solarFarms" as const,
     label: "Solar farms",
-    color: POL_LIQUIDITY_GREEN,
+    color: "var(--color-token-emission-4)",
   },
   {
     key: "grants" as const,
     label: "Grants",
-    color: "var(--color-glow-orange)",
+    color: "var(--color-token-emission-3)",
   },
   {
     key: "governance" as const,
     label: "Governance",
-    color: "var(--color-governance-accent)",
+    color: "var(--color-token-emission-2)",
   },
   {
     key: "ecosystem" as const,
     label: "Ecosystem",
-    color: "var(--color-miner)",
+    color: "var(--color-token-emission-1)",
   },
   {
     key: "earlyStageFunding" as const,
     label: "Early stage funding",
-    color: "var(--color-4)",
+    color: "var(--color-token-emission-5)",
   },
   {
     key: "lateStageFunding" as const,
     label: "Late stage funding",
-    color: "var(--color-glow-purple)",
+    color: "var(--color-token-emission-6)",
   },
   {
     key: "grantsBootstrap" as const,
     label: "Grants bootstrap",
-    color: "var(--color-5)",
+    color: "var(--color-token-emission-7)",
   },
   {
     key: "earlyLiquidityBootstrap" as const,
     label: "Liquidity bootstrap",
-    color: "var(--color-1)",
+    color: "var(--color-token-emission-8)",
   },
 ];
 
@@ -148,7 +149,7 @@ const vestingCategoryChartConfig = Object.fromEntries(
 ) as Record<string, { label: string; color: string }> satisfies ChartConfig;
 
 const vestingChartConfig = {
-  unlocked: { label: "Unlocked supply", color: "var(--color-glow-orange)" },
+  unlocked: { label: "Unlocked supply", color: TOKEN_EMISSION_ACCENT },
 } satisfies ChartConfig;
 
 const delegationTrendChartConfig = {
@@ -4097,12 +4098,12 @@ export function PolDashboardView() {
                           >
                             <stop
                               offset="0%"
-                              stopColor="var(--color-glow-orange)"
+                              stopColor={TOKEN_EMISSION_ACCENT}
                               stopOpacity={0.2}
                             />
                             <stop
                               offset="100%"
-                              stopColor="var(--color-glow-orange)"
+                              stopColor={TOKEN_EMISSION_ACCENT}
                               stopOpacity={0.2}
                             />
                           </linearGradient>
@@ -4149,13 +4150,13 @@ export function PolDashboardView() {
                         <Area
                           type="monotone"
                           dataKey="unlocked"
-                          stroke="var(--color-glow-orange)"
+                          stroke={TOKEN_EMISSION_ACCENT}
                           strokeWidth={2.5}
                           fill="url(#vestingGradient)"
                           dot={false}
                           activeDot={{
                             r: 5,
-                            fill: "var(--color-glow-orange)",
+                            fill: TOKEN_EMISSION_ACCENT,
                             stroke: "var(--card)",
                             strokeWidth: 2,
                           }}

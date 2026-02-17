@@ -343,6 +343,15 @@
   --sidebar-accent-foreground: var(--color-glow-black);
   --sidebar-border: var(--color-glow-medium-grey);
   --sidebar-ring: var(--color-glow-black);
+  /* Token emissions palette */
+  --color-token-emission-1: #2f7fd1;
+  --color-token-emission-2: #9650e4;
+  --color-token-emission-3: #eba21a;
+  --color-token-emission-4: #2fbd5c;
+  --color-token-emission-5: #59b7d5;
+  --color-token-emission-6: #b67be3;
+  --color-token-emission-7: #f1ac68;
+  --color-token-emission-8: #67cb75;
   --color-1: #ff6b35;
   --color-2: #9d4edd;
   --color-3: #4361ee;
@@ -401,6 +410,15 @@
   --sidebar-accent-foreground: var(--color-glow-light-grey);
   --sidebar-border: #27272a;
   --sidebar-ring: #d4d4d8;
+  /* Token emissions palette */
+  --color-token-emission-1: #2f7fd1;
+  --color-token-emission-2: #9650e4;
+  --color-token-emission-3: #eba21a;
+  --color-token-emission-4: #2fbd5c;
+  --color-token-emission-5: #59b7d5;
+  --color-token-emission-6: #b67be3;
+  --color-token-emission-7: #f1ac68;
+  --color-token-emission-8: #67cb75;
   --color-1: #ff6b35;
   --color-2: #9d4edd;
   --color-3: #4361ee;
