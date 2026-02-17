@@ -400,6 +400,28 @@ function toFiniteNumber(value: unknown): number | null {
   return parsed;
 }
 
+function mulberry32(seed: number) {
+  let t = seed;
+  return () => {
+    t += 0x6d2b79f5;
+    let x = Math.imul(t ^ (t >>> 15), 1 | t);
+    x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffleWithSeed<T>(items: T[], seed: number): T[] {
+  const shuffled = [...items];
+  const random = mulberry32(seed);
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    const tmp = shuffled[i];
+    shuffled[i] = shuffled[j];
+    shuffled[j] = tmp;
+  }
+  return shuffled;
+}
+
 function reservesToLiquidity(usdc: number, glw: number) {
   return Math.sqrt(Math.abs(usdc) * Math.abs(glw));
 }
@@ -2029,6 +2051,7 @@ export function PolDashboardView() {
     React.useState<string>("");
   const [selectedRegionSecondary, setSelectedRegionSecondary] =
     React.useState<string>("");
+  const [showAllFarms, setShowAllFarms] = React.useState(false);
   const [farmSortKey, setFarmSortKey] = React.useState<
     "latest" | "lifetime" | "credits"
   >("latest");
@@ -2904,6 +2927,37 @@ export function PolDashboardView() {
       imageUrl: null as string | null,
     }));
   }, [sortedFarmRows]);
+
+  // Randomize teaser order on every page load.
+  const teaserSeed = React.useMemo(
+    () => Math.floor(Math.random() * 2147483647),
+    []
+  );
+
+  const farmRowsTeaser = React.useMemo(() => {
+    const base =
+      farmRowsAll.length > 0
+        ? shuffleWithSeed(farmRowsAll, teaserSeed)
+        : Array.from({ length: 6 }).map((_, index) => ({
+            key: `farm-placeholder-teaser-${index}`,
+            farmId: null as string | null,
+            name: "—",
+            region: "—",
+            panels: 0,
+            lifetimeLq: null as number | null,
+            ccLifetime: 0,
+            ccPerWeek: 0,
+            projectedLifetimeCredits: null as number | null,
+            creditType: "Carbon Credits",
+            lifetimeWeeksElapsed: null as number | null,
+            lifetimeWeeksTarget: 100,
+            imageUrl: null as string | null,
+            recencyKey: 0,
+          }));
+    return base.slice(0, 6);
+  }, [farmRowsAll, teaserSeed]);
+
+  const farmRowsToRender = showAllFarms ? farmRowsForRender : farmRowsTeaser;
 
   const circulatingSupplyForSupplyCard = React.useMemo(() => {
     if (!hasLiveSupply) return currentCirculating;
@@ -3789,27 +3843,41 @@ export function PolDashboardView() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <SectionHeader title="Solar Farm Economics" />
 
-              <div className="flex items-center justify-end gap-2">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                  Sort by
-                </span>
-                <select
-                  value={farmSortKey}
-                  onChange={(e) =>
-                    setFarmSortKey(
-                      e.target.value as "latest" | "lifetime" | "credits"
-                    )
-                  }
-                  className="rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-xs font-mono cursor-pointer hover:border-border/60 transition-colors"
-                >
-                  <option value="latest">Latest</option>
-                  <option value="lifetime">Lifetime</option>
-                  <option value="credits">CC / Week</option>
-                </select>
+              <div className="flex items-center justify-end gap-3">
+                {showAllFarms ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                      Sort by
+                    </span>
+                    <select
+                      value={farmSortKey}
+                      onChange={(e) =>
+                        setFarmSortKey(
+                          e.target.value as "latest" | "lifetime" | "credits"
+                        )
+                      }
+                      className="rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-xs font-mono cursor-pointer hover:border-border/60 transition-colors"
+                    >
+                      <option value="latest">Latest</option>
+                      <option value="lifetime">Lifetime</option>
+                      <option value="credits">CC / Week</option>
+                    </select>
+                  </div>
+                ) : null}
+
+                {!showAllFarms ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAllFarms(true)}
+                  >
+                    See all
+                  </Button>
+                ) : null}
               </div>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {farmRowsForRender.map((farm) => {
+              {farmRowsToRender.map((farm) => {
                 const lifetimeLq =
                   farm.lifetimeLq !== null && displayPrice > 0
                     ? {
