@@ -26,6 +26,9 @@ import { QUERY_CONFIG } from "@/hooks/query-config";
 import { useMemo } from "react";
 
 const MAX_FARMS_PER_BATCH = 100;
+// Use a stable pseudo-user so identical score inputs can hit server-side cache.
+const MINING_SCORE_FALLBACK_USER_ID =
+  "0x0000000000000000000000000000000000000001";
 
 function chunkFarmIds(farmIds: string[], chunkSize: number): string[][] {
   if (chunkSize <= 0) return [farmIds];
@@ -472,7 +475,7 @@ export function useMiningScore(params: UseMiningScoreParams) {
         const farmParams: MiningScoreParams[] = applicationsWithFarmIds.map(
           (app) => {
             const userIdForEstimation =
-              app.userId || generateRandomEthAddress();
+              app.userId || MINING_SCORE_FALLBACK_USER_ID;
 
             return {
               farmId: app.farmId!,
@@ -489,11 +492,20 @@ export function useMiningScore(params: UseMiningScoreParams) {
           }
         );
 
-        const response = (await (
-          getFarmsRouter() as any
-        ).calculateMiningScoresBatch({
-          farms: farmParams,
-        })) as MiningScoresBatchResponse;
+        const response = await fetch("/api/farms/mining-scores-batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ farms: farmParams }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `Failed to fetch mining scores batch: ${response.status} ${errorText}`
+          );
+        }
+
+        const payload = (await response.json()) as MiningScoresBatchResponse;
 
         return applications.map((app) => {
           if (!app.farmId) {
@@ -509,7 +521,7 @@ export function useMiningScore(params: UseMiningScoreParams) {
             (p) => p.farmId === app.farmId
           );
           const farmResult: BatchMiningScoreResult | undefined =
-            paramIndex >= 0 ? response.results[paramIndex] : undefined;
+            paramIndex >= 0 ? payload.results[paramIndex] : undefined;
 
           if (farmResult?.success) {
             const glwRewards = farmResult.data.userWeeklyGlwRewards;
