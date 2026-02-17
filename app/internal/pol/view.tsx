@@ -526,7 +526,6 @@ type MiniBlogId =
   | "solar-installations-basics"
   | "uniswap-vs-protocol-liquidity"
   | "glow-endowment"
-  | "circulating-vs-non-circulating"
   | "embedded-liquidity-growth-basics"
   | "circulating-supply-basics"
   | "why-liquidity-instead-of-dollars"
@@ -605,7 +604,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
     ],
     learnMore: [
       "farm-revenue-distribution",
-      "circulating-vs-non-circulating",
+      "circulating-supply-basics",
       "liquidity-basics",
     ],
   },
@@ -625,14 +624,6 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "The Endowment also earns trading fees on every swap proportional to its share of the pool's total liquidity. These fees compound directly back into the position. A larger position earns more fees, and more fees grow the position faster. Revenue from GCTL minting adds new capital, and trading fees compound on top of it. The result is a liquidity position that gains momentum over time, providing deeper markets, lower slippage, and greater price stability for every GLW participant as it grows.",
     ],
   },
-  "circulating-vs-non-circulating": {
-    title: "Circulating Supply Basics",
-    paragraphs: [
-      "Not all GLW is freely tradeable. The protocol holds significant amounts of GLW across several contract wallets, including the Grants Treasury, the Veto Council, the GCA and Miner Pool, and the Early Liquidity allocation, none of which are available on the open market. GLW held inside the Endowment's liquidity position is also excluded, since it is permanently committed to the pool and cannot be withdrawn.",
-      "Circulating supply is the portion of total GLW supply that remains after removing all protocol-held balances and actively delegated GLW. Delegated GLW is excluded because it is locked into vaults that back solar farms, making it unavailable for trading until earned back. The result is a metric that reflects the tokens genuinely accessible to market participants at any given time.",
-      "The dashboard tracks annualized circulating supply growth measured over rolling 13-week windows. This metric accounts for the predictable weekly minting schedule and isolates organic change in circulation from inflation timing, providing a clear view of how the tradeable supply evolves over time.",
-    ],
-  },
   "embedded-liquidity-growth-basics": {
     title: "Embedded Liquidity Growth (MoM)",
     paragraphs: [
@@ -646,7 +637,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
     ],
   },
   "circulating-supply-basics": {
-    title: "Circulating Supply Basics",
+    title: "GLW Circulating Supply",
     paragraphs: [
       "Not all GLW is freely tradeable. The protocol holds significant amounts of GLW across several contract wallets, including the Grants Treasury, the Veto Council, the GCA and Miner Pool, and the Early Liquidity allocation, none of which are available on the open market. GLW held inside the Endowment's liquidity position is also excluded, since it is permanently committed to the pool and cannot be withdrawn.",
       "Circulating supply is the portion of total GLW supply that remains after removing all protocol-held balances and actively delegated GLW. Delegated GLW is excluded because it is locked into vaults that back solar farms, making it unavailable for trading until earned back. The result is a metric that reflects the tokens genuinely accessible to market participants at any given time.",
@@ -674,9 +665,9 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "All three revenue streams are smoothed over 13-week windows to reduce noise from week-to-week variation. The dashboard displays each farm's lifetime revenue contribution and its quarterly trailing performance, showing both the cumulative impact and the current trajectory of every installation on the network.",
     ],
     learnMore: [
-      "region-revenue-basics",
       "solar-installations-basics",
       "control-basics",
+      "region-revenue-basics",
     ],
   },
   "wallet-participants-basics": {
@@ -686,6 +677,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "Participants break down into three overlapping categories. Delegators hold active vault ownership shares and have committed GLW to back solar farms. Miners have purchased mining-center fractions to participate in the competitive reward system. GCTL holders maintain a non-zero stake, directing where the protocol builds solar infrastructure.",
       "The dashboard tracks the total number of protocol participants alongside the rate of new wallet activity per week. This provides a view of both the current size of the Glow economy and the pace at which new participants are entering.",
     ],
+    learnMore: ["network-impact-basics"],
   },
   "delegation-metrics-basics": {
     title: "Delegation Metrics",
@@ -694,6 +686,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "The delegation ratio measures the percentage of circulating supply that is actively delegated. A higher ratio signals stronger community commitment to supporting the network's farms. As more GLW is delegated, farms receive deeper backing, and the remaining circulating supply tightens.",
       "The dashboard displays total GLW delegated, the current number of active delegators, estimated delegator GLW-denominated APY, and the delegation ratio over time. These metrics together show how much of the token economy is actively engaged in supporting solar infrastructure rather than sitting idle.",
     ],
+    learnMore: ["delegating-tokens"],
   },
   "region-revenue-basics": {
     title: "Per-Region Protocol Revenue",
@@ -702,6 +695,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "Within each region, farms compete on verified impact efficiency. Farms that produce more carbon displacement per dollar of electricity revenue capture a larger share of the region's allocated rewards. This two-layer competition, between regions for allocation and between farms within a region for performance, drives capital toward the locations and installations where solar has the highest impact.",
       "The dashboard breaks down each region's lifetime and quarterly revenue contribution, carbon credits generated per week, total farm count, and GCTL staked. Comparing regions side by side reveals where the protocol's solar capacity is concentrated and how staking decisions are shaping the geographic distribution of Glow's impact.",
     ],
+    learnMore: ["minting-gctl"],
   },
   "network-impact-basics": {
     title: "Network Impact",
@@ -710,28 +704,27 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "The dashboard tracks four headline metrics: total solar panels installed across all farms, total energy generation capacity in megawatts per year, the equivalent number of homes powered by that energy, and the equivalent number of adult trees needed to offset the same amount of carbon. Each metric grows as new farms join and existing installations continue producing clean energy beyond their 100-week reward window.",
       "These metrics are the heartbeat the Glow protocol. Every token minted, every delegation made, and every GCTL staked ultimately exists to drive these impact figures higher. The network impact dashboard connects the token economy back to its physical purpose: building and sustaining verified solar infrastructure at scale.",
     ],
+    learnMore: ["wallet-participants-basics", "solar-installations-basics"],
   },
   "inflation-schedule": {
-    title: "Inflation Schedule",
+    title: "Emission Schedule",
     paragraphs: [
       "Each week, the Glow protocol mints 230,000 new GLW tokens and allocates them across three groups: 175,000 to active solar farms competing for mining rewards, 40,000 to the grants pool for ecosystem development, and 15,000 to the Glow Foundation for governance and operational expenses.",
       "This fixed weekly emission is the only source of new GLW. There is no variable or discretionary minting. The predictable schedule allows participants to model future supply with certainty and evaluate how delegation rewards, farm economics, and circulating supply will evolve over time.",
     ],
-    learnMore: ["glw-token-basics", "delegating-tokens"],
   },
   "delegating-tokens": {
     title: "Delegating Tokens",
     paragraphs: [
-      "To participate in Glow's solar mining incentives, solar farms must post a protocol deposit. Delegation allows GLW token holders to provide this deposit on behalf of a farm, committing their GLW for 100 weeks. In return, delegators earn two types of rewards: deposit recovery based on the farm's competitive performance, and a share of the farm's weekly GLW inflation rewards.",
+      "To participate in Glow's solar mining incentives, solar farms must post a protocol deposit. Delegation allows GLW token holders to provide this deposit on behalf of a farm, committing their GLW for 100 weeks. In return, delegators earn two types of rewards: deposit recovery based on the farm's competitive performance, and a share of the farm's weekly GLW emission rewards.",
       "Delegators are protected from operational risk. Rewards are based on a farm's audited performance capabilities rather than actual output, so weather events or equipment issues do not reduce delegator returns. The task of the delegator is to evaluate which farms offer attractive reward terms relative to their competitive standing, and commit GLW accordingly.",
     ],
-    learnMore: ["glw-token-basics", "solar-installations-basics"],
   },
   "glw-token-value": {
     title: "GLW Token Value",
     paragraphs: [
-      "GLW's value is underpinned by the Glow Endowment, a permanent liquidity position that grows every time GCTL is minted and every time the pool earns trading fees. Because this liquidity can never be withdrawn, it provides a floor of market depth that strengthens as the protocol scales.",
-      "Demand for GLW comes from multiple directions. Solar farms need GLW for protocol deposits, delegators lock GLW to earn yield from backing farms, and GCTL minting revenue continuously acquires GLW from the open market to deepen the Endowment. These overlapping demands reduce circulating supply while the Endowment compounds underneath, creating reinforcing upward pressure on the token's long-term fundamental value.",
+      "GLW is supported by protocol revenues and the Glow Endowment, a permanent liquidity position that grows every time GCTL is minted and every time the pool earns trading fees. Because this liquidity can never be withdrawn, it provides a floor of market depth that strengthens as the protocol scales.",
+      "Demand for GLW comes from multiple sources. Solar farms require GLW for protocol deposits, and delegators commit this GLW on behalf of farms to earn from solar production, while GCTL minting revenue continuously acquires GLW from the open market to deepen the Endowment. These overlapping demands reduce circulating supply while the Endowment compounds underneath, creating reinforcing upward pressure on the token's long-term fundamental value.",
     ],
     learnMore: ["glow-endowment", "embedded-liquidity"],
   },
@@ -749,7 +742,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "Anyone can mint new GCTL tokens using USDC. The price to mint one GCTL equals the square root of the current GLW token price, rounded to the nearest five cents. For example, if GLW is worth $9, one GCTL costs approximately $3 to mint. If GLW is worth $100, the mint price rises to approximately $10.",
       "All funds used to mint GCTL flow directly into the Glow Endowment, which provides permanent liquidity support for the GLW token. Each GCTL minted strengthens the GLW economy by deepening the embedded liquidity that underpins the token's market depth and price stability.",
     ],
-    learnMore: ["control-basics", "glow-endowment"],
+    learnMore: ["glow-endowment"],
   },
 };
 
@@ -769,7 +762,7 @@ const INITIAL_MODAL_BLOGS: Record<ModalBlogKey, MiniBlogId> = {
 const GROWTH_CARD_BLOG: Record<GrowthCardKey, MiniBlogId> = {
   installations: "solar-installations-basics",
   liquidityGrowth: "uniswap-vs-protocol-liquidity",
-  circulatingGrowth: "circulating-vs-non-circulating",
+  circulatingGrowth: "circulating-supply-basics",
   embeddedGrowth: "uniswap-vs-protocol-liquidity",
 };
 
@@ -888,7 +881,7 @@ function FarmDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[980px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+      <DialogContent className="sm:max-w-[980px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
         <DialogHeader className="sr-only">
           <DialogTitle>Solar Farm Economics</DialogTitle>
           <DialogDescription>
@@ -1129,7 +1122,7 @@ function MiniBlogGraphButton({
     <>
       <button
         type="button"
-        className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/40 hover:text-foreground transition-colors"
+        className="w-full rounded-xl border border-border/40 bg-muted/30 hover:bg-foreground hover:text-background dark:bg-primary dark:text-primary-foreground dark:border-primary dark:hover:bg-primary/90 px-4 py-3 text-xs font-mono uppercase tracking-wider text-foreground/70 transition-colors"
         onClick={() => setOpen(true)}
       >
         View all topics
@@ -1176,9 +1169,8 @@ const MINI_BLOG_CLUSTERS: Record<MiniBlogId, MiniBlogCluster> = {
   "solar-installations-basics": "solar",
   "uniswap-vs-protocol-liquidity": "liquidity",
   "glow-endowment": "liquidity",
-  "circulating-vs-non-circulating": "core",
-  "embedded-liquidity-growth-basics": "liquidity",
   "circulating-supply-basics": "core",
+  "embedded-liquidity-growth-basics": "liquidity",
   "why-liquidity-instead-of-dollars": "liquidity",
   "farm-revenue-distribution": "solar",
   "wallet-participants-basics": "network",
@@ -1238,12 +1230,15 @@ const GRAPH_CLUSTER_LABELS: Record<MiniBlogCluster, string> = {
 
 const GRAPH_NODE_IDS = Object.keys(MINI_BLOGS) as MiniBlogId[];
 
-const GRAPH_NODES: { id: MiniBlogId; label: string; cluster: MiniBlogCluster }[] =
-  GRAPH_NODE_IDS.map((id) => ({
-    id,
-    label: MINI_BLOGS[id].title,
-    cluster: MINI_BLOG_CLUSTERS[id],
-  }));
+const GRAPH_NODES: {
+  id: MiniBlogId;
+  label: string;
+  cluster: MiniBlogCluster;
+}[] = GRAPH_NODE_IDS.map((id) => ({
+  id,
+  label: MINI_BLOGS[id].title,
+  cluster: MINI_BLOG_CLUSTERS[id],
+}));
 
 function buildGraphEdgeKey(from: MiniBlogId, to: MiniBlogId) {
   return from < to ? `${from}|${to}` : `${to}|${from}`;
@@ -1350,7 +1345,10 @@ function computeKnowledgeGraphLayout(width: number, height: number) {
       nodeB.vy -= dy * spring;
     }
 
-    const clusterCenters = {} as Record<MiniBlogCluster, { x: number; y: number }>;
+    const clusterCenters = {} as Record<
+      MiniBlogCluster,
+      { x: number; y: number }
+    >;
     const clusterCount = {} as Record<MiniBlogCluster, number>;
 
     for (const key of Object.keys(clusterSeeds) as MiniBlogCluster[]) {
@@ -1429,7 +1427,7 @@ function MiniBlogGraphReadingPanel({
   const relatedTopics = blog.learnMore ?? [];
 
   return (
-    <aside className="h-[45%] md:h-full md:w-[370px] border-t md:border-t-0 md:border-l border-border/20 bg-card flex flex-col">
+    <aside className="min-h-[320px] shrink-0 md:h-full md:w-[420px] border-t md:border-t-0 md:border-l border-border/20 bg-card flex flex-col overflow-y-auto">
       <div className="px-5 py-4 border-b border-border/20 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -1610,8 +1608,8 @@ function MiniBlogGraph({
 
   return (
     <div className="h-full rounded-3xl border border-border/20 bg-card overflow-hidden">
-      <div className="h-full min-h-0 flex flex-col md:flex-row">
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+      <div className="h-full min-h-0 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
+        <div className="flex-1 min-w-0 min-h-0 md:min-h-full flex flex-col shrink-0">
           <div className="px-5 py-4 border-b border-border/20 flex items-start justify-between gap-5">
             <div className="flex flex-col gap-1">
               <div className="text-sm font-semibold tracking-tight">
@@ -1627,7 +1625,9 @@ function MiniBlogGraph({
                   <div key={cluster} className="flex items-center gap-1.5">
                     <span
                       className="inline-block h-2 w-2 rounded-full"
-                      style={{ backgroundColor: GRAPH_CLUSTER_COLORS[cluster].fill }}
+                      style={{
+                        backgroundColor: GRAPH_CLUSTER_COLORS[cluster].fill,
+                      }}
                     />
                     <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
                       {GRAPH_CLUSTER_LABELS[cluster]}
@@ -1659,8 +1659,7 @@ function MiniBlogGraph({
                     key={edgeKey}
                     d={curvedEdgePath(from.x, from.y, to.x, to.y, index)}
                     fill="none"
-                    stroke="currentColor"
-                    className="text-foreground transition-all duration-300"
+                    className="stroke-foreground transition-all duration-300"
                     strokeWidth={isActive ? 1.3 : 0.75}
                     strokeOpacity={isDimmed ? 0.06 : isActive ? 0.32 : 0.16}
                   />
@@ -1672,7 +1671,8 @@ function MiniBlogGraph({
                 if (!point) return null;
 
                 const clusterColors = GRAPH_CLUSTER_COLORS[node.cluster];
-                const baseRadius = 7 + Math.min(GRAPH_CONNECTION_COUNT[node.id], 5) * 1.4;
+                const baseRadius =
+                  7 + Math.min(GRAPH_CONNECTION_COUNT[node.id], 5) * 1.4;
                 const isSelected = selected === node.id;
                 const isHovered = hovered === node.id;
                 const isConnected = connectedNodes.has(node.id);
@@ -1700,12 +1700,16 @@ function MiniBlogGraph({
                     <circle
                       cx={point.x}
                       cy={point.y}
-                      r={isActive || isCurrent ? baseRadius + 7 : baseRadius + 4}
+                      r={
+                        isActive || isCurrent ? baseRadius + 7 : baseRadius + 4
+                      }
                       fill={
                         isActive || isCurrent ? clusterColors.bg : "transparent"
                       }
                       stroke={
-                        isActive || isCurrent ? clusterColors.ring : "transparent"
+                        isActive || isCurrent
+                          ? clusterColors.ring
+                          : "transparent"
                       }
                       strokeWidth={1}
                       className="transition-all duration-200"
@@ -1715,10 +1719,16 @@ function MiniBlogGraph({
                       cx={point.x}
                       cy={point.y}
                       r={baseRadius}
-                      fill={isCurrent ? "var(--color-glow-orange)" : clusterColors.fill}
+                      fill={
+                        isCurrent
+                          ? "var(--color-glow-orange)"
+                          : clusterColors.fill
+                      }
                       stroke={clusterColors.ring}
                       strokeWidth={isActive || isCurrent ? 1.5 : 0.7}
-                      opacity={isDimmed ? 0.22 : isActive || isCurrent ? 1 : 0.56}
+                      opacity={
+                        isDimmed ? 0.22 : isActive || isCurrent ? 1 : 0.56
+                      }
                       className="transition-all duration-200"
                     />
 
@@ -1726,8 +1736,12 @@ function MiniBlogGraph({
                       cx={point.x}
                       cy={point.y}
                       r={isActive || isCurrent ? 2.6 : 2}
-                      fill={isActive || isCurrent ? "#ffffff" : clusterColors.fill}
-                      opacity={isDimmed ? 0.2 : isActive || isCurrent ? 0.95 : 0.72}
+                      fill={
+                        isActive || isCurrent ? "#ffffff" : clusterColors.fill
+                      }
+                      opacity={
+                        isDimmed ? 0.2 : isActive || isCurrent ? 0.95 : 0.72
+                      }
                       className="transition-all duration-200"
                     />
 
@@ -1735,8 +1749,11 @@ function MiniBlogGraph({
                       x={point.x}
                       y={point.y + baseRadius + 14}
                       textAnchor="middle"
+                      fill="currentColor"
                       className="text-[8px] font-mono uppercase tracking-wider select-none pointer-events-none text-foreground transition-opacity duration-300"
-                      opacity={isDimmed ? 0.24 : isActive || isCurrent ? 0.86 : 0.58}
+                      opacity={
+                        isDimmed ? 0.24 : isActive || isCurrent ? 0.86 : 0.58
+                      }
                     >
                       {node.label.length > 26
                         ? `${node.label.slice(0, 24)}\u2026`
@@ -1929,7 +1946,7 @@ function RegionCompareCard({
           label="GCTL / PD"
           value={
             row.gctlPerPd !== null
-              ? formatCompactNumberTwoDecimals(row.gctlPerPd)
+              ? formatCompactNumberTwoDecimals(row.gctlPerPd * 1000)
               : "—"
           }
           valueClassName="text-base sm:text-lg tracking-tight"
@@ -4978,7 +4995,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("supply");
         }}
       >
-        <DialogContent className="sm:max-w-[920px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[920px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Explore Supply Model</DialogTitle>
             <DialogDescription>
@@ -5197,7 +5214,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("overview");
         }}
       >
-        <DialogContent className="sm:max-w-[860px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[860px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>The Glow Economy</DialogTitle>
             <DialogDescription>
@@ -5276,7 +5293,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("growthCards");
         }}
       >
-        <DialogContent className="sm:max-w-[920px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[920px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
               The Four Cards
@@ -5334,7 +5351,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("polLiquidity");
         }}
       >
-        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Protocol Liquidity</DialogTitle>
             <DialogDescription>
@@ -5428,7 +5445,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("gctl");
         }}
       >
-        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>GCTL</DialogTitle>
             <DialogDescription>
@@ -5528,7 +5545,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("walletStats");
         }}
       >
-        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Wallet Stats</DialogTitle>
             <DialogDescription>
@@ -5599,7 +5616,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("delegation");
         }}
       >
-        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Delegation Metrics</DialogTitle>
             <DialogDescription>
@@ -5734,7 +5751,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("regions");
         }}
       >
-        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[1060px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Per-Region Protocol Revenue</DialogTitle>
             <DialogDescription>
@@ -5824,7 +5841,7 @@ export function PolDashboardView() {
                       value={
                         primaryRegionRow.gctlPerPd !== null
                           ? formatCompactNumberTwoDecimals(
-                              primaryRegionRow.gctlPerPd
+                              primaryRegionRow.gctlPerPd * 1000
                             )
                           : "—"
                       }
@@ -5900,7 +5917,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("networkImpact");
         }}
       >
-        <DialogContent className="sm:max-w-[760px] p-0 gap-0 overflow-y-auto sm:overflow-hidden rounded-[24px] bg-card border border-border/40">
+        <DialogContent className="sm:max-w-[760px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40">
           <div className="border-b border-border/20 dark:border-border/40 pb-6 pt-8 px-6">
             <div className="flex flex-col items-center text-center space-y-2">
               <DialogHeader className="p-0">
