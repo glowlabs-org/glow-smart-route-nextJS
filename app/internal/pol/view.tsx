@@ -98,49 +98,48 @@ const VESTING_SCHEDULE = [
 ];
 
 const POL_LIQUIDITY_GREEN = "hsl(142, 71%, 45%)";
-const TOKEN_EMISSION_ACCENT = "var(--color-token-emission-3)";
 
 // Token Supply chart palette from app/globals.css design tokens.
 const VESTING_CATEGORIES = [
   {
     key: "solarFarms" as const,
     label: "Solar farms",
-    color: "var(--color-token-emission-4)",
+    color: POL_LIQUIDITY_GREEN,
   },
   {
     key: "grants" as const,
     label: "Grants",
-    color: "var(--color-token-emission-3)",
+    color: "var(--color-glow-orange)",
   },
   {
     key: "governance" as const,
     label: "Governance",
-    color: "var(--color-token-emission-2)",
+    color: "var(--color-governance-accent)",
   },
   {
     key: "ecosystem" as const,
     label: "Ecosystem",
-    color: "var(--color-token-emission-1)",
+    color: "var(--color-miner)",
   },
   {
     key: "earlyStageFunding" as const,
     label: "Early stage funding",
-    color: "var(--color-token-emission-5)",
+    color: "var(--color-4)",
   },
   {
     key: "lateStageFunding" as const,
     label: "Late stage funding",
-    color: "var(--color-token-emission-6)",
+    color: "var(--color-glow-purple)",
   },
   {
     key: "grantsBootstrap" as const,
     label: "Grants bootstrap",
-    color: "var(--color-token-emission-7)",
+    color: "var(--color-5)",
   },
   {
     key: "earlyLiquidityBootstrap" as const,
     label: "Liquidity bootstrap",
-    color: "var(--color-token-emission-8)",
+    color: "var(--color-1)",
   },
 ];
 
@@ -149,7 +148,7 @@ const vestingCategoryChartConfig = Object.fromEntries(
 ) as Record<string, { label: string; color: string }> satisfies ChartConfig;
 
 const vestingChartConfig = {
-  unlocked: { label: "Unlocked supply", color: TOKEN_EMISSION_ACCENT },
+  unlocked: { label: "Unlocked supply", color: "var(--color-glow-orange)" },
 } satisfies ChartConfig;
 
 const delegationTrendChartConfig = {
@@ -401,28 +400,6 @@ function toFiniteNumber(value: unknown): number | null {
   return parsed;
 }
 
-function mulberry32(seed: number) {
-  let t = seed;
-  return () => {
-    t += 0x6d2b79f5;
-    let x = Math.imul(t ^ (t >>> 15), 1 | t);
-    x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
-    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function shuffleWithSeed<T>(items: T[], seed: number): T[] {
-  const shuffled = [...items];
-  const random = mulberry32(seed);
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    const tmp = shuffled[i];
-    shuffled[i] = shuffled[j];
-    shuffled[j] = tmp;
-  }
-  return shuffled;
-}
-
 function reservesToLiquidity(usdc: number, glw: number) {
   return Math.sqrt(Math.abs(usdc) * Math.abs(glw));
 }
@@ -532,11 +509,15 @@ type MiniBlogId =
   | "circulating-supply-basics"
   | "why-liquidity-instead-of-dollars"
   | "farm-revenue-distribution"
-  | "gctl-basics"
   | "wallet-participants-basics"
   | "delegation-metrics-basics"
   | "region-revenue-basics"
-  | "network-impact-basics";
+  | "network-impact-basics"
+  | "inflation-schedule"
+  | "delegating-tokens"
+  | "glw-token-value"
+  | "embedded-liquidity"
+  | "minting-gctl";
 
 type MiniBlogEntry = {
   title: string;
@@ -566,18 +547,17 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
     title: "The Glow Economy",
     paragraphs: [
       "Just as Bitcoin turned tokens into mining machines, Glow turns tokens into solar farms. And just as BTC is the main token of the Bitcoin economy, GLW is the main token of the Glow economy. Each week, new GLW is minted and distributed to solar farms being built on the protocol.",
-      "Glow generates revenue by selling the ability to control where these solar farms get built. As participants pay for control rights, the revenue is used to permanently add liquidity to GLW. Because this liquidity is permanently part of the protocol, it is called Embedded Liquidity.",
+      "Glow generates revenue by selling the ability to control where these solar farms get built. When participants pay to mint a token called Glow Control (GCTL), the funds are used to permanently add liquidity to GLW. Because this liquidity can never be removed, it is called Embedded Liquidity.",
     ],
-    learnMore: ["glw-token-basics", "control-basics", "liquidity-basics"],
+    learnMore: ["glw-token-basics", "control-basics", "embedded-liquidity"],
   },
   "glw-token-basics": {
     title: "The GLW Token",
     paragraphs: [
-      "GLW is the native token of the Glow protocol. Each week, the protocol mints GLW and distributes them across three economic stakeholder groups: active solar farms competing for mining rewards, the Grants Pool, and the Glow Foundation for operational expenses.",
-      "Solar farms earn GLW by producing verified clean energy and competing on impact per dollar of electricity revenue earned. Token holders delegate GLW to solar farms, providing the protocol deposits that farms need to participate in the competitive mining system.",
-      "When users mint GCTL to steer where Glow rewards are directed, the funds flow into the Glow Endowment, which continuously acquires GLW to deepen the token economy's embedded liquidity.",
-      "These three functions create a reinforcing loop. Farms produce energy to earn network subsidies, delegators commit GLW to support farms, and GCTL minters strengthen the token's underlying fundamental and liquidity foundation. The result is a token economy where every participant's activity compounds the value and stability of the network.",
+      "GLW is the native token of the Glow protocol. Each week, the protocol mints GLW and distributes it across three economic stakeholder groups: active solar farms competing for mining rewards, the grants pool, and the Glow Foundation for operational expenses.",
+      "Solar farms earn GLW by producing verified clean energy and competing on impact per dollar of electricity revenue earned. GLW token holders can share in these rewards by delegating their GLW to the solar farms, which helps the solar farms to meet the financial requirements of the protocol.",
     ],
+    learnMore: ["inflation-schedule", "delegating-tokens", "glw-token-value"],
   },
   "liquidity-basics": {
     title: "Liquidity Fundamentals",
@@ -587,12 +567,12 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
     ],
   },
   "control-basics": {
-    title: "GLOW Control",
+    title: "Glow Control",
     paragraphs: [
-      "GCTL is the Glow Control Token, and minting GCTL is the mechanism through which participants direct where Glow builds solar infrastructure. GCTL holders stake their tokens to specific geographic regions, and the protocol allocates rewards proportionally. The more GCTL staked to a region, the larger share of protocol resources and farm rewards that region receives.",
+      "Glow is a protocol that produces large amounts of solar power, and the Glow Control token allows stakeholders to direct where in the world that solar power is produced. GCTL holders stake their tokens to specific geographic regions, and the protocol allocates rewards proportionally. The more GCTL staked to a region, the larger share of protocol resources and farm rewards that region receives.",
       "When GCTL is minted, the funds paid flow directly into the Glow Endowment, permanently deepening the embedded liquidity behind GLW. This creates a direct link between governance participation and protocol strength: every decision to steer where solar gets built simultaneously reinforces the economic foundation of the token.",
-      "GCTL staking also determines how revenue is attributed at the farm level. Within each region, individual farms earn their share of GCTL-sourced revenue based on their verified impact credits. Farms that produce more verified clean energy capture a larger portion of the revenue directed to their region.",
     ],
+    learnMore: ["minting-gctl", "glow-endowment"],
   },
   "solar-installations-basics": {
     title: "Total Solar Installations",
@@ -677,14 +657,6 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "control-basics",
     ],
   },
-  "gctl-basics": {
-    title: "GCTL Basics",
-    paragraphs: [
-      "GCTL directs where protocol deployment and associated revenue are routed.",
-      "Staking distribution across regions reveals where control demand is concentrated.",
-    ],
-    learnMore: ["control-basics", "region-revenue-basics", "liquidity-basics"],
-  },
   "wallet-participants-basics": {
     title: "Wallet Stats",
     paragraphs: [
@@ -716,6 +688,46 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "The dashboard tracks four headline metrics: total solar panels installed across all farms, total energy generation capacity in megawatts per year, the equivalent number of homes powered by that energy, and the equivalent number of adult trees needed to offset the same amount of carbon. Each metric grows as new farms join and existing installations continue producing clean energy beyond their 100-week reward window.",
       "These metrics are the heartbeat the Glow protocol. Every token minted, every delegation made, and every GCTL staked ultimately exists to drive these impact figures higher. The network impact dashboard connects the token economy back to its physical purpose: building and sustaining verified solar infrastructure at scale.",
     ],
+  },
+  "inflation-schedule": {
+    title: "Inflation Schedule",
+    paragraphs: [
+      "Each week, the Glow protocol mints 230,000 new GLW tokens and allocates them across three groups: 175,000 to active solar farms competing for mining rewards, 40,000 to the grants pool for ecosystem development, and 15,000 to the Glow Foundation for governance and operational expenses.",
+      "This fixed weekly emission is the only source of new GLW. There is no variable or discretionary minting. The predictable schedule allows participants to model future supply with certainty and evaluate how delegation rewards, farm economics, and circulating supply will evolve over time.",
+    ],
+    learnMore: ["glw-token-basics", "delegating-tokens"],
+  },
+  "delegating-tokens": {
+    title: "Delegating Tokens",
+    paragraphs: [
+      "To participate in Glow's solar mining incentives, solar farms must post a protocol deposit. Delegation allows GLW token holders to provide this deposit on behalf of a farm, committing their GLW for 100 weeks. In return, delegators earn two types of rewards: deposit recovery based on the farm's competitive performance, and a share of the farm's weekly GLW inflation rewards.",
+      "Delegators are protected from operational risk. Rewards are based on a farm's audited performance capabilities rather than actual output, so weather events or equipment issues do not reduce delegator returns. The task of the delegator is to evaluate which farms offer attractive reward terms relative to their competitive standing, and commit GLW accordingly.",
+    ],
+    learnMore: ["glw-token-basics", "solar-installations-basics"],
+  },
+  "glw-token-value": {
+    title: "GLW Token Value",
+    paragraphs: [
+      "GLW's value is underpinned by the Glow Endowment, a permanent liquidity position that grows every time GCTL is minted and every time the pool earns trading fees. Because this liquidity can never be withdrawn, it provides a floor of market depth that strengthens as the protocol scales.",
+      "Demand for GLW comes from multiple directions. Solar farms need GLW for protocol deposits, delegators lock GLW to earn yield from backing farms, and GCTL minting revenue continuously acquires GLW from the open market to deepen the Endowment. These overlapping demands reduce circulating supply while the Endowment compounds underneath, creating reinforcing upward pressure on the token's long-term fundamental value.",
+    ],
+    learnMore: ["glow-endowment", "embedded-liquidity"],
+  },
+  "embedded-liquidity": {
+    title: "Embedded Liquidity",
+    paragraphs: [
+      "Embedded liquidity is protocol-owned liquidity that is permanently committed to the GLW/USDC trading pool. Unlike standard liquidity provided by individual market makers who can withdraw at any time, embedded liquidity is a one-way commitment. Once it enters the pool, it cannot be removed. This guarantees that a baseline of market depth is always available for GLW holders to trade against, regardless of market conditions.",
+      "Embedded liquidity grows from two sources: new capital from GCTL minting revenue, and compounding trading fees earned on every swap in the pool. Because the position is permanent, these fees accumulate indefinitely, and a larger position earns more fees, which in turn grows the position faster. The result is a self-reinforcing liquidity foundation that deepens over time and provides increasing price stability for the entire GLW economy.",
+    ],
+    learnMore: ["liquidity-basics", "glow-endowment"],
+  },
+  "minting-gctl": {
+    title: "Minting GCTL",
+    paragraphs: [
+      "Anyone can mint new GCTL tokens using USDC. The price to mint one GCTL equals the square root of the current GLW token price, rounded to the nearest five cents. For example, if GLW is worth $9, one GCTL costs approximately $3 to mint. If GLW is worth $100, the mint price rises to approximately $10.",
+      "All funds used to mint GCTL flow directly into the Glow Endowment, which provides permanent liquidity support for the GLW token. Each GCTL minted strengthens the GLW economy by deepening the embedded liquidity that underpins the token's market depth and price stability.",
+    ],
+    learnMore: ["control-basics", "glow-endowment"],
   },
 };
 
@@ -984,7 +996,6 @@ function MiniBlogPanel({
   canGoBack,
   parentBlogId,
   className,
-  defaultExpanded,
 }: {
   blogId: MiniBlogId;
   onSelectBlog: (blogId: MiniBlogId) => void;
@@ -992,16 +1003,9 @@ function MiniBlogPanel({
   canGoBack: boolean;
   parentBlogId?: MiniBlogId;
   className?: string;
-  defaultExpanded?: boolean;
 }) {
   const blog = MINI_BLOGS[blogId];
   const parentTitle = parentBlogId ? MINI_BLOGS[parentBlogId].title : null;
-  const [expanded, setExpanded] = React.useState(defaultExpanded ?? false);
-  const hasMore = blog.paragraphs.length > 1;
-
-  React.useEffect(() => {
-    setExpanded(defaultExpanded ?? false);
-  }, [blogId, defaultExpanded]);
 
   return (
     <div
@@ -1026,28 +1030,20 @@ function MiniBlogPanel({
         ) : null}
       </div>
       <div className="space-y-4">
-        <p className="text-[13px] leading-relaxed text-muted-foreground/90 dark:text-muted-foreground">
-          {blog.paragraphs[0]}
-        </p>
-        {expanded &&
-          blog.paragraphs.slice(1).map((paragraph, index) => (
-            <p
-              key={`${blogId}-${index + 1}`}
-              className="text-[13px] leading-relaxed text-muted-foreground/80 dark:text-muted-foreground/90"
-            >
-              {paragraph}
-            </p>
-          ))}
+        {blog.paragraphs.map((paragraph, index) => (
+          <p
+            key={`${blogId}-${index}`}
+            className={cn(
+              "text-[13px] leading-relaxed",
+              index === 0
+                ? "text-muted-foreground/90 dark:text-muted-foreground"
+                : "text-muted-foreground/80 dark:text-muted-foreground/90"
+            )}
+          >
+            {paragraph}
+          </p>
+        ))}
       </div>
-      {hasMore && !defaultExpanded && (
-        <button
-          type="button"
-          className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 hover:text-foreground transition-colors"
-          onClick={() => setExpanded((e) => !e)}
-        >
-          {expanded ? "Show less" : "Read more"}
-        </button>
-      )}
       {blog.learnMore && blog.learnMore.length > 0 ? (
         <div className="space-y-3 pt-1">
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
@@ -1066,7 +1062,688 @@ function MiniBlogPanel({
             ))}
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="pt-1">
+          <a
+            href="https://glow.org/blog"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3.5 py-2.5 text-xs font-mono uppercase tracking-wider text-foreground/80 hover:bg-foreground hover:text-background transition-colors leading-snug"
+          >
+            Read the full blog
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="shrink-0"
+            >
+              <path
+                d="M3.5 2H10V8.5M10 2L2 10"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </a>
+        </div>
+      )}
+      <MiniBlogGraphButton currentBlogId={blogId} onSelectBlog={onSelectBlog} />
+    </div>
+  );
+}
+
+function MiniBlogGraphButton({
+  currentBlogId,
+  onSelectBlog,
+}: {
+  currentBlogId: MiniBlogId;
+  onSelectBlog: (id: MiniBlogId) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/40 hover:text-foreground transition-colors"
+        onClick={() => setOpen(true)}
+      >
+        View all topics
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-[1540px] sm:max-w-[1540px] w-[99vw] h-[88vh] max-h-[920px] flex flex-col p-0 gap-0 overflow-hidden bg-card border border-border/20">
+          <DialogHeader className="p-5 pb-0">
+            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
+              Knowledge Graph
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Visual map of all mini-blog topics and their connections.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 p-5 pt-3">
+            <MiniBlogGraph
+              currentBlogId={currentBlogId}
+              onSelectBlog={(id) => {
+                setOpen(false);
+                onSelectBlog(id);
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+/* ── Knowledge Graph ─────────────────────────────────────────────────── */
+
+type MiniBlogCluster =
+  | "core"
+  | "liquidity"
+  | "governance"
+  | "solar"
+  | "network";
+
+const MINI_BLOG_CLUSTERS: Record<MiniBlogId, MiniBlogCluster> = {
+  "glow-economy-basics": "core",
+  "glw-token-basics": "core",
+  "liquidity-basics": "liquidity",
+  "control-basics": "governance",
+  "solar-installations-basics": "solar",
+  "uniswap-vs-protocol-liquidity": "liquidity",
+  "glow-endowment": "liquidity",
+  "circulating-vs-non-circulating": "core",
+  "embedded-liquidity-growth-basics": "liquidity",
+  "circulating-supply-basics": "core",
+  "why-liquidity-instead-of-dollars": "liquidity",
+  "farm-revenue-distribution": "solar",
+  "wallet-participants-basics": "network",
+  "delegation-metrics-basics": "network",
+  "region-revenue-basics": "solar",
+  "network-impact-basics": "solar",
+  "inflation-schedule": "core",
+  "delegating-tokens": "core",
+  "glw-token-value": "core",
+  "embedded-liquidity": "liquidity",
+  "minting-gctl": "governance",
+};
+
+const GRAPH_CLUSTER_COLORS: Record<
+  MiniBlogCluster,
+  { fill: string; bg: string; ring: string; text: string }
+> = {
+  core: {
+    fill: "var(--color-glow-orange)",
+    bg: "rgba(255,180,114,0.14)",
+    ring: "rgba(255,180,114,0.35)",
+    text: "#b87a3a",
+  },
+  liquidity: {
+    fill: "var(--color-glow-purple)",
+    bg: "rgba(220,196,255,0.18)",
+    ring: "rgba(220,196,255,0.45)",
+    text: "#8b6bb5",
+  },
+  governance: {
+    fill: "var(--color-glow-green)",
+    bg: "rgba(204,255,212,0.22)",
+    ring: "rgba(204,255,212,0.5)",
+    text: "#4a9e5c",
+  },
+  solar: {
+    fill: "var(--color-glow-yellow)",
+    bg: "rgba(247,252,196,0.28)",
+    ring: "rgba(247,252,196,0.55)",
+    text: "#8a8530",
+  },
+  network: {
+    fill: "#b8b8b8",
+    bg: "rgba(184,184,184,0.1)",
+    ring: "rgba(184,184,184,0.25)",
+    text: "#888888",
+  },
+};
+
+const GRAPH_CLUSTER_LABELS: Record<MiniBlogCluster, string> = {
+  core: "Protocol Core",
+  liquidity: "Liquidity",
+  governance: "Governance",
+  solar: "Solar & Impact",
+  network: "Network",
+};
+
+const GRAPH_NODE_IDS = Object.keys(MINI_BLOGS) as MiniBlogId[];
+
+const GRAPH_NODES: { id: MiniBlogId; label: string; cluster: MiniBlogCluster }[] =
+  GRAPH_NODE_IDS.map((id) => ({
+    id,
+    label: MINI_BLOGS[id].title,
+    cluster: MINI_BLOG_CLUSTERS[id],
+  }));
+
+function buildGraphEdgeKey(from: MiniBlogId, to: MiniBlogId) {
+  return from < to ? `${from}|${to}` : `${to}|${from}`;
+}
+
+const GRAPH_EDGES: { from: MiniBlogId; to: MiniBlogId }[] = (() => {
+  const deduped = new Set<string>();
+  const edges: { from: MiniBlogId; to: MiniBlogId }[] = [];
+
+  for (const fromId of GRAPH_NODE_IDS) {
+    const learnMore = MINI_BLOGS[fromId].learnMore ?? [];
+    for (const toId of learnMore) {
+      const key = buildGraphEdgeKey(fromId, toId);
+      if (deduped.has(key)) continue;
+      deduped.add(key);
+      edges.push({ from: fromId, to: toId });
+    }
+  }
+
+  return edges;
+})();
+
+const GRAPH_CONNECTION_COUNT: Record<MiniBlogId, number> = (() => {
+  const counts = {} as Record<MiniBlogId, number>;
+  for (const id of GRAPH_NODE_IDS) counts[id] = 0;
+  for (const edge of GRAPH_EDGES) {
+    counts[edge.from] += 1;
+    counts[edge.to] += 1;
+  }
+  return counts;
+})();
+
+function createSeededRandom(seed: number) {
+  let s = seed | 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function computeKnowledgeGraphLayout(width: number, height: number) {
+  const random = createSeededRandom(7);
+  const centerX = width / 2;
+  const centerY = height / 2;
+
+  const clusterSeeds: Record<MiniBlogCluster, { ax: number; ay: number }> = {
+    core: { ax: -0.5, ay: -0.34 },
+    liquidity: { ax: 0.5, ay: -0.32 },
+    governance: { ax: -0.52, ay: 0.44 },
+    solar: { ax: 0.46, ay: 0.44 },
+    network: { ax: 0.02, ay: -0.62 },
+  };
+
+  const nodes = {} as Record<
+    MiniBlogId,
+    { x: number; y: number; vx: number; vy: number }
+  >;
+
+  for (const id of GRAPH_NODE_IDS) {
+    const cluster = MINI_BLOG_CLUSTERS[id];
+    const seed = clusterSeeds[cluster];
+    nodes[id] = {
+      x: centerX + seed.ax * width * 0.46 + (random() - 0.5) * 164,
+      y: centerY + seed.ay * height * 0.46 + (random() - 0.5) * 136,
+      vx: 0,
+      vy: 0,
+    };
+  }
+
+  for (let i = 0; i < 620; i += 1) {
+    const alpha = Math.pow(1 - i / 620, 1.5);
+    const force = alpha * 0.4;
+
+    for (let a = 0; a < GRAPH_NODE_IDS.length; a += 1) {
+      for (let b = a + 1; b < GRAPH_NODE_IDS.length; b += 1) {
+        const nodeA = nodes[GRAPH_NODE_IDS[a]];
+        const nodeB = nodes[GRAPH_NODE_IDS[b]];
+        const dx = nodeB.x - nodeA.x;
+        const dy = nodeB.y - nodeA.y;
+        const distance = Math.sqrt(dx * dx + dy * dy) || 0.1;
+
+        if (distance < 132) {
+          const repulsion = ((132 - distance) / distance) * force * 1.65;
+          nodeA.vx -= dx * repulsion;
+          nodeA.vy -= dy * repulsion;
+          nodeB.vx += dx * repulsion;
+          nodeB.vy += dy * repulsion;
+        }
+      }
+    }
+
+    for (const edge of GRAPH_EDGES) {
+      const nodeA = nodes[edge.from];
+      const nodeB = nodes[edge.to];
+      const dx = nodeB.x - nodeA.x;
+      const dy = nodeB.y - nodeA.y;
+      const distance = Math.sqrt(dx * dx + dy * dy) || 0.1;
+      const spring = ((distance - 172) / distance) * force * 0.12;
+      nodeA.vx += dx * spring;
+      nodeA.vy += dy * spring;
+      nodeB.vx -= dx * spring;
+      nodeB.vy -= dy * spring;
+    }
+
+    const clusterCenters = {} as Record<MiniBlogCluster, { x: number; y: number }>;
+    const clusterCount = {} as Record<MiniBlogCluster, number>;
+
+    for (const key of Object.keys(clusterSeeds) as MiniBlogCluster[]) {
+      clusterCenters[key] = { x: 0, y: 0 };
+      clusterCount[key] = 0;
+    }
+
+    for (const id of GRAPH_NODE_IDS) {
+      const cluster = MINI_BLOG_CLUSTERS[id];
+      clusterCenters[cluster].x += nodes[id].x;
+      clusterCenters[cluster].y += nodes[id].y;
+      clusterCount[cluster] += 1;
+    }
+
+    for (const key of Object.keys(clusterCenters) as MiniBlogCluster[]) {
+      const count = clusterCount[key] || 1;
+      clusterCenters[key].x /= count;
+      clusterCenters[key].y /= count;
+    }
+
+    for (const id of GRAPH_NODE_IDS) {
+      const cluster = MINI_BLOG_CLUSTERS[id];
+      nodes[id].vx += (clusterCenters[cluster].x - nodes[id].x) * force * 0.006;
+      nodes[id].vy += (clusterCenters[cluster].y - nodes[id].y) * force * 0.006;
+      nodes[id].vx += (centerX - nodes[id].x) * force * 0.0038;
+      nodes[id].vy += (centerY - nodes[id].y) * force * 0.0038;
+    }
+
+    for (const id of GRAPH_NODE_IDS) {
+      nodes[id].vx *= 0.5;
+      nodes[id].vy *= 0.5;
+      nodes[id].x += nodes[id].vx;
+      nodes[id].y += nodes[id].vy;
+      nodes[id].x = Math.max(42, Math.min(width - 42, nodes[id].x));
+      nodes[id].y = Math.max(36, Math.min(height - 36, nodes[id].y));
+    }
+  }
+
+  return nodes;
+}
+
+function curvedEdgePath(
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  index: number
+) {
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+  const bend = Math.min(distance * 0.12, 20) * (index % 2 === 0 ? 1 : -1);
+  const midX = (fromX + toX) / 2 + (-dy / distance) * bend;
+  const midY = (fromY + toY) / 2 + (dx / distance) * bend;
+  return `M${fromX},${fromY} Q${midX},${midY} ${toX},${toY}`;
+}
+
+function MiniBlogGraphReadingPanel({
+  blogId,
+  onNavigate,
+  onBack,
+  onClose,
+  onSelectBlog,
+  canGoBack,
+}: {
+  blogId: MiniBlogId;
+  onNavigate: (id: MiniBlogId) => void;
+  onBack: () => void;
+  onClose: () => void;
+  onSelectBlog: (id: MiniBlogId) => void;
+  canGoBack: boolean;
+}) {
+  const blog = MINI_BLOGS[blogId];
+  const cluster = MINI_BLOG_CLUSTERS[blogId];
+  const colors = GRAPH_CLUSTER_COLORS[cluster];
+  const relatedTopics = blog.learnMore ?? [];
+
+  return (
+    <aside className="h-[45%] md:h-full md:w-[370px] border-t md:border-t-0 md:border-l border-border/20 bg-card flex flex-col">
+      <div className="px-5 py-4 border-b border-border/20 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            {canGoBack ? (
+              <button
+                type="button"
+                aria-label="Back"
+                className="h-7 w-7 rounded-lg border border-border/20 text-xs text-muted-foreground hover:text-foreground hover:border-border/40 transition-colors"
+                onClick={onBack}
+              >
+                &#8592;
+              </button>
+            ) : null}
+            <span
+              className="inline-flex rounded-md px-2.5 py-1 text-[9px] font-mono uppercase tracking-widest"
+              style={{ color: colors.text, backgroundColor: colors.bg }}
+            >
+              {GRAPH_CLUSTER_LABELS[cluster]}
+            </span>
+          </div>
+          <button
+            type="button"
+            aria-label="Close details"
+            className="h-7 w-7 rounded-lg border border-border/20 text-xs text-muted-foreground hover:text-foreground hover:border-border/40 transition-colors"
+            onClick={onClose}
+          >
+            &#10005;
+          </button>
+        </div>
+        <h3 className="text-base font-semibold tracking-tight leading-snug">
+          {blog.title}
+        </h3>
+      </div>
+
+      <ScrollArea className="flex-1">
+        <div className="p-5 space-y-4">
+          {blog.paragraphs.map((paragraph, index) => (
+            <p
+              key={`${blogId}-graph-body-${index}`}
+              className="text-sm leading-relaxed text-muted-foreground"
+            >
+              {paragraph}
+            </p>
+          ))}
+
+          {relatedTopics.length > 0 ? (
+            <div className="pt-3 border-t border-border/20 space-y-2.5">
+              <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                Related Topics
+              </div>
+              <div className="space-y-2">
+                {relatedTopics.map((relatedId) => {
+                  const relatedCluster = MINI_BLOG_CLUSTERS[relatedId];
+                  return (
+                    <button
+                      key={`${blogId}-graph-related-${relatedId}`}
+                      type="button"
+                      className="w-full rounded-xl border border-border/20 px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
+                      onClick={() => onNavigate(relatedId)}
+                    >
+                      <span className="inline-flex items-center gap-2 text-xs text-foreground/90">
+                        <span
+                          className="inline-block h-2 w-2 rounded-full"
+                          style={{
+                            backgroundColor:
+                              GRAPH_CLUSTER_COLORS[relatedCluster].fill,
+                          }}
+                        />
+                        {MINI_BLOGS[relatedId].title}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="pt-3 border-t border-border/20">
+              <a
+                href="https://glow.org/blog"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-muted-foreground/70 hover:text-foreground transition-colors"
+              >
+                Read full blog
+                <span aria-hidden>&#8599;</span>
+              </a>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
+      <div className="p-5 border-t border-border/20">
+        <Button
+          type="button"
+          className="w-full rounded-xl"
+          onClick={() => onSelectBlog(blogId)}
+        >
+          Open Topic In Modal
+        </Button>
+      </div>
+    </aside>
+  );
+}
+
+function MiniBlogGraph({
+  onSelectBlog,
+  currentBlogId,
+}: {
+  onSelectBlog: (id: MiniBlogId) => void;
+  currentBlogId?: MiniBlogId;
+}) {
+  const graphWidth = 760;
+  const graphHeight = 560;
+  const positions = React.useMemo(
+    () => computeKnowledgeGraphLayout(graphWidth, graphHeight),
+    [graphHeight, graphWidth]
+  );
+
+  const [selected, setSelected] = React.useState<MiniBlogId | null>(
+    currentBlogId ?? null
+  );
+  const [hovered, setHovered] = React.useState<MiniBlogId | null>(null);
+  const [history, setHistory] = React.useState<MiniBlogId[]>(
+    currentBlogId ? [currentBlogId] : []
+  );
+
+  React.useEffect(() => {
+    if (!currentBlogId) return;
+    setSelected(currentBlogId);
+    setHistory([currentBlogId]);
+  }, [currentBlogId]);
+
+  const handleSelect = React.useCallback((id: MiniBlogId) => {
+    setSelected(id);
+    setHistory((prev) =>
+      prev.length > 0 && prev[prev.length - 1] === id ? prev : [...prev, id]
+    );
+  }, []);
+
+  const handleBack = React.useCallback(() => {
+    setHistory((prev) => {
+      if (prev.length <= 1) return prev;
+      const nextHistory = prev.slice(0, -1);
+      setSelected(nextHistory[nextHistory.length - 1] ?? null);
+      return nextHistory;
+    });
+  }, []);
+
+  const handleClosePanel = React.useCallback(() => {
+    setSelected(null);
+    setHistory(currentBlogId ? [currentBlogId] : []);
+  }, [currentBlogId]);
+
+  const activeNode = hovered ?? selected;
+  const shouldDimUnrelated = hovered !== null;
+
+  const { connectedNodes, activeEdgeKeys } = React.useMemo(() => {
+    if (!activeNode) {
+      return {
+        connectedNodes: new Set<MiniBlogId>(),
+        activeEdgeKeys: new Set<string>(),
+      };
+    }
+
+    const relatedNodes = new Set<MiniBlogId>([activeNode]);
+    const relatedEdges = new Set<string>();
+
+    for (const edge of GRAPH_EDGES) {
+      if (edge.from === activeNode || edge.to === activeNode) {
+        relatedNodes.add(edge.from);
+        relatedNodes.add(edge.to);
+        relatedEdges.add(buildGraphEdgeKey(edge.from, edge.to));
+      }
+    }
+
+    return { connectedNodes: relatedNodes, activeEdgeKeys: relatedEdges };
+  }, [activeNode]);
+
+  return (
+    <div className="h-full rounded-3xl border border-border/20 bg-card overflow-hidden">
+      <div className="h-full min-h-0 flex flex-col md:flex-row">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+          <div className="px-5 py-4 border-b border-border/20 flex items-start justify-between gap-5">
+            <div className="flex flex-col gap-1">
+              <div className="text-sm font-semibold tracking-tight">
+                Glow Protocol Topics
+              </div>
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                {GRAPH_NODES.length} topics · {GRAPH_EDGES.length} connections
+              </div>
+            </div>
+            <div className="hidden lg:flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+              {(Object.keys(GRAPH_CLUSTER_LABELS) as MiniBlogCluster[]).map(
+                (cluster) => (
+                  <div key={cluster} className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full"
+                      style={{ backgroundColor: GRAPH_CLUSTER_COLORS[cluster].fill }}
+                    />
+                    <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                      {GRAPH_CLUSTER_LABELS[cluster]}
+                    </span>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+
+          <div className="relative flex-1 min-h-0 overflow-auto">
+            <svg
+              viewBox={`0 0 ${graphWidth} ${graphHeight}`}
+              className="h-[760px] w-full min-w-[760px]"
+              role="img"
+              aria-label="Mini-blog knowledge graph"
+            >
+              {GRAPH_EDGES.map((edge, index) => {
+                const from = positions[edge.from];
+                const to = positions[edge.to];
+                if (!from || !to) return null;
+
+                const edgeKey = buildGraphEdgeKey(edge.from, edge.to);
+                const isActive = activeEdgeKeys.has(edgeKey);
+                const isDimmed = Boolean(shouldDimUnrelated && !isActive);
+
+                return (
+                  <path
+                    key={edgeKey}
+                    d={curvedEdgePath(from.x, from.y, to.x, to.y, index)}
+                    fill="none"
+                    stroke="currentColor"
+                    className="text-foreground transition-all duration-300"
+                    strokeWidth={isActive ? 1.3 : 0.75}
+                    strokeOpacity={isDimmed ? 0.06 : isActive ? 0.32 : 0.16}
+                  />
+                );
+              })}
+
+              {GRAPH_NODES.map((node) => {
+                const point = positions[node.id];
+                if (!point) return null;
+
+                const clusterColors = GRAPH_CLUSTER_COLORS[node.cluster];
+                const baseRadius = 7 + Math.min(GRAPH_CONNECTION_COUNT[node.id], 5) * 1.4;
+                const isSelected = selected === node.id;
+                const isHovered = hovered === node.id;
+                const isConnected = connectedNodes.has(node.id);
+                const isActive = isSelected || isHovered;
+                const isCurrent = currentBlogId === node.id;
+                const isDimmed = Boolean(
+                  shouldDimUnrelated && !isActive && !isConnected
+                );
+
+                return (
+                  <g
+                    key={node.id}
+                    className="cursor-pointer"
+                    onClick={() => handleSelect(node.id)}
+                    onMouseEnter={() => setHovered(node.id)}
+                    onMouseLeave={() => setHovered(null)}
+                  >
+                    <circle
+                      cx={point.x}
+                      cy={point.y}
+                      r={baseRadius + 12}
+                      fill="transparent"
+                    />
+
+                    <circle
+                      cx={point.x}
+                      cy={point.y}
+                      r={isActive || isCurrent ? baseRadius + 7 : baseRadius + 4}
+                      fill={
+                        isActive || isCurrent ? clusterColors.bg : "transparent"
+                      }
+                      stroke={
+                        isActive || isCurrent ? clusterColors.ring : "transparent"
+                      }
+                      strokeWidth={1}
+                      className="transition-all duration-200"
+                    />
+
+                    <circle
+                      cx={point.x}
+                      cy={point.y}
+                      r={baseRadius}
+                      fill={isCurrent ? "var(--color-glow-orange)" : clusterColors.fill}
+                      stroke={clusterColors.ring}
+                      strokeWidth={isActive || isCurrent ? 1.5 : 0.7}
+                      opacity={isDimmed ? 0.22 : isActive || isCurrent ? 1 : 0.56}
+                      className="transition-all duration-200"
+                    />
+
+                    <circle
+                      cx={point.x}
+                      cy={point.y}
+                      r={isActive || isCurrent ? 2.6 : 2}
+                      fill={isActive || isCurrent ? "#ffffff" : clusterColors.fill}
+                      opacity={isDimmed ? 0.2 : isActive || isCurrent ? 0.95 : 0.72}
+                      className="transition-all duration-200"
+                    />
+
+                    <text
+                      x={point.x}
+                      y={point.y + baseRadius + 14}
+                      textAnchor="middle"
+                      className="text-[8px] font-mono uppercase tracking-wider select-none pointer-events-none text-foreground transition-opacity duration-300"
+                      opacity={isDimmed ? 0.24 : isActive || isCurrent ? 0.86 : 0.58}
+                    >
+                      {node.label.length > 26
+                        ? `${node.label.slice(0, 24)}\u2026`
+                        : node.label}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+
+            {!selected && !hovered ? (
+              <div className="absolute bottom-4 inset-x-0 text-center text-[10px] font-mono uppercase tracking-widest text-muted-foreground/40 pointer-events-none">
+                Click a topic to explore
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {selected ? (
+          <MiniBlogGraphReadingPanel
+            blogId={selected}
+            onNavigate={handleSelect}
+            onBack={handleBack}
+            onClose={handleClosePanel}
+            onSelectBlog={onSelectBlog}
+            canGoBack={history.length > 1}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -1352,7 +2029,6 @@ export function PolDashboardView() {
     React.useState<string>("");
   const [selectedRegionSecondary, setSelectedRegionSecondary] =
     React.useState<string>("");
-  const [showAllFarms, setShowAllFarms] = React.useState(false);
   const [farmSortKey, setFarmSortKey] = React.useState<
     "latest" | "lifetime" | "credits"
   >("latest");
@@ -2228,37 +2904,6 @@ export function PolDashboardView() {
       imageUrl: null as string | null,
     }));
   }, [sortedFarmRows]);
-
-  // Randomize teaser order on every page load.
-  const teaserSeed = React.useMemo(
-    () => Math.floor(Math.random() * 2147483647),
-    []
-  );
-
-  const farmRowsTeaser = React.useMemo(() => {
-    const base =
-      farmRowsAll.length > 0
-        ? shuffleWithSeed(farmRowsAll, teaserSeed)
-        : Array.from({ length: 6 }).map((_, index) => ({
-            key: `farm-placeholder-teaser-${index}`,
-            farmId: null as string | null,
-            name: "—",
-            region: "—",
-            panels: 0,
-            lifetimeLq: null as number | null,
-            ccLifetime: 0,
-            ccPerWeek: 0,
-            projectedLifetimeCredits: null as number | null,
-            creditType: "Carbon Credits",
-            lifetimeWeeksElapsed: null as number | null,
-            lifetimeWeeksTarget: 100,
-            imageUrl: null as string | null,
-            recencyKey: 0,
-          }));
-    return base.slice(0, 6);
-  }, [farmRowsAll, teaserSeed]);
-
-  const farmRowsToRender = showAllFarms ? farmRowsForRender : farmRowsTeaser;
 
   const circulatingSupplyForSupplyCard = React.useMemo(() => {
     if (!hasLiveSupply) return currentCirculating;
@@ -3144,39 +3789,27 @@ export function PolDashboardView() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <SectionHeader title="Solar Farm Economics" />
 
-              <div className="flex items-center justify-end gap-3">
-                {showAllFarms ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                      Sort by
-                    </span>
-                    <select
-                      value={farmSortKey}
-                      onChange={(e) =>
-                        setFarmSortKey(
-                          e.target.value as "latest" | "lifetime" | "credits"
-                        )
-                      }
-                      className="rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-xs font-mono cursor-pointer hover:border-border/60 transition-colors"
-                    >
-                      <option value="latest">Latest</option>
-                      <option value="lifetime">Lifetime</option>
-                      <option value="credits">CC / Week</option>
-                    </select>
-                  </div>
-                ) : null}
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAllFarms((v) => !v)}
+              <div className="flex items-center justify-end gap-2">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                  Sort by
+                </span>
+                <select
+                  value={farmSortKey}
+                  onChange={(e) =>
+                    setFarmSortKey(
+                      e.target.value as "latest" | "lifetime" | "credits"
+                    )
+                  }
+                  className="rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-xs font-mono cursor-pointer hover:border-border/60 transition-colors"
                 >
-                  {showAllFarms ? "Show less" : "See all"}
-                </Button>
+                  <option value="latest">Latest</option>
+                  <option value="lifetime">Lifetime</option>
+                  <option value="credits">CC / Week</option>
+                </select>
               </div>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {farmRowsToRender.map((farm) => {
+              {farmRowsForRender.map((farm) => {
                 const lifetimeLq =
                   farm.lifetimeLq !== null && displayPrice > 0
                     ? {
@@ -4098,12 +4731,12 @@ export function PolDashboardView() {
                           >
                             <stop
                               offset="0%"
-                              stopColor={TOKEN_EMISSION_ACCENT}
+                              stopColor="var(--color-glow-orange)"
                               stopOpacity={0.2}
                             />
                             <stop
                               offset="100%"
-                              stopColor={TOKEN_EMISSION_ACCENT}
+                              stopColor="var(--color-glow-orange)"
                               stopOpacity={0.2}
                             />
                           </linearGradient>
@@ -4150,13 +4783,13 @@ export function PolDashboardView() {
                         <Area
                           type="monotone"
                           dataKey="unlocked"
-                          stroke={TOKEN_EMISSION_ACCENT}
+                          stroke="var(--color-glow-orange)"
                           strokeWidth={2.5}
                           fill="url(#vestingGradient)"
                           dot={false}
                           activeDot={{
                             r: 5,
-                            fill: TOKEN_EMISSION_ACCENT,
+                            fill: "var(--color-glow-orange)",
                             stroke: "var(--card)",
                             strokeWidth: 2,
                           }}
@@ -4563,7 +5196,6 @@ export function PolDashboardView() {
               canGoBack={modalBlogs.overview.history.length > 0}
               parentBlogId={modalBlogs.overview.history.at(-1)}
               className="bg-transparent border-transparent p-0"
-              defaultExpanded
             />
           </div>
         </DialogContent>
@@ -4622,7 +5254,6 @@ export function PolDashboardView() {
               onBack={() => goBackModalBlog("growthCards")}
               canGoBack={modalBlogs.growthCards.history.length > 0}
               parentBlogId={modalBlogs.growthCards.history.at(-1)}
-              defaultExpanded
             />
           </div>
         </DialogContent>
@@ -4716,7 +5347,6 @@ export function PolDashboardView() {
                 onBack={() => goBackModalBlog("polLiquidity")}
                 canGoBack={modalBlogs.polLiquidity.history.length > 0}
                 parentBlogId={modalBlogs.polLiquidity.history.at(-1)}
-                defaultExpanded
               />
             </div>
           </div>
@@ -4817,7 +5447,6 @@ export function PolDashboardView() {
                 onBack={() => goBackModalBlog("gctl")}
                 canGoBack={modalBlogs.gctl.history.length > 0}
                 parentBlogId={modalBlogs.gctl.history.at(-1)}
-                defaultExpanded
               />
             </div>
           </div>
@@ -4889,7 +5518,6 @@ export function PolDashboardView() {
                 onBack={() => goBackModalBlog("walletStats")}
                 canGoBack={modalBlogs.walletStats.history.length > 0}
                 parentBlogId={modalBlogs.walletStats.history.at(-1)}
-                defaultExpanded
               />
             </div>
           </div>
@@ -5025,7 +5653,6 @@ export function PolDashboardView() {
                 onBack={() => goBackModalBlog("delegation")}
                 canGoBack={modalBlogs.delegation.history.length > 0}
                 parentBlogId={modalBlogs.delegation.history.at(-1)}
-                defaultExpanded
               />
             </div>
           </div>
@@ -5192,7 +5819,6 @@ export function PolDashboardView() {
                 onBack={() => goBackModalBlog("regions")}
                 canGoBack={modalBlogs.regions.history.length > 0}
                 parentBlogId={modalBlogs.regions.history.at(-1)}
-                defaultExpanded
               />
             </div>
           </div>
@@ -5271,7 +5897,6 @@ export function PolDashboardView() {
               onBack={() => goBackModalBlog("networkImpact")}
               canGoBack={modalBlogs.networkImpact.history.length > 0}
               parentBlogId={modalBlogs.networkImpact.history.at(-1)}
-              defaultExpanded
             />
           </div>
         </DialogContent>
