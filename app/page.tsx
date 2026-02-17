@@ -2,6 +2,7 @@ import { QueryClient, dehydrate } from "@tanstack/react-query";
 import { getCachedHeadlineStats } from "@/lib/server/headline-stats";
 import { getEthPriceInUSD } from "@/utils/getEthPriceInUSD";
 import { prefetchDashboardLaunchpadData } from "@/lib/server/dashboard-launchpad-prefetch";
+import { prefetchHomeProtocolMetricsData } from "@/lib/server/home-protocol-metrics-prefetch";
 import { PageWrapper } from "./components/page-wrapper";
 import { HydrationWrapper } from "./components/hydration-wrapper";
 import { Header } from "@/components/header";
@@ -35,6 +36,14 @@ export default async function HomePage() {
     }),
     prefetchDashboardLaunchpadData(queryClient),
   ]);
+
+  const headlineStats = queryClient.getQueryData<
+    Awaited<ReturnType<typeof getCachedHeadlineStats>>
+  >(["headline-stats", chainId]);
+
+  await prefetchHomeProtocolMetricsData(queryClient, {
+    headlineStats: headlineStats ?? null,
+  });
 
   const dehydratedState = dehydrate(queryClient);
 

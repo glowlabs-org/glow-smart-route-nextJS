@@ -1,10 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import Decimal from "decimal.js";
 import { formatUnits } from "viem";
 import {
-  DECIMALS_BY_TOKEN,
   type FarmEfficiencyScore,
   type FarmWeeklyRewardsQuery,
   type FarmWeeklyRewardsResponse,
@@ -16,9 +14,7 @@ import {
   getFarmsRouter,
   getKickstarterRouter,
 } from "@/lib/api/control-routers";
-import { generateRandomEthAddress } from "@/utils/eth";
 import type { AuctionApplication, PaymentCurrency } from "@/hooks/hub-listings";
-import { calculateProtocolDepositAmount } from "@/hooks/hub-listings";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
 import { useMemo } from "react";
@@ -27,6 +23,16 @@ import {
   mapMiningScoresBatchToApplications,
   type ApplicationMiningScore,
 } from "@/lib/mining-score";
+import {
+  buildRewardScoreBatchInputs,
+  getMissingRewardScoresForApplications,
+  mapRewardScoresBatchToApplications,
+  type ApplicationRewardScore,
+  type RewardScoresBatchResponse,
+} from "@/lib/reward-score";
+
+export type { ApplicationRewardScore } from "@/lib/reward-score";
+export type { ApplicationMiningScore } from "@/lib/mining-score";
 
 const MAX_FARMS_PER_BATCH = 100;
 
@@ -244,18 +250,6 @@ export interface RewardScoreParams {
   walletAddress?: string | null;
 }
 
-export interface ApplicationRewardScore {
-  applicationId: string;
-  rewardScore: number;
-  userWeeklyGlwRewards: string;
-  userWeeklyGlwValueUsd: string;
-  userWeeklyPdRewards: string;
-  userWeeklyPdRewardsUsd: string;
-  userEstimatedWeeklyCash: string;
-  userProtocolDeposit: string;
-  error?: string;
-}
-
 export function useRewardScore(params: RewardScoreParams) {
   const {
     applications,
@@ -276,133 +270,45 @@ export function useRewardScore(params: RewardScoreParams) {
     queryFn: async (): Promise<ApplicationRewardScore[]> => {
       if (!applications.length) return [];
 
-      const addressForEstimation = walletAddress || generateRandomEthAddress();
+      const { requestList, batchParams } = buildRewardScoreBatchInputs({
+        applications,
+        paymentCurrency,
+        walletAddress,
+      });
 
-      const requestList = applications
-        .map((app) => {
-          const protocolDepositAmount = calculateProtocolDepositAmount(
-            app.finalProtocolFee,
-            app.applicationPriceQuotes,
-            paymentCurrency
-          );
-
-          if (
-            !protocolDepositAmount ||
-            !app.auditFields?.netCarbonCreditEarningWeekly
-          )
-            return null;
-
-          const decimals = DECIMALS_BY_TOKEN[paymentCurrency];
-          const protocolDepositAmountBigInt = (() => {
-            const amount = Number(protocolDepositAmount);
-            if (!Number.isFinite(amount)) return BigInt(0);
-            const base = new Decimal(10).pow(decimals);
-            const scaled = new Decimal(amount)
-              .mul(base)
-              .toFixed(0, Decimal.ROUND_DOWN);
-            return BigInt(scaled);
-          })();
-
-          return {
-            applicationId: app.id,
-            params: {
-              userId: addressForEstimation,
-              sponsorSplitPercent: app.sponsorSplitPercent,
-              protocolDepositAmount: protocolDepositAmountBigInt.toString(),
-              paymentCurrency,
-              expectedWeeklyCarbonCredits:
-                app.auditFields.netCarbonCreditEarningWeekly,
-              regionId: app.zone.id,
-            },
-          } as const;
-        })
-        .filter(
-          (entry): entry is { applicationId: string; params: any } =>
-            entry !== null
-        );
-
-      const batchParams = requestList.map((r) => r.params);
       if (!batchParams.length) {
-        return applications.map((app) => ({
-          applicationId: app.id,
-          rewardScore: 0,
-          userWeeklyGlwRewards: "0",
-          userWeeklyGlwValueUsd: "0",
-          userWeeklyPdRewards: "0",
-          userWeeklyPdRewardsUsd: "0",
-          userEstimatedWeeklyCash: "0",
-          userProtocolDeposit: "0",
-          error: "Missing required data for calculation",
-        }));
+        return getMissingRewardScoresForApplications(
+          applications,
+          "Missing required data for calculation"
+        );
       }
 
       try {
-        const response = await (
-          getFarmsRouter() as any
-        ).estimateRewardScoresBatch({
-          farms: batchParams,
+        const response = await fetch("/api/farms/reward-scores-batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ farms: batchParams }),
         });
 
-        const resultByApplicationId = new Map<string, ApplicationRewardScore>();
-        requestList.forEach((req, idx) => {
-          const res = response.results[idx];
-          if (res && (res as any).success) {
-            const data = (res as any).data;
-            resultByApplicationId.set(req.applicationId, {
-              applicationId: req.applicationId,
-              rewardScore: data.rewardScore,
-              userWeeklyGlwRewards: data.userWeeklyGlwRewards,
-              userWeeklyGlwValueUsd: data.userWeeklyGlwValueUsd,
-              userWeeklyPdRewards: data.userWeeklyPdRewards,
-              userWeeklyPdRewardsUsd: data.userWeeklyPdRewardsUsd,
-              userEstimatedWeeklyCash: data.userEstimatedWeeklyCash,
-              userProtocolDeposit: data.userProtocolDeposit,
-            });
-          } else {
-            const err =
-              (res as any)?.error || "Failed to calculate reward score";
-            resultByApplicationId.set(req.applicationId, {
-              applicationId: req.applicationId,
-              rewardScore: 0,
-              userWeeklyGlwRewards: "0",
-              userWeeklyGlwValueUsd: "0",
-              userWeeklyPdRewards: "0",
-              userWeeklyPdRewardsUsd: "0",
-              userEstimatedWeeklyCash: "0",
-              userProtocolDeposit: "0",
-              error: String(err),
-            });
-          }
-        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `Failed to fetch reward scores batch: ${response.status} ${errorText}`
+          );
+        }
 
-        return applications.map((app) => {
-          const found = resultByApplicationId.get(app.id);
-          if (found) return found;
-          return {
-            applicationId: app.id,
-            rewardScore: 0,
-            userWeeklyGlwRewards: "0",
-            userWeeklyGlwValueUsd: "0",
-            userWeeklyPdRewards: "0",
-            userWeeklyPdRewardsUsd: "0",
-            userEstimatedWeeklyCash: "0",
-            userProtocolDeposit: "0",
-            error: "Missing required data for calculation",
-          };
+        const payload = (await response.json()) as RewardScoresBatchResponse;
+        return mapRewardScoresBatchToApplications({
+          applications,
+          requestList,
+          response: payload,
         });
       } catch (error) {
         console.error("Error fetching reward scores:", error);
-        return applications.map((app) => ({
-          applicationId: app.id,
-          rewardScore: 0,
-          userWeeklyGlwRewards: "0",
-          userWeeklyGlwValueUsd: "0",
-          userWeeklyPdRewards: "0",
-          userWeeklyPdRewardsUsd: "0",
-          userEstimatedWeeklyCash: "0",
-          userProtocolDeposit: "0",
-          error: "Failed to fetch reward score",
-        }));
+        return getMissingRewardScoresForApplications(
+          applications,
+          "Failed to fetch reward score"
+        );
       }
     },
   });

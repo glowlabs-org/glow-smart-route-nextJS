@@ -68,6 +68,7 @@ import { MiningStatsDialog } from "@/app/marketplace/mining-stats-dialog";
 
 const DEFINED_POOL_ACTIVITY_URL =
   "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d";
+const ONE_HOUR_MS = 60 * 60 * 1000;
 
 function formatUsdPrice(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "$—";
@@ -460,7 +461,6 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
   }, [allRows, activeTab]);
 
   const isLoading = isDelegationsLoading || isMinersLoading;
-  const isScoresLoading = isRewardScoresLoading || isMiningScoresLoading;
 
   // Determine which tabs to show (hide if no listings of that type)
   const showDelegationsTab = delegationApplications.length > 0;
@@ -498,6 +498,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       rewardScore,
     } = row;
     const isMiner = application._type === "miners";
+    const isRowScoreLoading = isMiner
+      ? isMiningScoresLoading
+      : isRewardScoresLoading;
     const currency = isMiner ? "USDC" : "GLW";
     const imageUrl = application.afterInstallPictures?.[0]?.url;
 
@@ -659,7 +662,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   to fill
                 </span>
               </div>
-            ) : isScoresLoading ? (
+            ) : isRowScoreLoading ? (
               <div className="flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
                 <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5 sm:mb-1">
                   Est. Weekly
@@ -769,7 +772,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
 
             {/* Column 3: Reward Score (delegations only) - hidden on mobile, shown on sm+ */}
             {!isMiner &&
-              (isScoresLoading ? (
+              (isRowScoreLoading ? (
                 <div className="hidden sm:flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
                   <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5 sm:mb-1">
                     Score
@@ -1082,7 +1085,6 @@ export default function LaunchpadStatusWidget({
   const isFlow = variant === "flow";
   const isMinimal = variant === "minimal";
 
-  const ONE_HOUR_MS = 60 * 60 * 1000;
   const internalIsApproaching = React.useMemo(() => {
     if (isLive) return false;
     const now = Date.now();

@@ -96,6 +96,31 @@ describe("prefetchDashboardLaunchpadData", () => {
   it("hydrates launchpad/mining listing keys and mining-score key", async () => {
     const queryClient = new QueryClient();
     const activeMiner = createApplication("active-miner");
+    const activeDelegation = createApplication("active-delegation", {
+      paymentCurrency: "GLW",
+      finalProtocolFee: "1000",
+      applicationPriceQuotes: [
+        {
+          id: 1,
+          prices: {
+            GLW: "1",
+            GCTL: "0",
+            USDC: "0",
+            USDG: "0",
+          },
+          signature: "sig",
+          createdAt: "2024-01-01T00:00:00.000Z",
+          gcaAddress: "0x0000000000000000000000000000000000000000",
+        },
+      ],
+      auditFields: {
+        systemWattageOutput: 1,
+        averageSunlightHoursPerDay: 1,
+        expectedWeeklyCarbonCredits: 1,
+        netCarbonCreditEarningWeekly: 10,
+        solarPanelsQuantity: 1,
+      },
+    });
     const soldOutMiner = createApplication("sold-out-miner", {
       activeFraction: createActiveFraction({
         isFilled: true,
@@ -111,7 +136,10 @@ describe("prefetchDashboardLaunchpadData", () => {
         if (filters.type === "mining-center") {
           return [activeMiner];
         }
-        return [];
+        if (filters.includeFilled && filters.paymentCurrency === "GLW") {
+          return [activeDelegation];
+        }
+        return [activeDelegation];
       }
     );
 
@@ -132,13 +160,34 @@ describe("prefetchDashboardLaunchpadData", () => {
       }
     );
 
+    const fetchRewardScoresBatch = vi.fn(async () => {
+      return {
+        results: [
+          {
+            success: true,
+            data: {
+              rewardScore: 55,
+              userWeeklyGlwRewards: parseUnits("7", 18).toString(),
+              userWeeklyGlwValueUsd: "14",
+              userWeeklyPdRewards: parseUnits("2", 18).toString(),
+              userWeeklyPdRewardsUsd: "4",
+              userEstimatedWeeklyCash: "0",
+              userProtocolDeposit: "1000",
+            },
+          },
+        ],
+      };
+    });
+
     await prefetchDashboardLaunchpadData(queryClient, {
       fetchListings,
       fetchMiningScoresBatch,
+      fetchRewardScoresBatch,
     });
 
     expect(fetchListings).toHaveBeenCalledTimes(4);
     expect(fetchMiningScoresBatch).toHaveBeenCalledTimes(1);
+    expect(fetchRewardScoresBatch).toHaveBeenCalledTimes(1);
 
     const seededMiningLiveListings = queryClient.getQueryData<AuctionApplication[]>(
       QUERY_KEYS.listings.sponsor(DASHBOARD_SSR_LISTING_FILTERS.miningLive)
@@ -153,6 +202,15 @@ describe("prefetchDashboardLaunchpadData", () => {
       applicationId: "active-miner",
       miningScore: 101,
       weeklyGlwRewardsUsd: "12.00",
+    });
+
+    const seededRewardScores = queryClient.getQueryData<any[]>(
+      QUERY_KEYS.listings.rewardScores(["active-delegation"], "GLW", null)
+    );
+    expect(seededRewardScores).toHaveLength(1);
+    expect(seededRewardScores?.[0]).toMatchObject({
+      applicationId: "active-delegation",
+      rewardScore: 55,
     });
   });
 
@@ -179,12 +237,15 @@ describe("prefetchDashboardLaunchpadData", () => {
         return { results: [] } as MiningScoresBatchResponse;
       }
     );
+    const fetchRewardScoresBatch = vi.fn(async () => ({ results: [] }));
 
     await prefetchDashboardLaunchpadData(queryClient, {
       fetchListings,
       fetchMiningScoresBatch,
+      fetchRewardScoresBatch,
     });
 
     expect(fetchMiningScoresBatch).not.toHaveBeenCalled();
+    expect(fetchRewardScoresBatch).not.toHaveBeenCalled();
   });
 });
