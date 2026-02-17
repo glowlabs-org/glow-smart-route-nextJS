@@ -2,16 +2,14 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Decimal from "decimal.js";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits } from "viem";
 import {
   DECIMALS_BY_TOKEN,
   type FarmEfficiencyScore,
   type FarmWeeklyRewardsQuery,
   type FarmWeeklyRewardsResponse,
   type FarmWithRewards,
-  type MiningScoreParams,
   type MiningScoresBatchResponse,
-  type BatchMiningScoreResult,
 } from "@glowlabs-org/utils/browser";
 import type { Kickstarter } from "@glowlabs-org/utils/browser";
 import {
@@ -24,11 +22,13 @@ import { calculateProtocolDepositAmount } from "@/hooks/hub-listings";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
 import { useMemo } from "react";
+import {
+  buildMiningScoreBatchInputs,
+  mapMiningScoresBatchToApplications,
+  type ApplicationMiningScore,
+} from "@/lib/mining-score";
 
 const MAX_FARMS_PER_BATCH = 100;
-// Use a stable pseudo-user so identical score inputs can hit server-side cache.
-const MINING_SCORE_FALLBACK_USER_ID =
-  "0x0000000000000000000000000000000000000001";
 
 function chunkFarmIds(farmIds: string[], chunkSize: number): string[][] {
   if (chunkSize <= 0) return [farmIds];
@@ -437,15 +437,6 @@ export interface UseMiningScoreParams {
   enabled?: boolean;
 }
 
-export interface ApplicationMiningScore {
-  applicationId: string;
-  farmId: string;
-  miningScore: number;
-  weeklyGlwRewards?: string;
-  weeklyGlwRewardsUsd?: string;
-  error?: string;
-}
-
 export function useMiningScore(params: UseMiningScoreParams) {
   const { applications, enabled = true } = params;
 
@@ -459,9 +450,8 @@ export function useMiningScore(params: UseMiningScoreParams) {
     queryFn: async (): Promise<ApplicationMiningScore[]> => {
       if (!applications.length) return [];
 
-      const applicationsWithFarmIds = applications.filter(
-        (app) => app.farmId !== null
-      );
+      const { applicationsWithFarmIds, farmParams } =
+        buildMiningScoreBatchInputs(applications);
       if (!applicationsWithFarmIds.length) {
         return applications.map((app) => ({
           applicationId: app.id,
@@ -472,26 +462,6 @@ export function useMiningScore(params: UseMiningScoreParams) {
       }
 
       try {
-        const farmParams: MiningScoreParams[] = applicationsWithFarmIds.map(
-          (app) => {
-            const userIdForEstimation =
-              app.userId || MINING_SCORE_FALLBACK_USER_ID;
-
-            return {
-              farmId: app.farmId!,
-              userId: userIdForEstimation,
-              dollarCostOfMiner: String(app.activeFraction?.stepPrice || "0"),
-              numberOfMiners: app.activeFraction?.totalSteps || 0,
-              minerRewardSplit: app.activeFraction?.sponsorSplitPercent
-                ? parseUnits(
-                    String(app.activeFraction?.sponsorSplitPercent),
-                    4
-                  ).toString()
-                : "0",
-            };
-          }
-        );
-
         const response = await fetch("/api/farms/mining-scores-batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -506,55 +476,11 @@ export function useMiningScore(params: UseMiningScoreParams) {
         }
 
         const payload = (await response.json()) as MiningScoresBatchResponse;
-
-        return applications.map((app) => {
-          if (!app.farmId) {
-            return {
-              applicationId: app.id,
-              farmId: "",
-              miningScore: 0,
-              error: "No farmId available",
-            };
-          }
-
-          const paramIndex = farmParams.findIndex(
-            (p) => p.farmId === app.farmId
-          );
-          const farmResult: BatchMiningScoreResult | undefined =
-            paramIndex >= 0 ? payload.results[paramIndex] : undefined;
-
-          if (farmResult?.success) {
-            const glwRewards = farmResult.data.userWeeklyGlwRewards;
-            const glwPrice = farmResult.data.glwPriceUsd6;
-
-            let weeklyGlwRewardsUsd: string | undefined;
-            if (glwPrice) {
-              const glwRewardsDecimal = new Decimal(glwRewards).div(1e18);
-              const glwPriceDecimal = new Decimal(glwPrice).div(1e6);
-              weeklyGlwRewardsUsd = glwRewardsDecimal
-                .mul(glwPriceDecimal)
-                .toFixed(2);
-            }
-
-            return {
-              applicationId: app.id,
-              farmId: app.farmId,
-              miningScore: farmResult.data.miningScore || 0,
-              weeklyGlwRewards: glwRewards,
-              weeklyGlwRewardsUsd,
-            };
-          }
-
-          return {
-            applicationId: app.id,
-            farmId: app.farmId,
-            miningScore: 0,
-            error:
-              farmResult && !farmResult.success
-                ? (farmResult as any).error
-                : "Failed to calculate mining score",
-          };
-        });
+        return mapMiningScoresBatchToApplications(
+          applications,
+          farmParams,
+          payload
+        );
       } catch (error) {
         console.error("Error fetching mining scores:", error);
         return applications.map((app) => ({

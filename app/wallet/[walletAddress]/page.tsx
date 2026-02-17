@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
 import { getAddress, isAddress } from "viem";
 import type { Metadata } from "next";
+import { QueryClient, dehydrate } from "@tanstack/react-query";
 import { buildPageMetadata } from "@/lib/seo";
 import { Header } from "@/components/header";
+import { HydrationWrapper } from "@/app/components/hydration-wrapper";
+import { prefetchDashboardLaunchpadData } from "@/lib/server/dashboard-launchpad-prefetch";
 import GlowSoftDashboard from "@/app/test/bento";
 
 interface WalletProfilePageProps {
@@ -49,11 +52,17 @@ export default async function WalletProfilePage({
   if (!isAddress(rawWallet)) notFound();
 
   const checksumAddress = getAddress(rawWallet);
+  const queryClient = new QueryClient();
+
+  await prefetchDashboardLaunchpadData(queryClient);
+  const dehydratedState = dehydrate(queryClient);
 
   return (
-    <>
-      <Header />
-      <GlowSoftDashboard walletAddressOverride={checksumAddress} />
-    </>
+    <HydrationWrapper state={dehydratedState}>
+      <>
+        <Header />
+        <GlowSoftDashboard walletAddressOverride={checksumAddress} />
+      </>
+    </HydrationWrapper>
   );
 }
