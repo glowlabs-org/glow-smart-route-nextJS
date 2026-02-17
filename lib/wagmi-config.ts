@@ -1,10 +1,11 @@
 "use client";
 
-import { cookieStorage, createStorage, createConfig } from "wagmi";
+import { createStorage, createConfig } from "wagmi";
 import { mainnet, sepolia } from "wagmi/chains";
 import { injected, coinbaseWallet, walletConnect } from "wagmi/connectors";
 import type { Connector } from "wagmi";
 import { instrumentedHttp } from "@/lib/viem-rpc-logging";
+import { createPersistentWalletStorage } from "@/lib/wallet-storage";
 
 if (!process.env.NEXT_PUBLIC_WALLET_CONNECT_ID)
   throw new Error("NEXT_PUBLIC_WALLET_CONNECT_ID is not set");
@@ -13,27 +14,14 @@ if (!process.env.NEXT_PUBLIC_MAINNET_RPC_URL)
 if (!process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL)
   throw new Error("NEXT_PUBLIC_SEPOLIA_RPC_URL is not set");
 
-const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
-
-const persistentCookieStorage: typeof cookieStorage = {
-  getItem: cookieStorage.getItem,
-  setItem(key: string, value: string) {
-    if (typeof document === "undefined") return;
-    const secure =
-      typeof window !== "undefined" && window.location.protocol === "https:"
-        ? "; Secure"
-        : "";
-    document.cookie = `${key}=${value}; Path=/; Max-Age=${COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${secure}`;
-  },
-  removeItem(key: string) {
-    if (typeof document === "undefined") return;
-    document.cookie = `${key}=; Path=/; Max-Age=0; SameSite=Lax`;
-  },
-};
-
 const chains = [
   process.env.NEXT_PUBLIC_CHAIN_ID === "1" ? mainnet : sepolia,
 ] as const;
+
+const INJECTED_CONNECTOR_OPTIONS = {
+  shimDisconnect: true,
+  unstable_shimAsyncInject: 2_000,
+} as const;
 
 const ALLOWED_WALLET_IDS = new Set([
   "io.metamask",
@@ -69,7 +57,18 @@ export const wagmiConfig = createConfig({
             appName: "Glow",
             appLogoUrl: "https://app.glow.org/icon.png",
           }),
+          walletConnect({
+            projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_ID,
+            showQrModal: false,
+            metadata: {
+              name: "Glow",
+              description: "Glow app",
+              url: "https://app.glow.org",
+              icons: ["https://app.glow.org/icon.png"],
+            },
+          }),
           injected({
+            ...INJECTED_CONNECTOR_OPTIONS,
             target: {
               id: "io.metamask",
               name: "MetaMask",
@@ -77,6 +76,7 @@ export const wagmiConfig = createConfig({
             },
           }),
           injected({
+            ...INJECTED_CONNECTOR_OPTIONS,
             target: {
               id: "com.trustwallet.app",
               name: "Trust Wallet",
@@ -84,6 +84,7 @@ export const wagmiConfig = createConfig({
             },
           }),
           injected({
+            ...INJECTED_CONNECTOR_OPTIONS,
             target: {
               id: "io.rabby",
               name: "Rabby Wallet",
@@ -92,6 +93,7 @@ export const wagmiConfig = createConfig({
             },
           }),
           injected({
+            ...INJECTED_CONNECTOR_OPTIONS,
             target: {
               id: "com.ledger.live",
               name: "Ledger Live",
@@ -104,7 +106,7 @@ export const wagmiConfig = createConfig({
           }),
         ],
   storage: createStorage({
-    storage: persistentCookieStorage,
+    storage: createPersistentWalletStorage(),
   }),
 });
 

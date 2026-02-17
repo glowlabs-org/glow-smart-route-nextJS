@@ -29,7 +29,6 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 
-import { useGlowPrices } from "@/hooks/useGlowPrices";
 import { useGlowCirculatingSupply } from "@/hooks/useGlowCirculatingSupply";
 import { useTotalActivelyDelegated } from "@/hooks";
 import {
@@ -51,11 +50,10 @@ export default function ProtocolMetricsWidget({
   className,
 }: ProtocolMetricsWidgetProps) {
   // 1. Data Fetching
-  const { spotPrice, spotPriceLoading } = useGlowPrices();
-
   const {
     circulatingSupply,
     marketCap,
+    glowPrice,
     isLoading: isSupplyLoading,
   } = useGlowCirculatingSupply();
 
@@ -77,6 +75,9 @@ export default function ProtocolMetricsWidget({
     if (!circulatingSupply || circulatingSupply === 0) return 0;
     return (totalGlwDelegated / circulatingSupply) * 100;
   }, [totalGlwDelegated, circulatingSupply]);
+
+  const spotPrice =
+    Number.isFinite(glowPrice) && glowPrice > 0 ? glowPrice : null;
 
   // 3. Chart Data Processing (Last 3 Months)
   const farmsChartData = React.useMemo(() => {
@@ -230,8 +231,7 @@ export default function ProtocolMetricsWidget({
   } satisfies ChartConfig;
 
   // Loading States
-  const isMetricsLoading =
-    spotPriceLoading || isSupplyLoading || isDelegatorsLoading;
+  const isMetricsLoading = isSupplyLoading || isDelegatorsLoading;
 
   return (
     <div className={`flex flex-col gap-6 ${className}`}>

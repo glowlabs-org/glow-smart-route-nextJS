@@ -108,6 +108,7 @@ export function useGlowSpotPrice(options: UseGlowSpotPriceOptions = {}) {
   return {
     spotPrice: query.data?.spotPrice ?? 0,
     updatedAt: query.data?.updatedAt ?? 0,
-    isLoading: query.isLoading || query.isFetching || query.isPending,
+    isLoading: query.isLoading || query.isPending,
+    isFetching: query.isFetching,
   } as const;
 }

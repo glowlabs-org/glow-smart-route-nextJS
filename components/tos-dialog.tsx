@@ -1,5 +1,11 @@
 import * as React from "react";
-import { useAccount, useChainId, useDisconnect } from "wagmi";
+import {
+  useAccount,
+  useChainId,
+  useConnectorClient,
+  useDisconnect,
+  useSwitchChain,
+} from "wagmi";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +21,7 @@ import { toast } from "sonner";
 import { keccak256, toHex } from "viem";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useGctlApi } from "@/hooks";
-import { useConnectorClient } from "wagmi";
+import { resolveWalletChainId } from "@/lib/tos-chain";
 import { WalletsRouter } from "@glowlabs-org/utils/browser";
 import * as Sentry from "@sentry/nextjs";
 
@@ -324,7 +330,9 @@ const tosEIP712Types = {
 export function TosDialog() {
   const { isConnected, address, connector } = useAccount();
   const connectedChainId = useChainId();
+  const { data: connectorClient } = useConnectorClient();
   const { disconnect } = useDisconnect();
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
   const { signer, isLoading: isSignerLoading } = useEthersSigner();
   const { latestNonce } = useGctlApi(address);
   const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 1;
@@ -339,33 +347,73 @@ export function TosDialog() {
   const [isDetailsOpen, setIsDetailsOpen] = React.useState(false);
   const [error, setError] = React.useState<TosError | null>(null);
   const [retryCount, setRetryCount] = React.useState(0);
+  const [activeWalletChainId, setActiveWalletChainId] = React.useState<
+    number | undefined
+  >(connectedChainId);
 
-  const isWrongNetwork =
-    isConnected &&
-    typeof connectedChainId === "number" &&
-    connectedChainId !== chainId;
-
-  const getNetworkLabel = (id?: number) => {
+  const getNetworkLabel = React.useCallback((id?: number) => {
     if (!id) return "Unknown Network";
     if (id === 1) return "Ethereum Mainnet";
     if (id === 11155111) return "Sepolia";
     if (id === 8453) return "Base";
     return `Chain ${id}`;
-  };
+  }, []);
 
   const expectedNetworkLabel = getNetworkLabel(chainId);
-  const connectedNetworkLabel = getNetworkLabel(connectedChainId);
+  const effectiveConnectedChainId = activeWalletChainId ?? connectedChainId;
+  const connectedNetworkLabel = getNetworkLabel(effectiveConnectedChainId);
+  const isWrongNetwork =
+    isConnected &&
+    typeof effectiveConnectedChainId === "number" &&
+    effectiveConnectedChainId !== chainId;
 
-  const wrongNetworkError: TosError = {
-    type: "wrong_network",
-    title: "Wrong Network",
-    message: `Your wallet is connected to ${connectedNetworkLabel}.`,
-    suggestion: `Please switch to ${expectedNetworkLabel} to sign the Terms of Service.`,
-    canRetry: true,
-  };
+  const resolveActiveWalletChainId = React.useCallback(async () => {
+    const resolvedChainId = await resolveWalletChainId({
+      connectorClient: connectorClient as
+        | { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> }
+        | undefined,
+      signerProvider: signer?.provider as
+        | {
+            send?: (method: string, params: unknown[]) => Promise<unknown>;
+            getNetwork?: () => Promise<{ chainId?: unknown }>;
+          }
+        | undefined,
+      fallbackChainId: connectedChainId,
+    });
+
+    if (typeof resolvedChainId === "number") {
+      setActiveWalletChainId(resolvedChainId);
+    }
+
+    return resolvedChainId;
+  }, [connectedChainId, connectorClient, signer]);
+
+  const buildWrongNetworkError = React.useCallback(
+    (detectedChainId?: number): TosError => ({
+      type: "wrong_network",
+      title: "Wrong Network",
+      message: `Your wallet is connected to ${getNetworkLabel(detectedChainId)}.`,
+      suggestion: `Please switch to ${expectedNetworkLabel} to sign the Terms of Service.`,
+      canRetry: true,
+    }),
+    [expectedNetworkLabel, getNetworkLabel]
+  );
 
   const showWrongNetworkAlert =
     isWrongNetwork && (!error || error.type !== "wrong_network");
+
+  React.useEffect(() => {
+    setActiveWalletChainId(connectedChainId);
+  }, [connectedChainId]);
+
+  React.useEffect(() => {
+    if (!isConnected) {
+      setActiveWalletChainId(undefined);
+      return;
+    }
+
+    void resolveActiveWalletChainId();
+  }, [isConnected, resolveActiveWalletChainId]);
 
   React.useEffect(() => {
     if (!isConnected || !address) {
@@ -435,14 +483,20 @@ export function TosDialog() {
       return;
     }
 
-    if (isWrongNetwork) {
-      setError(wrongNetworkError);
-      setRetryCount((prev) => prev + 1);
+    if (isSignerLoading || !signer) {
+      toast.error("Wallet is initializing, please try again in a moment");
       return;
     }
 
-    if (isSignerLoading || !signer) {
-      toast.error("Wallet is initializing, please try again in a moment");
+    const resolvedChainId = await resolveActiveWalletChainId();
+    const walletChainIdForRequest = resolvedChainId ?? effectiveConnectedChainId;
+    const requestIsWrongNetwork =
+      typeof walletChainIdForRequest === "number" &&
+      walletChainIdForRequest !== chainId;
+
+    if (requestIsWrongNetwork) {
+      setError(buildWrongNetworkError(walletChainIdForRequest));
+      setRetryCount((prev) => prev + 1);
       return;
     }
 
@@ -456,6 +510,10 @@ export function TosDialog() {
       nonce: "",
       deadline: "",
       signature: "",
+      walletChainId:
+        typeof walletChainIdForRequest === "number"
+          ? String(walletChainIdForRequest)
+          : "unknown",
       signingMethod: "eip712" as "eip712" | "personal_sign",
     };
 
@@ -515,9 +573,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
               tosStage: "eip712_signing",
               walletAddress: address,
               chainId: String(chainId),
-              walletChainId: connectedChainId
-                ? String(connectedChainId)
-                : "unknown",
+              walletChainId: signingContext.walletChainId,
               expectedChainId: String(chainId),
               connectorName,
               connectorId,
@@ -536,7 +592,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
               errorData: errorDetails.data,
               errorCause: errorDetails.cause,
               errorStack: errorDetails.stack,
-              isWrongNetwork,
+              isWrongNetwork: requestIsWrongNetwork,
               // Include raw error for better debugging
               rawError: errorDetails.raw || String(typedDataError),
             },
@@ -594,9 +650,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
               walletAddress: address,
               signingMethod,
               chainId: String(chainId),
-              walletChainId: connectedChainId
-                ? String(connectedChainId)
-                : "unknown",
+              walletChainId: signingContext.walletChainId,
               expectedChainId: String(chainId),
               connectorName,
               connectorId,
@@ -618,7 +672,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
               errorData: errorDetails.data,
               errorCause: errorDetails.cause,
               errorStack: errorDetails.stack,
-              isWrongNetwork,
+              isWrongNetwork: requestIsWrongNetwork,
               // Include raw error for nested error objects
               rawError: errorDetails.raw || String(apiError),
             },
@@ -660,9 +714,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
             tosErrorType: parsedError.type,
             walletAddress: address,
             chainId: String(chainId),
-            walletChainId: connectedChainId
-              ? String(connectedChainId)
-              : "unknown",
+            walletChainId: signingContext.walletChainId,
             expectedChainId: String(chainId),
             connectorName,
             connectorId,
@@ -692,7 +744,7 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
             parsedErrorTitle: parsedError.title,
             parsedErrorSuggestion: parsedError.suggestion,
             retryCount,
-            isWrongNetwork,
+            isWrongNetwork: requestIsWrongNetwork,
             // Include raw error for nested error objects
             rawError: errorDetails.raw || String(error),
           },
@@ -702,6 +754,20 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
       console.error("Error accepting ToS:", error);
     } finally {
       setIsSigning(false);
+    }
+  };
+
+  const handleSwitchNetwork = async () => {
+    try {
+      await switchChain({ chainId });
+      await resolveActiveWalletChainId();
+      setError(null);
+      toast.success(`Switched to ${expectedNetworkLabel}`);
+    } catch (switchError) {
+      console.error("Failed to switch network for ToS signing:", switchError);
+      toast.error("Failed to switch network", {
+        description: "Please switch networks in your wallet and try again.",
+      });
     }
   };
 
@@ -1108,8 +1174,8 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
             Decline & Disconnect
           </Button>
           <Button
-            onClick={handleAcceptTos}
-            disabled={isSigning || isSignerLoading || isWrongNetwork}
+            onClick={isWrongNetwork ? handleSwitchNetwork : handleAcceptTos}
+            disabled={isSigning || isSignerLoading || isSwitchingChain}
             variant={error?.canRetry ? "default" : "default"}
           >
             {isSigning ? (
@@ -1117,13 +1183,18 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Signing...
               </>
+            ) : isSwitchingChain ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Switching...
+              </>
             ) : isSignerLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Connecting...
               </>
             ) : isWrongNetwork ? (
-              "Wrong Network"
+              `Switch to ${expectedNetworkLabel}`
             ) : error?.canRetry ? (
               <>
                 <RefreshCw className="mr-2 h-4 w-4" />

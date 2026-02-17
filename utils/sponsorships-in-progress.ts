@@ -1,7 +1,7 @@
 import { formatUnits } from "viem";
 import type { AuctionApplication, SplitActivity } from "@/hooks/hub-listings";
 import type { ApplicationRewardScore } from "@/hooks/control-farms";
-import type { ApplicationMiningScore } from "@/hooks/control-farms";
+import type { ApplicationMiningScore } from "@/lib/mining-score";
 
 export interface SponsorshipInProgress {
   applicationId: string;

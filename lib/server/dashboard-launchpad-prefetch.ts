@@ -1,0 +1,224 @@
+import { QueryClient } from "@tanstack/react-query";
+import type {
+  MiningScoreParams,
+  MiningScoresBatchResponse,
+} from "@glowlabs-org/utils/browser";
+import type {
+  AuctionApplication,
+  SponsorListingsFilters,
+} from "../../hooks/hub-listings";
+import { QUERY_KEYS } from "../../hooks/query-keys";
+import { hubGet } from "../api/hub-client";
+import {
+  buildMiningScoreBatchInputs,
+  filterActiveMiningApplications,
+  mapMiningScoresBatchToApplications,
+} from "../mining-score";
+import {
+  buildRewardScoreBatchInputs,
+  filterActiveRewardApplications,
+  getMissingRewardScoresForApplications,
+  mapRewardScoresBatchToApplications,
+} from "../reward-score";
+import type {
+  RewardScoreBatchParams,
+  RewardScoresBatchResponse,
+} from "../reward-score";
+
+const SPONSOR_LISTINGS_ENDPOINT = "/applications/sponsor-listings-applications";
+const PREFETCH_TIMEOUT_MS = 3_000;
+
+export const DASHBOARD_SSR_LISTING_FILTERS = {
+  launchpadStatus: { paymentCurrency: "GLW" } as const,
+  miningStatus: { paymentCurrency: "USDC", type: "mining-center" } as const,
+  launchpadLive: { paymentCurrency: "GLW", includeFilled: true } as const,
+  miningLive: {
+    paymentCurrency: "USDC",
+    includeFilled: true,
+    type: "mining-center",
+  } as const,
+} as const;
+
+type FetchListingsFn = (
+  filters: SponsorListingsFilters
+) => Promise<AuctionApplication[]>;
+
+type FetchMiningScoresBatchFn = (
+  farms: MiningScoreParams[]
+) => Promise<MiningScoresBatchResponse>;
+
+type FetchRewardScoresBatchFn = (
+  farms: RewardScoreBatchParams[]
+) => Promise<RewardScoresBatchResponse>;
+
+export interface DashboardLaunchpadPrefetchDeps {
+  fetchListings?: FetchListingsFn;
+  fetchMiningScoresBatch?: FetchMiningScoresBatchFn;
+  fetchRewardScoresBatch?: FetchRewardScoresBatchFn;
+}
+
+async function withSignalTimeout<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number = PREFETCH_TIMEOUT_MS
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await operation(controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number = PREFETCH_TIMEOUT_MS
+): Promise<T> {
+  return await new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
+async function defaultFetchListings(
+  filters: SponsorListingsFilters
+): Promise<AuctionApplication[]> {
+  return await withSignalTimeout((signal) =>
+    hubGet<AuctionApplication[]>(SPONSOR_LISTINGS_ENDPOINT, {
+      params: { ...filters },
+      init: { signal },
+    })
+  );
+}
+
+export async function prefetchDashboardLaunchpadData(
+  queryClient: QueryClient,
+  deps: DashboardLaunchpadPrefetchDeps = {}
+) {
+  if (!process.env.NEXT_PUBLIC_HUB_URL) return;
+
+  const fetchListings = deps.fetchListings ?? defaultFetchListings;
+  let fetchMiningScoresBatch = deps.fetchMiningScoresBatch;
+  let fetchRewardScoresBatch = deps.fetchRewardScoresBatch;
+
+  const [launchpadStatusListings, miningStatusListings, launchpadLiveListings, miningLiveListings] =
+    await Promise.all([
+      fetchListings(DASHBOARD_SSR_LISTING_FILTERS.launchpadStatus).catch(
+        () => []
+      ),
+      fetchListings(DASHBOARD_SSR_LISTING_FILTERS.miningStatus).catch(
+        () => []
+      ),
+      fetchListings(DASHBOARD_SSR_LISTING_FILTERS.launchpadLive).catch(
+        () => []
+      ),
+      fetchListings(DASHBOARD_SSR_LISTING_FILTERS.miningLive).catch(() => []),
+    ]);
+
+  queryClient.setQueryData(
+    QUERY_KEYS.listings.sponsor(DASHBOARD_SSR_LISTING_FILTERS.launchpadStatus),
+    launchpadStatusListings
+  );
+  queryClient.setQueryData(
+    QUERY_KEYS.listings.sponsor(DASHBOARD_SSR_LISTING_FILTERS.miningStatus),
+    miningStatusListings
+  );
+  queryClient.setQueryData(
+    QUERY_KEYS.listings.sponsor(DASHBOARD_SSR_LISTING_FILTERS.launchpadLive),
+    launchpadLiveListings
+  );
+  queryClient.setQueryData(
+    QUERY_KEYS.listings.sponsor(DASHBOARD_SSR_LISTING_FILTERS.miningLive),
+    miningLiveListings
+  );
+
+  const activeRewardApplications =
+    filterActiveRewardApplications(launchpadLiveListings);
+  const { requestList, batchParams: rewardBatchParams } =
+    buildRewardScoreBatchInputs({
+      applications: activeRewardApplications,
+      paymentCurrency: "GLW",
+      walletAddress: null,
+    });
+  if (activeRewardApplications.length > 0) {
+    if (rewardBatchParams.length > 0) {
+      try {
+        if (!fetchRewardScoresBatch) {
+          const { getCachedRewardScoresBatch } = await import("./reward-scores");
+          fetchRewardScoresBatch = getCachedRewardScoresBatch;
+        }
+        const response = await withTimeout(
+          fetchRewardScoresBatch!(rewardBatchParams)
+        );
+        const rewardScores = mapRewardScoresBatchToApplications({
+          applications: activeRewardApplications,
+          requestList,
+          response,
+        });
+
+        queryClient.setQueryData(
+          QUERY_KEYS.listings.rewardScores(
+            activeRewardApplications.map((application) => application.id),
+            "GLW",
+            null
+          ),
+          rewardScores
+        );
+      } catch {
+        // Best effort; client query will fetch if server prefetch fails.
+      }
+    } else {
+      queryClient.setQueryData(
+        QUERY_KEYS.listings.rewardScores(
+          activeRewardApplications.map((application) => application.id),
+          "GLW",
+          null
+        ),
+        getMissingRewardScoresForApplications(
+          activeRewardApplications,
+          "Missing required data for calculation"
+        )
+      );
+    }
+  }
+
+  const activeMiningApplications =
+    filterActiveMiningApplications(miningLiveListings);
+  if (!activeMiningApplications.length) return;
+
+  const { farmParams } = buildMiningScoreBatchInputs(activeMiningApplications);
+  if (!farmParams.length) return;
+
+  try {
+    if (!fetchMiningScoresBatch) {
+      const { getCachedMiningScoresBatch } = await import("./mining-scores");
+      fetchMiningScoresBatch = getCachedMiningScoresBatch;
+    }
+    const response = await withTimeout(fetchMiningScoresBatch!(farmParams));
+    const miningScores = mapMiningScoresBatchToApplications(
+      activeMiningApplications,
+      farmParams,
+      response
+    );
+
+    queryClient.setQueryData(
+      QUERY_KEYS.listings.miningScores(
+        activeMiningApplications.map((application) => application.id)
+      ),
+      miningScores
+    );
+  } catch {
+    // Best effort; client query will fetch if server prefetch fails.
+  }
+}
