@@ -1,0 +1,38 @@
+[
+  {
+    "id": "1987c17d-b927-410a-b1b4-2993beb33dbf",
+    "paymentAmount": "150000000000000000000",
+    "paymentCurrency": "GLW",
+    "farm": {
+      "id": "backend-farm-a"
+    },
+    "zone": {
+      "id": 1,
+      "name": "Region A"
+    }
+  },
+  {
+    "id": "farm-b",
+    "paymentAmount": "50000000000000000000",
+    "paymentCurrency": "GLW",
+    "farm": {
+      "id": "backend-farm-b"
+    },
+    "zone": {
+      "id": 2,
+      "name": "Region B"
+    }
+  },
+  {
+    "id": "farm-c",
+    "paymentAmount": "100000000000000000000",
+    "paymentCurrency": "GLW",
+    "farm": {
+      "id": "backend-farm-c"
+    },
+    "zone": {
+      "id": 3,
+      "name": "Region C"
+    }
+  }
+]

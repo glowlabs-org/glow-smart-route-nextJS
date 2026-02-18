@@ -1,0 +1,31 @@
+{
+  "farms": [
+    {
+      "farmId": "backend-farm-a",
+      "appId": "1987c17d-b927-410a-b1b4-2993beb33dbf",
+      "miner": {
+        "stepsSold": 2,
+        "weeksEarned": 12,
+        "weightedPiecePriceUsdc": "500000000"
+      }
+    },
+    {
+      "farmId": "backend-farm-b",
+      "appId": "farm-b",
+      "miner": {
+        "stepsSold": 1,
+        "weeksEarned": 10,
+        "weightedPiecePriceUsdc": "500000000"
+      }
+    },
+    {
+      "farmId": "backend-farm-c",
+      "appId": "farm-c",
+      "miner": {
+        "stepsSold": 3,
+        "weeksEarned": 17,
+        "weightedPiecePriceUsdc": "900000000"
+      }
+    }
+  ]
+}

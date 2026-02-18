@@ -59,7 +59,12 @@ import {
 import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useCompletedFarms } from "@/hooks/useCompletedFarms";
 import { getFarmsRouter } from "@/lib/api/control-routers";
+import {
+  computeMinerMarginPerPd,
+  parseProtocolDepositFromPayment,
+} from "@/lib/internal/miner-margin-per-pd";
 import { generateRandomEthAddress } from "@/utils/eth";
+import { getCurrentEpoch } from "@/utils/getCurrentEpoch";
 
 function MiningStatsSkeleton() {
   return (
@@ -279,32 +284,6 @@ type SortOption = "rewardScore" | "delegated" | "mined" | "risk" | "safety";
 type FarmFilterOption = "all" | "delegation-only" | "mining-only" | "both";
 type DetailView = "delegation" | "mining";
 
-const CASH_BOUNTY_BY_APPLICATION_ID: Record<string, number | null> = {
-  "83b11acc-5207-47b5-a07f-483db5e48871": 1000,
-  "9c712552-e0bf-4a30-babd-9962f311929f": 1500,
-  "970c24ed-6273-4899-b8a1-c0c3742d9ae9": 1500,
-  "ed8eecb0-1509-4d7c-8337-a958e6064b5c": 1500,
-  "54c1ce52-15d3-4dbd-85d0-eb06f6feed8a": 1500,
-  "8dcf8df9-9d1b-4c10-b648-ac7b2f63dd28": 1500,
-  "a315a8e5-dcd7-4e2b-bdba-54a34e03e826": 4000,
-  "61e1d3c1-2682-4025-9db8-7d160bedf315": 2500,
-  "c41fc798-7cde-461c-a0f5-f9742a701990": 2000,
-  "8dd53eae-4dcf-4877-a5aa-492bb1ff72e9": 1,
-  "71c4918e-19dd-4bb7-bcae-b27532eb4c94": 2500,
-  "25d454f1-a021-435c-b46a-476fca1b0d45": 1800,
-  "6dd28b54-745b-4e51-84fb-a5d9fd1432da": 1600,
-  "1987c17d-b927-410a-b1b4-2993beb33dbf": 500,
-  "c63b17d1-e3be-4bc4-92b9-f5df3d2b0e92": 2000,
-  "737a6761-01ac-46f9-8794-e45d3afd7726": 800,
-  "ca7ae649-974e-437d-a843-2a65b08aeb2f": 3000,
-  "93eeaf4d-3f43-41e1-8b7f-0f8018ed78d1": 6500,
-  "f6963add-86a4-48f0-81a7-5b8b2f0b680f": 1500,
-  "7be6c9e7-5ef5-4fd8-b67a-040d6e436822": 2500,
-  "b4d5f092-9c99-44ee-a14a-bcf7ed2fc636": 2600,
-  "51e2d48b-243c-4909-bc26-2b15b77daed7": 1200,
-  "cc098775-8a92-4f28-924e-4c1ba8c7a4f6": null,
-};
-
 interface HealthStatus {
   label: "Ahead" | "On track" | "Behind" | "At risk";
   badgeClass: string;
@@ -326,6 +305,8 @@ interface FarmSummaryRow {
   combinedGlw: number;
   sponsorSplitPercent: number | null;
   cashBountyUsd: number | null;
+  protocolDepositPaid: number;
+  protocolDepositPaidUsd: number;
   health: HealthStatus;
   hasDelegation: boolean;
   hasMining: boolean;
@@ -378,6 +359,11 @@ interface TrackStatus {
   barClass: string;
   textClass: string;
   badgeClass: string;
+}
+
+interface FarmBountyRow {
+  farm_id: string;
+  bounty_usd: string | number | null;
 }
 
 function clampPercent(value: number) {
@@ -644,22 +630,47 @@ export function MiningStats() {
 
   const { data, isLoading, isFetching, isError } = useFarmsPerPieceStats({
     enabled: true,
-    endWeek: 114,
+    endWeek: getCurrentEpoch(),
   });
   const { spotPrice } = useGlowSpotPrice();
   const { farms: completedFarms } = useCompletedFarms({
     enabled: true,
     includeFractions: true,
   });
+  const { data: cashBountyByFarmId = new Map<string, number>() } = useQuery({
+    queryKey: ["pol-farm-bounties"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const hubUrl = process.env.NEXT_PUBLIC_HUB_URL;
+      if (!hubUrl) return new Map<string, number>();
+
+      const response = await fetch(`${hubUrl}/pol/bounties/farms`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch farm cash bounties: ${response.status}`);
+      }
+
+      const rows = (await response.json()) as FarmBountyRow[];
+      const map = new Map<string, number>();
+      for (const row of rows || []) {
+        if (!row?.farm_id) continue;
+        const bounty = Number(row.bounty_usd ?? 0);
+        if (!Number.isFinite(bounty)) continue;
+        map.set(row.farm_id, bounty);
+      }
+      return map;
+    },
+  });
 
   const regionMetaByAppId = React.useMemo(() => {
     const map = new Map<
       string,
       {
+        backendFarmId: string | null;
         id: number | null;
         name: string;
         sponsorSplitPercent: number | null;
         expectedWeeklyCarbonCredits: number | null;
+        protocolDepositPaid: number;
       }
     >();
     for (const farm of completedFarms) {
@@ -689,10 +700,15 @@ export function MiningStats() {
       })();
 
       map.set(farm.id, {
+        backendFarmId: farm.farm?.id ?? null,
         id: regionId,
         name: regionName,
         sponsorSplitPercent,
         expectedWeeklyCarbonCredits,
+        protocolDepositPaid: parseProtocolDepositFromPayment({
+          paymentAmount: farm.paymentAmount,
+          paymentCurrency: farm.paymentCurrency,
+        }),
       });
     }
     return map;
@@ -761,23 +777,23 @@ export function MiningStats() {
           row.weekNumber > acc.weekNumber ? row : acc
         );
       })();
-      const delegationInflationLastWeekFromBreakdown = delegationBreakdownLastWeek
-        ? new Decimal(delegationBreakdownLastWeek.inflationRewards)
-            .div(1e18)
-            .toNumber()
-        : 0;
+      const delegationInflationLastWeekFromBreakdown =
+        delegationBreakdownLastWeek
+          ? new Decimal(delegationBreakdownLastWeek.inflationRewards)
+              .div(1e18)
+              .toNumber()
+          : 0;
       const delegationProtocolDepositLastWeekFromBreakdown =
         delegationBreakdownLastWeek
           ? new Decimal(delegationBreakdownLastWeek.protocolDepositRewards)
               .div(1e18)
               .toNumber()
           : 0;
-      const delegationLastWeekFromBreakdown =
-        delegationBreakdownLastWeek
-          ? new Decimal(delegationBreakdownLastWeek.totalRewards)
-              .div(1e18)
-              .toNumber()
-          : 0;
+      const delegationLastWeekFromBreakdown = delegationBreakdownLastWeek
+        ? new Decimal(delegationBreakdownLastWeek.totalRewards)
+            .div(1e18)
+            .toNumber()
+        : 0;
       const delegationInflationLastWeek =
         delegationInflationLastWeekFromBreakdown > 0
           ? delegationInflationLastWeekFromBreakdown
@@ -869,12 +885,19 @@ export function MiningStats() {
         hasMining,
       });
 
-      const cashBountyUsd = CASH_BOUNTY_BY_APPLICATION_ID[farm.appId] ?? null;
       const regionMeta = regionMetaByAppId.get(farm.appId);
+      const cashBountyUsd =
+        cashBountyByFarmId.get(farm.farmId) ??
+        (regionMeta?.backendFarmId
+          ? cashBountyByFarmId.get(regionMeta.backendFarmId)
+          : undefined) ??
+        null;
       const regionId = regionMeta?.id ?? null;
       const regionName =
         regionMeta?.name || (regionId ? `Region ${regionId}` : "Unassigned");
       const sponsorSplitPercent = regionMeta?.sponsorSplitPercent ?? null;
+      const protocolDepositPaid = regionMeta?.protocolDepositPaid ?? 0;
+      const protocolDepositPaidUsd = protocolDepositPaid * spotPrice;
 
       return {
         farmId: farm.farmId,
@@ -889,6 +912,8 @@ export function MiningStats() {
         combinedGlw,
         sponsorSplitPercent,
         cashBountyUsd,
+        protocolDepositPaid,
+        protocolDepositPaidUsd,
         health,
         hasDelegation,
         hasMining,
@@ -939,7 +964,7 @@ export function MiningStats() {
       ...row,
       rewardDelta: row.rewardScore - average,
     }));
-  }, [data, spotPrice, regionMetaByAppId]);
+  }, [data, spotPrice, regionMetaByAppId, cashBountyByFarmId]);
 
   const regionOptions = React.useMemo(() => {
     const map = new Map<number, string>();
@@ -949,9 +974,7 @@ export function MiningStats() {
         map.set(farm.regionId, farm.regionName);
       }
     }
-    return Array.from(map.entries()).sort((a, b) =>
-      a[1].localeCompare(b[1])
-    );
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
   }, [farmsSummary]);
 
   const estimationTargets = React.useMemo(() => {
@@ -985,9 +1008,7 @@ export function MiningStats() {
           regionId: meta.id,
         };
       })
-      .filter(
-        (item): item is NonNullable<typeof item> => item !== null
-      );
+      .filter((item): item is NonNullable<typeof item> => item !== null);
   }, [data, regionMetaByAppId]);
 
   const estimateTargetsKey = React.useMemo(() => {
@@ -1000,43 +1021,44 @@ export function MiningStats() {
       .join("|");
   }, [estimationTargets]);
 
-  const { data: estimatedWeeklyRewards = new Map<
-    string,
-    { glw: number; pd: number; total: number }
-  >() } =
-    useQuery({
-      queryKey: ["farm-estimated-weekly-rewards", estimateTargetsKey],
-      enabled: estimationTargets.length > 0,
-      staleTime: 5 * 60_000,
-      queryFn: async () => {
-        const farms = estimationTargets.map((target) => ({
-          userId: generateRandomEthAddress(),
-          sponsorSplitPercent: target.sponsorSplitPercent,
-          protocolDepositAmount: target.protocolDepositAmount.toString(),
-          paymentCurrency: "GLW" as const,
-          expectedWeeklyCarbonCredits: target.expectedWeeklyCarbonCredits,
-          regionId: target.regionId,
-        }));
+  const {
+    data: estimatedWeeklyRewards = new Map<
+      string,
+      { glw: number; pd: number; total: number }
+    >(),
+  } = useQuery({
+    queryKey: ["farm-estimated-weekly-rewards", estimateTargetsKey],
+    enabled: estimationTargets.length > 0,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const farms = estimationTargets.map((target) => ({
+        userId: generateRandomEthAddress(),
+        sponsorSplitPercent: target.sponsorSplitPercent,
+        protocolDepositAmount: target.protocolDepositAmount.toString(),
+        paymentCurrency: "GLW" as const,
+        expectedWeeklyCarbonCredits: target.expectedWeeklyCarbonCredits,
+        regionId: target.regionId,
+      }));
 
-        const response = await getFarmsRouter().estimateRewardScoresBatch({
-          farms,
-        });
+      const response = await getFarmsRouter().estimateRewardScoresBatch({
+        farms,
+      });
 
-        const map = new Map<string, { glw: number; pd: number; total: number }>();
-        response.results.forEach((result, idx) => {
-          const target = estimationTargets[idx];
-          if (!target) return;
-          if (result && (result as any).success) {
-            const data = (result as any).data;
-            const glw = Number(data.userWeeklyGlwRewards || "0") / 1e18;
-            const pd = Number(data.userWeeklyPdRewards || "0") / 1e18;
-            map.set(target.appId, { glw, pd, total: glw + pd });
-          }
-        });
+      const map = new Map<string, { glw: number; pd: number; total: number }>();
+      response.results.forEach((result, idx) => {
+        const target = estimationTargets[idx];
+        if (!target) return;
+        if (result && (result as any).success) {
+          const data = (result as any).data;
+          const glw = Number(data.userWeeklyGlwRewards || "0") / 1e18;
+          const pd = Number(data.userWeeklyPdRewards || "0") / 1e18;
+          map.set(target.appId, { glw, pd, total: glw + pd });
+        }
+      });
 
-        return map;
-      },
-    });
+      return map;
+    },
+  });
 
   const farmsWithScenario = React.useMemo<FarmScenarioRow[]>(() => {
     return farmsSummary.map((farm) => {
@@ -1109,9 +1131,24 @@ export function MiningStats() {
     };
   }, [farmsWithScenario]);
 
+  const minerMarginPerPd = React.useMemo(() => {
+    return computeMinerMarginPerPd(
+      farmsWithScenario.map((farm) => ({
+        appId: farm.appId,
+        regionId: farm.regionId,
+        regionName: farm.regionName,
+        minerSalesUsd: farm.mining.totalSpent,
+        bountyUsd: farm.cashBountyUsd,
+        protocolDepositPaid:
+          (regionMetaByAppId.get(farm.appId)?.protocolDepositPaid ?? 0) *
+          spotPrice,
+        minerStepsSold: farm.mining.stepsSold,
+      }))
+    );
+  }, [farmsWithScenario, regionMetaByAppId, spotPrice]);
+
   const filteredFarms = React.useMemo(() => {
-    const regionFilterId =
-      regionFilter === "all" ? null : Number(regionFilter);
+    const regionFilterId = regionFilter === "all" ? null : Number(regionFilter);
     return farmsWithScenario.filter((farm) => {
       if (regionFilterId !== null) {
         if (farm.regionId !== regionFilterId) return false;
@@ -1151,35 +1188,6 @@ export function MiningStats() {
     });
     return rows;
   }, [filteredFarms, sortBy]);
-
-  const safeSummaryByRegion = React.useMemo(() => {
-    const map = new Map<
-      number,
-      { regionId: number; regionName: string; safe: number; total: number }
-    >();
-    for (const farm of farmsWithScenario) {
-      if (!farm.hasDelegation) continue;
-      if (typeof farm.regionId !== "number") continue;
-      const entry =
-        map.get(farm.regionId) ?? {
-          regionId: farm.regionId,
-          regionName: farm.regionName,
-          safe: 0,
-          total: 0,
-        };
-      entry.total += 1;
-      if (farm.isSafe) {
-        entry.safe += 1;
-      }
-      map.set(farm.regionId, entry);
-    }
-    return Array.from(map.values()).sort(
-      (a, b) =>
-        b.safe - a.safe ||
-        b.total - a.total ||
-        a.regionName.localeCompare(b.regionName)
-    );
-  }, [farmsWithScenario]);
 
   const selectedFarm = React.useMemo(() => {
     if (!selectedFarmId || !data?.farms) return null;
@@ -1616,7 +1624,7 @@ export function MiningStats() {
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Card className="border-border/60 shadow-none">
             <CardContent className="p-5 space-y-2">
               <p className="text-xs uppercase text-muted-foreground">
@@ -1637,7 +1645,103 @@ export function MiningStats() {
               </p>
             </CardContent>
           </Card>
+          <Card className="border-border/60 shadow-none sm:col-span-2 lg:col-span-1">
+            <CardContent className="p-5 space-y-2">
+              <p className="text-xs uppercase text-muted-foreground">
+                Miner margin / PD (all miners)
+              </p>
+              <p className="text-2xl font-semibold">
+                {minerMarginPerPd.overall.marginPerPd === null
+                  ? "—"
+                  : formatUsdSigned(minerMarginPerPd.overall.marginPerPd)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                ({formatUsd(minerMarginPerPd.overall.totalSalesUsd)} -{" "}
+                {formatUsd(minerMarginPerPd.overall.totalBountyUsd)}) /{" "}
+                {formatUsd(minerMarginPerPd.overall.totalPdPaid)} PD
+              </p>
+            </CardContent>
+          </Card>
         </div>
+
+        <Card className="border-border/60 shadow-none">
+          <CardHeader>
+            <CardTitle>Miner margin per PD by region</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              All mining farms, using (sales - bounties) / protocol deposit from
+              Hub backend.
+            </p>
+          </CardHeader>
+          <CardContent className="-mx-6">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[160px]">Region</TableHead>
+                    <TableHead className="min-w-[80px] text-right">
+                      Farms
+                    </TableHead>
+                    <TableHead className="min-w-[140px] text-right">
+                      Sales
+                    </TableHead>
+                    <TableHead className="min-w-[140px] text-right">
+                      Bounties
+                    </TableHead>
+                    <TableHead className="min-w-[140px] text-right">
+                      PD paid ($)
+                    </TableHead>
+                    <TableHead className="min-w-[140px] text-right">
+                      Margin
+                    </TableHead>
+                    <TableHead className="min-w-[160px] text-right">
+                      Margin / PD
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {minerMarginPerPd.byRegion.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="h-16 text-center text-muted-foreground"
+                      >
+                        No mining regions available yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    minerMarginPerPd.byRegion.map((region) => (
+                      <TableRow key={region.regionId ?? region.regionName}>
+                        <TableCell className="font-semibold">
+                          {region.regionName}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {region.farmCount}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatUsd(region.totalSalesUsd)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatUsd(region.totalBountyUsd)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatUsd(region.totalPdPaid)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatUsdSigned(region.marginUsd)}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          {region.marginPerPd === null
+                            ? "—"
+                            : formatUsdSigned(region.marginPerPd)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="border-border/60 shadow-none">
           <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -1714,6 +1818,9 @@ export function MiningStats() {
                     <TableHead className="min-w-[140px] text-right">
                       Cash bounty
                     </TableHead>
+                    <TableHead className="min-w-[170px] text-right">
+                      Protocol deposit ($)
+                    </TableHead>
                     <TableHead className="min-w-[160px] text-right">
                       Mining – Net
                     </TableHead>
@@ -1727,7 +1834,7 @@ export function MiningStats() {
                   {sortedFarms.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={10}
+                        colSpan={11}
                         className="h-24 text-center text-muted-foreground"
                       >
                         No farms match this filter.
@@ -1837,8 +1944,7 @@ export function MiningStats() {
                                 </div>
                                 {!farm.isSafe && (
                                   <div className="text-xs text-muted-foreground">
-                                    {farm.weeksToSafeAtCurrentInflation ===
-                                    null
+                                    {farm.weeksToSafeAtCurrentInflation === null
                                       ? "No weekly rewards yet"
                                       : `~${Math.ceil(
                                           farm.weeksToSafeAtCurrentInflation
@@ -1923,6 +2029,17 @@ export function MiningStats() {
                               <div className="font-semibold">
                                 {formatUsd(farm.cashBountyUsd)}
                               </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="align-top py-4 text-right">
+                            {farm.protocolDepositPaidUsd > 0 ? (
+                              <div className="font-semibold">
+                                {formatUsd(farm.protocolDepositPaidUsd)}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                —
+                              </span>
                             )}
                           </TableCell>
                           <TableCell className="align-top py-4 text-right">
