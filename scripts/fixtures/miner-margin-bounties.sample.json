@@ -1,0 +1,14 @@
+[
+  {
+    "farm_id": "backend-farm-a",
+    "bounty_usd": 500
+  },
+  {
+    "farm_id": "backend-farm-b",
+    "bounty_usd": 0
+  },
+  {
+    "farm_id": "backend-farm-c",
+    "bounty_usd": 100
+  }
+]

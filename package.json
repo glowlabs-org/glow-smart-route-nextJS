@@ -13,6 +13,7 @@
     "studio": "npx drizzle-kit studio",
     "test": "pnpm dlx vitest run",
     "test:watch": "pnpm dlx vitest",
+    "metrics:miner-margin-pd": "pnpm dlx tsx scripts/miner-margin-per-pd.ts",
     "test:claim-v2": "node scripts/test-claim-v2-simple.js",
     "test:claim-v2-ts": "tsx scripts/test-claim-v2-rewards.ts",
     "prepare": "husky"

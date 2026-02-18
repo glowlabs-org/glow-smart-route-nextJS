@@ -193,7 +193,12 @@ export default function WeeklyActivityWidget({
       if (!HUB_URL) throw new Error("NEXT_PUBLIC_HUB_URL is not set");
       if (!walletAddress) throw new Error("Missing wallet address");
       return await hubGet<ImpactGlowScoreResponse>("/impact/glow-score", {
-        params: { walletAddress, includeWeekly: "0" },
+        params: {
+          walletAddress,
+          includeWeekly: "0",
+          includeProjection: "1",
+          includeReferral: "0",
+        },
       });
     },
   });

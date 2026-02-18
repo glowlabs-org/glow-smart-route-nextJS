@@ -179,6 +179,8 @@ export function useWalletPortfolio(params: {
     enabled: hasWallet,
     toastTitle: "Failed to load Glow Worth history",
     includeWeekly: includeWeeklyHistory,
+    includeProjection: false,
+    includeReferral: false,
   });
 
   const liquidGlw = React.useMemo(
