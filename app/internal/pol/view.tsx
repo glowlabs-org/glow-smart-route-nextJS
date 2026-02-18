@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   Area,
@@ -60,10 +61,45 @@ import {
 } from "@/hooks/usePolRevenue";
 import { useGlwVestingSchedule } from "@/hooks/useGlwVestingSchedule";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
-import { NetworkImpactSection } from "./network-impact-section";
+import type {
+  MiniBlogGraphButtonProps,
+  MiniBlogGraphCluster,
+} from "./mini-blog-graph-button";
 
 import { formatUnits } from "viem";
 import { getCurrentWeekNumber } from "@/lib/rewards/weekly-delegations";
+
+const MiniBlogGraphButton = dynamic<MiniBlogGraphButtonProps>(
+  () =>
+    import("./mini-blog-graph-button").then((mod) => mod.MiniBlogGraphButton),
+  {
+    ssr: false,
+    loading: () => (
+      <button
+        type="button"
+        disabled
+        className="w-full rounded-xl border border-border/40 bg-muted/30 px-4 py-3 text-xs font-mono uppercase tracking-wider text-foreground/50"
+      >
+        View all topics
+      </button>
+    ),
+  }
+);
+
+const NetworkImpactSection = dynamic(
+  () =>
+    import("./network-impact-section").then((mod) => mod.NetworkImpactSection),
+  {
+    ssr: false,
+    loading: () => (
+      <section className="pt-16">
+        <div className="rounded-3xl border border-border/20 bg-card p-8 text-sm text-muted-foreground">
+          Loading network impact...
+        </div>
+      </section>
+    ),
+  }
+);
 
 const PRICE_RANGE = { min: 0.001, max: 100 };
 const SECONDS_PER_WEEK = 7 * 24 * 60 * 60;
@@ -75,6 +111,65 @@ const VETO_COUNCIL_INFLATION_PER_WEEK_GLW = 5_000;
 const MIN_LIFETIME_REVENUE_LQ = 2_000;
 const DEFINED_FI_GLOW_URL =
   "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d";
+
+const NUMBER_FORMATTER_WHOLE = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 0,
+});
+const NUMBER_FORMATTER_COMPACT_1 = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+const NUMBER_FORMATTER_COMPACT_2 = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+const NUMBER_FORMATTER_UP_TO_2 = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+const NUMBER_FORMATTER_UP_TO_2_OR_1_SMALL = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 2,
+});
+const NUMBER_FORMATTER_UP_TO_2_OR_1_LARGE = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 1,
+});
+const USD_FORMATTER_WHOLE = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
+const USD_FORMATTER_COMPACT_1 = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+const USD_FORMATTER_2 = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 2,
+});
+const USD_FORMATTER_4 = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 4,
+});
+const DATE_FORMATTER_SHORT_UTC = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+const DATE_FORMATTER_AXIS_UTC = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
+});
+const DATE_FORMATTER_MONTH_UTC = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  timeZone: "UTC",
+});
 
 // TODO: mock data (fallback if live regions unavailable)
 const GCTL_REGIONS = [
@@ -174,6 +269,16 @@ const polLiquidityChartConfig = {
   liquidity: { label: "Embedded liquidity", color: POL_LIQUIDITY_GREEN },
 } satisfies ChartConfig;
 
+const supplyCirculationChartConfig = {
+  circulating: { label: "Circulating", color: "#4ade80" },
+  vaulted: { label: "Vaulted", color: "#a855f7" },
+  pol: { label: "Embedded GLW", color: "#ffb472" },
+  other: {
+    label: "Structurally Locked",
+    color: "hsl(0 0% 80%)",
+  },
+} satisfies ChartConfig;
+
 const REGION_COLORS: Record<string, string> = {
   "Golden Colorado": "#a855f7",
   "Rising Utah": "#2081e2",
@@ -182,7 +287,7 @@ const REGION_COLORS: Record<string, string> = {
 };
 const DEFAULT_REGION_COLOR = "#94a3b8";
 
-function SectionHeader({
+const SectionHeader = React.memo(function SectionHeader({
   title,
   subtitle,
 }: {
@@ -199,12 +304,12 @@ function SectionHeader({
       ) : null}
     </div>
   );
-}
+});
+
+SectionHeader.displayName = "SectionHeader";
 
 function formatNumber(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 0,
-  }).format(value);
+  return NUMBER_FORMATTER_WHOLE.format(value);
 }
 
 function formatUsdCompact(value: number) {
@@ -216,19 +321,10 @@ function formatUsdCompact(value: number) {
 function formatUsdCompactHero(value: number) {
   const abs = Math.abs(value);
   if (abs >= 1_000) {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }).format(value);
+    return USD_FORMATTER_COMPACT_1.format(value);
   }
 
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: abs < 1 ? 4 : 2,
-  }).format(value);
+  return abs < 1 ? USD_FORMATTER_4.format(value) : USD_FORMATTER_2.format(value);
 }
 
 function formatUsdCompactPrecise(value: number) {
@@ -238,35 +334,18 @@ function formatUsdCompactPrecise(value: number) {
   // - Avoid confusing outputs like `$359.922K`.
   // - For mid 6-figure values, show the full number instead of `K`.
   if (abs >= 100_000 && abs < 1_000_000) {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(value);
+    return USD_FORMATTER_WHOLE.format(value);
   }
 
   if (abs >= 1_000) {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }).format(value);
+    return USD_FORMATTER_COMPACT_1.format(value);
   }
 
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: abs < 1 ? 4 : 2,
-  }).format(value);
+  return abs < 1 ? USD_FORMATTER_4.format(value) : USD_FORMATTER_2.format(value);
 }
 
 function formatUsdWhole(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
+  return USD_FORMATTER_WHOLE.format(value);
 }
 
 function formatCompactNumberPrecise(value: number) {
@@ -276,49 +355,34 @@ function formatCompactNumberPrecise(value: number) {
   // - If we use compact (K/M/B), cap at 1 decimal.
   // - For mid 6-figure values, show the full number instead of a highly precise `K`.
   if (abs >= 100_000 && abs < 1_000_000) {
-    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(
-      value
-    );
+    return NUMBER_FORMATTER_WHOLE.format(value);
   }
 
   if (abs >= 1_000) {
-    return new Intl.NumberFormat("en-US", {
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }).format(value);
+    return NUMBER_FORMATTER_COMPACT_1.format(value);
   }
 
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: abs < 10 ? 2 : 1,
-  }).format(value);
+  return abs < 10
+    ? NUMBER_FORMATTER_UP_TO_2_OR_1_SMALL.format(value)
+    : NUMBER_FORMATTER_UP_TO_2_OR_1_LARGE.format(value);
 }
 
 function formatCompactNumberTwoDecimals(value: number) {
   const abs = Math.abs(value);
   if (abs >= 1_000) {
-    return new Intl.NumberFormat("en-US", {
-      notation: "compact",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
+    return NUMBER_FORMATTER_COMPACT_2.format(value);
   }
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(value);
+  return NUMBER_FORMATTER_UP_TO_2.format(value);
 }
 
 function formatCompactNumberForceCompact(value: number) {
   const abs = Math.abs(value);
   if (abs >= 1_000) {
-    return new Intl.NumberFormat("en-US", {
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }).format(value);
+    return NUMBER_FORMATTER_COMPACT_1.format(value);
   }
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: abs < 10 ? 2 : 1,
-  }).format(value);
+  return abs < 10
+    ? NUMBER_FORMATTER_UP_TO_2_OR_1_SMALL.format(value)
+    : NUMBER_FORMATTER_UP_TO_2_OR_1_LARGE.format(value);
 }
 
 function formatLiquidityCompact(value: number) {
@@ -326,10 +390,7 @@ function formatLiquidityCompact(value: number) {
 }
 
 function formatCompactNumber(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
+  return NUMBER_FORMATTER_COMPACT_1.format(value);
 }
 
 function formatPercent(value: number) {
@@ -357,27 +418,15 @@ function formatNullableFixed(value: number | null, digits = 1) {
 }
 
 function formatDateShortUtc(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(value);
+  return DATE_FORMATTER_SHORT_UTC.format(value);
 }
 
 function formatDateAxisUtc(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(value);
+  return DATE_FORMATTER_AXIS_UTC.format(value);
 }
 
 function formatMonthAxisUtc(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    timeZone: "UTC",
-  }).format(value);
+  return DATE_FORMATTER_MONTH_UTC.format(value);
 }
 
 function getWeekStartMs(weekNumber: number) {
@@ -545,6 +594,8 @@ type MiniBlogEntry = {
   paragraphs: string[];
   learnMore?: MiniBlogId[];
 };
+
+type MiniBlogCluster = MiniBlogGraphCluster;
 
 type ModalBlogKey =
   | "overview"
@@ -746,6 +797,29 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
   },
 };
 
+const MINI_BLOG_CLUSTERS: Record<MiniBlogId, MiniBlogCluster> = {
+  "glow-economy-basics": "core",
+  "glw-token-basics": "core",
+  "liquidity-basics": "liquidity",
+  "control-basics": "governance",
+  "solar-installations-basics": "solar",
+  "uniswap-vs-protocol-liquidity": "liquidity",
+  "glow-endowment": "liquidity",
+  "circulating-supply-basics": "core",
+  "embedded-liquidity-growth-basics": "liquidity",
+  "why-liquidity-instead-of-dollars": "liquidity",
+  "farm-revenue-distribution": "solar",
+  "wallet-participants-basics": "network",
+  "delegation-metrics-basics": "network",
+  "region-revenue-basics": "solar",
+  "network-impact-basics": "solar",
+  "inflation-schedule": "core",
+  "delegating-tokens": "core",
+  "glw-token-value": "core",
+  "embedded-liquidity": "liquidity",
+  "minting-gctl": "governance",
+};
+
 const INITIAL_MODAL_BLOGS: Record<ModalBlogKey, MiniBlogId> = {
   overview: "glow-economy-basics",
   growthCards: "solar-installations-basics",
@@ -766,7 +840,7 @@ const GROWTH_CARD_BLOG: Record<GrowthCardKey, MiniBlogId> = {
   embeddedGrowth: "uniswap-vs-protocol-liquidity",
 };
 
-function WalletGrowthTooltip({
+const WalletGrowthTooltip = React.memo(function WalletGrowthTooltip({
   active,
   payload,
   label,
@@ -825,7 +899,9 @@ function WalletGrowthTooltip({
       </div>
     </div>
   );
-}
+});
+
+WalletGrowthTooltip.displayName = "WalletGrowthTooltip";
 
 function FarmDetailsDialog({
   open,
@@ -1105,689 +1181,19 @@ function MiniBlogPanel({
           </a>
         </div>
       )}
-      <MiniBlogGraphButton currentBlogId={blogId} onSelectBlog={onSelectBlog} />
-    </div>
-  );
-}
-
-function MiniBlogGraphButton({
-  currentBlogId,
-  onSelectBlog,
-}: {
-  currentBlogId: MiniBlogId;
-  onSelectBlog: (id: MiniBlogId) => void;
-}) {
-  const [open, setOpen] = React.useState(false);
-  return (
-    <>
-      <button
-        type="button"
-        className="w-full rounded-xl border border-border/40 bg-muted/30 hover:bg-foreground hover:text-background dark:bg-primary dark:text-primary-foreground dark:border-primary dark:hover:bg-primary/90 px-4 py-3 text-xs font-mono uppercase tracking-wider text-foreground/70 transition-colors"
-        onClick={() => setOpen(true)}
-      >
-        View all topics
-      </button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[1540px] sm:max-w-[1540px] w-[99vw] h-[88vh] max-h-[920px] flex flex-col p-0 gap-0 overflow-hidden bg-card border border-border/20">
-          <DialogHeader className="p-5 pb-0">
-            <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
-              Knowledge Graph
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              Visual map of all mini-blog topics and their connections.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 min-h-0 p-5 pt-3">
-            <MiniBlogGraph
-              currentBlogId={currentBlogId}
-              onSelectBlog={(id) => {
-                setOpen(false);
-                onSelectBlog(id);
-              }}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
-/* ── Knowledge Graph ─────────────────────────────────────────────────── */
-
-type MiniBlogCluster =
-  | "core"
-  | "liquidity"
-  | "governance"
-  | "solar"
-  | "network";
-
-const MINI_BLOG_CLUSTERS: Record<MiniBlogId, MiniBlogCluster> = {
-  "glow-economy-basics": "core",
-  "glw-token-basics": "core",
-  "liquidity-basics": "liquidity",
-  "control-basics": "governance",
-  "solar-installations-basics": "solar",
-  "uniswap-vs-protocol-liquidity": "liquidity",
-  "glow-endowment": "liquidity",
-  "circulating-supply-basics": "core",
-  "embedded-liquidity-growth-basics": "liquidity",
-  "why-liquidity-instead-of-dollars": "liquidity",
-  "farm-revenue-distribution": "solar",
-  "wallet-participants-basics": "network",
-  "delegation-metrics-basics": "network",
-  "region-revenue-basics": "solar",
-  "network-impact-basics": "solar",
-  "inflation-schedule": "core",
-  "delegating-tokens": "core",
-  "glw-token-value": "core",
-  "embedded-liquidity": "liquidity",
-  "minting-gctl": "governance",
-};
-
-const GRAPH_CLUSTER_COLORS: Record<
-  MiniBlogCluster,
-  { fill: string; bg: string; ring: string; text: string }
-> = {
-  core: {
-    fill: "var(--color-glow-orange)",
-    bg: "rgba(255,180,114,0.14)",
-    ring: "rgba(255,180,114,0.35)",
-    text: "#b87a3a",
-  },
-  liquidity: {
-    fill: "var(--color-glow-purple)",
-    bg: "rgba(220,196,255,0.18)",
-    ring: "rgba(220,196,255,0.45)",
-    text: "#8b6bb5",
-  },
-  governance: {
-    fill: "var(--color-glow-green)",
-    bg: "rgba(204,255,212,0.22)",
-    ring: "rgba(204,255,212,0.5)",
-    text: "#4a9e5c",
-  },
-  solar: {
-    fill: "var(--color-glow-yellow)",
-    bg: "rgba(247,252,196,0.28)",
-    ring: "rgba(247,252,196,0.55)",
-    text: "#8a8530",
-  },
-  network: {
-    fill: "#b8b8b8",
-    bg: "rgba(184,184,184,0.1)",
-    ring: "rgba(184,184,184,0.25)",
-    text: "#888888",
-  },
-};
-
-const GRAPH_CLUSTER_LABELS: Record<MiniBlogCluster, string> = {
-  core: "Protocol Core",
-  liquidity: "Liquidity",
-  governance: "Governance",
-  solar: "Solar & Impact",
-  network: "Network",
-};
-
-const GRAPH_NODE_IDS = Object.keys(MINI_BLOGS) as MiniBlogId[];
-
-const GRAPH_NODES: {
-  id: MiniBlogId;
-  label: string;
-  cluster: MiniBlogCluster;
-}[] = GRAPH_NODE_IDS.map((id) => ({
-  id,
-  label: MINI_BLOGS[id].title,
-  cluster: MINI_BLOG_CLUSTERS[id],
-}));
-
-function buildGraphEdgeKey(from: MiniBlogId, to: MiniBlogId) {
-  return from < to ? `${from}|${to}` : `${to}|${from}`;
-}
-
-const GRAPH_EDGES: { from: MiniBlogId; to: MiniBlogId }[] = (() => {
-  const deduped = new Set<string>();
-  const edges: { from: MiniBlogId; to: MiniBlogId }[] = [];
-
-  for (const fromId of GRAPH_NODE_IDS) {
-    const learnMore = MINI_BLOGS[fromId].learnMore ?? [];
-    for (const toId of learnMore) {
-      const key = buildGraphEdgeKey(fromId, toId);
-      if (deduped.has(key)) continue;
-      deduped.add(key);
-      edges.push({ from: fromId, to: toId });
-    }
-  }
-
-  return edges;
-})();
-
-const GRAPH_CONNECTION_COUNT: Record<MiniBlogId, number> = (() => {
-  const counts = {} as Record<MiniBlogId, number>;
-  for (const id of GRAPH_NODE_IDS) counts[id] = 0;
-  for (const edge of GRAPH_EDGES) {
-    counts[edge.from] += 1;
-    counts[edge.to] += 1;
-  }
-  return counts;
-})();
-
-function createSeededRandom(seed: number) {
-  let s = seed | 0;
-  return () => {
-    s = (s + 0x6d2b79f5) | 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function computeKnowledgeGraphLayout(width: number, height: number) {
-  const random = createSeededRandom(7);
-  const centerX = width / 2;
-  const centerY = height / 2;
-
-  const clusterSeeds: Record<MiniBlogCluster, { ax: number; ay: number }> = {
-    core: { ax: -0.5, ay: -0.34 },
-    liquidity: { ax: 0.5, ay: -0.32 },
-    governance: { ax: -0.52, ay: 0.44 },
-    solar: { ax: 0.46, ay: 0.44 },
-    network: { ax: 0.02, ay: -0.62 },
-  };
-
-  const nodes = {} as Record<
-    MiniBlogId,
-    { x: number; y: number; vx: number; vy: number }
-  >;
-
-  for (const id of GRAPH_NODE_IDS) {
-    const cluster = MINI_BLOG_CLUSTERS[id];
-    const seed = clusterSeeds[cluster];
-    nodes[id] = {
-      x: centerX + seed.ax * width * 0.46 + (random() - 0.5) * 164,
-      y: centerY + seed.ay * height * 0.46 + (random() - 0.5) * 136,
-      vx: 0,
-      vy: 0,
-    };
-  }
-
-  for (let i = 0; i < 620; i += 1) {
-    const alpha = Math.pow(1 - i / 620, 1.5);
-    const force = alpha * 0.4;
-
-    for (let a = 0; a < GRAPH_NODE_IDS.length; a += 1) {
-      for (let b = a + 1; b < GRAPH_NODE_IDS.length; b += 1) {
-        const nodeA = nodes[GRAPH_NODE_IDS[a]];
-        const nodeB = nodes[GRAPH_NODE_IDS[b]];
-        const dx = nodeB.x - nodeA.x;
-        const dy = nodeB.y - nodeA.y;
-        const distance = Math.sqrt(dx * dx + dy * dy) || 0.1;
-
-        if (distance < 132) {
-          const repulsion = ((132 - distance) / distance) * force * 1.65;
-          nodeA.vx -= dx * repulsion;
-          nodeA.vy -= dy * repulsion;
-          nodeB.vx += dx * repulsion;
-          nodeB.vy += dy * repulsion;
+      <MiniBlogGraphButton
+        currentBlogId={blogId}
+        onSelectBlog={(id) => onSelectBlog(id as MiniBlogId)}
+        miniBlogs={MINI_BLOGS}
+        miniBlogClusters={
+          MINI_BLOG_CLUSTERS as Record<string, MiniBlogGraphCluster>
         }
-      }
-    }
-
-    for (const edge of GRAPH_EDGES) {
-      const nodeA = nodes[edge.from];
-      const nodeB = nodes[edge.to];
-      const dx = nodeB.x - nodeA.x;
-      const dy = nodeB.y - nodeA.y;
-      const distance = Math.sqrt(dx * dx + dy * dy) || 0.1;
-      const spring = ((distance - 172) / distance) * force * 0.12;
-      nodeA.vx += dx * spring;
-      nodeA.vy += dy * spring;
-      nodeB.vx -= dx * spring;
-      nodeB.vy -= dy * spring;
-    }
-
-    const clusterCenters = {} as Record<
-      MiniBlogCluster,
-      { x: number; y: number }
-    >;
-    const clusterCount = {} as Record<MiniBlogCluster, number>;
-
-    for (const key of Object.keys(clusterSeeds) as MiniBlogCluster[]) {
-      clusterCenters[key] = { x: 0, y: 0 };
-      clusterCount[key] = 0;
-    }
-
-    for (const id of GRAPH_NODE_IDS) {
-      const cluster = MINI_BLOG_CLUSTERS[id];
-      clusterCenters[cluster].x += nodes[id].x;
-      clusterCenters[cluster].y += nodes[id].y;
-      clusterCount[cluster] += 1;
-    }
-
-    for (const key of Object.keys(clusterCenters) as MiniBlogCluster[]) {
-      const count = clusterCount[key] || 1;
-      clusterCenters[key].x /= count;
-      clusterCenters[key].y /= count;
-    }
-
-    for (const id of GRAPH_NODE_IDS) {
-      const cluster = MINI_BLOG_CLUSTERS[id];
-      nodes[id].vx += (clusterCenters[cluster].x - nodes[id].x) * force * 0.006;
-      nodes[id].vy += (clusterCenters[cluster].y - nodes[id].y) * force * 0.006;
-      nodes[id].vx += (centerX - nodes[id].x) * force * 0.0038;
-      nodes[id].vy += (centerY - nodes[id].y) * force * 0.0038;
-    }
-
-    for (const id of GRAPH_NODE_IDS) {
-      nodes[id].vx *= 0.5;
-      nodes[id].vy *= 0.5;
-      nodes[id].x += nodes[id].vx;
-      nodes[id].y += nodes[id].vy;
-      nodes[id].x = Math.max(42, Math.min(width - 42, nodes[id].x));
-      nodes[id].y = Math.max(36, Math.min(height - 36, nodes[id].y));
-    }
-  }
-
-  return nodes;
-}
-
-function curvedEdgePath(
-  fromX: number,
-  fromY: number,
-  toX: number,
-  toY: number,
-  index: number
-) {
-  const dx = toX - fromX;
-  const dy = toY - fromY;
-  const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-  const bend = Math.min(distance * 0.12, 20) * (index % 2 === 0 ? 1 : -1);
-  const midX = (fromX + toX) / 2 + (-dy / distance) * bend;
-  const midY = (fromY + toY) / 2 + (dx / distance) * bend;
-  return `M${fromX},${fromY} Q${midX},${midY} ${toX},${toY}`;
-}
-
-function MiniBlogGraphReadingPanel({
-  blogId,
-  onNavigate,
-  onBack,
-  onClose,
-  onSelectBlog,
-  canGoBack,
-}: {
-  blogId: MiniBlogId;
-  onNavigate: (id: MiniBlogId) => void;
-  onBack: () => void;
-  onClose: () => void;
-  onSelectBlog: (id: MiniBlogId) => void;
-  canGoBack: boolean;
-}) {
-  const blog = MINI_BLOGS[blogId];
-  const cluster = MINI_BLOG_CLUSTERS[blogId];
-  const colors = GRAPH_CLUSTER_COLORS[cluster];
-  const relatedTopics = blog.learnMore ?? [];
-
-  return (
-    <aside className="min-h-[320px] shrink-0 md:h-full md:w-[420px] border-t md:border-t-0 md:border-l border-border/20 bg-card flex flex-col overflow-y-auto">
-      <div className="px-5 py-4 border-b border-border/20 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            {canGoBack ? (
-              <button
-                type="button"
-                aria-label="Back"
-                className="h-7 w-7 rounded-lg border border-border/20 text-xs text-muted-foreground hover:text-foreground hover:border-border/40 transition-colors"
-                onClick={onBack}
-              >
-                &#8592;
-              </button>
-            ) : null}
-            <span
-              className="inline-flex rounded-md px-2.5 py-1 text-[9px] font-mono uppercase tracking-widest"
-              style={{ color: colors.text, backgroundColor: colors.bg }}
-            >
-              {GRAPH_CLUSTER_LABELS[cluster]}
-            </span>
-          </div>
-          <button
-            type="button"
-            aria-label="Close details"
-            className="h-7 w-7 rounded-lg border border-border/20 text-xs text-muted-foreground hover:text-foreground hover:border-border/40 transition-colors"
-            onClick={onClose}
-          >
-            &#10005;
-          </button>
-        </div>
-        <h3 className="text-base font-semibold tracking-tight leading-snug">
-          {blog.title}
-        </h3>
-      </div>
-
-      <ScrollArea className="flex-1">
-        <div className="p-5 space-y-4">
-          {blog.paragraphs.map((paragraph, index) => (
-            <p
-              key={`${blogId}-graph-body-${index}`}
-              className="text-sm leading-relaxed text-muted-foreground"
-            >
-              {paragraph}
-            </p>
-          ))}
-
-          {relatedTopics.length > 0 ? (
-            <div className="pt-3 border-t border-border/20 space-y-2.5">
-              <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                Related Topics
-              </div>
-              <div className="space-y-2">
-                {relatedTopics.map((relatedId) => {
-                  const relatedCluster = MINI_BLOG_CLUSTERS[relatedId];
-                  return (
-                    <button
-                      key={`${blogId}-graph-related-${relatedId}`}
-                      type="button"
-                      className="w-full rounded-xl border border-border/20 px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
-                      onClick={() => onNavigate(relatedId)}
-                    >
-                      <span className="inline-flex items-center gap-2 text-xs text-foreground/90">
-                        <span
-                          className="inline-block h-2 w-2 rounded-full"
-                          style={{
-                            backgroundColor:
-                              GRAPH_CLUSTER_COLORS[relatedCluster].fill,
-                          }}
-                        />
-                        {MINI_BLOGS[relatedId].title}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="pt-3 border-t border-border/20">
-              <a
-                href="https://glow.org/blog"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-muted-foreground/70 hover:text-foreground transition-colors"
-              >
-                Read full blog
-                <span aria-hidden>&#8599;</span>
-              </a>
-            </div>
-          )}
-        </div>
-      </ScrollArea>
-
-      <div className="p-5 border-t border-border/20">
-        <Button
-          type="button"
-          className="w-full rounded-xl"
-          onClick={() => onSelectBlog(blogId)}
-        >
-          Open Topic In Modal
-        </Button>
-      </div>
-    </aside>
-  );
-}
-
-function MiniBlogGraph({
-  onSelectBlog,
-  currentBlogId,
-}: {
-  onSelectBlog: (id: MiniBlogId) => void;
-  currentBlogId?: MiniBlogId;
-}) {
-  const graphWidth = 760;
-  const graphHeight = 560;
-  const positions = React.useMemo(
-    () => computeKnowledgeGraphLayout(graphWidth, graphHeight),
-    [graphHeight, graphWidth]
-  );
-
-  const [selected, setSelected] = React.useState<MiniBlogId | null>(
-    currentBlogId ?? null
-  );
-  const [hovered, setHovered] = React.useState<MiniBlogId | null>(null);
-  const [history, setHistory] = React.useState<MiniBlogId[]>(
-    currentBlogId ? [currentBlogId] : []
-  );
-
-  React.useEffect(() => {
-    if (!currentBlogId) return;
-    setSelected(currentBlogId);
-    setHistory([currentBlogId]);
-  }, [currentBlogId]);
-
-  const handleSelect = React.useCallback((id: MiniBlogId) => {
-    setSelected(id);
-    setHistory((prev) =>
-      prev.length > 0 && prev[prev.length - 1] === id ? prev : [...prev, id]
-    );
-  }, []);
-
-  const handleBack = React.useCallback(() => {
-    setHistory((prev) => {
-      if (prev.length <= 1) return prev;
-      const nextHistory = prev.slice(0, -1);
-      setSelected(nextHistory[nextHistory.length - 1] ?? null);
-      return nextHistory;
-    });
-  }, []);
-
-  const handleClosePanel = React.useCallback(() => {
-    setSelected(null);
-    setHistory(currentBlogId ? [currentBlogId] : []);
-  }, [currentBlogId]);
-
-  const activeNode = hovered ?? selected;
-  const shouldDimUnrelated = hovered !== null;
-
-  const { connectedNodes, activeEdgeKeys } = React.useMemo(() => {
-    if (!activeNode) {
-      return {
-        connectedNodes: new Set<MiniBlogId>(),
-        activeEdgeKeys: new Set<string>(),
-      };
-    }
-
-    const relatedNodes = new Set<MiniBlogId>([activeNode]);
-    const relatedEdges = new Set<string>();
-
-    for (const edge of GRAPH_EDGES) {
-      if (edge.from === activeNode || edge.to === activeNode) {
-        relatedNodes.add(edge.from);
-        relatedNodes.add(edge.to);
-        relatedEdges.add(buildGraphEdgeKey(edge.from, edge.to));
-      }
-    }
-
-    return { connectedNodes: relatedNodes, activeEdgeKeys: relatedEdges };
-  }, [activeNode]);
-
-  return (
-    <div className="h-full rounded-3xl border border-border/20 bg-card overflow-hidden">
-      <div className="h-full min-h-0 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
-        <div className="flex-1 min-w-0 min-h-0 md:min-h-full flex flex-col shrink-0">
-          <div className="px-5 py-4 border-b border-border/20 flex items-start justify-between gap-5">
-            <div className="flex flex-col gap-1">
-              <div className="text-sm font-semibold tracking-tight">
-                Glow Protocol Topics
-              </div>
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                {GRAPH_NODES.length} topics · {GRAPH_EDGES.length} connections
-              </div>
-            </div>
-            <div className="hidden lg:flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
-              {(Object.keys(GRAPH_CLUSTER_LABELS) as MiniBlogCluster[]).map(
-                (cluster) => (
-                  <div key={cluster} className="flex items-center gap-1.5">
-                    <span
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{
-                        backgroundColor: GRAPH_CLUSTER_COLORS[cluster].fill,
-                      }}
-                    />
-                    <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                      {GRAPH_CLUSTER_LABELS[cluster]}
-                    </span>
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-
-          <div className="relative flex-1 min-h-0 overflow-auto">
-            <svg
-              viewBox={`0 0 ${graphWidth} ${graphHeight}`}
-              className="h-[760px] w-full min-w-[760px]"
-              role="img"
-              aria-label="Mini-blog knowledge graph"
-            >
-              {GRAPH_EDGES.map((edge, index) => {
-                const from = positions[edge.from];
-                const to = positions[edge.to];
-                if (!from || !to) return null;
-
-                const edgeKey = buildGraphEdgeKey(edge.from, edge.to);
-                const isActive = activeEdgeKeys.has(edgeKey);
-                const isDimmed = Boolean(shouldDimUnrelated && !isActive);
-
-                return (
-                  <path
-                    key={edgeKey}
-                    d={curvedEdgePath(from.x, from.y, to.x, to.y, index)}
-                    fill="none"
-                    className="stroke-foreground transition-all duration-300"
-                    strokeWidth={isActive ? 1.3 : 0.75}
-                    strokeOpacity={isDimmed ? 0.06 : isActive ? 0.32 : 0.16}
-                  />
-                );
-              })}
-
-              {GRAPH_NODES.map((node) => {
-                const point = positions[node.id];
-                if (!point) return null;
-
-                const clusterColors = GRAPH_CLUSTER_COLORS[node.cluster];
-                const baseRadius =
-                  7 + Math.min(GRAPH_CONNECTION_COUNT[node.id], 5) * 1.4;
-                const isSelected = selected === node.id;
-                const isHovered = hovered === node.id;
-                const isConnected = connectedNodes.has(node.id);
-                const isActive = isSelected || isHovered;
-                const isCurrent = currentBlogId === node.id;
-                const isDimmed = Boolean(
-                  shouldDimUnrelated && !isActive && !isConnected
-                );
-
-                return (
-                  <g
-                    key={node.id}
-                    className="cursor-pointer"
-                    onClick={() => handleSelect(node.id)}
-                    onMouseEnter={() => setHovered(node.id)}
-                    onMouseLeave={() => setHovered(null)}
-                  >
-                    <circle
-                      cx={point.x}
-                      cy={point.y}
-                      r={baseRadius + 12}
-                      fill="transparent"
-                    />
-
-                    <circle
-                      cx={point.x}
-                      cy={point.y}
-                      r={
-                        isActive || isCurrent ? baseRadius + 7 : baseRadius + 4
-                      }
-                      fill={
-                        isActive || isCurrent ? clusterColors.bg : "transparent"
-                      }
-                      stroke={
-                        isActive || isCurrent
-                          ? clusterColors.ring
-                          : "transparent"
-                      }
-                      strokeWidth={1}
-                      className="transition-all duration-200"
-                    />
-
-                    <circle
-                      cx={point.x}
-                      cy={point.y}
-                      r={baseRadius}
-                      fill={
-                        isCurrent
-                          ? "var(--color-glow-orange)"
-                          : clusterColors.fill
-                      }
-                      stroke={clusterColors.ring}
-                      strokeWidth={isActive || isCurrent ? 1.5 : 0.7}
-                      opacity={
-                        isDimmed ? 0.22 : isActive || isCurrent ? 1 : 0.56
-                      }
-                      className="transition-all duration-200"
-                    />
-
-                    <circle
-                      cx={point.x}
-                      cy={point.y}
-                      r={isActive || isCurrent ? 2.6 : 2}
-                      fill={
-                        isActive || isCurrent ? "#ffffff" : clusterColors.fill
-                      }
-                      opacity={
-                        isDimmed ? 0.2 : isActive || isCurrent ? 0.95 : 0.72
-                      }
-                      className="transition-all duration-200"
-                    />
-
-                    <text
-                      x={point.x}
-                      y={point.y + baseRadius + 14}
-                      textAnchor="middle"
-                      fill="currentColor"
-                      className="text-[8px] font-mono uppercase tracking-wider select-none pointer-events-none text-foreground transition-opacity duration-300"
-                      opacity={
-                        isDimmed ? 0.24 : isActive || isCurrent ? 0.86 : 0.58
-                      }
-                    >
-                      {node.label.length > 26
-                        ? `${node.label.slice(0, 24)}\u2026`
-                        : node.label}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-
-            {!selected && !hovered ? (
-              <div className="absolute bottom-4 inset-x-0 text-center text-[10px] font-mono uppercase tracking-widest text-muted-foreground/40 pointer-events-none">
-                Click a topic to explore
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {selected ? (
-          <MiniBlogGraphReadingPanel
-            blogId={selected}
-            onNavigate={handleSelect}
-            onBack={handleBack}
-            onClose={handleClosePanel}
-            onSelectBlog={onSelectBlog}
-            canGoBack={history.length > 1}
-          />
-        ) : null}
-      </div>
+      />
     </div>
   );
 }
 
-function MetricCard({
+const MetricCard = React.memo(function MetricCard({
   label,
   value,
   helper,
@@ -1827,9 +1233,11 @@ function MetricCard({
       ) : null}
     </div>
   );
-}
+});
 
-function MiniStat({
+MetricCard.displayName = "MetricCard";
+
+const MiniStat = React.memo(function MiniStat({
   label,
   value,
   helper,
@@ -1865,9 +1273,11 @@ function MiniStat({
       ) : null}
     </div>
   );
-}
+});
 
-function RegionCompareCard({
+MiniStat.displayName = "MiniStat";
+
+const RegionCompareCard = React.memo(function RegionCompareCard({
   title,
   row,
 }: {
@@ -1954,7 +1364,9 @@ function RegionCompareCard({
       </div>
     </div>
   );
-}
+});
+
+RegionCompareCard.displayName = "RegionCompareCard";
 
 function logSliderToPrice(sliderValue: number) {
   const logMin = Math.log10(PRICE_RANGE.min);
@@ -1968,7 +1380,7 @@ function priceToLogSlider(price: number) {
   return ((Math.log10(price) - logMin) / (logMax - logMin)) * 100;
 }
 
-function PolLiquidityTooltip({
+const PolLiquidityTooltip = React.memo(function PolLiquidityTooltip({
   active,
   payload,
   label,
@@ -2041,7 +1453,1712 @@ function PolLiquidityTooltip({
       </div>
     </div>
   );
-}
+});
+
+PolLiquidityTooltip.displayName = "PolLiquidityTooltip";
+
+type RegionsRow = {
+  region: string;
+  lifetimeLq: number | null;
+  ninetyDayLq: number | null;
+  farms: number;
+  ccPerWeek: number | null;
+  stakedGctl: number | null;
+  glwPerWeek: number | null;
+  totalPds: number | null;
+  shareOfTotal: number | null;
+  gctlPerPd: number | null;
+};
+
+type ImpactTotals = {
+  panels: number | null;
+  totalFarms: number | null;
+  capacityMw: number | null;
+  homesPowered: number | null;
+  trees: number | null;
+} | null;
+
+type PolGrowthDisplay = {
+  lq: string;
+  breakdown: string | null;
+} | null;
+
+type PolBreakdownSummary = {
+  lq: number | null;
+  usd: number;
+  breakdown: string;
+} | null;
+
+type PolLiquidityChartDatum = {
+  week: string;
+  weekStartMs: number;
+  weekEndMs: number;
+  liquidity: number;
+  endowmentLiquidity: number;
+  botActiveLiquidity: number;
+};
+
+type GctlRegionSlice = {
+  name: string;
+  value: number;
+  fill: string;
+  pct: number;
+};
+
+type WalletStatsSummary = {
+  glwHolders: number;
+  protocolParticipants: number;
+  breakdown: Array<{
+    label: string;
+    count: number;
+    pct: number;
+    color: string;
+  }>;
+};
+
+const OverviewSection = React.memo(function OverviewSection({
+  marketCapDisplay,
+  priceDisplay,
+  totalPolLq,
+  totalPolBreakdown,
+  totalSolarInstallations,
+  polTrailingPolGrowthDisplay,
+  supplyGrowthAnnualDisplay,
+  polGrowthMoMDisplay,
+  hasLiveSupply,
+  circulatingSupplyForSupplyCard,
+  vaultedGlw,
+  polGlwInPol,
+  supplyTotal,
+  openGrowthCardsDialog,
+  resetModalBlog,
+  setIsBannerBlogOpen,
+  setIsSupplyDialogOpen,
+}: {
+  marketCapDisplay: string;
+  priceDisplay: string;
+  totalPolLq: number | null;
+  totalPolBreakdown: PolBreakdownSummary;
+  totalSolarInstallations: number | null;
+  polTrailingPolGrowthDisplay: PolGrowthDisplay;
+  supplyGrowthAnnualDisplay: string;
+  polGrowthMoMDisplay: string;
+  hasLiveSupply: boolean;
+  circulatingSupplyForSupplyCard: number;
+  vaultedGlw: number | null;
+  polGlwInPol: number | null;
+  supplyTotal: number;
+  openGrowthCardsDialog: (card: GrowthCardKey) => void;
+  resetModalBlog: (modal: ModalBlogKey, next?: MiniBlogId) => void;
+  setIsBannerBlogOpen: (open: boolean) => void;
+  setIsSupplyDialogOpen: (open: boolean) => void;
+}) {
+  const supplyPieData = React.useMemo(
+    () =>
+      [
+        {
+          name: "Circulating",
+          value: Math.round(circulatingSupplyForSupplyCard),
+          fill: "#4ade80",
+        },
+        {
+          name: "Vaulted",
+          value: Math.round(vaultedGlw ?? 0),
+          fill: "#a855f7",
+        },
+        {
+          name: "Embedded GLW",
+          value: Math.round(polGlwInPol ?? 0),
+          fill: "#ffb472",
+        },
+        {
+          name: "Structurally Locked",
+          value: Math.max(
+            0,
+            Math.round(
+              supplyTotal -
+                circulatingSupplyForSupplyCard -
+                (vaultedGlw ?? 0) -
+                (polGlwInPol ?? 0)
+            )
+          ),
+          fill: "hsl(0 0% 85%)",
+        },
+      ].filter((d) => d.value > 0),
+    [circulatingSupplyForSupplyCard, polGlwInPol, supplyTotal, vaultedGlw]
+  );
+
+  return (
+    <section className="flex flex-col gap-6">
+      <SectionHeader title="Overview" />
+
+      {/* ── Row 1: Headline banner ── */}
+      <Card
+        className={cn(
+          "!gap-0 !py-0 relative overflow-hidden border border-border/20 transition-colors cursor-pointer hover:border-border/40 dark:hover:border-border/60",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        )}
+        role="button"
+        tabIndex={0}
+        aria-label="Open The Glow economy"
+        onClick={() => {
+          resetModalBlog("overview");
+          setIsBannerBlogOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            resetModalBlog("overview");
+            setIsBannerBlogOpen(true);
+          }
+        }}
+      >
+        <CardContent className="relative px-0 py-0">
+          <div className="absolute inset-0">
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{
+                backgroundImage: "url('/images/pol-banner-crop.jpg')",
+              }}
+            />
+            <div className="absolute inset-0 bg-black/35" />
+            <div className="absolute inset-0 bg-gradient-to-br from-black/45 via-black/25 to-black/45" />
+          </div>
+          <div className="absolute right-[24px] top-[16px]">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
+              Click for basics ↗
+            </div>
+          </div>
+          <div className="relative z-10 mx-auto w-full max-w-5xl px-5 py-10 pt-14 sm:px-12 sm:py-14 sm:pt-16 lg:py-16 lg:pt-16 grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-x-16 md:gap-y-8 md:items-end">
+            <div className="grid grid-rows-[auto_auto] gap-3 md:col-span-2 md:justify-self-center md:items-center md:text-center">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
+                Market Cap
+              </div>
+              <div className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight font-mono tabular-nums leading-none text-white">
+                {marketCapDisplay}
+              </div>
+            </div>
+
+            <div className="grid grid-rows-[auto_auto_auto] gap-3 md:justify-self-start md:items-center md:text-center">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
+                GLW Price
+              </div>
+              <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-white">
+                {priceDisplay}
+              </div>
+              <Link
+                href={DEFINED_FI_GLOW_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-white/75 hover:text-white transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Pool activity ↗
+              </Link>
+            </div>
+
+            <div className="grid grid-rows-[auto_auto_auto] gap-3 md:justify-self-end md:items-center md:text-center">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
+                Embedded Liquidity
+              </div>
+              <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-white">
+                {totalPolLq !== null ? formatLiquidityCompact(totalPolLq) : "—"}
+              </div>
+              <div className="text-sm text-white/75 text-center">
+                {totalPolBreakdown?.breakdown
+                  ? `(${totalPolBreakdown.breakdown})`
+                  : "Live data unavailable"}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Row 2: Growth cards + Supply/Circulation ── */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr] lg:items-stretch">
+        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:h-full lg:grid-rows-2">
+          <Card
+            className={cn(
+              "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            )}
+            role="button"
+            tabIndex={0}
+            aria-label="Open growth cards modal on total solar installations"
+            onClick={() => openGrowthCardsDialog("installations")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openGrowthCardsDialog("installations");
+              }
+            }}
+          >
+            <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-20 pointer-events-none -rotate-12" />
+            <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                Total Solar Installations
+              </div>
+              <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                {totalSolarInstallations !== null
+                  ? formatNumber(totalSolarInstallations)
+                  : "—"}
+              </div>
+              <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
+                ↗
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={cn(
+              "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            )}
+            role="button"
+            tabIndex={0}
+            aria-label="Open growth cards modal on embedded liquidity growth"
+            onClick={() => openGrowthCardsDialog("liquidityGrowth")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openGrowthCardsDialog("liquidityGrowth");
+              }
+            }}
+          >
+            <GlowSymbol className="!text-[var(--color-glow-purple)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none rotate-6" />
+            <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                Embedded Liquidity Growth (3 Months)
+              </div>
+              <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                {polTrailingPolGrowthDisplay?.lq ?? "—"}
+              </div>
+              <div className="mt-3 text-sm text-muted-foreground">
+                {polTrailingPolGrowthDisplay?.breakdown
+                  ? `(${polTrailingPolGrowthDisplay.breakdown})`
+                  : "Live data unavailable"}
+              </div>
+              <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
+                ↗
+              </div>
+            </CardContent>
+          </Card>
+          <Card
+            className={cn(
+              "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            )}
+            role="button"
+            tabIndex={0}
+            aria-label="Open growth cards modal on annualized circulating growth"
+            onClick={() => openGrowthCardsDialog("circulatingGrowth")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openGrowthCardsDialog("circulatingGrowth");
+              }
+            }}
+          >
+            <GlowSymbol className="!text-[var(--color-glow-green)] absolute -top-6 -right-6 w-32 h-32 opacity-25 dark:opacity-15 pointer-events-none rotate-12" />
+            <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                Annualized Circulating Supply Growth
+              </div>
+              <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                {supplyGrowthAnnualDisplay}
+              </div>
+              <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
+                ↗
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={cn(
+              "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            )}
+            role="button"
+            tabIndex={0}
+            aria-label="Open growth cards modal on embedded liquidity growth MoM"
+            onClick={() => openGrowthCardsDialog("embeddedGrowth")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openGrowthCardsDialog("embeddedGrowth");
+              }
+            }}
+          >
+            <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none -rotate-6" />
+            <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                Embedded Liquidity Growth (MoM)
+              </div>
+              <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
+                {polGrowthMoMDisplay}
+              </div>
+              <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
+                ↗
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card
+          className={cn(
+            "!gap-6 lg:h-full transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          )}
+          role="button"
+          tabIndex={0}
+          aria-label="Open supply model explorer"
+          onClick={() => {
+            resetModalBlog("supply");
+            setIsSupplyDialogOpen(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              resetModalBlog("supply");
+              setIsSupplyDialogOpen(true);
+            }
+          }}
+        >
+          <CardHeader className="pb-0">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-semibold">Supply &amp; Circulation</div>
+              <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                Click to explore ↗
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-5">
+            <div>
+              <MetricCard
+                label="Circulating supply"
+                value={
+                  hasLiveSupply
+                    ? `${formatCompactNumberPrecise(
+                        circulatingSupplyForSupplyCard
+                      )} GLW`
+                    : "—"
+                }
+              />
+              <div className="flex items-center justify-center gap-4 mt-4">
+                <div className="relative shrink-0">
+                  <ChartContainer
+                    config={supplyCirculationChartConfig}
+                    className="h-36 w-36"
+                  >
+                    <PieChart>
+                      <Pie
+                        data={supplyPieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={38}
+                        outerRadius={62}
+                        strokeWidth={2}
+                        stroke="var(--color-card)"
+                      />
+                      <ChartTooltip
+                        content={
+                          <ChartTooltipContent
+                            formatter={(value) => {
+                              const n =
+                                typeof value === "number"
+                                  ? value
+                                  : Number(value);
+                              return `${formatCompactNumberPrecise(n)} GLW`;
+                            }}
+                          />
+                        }
+                      />
+                    </PieChart>
+                  </ChartContainer>
+                </div>
+                <div className="flex flex-col gap-3 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full shrink-0"
+                      style={{ background: "#4ade80" }}
+                    />
+                    <span className="text-muted-foreground">Circulating</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full shrink-0"
+                      style={{ background: "#a855f7" }}
+                    />
+                    <span className="text-muted-foreground">Vaulted</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full shrink-0"
+                      style={{ background: "#ffb472" }}
+                    />
+                    <span className="text-muted-foreground">Embedded GLW</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full shrink-0"
+                      style={{ background: "hsl(0 0% 85%)" }}
+                    />
+                    <span className="text-muted-foreground">
+                      Structurally Locked
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <MiniStat
+                label="Vaulted"
+                value={
+                  vaultedGlw !== null
+                    ? formatCompactNumberPrecise(vaultedGlw)
+                    : "—"
+                }
+                valueClassName="text-xl sm:text-2xl tracking-tight"
+              />
+              <MiniStat
+                label="Embedded GLW"
+                value={
+                  polGlwInPol !== null
+                    ? `${formatCompactNumberPrecise(polGlwInPol)} GLW`
+                    : "—"
+                }
+                valueClassName="text-xl sm:text-2xl tracking-tight"
+              />
+            </div>
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                resetModalBlog("supply");
+                setIsSupplyDialogOpen(true);
+              }}
+            >
+              Explore Supply Model
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </section>
+  );
+});
+
+OverviewSection.displayName = "OverviewSection";
+
+const SolarFarmEconomicsSection = React.memo(function SolarFarmEconomicsSection({
+  showAllFarms,
+  farmSortKey,
+  setFarmSortKey,
+  setShowAllFarms,
+  farmRowsToRender,
+  displayPrice,
+  openFarmDialog,
+}: {
+  showAllFarms: boolean;
+  farmSortKey: "latest" | "lifetime" | "credits";
+  setFarmSortKey: (key: "latest" | "lifetime" | "credits") => void;
+  setShowAllFarms: (show: boolean) => void;
+  farmRowsToRender: FarmRow[];
+  displayPrice: number;
+  openFarmDialog: (farm: FarmRow) => void;
+}) {
+  return (
+    <section className="flex flex-col gap-6 pt-16">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <SectionHeader title="Solar Farm Economics" />
+
+        <div className="flex items-center justify-end gap-3">
+          {showAllFarms ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                Sort by
+              </span>
+              <select
+                value={farmSortKey}
+                onChange={(e) =>
+                  setFarmSortKey(
+                    e.target.value as "latest" | "lifetime" | "credits"
+                  )
+                }
+                className="rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-xs font-mono cursor-pointer hover:border-border/60 transition-colors"
+              >
+                <option value="latest">Latest</option>
+                <option value="lifetime">Lifetime</option>
+                <option value="credits">CC / Week</option>
+              </select>
+            </div>
+          ) : null}
+
+          {!showAllFarms ? (
+            <Button variant="outline" size="sm" onClick={() => setShowAllFarms(true)}>
+              See all
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {farmRowsToRender.map((farm) => {
+          const lifetimeLq =
+            farm.lifetimeLq !== null && displayPrice > 0
+              ? {
+                  value: formatLiquidityCompact(farm.lifetimeLq),
+                  breakdown: getBreakdownFromLq(farm.lifetimeLq, displayPrice)
+                    .breakdown,
+                }
+              : { value: "—", breakdown: "—" };
+          const lifetimeProgress =
+            farm.lifetimeWeeksElapsed !== null
+              ? `${farm.lifetimeWeeksElapsed} / ${farm.lifetimeWeeksTarget} wks`
+              : "—";
+          return (
+            <Card
+              key={farm.key}
+              role="button"
+              tabIndex={0}
+              aria-label={`Open details for ${farm.name}`}
+              onClick={() => openFarmDialog(farm)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openFarmDialog(farm);
+                }
+              }}
+              className={cn(
+                "!gap-0 !py-0 group overflow-hidden transition-all duration-200",
+                "hover:border-border/60 dark:hover:border-border/80 cursor-pointer",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              )}
+            >
+              <CardContent className="p-0">
+                {/* Farm image header */}
+                <div className="relative h-48 w-full overflow-hidden bg-muted/30">
+                  {farm.imageUrl ? (
+                    <FallbackImage
+                      src={farm.imageUrl}
+                      widthForProxy={600}
+                      quality={80}
+                      alt={farm.name}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-muted/40 via-muted/20 to-muted/40 flex items-center justify-center">
+                      <span className="text-3xl opacity-30">&#9728;</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
+                  <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+                    <h3 className="font-bold text-white text-sm leading-tight truncate">
+                      {farm.name}
+                    </h3>
+                  </div>
+                  <div className="absolute top-3 right-3 z-10 rounded-full border border-white/30 bg-black/40 px-2 py-0.5 text-[9px] font-mono uppercase tracking-widest text-white/80">
+                    Open ↗
+                  </div>
+                </div>
+                <div className="px-5 pt-4 pb-0">
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                    <span className="font-mono uppercase tracking-widest">
+                      {farm.region}
+                    </span>
+                  </div>
+                </div>
+                {/* Revenue metrics */}
+                <div className="px-5 pt-5 pb-5 grid grid-cols-2 gap-5">
+                  <div className="flex flex-col gap-0.5">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Generated Revenue
+                    </div>
+                    <div className="text-xl font-semibold font-mono tabular-nums tracking-tight">
+                      {lifetimeLq.value}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground leading-tight">
+                      ({lifetimeLq.breakdown})
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                      Lifetime Progress
+                    </div>
+                    <div className="text-xl font-semibold font-mono tabular-nums tracking-tight">
+                      {lifetimeProgress}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </section>
+  );
+});
+
+SolarFarmEconomicsSection.displayName = "SolarFarmEconomicsSection";
+
+const LiquidityGctlWalletsSection = React.memo(
+  function LiquidityGctlWalletsSection({
+    totalPolLq,
+    totalPolBreakdown,
+    polApyDisplay,
+    ninetyDayApy,
+    polExitabilityDisplay,
+    polLiquidityIsLive,
+    polLiquidityChartData,
+    isGctlLoading,
+    gctlTotalSupply,
+    gctlPriceNumber,
+    gctlTotalStaked,
+    gctlUnstaked,
+    gctlRegionChartConfigLive,
+    gctlRegionPieData,
+    isWalletStatsLoading,
+    walletStats,
+    hasWalletBreakdown,
+    isWalletGrowthMock,
+    walletGrowthLive,
+    resetModalBlog,
+    setIsPolLiquidityDialogOpen,
+    setIsGctlDialogOpen,
+    setIsWalletStatsDialogOpen,
+  }: {
+    totalPolLq: number | null;
+    totalPolBreakdown: PolBreakdownSummary;
+    polApyDisplay: string;
+    ninetyDayApy: number | null;
+    polExitabilityDisplay: string;
+    polLiquidityIsLive: boolean;
+    polLiquidityChartData: PolLiquidityChartDatum[];
+    isGctlLoading: boolean;
+    gctlTotalSupply: number;
+    gctlPriceNumber: number;
+    gctlTotalStaked: number;
+    gctlUnstaked: number;
+    gctlRegionChartConfigLive: ChartConfig;
+    gctlRegionPieData: GctlRegionSlice[];
+    isWalletStatsLoading: boolean;
+    walletStats: WalletStatsSummary;
+    hasWalletBreakdown: boolean;
+    isWalletGrowthMock: boolean;
+    walletGrowthLive: WalletGrowthDatum[] | null;
+    resetModalBlog: (modal: ModalBlogKey, next?: MiniBlogId) => void;
+    setIsPolLiquidityDialogOpen: (open: boolean) => void;
+    setIsGctlDialogOpen: (open: boolean) => void;
+    setIsWalletStatsDialogOpen: (open: boolean) => void;
+  }) {
+    return (
+      <section className="flex flex-col gap-6 pt-16">
+        <SectionHeader title="Embedded Liquidity, GCTL, Wallets" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* ── Protocol Liquidity ── */}
+          <Card
+            className={cn(
+              "!gap-6 h-full transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            )}
+            role="button"
+            tabIndex={0}
+            aria-label="Open protocol liquidity notes"
+            onClick={() => {
+              resetModalBlog("polLiquidity");
+              setIsPolLiquidityDialogOpen(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                resetModalBlog("polLiquidity");
+                setIsPolLiquidityDialogOpen(true);
+              }
+            }}
+          >
+            <CardHeader className="pb-0">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-semibold">Protocol Liquidity</div>
+                <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                  Click for notes ↗
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5 h-full">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <MetricCard
+                  label="Embedded Liquidity"
+                  value={totalPolLq !== null ? formatLiquidityCompact(totalPolLq) : "—"}
+                  helper={
+                    totalPolBreakdown?.breakdown
+                      ? `(${totalPolBreakdown.breakdown})`
+                      : "Live data unavailable"
+                  }
+                  valueClassName="text-3xl sm:text-4xl"
+                />
+                <MetricCard
+                  label="APY"
+                  value={polApyDisplay}
+                  helper={ninetyDayApy !== null ? undefined : "Live data unavailable"}
+                  valueClassName="text-3xl sm:text-4xl"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-3">
+                <MiniStat
+                  label="Market cap exitable"
+                  value={polExitabilityDisplay}
+                  valueClassName="text-base sm:text-lg tracking-tight"
+                />
+              </div>
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
+                  Embedded Liquidity
+                  {polLiquidityIsLive ? "" : " · Live data unavailable"}
+                </div>
+                <ChartContainer
+                  config={polLiquidityChartConfig}
+                  className="min-h-[120px] flex-1 w-full"
+                >
+                  <AreaChart data={polLiquidityChartData}>
+                    <XAxis
+                      dataKey="week"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 9 }}
+                      interval="preserveStartEnd"
+                    />
+                    <ChartTooltip content={<PolLiquidityTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="liquidity"
+                      stroke="var(--color-liquidity)"
+                      fill="var(--color-liquidity)"
+                      fillOpacity={0.2}
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </AreaChart>
+                </ChartContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── GCTL ── */}
+          <Card
+            className={cn(
+              "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            )}
+            role="button"
+            tabIndex={0}
+            aria-label="Open GCTL notes"
+            onClick={() => {
+              resetModalBlog("gctl");
+              setIsGctlDialogOpen(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                resetModalBlog("gctl");
+                setIsGctlDialogOpen(true);
+              }
+            }}
+          >
+            <CardHeader className="pb-0">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-semibold">GCTL</div>
+                <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                  Click for notes ↗
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <MetricCard
+                  label="Total GCTL"
+                  value={
+                    isGctlLoading ? "..." : formatCompactNumberPrecise(gctlTotalSupply)
+                  }
+                  valueClassName="text-3xl sm:text-4xl"
+                />
+                <MetricCard
+                  label="Mint Price"
+                  value={isGctlLoading ? "..." : `$${gctlPriceNumber.toFixed(2)}`}
+                  valueClassName="text-3xl sm:text-4xl"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <MiniStat
+                  label="Staked"
+                  value={
+                    isGctlLoading ? "..." : formatCompactNumberPrecise(gctlTotalStaked)
+                  }
+                  valueClassName="text-base sm:text-lg tracking-tight"
+                />
+                <MiniStat
+                  label="Unstaked"
+                  value={
+                    isGctlLoading ? "..." : formatCompactNumberPrecise(gctlUnstaked)
+                  }
+                  valueClassName="text-base sm:text-lg tracking-tight"
+                />
+              </div>
+              <div className="flex-1 flex flex-col">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                  Staking by region
+                </div>
+                <div className="flex-1 flex flex-col items-center justify-center gap-6 pt-4 pb-2">
+                  <ChartContainer
+                    config={gctlRegionChartConfigLive}
+                    className="h-40 w-40 shrink-0"
+                  >
+                    <PieChart>
+                      <Pie
+                        data={gctlRegionPieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={35}
+                        outerRadius={70}
+                        strokeWidth={2}
+                        stroke="var(--color-card)"
+                      />
+                      <ChartTooltip
+                        content={
+                          <ChartTooltipContent
+                            formatter={(value, name) => {
+                              const region = gctlRegionPieData.find(
+                                (r) => r.name === name
+                              );
+                              return `${formatCompactNumberPrecise(
+                                Number(value)
+                              )} (${region?.pct ?? 0}%)`;
+                            }}
+                          />
+                        }
+                      />
+                    </PieChart>
+                  </ChartContainer>
+                </div>
+                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2 pt-2">
+                  {gctlRegionPieData.map((region) => (
+                    <div
+                      key={region.name}
+                      className="flex items-center justify-between text-xs"
+                    >
+                      <span className="flex items-center gap-1.5 text-muted-foreground min-w-0">
+                        <span
+                          className="inline-block h-2 w-2 rounded-full shrink-0"
+                          style={{ backgroundColor: region.fill }}
+                        />
+                        <span className="truncate">{region.name}</span>
+                      </span>
+                      <span className="font-mono tabular-nums text-foreground shrink-0">
+                        {formatCompactNumberPrecise(region.value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Wallet Stats ── */}
+          <Card
+            className={cn(
+              "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            )}
+            role="button"
+            tabIndex={0}
+            aria-label="Open wallet stats notes"
+            onClick={() => {
+              resetModalBlog("walletStats");
+              setIsWalletStatsDialogOpen(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                resetModalBlog("walletStats");
+                setIsWalletStatsDialogOpen(true);
+              }
+            }}
+          >
+            <CardHeader className="pb-0">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-semibold">Wallet Stats</div>
+                <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                  Click for notes ↗
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5">
+              <div className="grid grid-cols-2 gap-4">
+                <MiniStat
+                  label="GLW Holders"
+                  value={
+                    isWalletStatsLoading ? "..." : formatNumber(walletStats.glwHolders)
+                  }
+                  valueClassName="text-xl sm:text-2xl tracking-tight"
+                />
+                <MiniStat
+                  label="Protocol Participants"
+                  value={
+                    isWalletStatsLoading
+                      ? "..."
+                      : formatNumber(walletStats.protocolParticipants)
+                  }
+                  valueClassName="text-xl sm:text-2xl tracking-tight"
+                />
+              </div>
+
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
+                  New wallets per week
+                  {isWalletGrowthMock ? " · Live data unavailable" : ""}
+                </div>
+                <ChartContainer config={walletGrowthChartConfig} className="h-24 w-full">
+                  <BarChart data={walletGrowthLive ?? []} barGap={2}>
+                    <XAxis
+                      dataKey="week"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 9 }}
+                      interval="preserveStartEnd"
+                    />
+                    <ChartTooltip content={<WalletGrowthTooltip />} />
+                    <Bar
+                      dataKey="newWallets"
+                      fill="var(--color-newWallets)"
+                      radius={[3, 3, 0, 0]}
+                      fillOpacity={0.7}
+                    />
+                  </BarChart>
+                </ChartContainer>
+              </div>
+
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
+                  Wallet breakdown
+                  {hasWalletBreakdown ? "" : " · Live data unavailable"}
+                </div>
+                <div className="flex flex-col gap-3">
+                  {hasWalletBreakdown ? (
+                    walletStats.breakdown.map((row) => (
+                      <div key={row.label} className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between text-xs mb-1.5">
+                            <span className="flex items-center gap-1.5">
+                              <span
+                                className="inline-block h-2 w-2 rounded-full shrink-0"
+                                style={{ backgroundColor: row.color }}
+                              />
+                              <span className="text-muted-foreground">{row.label}</span>
+                            </span>
+                            <span className="font-mono tabular-nums text-foreground">
+                              {row.count.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="h-3 w-full rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${row.pct}%`,
+                                backgroundColor: row.color,
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-mono tabular-nums text-muted-foreground/60 dark:text-muted-foreground/80 w-10 text-right shrink-0">
+                          {row.pct}%
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-xs text-muted-foreground">Live data unavailable</div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+    );
+  }
+);
+
+LiquidityGctlWalletsSection.displayName = "LiquidityGctlWalletsSection";
+
+const DelegationRegionsAndImpactSection = React.memo(
+  function DelegationRegionsAndImpactSection({
+    delegatedDisplay,
+    hasDelegationData,
+    delegatorsDisplay,
+    delegatorsCount,
+    averageApyDisplay,
+    averageDelegatorApy,
+    delegationTrendLive,
+    delegationTrendTicks,
+    delegationCurrentTickValue,
+    delegationRatioWidth,
+    delegationRatioPct,
+    delegationRatioDetail,
+    regionsRowsForRender,
+    displayPrice,
+    impactTotals,
+    resetModalBlog,
+    setIsDelegationDialogOpen,
+    setIsRegionsDialogOpen,
+    setIsNetworkImpactDialogOpen,
+  }: {
+    delegatedDisplay: string;
+    hasDelegationData: boolean;
+    delegatorsDisplay: string;
+    delegatorsCount: number | null;
+    averageApyDisplay: string;
+    averageDelegatorApy: number | null;
+    delegationTrendLive: DelegationTrendDatum[] | null;
+    delegationTrendTicks: number[];
+    delegationCurrentTickValue: number | null;
+    delegationRatioWidth: number;
+    delegationRatioPct: number | null;
+    delegationRatioDetail: string;
+    regionsRowsForRender: RegionsRow[];
+    displayPrice: number;
+    impactTotals: ImpactTotals;
+    resetModalBlog: (modal: ModalBlogKey, next?: MiniBlogId) => void;
+    setIsDelegationDialogOpen: (open: boolean) => void;
+    setIsRegionsDialogOpen: (open: boolean) => void;
+    setIsNetworkImpactDialogOpen: (open: boolean) => void;
+  }) {
+    return (
+      <>
+        <section className="flex flex-col gap-6 pt-16">
+          <SectionHeader title="Delegation + Regions" />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
+            <Card
+              className={cn(
+                "!gap-6 flex flex-col transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              )}
+              role="button"
+              tabIndex={0}
+              aria-label="Open delegation metrics notes"
+              onClick={() => {
+                resetModalBlog("delegation");
+                setIsDelegationDialogOpen(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  resetModalBlog("delegation");
+                  setIsDelegationDialogOpen(true);
+                }
+              }}
+            >
+              <CardHeader className="pb-0">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold">Delegation Metrics</div>
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                    Click for notes ↗
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-6 h-full">
+                <div className="grid grid-cols-3 gap-3 sm:gap-4">
+                  <MiniStat
+                    label="GLW delegated"
+                    value={delegatedDisplay}
+                    helper={hasDelegationData ? undefined : "Live data unavailable"}
+                    valueClassName="text-lg sm:text-2xl tracking-tight"
+                  />
+                  <MiniStat
+                    label="Delegators"
+                    value={delegatorsDisplay}
+                    helper={
+                      delegatorsCount !== null ? undefined : "Live data unavailable"
+                    }
+                    valueClassName="text-lg sm:text-2xl tracking-tight"
+                  />
+                  <MiniStat
+                    label="Est. APY"
+                    value={averageApyDisplay}
+                    helper={
+                      averageDelegatorApy !== null
+                        ? undefined
+                        : "Live data unavailable"
+                    }
+                    valueClassName="text-lg sm:text-2xl tracking-tight"
+                  />
+                </div>
+
+                <div className="flex flex-col">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-3">
+                    Delegation growth (V2)
+                  </div>
+                  <ChartContainer
+                    config={delegationTrendChartConfig}
+                    className="h-36 sm:h-40 w-full"
+                  >
+                    <AreaChart data={delegationTrendLive ?? []}>
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="weekEndMs"
+                        type="number"
+                        domain={["dataMin", "dataMax"]}
+                        ticks={delegationTrendTicks}
+                        tickFormatter={(value) => {
+                          const n = Number(value);
+                          if (
+                            delegationCurrentTickValue !== null &&
+                            n === delegationCurrentTickValue
+                          ) {
+                            return "Current";
+                          }
+                          return formatMonthAxisUtc(new Date(n - 1));
+                        }}
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fontSize: 9 }}
+                        interval={0}
+                      />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        width={36}
+                        tick={{ fontSize: 9 }}
+                        tickFormatter={(v) => `${v}M`}
+                      />
+                      <ChartTooltip
+                        content={
+                          <ChartTooltipContent
+                            labelFormatter={(label, payload) => {
+                              const datum = (payload?.[0] as any)?.payload as
+                                | DelegationTrendDatum
+                                | undefined;
+                              const weekStart = datum?.weekStartMs
+                                ? new Date(datum.weekStartMs)
+                                : null;
+                              const weekEnd = datum?.weekEndMs
+                                ? new Date(datum.weekEndMs - 1)
+                                : null;
+
+                              if (datum?.isCurrent) {
+                                return "Current";
+                              }
+
+                              if (weekStart && weekEnd) {
+                                return `${formatDateShortUtc(
+                                  weekStart
+                                )} - ${formatDateShortUtc(weekEnd)} UTC`;
+                              }
+
+                              if (typeof label === "number") {
+                                return formatDateAxisUtc(new Date(Number(label) - 1));
+                              }
+                              return String(label ?? "");
+                            }}
+                            formatter={(value) => {
+                              const numeric =
+                                typeof value === "number" ? value : Number(value);
+                              const formatted = Number.isFinite(numeric)
+                                ? numeric.toFixed(3)
+                                : value;
+                              return [`${formatted}M GLW`, "Delegated"];
+                            }}
+                          />
+                        }
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="delegated"
+                        stroke="var(--color-delegated)"
+                        fill="var(--color-delegated)"
+                        fillOpacity={0.15}
+                        strokeWidth={2}
+                      />
+                    </AreaChart>
+                  </ChartContainer>
+                </div>
+
+                <div>
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
+                    Delegation ratio
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-2.5 rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${delegationRatioWidth.toFixed(1)}%`,
+                          background:
+                            "linear-gradient(90deg, hsl(270, 70%, 60%), hsl(270, 70%, 50%))",
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs font-mono tabular-nums text-foreground">
+                      {delegationRatioPct !== null
+                        ? `${delegationRatioPct.toFixed(1)}%`
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground/60 dark:text-muted-foreground/80 mt-1">
+                    {delegationRatioDetail}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card
+              className={cn(
+                "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              )}
+              role="button"
+              tabIndex={0}
+              aria-label="Open per-region protocol revenue notes"
+              onClick={() => {
+                resetModalBlog("regions");
+                setIsRegionsDialogOpen(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  resetModalBlog("regions");
+                  setIsRegionsDialogOpen(true);
+                }
+              }}
+            >
+              <CardHeader className="pb-0">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold">
+                    Per-Region Protocol Revenue
+                  </div>
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                    Click for notes ↗
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto rounded-2xl border border-border/20 dark:border-border/40">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/40 dark:bg-background/40">
+                      <tr className="text-left text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                        <th className="px-3 sm:px-4 py-3">Region</th>
+                        <th className="px-3 sm:px-4 py-3">Lifetime</th>
+                        <th className="px-3 sm:px-4 py-3">3 Month</th>
+                        <th className="px-3 sm:px-4 py-3 hidden sm:table-cell">
+                          Farms
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {regionsRowsForRender.map((region) => {
+                        const lifetimeLiquidity =
+                          region.lifetimeLq !== null && displayPrice > 0
+                            ? {
+                                value: formatLiquidityCompact(region.lifetimeLq),
+                                breakdown: getBreakdownFromLq(
+                                  region.lifetimeLq,
+                                  displayPrice
+                                ).breakdown,
+                              }
+                            : { value: "—", breakdown: "—" };
+                        const ninetyDayLiquidity =
+                          region.ninetyDayLq !== null && displayPrice > 0
+                            ? {
+                                value: formatLiquidityCompact(region.ninetyDayLq),
+                                breakdown: getBreakdownFromLq(
+                                  region.ninetyDayLq,
+                                  displayPrice
+                                ).breakdown,
+                              }
+                            : { value: "—", breakdown: "—" };
+
+                        return (
+                          <tr
+                            key={region.region}
+                            className="border-t border-border/10 dark:border-border/20 hover:bg-muted/40 dark:hover:bg-background/60 transition-colors"
+                          >
+                            <td className="px-3 sm:px-4 py-3">
+                              <div className="font-semibold text-xs sm:text-sm">
+                                {region.region}
+                              </div>
+                              <div className="text-[10px] sm:text-xs text-muted-foreground">
+                                {region.stakedGctl !== null
+                                  ? `${formatNumber(region.stakedGctl)} GCTL staked`
+                                  : "—"}
+                              </div>
+                            </td>
+                            <td className="px-3 sm:px-4 py-3">
+                              <div className="font-mono tabular-nums text-xs sm:text-sm">
+                                {lifetimeLiquidity.value}
+                              </div>
+                              <div className="text-[10px] sm:text-xs text-muted-foreground">
+                                ({lifetimeLiquidity.breakdown})
+                              </div>
+                            </td>
+                            <td className="px-3 sm:px-4 py-3">
+                              <div className="font-mono tabular-nums text-xs sm:text-sm">
+                                {ninetyDayLiquidity.value}
+                              </div>
+                              <div className="text-[10px] sm:text-xs text-muted-foreground">
+                                ({ninetyDayLiquidity.breakdown})
+                              </div>
+                              <div className="text-[10px] sm:text-xs text-muted-foreground">
+                                {region.ccPerWeek !== null
+                                  ? `${region.ccPerWeek.toFixed(1)} cc/wk`
+                                  : "—"}
+                              </div>
+                            </td>
+                            <td className="px-3 sm:px-4 py-3 font-mono tabular-nums hidden sm:table-cell">
+                              {region.farms}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        <NetworkImpactSection
+          impactTotals={impactTotals}
+          onOpenDialog={() => {
+            resetModalBlog("networkImpact");
+            setIsNetworkImpactDialogOpen(true);
+          }}
+        />
+      </>
+    );
+  }
+);
+
+DelegationRegionsAndImpactSection.displayName =
+  "DelegationRegionsAndImpactSection";
+
+const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
+  vestingCategorySeries,
+  vestingSeries,
+  vestingBreakdown,
+  fdvUsd,
+  hasLivePrice,
+  priceDetail,
+}: {
+  vestingCategorySeries: any[] | null;
+  vestingSeries: Array<{ year: string; unlocked: number }>;
+  vestingBreakdown:
+    | {
+        total: number;
+        categories: Record<string, number>;
+      }
+    | null;
+  fdvUsd: number | null;
+  hasLivePrice: boolean;
+  priceDetail: string;
+}) {
+  return (
+    <section className="flex flex-col gap-6 pt-16">
+      <SectionHeader title="Token Emissions Over Time" />
+      <Card className="!gap-6">
+        <CardHeader className="pb-0">
+          <div className="text-sm font-semibold">Token Emissions Over Time</div>
+        </CardHeader>
+        <CardContent className="grid gap-8 xl:grid-cols-12">
+          <div className="xl:col-span-7">
+            {vestingCategorySeries ? (
+              <ChartContainer
+                config={vestingCategoryChartConfig}
+                className="!aspect-auto h-full min-h-[120px] w-full pb-2 pl-2 pr-3 [&_.recharts-yAxis]:translate-x-0"
+              >
+                <AreaChart
+                  data={vestingCategorySeries}
+                  margin={{ top: 8, right: 10, bottom: 10, left: 0 }}
+                  stackOffset="none"
+                >
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="period"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{
+                      fontSize: 9,
+                      fill: "var(--muted-foreground)",
+                    }}
+                    tickMargin={10}
+                    interval="preserveStartEnd"
+                    minTickGap={40}
+                    padding={{ left: 4, right: 4 }}
+                    tickFormatter={(v) => {
+                      if (typeof v === "string" && /^\d{4}-\d{2}$/.test(v)) {
+                        const [y, m] = v.split("-");
+                        const month = new Date(
+                          Number(y),
+                          Number(m) - 1
+                        ).toLocaleString("en-US", { month: "short" });
+                        return `${month} ${y!.slice(2)}`;
+                      }
+                      return String(v);
+                    }}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    width={44}
+                    tick={{
+                      fontSize: 10,
+                      fill: "var(--muted-foreground)",
+                    }}
+                    tickMargin={8}
+                    tickFormatter={(value) => `${Math.round(Number(value))}M`}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        labelFormatter={(label) => {
+                          if (
+                            typeof label === "string" &&
+                            /^\d{4}-\d{2}$/.test(label)
+                          ) {
+                            const [y, m] = label.split("-");
+                            const month = new Date(
+                              Number(y),
+                              Number(m) - 1
+                            ).toLocaleString("en-US", { month: "long" });
+                            return `${month} ${y}`;
+                          }
+                          return `Year ${label}`;
+                        }}
+                        formatter={(value, name, item) => {
+                          const n =
+                            typeof value === "number" ? value : Number(value);
+                          const color =
+                            item?.color ||
+                            (item?.payload as Record<string, unknown>)?.fill;
+                          return (
+                            <>
+                              <div
+                                className="shrink-0 h-2.5 w-2.5 rounded-full"
+                                style={{
+                                  backgroundColor: color as string,
+                                }}
+                              />
+                              <div className="flex flex-1 items-center justify-between gap-4 leading-none">
+                                <span className="text-muted-foreground">
+                                  {name}
+                                </span>
+                                <span className="font-mono font-medium tabular-nums text-foreground">
+                                  {Math.round(n)}M GLW
+                                </span>
+                              </div>
+                            </>
+                          );
+                        }}
+                      />
+                    }
+                  />
+                  {[...VESTING_CATEGORIES].reverse().map((c) => (
+                    <Area
+                      key={c.key}
+                      type="monotone"
+                      dataKey={c.key}
+                      name={c.label}
+                      stackId="1"
+                      stroke={c.color}
+                      strokeWidth={1}
+                      fill={c.color}
+                      fillOpacity={0.2}
+                      dot={false}
+                      activeDot={false}
+                    />
+                  ))}
+                </AreaChart>
+              </ChartContainer>
+            ) : (
+              <ChartContainer
+                config={vestingChartConfig}
+                className="!aspect-auto h-full min-h-[120px] w-full pb-2 pl-2 pr-3 [&_.recharts-yAxis]:translate-x-0"
+              >
+                <AreaChart
+                  data={vestingSeries}
+                  margin={{ top: 8, right: 10, bottom: 10, left: 0 }}
+                >
+                  <defs>
+                    <linearGradient
+                      id="vestingGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor="var(--color-glow-orange)"
+                        stopOpacity={0.2}
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor="var(--color-glow-orange)"
+                        stopOpacity={0.2}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="year"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{
+                      fontSize: 10,
+                      fill: "var(--muted-foreground)",
+                    }}
+                    tickMargin={10}
+                    padding={{ left: 8, right: 8 }}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    width={44}
+                    tick={{
+                      fontSize: 10,
+                      fill: "var(--muted-foreground)",
+                    }}
+                    tickMargin={8}
+                    tickFormatter={(value) => `${Math.round(Number(value))}M`}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        labelFormatter={(label) => `Year ${label}`}
+                        formatter={(value) => {
+                          const n =
+                            typeof value === "number" ? value : Number(value);
+                          return `${Math.round(n)}M GLW unlocked`;
+                        }}
+                      />
+                    }
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="unlocked"
+                    stroke="var(--color-glow-orange)"
+                    strokeWidth={2.5}
+                    fill="url(#vestingGradient)"
+                    dot={false}
+                    activeDot={{
+                      r: 5,
+                      fill: "var(--color-glow-orange)",
+                      stroke: "var(--card)",
+                      strokeWidth: 2,
+                    }}
+                  />
+                </AreaChart>
+              </ChartContainer>
+            )}
+          </div>
+          <div className="xl:col-span-5">
+            <div className="grid gap-4">
+              <MetricCard
+                label="FDV"
+                value={fdvUsd !== null ? formatUsdCompactPrecise(fdvUsd) : "—"}
+                helper={
+                  fdvUsd !== null && hasLivePrice
+                    ? `${formatCompactNumberPrecise(
+                        FDV_TOTAL_TOKENS_GLW
+                      )} GLW at $${priceDetail}`
+                    : "Live data unavailable"
+                }
+              />
+              <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                    Token breakdown
+                  </div>
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
+                    {vestingBreakdown
+                      ? `${formatCompactNumberPrecise(
+                          vestingBreakdown.total
+                        )} GLW total`
+                      : `${formatCompactNumberPrecise(
+                          FDV_TOTAL_TOKENS_GLW
+                        )} GLW total`}
+                  </div>
+                </div>
+
+                {vestingBreakdown ? (
+                  (() => {
+                    const total = Math.max(1, vestingBreakdown.total);
+                    const rows = VESTING_CATEGORIES.map((c) => ({
+                      key: c.key,
+                      label: c.label,
+                      color: c.color,
+                      value: vestingBreakdown.categories[c.key],
+                    })).filter((r) => Number.isFinite(r.value) && r.value > 0);
+
+                    const pct = (value: number) => Math.max(0, (value / total) * 100);
+
+                    return (
+                      <div className="mt-4">
+                        <div className="h-2.5 rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden flex">
+                          {rows.map((r) => (
+                            <div
+                              key={r.key}
+                              className="h-full"
+                              style={{
+                                width: `${pct(r.value)}%`,
+                                background: r.color,
+                              }}
+                            />
+                          ))}
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {rows.map((r) => (
+                            <div
+                              key={r.key}
+                              className="flex items-center justify-between gap-3"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                  className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+                                  style={{ background: r.color }}
+                                />
+                                <span className="text-xs text-muted-foreground truncate">
+                                  {r.label}
+                                </span>
+                              </div>
+                              <div className="flex items-baseline gap-2 shrink-0">
+                                <span className="text-xs font-mono tabular-nums text-foreground">
+                                  {formatCompactNumberPrecise(r.value)} GLW
+                                </span>
+                                <span className="text-[10px] font-mono tabular-nums text-muted-foreground/70">
+                                  {pct(r.value).toFixed(1)}%
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="mt-3 text-sm text-muted-foreground">
+                    Live breakdown unavailable.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </section>
+  );
+});
+
+TokenEmissionsSection.displayName = "TokenEmissionsSection";
 
 export function PolDashboardView() {
   const [isBannerBlogOpen, setIsBannerBlogOpen] = React.useState(false);
@@ -3447,1544 +4564,94 @@ export function PolDashboardView() {
     <div className="min-h-screen bg-background text-foreground">
       <section className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-12 pb-16 pt-8">
         <div className="flex flex-col gap-8">
-          <section className="flex flex-col gap-6">
-            <SectionHeader title="Overview" />
+          <OverviewSection
+            marketCapDisplay={marketCapDisplay}
+            priceDisplay={priceDisplay}
+            totalPolLq={totalPolLq}
+            totalPolBreakdown={totalPolBreakdown}
+            totalSolarInstallations={totalSolarInstallations}
+            polTrailingPolGrowthDisplay={polTrailingPolGrowthDisplay}
+            supplyGrowthAnnualDisplay={supplyGrowthAnnualDisplay}
+            polGrowthMoMDisplay={polGrowthMoMDisplay}
+            hasLiveSupply={hasLiveSupply}
+            circulatingSupplyForSupplyCard={circulatingSupplyForSupplyCard}
+            vaultedGlw={vaultedGlw}
+            polGlwInPol={polGlwInPol}
+            supplyTotal={supplyTotal}
+            openGrowthCardsDialog={openGrowthCardsDialog}
+            resetModalBlog={resetModalBlog}
+            setIsBannerBlogOpen={setIsBannerBlogOpen}
+            setIsSupplyDialogOpen={setIsSupplyDialogOpen}
+          />
 
-            {/* ── Row 1: Headline banner ── */}
-            <Card
-              className={cn(
-                "!gap-0 !py-0 relative overflow-hidden border border-border/20 transition-colors cursor-pointer hover:border-border/40 dark:hover:border-border/60",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              )}
-              role="button"
-              tabIndex={0}
-              aria-label="Open The Glow economy"
-              onClick={() => {
-                resetModalBlog("overview");
-                setIsBannerBlogOpen(true);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  resetModalBlog("overview");
-                  setIsBannerBlogOpen(true);
-                }
-              }}
-            >
-              <CardContent className="relative px-0 py-0">
-                <div className="absolute inset-0">
-                  <div
-                    className="absolute inset-0 bg-cover bg-center"
-                    style={{
-                      backgroundImage: "url('/images/pol-banner-crop.jpg')",
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black/35" />
-                  <div className="absolute inset-0 bg-gradient-to-br from-black/45 via-black/25 to-black/45" />
-                </div>
-                <div className="absolute right-[24px] top-[16px]">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
-                    Click for basics ↗
-                  </div>
-                </div>
-                <div className="relative z-10 mx-auto w-full max-w-5xl px-5 py-10 pt-14 sm:px-12 sm:py-14 sm:pt-16 lg:py-16 lg:pt-16 grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-x-16 md:gap-y-8 md:items-end">
-                  <div className="grid grid-rows-[auto_auto] gap-3 md:col-span-2 md:justify-self-center md:items-center md:text-center">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
-                      Market Cap
-                    </div>
-                    <div className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight font-mono tabular-nums leading-none text-white">
-                      {marketCapDisplay}
-                    </div>
-                  </div>
+          <SolarFarmEconomicsSection
+            showAllFarms={showAllFarms}
+            farmSortKey={farmSortKey}
+            setFarmSortKey={setFarmSortKey}
+            setShowAllFarms={setShowAllFarms}
+            farmRowsToRender={farmRowsToRender}
+            displayPrice={displayPrice}
+            openFarmDialog={openFarmDialog}
+          />
 
-                  <div className="grid grid-rows-[auto_auto_auto] gap-3 md:justify-self-start md:items-center md:text-center">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
-                      GLW Price
-                    </div>
-                    <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-white">
-                      {priceDisplay}
-                    </div>
-                    <Link
-                      href={DEFINED_FI_GLOW_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-white/75 hover:text-white transition-colors"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      Pool activity ↗
-                    </Link>
-                  </div>
+          <LiquidityGctlWalletsSection
+            totalPolLq={totalPolLq}
+            totalPolBreakdown={totalPolBreakdown}
+            polApyDisplay={polApyDisplay}
+            ninetyDayApy={ninetyDayApy}
+            polExitabilityDisplay={polExitabilityDisplay}
+            polLiquidityIsLive={polLiquidityIsLive}
+            polLiquidityChartData={polLiquidityChartData}
+            isGctlLoading={isGctlLoading}
+            gctlTotalSupply={gctlTotalSupply}
+            gctlPriceNumber={gctlPriceNumber}
+            gctlTotalStaked={gctlTotalStaked}
+            gctlUnstaked={gctlUnstaked}
+            gctlRegionChartConfigLive={gctlRegionChartConfigLive}
+            gctlRegionPieData={gctlRegionPieData}
+            isWalletStatsLoading={isWalletStatsLoading}
+            walletStats={walletStats}
+            hasWalletBreakdown={hasWalletBreakdown}
+            isWalletGrowthMock={isWalletGrowthMock}
+            walletGrowthLive={walletGrowthLive}
+            resetModalBlog={resetModalBlog}
+            setIsPolLiquidityDialogOpen={setIsPolLiquidityDialogOpen}
+            setIsGctlDialogOpen={setIsGctlDialogOpen}
+            setIsWalletStatsDialogOpen={setIsWalletStatsDialogOpen}
+          />
 
-                  <div className="grid grid-rows-[auto_auto_auto] gap-3 md:justify-self-end md:items-center md:text-center">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
-                      Embedded Liquidity
-                    </div>
-                    <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-white">
-                      {totalPolLq !== null
-                        ? formatLiquidityCompact(totalPolLq)
-                        : "—"}
-                    </div>
-                    <div className="text-sm text-white/75 text-center">
-                      {totalPolBreakdown?.breakdown
-                        ? `(${totalPolBreakdown.breakdown})`
-                        : "Live data unavailable"}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* ── Row 2: Growth cards + Supply/Circulation ── */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr] lg:items-stretch">
-              <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:h-full lg:grid-rows-2">
-                <Card
-                  className={cn(
-                    "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                  )}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Open growth cards modal on total solar installations"
-                  onClick={() => openGrowthCardsDialog("installations")}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      openGrowthCardsDialog("installations");
-                    }
-                  }}
-                >
-                  <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-20 pointer-events-none -rotate-12" />
-                  <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Total Solar Installations
-                    </div>
-                    <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                      {totalSolarInstallations !== null
-                        ? formatNumber(totalSolarInstallations)
-                        : "—"}
-                    </div>
-                    <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
-                      ↗
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card
-                  className={cn(
-                    "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                  )}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Open growth cards modal on embedded liquidity growth"
-                  onClick={() => openGrowthCardsDialog("liquidityGrowth")}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      openGrowthCardsDialog("liquidityGrowth");
-                    }
-                  }}
-                >
-                  <GlowSymbol className="!text-[var(--color-glow-purple)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none rotate-6" />
-                  <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Embedded Liquidity Growth (3 Months)
-                    </div>
-                    <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                      {polTrailingPolGrowthDisplay?.lq ?? "—"}
-                    </div>
-                    <div className="mt-3 text-sm text-muted-foreground">
-                      {polTrailingPolGrowthDisplay?.breakdown
-                        ? `(${polTrailingPolGrowthDisplay.breakdown})`
-                        : "Live data unavailable"}
-                    </div>
-                    <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
-                      ↗
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card
-                  className={cn(
-                    "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                  )}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Open growth cards modal on annualized circulating growth"
-                  onClick={() => openGrowthCardsDialog("circulatingGrowth")}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      openGrowthCardsDialog("circulatingGrowth");
-                    }
-                  }}
-                >
-                  <GlowSymbol className="!text-[var(--color-glow-green)] absolute -top-6 -right-6 w-32 h-32 opacity-25 dark:opacity-15 pointer-events-none rotate-12" />
-                  <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Annualized Circulating Supply Growth
-                    </div>
-                    <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                      {supplyGrowthAnnualDisplay}
-                    </div>
-                    <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
-                      ↗
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card
-                  className={cn(
-                    "!gap-0 !py-0 h-full relative overflow-hidden transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                  )}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Open growth cards modal on embedded liquidity growth MoM"
-                  onClick={() => openGrowthCardsDialog("embeddedGrowth")}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      openGrowthCardsDialog("embeddedGrowth");
-                    }
-                  }}
-                >
-                  <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none -rotate-6" />
-                  <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Embedded Liquidity Growth (MoM)
-                    </div>
-                    <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
-                      {polGrowthMoMDisplay}
-                    </div>
-                    <div className="pointer-events-none absolute bottom-6 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-border/20 bg-black text-sm text-white dark:border-white/40 dark:bg-white dark:text-black">
-                      ↗
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card
-                className={cn(
-                  "!gap-6 lg:h-full transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                )}
-                role="button"
-                tabIndex={0}
-                aria-label="Open supply model explorer"
-                onClick={() => {
-                  resetModalBlog("supply");
-                  setIsSupplyDialogOpen(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    resetModalBlog("supply");
-                    setIsSupplyDialogOpen(true);
-                  }
-                }}
-              >
-                <CardHeader className="pb-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-semibold">
-                      Supply &amp; Circulation
-                    </div>
-                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                      Click to explore ↗
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-5">
-                  <div>
-                    <MetricCard
-                      label="Circulating supply"
-                      value={
-                        hasLiveSupply
-                          ? `${formatCompactNumberPrecise(
-                              circulatingSupplyForSupplyCard
-                            )} GLW`
-                          : "—"
-                      }
-                    />
-                    <div className="flex items-center justify-center gap-4 mt-4">
-                      <div className="relative shrink-0">
-                        <ChartContainer
-                          config={{
-                            circulating: {
-                              label: "Circulating",
-                              color: "#4ade80",
-                            },
-                            vaulted: { label: "Vaulted", color: "#a855f7" },
-                            pol: { label: "Embedded GLW", color: "#ffb472" },
-                            other: {
-                              label: "Structurally Locked",
-                              color: "hsl(0 0% 80%)",
-                            },
-                          }}
-                          className="h-36 w-36"
-                        >
-                          <PieChart>
-                            <Pie
-                              data={[
-                                {
-                                  name: "Circulating",
-                                  value: Math.round(
-                                    circulatingSupplyForSupplyCard
-                                  ),
-                                  fill: "#4ade80",
-                                },
-                                {
-                                  name: "Vaulted",
-                                  value: Math.round(vaultedGlw ?? 0),
-                                  fill: "#a855f7",
-                                },
-                                {
-                                  name: "Embedded GLW",
-                                  value: Math.round(polGlwInPol ?? 0),
-                                  fill: "#ffb472",
-                                },
-                                {
-                                  name: "Structurally Locked",
-                                  value: Math.max(
-                                    0,
-                                    Math.round(
-                                      supplyTotal -
-                                        circulatingSupplyForSupplyCard -
-                                        (vaultedGlw ?? 0) -
-                                        (polGlwInPol ?? 0)
-                                    )
-                                  ),
-                                  fill: "hsl(0 0% 85%)",
-                                },
-                              ].filter((d) => d.value > 0)}
-                              dataKey="value"
-                              nameKey="name"
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={38}
-                              outerRadius={62}
-                              strokeWidth={2}
-                              stroke="var(--color-card)"
-                            />
-                            <ChartTooltip
-                              content={
-                                <ChartTooltipContent
-                                  formatter={(value) => {
-                                    const n =
-                                      typeof value === "number"
-                                        ? value
-                                        : Number(value);
-                                    return `${formatCompactNumberPrecise(
-                                      n
-                                    )} GLW`;
-                                  }}
-                                />
-                              }
-                            />
-                          </PieChart>
-                        </ChartContainer>
-                      </div>
-                      <div className="flex flex-col gap-3 text-xs">
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className="inline-block h-2 w-2 rounded-full shrink-0"
-                            style={{ background: "#4ade80" }}
-                          />
-                          <span className="text-muted-foreground">
-                            Circulating
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className="inline-block h-2 w-2 rounded-full shrink-0"
-                            style={{ background: "#a855f7" }}
-                          />
-                          <span className="text-muted-foreground">Vaulted</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className="inline-block h-2 w-2 rounded-full shrink-0"
-                            style={{ background: "#ffb472" }}
-                          />
-                          <span className="text-muted-foreground">
-                            Embedded GLW
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className="inline-block h-2 w-2 rounded-full shrink-0"
-                            style={{ background: "hsl(0 0% 85%)" }}
-                          />
-                          <span className="text-muted-foreground">
-                            Structurally Locked
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <MiniStat
-                      label="Vaulted"
-                      value={
-                        vaultedGlw !== null
-                          ? formatCompactNumberPrecise(vaultedGlw)
-                          : "—"
-                      }
-                      valueClassName="text-xl sm:text-2xl tracking-tight"
-                    />
-                    <MiniStat
-                      label="Embedded GLW"
-                      value={
-                        polGlwInPol !== null
-                          ? `${formatCompactNumberPrecise(polGlwInPol)} GLW`
-                          : "—"
-                      }
-                      valueClassName="text-xl sm:text-2xl tracking-tight"
-                    />
-                  </div>
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      resetModalBlog("supply");
-                      setIsSupplyDialogOpen(true);
-                    }}
-                  >
-                    Explore Supply Model
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </section>
-
-          <section className="flex flex-col gap-6 pt-16">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <SectionHeader title="Solar Farm Economics" />
-
-              <div className="flex items-center justify-end gap-3">
-                {showAllFarms ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
-                      Sort by
-                    </span>
-                    <select
-                      value={farmSortKey}
-                      onChange={(e) =>
-                        setFarmSortKey(
-                          e.target.value as "latest" | "lifetime" | "credits"
-                        )
-                      }
-                      className="rounded-lg border border-border/40 bg-background px-2.5 py-1.5 text-xs font-mono cursor-pointer hover:border-border/60 transition-colors"
-                    >
-                      <option value="latest">Latest</option>
-                      <option value="lifetime">Lifetime</option>
-                      <option value="credits">CC / Week</option>
-                    </select>
-                  </div>
-                ) : null}
-
-                {!showAllFarms ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowAllFarms(true)}
-                  >
-                    See all
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {farmRowsToRender.map((farm) => {
-                const lifetimeLq =
-                  farm.lifetimeLq !== null && displayPrice > 0
-                    ? {
-                        value: formatLiquidityCompact(farm.lifetimeLq),
-                        breakdown: getBreakdownFromLq(
-                          farm.lifetimeLq,
-                          displayPrice
-                        ).breakdown,
-                      }
-                    : { value: "—", breakdown: "—" };
-                const lifetimeProgress =
-                  farm.lifetimeWeeksElapsed !== null
-                    ? `${farm.lifetimeWeeksElapsed} / ${farm.lifetimeWeeksTarget} wks`
-                    : "—";
-                return (
-                  <Card
-                    key={farm.key}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Open details for ${farm.name}`}
-                    onClick={() => openFarmDialog(farm)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        openFarmDialog(farm);
-                      }
-                    }}
-                    className={cn(
-                      "!gap-0 !py-0 group overflow-hidden transition-all duration-200",
-                      "hover:border-border/60 dark:hover:border-border/80 cursor-pointer",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    )}
-                  >
-                    <CardContent className="p-0">
-                      {/* Farm image header */}
-                      <div className="relative h-48 w-full overflow-hidden bg-muted/30">
-                        {farm.imageUrl ? (
-                          <FallbackImage
-                            src={farm.imageUrl}
-                            widthForProxy={600}
-                            quality={80}
-                            alt={farm.name}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-muted/40 via-muted/20 to-muted/40 flex items-center justify-center">
-                            <span className="text-3xl opacity-30">&#9728;</span>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
-                        <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-                          <h3 className="font-bold text-white text-sm leading-tight truncate">
-                            {farm.name}
-                          </h3>
-                        </div>
-                        <div className="absolute top-3 right-3 z-10 rounded-full border border-white/30 bg-black/40 px-2 py-0.5 text-[9px] font-mono uppercase tracking-widest text-white/80">
-                          Open ↗
-                        </div>
-                      </div>
-                      <div className="px-5 pt-4 pb-0">
-                        <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                          <span className="font-mono uppercase tracking-widest">
-                            {farm.region}
-                          </span>
-                        </div>
-                      </div>
-                      {/* Revenue metrics */}
-                      <div className="px-5 pt-5 pb-5 grid grid-cols-2 gap-5">
-                        <div className="flex flex-col gap-0.5">
-                          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                            Generated Revenue
-                          </div>
-                          <div className="text-xl font-semibold font-mono tabular-nums tracking-tight">
-                            {lifetimeLq.value}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground leading-tight">
-                            ({lifetimeLq.breakdown})
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                            Lifetime Progress
-                          </div>
-                          <div className="text-xl font-semibold font-mono tabular-nums tracking-tight">
-                            {lifetimeProgress}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader title="Embedded Liquidity, GCTL, Wallets" />
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              {/* ── Protocol Liquidity ── */}
-              <Card
-                className={cn(
-                  "!gap-6 h-full transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                )}
-                role="button"
-                tabIndex={0}
-                aria-label="Open protocol liquidity notes"
-                onClick={() => {
-                  resetModalBlog("polLiquidity");
-                  setIsPolLiquidityDialogOpen(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    resetModalBlog("polLiquidity");
-                    setIsPolLiquidityDialogOpen(true);
-                  }
-                }}
-              >
-                <CardHeader className="pb-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-semibold">
-                      Protocol Liquidity
-                    </div>
-                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                      Click for notes ↗
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-5 h-full">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <MetricCard
-                      label="Embedded Liquidity"
-                      value={
-                        totalPolLq !== null
-                          ? formatLiquidityCompact(totalPolLq)
-                          : "—"
-                      }
-                      helper={
-                        totalPolBreakdown?.breakdown
-                          ? `(${totalPolBreakdown.breakdown})`
-                          : "Live data unavailable"
-                      }
-                      valueClassName="text-3xl sm:text-4xl"
-                    />
-                    <MetricCard
-                      label="APY"
-                      value={polApyDisplay}
-                      helper={
-                        ninetyDayApy !== null
-                          ? undefined
-                          : "Live data unavailable"
-                      }
-                      valueClassName="text-3xl sm:text-4xl"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 gap-3">
-                    <MiniStat
-                      label="Market cap exitable"
-                      value={polExitabilityDisplay}
-                      valueClassName="text-base sm:text-lg tracking-tight"
-                    />
-                  </div>
-                  <div className="flex-1 flex flex-col min-h-0">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                      Embedded Liquidity
-                      {polLiquidityIsLive ? "" : " · Live data unavailable"}
-                    </div>
-                    <ChartContainer
-                      config={polLiquidityChartConfig}
-                      className="min-h-[120px] flex-1 w-full"
-                    >
-                      <AreaChart data={polLiquidityChartData}>
-                        <XAxis
-                          dataKey="week"
-                          tickLine={false}
-                          axisLine={false}
-                          tick={{ fontSize: 9 }}
-                          interval="preserveStartEnd"
-                        />
-                        <ChartTooltip content={<PolLiquidityTooltip />} />
-                        <Area
-                          type="monotone"
-                          dataKey="liquidity"
-                          stroke="var(--color-liquidity)"
-                          fill="var(--color-liquidity)"
-                          fillOpacity={0.2}
-                          strokeWidth={2}
-                          dot={false}
-                        />
-                      </AreaChart>
-                    </ChartContainer>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* ── GCTL ── */}
-              <Card
-                className={cn(
-                  "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                )}
-                role="button"
-                tabIndex={0}
-                aria-label="Open GCTL notes"
-                onClick={() => {
-                  resetModalBlog("gctl");
-                  setIsGctlDialogOpen(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    resetModalBlog("gctl");
-                    setIsGctlDialogOpen(true);
-                  }
-                }}
-              >
-                <CardHeader className="pb-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-semibold">GCTL</div>
-                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                      Click for notes ↗
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <MetricCard
-                      label="Total GCTL"
-                      value={
-                        isGctlLoading
-                          ? "..."
-                          : formatCompactNumberPrecise(gctlTotalSupply)
-                      }
-                      valueClassName="text-3xl sm:text-4xl"
-                    />
-                    <MetricCard
-                      label="Mint Price"
-                      value={
-                        isGctlLoading ? "..." : `$${gctlPriceNumber.toFixed(2)}`
-                      }
-                      valueClassName="text-3xl sm:text-4xl"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <MiniStat
-                      label="Staked"
-                      value={
-                        isGctlLoading
-                          ? "..."
-                          : formatCompactNumberPrecise(gctlTotalStaked)
-                      }
-                      valueClassName="text-base sm:text-lg tracking-tight"
-                    />
-                    <MiniStat
-                      label="Unstaked"
-                      value={
-                        isGctlLoading
-                          ? "..."
-                          : formatCompactNumberPrecise(gctlUnstaked)
-                      }
-                      valueClassName="text-base sm:text-lg tracking-tight"
-                    />
-                  </div>
-                  <div className="flex-1 flex flex-col">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                      Staking by region
-                    </div>
-                    <div className="flex-1 flex flex-col items-center justify-center gap-6 pt-4 pb-2">
-                      <ChartContainer
-                        config={gctlRegionChartConfigLive}
-                        className="h-40 w-40 shrink-0"
-                      >
-                        <PieChart>
-                          <Pie
-                            data={gctlRegionPieData}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={35}
-                            outerRadius={70}
-                            strokeWidth={2}
-                            stroke="var(--color-card)"
-                          />
-                          <ChartTooltip
-                            content={
-                              <ChartTooltipContent
-                                formatter={(value, name) => {
-                                  const region = gctlRegionPieData.find(
-                                    (r) => r.name === name
-                                  );
-                                  return `${formatCompactNumberPrecise(
-                                    Number(value)
-                                  )} (${region?.pct ?? 0}%)`;
-                                }}
-                              />
-                            }
-                          />
-                        </PieChart>
-                      </ChartContainer>
-                    </div>
-                    <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2 pt-2">
-                      {gctlRegionPieData.map((region) => (
-                        <div
-                          key={region.name}
-                          className="flex items-center justify-between text-xs"
-                        >
-                          <span className="flex items-center gap-1.5 text-muted-foreground min-w-0">
-                            <span
-                              className="inline-block h-2 w-2 rounded-full shrink-0"
-                              style={{ backgroundColor: region.fill }}
-                            />
-                            <span className="truncate">{region.name}</span>
-                          </span>
-                          <span className="font-mono tabular-nums text-foreground shrink-0">
-                            {formatCompactNumberPrecise(region.value)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* ── Wallet Stats ── */}
-              <Card
-                className={cn(
-                  "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                )}
-                role="button"
-                tabIndex={0}
-                aria-label="Open wallet stats notes"
-                onClick={() => {
-                  resetModalBlog("walletStats");
-                  setIsWalletStatsDialogOpen(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    resetModalBlog("walletStats");
-                    setIsWalletStatsDialogOpen(true);
-                  }
-                }}
-              >
-                <CardHeader className="pb-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-semibold">Wallet Stats</div>
-                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                      Click for notes ↗
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-5">
-                  <div className="grid grid-cols-2 gap-4">
-                    <MiniStat
-                      label="GLW Holders"
-                      value={
-                        isWalletStatsLoading
-                          ? "..."
-                          : formatNumber(walletStats.glwHolders)
-                      }
-                      valueClassName="text-xl sm:text-2xl tracking-tight"
-                    />
-                    <MiniStat
-                      label="Protocol Participants"
-                      value={
-                        isWalletStatsLoading
-                          ? "..."
-                          : formatNumber(walletStats.protocolParticipants)
-                      }
-                      valueClassName="text-xl sm:text-2xl tracking-tight"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                      New wallets per week
-                      {isWalletGrowthMock ? " · Live data unavailable" : ""}
-                    </div>
-                    <ChartContainer
-                      config={walletGrowthChartConfig}
-                      className="h-24 w-full"
-                    >
-                      <BarChart data={walletGrowthLive ?? []} barGap={2}>
-                        <XAxis
-                          dataKey="week"
-                          tickLine={false}
-                          axisLine={false}
-                          tick={{ fontSize: 9 }}
-                          interval="preserveStartEnd"
-                        />
-                        <ChartTooltip content={<WalletGrowthTooltip />} />
-                        <Bar
-                          dataKey="newWallets"
-                          fill="var(--color-newWallets)"
-                          radius={[3, 3, 0, 0]}
-                          fillOpacity={0.7}
-                        />
-                      </BarChart>
-                    </ChartContainer>
-                  </div>
-
-                  <div>
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                      Wallet breakdown
-                      {hasWalletBreakdown ? "" : " · Live data unavailable"}
-                    </div>
-                    <div className="flex flex-col gap-3">
-                      {hasWalletBreakdown ? (
-                        walletStats.breakdown.map((row) => (
-                          <div
-                            key={row.label}
-                            className="flex items-center gap-3"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between text-xs mb-1.5">
-                                <span className="flex items-center gap-1.5">
-                                  <span
-                                    className="inline-block h-2 w-2 rounded-full shrink-0"
-                                    style={{ backgroundColor: row.color }}
-                                  />
-                                  <span className="text-muted-foreground">
-                                    {row.label}
-                                  </span>
-                                </span>
-                                <span className="font-mono tabular-nums text-foreground">
-                                  {row.count.toLocaleString()}
-                                </span>
-                              </div>
-                              <div className="h-3 w-full rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden">
-                                <div
-                                  className="h-full rounded-full"
-                                  style={{
-                                    width: `${row.pct}%`,
-                                    backgroundColor: row.color,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                            <span className="text-[10px] font-mono tabular-nums text-muted-foreground/60 dark:text-muted-foreground/80 w-10 text-right shrink-0">
-                              {row.pct}%
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-xs text-muted-foreground">
-                          Live data unavailable
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </section>
-
-          <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader title="Delegation + Regions" />
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
-              <Card
-                className={cn(
-                  "!gap-6 flex flex-col transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                )}
-                role="button"
-                tabIndex={0}
-                aria-label="Open delegation metrics notes"
-                onClick={() => {
-                  resetModalBlog("delegation");
-                  setIsDelegationDialogOpen(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    resetModalBlog("delegation");
-                    setIsDelegationDialogOpen(true);
-                  }
-                }}
-              >
-                <CardHeader className="pb-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-semibold">
-                      Delegation Metrics
-                    </div>
-                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                      Click for notes ↗
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-6 h-full">
-                  <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                    <MiniStat
-                      label="GLW delegated"
-                      value={delegatedDisplay}
-                      helper={
-                        hasDelegationData ? undefined : "Live data unavailable"
-                      }
-                      valueClassName="text-lg sm:text-2xl tracking-tight"
-                    />
-                    <MiniStat
-                      label="Delegators"
-                      value={delegatorsDisplay}
-                      helper={
-                        delegatorsCount !== null
-                          ? undefined
-                          : "Live data unavailable"
-                      }
-                      valueClassName="text-lg sm:text-2xl tracking-tight"
-                    />
-                    <MiniStat
-                      label="Est. APY"
-                      value={averageApyDisplay}
-                      helper={
-                        averageDelegatorApy !== null
-                          ? undefined
-                          : "Live data unavailable"
-                      }
-                      valueClassName="text-lg sm:text-2xl tracking-tight"
-                    />
-                  </div>
-
-                  <div className="flex flex-col">
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-3">
-                      Delegation growth (V2)
-                    </div>
-                    <ChartContainer
-                      config={delegationTrendChartConfig}
-                      className="h-36 sm:h-40 w-full"
-                    >
-                      <AreaChart data={delegationTrendLive ?? []}>
-                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                        <XAxis
-                          dataKey="weekEndMs"
-                          type="number"
-                          domain={["dataMin", "dataMax"]}
-                          ticks={delegationTrendTicks}
-                          tickFormatter={(value) => {
-                            const n = Number(value);
-                            if (
-                              delegationCurrentTickValue !== null &&
-                              n === delegationCurrentTickValue
-                            ) {
-                              return "Current";
-                            }
-                            return formatMonthAxisUtc(new Date(n - 1));
-                          }}
-                          tickLine={false}
-                          axisLine={false}
-                          tick={{ fontSize: 9 }}
-                          interval={0}
-                        />
-                        <YAxis
-                          tickLine={false}
-                          axisLine={false}
-                          width={36}
-                          tick={{ fontSize: 9 }}
-                          tickFormatter={(v) => `${v}M`}
-                        />
-                        <ChartTooltip
-                          content={
-                            <ChartTooltipContent
-                              labelFormatter={(label, payload) => {
-                                const datum = (payload?.[0] as any)?.payload as
-                                  | DelegationTrendDatum
-                                  | undefined;
-                                const weekStart = datum?.weekStartMs
-                                  ? new Date(datum.weekStartMs)
-                                  : null;
-                                const weekEnd = datum?.weekEndMs
-                                  ? new Date(datum.weekEndMs - 1)
-                                  : null;
-
-                                if (datum?.isCurrent) {
-                                  return "Current";
-                                }
-
-                                if (weekStart && weekEnd) {
-                                  return `${formatDateShortUtc(
-                                    weekStart
-                                  )} - ${formatDateShortUtc(weekEnd)} UTC`;
-                                }
-
-                                if (typeof label === "number") {
-                                  return formatDateAxisUtc(
-                                    new Date(Number(label) - 1)
-                                  );
-                                }
-                                return String(label ?? "");
-                              }}
-                              formatter={(value) => {
-                                const numeric =
-                                  typeof value === "number"
-                                    ? value
-                                    : Number(value);
-                                const formatted = Number.isFinite(numeric)
-                                  ? numeric.toFixed(3)
-                                  : value;
-                                return [`${formatted}M GLW`, "Delegated"];
-                              }}
-                            />
-                          }
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="delegated"
-                          stroke="var(--color-delegated)"
-                          fill="var(--color-delegated)"
-                          fillOpacity={0.15}
-                          strokeWidth={2}
-                        />
-                      </AreaChart>
-                    </ChartContainer>
-                  </div>
-
-                  <div>
-                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70 mb-2">
-                      Delegation ratio
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-2.5 rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${delegationRatioWidth.toFixed(1)}%`,
-                            background:
-                              "linear-gradient(90deg, hsl(270, 70%, 60%), hsl(270, 70%, 50%))",
-                          }}
-                        />
-                      </div>
-                      <span className="text-xs font-mono tabular-nums text-foreground">
-                        {delegationRatioPct !== null
-                          ? `${delegationRatioPct.toFixed(1)}%`
-                          : "—"}
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground/60 dark:text-muted-foreground/80 mt-1">
-                      {delegationRatioDetail}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card
-                className={cn(
-                  "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                )}
-                role="button"
-                tabIndex={0}
-                aria-label="Open per-region protocol revenue notes"
-                onClick={() => {
-                  resetModalBlog("regions");
-                  setIsRegionsDialogOpen(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    resetModalBlog("regions");
-                    setIsRegionsDialogOpen(true);
-                  }
-                }}
-              >
-                <CardHeader className="pb-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-semibold">
-                      Per-Region Protocol Revenue
-                    </div>
-                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                      Click for notes ↗
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto rounded-2xl border border-border/20 dark:border-border/40">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/40 dark:bg-background/40">
-                        <tr className="text-left text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
-                          <th className="px-3 sm:px-4 py-3">Region</th>
-                          <th className="px-3 sm:px-4 py-3">Lifetime</th>
-                          <th className="px-3 sm:px-4 py-3">3 Month</th>
-                          <th className="px-3 sm:px-4 py-3 hidden sm:table-cell">
-                            Farms
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {regionsRowsForRender.map((region) => {
-                          const lifetimeLiquidity =
-                            region.lifetimeLq !== null && displayPrice > 0
-                              ? {
-                                  value: formatLiquidityCompact(
-                                    region.lifetimeLq
-                                  ),
-                                  breakdown: getBreakdownFromLq(
-                                    region.lifetimeLq,
-                                    displayPrice
-                                  ).breakdown,
-                                }
-                              : { value: "—", breakdown: "—" };
-                          const ninetyDayLiquidity =
-                            region.ninetyDayLq !== null && displayPrice > 0
-                              ? {
-                                  value: formatLiquidityCompact(
-                                    region.ninetyDayLq
-                                  ),
-                                  breakdown: getBreakdownFromLq(
-                                    region.ninetyDayLq,
-                                    displayPrice
-                                  ).breakdown,
-                                }
-                              : { value: "—", breakdown: "—" };
-
-                          return (
-                            <tr
-                              key={region.region}
-                              className="border-t border-border/10 dark:border-border/20 hover:bg-muted/40 dark:hover:bg-background/60 transition-colors"
-                            >
-                              <td className="px-3 sm:px-4 py-3">
-                                <div className="font-semibold text-xs sm:text-sm">
-                                  {region.region}
-                                </div>
-                                <div className="text-[10px] sm:text-xs text-muted-foreground">
-                                  {region.stakedGctl !== null
-                                    ? `${formatNumber(
-                                        region.stakedGctl
-                                      )} GCTL staked`
-                                    : "—"}
-                                </div>
-                              </td>
-                              <td className="px-3 sm:px-4 py-3">
-                                <div className="font-mono tabular-nums text-xs sm:text-sm">
-                                  {lifetimeLiquidity.value}
-                                </div>
-                                <div className="text-[10px] sm:text-xs text-muted-foreground">
-                                  ({lifetimeLiquidity.breakdown})
-                                </div>
-                              </td>
-                              <td className="px-3 sm:px-4 py-3">
-                                <div className="font-mono tabular-nums text-xs sm:text-sm">
-                                  {ninetyDayLiquidity.value}
-                                </div>
-                                <div className="text-[10px] sm:text-xs text-muted-foreground">
-                                  ({ninetyDayLiquidity.breakdown})
-                                </div>
-                                <div className="text-[10px] sm:text-xs text-muted-foreground">
-                                  {region.ccPerWeek !== null
-                                    ? `${region.ccPerWeek.toFixed(1)} cc/wk`
-                                    : "—"}
-                                </div>
-                              </td>
-                              <td className="px-3 sm:px-4 py-3 font-mono tabular-nums hidden sm:table-cell">
-                                {region.farms}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </section>
-
-          <NetworkImpactSection
+          <DelegationRegionsAndImpactSection
+            delegatedDisplay={delegatedDisplay}
+            hasDelegationData={hasDelegationData}
+            delegatorsDisplay={delegatorsDisplay}
+            delegatorsCount={delegatorsCount}
+            averageApyDisplay={averageApyDisplay}
+            averageDelegatorApy={averageDelegatorApy}
+            delegationTrendLive={delegationTrendLive}
+            delegationTrendTicks={delegationTrendTicks}
+            delegationCurrentTickValue={delegationCurrentTickValue}
+            delegationRatioWidth={delegationRatioWidth}
+            delegationRatioPct={delegationRatioPct}
+            delegationRatioDetail={delegationRatioDetail}
+            regionsRowsForRender={regionsRowsForRender}
+            displayPrice={displayPrice}
             impactTotals={impactTotals}
-            onOpenDialog={() => {
-              resetModalBlog("networkImpact");
-              setIsNetworkImpactDialogOpen(true);
-            }}
+            resetModalBlog={resetModalBlog}
+            setIsDelegationDialogOpen={setIsDelegationDialogOpen}
+            setIsRegionsDialogOpen={setIsRegionsDialogOpen}
+            setIsNetworkImpactDialogOpen={setIsNetworkImpactDialogOpen}
           />
 
           {/* FMI temporarily hidden (extracted to app/internal/pol/fmi-widget.tsx). */}
 
-          <section className="flex flex-col gap-6 pt-16">
-            <SectionHeader title="Token Emissions Over Time" />
-            <Card className="!gap-6">
-              <CardHeader className="pb-0">
-                <div className="text-sm font-semibold">
-                  Token Emissions Over Time
-                </div>
-              </CardHeader>
-              <CardContent className="grid gap-8 xl:grid-cols-12">
-                <div className="xl:col-span-7">
-                  {vestingCategorySeries ? (
-                    <ChartContainer
-                      config={vestingCategoryChartConfig}
-                      className="!aspect-auto h-full min-h-[120px] w-full pb-2 pl-2 pr-3 [&_.recharts-yAxis]:translate-x-0"
-                    >
-                      <AreaChart
-                        data={vestingCategorySeries}
-                        margin={{ top: 8, right: 10, bottom: 10, left: 0 }}
-                        stackOffset="none"
-                      >
-                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                        <XAxis
-                          dataKey="period"
-                          tickLine={false}
-                          axisLine={false}
-                          tick={{
-                            fontSize: 9,
-                            fill: "var(--muted-foreground)",
-                          }}
-                          tickMargin={10}
-                          interval="preserveStartEnd"
-                          minTickGap={40}
-                          padding={{ left: 4, right: 4 }}
-                          tickFormatter={(v) => {
-                            if (
-                              typeof v === "string" &&
-                              /^\d{4}-\d{2}$/.test(v)
-                            ) {
-                              const [y, m] = v.split("-");
-                              const month = new Date(
-                                Number(y),
-                                Number(m) - 1
-                              ).toLocaleString("en-US", { month: "short" });
-                              return `${month} ${y!.slice(2)}`;
-                            }
-                            return String(v);
-                          }}
-                        />
-                        <YAxis
-                          tickLine={false}
-                          axisLine={false}
-                          width={44}
-                          tick={{
-                            fontSize: 10,
-                            fill: "var(--muted-foreground)",
-                          }}
-                          tickMargin={8}
-                          tickFormatter={(value) =>
-                            `${Math.round(Number(value))}M`
-                          }
-                        />
-                        <ChartTooltip
-                          content={
-                            <ChartTooltipContent
-                              labelFormatter={(label) => {
-                                if (
-                                  typeof label === "string" &&
-                                  /^\d{4}-\d{2}$/.test(label)
-                                ) {
-                                  const [y, m] = label.split("-");
-                                  const month = new Date(
-                                    Number(y),
-                                    Number(m) - 1
-                                  ).toLocaleString("en-US", { month: "long" });
-                                  return `${month} ${y}`;
-                                }
-                                return `Year ${label}`;
-                              }}
-                              formatter={(value, name, item) => {
-                                const n =
-                                  typeof value === "number"
-                                    ? value
-                                    : Number(value);
-                                const color =
-                                  item?.color ||
-                                  (item?.payload as Record<string, unknown>)
-                                    ?.fill;
-                                return (
-                                  <>
-                                    <div
-                                      className="shrink-0 h-2.5 w-2.5 rounded-full"
-                                      style={{
-                                        backgroundColor: color as string,
-                                      }}
-                                    />
-                                    <div className="flex flex-1 items-center justify-between gap-4 leading-none">
-                                      <span className="text-muted-foreground">
-                                        {name}
-                                      </span>
-                                      <span className="font-mono font-medium tabular-nums text-foreground">
-                                        {Math.round(n)}M GLW
-                                      </span>
-                                    </div>
-                                  </>
-                                );
-                              }}
-                            />
-                          }
-                        />
-                        {[...VESTING_CATEGORIES].reverse().map((c) => (
-                          <Area
-                            key={c.key}
-                            type="monotone"
-                            dataKey={c.key}
-                            name={c.label}
-                            stackId="1"
-                            stroke={c.color}
-                            strokeWidth={1}
-                            fill={c.color}
-                            fillOpacity={0.2}
-                            dot={false}
-                            activeDot={false}
-                          />
-                        ))}
-                      </AreaChart>
-                    </ChartContainer>
-                  ) : (
-                    <ChartContainer
-                      config={vestingChartConfig}
-                      className="!aspect-auto h-full min-h-[120px] w-full pb-2 pl-2 pr-3 [&_.recharts-yAxis]:translate-x-0"
-                    >
-                      <AreaChart
-                        data={vestingSeries}
-                        margin={{ top: 8, right: 10, bottom: 10, left: 0 }}
-                      >
-                        <defs>
-                          <linearGradient
-                            id="vestingGradient"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <stop
-                              offset="0%"
-                              stopColor="var(--color-glow-orange)"
-                              stopOpacity={0.2}
-                            />
-                            <stop
-                              offset="100%"
-                              stopColor="var(--color-glow-orange)"
-                              stopOpacity={0.2}
-                            />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                        <XAxis
-                          dataKey="year"
-                          tickLine={false}
-                          axisLine={false}
-                          tick={{
-                            fontSize: 10,
-                            fill: "var(--muted-foreground)",
-                          }}
-                          tickMargin={10}
-                          padding={{ left: 8, right: 8 }}
-                        />
-                        <YAxis
-                          tickLine={false}
-                          axisLine={false}
-                          width={44}
-                          tick={{
-                            fontSize: 10,
-                            fill: "var(--muted-foreground)",
-                          }}
-                          tickMargin={8}
-                          tickFormatter={(value) =>
-                            `${Math.round(Number(value))}M`
-                          }
-                        />
-                        <ChartTooltip
-                          content={
-                            <ChartTooltipContent
-                              labelFormatter={(label) => `Year ${label}`}
-                              formatter={(value) => {
-                                const n =
-                                  typeof value === "number"
-                                    ? value
-                                    : Number(value);
-                                return `${Math.round(n)}M GLW unlocked`;
-                              }}
-                            />
-                          }
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="unlocked"
-                          stroke="var(--color-glow-orange)"
-                          strokeWidth={2.5}
-                          fill="url(#vestingGradient)"
-                          dot={false}
-                          activeDot={{
-                            r: 5,
-                            fill: "var(--color-glow-orange)",
-                            stroke: "var(--card)",
-                            strokeWidth: 2,
-                          }}
-                        />
-                      </AreaChart>
-                    </ChartContainer>
-                  )}
-                </div>
-                <div className="xl:col-span-5">
-                  <div className="grid gap-4">
-                    <MetricCard
-                      label="FDV"
-                      value={
-                        fdvUsd !== null ? formatUsdCompactPrecise(fdvUsd) : "—"
-                      }
-                      helper={
-                        fdvUsd !== null && hasLivePrice
-                          ? `${formatCompactNumberPrecise(
-                              FDV_TOTAL_TOKENS_GLW
-                            )} GLW at $${priceDetail}`
-                          : "Live data unavailable"
-                      }
-                    />
-                    <div className="rounded-2xl border border-border/20 dark:border-border/40 bg-muted/20 dark:bg-background/40 p-4">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                          Token breakdown
-                        </div>
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                          {vestingBreakdown
-                            ? `${formatCompactNumberPrecise(
-                                vestingBreakdown.total
-                              )} GLW total`
-                            : `${formatCompactNumberPrecise(
-                                FDV_TOTAL_TOKENS_GLW
-                              )} GLW total`}
-                        </div>
-                      </div>
-
-                      {vestingBreakdown ? (
-                        (() => {
-                          const total = Math.max(1, vestingBreakdown.total);
-                          const rows = VESTING_CATEGORIES.map((c) => ({
-                            key: c.key,
-                            label: c.label,
-                            color: c.color,
-                            value: vestingBreakdown.categories[c.key],
-                          })).filter(
-                            (r) => Number.isFinite(r.value) && r.value > 0
-                          );
-
-                          const pct = (value: number) =>
-                            Math.max(0, (value / total) * 100);
-
-                          return (
-                            <div className="mt-4">
-                              <div className="h-2.5 rounded-full bg-muted/50 dark:bg-background/40 overflow-hidden flex">
-                                {rows.map((r) => (
-                                  <div
-                                    key={r.key}
-                                    className="h-full"
-                                    style={{
-                                      width: `${pct(r.value)}%`,
-                                      background: r.color,
-                                    }}
-                                  />
-                                ))}
-                              </div>
-
-                              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {rows.map((r) => (
-                                  <div
-                                    key={r.key}
-                                    className="flex items-center justify-between gap-3"
-                                  >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <span
-                                        className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
-                                        style={{ background: r.color }}
-                                      />
-                                      <span className="text-xs text-muted-foreground truncate">
-                                        {r.label}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-baseline gap-2 shrink-0">
-                                      <span className="text-xs font-mono tabular-nums text-foreground">
-                                        {formatCompactNumberPrecise(r.value)}{" "}
-                                        GLW
-                                      </span>
-                                      <span className="text-[10px] font-mono tabular-nums text-muted-foreground/70">
-                                        {pct(r.value).toFixed(1)}%
-                                      </span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })()
-                      ) : (
-                        <div className="mt-3 text-sm text-muted-foreground">
-                          Live breakdown unavailable.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
+          <TokenEmissionsSection
+            vestingCategorySeries={vestingCategorySeries}
+            vestingSeries={vestingSeries}
+            vestingBreakdown={vestingBreakdown}
+            fdvUsd={fdvUsd}
+            hasLivePrice={hasLivePrice}
+            priceDetail={priceDetail}
+          />
         </div>
       </section>
 
