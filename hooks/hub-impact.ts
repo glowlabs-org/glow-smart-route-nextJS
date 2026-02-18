@@ -225,6 +225,8 @@ export interface UseImpactScoreQueryArgs {
   enabled?: boolean;
   toastTitle?: string;
   includeWeekly?: boolean;
+  includeProjection?: boolean;
+  includeReferral?: boolean;
 }
 
 export function useImpactScoreQuery(args: UseImpactScoreQueryArgs) {
@@ -234,6 +236,8 @@ export function useImpactScoreQuery(args: UseImpactScoreQueryArgs) {
     enabled = true,
     toastTitle = "Failed to load Impact Score",
     includeWeekly = false,
+    includeProjection = true,
+    includeReferral = true,
   } = args;
 
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
@@ -242,6 +246,8 @@ export function useImpactScoreQuery(args: UseImpactScoreQueryArgs) {
     queryKey: [
       ...getImpactScoreQueryKey({ walletAddress, weekRange }),
       includeWeekly ? "weekly" : "no-weekly",
+      includeProjection ? "projection" : "no-projection",
+      includeReferral ? "referral" : "no-referral",
     ],
     enabled: Boolean(enabled && normalizedWalletAddress && weekRange),
     staleTime: 60_000,
@@ -257,6 +263,8 @@ export function useImpactScoreQuery(args: UseImpactScoreQueryArgs) {
             startWeek: weekRange.startWeek,
             endWeek: weekRange.endWeek,
             includeWeekly: includeWeekly ? "1" : "0",
+            includeProjection: includeProjection ? "1" : "0",
+            includeReferral: includeReferral ? "1" : "0",
           },
         });
       } catch (error) {
