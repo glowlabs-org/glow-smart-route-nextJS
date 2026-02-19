@@ -116,6 +116,13 @@ function formatMultiplier(value: number | undefined) {
   return value.toFixed(2);
 }
 
+const IMPACT_REGION_COLORS: Record<number, string> = {
+  1: "#ffb472", // glow orange
+  2: "#ccffd4", // glow green
+  3: "#2081e2", // miner blue
+  4: "#a855f7", // delegation purple
+};
+
 // --- Components ---
 
 interface RegionalLegendEntry {
@@ -424,11 +431,21 @@ export function ImpactScoreBreakdownDialogContent(
   const hasProjection = showCurrentWeekProjection && !!projection;
 
   // Multiplier States
+  const hasActedThisWeek = projection?.hasImpactActionThisWeek ?? true;
+  const streakFromPreviousWeek = projection?.streakAsOfPreviousWeek ?? 0;
+
   const hasMiner = hasProjection
-    ? !!projection?.hasMinerMultiplier
-    : !!latestWeek?.hasCashMinerBonus;
+    ? hasActedThisWeek
+      ? (projection?.hasMinerMultiplier ?? latestWeek?.hasCashMinerBonus ?? false)
+      : (latestWeek?.hasCashMinerBonus ?? projection?.hasMinerMultiplier ?? false)
+    : (latestWeek?.hasCashMinerBonus ?? false);
+
   const streakMultiplier = hasProjection
-    ? (projection?.streakBonusMultiplier ?? 0)
+    ? hasActedThisWeek
+      ? (projection?.streakBonusMultiplier ?? latestWeek?.streakBonusMultiplier ?? 0)
+      : streakFromPreviousWeek > 0
+        ? Math.min(streakFromPreviousWeek * 0.25, 1.0)
+        : 0
     : (latestWeek?.streakBonusMultiplier ?? 0);
   const hasStreak = streakMultiplier > 0;
 
@@ -625,14 +642,6 @@ export function ImpactScoreBreakdownDialogContent(
     return labels;
   }, [regions]);
 
-  // Glow brand colors for pie chart
-  const regionColors: Record<number, string> = {
-    1: "#ffb472", // glow orange
-    2: "#ccffd4", // glow green
-    3: "#2081e2", // miner blue
-    4: "#a855f7", // delegation purple
-  };
-
   const regionalChartData = useMemo(() => {
     if (!impactScore.regionBreakdown) return [];
     return impactScore.regionBreakdown
@@ -646,7 +655,7 @@ export function ImpactScoreBreakdownDialogContent(
           name: `region${r.regionId}`,
           label: regionLabels[r.regionId] || `Region ${r.regionId}`,
           value: total,
-          fill: regionColors[r.regionId] || "#6b7280",
+          fill: IMPACT_REGION_COLORS[r.regionId] || "#6b7280",
         };
       })
       .filter((d) => d.value > 0)

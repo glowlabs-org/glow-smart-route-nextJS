@@ -34,7 +34,6 @@ import {
 } from "@/components/ui/chart";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
-import { GlowSymbol } from "@/components/glow-symbol";
 import {
   useGctlApi,
   useActiveRegionsSummary,
@@ -109,6 +108,8 @@ const FDV_TOTAL_TOKENS_GLW = 180_000_000;
 const MINER_INFLATION_PER_WEEK_GLW = 175_000;
 const VETO_COUNCIL_INFLATION_PER_WEEK_GLW = 5_000;
 const MIN_LIFETIME_REVENUE_LQ = 2_000;
+const FARM_IMAGE_MODAL_WIDTH = 900;
+const FARM_IMAGE_MODAL_QUALITY = 85;
 const DEFINED_FI_GLOW_URL =
   "https://www.defined.fi/eth/0x6fa09ffc45f1ddc95c1bc192956717042f142c5d";
 
@@ -524,6 +525,18 @@ function pickSolarPanelsImageUrl(
     if (isSolarPanelsImageUrl(url)) return url;
   }
   return null;
+}
+
+function buildImageProxyUrl(url: string, width?: number, quality: number = 75) {
+  if (!url || url.startsWith("/images/") || url.startsWith("/")) {
+    return url;
+  }
+  const params = new URLSearchParams({
+    url,
+    ...(width ? { w: width.toString() } : {}),
+    q: quality.toString(),
+  });
+  return `/api/image-proxy?${params.toString()}`;
 }
 
 type WalletGrowthDatum = {
@@ -978,8 +991,9 @@ function FarmDetailsDialog({
                     {selectedFarm.imageUrl ? (
                       <FallbackImage
                         src={selectedFarm.imageUrl}
-                        widthForProxy={900}
-                        quality={85}
+                        widthForProxy={FARM_IMAGE_MODAL_WIDTH}
+                        quality={FARM_IMAGE_MODAL_QUALITY}
+                        loading="eager"
                         alt={selectedFarm.name}
                         className="w-full h-full object-cover"
                       />
@@ -1693,7 +1707,14 @@ const OverviewSection = React.memo(function OverviewSection({
               }
             }}
           >
-            <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-20 pointer-events-none -rotate-12" />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-24 opacity-25 dark:opacity-20"
+              style={{
+                background:
+                  "linear-gradient(to top, var(--color-glow-green) 0%, transparent 82%)",
+              }}
+            />
             <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                 Total Solar Installations
@@ -1725,7 +1746,14 @@ const OverviewSection = React.memo(function OverviewSection({
               }
             }}
           >
-            <GlowSymbol className="!text-[var(--color-glow-purple)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none rotate-6" />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-24 opacity-25 dark:opacity-20"
+              style={{
+                background:
+                  "linear-gradient(to top, var(--color-glow-purple) 0%, transparent 82%)",
+              }}
+            />
             <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                 Embedded Liquidity Growth (3 Months)
@@ -1759,7 +1787,14 @@ const OverviewSection = React.memo(function OverviewSection({
               }
             }}
           >
-            <GlowSymbol className="!text-[var(--color-glow-green)] absolute -top-6 -right-6 w-32 h-32 opacity-25 dark:opacity-15 pointer-events-none rotate-12" />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-24 opacity-25 dark:opacity-20"
+              style={{
+                background:
+                  "linear-gradient(to top, var(--color-glow-orange) 0%, transparent 82%)",
+              }}
+            />
             <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                 Annualized Circulating Supply Growth
@@ -1789,7 +1824,14 @@ const OverviewSection = React.memo(function OverviewSection({
               }
             }}
           >
-            <GlowSymbol className="!text-[var(--color-glow-orange)] absolute -top-5 -right-5 w-28 h-28 opacity-15 pointer-events-none -rotate-6" />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-24 opacity-25 dark:opacity-20"
+              style={{
+                background:
+                  "linear-gradient(to top, var(--color-miner) 0%, transparent 82%)",
+              }}
+            />
             <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
                 Embedded Liquidity Growth (MoM)
@@ -1958,6 +2000,7 @@ const SolarFarmEconomicsSection = React.memo(function SolarFarmEconomicsSection(
   farmRowsToRender,
   displayPrice,
   openFarmDialog,
+  prefetchFarmImage,
 }: {
   showAllFarms: boolean;
   farmSortKey: "latest" | "lifetime" | "credits";
@@ -1966,6 +2009,7 @@ const SolarFarmEconomicsSection = React.memo(function SolarFarmEconomicsSection(
   farmRowsToRender: FarmRow[];
   displayPrice: number;
   openFarmDialog: (farm: FarmRow) => void;
+  prefetchFarmImage: (farm: FarmRow) => void;
 }) {
   return (
     <section className="flex flex-col gap-6 pt-16">
@@ -2022,6 +2066,8 @@ const SolarFarmEconomicsSection = React.memo(function SolarFarmEconomicsSection(
               tabIndex={0}
               aria-label={`Open details for ${farm.name}`}
               onClick={() => openFarmDialog(farm)}
+              onMouseEnter={() => prefetchFarmImage(farm)}
+              onFocus={() => prefetchFarmImage(farm)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
@@ -4019,16 +4065,37 @@ export function PolDashboardView() {
     );
   }, [farmRowsAll, selectedFarmId]);
 
+  const prefetchedFarmImageUrlsRef = React.useRef<Set<string>>(new Set());
+
+  const prefetchFarmImage = React.useCallback((farm: FarmRow) => {
+    if (typeof window === "undefined") return;
+    const imageUrl = farm.imageUrl;
+    if (!imageUrl) return;
+
+    const proxyUrl = buildImageProxyUrl(
+      imageUrl,
+      FARM_IMAGE_MODAL_WIDTH,
+      FARM_IMAGE_MODAL_QUALITY
+    );
+    if (!proxyUrl || prefetchedFarmImageUrlsRef.current.has(proxyUrl)) return;
+
+    const image = new Image();
+    image.decoding = "async";
+    image.src = proxyUrl;
+    prefetchedFarmImageUrlsRef.current.add(proxyUrl);
+  }, []);
+
   const openFarmDialog = React.useCallback(
-    (farm: any) => {
+    (farm: FarmRow) => {
       if (!farm || farm.name === "—") return;
       const id = farm.farmId ?? farm.key ?? null;
       if (!id) return;
+      prefetchFarmImage(farm);
       setSelectedFarmId(String(id));
       resetModalBlog("farm");
       setIsFarmDialogOpen(true);
     },
-    [resetModalBlog]
+    [prefetchFarmImage, resetModalBlog]
   );
 
   const sortedFarmRows = React.useMemo(() => {
@@ -4592,6 +4659,7 @@ export function PolDashboardView() {
             farmRowsToRender={farmRowsToRender}
             displayPrice={displayPrice}
             openFarmDialog={openFarmDialog}
+            prefetchFarmImage={prefetchFarmImage}
           />
 
           <LiquidityGctlWalletsSection
