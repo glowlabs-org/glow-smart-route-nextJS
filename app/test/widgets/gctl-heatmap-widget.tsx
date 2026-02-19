@@ -165,7 +165,7 @@ export default function GctlControlWidget({
   const isFlow = variant === "flow";
   const isMinimal = variant === "minimal";
   const source = "gctl_heatmap_widget";
-  
+
   const handleMintAndStakeClick = () => {
     trackEvent("dashboard_gctl_mint_stake_open_click", {
       source,
@@ -335,10 +335,12 @@ export default function GctlControlWidget({
               className={cn("group", !readOnly && "cursor-pointer")}
               onClick={readOnly ? undefined : handleMintAndStakeClick}
             >
-              <div className={cn(
-                "flex items-center justify-center w-20 h-20 rounded-full bg-[#22D3EE]/10 transition-colors",
-                !readOnly && "group-hover:bg-[#22D3EE]/15",
-              )}>
+              <div
+                className={cn(
+                  "flex items-center justify-center w-20 h-20 rounded-full bg-[#22D3EE]/10 transition-colors",
+                  !readOnly && "group-hover:bg-[#22D3EE]/15"
+                )}
+              >
                 <SteeringIcon className="w-10 h-10 text-[#22D3EE]" />
               </div>
             </div>
@@ -349,7 +351,9 @@ export default function GctlControlWidget({
                 {readOnly ? "No GCTL Holdings" : "Direct Global Emissions"}
               </h3>
               <p className="text-sm text-muted-foreground max-w-[280px] mx-auto">
-                {readOnly ? "This wallet has no GCTL staked." : "Decide where solar gets built."}
+                {readOnly
+                  ? "This wallet has no GCTL staked."
+                  : "Decide where solar gets built."}
               </p>
             </div>
 
@@ -359,7 +363,8 @@ export default function GctlControlWidget({
                 <div className="bg-[#22D3EE]/10 rounded-xl px-4 py-2.5 flex items-center gap-2">
                   <Zap className="h-4 w-4 text-[#22D3EE]" />
                   <span className="text-xs font-medium text-[#22D3EE]">
-                    Earn <span className="font-semibold">3 Points</span> per GLW Steered
+                    Earn <span className="font-semibold">3 Points</span> per GLW
+                    Steered
                   </span>
                 </div>
 
@@ -425,7 +430,10 @@ export default function GctlControlWidget({
             </div>
             <div className="flex gap-2 text-[10px] text-muted-foreground/60">
               <span
-                className={cn(hasLiquidGctl && "text-[color:var(--color-glow-orange)] font-medium")}
+                className={cn(
+                  hasLiquidGctl &&
+                    "text-[color:var(--color-glow-orange)] font-medium"
+                )}
               >
                 {formatCompact(walletBalanceGctl)} Liquid
               </span>
@@ -480,18 +488,23 @@ export default function GctlControlWidget({
             <div
               className={cn(
                 "flex-1 flex flex-col items-center justify-center border border-dashed border-border/40 rounded-xl p-4 transition-all group",
-                !readOnly && "cursor-pointer hover:bg-muted/30 hover:border-border/60",
+                !readOnly &&
+                  "cursor-pointer hover:bg-muted/30 hover:border-border/60"
               )}
               onClick={readOnly ? undefined : handleMintAndStakeClick}
             >
-              <div className={cn(
-                "h-12 w-12 rounded-lg bg-muted/50 flex items-center justify-center mb-2 transition-colors",
-                !readOnly && "group-hover:bg-[#22D3EE]/10",
-              )}>
-                <SteeringIcon className={cn(
-                  "h-6 w-6 text-muted-foreground/40 transition-colors",
-                  !readOnly && "group-hover:text-[#22D3EE]",
-                )} />
+              <div
+                className={cn(
+                  "h-12 w-12 rounded-lg bg-muted/50 flex items-center justify-center mb-2 transition-colors",
+                  !readOnly && "group-hover:bg-[#22D3EE]/10"
+                )}
+              >
+                <SteeringIcon
+                  className={cn(
+                    "h-6 w-6 text-muted-foreground/40 transition-colors",
+                    !readOnly && "group-hover:text-[#22D3EE]"
+                  )}
+                />
               </div>
               <span className="text-xs font-medium text-muted-foreground">
                 No Active Steering
@@ -506,23 +519,27 @@ export default function GctlControlWidget({
         </div>
 
         {/* Warning if Liquid GCTL exists */}
-        {hasLiquidGctl && !readOnly && (
+        {!readOnly && (
           <div className="mt-auto pt-3 border-t border-border/20 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <div className="h-6 w-6 rounded-lg bg-[color:var(--color-glow-orange)]/10 flex items-center justify-center">
-                <AlertCircle className="h-3.5 w-3.5 text-[color:var(--color-glow-orange)]" />
+            {hasLiquidGctl && (
+              <div className="flex items-center gap-1.5">
+                <div className="h-6 w-6 rounded-lg bg-[color:var(--color-glow-orange)]/10 flex items-center justify-center">
+                  <AlertCircle className="h-3.5 w-3.5 text-[color:var(--color-glow-orange)]" />
+                </div>
+                <span className="text-[10px] font-medium text-[color:var(--color-glow-orange)] uppercase tracking-wide">
+                  Unused Influence
+                </span>
               </div>
-              <span className="text-[10px] font-medium text-[color:var(--color-glow-orange)] uppercase tracking-wide">
-                Unused Influence
-              </span>
-            </div>
+            )}
             <Button
               variant="ghost"
               size="sm"
               className="h-6 text-[10px] px-2"
               onClick={handleMintAndStakeClick}
             >
-              Stake {formatCompact(walletBalanceGctl)} GCTL
+              Stake{" "}
+              {walletBalanceGctl > 0 ? formatCompact(walletBalanceGctl) : ""}{" "}
+              GCTL
               <ArrowRight className="ml-1 h-3 w-3" />
             </Button>
           </div>
