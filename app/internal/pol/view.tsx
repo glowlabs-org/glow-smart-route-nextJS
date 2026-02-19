@@ -716,7 +716,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
   "circulating-supply-basics": {
     title: "GLW Circulating Supply",
     paragraphs: [
-      "Not all GLW is freely tradeable. The two largest non-circulating categories are embedded GLW and delegated GLW. Embedded GLW is permanently locked inside the Glow Endowment's liquidity position and can never re-enter circulation. Delegated GLW is committed to solar farm vaults for 100-week periods, making it unavailable for trading until earned back.",
+      "Not all GLW is freely tradeable. The two largest non-circulating categories are embedded GLW and delegated GLW. Embedded GLW is permanently locked inside the Glow Endowment's liquidity position and can only re-enter circulation if swapped for USDC. Delegated GLW is committed to solar farm vaults for 100-week periods, making it unavailable for trading until earned back.",
       "Beyond these two primary categories, the protocol also holds GLW across several contract wallets including the Grants Treasury, the Veto Council, the GCA and Miner Pool, and the Early Liquidity allocation. Circulating supply is the portion that remains after removing all of these balances, reflecting the tokens genuinely accessible to market participants at any given time.",
     ],
     learnMore: ["embedded-glw-supply", "delegating-tokens"],
