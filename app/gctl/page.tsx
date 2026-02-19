@@ -26,9 +26,9 @@ export default function GctlLandingPage() {
             </h1>
 
             <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8 leading-relaxed">
-              GCTL lets you decide where Glow builds solar farms. Stake GCTL
-              and support the regions you care about, and boost your Impact
-              Score by 3 points per GLW that you control.
+              GCTL lets you decide where Glow builds solar farms. Stake GCTL and
+              support the regions you care about, and boost your Impact Score by
+              3 points per GLW that you control.
             </p>
 
             {/* Benefits */}
@@ -54,7 +54,7 @@ export default function GctlLandingPage() {
                 <div>
                   <div className="text-sm font-medium">Fund solar globally</div>
                   <div className="text-xs text-muted-foreground">
-                    Choose regions: Utah, Colorado, Clean Grid Project, and more
+                    Choose regions: Utah, Colorado, Missouri, and more
                   </div>
                 </div>
               </div>

@@ -1920,7 +1920,7 @@ const OverviewSection = React.memo(function OverviewSection({
                     </PieChart>
                   </ChartContainer>
                 </div>
-                <div className="flex flex-col gap-3 text-xs">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
                   <div className="flex items-center gap-1.5">
                     <span
                       className="inline-block h-2 w-2 rounded-full shrink-0"
@@ -1931,16 +1931,16 @@ const OverviewSection = React.memo(function OverviewSection({
                   <div className="flex items-center gap-1.5">
                     <span
                       className="inline-block h-2 w-2 rounded-full shrink-0"
-                      style={{ background: "#a855f7" }}
+                      style={{ background: "#ffb472" }}
                     />
-                    <span className="text-muted-foreground">Vaulted</span>
+                    <span className="text-muted-foreground">Embedded GLW</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span
                       className="inline-block h-2 w-2 rounded-full shrink-0"
-                      style={{ background: "#ffb472" }}
+                      style={{ background: "#a855f7" }}
                     />
-                    <span className="text-muted-foreground">Embedded GLW</span>
+                    <span className="text-muted-foreground">Vaulted</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span
