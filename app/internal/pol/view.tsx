@@ -3145,7 +3145,9 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
       >
         <CardHeader className="pb-0">
           <div className="flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold">Token Emissions Over Time</div>
+            <div className="text-sm font-semibold">
+              Token Emissions Over Time
+            </div>
             <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
               Click to explore ↗
             </div>
@@ -3347,14 +3349,12 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
             <div className="grid gap-4">
               <MetricCard
                 label="FDV"
-                value={
-                  fdvUsd !== null ? formatUsdCompactPrecise(fdvUsd) : "—"
-                }
+                value={fdvUsd !== null ? formatUsdCompactPrecise(fdvUsd) : "—"}
                 helper={
                   fdvUsd !== null && hasLivePrice
                     ? `${formatCompactNumberPrecise(
                         FDV_TOTAL_TOKENS_GLW - (polGlwInPol ?? 0)
-                      )} GLW at $${priceDetail} (excl. embedded)`
+                      )} GLW at $${priceDetail}`
                     : "Live data unavailable"
                 }
               />
