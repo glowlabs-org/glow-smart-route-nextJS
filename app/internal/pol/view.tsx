@@ -636,7 +636,8 @@ type ModalBlogKey =
   | "walletStats"
   | "delegation"
   | "regions"
-  | "networkImpact";
+  | "networkImpact"
+  | "tokenEmissions";
 
 type ModalBlogState = {
   current: MiniBlogId;
@@ -682,7 +683,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       'Within the Glow ecosystem, the term "solar farm" refers to any solar installation of any size, ranging from 4kW residential rooftop systems to 16 MW utility-scale arrays. Each farm competes for GLW rewards based on its impact efficiency relative to all other farms in the same region.',
       "Farms are active on the Glow protocol for exactly 100 weeks. During this window, they earn GLW tokens, compete with farms in their region, and recover delegator protocol deposits based on performance. After 100 weeks, the farm stops receiving GLW rewards and its protocol deposit has been fully distributed, but the solar installation itself continues producing clean energy and generating verified impact for decades beyond the initial reward window.",
     ],
-    learnMore: ["farm-revenue-distribution", "100-weeks-of-rewards"],
+    learnMore: ["farm-revenue-distribution"],
   },
   "uniswap-vs-protocol-liquidity": {
     title: "Uniswap Liquidity vs Embedded Liquidity",
@@ -691,11 +692,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "This means that LPs face the strongest incentive to withdraw at exactly the moment liquidity matters most. If enough LPs withdraw simultaneously, the pool's available depth can shrink to a fraction of its prior level before other participants have had the opportunity to trade.",
       "Embedded liquidity solves this problem by removing the withdrawal option entirely. Because the Glow Endowment's liquidity position is permanent, it continues providing market depth through volatility, downturns, and panic selling. The liquidity is there precisely when it matters most, and it compounds through trading fees regardless of market conditions. This is why embedded liquidity provides a fundamentally stronger foundation than LP-supplied liquidity for long-term token stability.",
     ],
-    learnMore: [
-      "why-liquidity-instead-of-dollars",
-      "embedded-liquidity",
-      "durable-liquidity",
-    ],
+    learnMore: ["why-liquidity-instead-of-dollars", "embedded-liquidity"],
   },
   "glow-endowment": {
     title: "The Glow Endowment",
@@ -719,10 +716,10 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "Not all GLW is freely tradeable. The two largest non-circulating categories are embedded GLW and delegated GLW. Embedded GLW is permanently locked inside the Glow Endowment's liquidity position and can only re-enter circulation if swapped for USDC. Delegated GLW is committed to solar farm vaults for 100-week periods, making it unavailable for trading until earned back.",
       "Beyond these two primary categories, the protocol also holds GLW across several contract wallets including the Grants Treasury, the Veto Council, the GCA and Miner Pool, and the Early Liquidity allocation. Circulating supply is the portion that remains after removing all of these balances, reflecting the tokens genuinely accessible to market participants at any given time.",
     ],
-    learnMore: ["embedded-glw-supply", "delegating-tokens"],
+    learnMore: ["embedded-glw-supply", "superlinear-market-cap"],
   },
   "why-liquidity-instead-of-dollars": {
-    title: "Why Liquidity Instead of Dollars?",
+    title: "Why Liquidity not Dollars?",
     paragraphs: [
       "Liquidity monotonically increases for a given LP position. As the price moves, the LP's dollar amount and token counts shift, but their liquidity amount strictly stays the same or grows from accumulated trading fees. A position that started at 1,000 units of liquidity will never fall below 1,000 units of liquidity, regardless of what happens to the price.",
       "Dollar-denominated metrics fluctuate with price. If GLW doubles in value, the dollar value of GLW reserves in the pool doubles too, but the pool now holds fewer GLW tokens and more USDC due to rebalancing. The pool's actual capacity to absorb a large GLW sale has decreased, even though the dollar figure went up. Using liquidity instead of dollar-denominated price as the reference metric for token health tracks the compounding growth and stability of the Glow token ecosystem over time.",
@@ -775,7 +772,11 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "Each week, the Glow protocol mints 230,000 new GLW tokens and allocates them across three groups: 175,000 to active solar farms competing for mining rewards, 40,000 to the grants pool for ecosystem development, and 15,000 to the Glow Foundation for governance and operational expenses.",
       "This fixed weekly emission is the only source of new GLW. There is no variable or discretionary minting. The predictable schedule allows participants to model future supply with certainty and evaluate how delegation rewards, farm economics, and circulating supply will evolve over time.",
     ],
-    learnMore: ["glw-token-basics", "delegating-tokens"],
+    externalLink: {
+      url: "https://glow.org/blog/glow-tokenomics-overview",
+      label: "Glow Tokenomics Overview",
+    },
+    // learnMore: ["glw-token-basics"],
   },
   "delegating-tokens": {
     title: "Delegating GLW",
@@ -783,11 +784,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "To participate in Glow's solar mining incentives, solar farms must post a protocol deposit. Delegation allows GLW token holders to provide this deposit on behalf of a farm, committing their GLW for 100 weeks. In return, delegators earn two types of rewards: deposit recovery based on the farm's competitive performance, and a share of the farm's weekly GLW inflation rewards.",
       "The task of the delegator is to evaluate which farms offer attractive reward terms relative to their competitive standing, and commit GLW accordingly.",
     ],
-    learnMore: [
-      "glw-token-basics",
-      "solar-installations-basics",
-      "delegations-operational-risk",
-    ],
+    learnMore: ["delegations-operational-risk"],
   },
   "glw-token-value": {
     title: "GLW Token Value",
@@ -803,7 +800,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "Embedded liquidity is permanently committed to the GLW/USDC trading pool. Unlike standard liquidity provided by individuals who can withdraw at any time, embedded liquidity is a one-way commitment. Once it enters the pool, it cannot be removed. This guarantees that a baseline of market depth is always available for GLW holders to trade against, regardless of market conditions.",
       "Embedded liquidity grows as the protocol generates revenue from two sources. The first is revenue from people minting new Glow Control (GCTL), and the second is from collecting trading fees as people interact with the trading pool. Because the position is permanent, these fees accumulate indefinitely, and a larger position earns more fees, which in turn grows the position faster. The result is a self-reinforcing liquidity foundation that deepens over time.",
     ],
-    learnMore: ["liquidity-basics", "control-basics", "embedded-glw-supply"],
+    learnMore: ["liquidity-basics", "durable-liquidity"],
   },
   "minting-gctl": {
     title: "Minting GCTL",
@@ -811,7 +808,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "Anyone can mint new GCTL tokens using USDC. The price to mint one GCTL equals the square root of the current GLW token price, rounded to the nearest five cents. For example, if GLW is worth $9, one GCTL costs approximately $3 to mint. If GLW is worth $100, the mint price would be approximately $10.",
       "All funds used to mint GCTL become embedded liquidity, which provides permanent liquidity support for the GLW token. Each GCTL minted strengthens the GLW economy by deepening the embedded liquidity that underpins the token's market depth and price stability.",
     ],
-    learnMore: ["embedded-liquidity", "embedded-glw-supply", "glw-token-value"],
+    learnMore: ["embedded-liquidity"],
   },
   "embedded-glw-supply": {
     title: "Embedded GLW Supply",
@@ -819,7 +816,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "The GLW inside the Glow Endowment's liquidity position is permanently committed and cannot be withdrawn or traded independently. This portion of the total GLW supply is effectively removed from circulation, reducing the number of tokens available on the open market.",
       "Because the Endowment is a Uniswap LP position, its GLW balance changes with price. When the GLW price falls, the pool's automated rebalancing uses USDC reserves to buy GLW, increasing the amount of GLW held inside the position and further reducing circulating supply. When the price rises, the pool sells GLW for USDC, releasing some back toward the market. The result is a supply that naturally tightens during downturns and loosens during upswings, providing a stabilizing force on the token economy.",
     ],
-    learnMore: ["superlinear-market-cap", "embedded-liquidity"],
+    learnMore: ["embedded-liquidity"],
   },
   "constant-product-rule": {
     title: "The Constant Product Rule",
@@ -827,6 +824,10 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "The constant product rule is the mathematical foundation behind automated market makers like Uniswap. It states that the product of the two token reserves in a pool must remain constant: x * y = k, where x is the quantity of one token, y is the quantity of the other, and k is a constant that only grows from accumulated fees.",
       "When someone buys GLW from the pool, they add USDC and remove GLW. The USDC reserve increases, the GLW reserve decreases, but x * y still equals k. This constraint is what forces the price to move: as GLW becomes scarcer in the pool, each additional unit costs more. The rule guarantees that the pool can always quote a price and always has liquidity available, no matter how large or small the trade.",
     ],
+    externalLink: {
+      url: "https://glow.org/blog/providing-liquidity-for-profit",
+      label: "Providing Liquidity for Profit",
+    },
   },
   "superlinear-market-cap": {
     title: "Superlinear Market Cap",
@@ -834,7 +835,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "In traditional markets, market cap scales linearly with price: double the price, double the market cap. In a system with embedded liquidity, the relationship becomes superlinear. As the GLW price rises, the Endowment's USDC reserves grow from rebalancing, and its fee income increases from higher trading volume. Both effects compound the Endowment's depth faster than price alone would suggest.",
       "This superlinear dynamic means that embedded liquidity provides disproportionately stronger support at higher valuations. The protocol's liquidity foundation doesn't just keep pace with growth, it accelerates ahead of it, creating a widening moat of market depth that makes the token increasingly resilient as it scales.",
     ],
-    learnMore: ["market-cap-exitable", "embedded-glw-supply", "glw-token-value"],
+    learnMore: ["market-cap-exitable", "glw-token-value"],
   },
   "100-weeks-of-rewards": {
     title: "100 Weeks of Rewards",
@@ -850,7 +851,6 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "Total effective liquidity in any token economy has two components: withdrawable liquidity and embedded liquidity. Withdrawable liquidity is capital provided by external LPs who are there to earn yield. It is mobile and mercenary: when conditions change, these LPs withdraw. Embedded liquidity is capital that exists because the protocol itself generated it. It is permanent and cannot be removed.",
       "Because withdrawable liquidity is unreliable under stress, it should be discounted by a stability factor when assessing how much liquidity a protocol can actually depend on. In most DeFi systems, only a fraction of LP capital is truly sticky. Glow's design targets a steady state where embedded liquidity vastly exceeds withdrawable liquidity, meaning the protocol's market depth is generated by real economic activity rather than rented through emissions.",
     ],
-    learnMore: ["embedded-liquidity", "uniswap-vs-protocol-liquidity"],
   },
   "market-cap-exitable": {
     title: "Market Cap Exitable",
@@ -870,7 +870,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "Delegators are protected from operational risk when backing solar farms on the Glow protocol. Rewards are calculated based on a farm's audited performance capabilities rather than its actual energy output, so weather events, equipment downtime, or seasonal variation do not reduce delegator returns.",
       "This design separates the financial risk of delegation from the physical risk of solar operation. Delegators evaluate farms based on their competitive standing, reward terms, and verified capabilities. The farm operator bears the operational risk of maintaining equipment and maximizing output, while the delegator's returns are tied to the farm's protocol-level metrics.",
     ],
-    learnMore: ["delegating-tokens"],
+
     externalLink: {
       url: "https://glow.org/blog/rewards-with-great-expectations",
       label: "Rewards with Great Expectations",
@@ -882,6 +882,7 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "Fully diluted valuation (FDV) estimates the total value of all GLW tokens that will ever exist, priced at today's market rate. The Glow protocol mints 230,000 GLW per week over a defined emission schedule, and FDV projects the value of the complete final supply at the current token price.",
       "Importantly, not all GLW counts toward the effective FDV. GLW that is permanently embedded inside the Endowment's liquidity position is excluded because it can never re-enter circulation. GLW that is actively delegated to solar farm vaults is also excluded because it is locked for the duration of the farm's 100-week lifecycle. The result is an FDV figure that reflects only the tokens that will eventually be available to market participants.",
     ],
+    learnMore: ["embedded-glw-supply"],
   },
   "glw-miners": {
     title: "GLW Miners",
@@ -951,6 +952,7 @@ const INITIAL_MODAL_BLOGS: Record<ModalBlogKey, MiniBlogId> = {
   delegation: "delegation-metrics-basics",
   regions: "region-revenue-basics",
   networkImpact: "network-impact-basics",
+  tokenEmissions: "token-fdv",
 };
 
 const GROWTH_CARD_BLOG: Record<GrowthCardKey, MiniBlogId> = {
@@ -1308,7 +1310,7 @@ function MiniBlogPanel({
             </div>
           )}
           <div className="flex flex-wrap gap-2">
-            {blog.externalLink && (
+            {blog.externalLink ? (
               <a
                 href={blog.externalLink.url}
                 target="_blank"
@@ -1333,31 +1335,32 @@ function MiniBlogPanel({
                   />
                 </svg>
               </a>
-            )}
-            <a
-              href="https://glow.org/blog"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3.5 py-2.5 text-xs font-mono uppercase tracking-wider text-foreground/80 hover:bg-foreground hover:text-background transition-colors leading-snug"
-            >
-              Read the full blog
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="shrink-0"
+            ) : (
+              <a
+                href="https://glow.org/blog"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3.5 py-2.5 text-xs font-mono uppercase tracking-wider text-foreground/80 hover:bg-foreground hover:text-background transition-colors leading-snug"
               >
-                <path
-                  d="M3.5 2H10V8.5M10 2L2 10"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </a>
+                Read the full blog
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="shrink-0"
+                >
+                  <path
+                    d="M3.5 2H10V8.5M10 2L2 10"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </a>
+            )}
           </div>
         </div>
       )}
@@ -2404,7 +2407,7 @@ const LiquidityGctlWalletsSection = React.memo(
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-5 h-full">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-6">
                 <MetricCard
                   label="Embedded Liquidity"
                   value={
@@ -2417,7 +2420,7 @@ const LiquidityGctlWalletsSection = React.memo(
                       ? `(${totalPolBreakdown.breakdown})`
                       : "Live data unavailable"
                   }
-                  valueClassName="text-3xl sm:text-4xl"
+                  valueClassName="text-2xl sm:text-4xl"
                 />
                 <MetricCard
                   label="APY"
@@ -2425,7 +2428,7 @@ const LiquidityGctlWalletsSection = React.memo(
                   helper={
                     ninetyDayApy !== null ? undefined : "Live data unavailable"
                   }
-                  valueClassName="text-3xl sm:text-4xl"
+                  valueClassName="text-2xl sm:text-4xl"
                 />
               </div>
               <div className="grid grid-cols-1 gap-3">
@@ -2498,7 +2501,7 @@ const LiquidityGctlWalletsSection = React.memo(
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-6">
                 <MetricCard
                   label="Total GCTL"
                   value={
@@ -2506,14 +2509,14 @@ const LiquidityGctlWalletsSection = React.memo(
                       ? "..."
                       : formatCompactNumberPrecise(gctlTotalSupply)
                   }
-                  valueClassName="text-3xl sm:text-4xl"
+                  valueClassName="text-2xl sm:text-4xl"
                 />
                 <MetricCard
                   label="Mint Price"
                   value={
                     isGctlLoading ? "..." : `$${gctlPriceNumber.toFixed(2)}`
                   }
-                  valueClassName="text-3xl sm:text-4xl"
+                  valueClassName="text-2xl sm:text-4xl"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -3106,6 +3109,8 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
   fdvUsd,
   hasLivePrice,
   priceDetail,
+  polGlwInPol,
+  onOpenFdvDialog,
 }: {
   vestingCategorySeries: any[] | null;
   vestingSeries: Array<{ year: string; unlocked: number }>;
@@ -3116,13 +3121,35 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
   fdvUsd: number | null;
   hasLivePrice: boolean;
   priceDetail: string;
+  polGlwInPol: number | null;
+  onOpenFdvDialog: () => void;
 }) {
   return (
     <section className="flex flex-col gap-6 pt-16">
       <SectionHeader title="Token Emissions Over Time" />
-      <Card className="!gap-6">
+      <Card
+        className={cn(
+          "!gap-6 transition-colors cursor-pointer hover:border-border/60 dark:hover:border-border/80",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        )}
+        role="button"
+        tabIndex={0}
+        aria-label="Open token FDV notes"
+        onClick={onOpenFdvDialog}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpenFdvDialog();
+          }
+        }}
+      >
         <CardHeader className="pb-0">
-          <div className="text-sm font-semibold">Token Emissions Over Time</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm font-semibold">Token Emissions Over Time</div>
+            <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+              Click to explore ↗
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="grid gap-8 xl:grid-cols-12">
           <div className="xl:col-span-7">
@@ -3320,12 +3347,14 @@ const TokenEmissionsSection = React.memo(function TokenEmissionsSection({
             <div className="grid gap-4">
               <MetricCard
                 label="FDV"
-                value={fdvUsd !== null ? formatUsdCompactPrecise(fdvUsd) : "—"}
+                value={
+                  fdvUsd !== null ? formatUsdCompactPrecise(fdvUsd) : "—"
+                }
                 helper={
                   fdvUsd !== null && hasLivePrice
                     ? `${formatCompactNumberPrecise(
-                        FDV_TOTAL_TOKENS_GLW
-                      )} GLW at $${priceDetail}`
+                        FDV_TOTAL_TOKENS_GLW - (polGlwInPol ?? 0)
+                      )} GLW at $${priceDetail} (excl. embedded)`
                     : "Live data unavailable"
                 }
               />
@@ -3436,6 +3465,8 @@ export function PolDashboardView() {
   const [isRegionsDialogOpen, setIsRegionsDialogOpen] = React.useState(false);
   const [isNetworkImpactDialogOpen, setIsNetworkImpactDialogOpen] =
     React.useState(false);
+  const [isTokenEmissionsDialogOpen, setIsTokenEmissionsDialogOpen] =
+    React.useState(false);
   const [selectedFarmId, setSelectedFarmId] = React.useState<string | null>(
     null
   );
@@ -3460,6 +3491,10 @@ export function PolDashboardView() {
     delegation: { current: INITIAL_MODAL_BLOGS.delegation, history: [] },
     regions: { current: INITIAL_MODAL_BLOGS.regions, history: [] },
     networkImpact: { current: INITIAL_MODAL_BLOGS.networkImpact, history: [] },
+    tokenEmissions: {
+      current: INITIAL_MODAL_BLOGS.tokenEmissions,
+      history: [],
+    },
   }));
 
   const navigateModalBlog = React.useCallback(
@@ -4618,8 +4653,9 @@ export function PolDashboardView() {
 
   const fdvUsd = React.useMemo(() => {
     if (!hasLivePrice) return null;
-    return FDV_TOTAL_TOKENS_GLW * currentPrice;
-  }, [hasLivePrice, currentPrice]);
+    const effectiveSupply = FDV_TOTAL_TOKENS_GLW - (polGlwInPol ?? 0);
+    return effectiveSupply * currentPrice;
+  }, [hasLivePrice, currentPrice, polGlwInPol]);
 
   const polLiquidityTrend = React.useMemo(() => {
     const series = polLiquiditySeries?.series;
@@ -4931,6 +4967,11 @@ export function PolDashboardView() {
             fdvUsd={fdvUsd}
             hasLivePrice={hasLivePrice}
             priceDetail={priceDetail}
+            polGlwInPol={polGlwInPol}
+            onOpenFdvDialog={() => {
+              resetModalBlog("tokenEmissions");
+              setIsTokenEmissionsDialogOpen(true);
+            }}
           />
         </div>
       </section>
@@ -4942,7 +4983,7 @@ export function PolDashboardView() {
           if (!open) resetModalBlog("supply");
         }}
       >
-        <DialogContent className="sm:max-w-[920px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
+        <DialogContent className="sm:max-w-[920px] p-0 pt-4 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Explore Supply Model</DialogTitle>
             <DialogDescription>
@@ -5243,7 +5284,7 @@ export function PolDashboardView() {
         <DialogContent className="sm:max-w-[920px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40 shadow-none">
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
-              The Four Cards
+              Core Metrics
             </DialogTitle>
             <DialogDescription className="sr-only">
               Growth card details and mini-blog.
@@ -5939,6 +5980,50 @@ export function PolDashboardView() {
               onBack={() => goBackModalBlog("networkImpact")}
               canGoBack={modalBlogs.networkImpact.history.length > 0}
               parentBlogId={modalBlogs.networkImpact.history.at(-1)}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isTokenEmissionsDialogOpen}
+        onOpenChange={(open) => {
+          setIsTokenEmissionsDialogOpen(open);
+          if (!open) resetModalBlog("tokenEmissions");
+        }}
+      >
+        <DialogContent className="sm:max-w-[760px] p-0 gap-0 overflow-y-auto max-h-[90vh] rounded-[24px] bg-card border border-border/40">
+          <div className="border-b border-border/20 dark:border-border/40 pb-6 pt-8 px-6">
+            <div className="flex flex-col items-center text-center space-y-2">
+              <DialogHeader className="p-0">
+                <DialogTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80">
+                  Fully Diluted Valuation
+                </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Token FDV excluding embedded liquidity GLW.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="text-6xl font-mono font-semibold text-foreground tracking-tighter">
+                {fdvUsd !== null ? formatUsdCompactPrecise(fdvUsd) : "—"}
+              </div>
+              <div className="text-[10px] font-mono text-muted-foreground/50 dark:text-muted-foreground/70 uppercase tracking-wider mt-2">
+                {fdvUsd !== null && hasLivePrice
+                  ? `${formatCompactNumberPrecise(
+                      FDV_TOTAL_TOKENS_GLW - (polGlwInPol ?? 0)
+                    )} GLW at $${priceDetail}`
+                  : "Live data unavailable"}
+              </div>
+            </div>
+          </div>
+          <div className="p-6">
+            <MiniBlogPanel
+              blogId={modalBlogs.tokenEmissions.current}
+              onSelectBlog={(blogId) =>
+                navigateModalBlog("tokenEmissions", blogId)
+              }
+              onBack={() => goBackModalBlog("tokenEmissions")}
+              canGoBack={modalBlogs.tokenEmissions.history.length > 0}
+              parentBlogId={modalBlogs.tokenEmissions.history.at(-1)}
             />
           </div>
         </DialogContent>

@@ -110,16 +110,19 @@ function computeKnowledgeGraphLayout({
   const centerX = width / 2;
   const centerY = height / 2;
 
-  const clusterSeeds: Record<MiniBlogGraphCluster, { ax: number; ay: number }> = {
-    core: { ax: -0.5, ay: -0.34 },
-    liquidity: { ax: 0.5, ay: -0.32 },
-    governance: { ax: -0.52, ay: 0.44 },
-    solar: { ax: 0.46, ay: 0.44 },
-    network: { ax: 0.02, ay: -0.62 },
-  };
+  const clusterSeeds: Record<MiniBlogGraphCluster, { ax: number; ay: number }> =
+    {
+      core: { ax: -0.5, ay: -0.34 },
+      liquidity: { ax: 0.5, ay: -0.32 },
+      governance: { ax: -0.52, ay: 0.44 },
+      solar: { ax: 0.46, ay: 0.44 },
+      network: { ax: 0.02, ay: -0.62 },
+    };
 
-  const nodes: Record<string, { x: number; y: number; vx: number; vy: number }> =
-    {};
+  const nodes: Record<
+    string,
+    { x: number; y: number; vx: number; vy: number }
+  > = {};
 
   for (const id of nodeIds) {
     const cluster = clusters[id] ?? "core";
@@ -167,7 +170,10 @@ function computeKnowledgeGraphLayout({
       nodeB.vy -= dy * spring;
     }
 
-    const clusterCenters: Record<MiniBlogGraphCluster, { x: number; y: number }> = {
+    const clusterCenters: Record<
+      MiniBlogGraphCluster,
+      { x: number; y: number }
+    > = {
       core: { x: 0, y: 0 },
       liquidity: { x: 0, y: 0 },
       governance: { x: 0, y: 0 },
@@ -189,7 +195,9 @@ function computeKnowledgeGraphLayout({
       clusterCount[cluster] += 1;
     }
 
-    for (const cluster of Object.keys(clusterCenters) as MiniBlogGraphCluster[]) {
+    for (const cluster of Object.keys(
+      clusterCenters
+    ) as MiniBlogGraphCluster[]) {
       const count = clusterCount[cluster] || 1;
       clusterCenters[cluster].x /= count;
       clusterCenters[cluster].y /= count;
@@ -314,7 +322,8 @@ function MiniBlogGraphReadingPanel({
                 {relatedTopics
                   .filter((relatedId) => miniBlogs[relatedId])
                   .map((relatedId) => {
-                    const relatedCluster = miniBlogClusters[relatedId] ?? "core";
+                    const relatedCluster =
+                      miniBlogClusters[relatedId] ?? "core";
                     return (
                       <button
                         key={`${blogId}-graph-related-${relatedId}`}
@@ -502,21 +511,21 @@ function MiniBlogGraph({
               </div>
             </div>
             <div className="hidden lg:flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
-              {(Object.keys(GRAPH_CLUSTER_LABELS) as MiniBlogGraphCluster[]).map(
-                (cluster) => (
-                  <div key={cluster} className="flex items-center gap-1.5">
-                    <span
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{
-                        backgroundColor: GRAPH_CLUSTER_COLORS[cluster].fill,
-                      }}
-                    />
-                    <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                      {GRAPH_CLUSTER_LABELS[cluster]}
-                    </span>
-                  </div>
-                )
-              )}
+              {(
+                Object.keys(GRAPH_CLUSTER_LABELS) as MiniBlogGraphCluster[]
+              ).map((cluster) => (
+                <div key={cluster} className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-2 w-2 rounded-full"
+                    style={{
+                      backgroundColor: GRAPH_CLUSTER_COLORS[cluster].fill,
+                    }}
+                  />
+                  <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                    {GRAPH_CLUSTER_LABELS[cluster]}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -553,7 +562,8 @@ function MiniBlogGraph({
                 if (!point) return null;
 
                 const clusterColors = GRAPH_CLUSTER_COLORS[node.cluster];
-                const baseRadius = 7 + Math.min(graphConnectionCount[node.id], 5) * 1.4;
+                const baseRadius =
+                  7 + Math.min(graphConnectionCount[node.id], 5) * 1.4;
                 const isSelected = selected === node.id;
                 const isHovered = hovered === node.id;
                 const isConnected = connectedNodes.has(node.id);
@@ -581,9 +591,17 @@ function MiniBlogGraph({
                     <circle
                       cx={point.x}
                       cy={point.y}
-                      r={isActive || isCurrent ? baseRadius + 7 : baseRadius + 4}
-                      fill={isActive || isCurrent ? clusterColors.bg : "transparent"}
-                      stroke={isActive || isCurrent ? clusterColors.ring : "transparent"}
+                      r={
+                        isActive || isCurrent ? baseRadius + 7 : baseRadius + 4
+                      }
+                      fill={
+                        isActive || isCurrent ? clusterColors.bg : "transparent"
+                      }
+                      stroke={
+                        isActive || isCurrent
+                          ? clusterColors.ring
+                          : "transparent"
+                      }
                       strokeWidth={1}
                       className="transition-all duration-200"
                     />
@@ -592,10 +610,16 @@ function MiniBlogGraph({
                       cx={point.x}
                       cy={point.y}
                       r={baseRadius}
-                      fill={isCurrent ? "var(--color-glow-orange)" : clusterColors.fill}
+                      fill={
+                        isCurrent
+                          ? "var(--color-glow-orange)"
+                          : clusterColors.fill
+                      }
                       stroke={clusterColors.ring}
                       strokeWidth={isActive || isCurrent ? 1.5 : 0.7}
-                      opacity={isDimmed ? 0.22 : isActive || isCurrent ? 1 : 0.56}
+                      opacity={
+                        isDimmed ? 0.22 : isActive || isCurrent ? 1 : 0.56
+                      }
                       className="transition-all duration-200"
                     />
 
@@ -603,8 +627,12 @@ function MiniBlogGraph({
                       cx={point.x}
                       cy={point.y}
                       r={isActive || isCurrent ? 2.6 : 2}
-                      fill={isActive || isCurrent ? "#ffffff" : clusterColors.fill}
-                      opacity={isDimmed ? 0.2 : isActive || isCurrent ? 0.95 : 0.72}
+                      fill={
+                        isActive || isCurrent ? "#ffffff" : clusterColors.fill
+                      }
+                      opacity={
+                        isDimmed ? 0.2 : isActive || isCurrent ? 0.95 : 0.72
+                      }
                       className="transition-all duration-200"
                     />
 
@@ -614,9 +642,13 @@ function MiniBlogGraph({
                       textAnchor="middle"
                       fill="currentColor"
                       className="text-[8px] font-mono uppercase tracking-wider select-none pointer-events-none text-foreground transition-opacity duration-300"
-                      opacity={isDimmed ? 0.24 : isActive || isCurrent ? 0.86 : 0.58}
+                      opacity={
+                        isDimmed ? 0.24 : isActive || isCurrent ? 0.86 : 0.58
+                      }
                     >
-                      {node.label.length > 26 ? `${node.label.slice(0, 24)}...` : node.label}
+                      {node.label.length > 26
+                        ? `${node.label.slice(0, 24)}...`
+                        : node.label}
                     </text>
                   </g>
                 );
@@ -658,13 +690,9 @@ export function MiniBlogGraphButton({
 
   return (
     <>
-      <button
-        type="button"
-        className="w-full rounded-xl border border-border/40 bg-muted/30 hover:bg-foreground hover:text-background dark:bg-primary dark:text-primary-foreground dark:border-primary dark:hover:bg-primary/90 px-4 py-3 text-xs font-mono uppercase tracking-wider text-foreground/70 transition-colors"
-        onClick={() => setOpen(true)}
-      >
+      <Button type="button" className="w-full" onClick={() => setOpen(true)}>
         View all topics
-      </button>
+      </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[1540px] sm:max-w-[1540px] w-[99vw] h-[88vh] max-h-[920px] flex flex-col p-0 gap-0 overflow-hidden bg-card border border-border/20">
           <DialogHeader className="p-5 pb-0">
