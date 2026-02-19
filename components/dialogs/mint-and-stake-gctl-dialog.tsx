@@ -45,11 +45,7 @@ import { Input } from "../ui/input";
 import { Slider } from "../ui/slider";
 import { Checkbox } from "../ui/checkbox";
 import { Label } from "../ui/label";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "../ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import {
   Select,
   SelectContent,
@@ -109,8 +105,8 @@ function isValidDecimalInput(value: string) {
 
 function trimToDecimals(value: string, decimals: number) {
   if (!value) return "";
+  if (!value.includes(".")) return value;
   const [i, f = ""] = value.split(".");
-  if (!f) return i;
   return `${i}.${f.slice(0, Math.max(0, decimals))}`;
 }
 
@@ -644,7 +640,10 @@ export function MintAndStakeGctlDialog({
     if (estimatedGctl <= 0) return false;
     if (stakeCapRemainingGctl == null) return false;
     const epsilon = 0.000001;
-    return stakeCapRemainingGctl <= 0 || estimatedGctl > stakeCapRemainingGctl + epsilon;
+    return (
+      stakeCapRemainingGctl <= 0 ||
+      estimatedGctl > stakeCapRemainingGctl + epsilon
+    );
   }, [estimatedGctl, stakeCap?.capApplied, stakeCapRemainingGctl]);
 
   const steeringScoreBefore = React.useMemo(() => {
@@ -1319,9 +1318,7 @@ export function MintAndStakeGctlDialog({
         normalizedContact = `@${urlMatch[1]}`;
       } else if (telegramHandleRegex.test(trimmed)) {
         contactType = "telegram";
-        normalizedContact = trimmed.startsWith("@")
-          ? trimmed
-          : `@${trimmed}`;
+        normalizedContact = trimmed.startsWith("@") ? trimmed : `@${trimmed}`;
       }
     }
 
@@ -1823,7 +1820,7 @@ export function MintAndStakeGctlDialog({
                   </div>
 
                   <div className="pt-1">
-                    <div className="p-3 bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 rounded-lg">
+                    <div className="p-3 bg-card border border-border/20 dark:border-border/40 rounded-lg">
                       <div className="text-[10px] font-medium text-[color:var(--color-glow-orange)] flex items-center gap-1.5 uppercase tracking-wider">
                         Off-chain Asset
                       </div>
@@ -1907,6 +1904,13 @@ export function MintAndStakeGctlDialog({
                     const shareLabel = Number.isFinite(share)
                       ? `${formatPercent1(share)}%`
                       : "—";
+                    const glwPerWeek = Number((r as any).glwPerWeek);
+                    const glwLabel =
+                      Number.isFinite(glwPerWeek) && glwPerWeek > 0
+                        ? `${formatCompact(glwPerWeek, { maximumFractionDigits: 1 })} GLW/wk`
+                        : null;
+                    const isCgp =
+                      r.name?.toLowerCase().includes("clean grid");
 
                     return (
                       <button
@@ -1916,22 +1920,36 @@ export function MintAndStakeGctlDialog({
                         className={cn(
                           "relative w-full rounded-xl border px-4 py-3.5 text-left transition-all",
                           isSelected
-                            ? "border-border/40 bg-muted/50 dark:bg-muted/60"
+                            ? "border-[#22D3EE]/50 bg-muted/50 dark:bg-muted/60 ring-1 ring-[#22D3EE]/30"
                             : "border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 hover:bg-muted/40 dark:hover:bg-muted/60 hover:border-border/30"
                         )}
                       >
                         <div className="flex items-center justify-between">
-                          <div>
-                            <div className="text-sm font-medium">{r.name}</div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium flex items-center gap-1.5">
+                              {r.name}
+                              {isCgp && (
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-[color:var(--color-glow-orange)]">
+                                  Legacy
+                                </span>
+                              )}
+                            </div>
                             <div className="text-xs text-muted-foreground mt-0.5">
                               Current Share: {shareLabel}
                             </div>
                           </div>
-                          {isSelected && (
-                            <div className="h-4 w-4 rounded-full bg-[#22D3EE]/20 flex items-center justify-center">
-                              <div className="h-2 w-2 rounded-full bg-[#22D3EE]" />
-                            </div>
-                          )}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {glwLabel && (
+                              <div className="text-xs font-medium text-muted-foreground tabular-nums">
+                                {glwLabel}
+                              </div>
+                            )}
+                            {isSelected && (
+                              <div className="h-4 w-4 rounded-full bg-[#22D3EE]/20 flex items-center justify-center">
+                                <div className="h-2 w-2 rounded-full bg-[#22D3EE]" />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </button>
                     );
@@ -2338,7 +2356,9 @@ export function MintAndStakeGctlDialog({
                             </div>
                             <ul className="space-y-1.5 text-xs text-muted-foreground">
                               <li className="flex items-start gap-2">
-                                <span className="text-muted-foreground/60 mt-px">•</span>
+                                <span className="text-muted-foreground/60 mt-px">
+                                  •
+                                </span>
                                 <span>
                                   GCTL{" "}
                                   <span className="font-medium text-foreground">
@@ -2348,7 +2368,9 @@ export function MintAndStakeGctlDialog({
                                 </span>
                               </li>
                               <li className="flex items-start gap-2">
-                                <span className="text-muted-foreground/60 mt-px">•</span>
+                                <span className="text-muted-foreground/60 mt-px">
+                                  •
+                                </span>
                                 <span>
                                   Unstaking takes{" "}
                                   <span className="font-medium text-foreground">
