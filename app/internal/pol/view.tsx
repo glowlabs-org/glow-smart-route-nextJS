@@ -600,16 +600,28 @@ type MiniBlogId =
   | "delegation-metrics-basics"
   | "region-revenue-basics"
   | "network-impact-basics"
-  | "inflation-schedule"
+  | "emissions-schedule"
   | "delegating-tokens"
   | "glw-token-value"
   | "embedded-liquidity"
-  | "minting-gctl";
+  | "minting-gctl"
+  | "embedded-glw-supply"
+  | "constant-product-rule"
+  | "superlinear-market-cap"
+  | "100-weeks-of-rewards"
+  | "durable-liquidity"
+  | "market-cap-exitable"
+  | "endowment-bot"
+  | "delegations-operational-risk"
+  | "token-fdv"
+  | "glw-miners"
+  | "gctl-staking";
 
 type MiniBlogEntry = {
   title: string;
   paragraphs: string[];
   learnMore?: MiniBlogId[];
+  externalLink?: { url: string; label: string };
 };
 
 type MiniBlogCluster = MiniBlogGraphCluster;
@@ -646,14 +658,15 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "GLW is the native token of the Glow protocol. Each week, the protocol mints GLW and distributes it across three economic stakeholder groups: active solar farms competing for mining rewards, the grants pool, and the Glow Foundation for operational expenses.",
       "Solar farms earn GLW by producing verified clean energy and competing on impact per dollar of electricity revenue earned. GLW token holders can share in these rewards by delegating their GLW to the solar farms, which helps the solar farms to meet the financial requirements of the protocol.",
     ],
-    learnMore: ["inflation-schedule", "delegating-tokens", "glw-token-value"],
+    learnMore: ["emissions-schedule", "delegating-tokens", "glw-token-value"],
   },
   "liquidity-basics": {
     title: "Liquidity Fundamentals",
     paragraphs: [
-      "A liquidity pool holds reserves of two tokens and enables swapping between them. The pool guarantees that there will be a buyer when someone wants to sell and that there will be a seller when someone wants to buy. In exchange for this service, the pool collects a fee on each swap.",
-      "The pool always maintains a balanced value of both tokens. This means that if the GLW price falls, the pool will buy GLW, and if the GLW price increases, the pool will sell GLW. Regardless of price movements, this mechanism ensures that the pool will always have the same amount or more of tokens at the same price. The underlying rule is a constant-product formula: x * y = k, where x is the quantity of one token, y is the quantity of the other, and k is a constant. When someone swaps tokens, they increase one reserve and decrease the other, but the product of the two reserves remains constant.",
+      "A liquidity pool is best understood as an automatically rebalancing portfolio that holds two assets, in this case GLW and USDC. The pool guarantees that there will be a buyer when someone wants to sell and a seller when someone wants to buy. In exchange for this service, the pool collects a fee on each swap.",
+      "The portfolio continuously rebalances to maintain a target ratio between its two assets. If the GLW price falls, the portfolio now holds more USDC value than GLW value, so it uses some of its USDC to buy GLW, restoring the balance. If the GLW price rises, it sells some GLW for USDC. This automatic rebalancing means the pool always has depth on both sides of the market, and it earns fees on every trade that passes through it.",
     ],
+    learnMore: ["constant-product-rule"],
   },
   "control-basics": {
     title: "Glow Control",
@@ -666,55 +679,47 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
   "solar-installations-basics": {
     title: "Total Solar Installations",
     paragraphs: [
-      'On Glow, the term "solar farm" refers to any solar installation of any size, ranging from 4kW residential rooftop systems to 16 MW utility-scale arrays. Each farm competes for GLW rewards based on its impact efficiency relative to all other participating farms.',
-      "Farms are active on the Glow protocol for exactly 100 weeks. During this window, they earn GLW tokens, compete with farms in their region, and recover delegator protocol deposits based on performance. After 100 weeks, the farm stops receiving GLW rewards and its protocol deposit has been fully distributed, but the solar installation itself continues producing clean energy and generating verified carbon displacement for decades beyond the initial reward window.",
-      "The 100-week window defines the reward lifecycle for each farm, and sets a fixed horizon over which deposits are recovered, rewards are earned, and competitive performance is measured. New farms continuously enter the protocol, maintaining the competitive pressure that drives the network's efficiency upward over time.",
+      'Within the Glow ecosystem, the term "solar farm" refers to any solar installation of any size, ranging from 4kW residential rooftop systems to 16 MW utility-scale arrays. Each farm competes for GLW rewards based on its impact efficiency relative to all other farms in the same region.',
+      "Farms are active on the Glow protocol for exactly 100 weeks. During this window, they earn GLW tokens, compete with farms in their region, and recover delegator protocol deposits based on performance. After 100 weeks, the farm stops receiving GLW rewards and its protocol deposit has been fully distributed, but the solar installation itself continues producing clean energy and generating verified impact for decades beyond the initial reward window.",
     ],
-    learnMore: [
-      "farm-revenue-distribution",
-      "circulating-supply-basics",
-      "liquidity-basics",
-    ],
+    learnMore: ["farm-revenue-distribution", "100-weeks-of-rewards"],
   },
   "uniswap-vs-protocol-liquidity": {
     title: "Uniswap Liquidity vs Embedded Liquidity",
     paragraphs: [
-      "Liquidity on standard DEXs like Uniswap is owned by individual LPs. These are humans, traders, funds, and institutions who deposit tokens to earn trading fees and they can withdraw their liquidity at any time. If markets experience higher than expected volatility, rational LPs pull their capital to avoid further impermanent losses.",
-      "This means that LPs face the strongest incentive to withdraw at exactly the moment liquidity matters most. If enough LPs withdraw simultaneously, the pool's available entry or exit liquidity can shrink to a fraction of its prior depth before other participants have had the opportunity to trade. Every LP voluntarily revokes their commitment under stress, and liquidity evaporates, degrading the structural integrity of the token economy.",
+      "Liquidity on standard DEXs like Uniswap is owned by individual LPs. These are traders, funds, and institutions who deposit tokens to earn trading fees and can withdraw their liquidity at any time. If markets experience higher than expected volatility, rational LPs pull their capital to avoid further impermanent losses.",
+      "This means that LPs face the strongest incentive to withdraw at exactly the moment liquidity matters most. If enough LPs withdraw simultaneously, the pool's available depth can shrink to a fraction of its prior level before other participants have had the opportunity to trade.",
+      "Embedded liquidity solves this problem by removing the withdrawal option entirely. Because the Glow Endowment's liquidity position is permanent, it continues providing market depth through volatility, downturns, and panic selling. The liquidity is there precisely when it matters most, and it compounds through trading fees regardless of market conditions. This is why embedded liquidity provides a fundamentally stronger foundation than LP-supplied liquidity for long-term token stability.",
     ],
-    learnMore: ["glow-endowment"],
+    learnMore: [
+      "why-liquidity-instead-of-dollars",
+      "embedded-liquidity",
+      "durable-liquidity",
+    ],
   },
   "glow-endowment": {
     title: "The Glow Endowment",
     paragraphs: [
-      "The Glow Endowment is embedded liquidity in the GLW/USDC Uniswap pool. When Glow earns protocol revenue, it is used to purchase GLW tokens on the open market. The resulting GLW and remaining USDC are committed together as a liquidity position. This commitment is a one-way transaction. Once the liquidity enters the pool, it cannot be withdrawn.",
-      "Because the Endowment is a Uniswap LP position, it automatically rebalances through trading activity. When GLW appreciates, the pool sells GLW and accumulates USDC. When GLW declines, the pool uses its USDC reserves to absorb GLW from circulation. This rebalancing requires no new capital inflows and no human intervention. The Endowment continuously provides depth for traders in both directions regardless of market conditions. Since this liquidity is structurally required to remain available even during turbulence, it provides a much stronger guarantee of stability to token holders.",
-      "The Endowment also earns trading fees on every swap proportional to its share of the pool's total liquidity. These fees compound directly back into the position. A larger position earns more fees, and more fees grow the position faster. Revenue from GCTL minting adds new capital, and trading fees compound on top of it. The result is a liquidity position that gains momentum over time, providing deeper markets, lower slippage, and greater price stability for every GLW participant as it grows.",
+      "The Glow Endowment is embedded liquidity in the GLW/USDC Uniswap pool. When Glow earns protocol revenue, it is used to purchase GLW tokens on the open market. The resulting GLW and remaining USDC are committed together as a permanent liquidity position that cannot be withdrawn.",
+      "Because the Endowment is a Uniswap LP position, it automatically rebalances through trading activity. When GLW appreciates, the pool sells GLW and accumulates USDC. When GLW declines, the pool uses its USDC reserves to buy GLW out of circulation. This rebalancing requires no human intervention and provides depth for traders in both directions regardless of market conditions.",
+      "The Endowment earns trading fees on every swap, and these fees compound directly back into the position. Revenue from GCTL minting adds new capital, and trading fees compound on top of it. The result is a liquidity position that gains momentum over time, providing deeper markets and greater price stability as it grows.",
     ],
   },
   "embedded-liquidity-growth-basics": {
-    title: "Embedded Liquidity Growth (MoM)",
+    title: "Embedded Liquidity Growth",
     paragraphs: [
-      "Embedded liquidity growth measures how quickly protocol-owned depth is compounding from revenue and market activity.",
-      "Because the base is still scaling, annualized growth can remain high while absolute depth also rises.",
+      "Embedded liquidity growth measures how quickly the Glow Endowment's permanent liquidity position is compounding. The growth rate, expressed as an APY, reflects two sources of new capital entering the position: revenue from GCTL minting and trading fees earned on every swap in the pool.",
+      "Because the Endowment is still in its early scaling phase, annualized growth rates can be high even as the absolute depth of the position increases. As the base grows larger, the APY may moderate, but the absolute dollar amount added per period continues to rise. Tracking this growth rate shows how quickly the protocol's liquidity foundation is strengthening over time.",
     ],
-    learnMore: [
-      "uniswap-vs-protocol-liquidity",
-      "liquidity-basics",
-      "control-basics",
-    ],
+    learnMore: ["market-cap-exitable", "endowment-bot"],
   },
   "circulating-supply-basics": {
     title: "GLW Circulating Supply",
     paragraphs: [
-      "Not all GLW is freely tradeable. The protocol holds significant amounts of GLW across several contract wallets, including the Grants Treasury, the Veto Council, the GCA and Miner Pool, and the Early Liquidity allocation, none of which are available on the open market. GLW held inside the Endowment's liquidity position is also excluded, since it is permanently committed to the pool and cannot be withdrawn.",
-      "Circulating supply is the portion of total GLW supply that remains after removing all protocol-held balances and actively delegated GLW. Delegated GLW is excluded because it is locked into vaults that back solar farms, making it unavailable for trading until earned back. The result is a metric that reflects the tokens genuinely accessible to market participants at any given time.",
+      "Not all GLW is freely tradeable. The two largest non-circulating categories are embedded GLW and delegated GLW. Embedded GLW is permanently locked inside the Glow Endowment's liquidity position and can never re-enter circulation. Delegated GLW is committed to solar farm vaults for 100-week periods, making it unavailable for trading until earned back.",
+      "Beyond these two primary categories, the protocol also holds GLW across several contract wallets including the Grants Treasury, the Veto Council, the GCA and Miner Pool, and the Early Liquidity allocation. Circulating supply is the portion that remains after removing all of these balances, reflecting the tokens genuinely accessible to market participants at any given time.",
     ],
-    learnMore: [
-      "liquidity-basics",
-      "why-liquidity-instead-of-dollars",
-      "uniswap-vs-protocol-liquidity",
-    ],
+    learnMore: ["embedded-glw-supply", "delegating-tokens"],
   },
   "why-liquidity-instead-of-dollars": {
     title: "Why Liquidity Instead of Dollars?",
@@ -726,44 +731,35 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
     learnMore: ["glow-endowment"],
   },
   "farm-revenue-distribution": {
-    title: "Solar Farm Economics",
+    title: "Solar Farm Value",
     paragraphs: [
-      "Every solar farm on Glow generates revenue that flows into the protocol's embedded liquidity. This revenue comes from three sources: miner sales, GCTL mint attribution, and GCTL yield attribution.",
-      "Miner sales occur when farms sell a portions of their GLW reward streams. The proceeds, minus operational bounties paid to the farm, enter the Endowment as new liquidity. GCTL mint attribution distributes a share of new GCTL minting revenue to each farm based on the GCTL staked in its region and the farm's verified impact credits within that region. GCTL yield attribution works the same way, but distributes the Endowment's earned trading fees and rebalancing gains rather than new capital.",
-      "All three revenue streams are smoothed over 13-week windows to reduce noise from week-to-week variation. The dashboard displays each farm's lifetime revenue contribution and its quarterly trailing performance, showing both the cumulative impact and the current trajectory of every installation on the network.",
-    ],
-    learnMore: [
-      "solar-installations-basics",
-      "control-basics",
-      "region-revenue-basics",
+      "Every region provides value to the Glow protocol, and each solar farm provides value to the region that it resides within. This value flows into the protocol's embedded liquidity through three revenue streams: miner sales, GCTL mint attribution, and GCTL yield attribution.",
+      "Miner sales occur when farms sell portions of their GLW reward streams. The proceeds, minus operational bounties paid to the farm, enter the Endowment as new liquidity. GCTL mint attribution distributes a share of new GCTL minting revenue to each farm based on the GCTL staked in its region and the farm's verified impact credits within that region. GCTL yield attribution works the same way, but distributes the Endowment's earned trading fees and rebalancing gains rather than new capital.",
     ],
   },
   "wallet-participants-basics": {
     title: "Wallet Stats",
     paragraphs: [
-      "Protocol participants are wallets that have engaged in meaningful on-chain activity within the Glow ecosystem. A wallet qualifies as a participant the first time it performs any protocol action, purchasing a mining fraction, appearing in a reward distribution, staking GCTL, or holding a GLW balance above a minimum threshold.",
+      "Protocol participants are wallets that have engaged in meaningful on-chain activity within the Glow ecosystem. A wallet qualifies as a participant the first time it performs any protocol action: purchasing a mining fraction, appearing in a reward distribution, or staking GCTL.",
       "Participants break down into three overlapping categories. Delegators hold active vault ownership shares and have committed GLW to back solar farms. Miners have purchased mining-center fractions to participate in the competitive reward system. GCTL holders maintain a non-zero stake, directing where the protocol builds solar infrastructure.",
       "The dashboard tracks the total number of protocol participants alongside the rate of new wallet activity per week. This provides a view of both the current size of the Glow economy and the pace at which new participants are entering.",
     ],
-    learnMore: ["network-impact-basics"],
+    learnMore: ["delegating-tokens", "glw-miners", "gctl-staking"],
   },
   "delegation-metrics-basics": {
-    title: "Delegation Metrics",
+    title: "Aggregate Delegation Mechanics",
     paragraphs: [
-      "Delegation is the process of committing GLW to solar farms' protocol deposits. Farms need these deposits to participate in the competitive mining system, and delegators provide them by locking GLW into vaults that back specific farms. In return, delegators earn yield proportional to the farm's performance over its 100-week reward lifecycle.",
-      "The delegation ratio measures the percentage of circulating supply that is actively delegated. A higher ratio signals stronger community commitment to supporting the network's farms. As more GLW is delegated, farms receive deeper backing, and the remaining circulating supply tightens.",
-      "The dashboard displays total GLW delegated, the current number of active delegators, estimated delegator GLW-denominated APY, and the delegation ratio over time. These metrics together show how much of the token economy is actively engaged in supporting solar infrastructure rather than sitting idle.",
+      "Each week, GLW token holders delegate their tokens to solar farms by locking them into vaults that serve as protocol deposits. These deposits are required for farms to participate in the competitive mining system. Once delegated, the GLW is committed for the duration of the farm's 100-week reward lifecycle, during which it is gradually released back into circulation as the deposit is recovered.",
+      "Delegated GLW does not count as part of the circulating supply. Because it is locked in vaults and unavailable for trading, it effectively removes tokens from the market for an extended period. The aggregate amount of GLW currently delegated, combined with the rate at which older delegations are releasing tokens, determines the net impact of delegation on circulating supply at any given time.",
     ],
-    learnMore: ["delegating-tokens"],
+    learnMore: ["delegating-tokens", "circulating-supply-basics"],
   },
   "region-revenue-basics": {
-    title: "Per-Region Protocol Revenue",
+    title: "Per-Region Revenue",
     paragraphs: [
-      "Glow operates across multiple geographic regions, each with its own pool of competing solar farms. GCTL staking determines how protocol resources are allocated across these regions, the more GCTL staked to a region, the larger its share of new farm capacity and reward distribution.",
-      "Within each region, farms compete on verified impact efficiency. Farms that produce more carbon displacement per dollar of electricity revenue capture a larger share of the region's allocated rewards. This two-layer competition, between regions for allocation and between farms within a region for performance, drives capital toward the locations and installations where solar has the highest impact.",
-      "The dashboard breaks down each region's lifetime and quarterly revenue contribution, carbon credits generated per week, total farm count, and GCTL staked. Comparing regions side by side reveals where the protocol's solar capacity is concentrated and how staking decisions are shaping the geographic distribution of Glow's impact.",
+      "Glow operates across multiple geographic regions, each with its own pool of competing solar farms. Within each region, farms compete on verified impact efficiency. Farms that produce more impact per dollar of electricity revenue capture a larger share of the region's allocated rewards.",
+      "Each region generates revenue based on its total impact, and the total interest in the region from Glow ecosystem participants.",
     ],
-    learnMore: ["minting-gctl"],
   },
   "network-impact-basics": {
     title: "Network Impact",
@@ -772,45 +768,141 @@ const MINI_BLOGS: Record<MiniBlogId, MiniBlogEntry> = {
       "The dashboard tracks four headline metrics: total solar panels installed across all farms, total energy generation capacity in megawatts per year, the equivalent number of homes powered by that energy, and the equivalent number of adult trees needed to offset the same amount of carbon. Each metric grows as new farms join and existing installations continue producing clean energy beyond their 100-week reward window.",
       "These metrics are the heartbeat the Glow protocol. Every token minted, every delegation made, and every GCTL staked ultimately exists to drive these impact figures higher. The network impact dashboard connects the token economy back to its physical purpose: building and sustaining verified solar infrastructure at scale.",
     ],
-    learnMore: ["wallet-participants-basics", "solar-installations-basics"],
   },
-  "inflation-schedule": {
-    title: "Emission Schedule",
+  "emissions-schedule": {
+    title: "Emissions Schedule",
     paragraphs: [
       "Each week, the Glow protocol mints 230,000 new GLW tokens and allocates them across three groups: 175,000 to active solar farms competing for mining rewards, 40,000 to the grants pool for ecosystem development, and 15,000 to the Glow Foundation for governance and operational expenses.",
       "This fixed weekly emission is the only source of new GLW. There is no variable or discretionary minting. The predictable schedule allows participants to model future supply with certainty and evaluate how delegation rewards, farm economics, and circulating supply will evolve over time.",
     ],
+    learnMore: ["glw-token-basics", "delegating-tokens"],
   },
   "delegating-tokens": {
-    title: "Delegating Tokens",
+    title: "Delegating GLW",
     paragraphs: [
-      "To participate in Glow's solar mining incentives, solar farms must post a protocol deposit. Delegation allows GLW token holders to provide this deposit on behalf of a farm, committing their GLW for 100 weeks. In return, delegators earn two types of rewards: deposit recovery based on the farm's competitive performance, and a share of the farm's weekly GLW emission rewards.",
-      "Delegators are protected from operational risk. Rewards are based on a farm's audited performance capabilities rather than actual output, so weather events or equipment issues do not reduce delegator returns. The task of the delegator is to evaluate which farms offer attractive reward terms relative to their competitive standing, and commit GLW accordingly.",
+      "To participate in Glow's solar mining incentives, solar farms must post a protocol deposit. Delegation allows GLW token holders to provide this deposit on behalf of a farm, committing their GLW for 100 weeks. In return, delegators earn two types of rewards: deposit recovery based on the farm's competitive performance, and a share of the farm's weekly GLW inflation rewards.",
+      "The task of the delegator is to evaluate which farms offer attractive reward terms relative to their competitive standing, and commit GLW accordingly.",
+    ],
+    learnMore: [
+      "glw-token-basics",
+      "solar-installations-basics",
+      "delegations-operational-risk",
     ],
   },
   "glw-token-value": {
     title: "GLW Token Value",
     paragraphs: [
-      "GLW is supported by protocol revenues and the Glow Endowment, a permanent liquidity position that grows every time GCTL is minted and every time the pool earns trading fees. Because this liquidity can never be withdrawn, it provides a floor of market depth that strengthens as the protocol scales.",
-      "Demand for GLW comes from multiple sources. Solar farms require GLW for protocol deposits, and delegators commit this GLW on behalf of farms to earn from solar production, while GCTL minting revenue continuously acquires GLW from the open market to deepen the Endowment. These overlapping demands reduce circulating supply while the Endowment compounds underneath, creating reinforcing upward pressure on the token's long-term fundamental value.",
+      "The fundamental value of GLW is anchored by its embedded liquidity. The Glow Endowment is a permanent liquidity position that grows from GCTL minting revenue and compounding trading fees. Because this liquidity can never be withdrawn, it establishes a floor of market depth beneath the token price that only increases over time.",
+      "Consider the long-term picture: after early speculation fades and trading volume normalizes, the embedded liquidity remains. It represents real capital that was generated by the protocol's economic activity and permanently committed to supporting the token. Unlike speculative demand, which is cyclical, embedded liquidity is cumulative. Every dollar that enters the Endowment stays forever, making the price floor progressively stronger as the protocol scales.",
     ],
     learnMore: ["glow-endowment", "embedded-liquidity"],
   },
   "embedded-liquidity": {
     title: "Embedded Liquidity",
     paragraphs: [
-      "Embedded liquidity is protocol-owned liquidity that is permanently committed to the GLW/USDC trading pool. Unlike standard liquidity provided by individual market makers who can withdraw at any time, embedded liquidity is a one-way commitment. Once it enters the pool, it cannot be removed. This guarantees that a baseline of market depth is always available for GLW holders to trade against, regardless of market conditions.",
-      "Embedded liquidity grows from two sources: new capital from GCTL minting revenue, and compounding trading fees earned on every swap in the pool. Because the position is permanent, these fees accumulate indefinitely, and a larger position earns more fees, which in turn grows the position faster. The result is a self-reinforcing liquidity foundation that deepens over time and provides increasing price stability for the entire GLW economy.",
+      "Embedded liquidity is permanently committed to the GLW/USDC trading pool. Unlike standard liquidity provided by individuals who can withdraw at any time, embedded liquidity is a one-way commitment. Once it enters the pool, it cannot be removed. This guarantees that a baseline of market depth is always available for GLW holders to trade against, regardless of market conditions.",
+      "Embedded liquidity grows as the protocol generates revenue from two sources. The first is revenue from people minting new Glow Control (GCTL), and the second is from collecting trading fees as people interact with the trading pool. Because the position is permanent, these fees accumulate indefinitely, and a larger position earns more fees, which in turn grows the position faster. The result is a self-reinforcing liquidity foundation that deepens over time.",
     ],
-    learnMore: ["liquidity-basics", "glow-endowment"],
+    learnMore: ["liquidity-basics", "control-basics", "embedded-glw-supply"],
   },
   "minting-gctl": {
     title: "Minting GCTL",
     paragraphs: [
-      "Anyone can mint new GCTL tokens using USDC. The price to mint one GCTL equals the square root of the current GLW token price, rounded to the nearest five cents. For example, if GLW is worth $9, one GCTL costs approximately $3 to mint. If GLW is worth $100, the mint price rises to approximately $10.",
-      "All funds used to mint GCTL flow directly into the Glow Endowment, which provides permanent liquidity support for the GLW token. Each GCTL minted strengthens the GLW economy by deepening the embedded liquidity that underpins the token's market depth and price stability.",
+      "Anyone can mint new GCTL tokens using USDC. The price to mint one GCTL equals the square root of the current GLW token price, rounded to the nearest five cents. For example, if GLW is worth $9, one GCTL costs approximately $3 to mint. If GLW is worth $100, the mint price would be approximately $10.",
+      "All funds used to mint GCTL become embedded liquidity, which provides permanent liquidity support for the GLW token. Each GCTL minted strengthens the GLW economy by deepening the embedded liquidity that underpins the token's market depth and price stability.",
     ],
-    learnMore: ["glow-endowment"],
+    learnMore: ["embedded-liquidity", "embedded-glw-supply", "glw-token-value"],
+  },
+  "embedded-glw-supply": {
+    title: "Embedded GLW Supply",
+    paragraphs: [
+      "The GLW inside the Glow Endowment's liquidity position is permanently committed and cannot be withdrawn or traded independently. This portion of the total GLW supply is effectively removed from circulation, reducing the number of tokens available on the open market.",
+      "Because the Endowment is a Uniswap LP position, its GLW balance changes with price. When the GLW price falls, the pool's automated rebalancing uses USDC reserves to buy GLW, increasing the amount of GLW held inside the position and further reducing circulating supply. When the price rises, the pool sells GLW for USDC, releasing some back toward the market. The result is a supply that naturally tightens during downturns and loosens during upswings, providing a stabilizing force on the token economy.",
+    ],
+    learnMore: ["superlinear-market-cap", "embedded-liquidity"],
+  },
+  "constant-product-rule": {
+    title: "The Constant Product Rule",
+    paragraphs: [
+      "The constant product rule is the mathematical foundation behind automated market makers like Uniswap. It states that the product of the two token reserves in a pool must remain constant: x * y = k, where x is the quantity of one token, y is the quantity of the other, and k is a constant that only grows from accumulated fees.",
+      "When someone buys GLW from the pool, they add USDC and remove GLW. The USDC reserve increases, the GLW reserve decreases, but x * y still equals k. This constraint is what forces the price to move: as GLW becomes scarcer in the pool, each additional unit costs more. The rule guarantees that the pool can always quote a price and always has liquidity available, no matter how large or small the trade.",
+    ],
+  },
+  "superlinear-market-cap": {
+    title: "Superlinear Market Cap",
+    paragraphs: [
+      "In traditional markets, market cap scales linearly with price: double the price, double the market cap. In a system with embedded liquidity, the relationship becomes superlinear. As the GLW price rises, the Endowment's USDC reserves grow from rebalancing, and its fee income increases from higher trading volume. Both effects compound the Endowment's depth faster than price alone would suggest.",
+      "This superlinear dynamic means that embedded liquidity provides disproportionately stronger support at higher valuations. The protocol's liquidity foundation doesn't just keep pace with growth, it accelerates ahead of it, creating a widening moat of market depth that makes the token increasingly resilient as it scales.",
+    ],
+    learnMore: ["market-cap-exitable", "embedded-glw-supply", "glw-token-value"],
+  },
+  "100-weeks-of-rewards": {
+    title: "100 Weeks of Rewards",
+    paragraphs: [
+      "Every solar farm on the Glow protocol operates on a fixed 100-week reward lifecycle. During this window, the farm earns GLW tokens by competing with other farms in its region on verified impact efficiency. The farm's protocol deposit is also recovered over this period based on competitive performance.",
+      "After 100 weeks, the farm stops receiving GLW rewards and its protocol deposit has been fully distributed. However, the solar installation itself continues producing clean energy for decades. The 100-week window defines the economic engagement period, not the useful life of the farm. New farms continuously enter the protocol, maintaining competitive pressure and ensuring the network's efficiency keeps improving.",
+    ],
+    learnMore: ["delegating-tokens", "solar-installations-basics"],
+  },
+  "durable-liquidity": {
+    title: "Durable Liquidity",
+    paragraphs: [
+      "Total effective liquidity in any token economy has two components: withdrawable liquidity and embedded liquidity. Withdrawable liquidity is capital provided by external LPs who are there to earn yield. It is mobile and mercenary: when conditions change, these LPs withdraw. Embedded liquidity is capital that exists because the protocol itself generated it. It is permanent and cannot be removed.",
+      "Because withdrawable liquidity is unreliable under stress, it should be discounted by a stability factor when assessing how much liquidity a protocol can actually depend on. In most DeFi systems, only a fraction of LP capital is truly sticky. Glow's design targets a steady state where embedded liquidity vastly exceeds withdrawable liquidity, meaning the protocol's market depth is generated by real economic activity rather than rented through emissions.",
+    ],
+    learnMore: ["embedded-liquidity", "uniswap-vs-protocol-liquidity"],
+  },
+  "market-cap-exitable": {
+    title: "Market Cap Exitable",
+    paragraphs: [
+      "Market cap exitable measures the portion of a token's total market capitalization that could realistically be converted to dollars without catastrophic slippage. For most tokens, the exitable fraction is a small percentage of the headline market cap because liquidity is shallow and provided by mobile LPs who withdraw under stress.",
+    ],
+  },
+  "endowment-bot": {
+    title: "The Endowment Bot",
+    paragraphs: [
+      "The Endowment Bot is an automated system that manages the Glow Endowment's liquidity operations. It handles the mechanics of converting protocol revenue into permanent liquidity positions, ensuring that every dollar of GCTL minting revenue and every fee earned by the pool is efficiently compounded back into the Endowment.",
+    ],
+  },
+  "delegations-operational-risk": {
+    title: "Expectation-Based Rewards",
+    paragraphs: [
+      "Delegators are protected from operational risk when backing solar farms on the Glow protocol. Rewards are calculated based on a farm's audited performance capabilities rather than its actual energy output, so weather events, equipment downtime, or seasonal variation do not reduce delegator returns.",
+      "This design separates the financial risk of delegation from the physical risk of solar operation. Delegators evaluate farms based on their competitive standing, reward terms, and verified capabilities. The farm operator bears the operational risk of maintaining equipment and maximizing output, while the delegator's returns are tied to the farm's protocol-level metrics.",
+    ],
+    learnMore: ["delegating-tokens"],
+    externalLink: {
+      url: "https://glow.org/blog/rewards-with-great-expectations",
+      label: "Rewards with Great Expectations",
+    },
+  },
+  "token-fdv": {
+    title: "Token FDV",
+    paragraphs: [
+      "Fully diluted valuation (FDV) estimates the total value of all GLW tokens that will ever exist, priced at today's market rate. The Glow protocol mints 230,000 GLW per week over a defined emission schedule, and FDV projects the value of the complete final supply at the current token price.",
+      "Importantly, not all GLW counts toward the effective FDV. GLW that is permanently embedded inside the Endowment's liquidity position is excluded because it can never re-enter circulation. GLW that is actively delegated to solar farm vaults is also excluded because it is locked for the duration of the farm's 100-week lifecycle. The result is an FDV figure that reflects only the tokens that will eventually be available to market participants.",
+    ],
+  },
+  "glw-miners": {
+    title: "GLW Miners",
+    paragraphs: [
+      "GLW miners pay cash incentives to solar farm installers to onboard high-impact farms onto the Glow protocol. In exchange, miners receive the GLW tokens that the farm earns over its lifetime, splitting a portion of these rewards with delegators who provide the required protocol deposits. Miners purchase mining-center fractions to participate in the competitive reward system.",
+      "A miner's profit equals their retained GLW minus the cash paid out to installers. The most attractive opportunities are marginally viable solar farms that are highly competitive on the protocol: these require smaller cash incentives while earning strong GLW rewards relative to other farms in the same region.",
+    ],
+    externalLink: {
+      url: "https://glow.org/blog/guide-to-glow-mining",
+      label: "A Guide to Glow Mining",
+    },
+  },
+  "gctl-staking": {
+    title: "GCTL Staking",
+    paragraphs: [
+      "GCTL staking is the process of committing Glow Control tokens to specific geographic regions. Staked GCTL determines how protocol resources and farm rewards are allocated across regions. The more GCTL staked to a region, the larger its share of new farm capacity, reward distribution, and protocol attention.",
+    ],
+    externalLink: {
+      url: "https://glow.org/blog/beginner-guide-to-gctl",
+      label: "A Beginner's Guide to GCTL",
+    },
   },
 };
 
@@ -830,11 +922,22 @@ const MINI_BLOG_CLUSTERS: Record<MiniBlogId, MiniBlogCluster> = {
   "delegation-metrics-basics": "network",
   "region-revenue-basics": "solar",
   "network-impact-basics": "solar",
-  "inflation-schedule": "core",
+  "emissions-schedule": "core",
   "delegating-tokens": "core",
   "glw-token-value": "core",
   "embedded-liquidity": "liquidity",
   "minting-gctl": "governance",
+  "embedded-glw-supply": "liquidity",
+  "constant-product-rule": "liquidity",
+  "superlinear-market-cap": "liquidity",
+  "100-weeks-of-rewards": "solar",
+  "durable-liquidity": "liquidity",
+  "market-cap-exitable": "liquidity",
+  "endowment-bot": "liquidity",
+  "delegations-operational-risk": "network",
+  "token-fdv": "core",
+  "glw-miners": "network",
+  "gctl-staking": "governance",
 };
 
 const INITIAL_MODAL_BLOGS: Record<ModalBlogKey, MiniBlogId> = {
@@ -854,7 +957,7 @@ const GROWTH_CARD_BLOG: Record<GrowthCardKey, MiniBlogId> = {
   installations: "solar-installations-basics",
   liquidityGrowth: "uniswap-vs-protocol-liquidity",
   circulatingGrowth: "circulating-supply-basics",
-  embeddedGrowth: "uniswap-vs-protocol-liquidity",
+  embeddedGrowth: "embedded-liquidity",
 };
 
 const WalletGrowthTooltip = React.memo(function WalletGrowthTooltip({
@@ -1169,34 +1272,93 @@ function MiniBlogPanel({
                 {truncateBlogTitle(MINI_BLOGS[learnId].title)}
               </button>
             ))}
+            {blog.externalLink && (
+              <a
+                href={blog.externalLink.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3.5 py-2.5 text-xs font-mono uppercase tracking-wider text-foreground/80 hover:bg-foreground hover:text-background transition-colors leading-snug"
+              >
+                {blog.externalLink.label}
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="shrink-0"
+                >
+                  <path
+                    d="M3.5 2H10V8.5M10 2L2 10"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </a>
+            )}
           </div>
         </div>
       ) : (
-        <div className="pt-1">
-          <a
-            href="https://glow.org/blog"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3.5 py-2.5 text-xs font-mono uppercase tracking-wider text-foreground/80 hover:bg-foreground hover:text-background transition-colors leading-snug"
-          >
-            Read the full blog
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="shrink-0"
+        <div className="space-y-3 pt-1">
+          {blog.externalLink && (
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+              LEARN MORE
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {blog.externalLink && (
+              <a
+                href={blog.externalLink.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3.5 py-2.5 text-xs font-mono uppercase tracking-wider text-foreground/80 hover:bg-foreground hover:text-background transition-colors leading-snug"
+              >
+                {blog.externalLink.label}
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="shrink-0"
+                >
+                  <path
+                    d="M3.5 2H10V8.5M10 2L2 10"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </a>
+            )}
+            <a
+              href="https://glow.org/blog"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3.5 py-2.5 text-xs font-mono uppercase tracking-wider text-foreground/80 hover:bg-foreground hover:text-background transition-colors leading-snug"
             >
-              <path
-                d="M3.5 2H10V8.5M10 2L2 10"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </a>
+              Read the full blog
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="shrink-0"
+              >
+                <path
+                  d="M3.5 2H10V8.5M10 2L2 10"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </a>
+          </div>
         </div>
       )}
       <MiniBlogGraphButton
