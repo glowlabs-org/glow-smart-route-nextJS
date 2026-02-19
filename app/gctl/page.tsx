@@ -1,62 +1,12 @@
-"use client";
-
-import * as React from "react";
-import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, ExternalLink, Zap, Globe, Leaf } from "lucide-react";
 import Image from "next/image";
-import { ConnectButton } from "@/components/connect-button";
-import { trackEvent } from "@/lib/telemetry";
+import { ExternalLink, Zap, Globe } from "lucide-react";
 import { GlowLockup } from "@/components/glow-lockup";
-import { GlowSymbol } from "@/components/glow-symbol";
-import { motion } from "framer-motion";
-import { MintAndStakeGctlDialog } from "@/components/dialogs/mint-and-stake-gctl-dialog";
-import { useEthersSigner } from "@/hooks/useEthersSigner";
-import { useER20Balances } from "@/hooks/useERC20Balances";
+import { GctlLandingCta } from "./view";
 
 export default function GctlLandingPage() {
-  const router = useRouter();
-  const { isConnected, address } = useAccount();
-  const { signer } = useEthersSigner();
-  const { usdcBalance, usdgBalance } = useER20Balances({ signer });
-  const [isMintDialogOpen, setIsMintDialogOpen] = React.useState(false);
-
-  const hasTrackedViewRef = React.useRef(false);
-  React.useEffect(() => {
-    if (hasTrackedViewRef.current) return;
-    hasTrackedViewRef.current = true;
-    trackEvent("gctl_landing_view", {
-      wallet_connected: isConnected,
-      wallet: address ?? null,
-    });
-  }, [isConnected, address]);
-
-  const handleConnectClick = React.useCallback(() => {
-    if (isConnected) return;
-    trackEvent("gctl_landing_connect_click");
-  }, [isConnected]);
-
-  const handleConnectSuccess = React.useCallback(() => {
-    trackEvent("gctl_landing_connect_success", {
-      wallet: address ?? null,
-    });
-  }, [address]);
-
-  const handleMintClick = React.useCallback(() => {
-    trackEvent("gctl_landing_mint_click", {
-      wallet: address ?? null,
-    });
-    setIsMintDialogOpen(true);
-  }, [address]);
-
   return (
     <div className="min-h-screen bg-white dark:bg-background">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="min-h-screen flex flex-col lg:flex-row bg-white dark:bg-background"
-      >
+      <div className="min-h-screen flex flex-col lg:flex-row bg-white dark:bg-background">
         {/* Left Side - Content */}
         <div className="order-2 lg:order-1 lg:flex-1 flex flex-col lg:justify-between p-6 sm:p-8 lg:p-16 lg:min-h-screen">
           <div className="hidden lg:block">
@@ -120,36 +70,15 @@ export default function GctlLandingPage() {
               <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             </a>
 
-            <div className="space-y-4">
-              {!isConnected ? (
-                <div onClickCapture={handleConnectClick}>
-                  <ConnectButton
-                    variant="default"
-                    size="large"
-                    className="w-full sm:max-w-xs"
-                    onConnect={handleConnectSuccess}
-                  />
-                </div>
-              ) : (
-                <Button
-                  className="h-12 sm:h-14 w-full sm:max-w-xs"
-                  onClick={handleMintClick}
-                >
-                  Mint &amp; Stake GCTL
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              )}
-            </div>
+            {/* Interactive CTA + footer text (client boundary) */}
+            <GctlLandingCta />
           </div>
 
-          <div className="text-xs sm:text-sm text-muted-foreground/60 mt-6 lg:mt-0">
-            {!isConnected
-              ? "Connect wallet to get started"
-              : "Mint price = \u221AGLW price. Funds flow to the Glow Endowment."}
-          </div>
+          {/* Spacer for lg layout */}
+          <div className="hidden lg:block" />
         </div>
 
-        {/* Right Side - Hero Image */}
+        {/* Right Side - Hero Image (SSR, cached by Next.js) */}
         <div className="order-1 lg:order-2 h-[45vh] lg:h-auto lg:flex-1 p-3 sm:p-4 lg:p-8 lg:min-h-screen">
           <div className="relative h-full w-full rounded-xl sm:rounded-2xl overflow-hidden">
             <Image
@@ -158,6 +87,7 @@ export default function GctlLandingPage() {
               fill
               className="object-cover object-center"
               priority
+              sizes="(max-width: 1024px) 100vw, 50vw"
             />
 
             {/* Gradient overlay for text readability */}
@@ -208,16 +138,7 @@ export default function GctlLandingPage() {
             </div>
           </div>
         </div>
-      </motion.div>
-
-      <MintAndStakeGctlDialog
-        key={isMintDialogOpen ? "gctl-dialog-open" : "gctl-dialog-closed"}
-        open={isMintDialogOpen}
-        onOpenChange={setIsMintDialogOpen}
-        usdcBalance={usdcBalance}
-        usdgBalance={usdgBalance}
-        forceStep1
-      />
+      </div>
     </div>
   );
 }
