@@ -12,6 +12,8 @@ import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
 import { useGctlApi } from "@/hooks/control-gctl";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
+import { formatUnits } from "viem";
+import { DECIMALS_BY_TOKEN } from "@glowlabs-org/utils/browser";
 
 const MintAndStakeGctlDialog = dynamic(
   () =>
@@ -27,6 +29,12 @@ const BuyGlowDialog = dynamic(
   { ssr: false }
 );
 
+export function GctlWalletIndicator() {
+  const { isConnected } = useAccount();
+  if (!isConnected) return null;
+  return <ConnectButton variant="default" size="small" />;
+}
+
 export function GctlLandingCta() {
   const { isConnected, address } = useAccount();
   const { signer } = useEthersSigner();
@@ -41,6 +49,17 @@ export function GctlLandingCta() {
       return BigInt(gctlBalance ?? "0") > 0n;
     } catch {
       return false;
+    }
+  }, [gctlBalance]);
+
+  const gctlBalanceFormatted = React.useMemo(() => {
+    try {
+      const raw = Number(
+        formatUnits(BigInt(gctlBalance ?? "0"), DECIMALS_BY_TOKEN.GCTL)
+      );
+      return raw.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    } catch {
+      return "0";
     }
   }, [gctlBalance]);
 
@@ -95,12 +114,15 @@ export function GctlLandingCta() {
           </div>
         ) : hasGctl ? (
           <div className="flex flex-col sm:flex-row gap-3 sm:max-w-md">
-            <Button className="h-12 sm:h-14 flex-1" onClick={handleBuyGlwClick}>
+            <Button
+              className="h-12 sm:h-14 flex-1"
+              onClick={handleBuyGlwClick}
+            >
               <ShoppingCart className="mr-2 h-4 w-4" />
               Buy GLW
             </Button>
             <Button variant="outline" className="h-12 sm:h-14 flex-1" asChild>
-              <Link href="/">Go to Dashboard</Link>
+              <Link href="/" prefetch>Go to Dashboard</Link>
             </Button>
           </div>
         ) : (
@@ -118,7 +140,7 @@ export function GctlLandingCta() {
         {!isConnected
           ? "Connect wallet to get started"
           : hasGctl
-          ? "You already hold GCTL. Buy GLW to boost your rewards."
+          ? `You hold ${gctlBalanceFormatted} GCTL. `
           : "Mint price = \u221AGLW price. Funds flow to the Glow Endowment."}
       </div>
 

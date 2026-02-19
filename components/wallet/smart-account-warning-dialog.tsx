@@ -306,7 +306,7 @@ export function SmartAccountWarningDialog({
                   {content.why.map((reason, i) => (
                     <li
                       key={i}
-                      className="text-sm text-muted-foreground flex gap-2.5 items-start bg-muted/40 dark:bg-muted/50 p-3 rounded-md"
+                      className="text-sm text-muted-foreground flex gap-2.5 items-start bg-muted/40 dark:bg-muted/50 p-1 rounded-md"
                     >
                       <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
                       <span className="leading-relaxed">{reason}</span>

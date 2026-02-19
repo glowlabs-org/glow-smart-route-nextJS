@@ -1,7 +1,8 @@
 import Image from "next/image";
+import Link from "next/link";
 import { ExternalLink, Zap, Globe } from "lucide-react";
 import { GlowLockup } from "@/components/glow-lockup";
-import { GctlLandingCta } from "./view";
+import { GctlLandingCta, GctlWalletIndicator } from "./view";
 
 export default function GctlLandingPage() {
   return (
@@ -9,8 +10,11 @@ export default function GctlLandingPage() {
       <div className="min-h-screen flex flex-col lg:flex-row bg-white dark:bg-background">
         {/* Left Side - Content */}
         <div className="order-2 lg:order-1 lg:flex-1 flex flex-col lg:justify-between p-6 sm:p-8 lg:p-16 lg:min-h-screen">
-          <div className="hidden lg:block">
-            <GlowLockup className="h-6 sm:h-8 w-auto" />
+          <div className="hidden lg:flex items-center justify-between">
+            <Link href="/" prefetch>
+              <GlowLockup className="h-6 sm:h-8 w-auto" />
+            </Link>
+            <GctlWalletIndicator />
           </div>
 
           <div className="lg:flex-1 flex flex-col lg:justify-center max-w-md py-0 lg:py-0">
@@ -27,8 +31,7 @@ export default function GctlLandingPage() {
 
             <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8 leading-relaxed">
               GCTL lets you decide where Glow builds solar farms. Stake GCTL and
-              support the regions you care about, and boost your Impact Score by
-              3 points per GLW that you control.
+              support the regions you care about.
             </p>
 
             {/* Benefits */}
@@ -64,7 +67,7 @@ export default function GctlLandingPage() {
               href="https://glow.org/blog/beginner-guide-to-gctl"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 sm:mb-8"
+              className="inline-flex underline items-center gap-1.5 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 sm:mb-8"
             >
               Learn how GCTL works
               <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
@@ -91,15 +94,18 @@ export default function GctlLandingPage() {
             />
 
             {/* Gradient overlay for text readability */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-transparent" />
 
-            {/* Mobile logo */}
-            <div className="absolute top-4 left-4 lg:hidden">
-              <GlowLockup className="h-6 w-auto brightness-0 invert" />
+            {/* Mobile header: logo + wallet */}
+            <div className="absolute top-4 left-4 right-4 flex items-center justify-between lg:hidden">
+              <Link href="/" prefetch>
+                <GlowLockup className="h-6 w-auto brightness-0 invert" />
+              </Link>
+              <GctlWalletIndicator />
             </div>
 
-            {/* Stats badges */}
-            <div className="absolute top-12 sm:top-8 lg:top-12 left-0 right-0 px-4 sm:px-8 lg:px-12">
+            {/* Stats badges (hidden on mobile) */}
+            <div className="absolute top-8 lg:top-12 left-0 right-0 px-8 lg:px-12 hidden sm:block">
               <div className="flex justify-center gap-6 sm:gap-12 lg:gap-24">
                 <div className="text-center text-white">
                   <div className="text-3xl sm:text-5xl lg:text-7xl font-bold tracking-tight">
