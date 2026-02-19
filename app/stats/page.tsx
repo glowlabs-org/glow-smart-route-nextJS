@@ -5,9 +5,9 @@ import { buildPageMetadata } from "@/lib/seo";
 import { PolDashboardView } from "@/app/internal/pol/view";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Glow Economic Overview",
+  title: "Glow Economic Dashboard",
   description:
-    "Track Glow economic activity, embedded liquidity, and protocol growth in real time.",
+    "Live protocol metrics for Glow: embedded liquidity, token emissions, FDV, GCTL staking, farm revenue, and solar impact. Track the economics of decentralized solar energy in real time.",
   path: "/stats",
 });
 

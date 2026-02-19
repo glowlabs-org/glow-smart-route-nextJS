@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Glow Mining";
+export const alt = "Glow Economic Dashboard";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -74,8 +74,8 @@ export default function Image() {
               letterSpacing: "-0.03em",
             }}
           >
-            <span>Sponsor</span>
-            <span>solar farms</span>
+            <span>Economic</span>
+            <span>Dashboard</span>
           </div>
           <div
             style={{
@@ -88,8 +88,8 @@ export default function Image() {
               maxWidth: "700px",
             }}
           >
-            <span>Earn GLW rewards while funding</span>
-            <span>renewable infrastructure.</span>
+            <span>Liquidity, emissions, GCTL staking,</span>
+            <span>and solar impact in real time.</span>
           </div>
         </div>
       </div>

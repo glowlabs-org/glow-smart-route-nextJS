@@ -69,18 +69,21 @@ export default function Image() {
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
           <div
             style={{
+              display: "flex",
+              flexDirection: "column",
               fontSize: "96px",
               fontWeight: 800,
               lineHeight: 0.95,
               letterSpacing: "-0.03em",
             }}
           >
-            Impact
-            <br />
-            Leaderboard
+            <span>Impact</span>
+            <span>Leaderboard</span>
           </div>
           <div
             style={{
+              display: "flex",
+              flexDirection: "column",
               fontSize: "32px",
               fontWeight: 500,
               color: "#3f3f46",
@@ -88,9 +91,8 @@ export default function Image() {
               maxWidth: "700px",
             }}
           >
-            Track top wallets by impact score
-            <br />
-            and Glow rewards.
+            <span>Track top wallets by impact score</span>
+            <span>and Glow rewards.</span>
           </div>
         </div>
       </div>

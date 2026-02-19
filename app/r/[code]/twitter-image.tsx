@@ -31,77 +31,90 @@ export default async function Image({
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          backgroundColor: "#09090b",
-          color: "#ffffff",
-          padding: "64px",
+          backgroundImage:
+            "linear-gradient(135deg, #f7fcc4 0%, #e8f5d6 25%, #dcc4ff 100%)",
+          color: "#000000",
+          padding: "60px",
         }}
       >
+        {/* Top row: Badge */}
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            fontSize: "28px",
-            fontWeight: 700,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: "#e4e4e7",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            width: "100%",
           }}
         >
-          Glow Mining
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
           <div
             style={{
-              fontSize: "64px",
-              fontWeight: 800,
-              lineHeight: 1.05,
-              letterSpacing: "-0.02em",
+              display: "flex",
+              alignItems: "center",
+              padding: "16px 32px",
+              borderRadius: "999px",
+              border: "2px solid #000000",
+              fontSize: "24px",
+              fontWeight: 600,
+              letterSpacing: "0.1em",
             }}
           >
-            Referral Code
+            GLOW MINING
+          </div>
+
+          {/* Glow Symbol - colored dots */}
+          <div style={{ display: "flex", gap: "8px" }}>
+            {["#ffb472", "#f7fcc4", "#ccffd4", "#dcc4ff"].map((color) => (
+              <div
+                key={color}
+                style={{
+                  width: "20px",
+                  height: "20px",
+                  borderRadius: "999px",
+                  backgroundColor: color,
+                  border: "2px solid #000000",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Main content */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: "96px",
+              fontWeight: 800,
+              lineHeight: 0.95,
+              letterSpacing: "-0.03em",
+            }}
+          >
+            Join Glow
           </div>
           <div
             style={{
+              display: "flex",
               fontSize: "36px",
               fontWeight: 600,
-              color: "#ffb472",
-              letterSpacing: "0.2em",
+              color: "#000000",
+              letterSpacing: "0.05em",
+              padding: "12px 0",
             }}
           >
-            {displayCode}
+            {`Invited by ${displayCode}`}
           </div>
           <div
             style={{
-              fontSize: "28px",
+              display: "flex",
+              fontSize: "32px",
               fontWeight: 500,
-              color: "#a1a1aa",
-              lineHeight: 1.3,
-              maxWidth: "900px",
+              color: "#3f3f46",
+              lineHeight: 1.4,
+              maxWidth: "700px",
             }}
           >
-            Join Glow and start earning rewards.
+            Earn bonus Impact Points when you sign up with this referral link.
           </div>
-        </div>
-
-        <div style={{ display: "flex", gap: "16px" }}>
-          {[
-            "#ffb472",
-            "#f7fcc4",
-            "#ccffd4",
-            "#dcc4ff",
-          ].map((color) => (
-            <div
-              key={color}
-              style={{
-                width: "120px",
-                height: "12px",
-                borderRadius: "999px",
-                backgroundColor: color,
-              }}
-            />
-          ))}
         </div>
       </div>
     ),
