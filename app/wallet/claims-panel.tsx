@@ -43,8 +43,10 @@ import {
   type ClaimProgressUpdate,
   type ClaimStage,
   type ClaimStageStatus,
+  type ProtocolDepositMulticallWeek,
 } from "@/hooks/useRewardsKernelWrapper";
 import {
+  fetchWeeklyReportData,
   getHotWalletAddress,
   useMerkleProofs,
   weekToNonce,
@@ -124,7 +126,8 @@ const CLAIM_STATUS_LABELS: Record<ClaimStageStatus, string> = {
 
 const CLAIM_STATUS_STYLES: Record<ClaimStageStatus, string> = {
   pending: "bg-muted/50 text-muted-foreground",
-  inProgress: "bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]",
+  inProgress:
+    "bg-[color:var(--color-glow-orange)]/10 text-[color:var(--color-glow-orange)]",
   success: "bg-[#4ADE80]/10 text-[#4ADE80]",
   skipped: "bg-muted/50 text-muted-foreground",
   error: "bg-destructive/10 text-destructive",
@@ -157,6 +160,31 @@ function getEtherscanAddressUrl(chainId: number, address: string): string {
 function isTransactionTimeoutError(message: string | null): boolean {
   if (!message) return false;
   return message.includes("Transaction receipt not found");
+}
+
+function isUserRejectedClaimError(error: unknown): boolean {
+  const candidate = error as {
+    message?: string;
+    shortMessage?: string;
+    cause?: { message?: string; shortMessage?: string };
+    code?: number;
+    name?: string;
+  };
+  const message =
+    candidate?.message ||
+    candidate?.shortMessage ||
+    candidate?.cause?.shortMessage ||
+    candidate?.cause?.message ||
+    "";
+
+  return (
+    candidate?.code === 4001 ||
+    candidate?.name === "UserRejectedRequestError" ||
+    message.includes("User rejected") ||
+    /denied transaction signature|request rejected|rejected the request/i.test(
+      message
+    )
+  );
 }
 
 type ClaimDialogStatus = "review" | "processing" | "success" | "error";
@@ -545,8 +573,7 @@ function ClaimButtonsWrapper({
     const weekSeconds = 7 * 86_400;
     const pendingWeeksToWait = hasProtocolDeposits ? 4 : 3;
     const claimableTs =
-      (GENESIS_TIMESTAMP +
-        (weekData.week + pendingWeeksToWait) * weekSeconds) *
+      (GENESIS_TIMESTAMP + (weekData.week + pendingWeeksToWait) * weekSeconds) *
       1000;
     const claimableDateLabel = new Date(claimableTs).toLocaleDateString(
       "en-US",
@@ -674,11 +701,12 @@ function WeekRewardsContent({
         console.error("Claim error:", error);
 
         // Report to Sentry (exclude user rejections)
-        const isUserRejected =
-          error?.message?.includes("User rejected") || error?.code === 4001;
+        const isUserRejected = isUserRejectedClaimError(error);
         if (!isUserRejected) {
           const normalizedError =
-            error instanceof Error ? error : new Error(String(error?.message || error));
+            error instanceof Error
+              ? error
+              : new Error(String(error?.message || error));
           Sentry.captureException(normalizedError, {
             tags: { walletStage: "claim_single_reward" },
             extra: {
@@ -925,12 +953,16 @@ function RewardTypesInfo() {
       </div>
       <div className="mt-3 space-y-3 text-sm text-foreground/80 dark:text-foreground/70">
         <div>
-          <span className="font-semibold text-foreground">Emission Rewards:</span>{" "}
+          <span className="font-semibold text-foreground">
+            Emission Rewards:
+          </span>{" "}
           GLW earned by solar farms and split between Glow Miners and Glow
           Delegators.
         </div>
         <div>
-          <span className="font-semibold text-foreground">Protocol Deposits:</span>{" "}
+          <span className="font-semibold text-foreground">
+            Protocol Deposits:
+          </span>{" "}
           Rewards from Glow&apos;s redistribution mechanism, where
           high-performing farms earn back deposits plus surplus captured from
           underperforming competitors.
@@ -953,8 +985,8 @@ function ClaimsAboutInfo() {
           </div>
           <div className="text-sm text-foreground/80 dark:text-foreground/70">
             Every batch of rewards goes through a 3-week finalization buffer
-            before it can be claimed. This window gives the protocol team time to
-            pause distributions if an exploit or anomaly is ever detected,
+            before it can be claimed. This window gives the protocol team time
+            to pause distributions if an exploit or anomaly is ever detected,
             protecting all participants. Once finalized, rewards are claimable
             on-chain at any time. Week 96 and earlier are available on the{" "}
             <a
@@ -989,16 +1021,18 @@ function PendingRewardsNotice({
     return sum + glw + pd;
   }, 0);
 
-  const earliestPending = pendingWeeks.reduce((earliest, w) =>
-    w.week < earliest.week ? w : earliest
-  , pendingWeeks[0]);
+  const earliestPending = pendingWeeks.reduce(
+    (earliest, w) => (w.week < earliest.week ? w : earliest),
+    pendingWeeks[0]
+  );
   const earliestHasPd = earliestPending.rewards.some(
     (r) => r.type === "protocolDeposit"
   );
   const earliestWait = earliestHasPd ? 4 : 3;
   const weekSeconds = 7 * 86_400;
   const claimableTimestamp =
-    (GENESIS_TIMESTAMP + (earliestPending.week + earliestWait) * weekSeconds) * 1000;
+    (GENESIS_TIMESTAMP + (earliestPending.week + earliestWait) * weekSeconds) *
+    1000;
   const claimableDate = new Date(claimableTimestamp);
   const dateLabel = claimableDate.toLocaleDateString("en-US", {
     month: "short",
@@ -1054,6 +1088,7 @@ export function ClaimsPanel({
   // Rewards claiming functionality
   const {
     claimWeekRewards,
+    claimAllProtocolDepositsInOneTx,
     isClaimingWeek,
     isClaimingAll,
     checkIfClaimed,
@@ -1091,6 +1126,11 @@ export function ClaimsPanel({
       protocolDeposits: { status: "pending" },
     });
   const claimStageStatusesRef = React.useRef<ClaimStageMap>(claimStageStatuses);
+  const [isPreparingClaimAll, setIsPreparingClaimAll] = React.useState(false);
+  const [emissionsBatchProgress, setEmissionsBatchProgress] = React.useState<{
+    current: number;
+    total: number;
+  } | null>(null);
 
   const trackedStageUpdatesRef = React.useRef<Set<string>>(new Set());
   const trackedStageTxRef = React.useRef<Set<string>>(new Set());
@@ -1218,6 +1258,36 @@ export function ClaimsPanel({
     const { isClaimed } = getWeekClaimState(week);
     return week.isFinalized && !isClaimed;
   }).length;
+
+  const claimableProtocolWeeks = React.useMemo(
+    () =>
+      weeklyBreakdown.filter((weekData) => {
+        if (!weekData.isFinalized) return false;
+        const hasProtocolRewards = weekData.rewards.some(
+          (reward) => reward.type === "protocolDeposit"
+        );
+        if (!hasProtocolRewards) return false;
+
+        const { protocolClaimed } = getWeekClaimState(weekData);
+        return !protocolClaimed;
+      }),
+    [weeklyBreakdown, getWeekClaimState]
+  );
+
+  const claimableInflationWeeks = React.useMemo(() => {
+    const currentEpoch = getCurrentEpoch();
+
+    return weeklyBreakdown.filter((weekData) => {
+      const hasInflationRewards = weekData.rewards.some(
+        (reward) => reward.type === "glowInflation"
+      );
+      if (!hasInflationRewards) return false;
+      if (weekData.week > currentEpoch - 3) return false;
+
+      const { glwClaimed } = getWeekClaimState(weekData);
+      return !glwClaimed;
+    });
+  }, [weeklyBreakdown, getWeekClaimState]);
 
   const createInitialStageState = React.useCallback(
     (payload: ClaimInitiationPayload): ClaimStageMap => {
@@ -1461,11 +1531,12 @@ export function ClaimsPanel({
       console.error("Claim confirmation error:", error);
 
       // Report to Sentry (exclude user rejections)
-      const isUserRejected =
-        error?.message?.includes("User rejected") || error?.code === 4001;
+      const isUserRejected = isUserRejectedClaimError(error);
       if (!isUserRejected) {
         const normalizedError =
-          error instanceof Error ? error : new Error(String(error?.message || error));
+          error instanceof Error
+            ? error
+            : new Error(String(error?.message || error));
         Sentry.captureException(normalizedError, {
           tags: { walletStage: "claim_confirmation" },
           extra: {
@@ -1494,6 +1565,250 @@ export function ClaimsPanel({
     checkSmartAccount,
     claimWeekRewards,
     updateStageStatus,
+    refetch,
+    onClaimSuccess,
+  ]);
+
+  const handleClaimAllProtocolDeposits = React.useCallback(async () => {
+    if (!address || !isConnected) {
+      toast.info("Connect your wallet to claim rewards.");
+      return;
+    }
+
+    if (claimableProtocolWeeks.length === 0) {
+      toast.info("No protocol deposit rewards available to claim.");
+      return;
+    }
+
+    const isSmartAccount = await checkSmartAccount();
+    if (isSmartAccount) {
+      setShowSmartAccountWarning(true);
+      setTriggerSmartAccountCheck(true);
+      return;
+    }
+
+    setIsPreparingClaimAll(true);
+
+    try {
+      const hotWalletAddress = getHotWalletAddress();
+      const lowerAddress = address.toLowerCase();
+
+      const preparedWeeks = await Promise.all(
+        claimableProtocolWeeks.map(async (weekData) => {
+          try {
+            const report = await fetchWeeklyReportData(weekData.week);
+            const userProof =
+              report.readableLeaves.find(
+                (leaf) => leaf.user.toLowerCase() === lowerAddress
+              ) ?? null;
+
+            if (!userProof) return null;
+
+            return {
+              week: weekData.week,
+              nonce: weekToNonce(weekData.week),
+              v2Proof: userProof.v2MerkleProof.map((p) => p as `0x${string}`),
+              fromAddress: hotWalletAddress,
+              onchainAssetsEarned: userProof.onchainAssetsEarned,
+            };
+          } catch (error) {
+            console.error(
+              `Failed to prepare protocol deposit claim for week ${weekData.week}:`,
+              error
+            );
+            return null;
+          }
+        })
+      );
+
+      const weeklyData = preparedWeeks.filter(
+        (
+          item
+        ): item is Exclude<(typeof preparedWeeks)[number], null> =>
+          item !== null
+      );
+
+      if (weeklyData.length === 0) {
+        toast.info("No claimable protocol deposit proofs were found.");
+        return;
+      }
+
+      const txHash = await claimAllProtocolDepositsInOneTx(weeklyData);
+
+      if (txHash) {
+        setV2ClaimedWeeks((prev) => {
+          const next = new Set(prev);
+          weeklyData.forEach((week) => next.add(week.week));
+          return next;
+        });
+
+        refetch();
+        if (onClaimSuccess) {
+          onClaimSuccess();
+        }
+      }
+    } catch (error: any) {
+      console.error("Claim all protocol deposits error:", error);
+      toast.error("Failed to prepare claim-all transaction", {
+        description: error?.message || "Unknown error",
+      });
+    } finally {
+      setIsPreparingClaimAll(false);
+    }
+  }, [
+    address,
+    isConnected,
+    claimableProtocolWeeks,
+    checkSmartAccount,
+    claimAllProtocolDepositsInOneTx,
+    refetch,
+    onClaimSuccess,
+  ]);
+
+  const handleClaimAllEmissions = React.useCallback(async () => {
+    if (!address || !isConnected) {
+      toast.info("Connect your wallet to claim rewards.");
+      return;
+    }
+
+    if (claimableInflationWeeks.length === 0) {
+      toast.info("No emission rewards available to claim.");
+      return;
+    }
+
+    const isSmartAccount = await checkSmartAccount();
+    if (isSmartAccount) {
+      setShowSmartAccountWarning(true);
+      setTriggerSmartAccountCheck(true);
+      return;
+    }
+
+    const totalWeeks = claimableInflationWeeks.length;
+    setEmissionsBatchProgress({ current: 0, total: totalWeeks });
+
+    const hotWalletAddress = getHotWalletAddress();
+    const lowerAddress = address.toLowerCase();
+    let claimedCount = 0;
+    const failedWeeks: number[] = [];
+    const skippedWeeks: number[] = [];
+    let cancelledByUser = false;
+
+    try {
+      for (let index = 0; index < totalWeeks; index += 1) {
+        const weekData = claimableInflationWeeks[index];
+        setEmissionsBatchProgress({ current: index, total: totalWeeks });
+
+        try {
+          const report = await fetchWeeklyReportData(weekData.week);
+          const userProof =
+            report.readableLeaves.find(
+              (leaf) => leaf.user.toLowerCase() === lowerAddress
+            ) ?? null;
+
+          if (!userProof || !userProof.glowInflationEarnedLeafWeight) {
+            skippedWeeks.push(weekData.week);
+            continue;
+          }
+
+          const inflationRewards = weekData.rewards.filter(
+            (reward) => reward.type === "glowInflation"
+          );
+          if (inflationRewards.length === 0) {
+            skippedWeeks.push(weekData.week);
+            continue;
+          }
+
+          const txHash = await claimWeekRewards(
+            weekData.week,
+            inflationRewards,
+            weekToNonce(weekData.week),
+            userProof.v1MerkleProof.map((p) => p as `0x${string}`),
+            userProof.v2MerkleProof.map((p) => p as `0x${string}`),
+            hotWalletAddress,
+            userProof.glowInflationEarnedLeafWeight,
+            undefined,
+            {
+              suppressWeekSuccessToast: true,
+              throwOnUserRejected: true,
+            }
+          );
+
+          if (txHash) {
+            claimedCount += 1;
+            setV1ClaimedWeeks((prev) => {
+              const next = new Set(prev);
+              next.add(weekData.week);
+              return next;
+            });
+          } else {
+            skippedWeeks.push(weekData.week);
+          }
+        } catch (error) {
+          if (isUserRejectedClaimError(error)) {
+            cancelledByUser = true;
+            break;
+          }
+
+          console.error(
+            `Failed to claim emission rewards for week ${weekData.week}:`,
+            error
+          );
+          failedWeeks.push(weekData.week);
+        } finally {
+          setEmissionsBatchProgress({
+            current: index + 1,
+            total: totalWeeks,
+          });
+        }
+      }
+
+      if (cancelledByUser) {
+        const summaryParts: string[] = [];
+        if (claimedCount > 0) {
+          summaryParts.push(`${claimedCount} week(s) claimed`);
+        }
+        if (failedWeeks.length > 0) {
+          summaryParts.push(`${failedWeeks.length} failed`);
+        }
+        if (skippedWeeks.length > 0) {
+          summaryParts.push(`${skippedWeeks.length} skipped`);
+        }
+      } else if (claimedCount > 0 && failedWeeks.length === 0) {
+        const skippedDescription =
+          skippedWeeks.length > 0
+            ? `${skippedWeeks.length} week(s) were skipped (already claimed or unavailable).`
+            : undefined;
+        toast.success(`Claimed emissions from ${claimedCount} week(s)`, {
+          description: skippedDescription,
+        });
+      } else if (claimedCount > 0 && failedWeeks.length > 0) {
+        toast.warning(
+          `Claimed emissions for ${claimedCount} week(s), ${failedWeeks.length} failed`,
+          {
+            description: `Failed weeks: ${failedWeeks.join(", ")}`,
+          }
+        );
+      } else if (failedWeeks.length > 0) {
+        toast.error("Failed to claim emission rewards", {
+          description: `Failed weeks: ${failedWeeks.join(", ")}`,
+        });
+      } else {
+        toast.info("All emission rewards are already claimed or unavailable.");
+      }
+
+      refetch();
+      if (claimedCount > 0 && onClaimSuccess) {
+        onClaimSuccess();
+      }
+    } finally {
+      setEmissionsBatchProgress(null);
+    }
+  }, [
+    address,
+    isConnected,
+    claimableInflationWeeks,
+    checkSmartAccount,
+    claimWeekRewards,
     refetch,
     onClaimSuccess,
   ]);
@@ -1597,7 +1912,9 @@ export function ClaimsPanel({
                   {meta.icon}
                 </div>
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-foreground">{meta.label}</div>
+                  <div className="text-sm font-medium text-foreground">
+                    {meta.label}
+                  </div>
                   {amountLabel && (
                     <div className="text-xs font-mono text-muted-foreground">
                       {amountLabel}
@@ -1728,7 +2045,8 @@ export function ClaimsPanel({
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                     <span className="block mt-1 text-muted-foreground/80">
-                      Look for any pending or recently completed transactions before retrying.
+                      Look for any pending or recently completed transactions
+                      before retrying.
                     </span>
                   </div>
                 </div>
@@ -1747,7 +2065,9 @@ export function ClaimsPanel({
                   >
                     Discord server
                   </a>{" "}
-                  and ask for assistance in the <span className="font-medium text-foreground">#help</span> channel.
+                  and ask for assistance in the{" "}
+                  <span className="font-medium text-foreground">#help</span>{" "}
+                  channel.
                 </div>
               </div>
             </div>
@@ -1837,7 +2157,11 @@ export function ClaimsPanel({
                 Failed to load your claimable rewards. Please try again.
               </div>
             </div>
-            <Button onClick={() => refetch()} variant="outline" className="border-border/40 dark:border-border/60">
+            <Button
+              onClick={() => refetch()}
+              variant="outline"
+              className="border-border/40 dark:border-border/60"
+            >
               Retry
             </Button>
           </div>
@@ -1858,7 +2182,11 @@ export function ClaimsPanel({
           <p className="text-muted-foreground mb-4">
             Failed to load your claimable rewards. Please try again.
           </p>
-          <Button onClick={() => refetch()} variant="outline" className="border-border/40 dark:border-border/60">
+          <Button
+            onClick={() => refetch()}
+            variant="outline"
+            className="border-border/40 dark:border-border/60"
+          >
             Retry
           </Button>
         </CardContent>
@@ -1881,6 +2209,13 @@ export function ClaimsPanel({
       : `${totalClaimedWeeks} weeks`;
 
   const isEverythingClaimed = totalClaimableWeeks === 0;
+  const isBulkClaiming =
+    isClaimingAll || isPreparingClaimAll || emissionsBatchProgress !== null;
+  const isBulkClaimBusy = isBulkClaiming || claimDialogStatus === "processing";
+  const isClaimAllProtocolDisabled =
+    claimableProtocolWeeks.length === 0 || isBulkClaimBusy;
+  const isClaimAllEmissionsDisabled =
+    claimableInflationWeeks.length === 0 || isBulkClaimBusy;
 
   // Don't show panel if not connected
   if (!isConnected || !address) {
@@ -1894,6 +2229,49 @@ export function ClaimsPanel({
 
   const content = (
     <div className={cn("space-y-6", isDialog && "pr-4")}>
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button
+          onClick={handleClaimAllEmissions}
+          disabled={isClaimAllEmissionsDisabled}
+          className="w-full sm:w-auto"
+          variant="outline"
+        >
+          {emissionsBatchProgress ? (
+            <>
+              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              Claiming Emissions {emissionsBatchProgress.current}/
+              {emissionsBatchProgress.total}
+            </>
+          ) : (
+            <>
+              Claim All Emissions
+              <Badge variant="secondary" className="ml-2 font-mono text-xs">
+                {claimableInflationWeeks.length}
+              </Badge>
+            </>
+          )}
+        </Button>
+        <Button
+          onClick={handleClaimAllProtocolDeposits}
+          disabled={isClaimAllProtocolDisabled}
+          className="w-full sm:w-auto"
+        >
+          {isPreparingClaimAll || isClaimingAll ? (
+            <>
+              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              Claiming Protocol Deposits...
+            </>
+          ) : (
+            <>
+              Claim All Protocol Deposits
+              <Badge variant="secondary" className="ml-2 font-mono text-xs">
+                {claimableProtocolWeeks.length}
+              </Badge>
+            </>
+          )}
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <TotalsSummaryCard
           title="Total Claimable"
@@ -1979,7 +2357,10 @@ export function ClaimsPanel({
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {totalRewards > 0 && (
-                        <Badge variant="secondary" className="text-xs font-mono tabular-nums">
+                        <Badge
+                          variant="secondary"
+                          className="text-xs font-mono tabular-nums"
+                        >
                           {totalRewards.toFixed(2)} GLW
                         </Badge>
                       )}
@@ -1992,7 +2373,7 @@ export function ClaimsPanel({
                     checkIfGlwClaimed={checkIfGlwClaimed}
                     claimDialogStatus={claimDialogStatus}
                     glwClaimed={glwClaimed}
-                    isClaimingAll={isClaimingAll}
+                    isClaimingAll={isBulkClaiming}
                     isClaimingWeek={isClaimingWeek}
                     isConnected={isConnected}
                     onClaimStatusChange={handleClaimStatusChange}
@@ -2008,7 +2389,7 @@ export function ClaimsPanel({
                     protocolClaimed={protocolClaimed}
                     isClaimable={isClaimable}
                     isClaimingWeek={isClaimingWeek}
-                    isClaimingAll={isClaimingAll}
+                    isClaimingAll={isBulkClaiming}
                     claimDialogStatus={claimDialogStatus}
                     address={address}
                     onInitiateClaim={handleInitiateClaim}
@@ -2049,7 +2430,10 @@ export function ClaimsPanel({
                 <span className="text-5xl font-semibold font-mono tabular-nums tracking-tight text-foreground">
                   {hasClaimableRewards
                     ? formatCompactAmount(
-                        Object.values(actualClaimableTotals).reduce((a, b) => a + b, 0)
+                        Object.values(actualClaimableTotals).reduce(
+                          (a, b) => a + b,
+                          0
+                        )
                       )
                     : "0"}
                 </span>
@@ -2060,7 +2444,9 @@ export function ClaimsPanel({
               <div className="text-sm text-muted-foreground">
                 {isEverythingClaimed
                   ? "All rewards have been claimed"
-                  : `${totalClaimableWeeks} week${totalClaimableWeeks !== 1 ? "s" : ""} ready to claim`}
+                  : `${totalClaimableWeeks} week${
+                      totalClaimableWeeks !== 1 ? "s" : ""
+                    } ready to claim`}
               </div>
             </div>
           </div>
@@ -2071,7 +2457,13 @@ export function ClaimsPanel({
           </ScrollArea>
         </div>
       ) : (
-        <Card id="claims-panel" className={cn("mb-8 border-border/20 dark:border-border/40 overflow-hidden", className)}>
+        <Card
+          id="claims-panel"
+          className={cn(
+            "mb-8 border-border/20 dark:border-border/40 overflow-hidden",
+            className
+          )}
+        >
           <CardHeader className="pb-4 md:pb-6 border-b border-border/20 dark:border-border/40">
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/30 dark:bg-muted/50 border border-border/20 dark:border-border/40 shrink-0">
@@ -2079,7 +2471,9 @@ export function ClaimsPanel({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60 dark:text-muted-foreground/80 mb-1">
-                  {isEverythingClaimed ? "Rewards History" : "Rewards Available"}
+                  {isEverythingClaimed
+                    ? "Rewards History"
+                    : "Rewards Available"}
                 </div>
                 <CardTitle className="text-xl md:text-2xl text-foreground">
                   Farm Rewards

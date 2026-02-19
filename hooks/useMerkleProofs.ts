@@ -9,7 +9,7 @@ import type {
 import { SDKAddresses } from "@/web3/constants/addresses";
 
 // Base URL for merkle proof data
-const MERKLE_PROOF_BASE_URL =
+export const MERKLE_PROOF_BASE_URL =
   "https://pub-311748c72106476cbeabe0a22a59217d.r2.dev";
 
 // Type definitions based on the provided structure
@@ -77,6 +77,20 @@ interface UseMerkleProofsResult {
   error: Error | null;
 }
 
+export async function fetchWeeklyReportData(
+  week: number
+): Promise<WeeklyReportData> {
+  const response = await fetch(
+    `${MERKLE_PROOF_BASE_URL}/weekly-report-week-${week}.json`
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch merkle proof for week ${week}`);
+  }
+
+  return (await response.json()) as WeeklyReportData;
+}
+
 export function useMerkleProofs(
   week: number,
   userAddress?: string
@@ -85,18 +99,7 @@ export function useMerkleProofs(
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: QUERY_KEYS.weeklyReport(week),
-    queryFn: async () => {
-      const response = await fetch(
-        `${MERKLE_PROOF_BASE_URL}/weekly-report-week-${week}.json`
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch merkle proof for week ${week}`);
-      }
-
-      const data: WeeklyReportData = await response.json();
-      return data;
-    },
+    queryFn: () => fetchWeeklyReportData(week),
     enabled: week >= FIRST_V2_WEEK,
     staleTime: Infinity, // Merkle proofs never change
     gcTime: 24 * 60 * 60 * 1000, // Cache for 24 hours

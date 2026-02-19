@@ -61,6 +61,20 @@ export interface ClaimProgressUpdate {
 
 export interface ClaimWeekRewardsOptions {
   onProgress?: (update: ClaimProgressUpdate) => void;
+  suppressWeekSuccessToast?: boolean;
+  throwOnUserRejected?: boolean;
+}
+
+export interface ProtocolDepositMulticallWeek {
+  week: number;
+  nonce: bigint;
+  v2Proof: `0x${string}`[];
+  fromAddress: `0x${string}`;
+  onchainAssetsEarned: Array<{
+    asset: string;
+    assetAddress: `0x${string}`;
+    amount: string;
+  }>;
 }
 
 type ClaimAttemptResult =
@@ -112,6 +126,9 @@ export interface UseRewardsKernelWrapperResult {
       }>;
     }>
   ) => Promise<string[]>;
+  claimAllProtocolDepositsInOneTx: (
+    weeklyData: ProtocolDepositMulticallWeek[]
+  ) => Promise<string | null>;
   isClaimingWeek: number | null;
   isClaimingAll: boolean;
   checkIfClaimed: (
@@ -128,6 +145,16 @@ export interface UseRewardsKernelWrapperResult {
 
 function asLowerHexAddress(value: `0x${string}`): `0x${string}` {
   return value.toLowerCase() as `0x${string}`;
+}
+
+function isUserRejectedMessage(message?: string | null): boolean {
+  if (!message) return false;
+  return (
+    message.includes("User rejected") ||
+    /denied transaction signature|request rejected|rejected the request|transaction cancelled/i.test(
+      message
+    )
+  );
 }
 
 export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
@@ -370,7 +397,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
               status: "error",
               message: "Invalid proof for GLW claim",
             };
-          } else if (simMessage.includes("User rejected")) {
+          } else if (isUserRejectedMessage(simMessage)) {
             toast.info("Transaction cancelled");
             return { status: "error", message: "Transaction cancelled" };
           } else {
@@ -440,7 +467,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             status: "error",
             message: "Invalid proof for GLW claim",
           };
-        } else if (errorMessage.includes("User rejected")) {
+        } else if (isUserRejectedMessage(errorMessage)) {
           toast.info("Transaction cancelled");
           return { status: "error", message: "Transaction cancelled" };
         }
@@ -545,7 +572,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             status: "error",
             message: "This reward distribution was rejected",
           };
-        } else if (errorMessage.includes("User rejected")) {
+        } else if (isUserRejectedMessage(errorMessage)) {
           toast.info("Transaction cancelled");
           return { status: "error", message: "Transaction cancelled" };
         } else if (/device disconnected during action/i.test(errorMessage)) {
@@ -656,6 +683,17 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
               });
               txHashes.push(glwResult.txHash);
             } else if (glwResult.status === "error") {
+              if (
+                options?.throwOnUserRejected &&
+                isUserRejectedMessage(glwResult.message)
+              ) {
+                const rejectedError = new Error(
+                  glwResult.message || "Transaction cancelled"
+                ) as Error & { code?: number; name: string };
+                rejectedError.code = 4001;
+                rejectedError.name = "UserRejectedRequestError";
+                throw rejectedError;
+              }
               encounteredError = true;
               notifyProgress({
                 stage: "inflation",
@@ -718,6 +756,17 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
             });
             txHashes.push(pdResult.txHash);
           } else if (pdResult.status === "error") {
+            if (
+              options?.throwOnUserRejected &&
+              isUserRejectedMessage(pdResult.message)
+            ) {
+              const rejectedError = new Error(
+                pdResult.message || "Transaction cancelled"
+              ) as Error & { code?: number; name: string };
+              rejectedError.code = 4001;
+              rejectedError.name = "UserRejectedRequestError";
+              throw rejectedError;
+            }
             encounteredError = true;
             notifyProgress({
               stage: "protocolDeposits",
@@ -741,21 +790,42 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
         }
 
         if (txHashes.length > 0) {
-          toast.success(`Successfully claimed week ${week} rewards`, {
-            description: `${txHashes.length} transaction(s) completed`,
-          });
+          if (!options?.suppressWeekSuccessToast) {
+            toast.success(`Successfully claimed week ${week} rewards`, {
+              description: `${txHashes.length} transaction(s) completed`,
+            });
+          }
           return txHashes[0]; // Return first tx hash for compatibility
         }
 
-        if (!encounteredError) {
+        if (!encounteredError && !options?.suppressWeekSuccessToast) {
           toast.info(`Week ${week} rewards already claimed or unavailable`);
         }
 
         return null;
       } catch (error: any) {
         console.error("Claim error:", error);
+        const errorMessage =
+          error?.message ||
+          error?.shortMessage ||
+          error?.cause?.shortMessage ||
+          error?.cause?.message ||
+          "Unknown error";
+        const isUserRejected =
+          error?.code === 4001 ||
+          error?.name === "UserRejectedRequestError" ||
+          isUserRejectedMessage(errorMessage);
+
+        if (isUserRejected) {
+          if (options?.throwOnUserRejected) {
+            throw error;
+          }
+          toast.info("Transaction cancelled");
+          return null;
+        }
+
         toast.error("Failed to claim rewards", {
-          description: error.message || "Unknown error",
+          description: errorMessage,
         });
         return null;
       } finally {
@@ -840,6 +910,110 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
       }
     },
     [walletClient, claimWeekRewards]
+  );
+
+  const claimAllProtocolDepositsInOneTx = useCallback(
+    async (weeklyData: ProtocolDepositMulticallWeek[]): Promise<string | null> => {
+      if (!walletClient?.account?.address) {
+        toast.error("Please connect your wallet");
+        return null;
+      }
+
+      if (!weeklyData.length) {
+        toast.info("No protocol deposit rewards available to claim");
+        return null;
+      }
+
+      setIsClaimingAll(true);
+
+      try {
+        const userAddress = walletClient.account.address as `0x${string}`;
+        const claims: ClaimPayoutParams[] = [];
+        const skippedWeeks: number[] = [];
+
+        for (const weekData of weeklyData) {
+          if (!weekData.onchainAssetsEarned.length) {
+            skippedWeeks.push(weekData.week);
+            continue;
+          }
+
+          const alreadyClaimed = await rewardsKernel.isClaimed(
+            userAddress,
+            weekData.nonce
+          );
+          if (alreadyClaimed) {
+            skippedWeeks.push(weekData.week);
+            continue;
+          }
+
+          const finalized = await rewardsKernel.isFinalized(weekData.nonce);
+          if (!finalized) {
+            skippedWeeks.push(weekData.week);
+            continue;
+          }
+
+          const claimParams = await buildClaimParams(
+            weekData.onchainAssetsEarned,
+            weekData.nonce,
+            weekData.v2Proof,
+            weekData.fromAddress,
+            userAddress
+          );
+          claims.push(claimParams);
+        }
+
+        if (!claims.length) {
+          toast.info("All protocol deposit rewards are already claimed");
+          return null;
+        }
+
+        const txHash = await rewardsKernel.claimPayoutsMulticall({ claims });
+
+        try {
+          await publicClient?.waitForTransactionReceipt({
+            hash: txHash as `0x${string}`,
+            confirmations: 1,
+          });
+        } catch (error) {
+          console.error("Error waiting for claim-all receipt:", error);
+        }
+
+        const skippedDescription =
+          skippedWeeks.length > 0
+            ? `${skippedWeeks.length} week(s) were skipped (already claimed or not finalized).`
+            : undefined;
+
+        toast.success(
+          `Claimed protocol deposits from ${claims.length} week(s) in one transaction`,
+          {
+            description: skippedDescription,
+          }
+        );
+
+        return txHash;
+      } catch (error: any) {
+        console.error("Claim all protocol deposits error:", error);
+        const errorMessage =
+          error?.message ||
+          error?.shortMessage ||
+          error?.cause?.shortMessage ||
+          error?.cause?.message ||
+          "Unknown error";
+
+        if (errorMessage.includes("User rejected")) {
+          toast.info("Transaction cancelled");
+        } else {
+          toast.error("Failed to claim all protocol deposits", {
+            description: errorMessage,
+          });
+        }
+
+        return null;
+      } finally {
+        setIsClaimingAll(false);
+      }
+    },
+    [walletClient, rewardsKernel, buildClaimParams, publicClient]
   );
 
   // Check if rewards have been claimed
@@ -938,6 +1112,7 @@ export function useRewardsKernelWrapper(): UseRewardsKernelWrapperResult {
   return {
     claimWeekRewards,
     claimAllRewards,
+    claimAllProtocolDepositsInOneTx,
     isClaimingWeek,
     isClaimingAll,
     checkIfClaimed,
