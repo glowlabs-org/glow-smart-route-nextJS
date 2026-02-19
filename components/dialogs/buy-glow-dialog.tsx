@@ -345,9 +345,7 @@ export function BuyGlowDialog({
   const ethBalanceQuery = useBalance({
     address,
     query: {
-      enabled: Boolean(
-        open && address && payToken === "ETH" && isEthPayEnabled,
-      ),
+      enabled: Boolean(open && address && isEthPayEnabled),
     },
   });
 

@@ -2,13 +2,16 @@
 
 import * as React from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, LayoutDashboard, ShoppingCart } from "lucide-react";
 import { ConnectButton } from "@/components/connect-button";
 import { trackEvent } from "@/lib/telemetry";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import { useER20Balances } from "@/hooks/useERC20Balances";
+import { useGctlApi } from "@/hooks/control-gctl";
+import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 
 const MintAndStakeGctlDialog = dynamic(
   () =>
@@ -18,11 +21,28 @@ const MintAndStakeGctlDialog = dynamic(
   { ssr: false }
 );
 
+const BuyGlowDialog = dynamic(
+  () =>
+    import("@/components/dialogs/buy-glow-dialog").then((m) => m.BuyGlowDialog),
+  { ssr: false }
+);
+
 export function GctlLandingCta() {
   const { isConnected, address } = useAccount();
   const { signer } = useEthersSigner();
   const { usdcBalance, usdgBalance } = useER20Balances({ signer });
+  const { gctlBalance } = useGctlApi(address, { enabled: isConnected });
+  const glwSpotPrice = useGlowSpotPriceSummary();
   const [isMintDialogOpen, setIsMintDialogOpen] = React.useState(false);
+  const [isBuyGlwDialogOpen, setIsBuyGlwDialogOpen] = React.useState(false);
+
+  const hasGctl = React.useMemo(() => {
+    try {
+      return BigInt(gctlBalance ?? "0") > 0n;
+    } catch {
+      return false;
+    }
+  }, [gctlBalance]);
 
   const hasTrackedViewRef = React.useRef(false);
   React.useEffect(() => {
@@ -52,6 +72,15 @@ export function GctlLandingCta() {
     setIsMintDialogOpen(true);
   }, [address]);
 
+  const handleBuyGlwClick = React.useCallback(() => {
+    trackEvent("dashboard_buy_glw_click", {
+      source: "gctl_landing",
+      wallet_connected: isConnected,
+      wallet_address: address ?? null,
+    });
+    setIsBuyGlwDialogOpen(true);
+  }, [isConnected, address]);
+
   return (
     <>
       <div className="space-y-4">
@@ -63,6 +92,16 @@ export function GctlLandingCta() {
               className="w-full sm:max-w-xs"
               onConnect={handleConnectSuccess}
             />
+          </div>
+        ) : hasGctl ? (
+          <div className="flex flex-col sm:flex-row gap-3 sm:max-w-md">
+            <Button className="h-12 sm:h-14 flex-1" onClick={handleBuyGlwClick}>
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              Buy GLW
+            </Button>
+            <Button variant="outline" className="h-12 sm:h-14 flex-1" asChild>
+              <Link href="/">Go to Dashboard</Link>
+            </Button>
           </div>
         ) : (
           <Button
@@ -78,6 +117,8 @@ export function GctlLandingCta() {
       <div className="text-xs sm:text-sm text-muted-foreground/60 mt-6 lg:mt-4">
         {!isConnected
           ? "Connect wallet to get started"
+          : hasGctl
+          ? "You already hold GCTL. Buy GLW to boost your rewards."
           : "Mint price = \u221AGLW price. Funds flow to the Glow Endowment."}
       </div>
 
@@ -88,6 +129,17 @@ export function GctlLandingCta() {
           usdcBalance={usdcBalance}
           usdgBalance={usdgBalance}
           forceStep1
+        />
+      )}
+
+      {isBuyGlwDialogOpen && (
+        <BuyGlowDialog
+          open={isBuyGlwDialogOpen}
+          onOpenChange={setIsBuyGlwDialogOpen}
+          usdcBalance={usdcBalance ?? null}
+          glowSpotPrice={glwSpotPrice.spotPriceUsd || 0}
+          source="gctl_landing"
+          defaultUsdcAmount="20"
         />
       )}
     </>
