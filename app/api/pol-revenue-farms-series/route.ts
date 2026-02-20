@@ -19,7 +19,7 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const range = (url.searchParams.get("range") || "90d").trim();
-    const target = `${HUB_URL}/pol/revenue/aggregate/series?range=${encodeURIComponent(range)}`;
+    const target = `${HUB_URL}/pol/revenue/farms/series?range=${encodeURIComponent(range)}`;
     const response = await fetch(target, { next: { revalidate: 60 } });
     if (!response.ok) {
       const text = await response.text();
