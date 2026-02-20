@@ -178,21 +178,51 @@ function formatPointsScaled6(pointsScaled6: bigint, maxFractionDigits = 2) {
   return `${sign}${i}.${f}`;
 }
 
+function extractErrorMessage(error: unknown) {
+  if (!error) return "";
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message ?? "";
+  const possible = error as {
+    shortMessage?: string;
+    message?: string;
+    details?: string;
+    cause?: { message?: string };
+  };
+  return (
+    possible.shortMessage ??
+    possible.message ??
+    possible.details ??
+    possible.cause?.message ??
+    ""
+  );
+}
+
+function isInsufficientBalanceError(message: string) {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("0xe450d38c") ||
+    normalized.includes("erc20: transfer amount exceeds balance") ||
+    normalized.includes("transfer amount exceeds balance") ||
+    normalized.includes("insufficient balance")
+  );
+}
+
 function getErrorMessage(error: unknown) {
-  if (!error) return "Unknown error";
-  if (error instanceof Error) {
-    const message = error.message ?? "";
-    if (message.includes("0xe450d38c")) {
-      return "Insufficient balance to complete this transaction.";
-    }
-    return message;
+  const message = extractErrorMessage(error).trim();
+  if (!message) return "Unknown error";
+
+  if (isInsufficientBalanceError(message)) {
+    return "Insufficient token balance. Approval succeeded, but your balance is now below this amount. Reduce the amount and try again.";
   }
-  const possible: any = error;
-  const shortMessage = possible?.shortMessage ?? possible?.message ?? "";
-  if (shortMessage.includes("0xe450d38c")) {
-    return "Insufficient balance to complete this transaction.";
+
+  if (message.toLowerCase().includes("user rejected")) {
+    return "Transaction was rejected in your wallet.";
   }
-  return shortMessage || "Unknown error";
+
+  const detailsMatch = message.match(/details:\s*([^\n]+)/i);
+  if (detailsMatch?.[1]) return detailsMatch[1].trim();
+
+  return message;
 }
 
 function toAtomic6(amount: number) {
