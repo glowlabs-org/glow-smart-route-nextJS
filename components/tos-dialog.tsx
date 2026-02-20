@@ -678,7 +678,72 @@ This signature serves as my digital acknowledgment and acceptance of the terms.`
             },
           });
         }
-        throw apiError;
+
+        // Some smart wallets produce EIP-712 signatures that fail backend verification.
+        // Retry once with personal_sign before surfacing an error.
+        const parsedApiError = parseApiError(apiError);
+        if (signingMethod === "eip712" && parsedApiError.type === "smart_wallet") {
+          try {
+            signingMethod = "personal_sign";
+            signingContext.signingMethod = signingMethod;
+            signature = await signer.signMessage(message);
+            signingContext.signature = signature;
+
+            await walletsApi.acceptToS(address, {
+              signature,
+              nonce,
+              tosVersion: TOS_VERSION,
+              tosHash,
+              message,
+              deadline,
+            });
+          } catch (personalSignRetryError) {
+            if (typeof window !== "undefined") {
+              const normalizedError =
+                personalSignRetryError instanceof Error
+                  ? personalSignRetryError
+                  : new Error(String(personalSignRetryError));
+              const sigDebug = getSignatureDebugInfo(signature);
+              const errorDetails = getErrorDetails(personalSignRetryError);
+
+              Sentry.captureException(normalizedError, {
+                tags: {
+                  tosStage: "api_submission_personal_sign_retry",
+                  walletAddress: address,
+                  signingMethod: "personal_sign",
+                  chainId: String(chainId),
+                  walletChainId: signingContext.walletChainId,
+                  expectedChainId: String(chainId),
+                  connectorName,
+                  connectorId,
+                  signatureType: sigDebug.signatureType,
+                },
+                extra: {
+                  tosVersion: TOS_VERSION,
+                  tosHash,
+                  nonce,
+                  deadline,
+                  deadlineHuman: new Date(Number(deadline) * 1000).toISOString(),
+                  signatureLength: sigDebug.signatureLength,
+                  signaturePreview: sigDebug.signaturePreview,
+                  errorMessage: normalizedError.message,
+                  errorCode: errorDetails.code,
+                  errorReason: errorDetails.reason,
+                  errorShortMessage: errorDetails.shortMessage,
+                  errorInfo: errorDetails.info,
+                  errorData: errorDetails.data,
+                  errorCause: errorDetails.cause,
+                  errorStack: errorDetails.stack,
+                  isWrongNetwork: requestIsWrongNetwork,
+                  rawError: errorDetails.raw || String(personalSignRetryError),
+                },
+              });
+            }
+            throw personalSignRetryError;
+          }
+        } else {
+          throw apiError;
+        }
       }
 
       setHasAccepted(true);

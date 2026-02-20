@@ -879,7 +879,6 @@ export function MintAndStakeGctlDialog({
   const {
     isPolling: isTransferPolling,
     countdown: transferCountdown,
-    startPolling: startTransferPolling,
     stopPolling: stopTransferPolling,
     reset: resetTransferPolling,
   } = usePolling<PendingTransfer>({
@@ -1592,9 +1591,7 @@ export function MintAndStakeGctlDialog({
       });
 
       setHasPerformedAction(true);
-      setTrackingTxHash(txHash);
-      updateStakeStepStatus("FINALIZE", "confirming");
-      startTransferPolling();
+      updateStakeStepStatus("FINALIZE", "completed");
 
       setOptimisticHasGctlByAddress((prev) => {
         const key = (address as string | undefined)?.toLowerCase();
@@ -1619,6 +1616,9 @@ export function MintAndStakeGctlDialog({
         nextSteeringPoints: nextPoints,
         deltaSteeringPoints: Math.max(0, nextPoints - prevPoints),
       });
+      setStakeUiState("review");
+      setStepOverride(4);
+      void invalidateAllQueries();
     } catch (error) {
       setIsApproving(false);
       setIsSubmitting(false);
@@ -1671,6 +1671,7 @@ export function MintAndStakeGctlDialog({
     checkTokenBalance,
     estimatedGctl,
     handleStakeExisting,
+    invalidateAllQueries,
     isConnected,
     isEthPayEnabled,
     isStakeCapExceeded,
@@ -1687,7 +1688,6 @@ export function MintAndStakeGctlDialog({
     inflationPreview?.deltaGlwPerWeek,
     inflationPreview?.nextEmissionSharePercent,
     resetTransferPolling,
-    startTransferPolling,
     steeringImpactQuote?.deltaPerWeekPoints,
     steeringScoreAfterPreview,
     steeringScoreBefore,
@@ -2502,6 +2502,9 @@ function SuccessLevelUp(props: {
         </div>
         <div className="text-sm text-muted-foreground">
           Your Governance Power is now live and directing rewards.
+        </div>
+        <div className="text-xs text-muted-foreground/80">
+          It may take up to 36 seconds to appear on your profile.
         </div>
         <div className="inline-flex items-center gap-2 rounded-full border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 px-3 py-1">
           <SteeringIcon className="h-3.5 w-3.5 text-[#22D3EE]" />
