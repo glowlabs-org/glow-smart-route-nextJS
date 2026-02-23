@@ -275,7 +275,7 @@ export default function GlowSoftDashboard({
     const now = Date.now();
     const timeUntilLive = launchpadNextBatchAtMs - now;
     return timeUntilLive > 0 && timeUntilLive <= THREE_HOURS_MS;
-  }, [isLaunchpadLive, launchpadNextBatchAtMs]);
+  }, [THREE_HOURS_MS, isLaunchpadLive, launchpadNextBatchAtMs]);
 
   const shouldShowLaunchpadHeroRow =
     shouldShowLaunchpadLiveSection || isApproachingLaunchpad;
@@ -440,7 +440,6 @@ export default function GlowSoftDashboard({
           {hasWallet ? (
             <motion.div
               key="connected"
-              initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
@@ -657,7 +656,6 @@ export default function GlowSoftDashboard({
           ) : isWalletSettling ? (
             <motion.div
               key="connecting"
-              initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
@@ -667,7 +665,6 @@ export default function GlowSoftDashboard({
           ) : (
             <motion.div
               key="disconnected"
-              initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}

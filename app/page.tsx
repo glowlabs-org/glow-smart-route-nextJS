@@ -23,7 +23,7 @@ export default async function HomePage() {
   const queryClient = new QueryClient();
   const chainId = Number.parseInt(process.env.NEXT_PUBLIC_CHAIN_ID ?? "1");
 
-  await Promise.all([
+  await Promise.allSettled([
     queryClient.prefetchQuery({
       queryKey: ["headline-stats", chainId],
       queryFn: async () => await getCachedHeadlineStats(),
@@ -43,6 +43,8 @@ export default async function HomePage() {
 
   await prefetchHomeProtocolMetricsData(queryClient, {
     headlineStats: headlineStats ?? null,
+  }).catch(() => {
+    // Best-effort prefetch. The client will still render and fetch live.
   });
 
   const dehydratedState = dehydrate(queryClient);

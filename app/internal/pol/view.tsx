@@ -274,10 +274,6 @@ const supplyCirculationChartConfig = {
   circulating: { label: "Circulating", color: "#4ade80" },
   vaulted: { label: "Vaulted", color: "#a855f7" },
   pol: { label: "Embedded GLW", color: "#ffb472" },
-  other: {
-    label: "Structurally Locked",
-    color: "hsl(0 0% 80%)",
-  },
 } satisfies ChartConfig;
 
 const REGION_COLORS: Record<string, string> = {
@@ -1706,13 +1702,13 @@ const OverviewSection = React.memo(function OverviewSection({
   totalPolBreakdown,
   totalSolarInstallations,
   polTrailingPolGrowthDisplay,
+  liquidityUnitValueDisplay,
   supplyGrowthAnnualDisplay,
   polGrowthMoMDisplay,
   hasLiveSupply,
   circulatingSupplyForSupplyCard,
   vaultedGlw,
   polGlwInPol,
-  supplyTotal,
   openGrowthCardsDialog,
   resetModalBlog,
   setIsBannerBlogOpen,
@@ -1724,13 +1720,13 @@ const OverviewSection = React.memo(function OverviewSection({
   totalPolBreakdown: PolBreakdownSummary;
   totalSolarInstallations: number | null;
   polTrailingPolGrowthDisplay: PolGrowthDisplay;
+  liquidityUnitValueDisplay: string;
   supplyGrowthAnnualDisplay: string;
   polGrowthMoMDisplay: string;
   hasLiveSupply: boolean;
   circulatingSupplyForSupplyCard: number;
   vaultedGlw: number | null;
   polGlwInPol: number | null;
-  supplyTotal: number;
   openGrowthCardsDialog: (card: GrowthCardKey) => void;
   resetModalBlog: (modal: ModalBlogKey, next?: MiniBlogId) => void;
   setIsBannerBlogOpen: (open: boolean) => void;
@@ -1754,21 +1750,8 @@ const OverviewSection = React.memo(function OverviewSection({
           value: Math.round(polGlwInPol ?? 0),
           fill: "#ffb472",
         },
-        {
-          name: "Structurally Locked",
-          value: Math.max(
-            0,
-            Math.round(
-              supplyTotal -
-                circulatingSupplyForSupplyCard -
-                (vaultedGlw ?? 0) -
-                (polGlwInPol ?? 0)
-            )
-          ),
-          fill: "hsl(0 0% 85%)",
-        },
       ].filter((d) => d.value > 0),
-    [circulatingSupplyForSupplyCard, polGlwInPol, supplyTotal, vaultedGlw]
+    [circulatingSupplyForSupplyCard, polGlwInPol, vaultedGlw]
   );
 
   return (
@@ -1812,8 +1795,8 @@ const OverviewSection = React.memo(function OverviewSection({
               Click for basics ↗
             </div>
           </div>
-          <div className="relative z-10 mx-auto w-full max-w-5xl px-5 py-10 pt-14 sm:px-12 sm:py-14 sm:pt-16 lg:py-16 lg:pt-16 grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-x-16 md:gap-y-8 md:items-end">
-            <div className="grid grid-rows-[auto_auto] gap-3 md:col-span-2 md:justify-self-center md:items-center md:text-center">
+          <div className="relative z-10 mx-auto w-full max-w-5xl px-5 py-10 pt-14 sm:px-12 sm:py-14 sm:pt-16 lg:py-16 lg:pt-16 grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-x-12 md:gap-y-8 md:items-end">
+            <div className="grid grid-rows-[auto_auto] gap-3 md:col-span-3 md:justify-self-center md:items-center md:text-center">
               <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
                 Market Cap
               </div>
@@ -1840,7 +1823,7 @@ const OverviewSection = React.memo(function OverviewSection({
               </Link>
             </div>
 
-            <div className="grid grid-rows-[auto_auto_auto] gap-3 md:justify-self-end md:items-center md:text-center">
+            <div className="grid grid-rows-[auto_auto_auto] gap-3 md:justify-self-center md:items-center md:text-center">
               <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
                 Embedded Liquidity
               </div>
@@ -1852,6 +1835,16 @@ const OverviewSection = React.memo(function OverviewSection({
                   ? `(${totalPolBreakdown.breakdown})`
                   : "Live data unavailable"}
               </div>
+            </div>
+
+            <div className="grid grid-rows-[auto_auto_auto] gap-3 md:justify-self-end md:items-center md:text-center">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
+                1L Value
+              </div>
+              <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-white">
+                {liquidityUnitValueDisplay}
+              </div>
+              <div className="text-sm text-white/75 text-center">1 liquidity unit</div>
             </div>
           </div>
         </CardContent>
@@ -2003,7 +1996,8 @@ const OverviewSection = React.memo(function OverviewSection({
             />
             <CardContent className="relative h-full flex flex-col px-5 py-5 pb-14 sm:px-8 sm:py-7 sm:pb-14">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 dark:text-muted-foreground/70">
-                Embedded Liquidity Growth (MoM)
+                Embedded Liquidity Growth (
+                <span className="normal-case">MoM</span>)
               </div>
               <div className="mt-4 text-5xl sm:text-7xl font-semibold tracking-tight font-mono tabular-nums leading-none">
                 {polGrowthMoMDisplay}
@@ -2091,36 +2085,27 @@ const OverviewSection = React.memo(function OverviewSection({
                     </PieChart>
                   </ChartContainer>
                 </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
-                  <div className="flex items-center gap-1.5">
+                <div className="flex flex-col gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span
                       className="inline-block h-2 w-2 rounded-full shrink-0"
                       style={{ background: "#4ade80" }}
                     />
                     <span className="text-muted-foreground">Circulating</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span
                       className="inline-block h-2 w-2 rounded-full shrink-0"
                       style={{ background: "#ffb472" }}
                     />
                     <span className="text-muted-foreground">Embedded GLW</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span
                       className="inline-block h-2 w-2 rounded-full shrink-0"
                       style={{ background: "#a855f7" }}
                     />
                     <span className="text-muted-foreground">Vaulted</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className="inline-block h-2 w-2 rounded-full shrink-0"
-                      style={{ background: "hsl(0 0% 85%)" }}
-                    />
-                    <span className="text-muted-foreground">
-                      Structurally Locked
-                    </span>
                   </div>
                 </div>
               </div>
@@ -2373,6 +2358,20 @@ const LiquidityGctlWalletsSection = React.memo(
     setIsGctlDialogOpen: (open: boolean) => void;
     setIsWalletStatsDialogOpen: (open: boolean) => void;
   }) {
+    const walletBreakdownRows = React.useMemo(
+      () =>
+        walletStats.breakdown.filter(
+          (row) => !/non-?participants?/i.test(row.label)
+        ),
+      [walletStats.breakdown]
+    );
+
+    const walletBreakdownMaxPct = React.useMemo(
+      () =>
+        walletBreakdownRows.reduce((maxPct, row) => Math.max(maxPct, row.pct), 0),
+      [walletBreakdownRows]
+    );
+
     return (
       <section className="flex flex-col gap-6 pt-16">
         <SectionHeader title="Embedded Liquidity, GCTL, Wallets" />
@@ -2658,7 +2657,7 @@ const LiquidityGctlWalletsSection = React.memo(
                 </div>
                 <ChartContainer
                   config={walletGrowthChartConfig}
-                  className="h-24 w-full"
+                  className="h-32 w-full"
                 >
                   <BarChart data={walletGrowthLive ?? []} barGap={2}>
                     <XAxis
@@ -2685,8 +2684,8 @@ const LiquidityGctlWalletsSection = React.memo(
                   {hasWalletBreakdown ? "" : " · Live data unavailable"}
                 </div>
                 <div className="flex flex-col gap-3">
-                  {hasWalletBreakdown ? (
-                    walletStats.breakdown.map((row) => (
+                  {hasWalletBreakdown && walletBreakdownRows.length > 0 ? (
+                    walletBreakdownRows.map((row) => (
                       <div key={row.label} className="flex items-center gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between text-xs mb-1.5">
@@ -2707,7 +2706,11 @@ const LiquidityGctlWalletsSection = React.memo(
                             <div
                               className="h-full rounded-full"
                               style={{
-                                width: `${row.pct}%`,
+                                width: `${
+                                  walletBreakdownMaxPct > 0
+                                    ? (row.pct / walletBreakdownMaxPct) * 100
+                                    : 0
+                                }%`,
                                 backgroundColor: row.color,
                               }}
                             />
@@ -3569,6 +3572,9 @@ export function PolDashboardView() {
     ? formatUsdWhole(currentMarketCap)
     : "—";
   const priceDisplay = hasLivePrice ? `$${currentPrice.toFixed(4)}` : "—";
+  const liquidityUnitValueDisplay = hasLivePrice
+    ? `$${Math.sqrt(currentPrice).toFixed(currentPrice < 1 ? 3 : 2)}`
+    : "—";
   const priceDetail = hasLivePrice ? currentPrice.toFixed(4) : "—";
 
   // ── GCTL live data ──
@@ -4847,7 +4853,12 @@ export function PolDashboardView() {
       },
       {
         key: "embeddedGrowth" as const,
-        label: "Embedded Liquidity Growth (MoM)",
+        label: (
+          <>
+            Embedded Liquidity Growth (<span className="normal-case">MoM</span>
+            )
+          </>
+        ),
         value: polGrowthMoMDisplay,
       },
     ],
@@ -4886,13 +4897,13 @@ export function PolDashboardView() {
             totalPolBreakdown={totalPolBreakdown}
             totalSolarInstallations={totalSolarInstallations}
             polTrailingPolGrowthDisplay={polTrailingPolGrowthDisplay}
+            liquidityUnitValueDisplay={liquidityUnitValueDisplay}
             supplyGrowthAnnualDisplay={supplyGrowthAnnualDisplay}
             polGrowthMoMDisplay={polGrowthMoMDisplay}
             hasLiveSupply={hasLiveSupply}
             circulatingSupplyForSupplyCard={circulatingSupplyForSupplyCard}
             vaultedGlw={vaultedGlw}
             polGlwInPol={polGlwInPol}
-            supplyTotal={supplyTotal}
             openGrowthCardsDialog={openGrowthCardsDialog}
             resetModalBlog={resetModalBlog}
             setIsBannerBlogOpen={setIsBannerBlogOpen}
@@ -5031,25 +5042,18 @@ export function PolDashboardView() {
 
             <div>
               {(() => {
-                const denom = supplyModel.total > 0 ? supplyModel.total : 1;
                 const vaulted = vaultedGlw ?? 0;
                 const polNow = polWalletGlw ?? 0;
-                const other = hasLiveSupply
-                  ? Math.max(
-                      0,
-                      supplyTotal - (currentCirculating + polNow + vaulted)
-                    )
-                  : 0;
                 const pol = modeledPolGlw ?? 0;
                 const deltaPol = pol - polNow;
                 const circulating = hasLiveSupply
                   ? Math.max(0, currentCirculating - deltaPol)
                   : 0;
+                const trackedTotal = Math.max(circulating + pol + vaulted, 1);
 
-                const circulatingPct = (circulating / denom) * 100;
-                const polPct = (pol / denom) * 100;
-                const vaultedPct = (vaulted / denom) * 100;
-                const otherPct = (other / denom) * 100;
+                const circulatingPct = (circulating / trackedTotal) * 100;
+                const polPct = (pol / trackedTotal) * 100;
+                const vaultedPct = (vaulted / trackedTotal) * 100;
                 return (
                   <>
                     <div className="h-6 rounded-full bg-muted/50 overflow-hidden flex">
@@ -5074,16 +5078,8 @@ export function PolDashboardView() {
                           background: "hsl(270, 70%, 60%)",
                         }}
                       />
-                      <div
-                        className="h-full transition-all duration-300 ease-out"
-                        style={{
-                          width: `${otherPct}%`,
-                          background: "hsl(240, 3.8%, 46.1%)",
-                          opacity: 0.35,
-                        }}
-                      />
                     </div>
-                    <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
+                    <div className="grid grid-cols-1 gap-2 mt-3 text-xs sm:grid-cols-3">
                       <div className="flex items-center gap-1.5">
                         <span
                           className="inline-block h-2 w-2 rounded-full shrink-0"
@@ -5108,18 +5104,6 @@ export function PolDashboardView() {
                           style={{ background: "hsl(270, 70%, 60%)" }}
                         />
                         <span className="text-muted-foreground">Vaulted</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="inline-block h-2 w-2 rounded-full shrink-0"
-                          style={{
-                            background: "hsl(240, 3.8%, 46.1%)",
-                            opacity: 0.5,
-                          }}
-                        />
-                        <span className="text-muted-foreground">
-                          Structurally Locked
-                        </span>
                       </div>
                     </div>
                   </>
@@ -5231,8 +5215,8 @@ export function PolDashboardView() {
                   Price History ↗
                 </Link>
               </div>
-              <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-x-12 sm:gap-y-8">
-                <div className="space-y-1.5 sm:col-span-2 sm:justify-self-center sm:text-center">
+              <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-x-10 sm:gap-y-8">
+                <div className="space-y-1.5 sm:col-span-3 sm:justify-self-center sm:text-center">
                   <div className="text-[10px] font-mono uppercase tracking-widest text-white/70">
                     Market Cap
                   </div>
@@ -5248,7 +5232,7 @@ export function PolDashboardView() {
                     {priceDisplay}
                   </div>
                 </div>
-                <div className="space-y-1.5 sm:justify-self-end sm:text-center">
+                <div className="space-y-1.5 sm:justify-self-center sm:text-center">
                   <div className="text-[10px] font-mono uppercase tracking-widest text-white/70">
                     Embedded Liquidity
                   </div>
@@ -5256,6 +5240,14 @@ export function PolDashboardView() {
                     {totalPolLq !== null
                       ? formatLiquidityCompact(totalPolLq)
                       : "—"}
+                  </div>
+                </div>
+                <div className="space-y-1.5 sm:justify-self-end sm:text-center">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-white/70">
+                    1L Value
+                  </div>
+                  <div className="text-3xl sm:text-4xl font-semibold font-mono tabular-nums tracking-tight leading-none text-white">
+                    {liquidityUnitValueDisplay}
                   </div>
                 </div>
               </div>
