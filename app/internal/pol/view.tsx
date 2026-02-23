@@ -1830,7 +1830,7 @@ const OverviewSection = React.memo(function OverviewSection({
               <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-white">
                 {totalPolLq !== null ? formatLiquidityCompact(totalPolLq) : "—"}
               </div>
-              <div className="text-sm text-white/75 text-center">
+              <div className="text-sm text-white/75 text-left md:text-center">
                 {totalPolBreakdown?.breakdown
                   ? `(${totalPolBreakdown.breakdown})`
                   : "Live data unavailable"}
@@ -1844,7 +1844,9 @@ const OverviewSection = React.memo(function OverviewSection({
               <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-white">
                 {liquidityUnitValueDisplay}
               </div>
-              <div className="text-sm text-white/75 text-center">1 liquidity unit</div>
+              <div className="text-sm text-white/75 text-left md:text-center">
+                1 liquidity unit
+              </div>
             </div>
           </div>
         </CardContent>
@@ -3573,7 +3575,7 @@ export function PolDashboardView() {
     : "—";
   const priceDisplay = hasLivePrice ? `$${currentPrice.toFixed(4)}` : "—";
   const liquidityUnitValueDisplay = hasLivePrice
-    ? `$${Math.sqrt(currentPrice).toFixed(currentPrice < 1 ? 3 : 2)}`
+    ? `$${(2 * Math.sqrt(currentPrice)).toFixed(currentPrice < 1 ? 3 : 2)}`
     : "—";
   const priceDetail = hasLivePrice ? currentPrice.toFixed(4) : "—";
 
