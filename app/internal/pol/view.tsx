@@ -1839,7 +1839,7 @@ const OverviewSection = React.memo(function OverviewSection({
 
             <div className="grid grid-rows-[auto_auto_auto] gap-3 md:justify-self-end md:items-center md:text-center">
               <div className="text-[10px] font-mono uppercase tracking-widest text-white/75">
-                1L Value
+                {`1${LIQUIDITY_UNIT} Value`}
               </div>
               <div className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight font-mono tabular-nums leading-none text-white">
                 {liquidityUnitValueDisplay}
@@ -5246,7 +5246,7 @@ export function PolDashboardView() {
                 </div>
                 <div className="space-y-1.5 sm:justify-self-end sm:text-center">
                   <div className="text-[10px] font-mono uppercase tracking-widest text-white/70">
-                    1L Value
+                    {`1${LIQUIDITY_UNIT} Value`}
                   </div>
                   <div className="text-3xl sm:text-4xl font-semibold font-mono tabular-nums tracking-tight leading-none text-white">
                     {liquidityUnitValueDisplay}
