@@ -503,10 +503,17 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       : isRewardScoresLoading;
     const currency = isMiner ? "USDC" : "GLW";
     const imageUrl = application.afterInstallPictures?.[0]?.url;
+    // Some datasets include the same application id for both listing types.
+    // Include type + fraction identity to prevent React key collisions.
+    const cardKey = `${application._type}:${application.id}:${
+      application.activeFraction?.id ??
+      application.activeFraction?.nonce ??
+      index
+    }`;
 
     return (
       <div
-        key={application.id}
+        key={cardKey}
         onClick={() => handleCardClick(row)}
         className={cn(
           "group overflow-hidden rounded-2xl cursor-pointer flex flex-col",
@@ -767,7 +774,17 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 </TooltipContent>
               </Tooltip>
             ) : (
-              <div className="flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50" />
+              <div className="flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
+                <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5 sm:mb-1">
+                  Est. Weekly
+                </span>
+                <span className="text-base sm:text-lg font-bold text-muted-foreground leading-tight">
+                  —
+                </span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
+                  unavailable
+                </span>
+              </div>
             )}
 
             {/* Column 3: Reward Score (delegations only) - hidden on mobile, shown on sm+ */}
