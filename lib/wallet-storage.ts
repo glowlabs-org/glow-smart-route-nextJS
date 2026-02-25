@@ -20,6 +20,7 @@ const SUPPORTED_RECENT_CONNECTOR_IDS = new Set([
   "com.trustwallet.app",
   "io.rabby",
   "com.ledger.live",
+  "injected",
   "walletConnect",
 ]);
 
