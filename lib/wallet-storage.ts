@@ -27,6 +27,30 @@ const SUPPORTED_RECENT_CONNECTOR_IDS = new Set([
   "walletConnect",
 ]);
 
+function normalizeRecentConnectorId(value: string) {
+  if (value === "metaMask") return "io.metamask";
+  return value;
+}
+
+function parseRecentConnectorId(
+  value: string,
+): { connectorId: string; isSerialized: boolean } {
+  try {
+    const parsed = JSON.parse(value);
+    if (typeof parsed === "string") {
+      return { connectorId: parsed, isSerialized: true };
+    }
+  } catch {
+    // Fallback to plain string value.
+  }
+
+  return { connectorId: value, isSerialized: false };
+}
+
+function formatRecentConnectorId(value: string, isSerialized: boolean) {
+  return isSerialized ? JSON.stringify(value) : value;
+}
+
 function getSecureCookieSuffix() {
   if (typeof window === "undefined") return "";
   return window.location.protocol === "https:" ? "; Secure" : "";
@@ -71,8 +95,10 @@ function sanitizeRecentConnectorId(
 ) {
   if (!value) return value ?? null;
   if (key !== "wagmi.recentConnectorId") return value;
+  const { connectorId, isSerialized } = parseRecentConnectorId(value);
+  const normalizedValue = normalizeRecentConnectorId(connectorId);
 
-  if (!SUPPORTED_RECENT_CONNECTOR_IDS.has(value)) {
+  if (!SUPPORTED_RECENT_CONNECTOR_IDS.has(normalizedValue)) {
     try {
       window.localStorage?.removeItem(key);
     } catch {
@@ -82,8 +108,12 @@ function sanitizeRecentConnectorId(
     return null;
   }
 
-  if (value !== "walletConnect") return value;
-  if (storage && hasWalletConnectSession(storage)) return value;
+  if (normalizedValue !== "walletConnect") {
+    return formatRecentConnectorId(normalizedValue, isSerialized);
+  }
+  if (storage && hasWalletConnectSession(storage)) {
+    return formatRecentConnectorId(normalizedValue, isSerialized);
+  }
 
   try {
     window.localStorage?.removeItem(key);

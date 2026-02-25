@@ -39,7 +39,6 @@ import {
 import { RefundClaimsPanel } from "@/app/wallet/refund-claims-panel";
 import { MigrationClaimPanel } from "@/app/wallet/migration-claim-panel";
 import { useLaunchpadStatus } from "@/hooks/useLaunchpadStatus";
-import { Skeleton } from "@/components/ui/skeleton";
 import { trackEvent } from "@/lib/telemetry";
 import { useCountdownTo } from "@/app/components/animated-countdown";
 import {
@@ -58,10 +57,13 @@ import { ActivationCelebrationModal } from "@/components/referral/activation-cel
 import { useReferralLaunch } from "@/hooks/use-referral-launch";
 import { useEnsNames } from "@/hooks/useEnsNames";
 import { shortAddress } from "@/utils/impact";
+import { GlowSymbolAnimated } from "@/components/glow-symbol-animated";
 
 interface GlowSoftDashboardProps {
   walletAddressOverride?: string | null;
 }
+
+const WALLET_SETTLING_TIMEOUT_MS = 8_000;
 
 function subscribeToNothing() {
   return () => {};
@@ -135,33 +137,20 @@ function countAvailableApplications(
 
 function DashboardConnectingSkeleton() {
   return (
-    <div className="grid grid-cols-12 gap-4 grid-flow-row-dense">
-      <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[330px]">
-        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
-      </div>
-      <div className="col-span-12 lg:col-span-4 min-h-0 lg:h-[330px]">
-        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
-      </div>
-      <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[330px]">
-        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
+    <div className="min-h-[70vh] bg-background flex flex-col items-center justify-center gap-6 px-4 text-center">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+        Wallet Handshake
       </div>
 
-      <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]">
-        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
-      </div>
-      <div className="col-span-12 lg:col-span-4 min-h-0 lg:h-[380px]">
-        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
-      </div>
-      <div className="col-span-12 lg:col-span-3 min-h-0 lg:h-[380px]">
-        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
-      </div>
+      <GlowSymbolAnimated className="h-24 w-24 text-foreground" />
 
-      <div className="col-span-12 lg:col-span-5 min-h-0 lg:h-[380px]">
-        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
-      </div>
-      <div className="col-span-12 lg:col-span-7 min-h-0 lg:h-[380px]">
-        <Skeleton className="h-full w-full rounded-2xl bg-card dark:bg-muted/30" />
-      </div>
+      <h2 className="text-4xl lg:text-5xl font-semibold tracking-tight text-foreground">
+        Connecting your wallet
+      </h2>
+
+      <p className="max-w-xl text-xs font-mono uppercase tracking-widest text-muted-foreground/60">
+        Approve or reject the request in your wallet extension to continue
+      </p>
     </div>
   );
 }
@@ -173,15 +162,13 @@ export default function GlowSoftDashboard({
     address: connectedAddress,
     isConnected,
     isConnecting,
-    isReconnecting,
   } = useAccount();
   const walletAddress = walletAddressOverride ?? connectedAddress ?? null;
   const hasWallet = Boolean(walletAddress);
   const isOwnWallet =
     !walletAddressOverride ||
     (Boolean(connectedAddress) &&
-      walletAddressOverride.toLowerCase() ===
-        connectedAddress!.toLowerCase());
+      walletAddressOverride.toLowerCase() === connectedAddress!.toLowerCase());
   const readOnly = !isOwnWallet;
 
   const { ensNames } = useEnsNames({
@@ -226,12 +213,28 @@ export default function GlowSoftDashboard({
     isBuyGlowDialogOpen;
 
   const isClient = useIsClient();
-  const isWalletSettling =
+  const [hasWalletSettlingTimedOut, setHasWalletSettlingTimedOut] =
+    React.useState(false);
+  const isWalletSettlingRaw =
     isClient &&
     !walletAddressOverride &&
     !hasWallet &&
-    (isConnecting || isReconnecting) &&
+    isConnecting &&
     !hasAnyDialogOpen;
+  const isWalletSettling = isWalletSettlingRaw && !hasWalletSettlingTimedOut;
+
+  React.useEffect(() => {
+    if (!isWalletSettlingRaw) {
+      setHasWalletSettlingTimedOut(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setHasWalletSettlingTimedOut(true);
+    }, WALLET_SETTLING_TIMEOUT_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isWalletSettlingRaw]);
 
   const normalizedWalletAddress = walletAddress?.toLowerCase() ?? null;
 
@@ -319,7 +322,10 @@ export default function GlowSoftDashboard({
   }, [hasWallet, isMigrationLoading, migrationError, migrationData]);
 
   // Handle migration toast inline during render to avoid useEffect
-  if (!readOnly && prevHasMigrationClaimRef.current !== hasPendingMigrationClaim) {
+  if (
+    !readOnly &&
+    prevHasMigrationClaimRef.current !== hasPendingMigrationClaim
+  ) {
     prevHasMigrationClaimRef.current = hasPendingMigrationClaim;
 
     if (!hasPendingMigrationClaim) {
@@ -482,20 +488,32 @@ export default function GlowSoftDashboard({
                           walletAddress={walletAddress}
                           variant="hero"
                           readOnly={readOnly}
-                          onMintAndStakeClick={readOnly ? undefined : (forceStep1) => {
-                            setMintAndStakeForceStep1(Boolean(forceStep1));
-                            setIsMintAndStakeOpen(true);
-                          }}
+                          onMintAndStakeClick={
+                            readOnly
+                              ? undefined
+                              : (forceStep1) => {
+                                  setMintAndStakeForceStep1(
+                                    Boolean(forceStep1),
+                                  );
+                                  setIsMintAndStakeOpen(true);
+                                }
+                          }
                         />
                       </WidgetErrorBoundary>
                     </div>
 
-                    <div className={readOnly ? "lg:col-span-7 flex" : "lg:col-span-5 flex"}>
+                    <div
+                      className={
+                        readOnly ? "lg:col-span-7 flex" : "lg:col-span-5 flex"
+                      }
+                    >
                       <WidgetErrorBoundary>
                         <NetWorthWidget
                           walletAddress={walletAddress}
                           variant="minimal"
-                          onBuyGlowClick={readOnly ? undefined : handleBuyGlowClick}
+                          onBuyGlowClick={
+                            readOnly ? undefined : handleBuyGlowClick
+                          }
                         />
                       </WidgetErrorBoundary>
                     </div>
@@ -567,8 +585,10 @@ export default function GlowSoftDashboard({
                           walletAddress={walletAddress}
                           variant="minimal"
                           readOnly={readOnly}
-                          onMintAndStakeClick={readOnly ? undefined : () =>
-                            setIsMintAndStakeOpen(true)
+                          onMintAndStakeClick={
+                            readOnly
+                              ? undefined
+                              : () => setIsMintAndStakeOpen(true)
                           }
                         />
                       </WidgetErrorBoundary>
@@ -806,7 +826,10 @@ export default function GlowSoftDashboard({
 
       {!readOnly && (
         <>
-          <Dialog open={isRefundDialogOpen} onOpenChange={setIsRefundDialogOpen}>
+          <Dialog
+            open={isRefundDialogOpen}
+            onOpenChange={setIsRefundDialogOpen}
+          >
             <DialogContent
               className="bg-background rounded-2xl p-0 sm:max-w-[980px] w-full border-border shadow-2xl overflow-hidden"
               onInteractOutside={(e) => e.preventDefault()}
@@ -839,7 +862,9 @@ export default function GlowSoftDashboard({
 
           <MintAndStakeGctlDialog
             key={
-              isMintAndStakeOpen ? "mint-and-stake-open" : "mint-and-stake-closed"
+              isMintAndStakeOpen
+                ? "mint-and-stake-open"
+                : "mint-and-stake-closed"
             }
             open={isMintAndStakeOpen}
             onOpenChange={(open) => {
