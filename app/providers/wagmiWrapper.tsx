@@ -19,8 +19,30 @@ export const WagmiWrapper = ({ children }: { children: React.ReactNode }) => {
       })
   );
 
+  const reconnectOnMount = React.useMemo(() => {
+    if (typeof window === "undefined") return true;
+    const ethereum = (window as any)?.ethereum;
+    const providers = Array.isArray(ethereum?.providers)
+      ? ethereum.providers
+      : ethereum
+      ? [ethereum]
+      : [];
+
+    const hasMetaMask = providers.some(
+      (provider: any) =>
+        provider?.isMetaMask === true && provider?.isCoinbaseWallet !== true
+    );
+    const hasCoinbase = providers.some(
+      (provider: any) => provider?.isCoinbaseWallet === true
+    );
+
+    // Temporary safety valve: avoid auto reconnect deadlock observed when both
+    // MetaMask and Coinbase extensions are injected into the same Chrome profile.
+    return !(hasMetaMask && hasCoinbase);
+  }, []);
+
   return (
-    <WagmiProvider config={wagmiConfig}>
+    <WagmiProvider config={wagmiConfig} reconnectOnMount={reconnectOnMount}>
       <QueryClientProvider client={queryClient}>
         <ConnectKitProvider>
           <Toaster position="bottom-right" />

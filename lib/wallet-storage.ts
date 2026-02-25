@@ -14,6 +14,15 @@ type KeyedStorage = {
   length: number;
 };
 
+const SUPPORTED_RECENT_CONNECTOR_IDS = new Set([
+  "io.metamask",
+  "com.coinbase.wallet",
+  "com.trustwallet.app",
+  "io.rabby",
+  "com.ledger.live",
+  "walletConnect",
+]);
+
 function getSecureCookieSuffix() {
   if (typeof window === "undefined") return "";
   return window.location.protocol === "https:" ? "; Secure" : "";
@@ -58,6 +67,17 @@ function sanitizeRecentConnectorId(
 ) {
   if (!value) return value ?? null;
   if (key !== "wagmi.recentConnectorId") return value;
+
+  if (!SUPPORTED_RECENT_CONNECTOR_IDS.has(value)) {
+    try {
+      window.localStorage?.removeItem(key);
+    } catch {
+      // Ignore storage access errors.
+    }
+    removeCookie(key);
+    return null;
+  }
+
   if (value !== "walletConnect") return value;
   if (storage && hasWalletConnectSession(storage)) return value;
 
