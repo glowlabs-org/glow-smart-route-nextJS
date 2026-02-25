@@ -15,6 +15,9 @@ type KeyedStorage = {
 };
 
 const SUPPORTED_RECENT_CONNECTOR_IDS = new Set([
+  "metaMask",
+  "coinbaseWallet",
+  "phantom",
   "io.metamask",
   "com.coinbase.wallet",
   "com.trustwallet.app",
