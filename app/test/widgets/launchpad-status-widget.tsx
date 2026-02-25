@@ -610,7 +610,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           <div
             className={cn(
               "grid gap-1.5 sm:gap-2 mt-auto",
-              isMiner ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3",
+              isMiner ? "grid-cols-2" : "grid-cols-3",
             )}
           >
             {/* Column 1: Price/Amount */}
@@ -693,7 +693,8 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                       </span>
                       <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
                         GLW
-                        {weeklyYieldUsd > 0 && ` · $${formatNumber(weeklyYieldUsd, 2)}`}
+                        {weeklyYieldUsd > 0 &&
+                          ` · $${formatNumber(weeklyYieldUsd, 2)}`}
                       </span>
                     </div>
                     <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
@@ -715,9 +716,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                         protocol.
                       </p>
                       {row.scoreData &&
-                        "userWeeklyGlwRewards" in row.scoreData &&
-                        application.activeFraction?.totalSteps ? (
-                          (() => {
+                      "userWeeklyGlwRewards" in row.scoreData &&
+                      application.activeFraction?.totalSteps
+                        ? (() => {
                             const totalShares =
                               application.activeFraction?.totalSteps || 0;
                             const glwRewards = parseFloat(
@@ -730,7 +731,9 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                             );
                             const pdRewards = parseFloat(
                               formatUnits(
-                                BigInt(row.scoreData.userWeeklyPdRewards || "0"),
+                                BigInt(
+                                  row.scoreData.userWeeklyPdRewards || "0",
+                                ),
                                 DECIMALS_BY_TOKEN.GLW,
                               ),
                             );
@@ -768,7 +771,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                               </div>
                             );
                           })()
-                        ) : null}
+                        : null}
                     </div>
                   )}
                 </TooltipContent>
@@ -787,10 +790,10 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               </div>
             )}
 
-            {/* Column 3: Reward Score (delegations only) - hidden on mobile, shown on sm+ */}
+            {/* Column 3: Reward Score (delegations only) */}
             {!isMiner &&
               (isRowScoreLoading ? (
-                <div className="hidden sm:flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
+                <div className="flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50">
                   <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5 sm:mb-1">
                     Score
                   </span>
@@ -800,7 +803,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               ) : rewardScore !== null ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="hidden sm:flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50 cursor-help">
+                    <div className="flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50 cursor-help">
                       <div className="flex items-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
                         <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                           Score
@@ -823,7 +826,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   </TooltipContent>
                 </Tooltip>
               ) : (
-                <div className="hidden sm:flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50" />
+                <div className="flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50" />
               ))}
           </div>
 
@@ -1368,7 +1371,7 @@ export default function LaunchpadStatusWidget({
               </div>
             </div>
           ) : variant === "full-row" ? (
-            <div className="min-h-0 flex-1 px-4 pb-4">
+            <div className="min-h-0 flex-1">
               <FullRowLaunchpadGrid onPayDeposit={handlePayDeposit} />
             </div>
           ) : (
