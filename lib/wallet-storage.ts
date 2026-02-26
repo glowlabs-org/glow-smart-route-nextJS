@@ -12,6 +12,7 @@ type KeyedStorage = {
   getItem: (key: string) => string | null;
   key: (index: number) => string | null;
   length: number;
+  removeItem?: (key: string) => void;
 };
 
 const SUPPORTED_RECENT_CONNECTOR_IDS = new Set([
@@ -69,20 +70,72 @@ function removeCookie(key: string) {
   document.cookie = `${key}=; Path=/; Max-Age=0; SameSite=Lax${getSecureCookieSuffix()}`;
 }
 
-function hasWalletConnectSession(storage: KeyedStorage) {
+function isWalletConnectStorageKey(storageKey: string) {
+  const lower = storageKey.toLowerCase();
+  return (
+    lower.startsWith("wc@2") ||
+    lower.startsWith("wc@") ||
+    lower.includes("walletconnect")
+  );
+}
+
+function collectHexTopics(value: string) {
+  const matches = value.match(/[a-f0-9]{64}/gi);
+  if (!matches) return [];
+  return matches.map((match) => match.toLowerCase());
+}
+
+function removeWalletConnectArtifacts(storage: KeyedStorage) {
+  if (typeof storage.removeItem !== "function") return;
+
+  const keysToRemove: string[] = [];
   for (let i = 0; i < storage.length; i += 1) {
     const storageKey = storage.key(i);
     if (!storageKey) continue;
+    if (!isWalletConnectStorageKey(storageKey)) continue;
+    keysToRemove.push(storageKey);
+  }
 
-    const lower = storageKey.toLowerCase();
-    const isWalletConnectKey =
-      lower.startsWith("wc@2") ||
-      lower.startsWith("wc@") ||
-      lower.includes("walletconnect");
-    if (!isWalletConnectKey) continue;
+  keysToRemove.forEach((storageKey) => {
+    try {
+      storage.removeItem?.(storageKey);
+    } catch {
+      // Ignore storage access errors.
+    }
+    removeCookie(storageKey);
+  });
+}
+
+function hasWalletConnectSession(storage: KeyedStorage) {
+  const sessionTopics = new Set<string>();
+  const keychainTopics = new Set<string>();
+  let sawWalletConnectEntry = false;
+
+  for (let i = 0; i < storage.length; i += 1) {
+    const storageKey = storage.key(i);
+    if (!storageKey) continue;
+    if (!isWalletConnectStorageKey(storageKey)) continue;
+    sawWalletConnectEntry = true;
 
     const value = storage.getItem(storageKey);
-    if (value && value !== "null" && value !== "undefined") return true;
+    if (!value || value === "null" || value === "undefined") continue;
+
+    const lowerKey = storageKey.toLowerCase();
+    const topics = collectHexTopics(value);
+
+    if (lowerKey.includes("session")) {
+      topics.forEach((topic) => sessionTopics.add(topic));
+    }
+    if (lowerKey.includes("keychain")) {
+      topics.forEach((topic) => keychainTopics.add(topic));
+    }
+  }
+
+  if (!sawWalletConnectEntry) return false;
+  if (sessionTopics.size === 0 || keychainTopics.size === 0) return false;
+
+  for (const topic of sessionTopics) {
+    if (keychainTopics.has(topic)) return true;
   }
 
   return false;
@@ -109,11 +162,14 @@ function sanitizeRecentConnectorId(
   }
 
   if (normalizedValue !== "walletConnect") {
+    if (storage) removeWalletConnectArtifacts(storage);
     return formatRecentConnectorId(normalizedValue, isSerialized);
   }
   if (storage && hasWalletConnectSession(storage)) {
     return formatRecentConnectorId(normalizedValue, isSerialized);
   }
+
+  if (storage) removeWalletConnectArtifacts(storage);
 
   try {
     window.localStorage?.removeItem(key);

@@ -160,10 +160,37 @@ describe("wallet storage", () => {
 
   it("keeps walletConnect recent connector id when a WC session exists", () => {
     const storage = createPersistentWalletStorage();
+    const topic = "a".repeat(64);
 
     window.localStorage.setItem("wagmi.recentConnectorId", "walletConnect");
-    window.localStorage.setItem("wc@2:client:0.3//session", "{\"active\":true}");
+    window.localStorage.setItem(
+      "wc@2:client:0.3//session",
+      JSON.stringify({ [topic]: { topic } })
+    );
+    window.localStorage.setItem(
+      "wc@2:core:0.3//keychain",
+      JSON.stringify({ [topic]: "symKey" })
+    );
 
     expect(storage.getItem("wagmi.recentConnectorId")).toBe("walletConnect");
+  });
+
+  it("purges stale walletConnect artifacts when non-WC connector is selected", () => {
+    const storage = createPersistentWalletStorage();
+    const topic = "b".repeat(64);
+
+    window.localStorage.setItem("wagmi.recentConnectorId", "io.metamask");
+    window.localStorage.setItem(
+      "wc@2:client:0.3//session",
+      JSON.stringify({ [topic]: { topic } })
+    );
+    window.localStorage.setItem(
+      "wc@2:core:0.3//keychain",
+      JSON.stringify({ [topic]: "symKey" })
+    );
+
+    expect(storage.getItem("wagmi.recentConnectorId")).toBe("io.metamask");
+    expect(window.localStorage.getItem("wc@2:client:0.3//session")).toBeNull();
+    expect(window.localStorage.getItem("wc@2:core:0.3//keychain")).toBeNull();
   });
 });
