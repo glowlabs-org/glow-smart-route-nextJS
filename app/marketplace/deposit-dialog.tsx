@@ -366,6 +366,18 @@ export function DepositDialog({
   }, [affordability.requiredByMethod, ethBalance, glwBalance, usdcBalance]);
 
   const selectedShortfall = shortfallByMethod[selectedPaymentMethod];
+  const showUsdcShortfallInCta =
+    isConnected &&
+    !isSubmitting &&
+    selectedPaymentMethod === "USDC" &&
+    !affordability.canSubmit &&
+    selectedShortfall > 0n;
+  const usdcDisabledCtaLabel = `Need +${formatTokenAmount(
+    selectedShortfall,
+    6,
+    "0",
+    6
+  )} USDC${selectedCurrency === "GLW" ? " (swap buffer)" : ""}`;
 
   const estimatedRewards = React.useMemo(
     () =>
@@ -1536,16 +1548,6 @@ export function DepositDialog({
           </div>
 
           <div className="relative">
-            {isConnected &&
-              selectedShortfall > 0n &&
-              selectedPaymentMethod === "USDC" && (
-                <p className="mb-2 text-xs text-red-500">
-                  Need +
-                  {formatTokenAmount(selectedShortfall, 6, "0", 6)} USDC to
-                  continue.
-                  {selectedCurrency === "GLW" ? " (includes swap buffer)" : ""}
-                </p>
-              )}
             {!isConnected ? (
               <ConnectButton size="medium" variant="default" />
             ) : (
@@ -1557,7 +1559,9 @@ export function DepositDialog({
                 {isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                {selectedCurrency === "GLW"
+                {showUsdcShortfallInCta
+                  ? usdcDisabledCtaLabel
+                  : selectedCurrency === "GLW"
                   ? selectedPaymentMethod !== "GLW"
                     ? "Swap & Delegate"
                     : "Confirm Delegation"
