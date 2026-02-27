@@ -117,6 +117,8 @@ export const CONTRACT_ERROR_MESSAGES: Record<string, ContractErrorConfig> = {
 
 export const RPC_INTERNAL_ERROR_MESSAGE =
   "RPC/provider error. Please retry or switch RPC.";
+export const SWAP_VOLATILITY_ERROR_MESSAGE =
+  "Swap failed because price/liquidity changed while processing. Please retry. If it keeps failing, try a smaller quantity.";
 
 // ============================================================================
 // Error Handling Functions
@@ -164,6 +166,31 @@ export function findErrorInMessage(
     }
   }
   return null;
+}
+
+export function getSwapVolatilityErrorMessage(
+  rawMsg: string,
+  failedStepId?: string
+): string | null {
+  if (failedStepId !== "SWAP_USDG_TO_GLOW") return null;
+
+  const normalized = rawMsg.toLowerCase();
+  const volatilityIndicators = [
+    "slippage",
+    "liquidity",
+    "failed to swap",
+    "failed to get amount out",
+    "get amount out",
+    "insufficient output amount",
+    "amountoutmin",
+    "revert",
+  ];
+
+  return volatilityIndicators.some((indicator) =>
+    normalized.includes(indicator)
+  )
+    ? SWAP_VOLATILITY_ERROR_MESSAGE
+    : null;
 }
 
 export async function withInternalRpcRetry<T>(
@@ -290,7 +317,7 @@ export function calculateAffordability(
 
   // USDC required:
   // - miners: pay stepPrice
-  // - delegations (swap): buy GLW via USDC with a 5% buffer
+  // - delegations (swap): buy GLW via USDC with a 2% buffer
   if (selectedCurrency === "USDC") {
     requiredByMethod.USDC = BigInt(activeFraction.stepPrice) * qty;
   } else {
@@ -298,7 +325,7 @@ export function calculateAffordability(
       const glwNeeded = BigInt(activeFraction.step) * qty; // 18 decimals
       const glwPrice = parseUnits(glwSpotPrice.toFixed(6), 6); // USDC price (6 decimals)
       const rawUsdcCost = (glwNeeded * glwPrice) / BigInt(1e18); // 6 decimals
-      requiredByMethod.USDC = (rawUsdcCost * 105n) / 100n; // 5% buffer
+      requiredByMethod.USDC = (rawUsdcCost * 102n) / 100n; // 2% buffer
     } else {
       requiredByMethod.USDC = null;
     }

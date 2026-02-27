@@ -10,8 +10,10 @@ import {
   getErrorCode,
   isInternalRpcError,
   findErrorInMessage,
+  getSwapVolatilityErrorMessage,
   CONTRACT_ERROR_MESSAGES,
   RPC_INTERNAL_ERROR_MESSAGE,
+  SWAP_VOLATILITY_ERROR_MESSAGE,
 } from "../deposit-dialog-utils";
 
 // ============================================================================
@@ -111,6 +113,43 @@ describe("findErrorInMessage", () => {
     // Should return InsufficientSharesAvailable (first in iteration order)
     expect(result).toBeDefined();
     expect(result?.shouldRefresh).toBe(true);
+  });
+});
+
+describe("getSwapVolatilityErrorMessage", () => {
+  it("returns friendly message for swap volatility/liquidity failures", () => {
+    const msg =
+      "Transaction failed. This could be due to insufficient liquidity, slippage tolerance exceeded, or contract revert.";
+    expect(getSwapVolatilityErrorMessage(msg, "SWAP_USDG_TO_GLOW")).toBe(
+      SWAP_VOLATILITY_ERROR_MESSAGE
+    );
+  });
+
+  it("returns friendly message for reserve quote failures", () => {
+    expect(
+      getSwapVolatilityErrorMessage(
+        "Failed to get amount out",
+        "SWAP_USDG_TO_GLOW"
+      )
+    ).toBe(SWAP_VOLATILITY_ERROR_MESSAGE);
+  });
+
+  it("returns null for non-swap steps", () => {
+    expect(
+      getSwapVolatilityErrorMessage(
+        "insufficient liquidity",
+        "SWAP_USDC_TO_USDG"
+      )
+    ).toBeNull();
+  });
+
+  it("returns null for unrelated errors on swap step", () => {
+    expect(
+      getSwapVolatilityErrorMessage(
+        "Insufficient USDC balance",
+        "SWAP_USDG_TO_GLOW"
+      )
+    ).toBeNull();
   });
 });
 

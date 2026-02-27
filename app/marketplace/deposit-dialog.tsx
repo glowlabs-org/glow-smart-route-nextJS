@@ -65,6 +65,7 @@ import {
   generateShareUrl,
   getErrorCode,
   getErrorMessage,
+  getSwapVolatilityErrorMessage,
   initializeTransactionSteps,
   isInternalRpcError,
   parseQuantityInput,
@@ -298,6 +299,74 @@ export function DepositDialog({
     ]
   );
 
+  const formatTokenAmount = React.useCallback(
+    (
+      amount: bigint | null,
+      decimals: number,
+      fallback: string,
+      maxFractionDigitsOverride?: number
+    ) => {
+      if (amount == null) return fallback;
+      const maxFractionDigits =
+        maxFractionDigitsOverride ?? (decimals === 18 ? 4 : 2);
+      return parseFloat(formatUnits(amount, decimals)).toLocaleString(
+        undefined,
+        {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: maxFractionDigits,
+        }
+      );
+    },
+    []
+  );
+
+  const requiredDisplayByMethod = React.useMemo(
+    () => ({
+      GLW: `${formatTokenAmount(
+        affordability.requiredByMethod.GLW,
+        18,
+        costInGLW(quantity).toLocaleString()
+      )} GLW`,
+      USDC: `${formatTokenAmount(
+        affordability.requiredByMethod.USDC,
+        6,
+        costInUSDC(quantity).toLocaleString()
+      )} USDC`,
+      ETH: `${formatTokenAmount(
+        affordability.requiredByMethod.ETH,
+        18,
+        costInETH(quantity).toFixed(4)
+      )} ETH`,
+    }),
+    [
+      affordability.requiredByMethod,
+      costInETH,
+      costInGLW,
+      costInUSDC,
+      formatTokenAmount,
+      quantity,
+    ]
+  );
+
+  const shortfallByMethod = React.useMemo(() => {
+    const calcShortfall = (
+      required: bigint | null,
+      balance: bigint | null | undefined
+    ) => {
+      if (required == null) return 0n;
+      const safeBalance = balance ?? 0n;
+      return safeBalance >= required ? 0n : required - safeBalance;
+    };
+
+    return {
+      GLW: calcShortfall(affordability.requiredByMethod.GLW, glwBalance),
+      USDC: calcShortfall(affordability.requiredByMethod.USDC, usdcBalance),
+      ETH: calcShortfall(affordability.requiredByMethod.ETH, ethBalance),
+    } as const;
+  }, [affordability.requiredByMethod, ethBalance, glwBalance, usdcBalance]);
+
+  const selectedShortfall = shortfallByMethod[selectedPaymentMethod];
+
   const estimatedRewards = React.useMemo(
     () =>
       calculateEstimatedRewards(
@@ -425,7 +494,7 @@ export function DepositDialog({
           const glwNeeded = BigInt(activeFraction.step) * BigInt(quantity);
           const glwPrice = parseUnits(glwSpotPrice.toFixed(6), 6);
           const rawUsdcCost = (glwNeeded * glwPrice) / BigInt(1e18);
-          requiredUsdc = (rawUsdcCost * 105n) / 100n;
+          requiredUsdc = (rawUsdcCost * 102n) / 100n;
         }
       }
 
@@ -484,10 +553,10 @@ export function DepositDialog({
       if (isSwapDelegate) {
         // Calculate needed GLW
         const glwNeeded = BigInt(activeFraction.step) * BigInt(quantity);
-        // Estimate USDC needed: GLW * Price * 1.05 (5% buffer)
+        // Estimate USDC needed: GLW * Price * 1.02 (2% buffer)
         const glwPrice = parseUnits(glwSpotPrice.toFixed(6), 6);
         const usdcNeeded =
-          (((glwNeeded * glwPrice) / BigInt(1e18)) * 105n) / 100n;
+          (((glwNeeded * glwPrice) / BigInt(1e18)) * 102n) / 100n;
 
         // Swap USDC -> USDG
         updateStepStatus("SWAP_USDC_TO_USDG", "waiting_signature");
@@ -656,21 +725,27 @@ export function DepositDialog({
       const errorCode = getErrorCode(e);
       const isRpcInternal = isInternalRpcError(e);
 
+      // Resolve currently active step first so step-specific error mappers can use it
+      const currentSteps = stepsRef.current;
+      const activeStep = currentSteps.find(
+        (s) => s.status === "waiting_signature" || s.status === "confirming"
+      );
+
       // Look up user-friendly error message from the mapping
       const knownError = CONTRACT_ERROR_MESSAGES[errorName];
       const errorConfig = knownError || findErrorInMessage(rawMsg);
+      const swapVolatilityMessage = getSwapVolatilityErrorMessage(
+        rawMsg,
+        activeStep?.id
+      );
       const msg = isRpcInternal
         ? RPC_INTERNAL_ERROR_MESSAGE
-        : errorConfig?.message || rawMsg;
+        : errorConfig?.message || swapVolatilityMessage || rawMsg;
       const shouldRefresh = isRpcInternal
         ? false
         : errorConfig?.shouldRefresh ?? false;
 
       // Mark the current active step as error (using ref to avoid stale closure)
-      const currentSteps = stepsRef.current;
-      const activeStep = currentSteps.find(
-        (s) => s.status === "waiting_signature" || s.status === "confirming"
-      );
       if (activeStep) {
         updateStepStatus(activeStep.id, "error", { errorMessage: msg });
       } else if (currentSteps.length > 0) {
@@ -684,7 +759,7 @@ export function DepositDialog({
       const isUserRejected =
         rawMsg.includes("User rejected") || rawMsg.includes("user rejected");
 
-      const hasCustomMessage = Boolean(errorConfig);
+      const hasCustomMessage = Boolean(errorConfig || swapVolatilityMessage);
 
       if (!isUserRejected) {
         trackEvent("marketplace_deposit_error", {
@@ -1389,9 +1464,7 @@ export function DepositDialog({
                     selectedPaymentMethod === "GLW" &&
                     !affordability.canSubmit
                   }
-                  pricePreview={
-                    costInGLW(quantity).toLocaleString() + " GLW"
-                  }
+                  pricePreview={requiredDisplayByMethod.GLW}
                 />
               )}
               {/* Option: USDC */}
@@ -1413,7 +1486,7 @@ export function DepositDialog({
                   selectedPaymentMethod === "USDC" &&
                   !affordability.canSubmit
                 }
-                pricePreview={costInUSDC(quantity).toLocaleString() + " USDC"}
+                pricePreview={requiredDisplayByMethod.USDC}
               />
               {/* Option: ETH */}
               <PaymentOption
@@ -1434,7 +1507,7 @@ export function DepositDialog({
                   selectedPaymentMethod === "ETH" &&
                   !affordability.canSubmit
                 }
-                pricePreview={costInETH(quantity).toFixed(4) + " ETH"}
+                pricePreview={requiredDisplayByMethod.ETH}
               />
             </div>
           </div>
@@ -1445,12 +1518,14 @@ export function DepositDialog({
             <span className="text-lg font-semibold">Total</span>
             <div className="text-right">
               <div className="text-xl font-bold font-mono">
-                {selectedPaymentMethod === "GLW" &&
-                  `${costInGLW(quantity).toLocaleString()} GLW`}
+                {selectedPaymentMethod === "GLW" && requiredDisplayByMethod.GLW}
                 {selectedPaymentMethod === "USDC" &&
-                  `$${costInUSDC(quantity).toLocaleString()}`}
-                {selectedPaymentMethod === "ETH" &&
-                  `${costInETH(quantity).toFixed(4)} ETH`}
+                  `$${formatTokenAmount(
+                    affordability.requiredByMethod.USDC,
+                    6,
+                    costInUSDC(quantity).toLocaleString()
+                  )}`}
+                {selectedPaymentMethod === "ETH" && requiredDisplayByMethod.ETH}
               </div>
               <div className="text-xs text-muted-foreground">
                 {selectedPaymentMethod !== "USDC"
@@ -1461,6 +1536,16 @@ export function DepositDialog({
           </div>
 
           <div className="relative">
+            {isConnected &&
+              selectedShortfall > 0n &&
+              selectedPaymentMethod === "USDC" && (
+                <p className="mb-2 text-xs text-red-500">
+                  Need +
+                  {formatTokenAmount(selectedShortfall, 6, "0", 6)} USDC to
+                  continue.
+                  {selectedCurrency === "GLW" ? " (includes swap buffer)" : ""}
+                </p>
+              )}
             {!isConnected ? (
               <ConnectButton size="medium" variant="default" />
             ) : (

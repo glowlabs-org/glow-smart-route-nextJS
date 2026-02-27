@@ -186,11 +186,11 @@ pnpm vitest run app/marketplace/__tests__/   # Run all deposit-dialog tests
 pnpm vitest run app/marketplace/__tests__/cost-calculations.test.ts  # Run specific file
 ```
 
-### Test coverage (226 tests)
+### Test coverage (230 tests)
 
 - **Error handling**: Error message extraction, error code extraction, RPC error detection, contract error mapping
 - **Cost calculations**: GLW/USDC/ETH cost math, precision handling, edge cases
-- **Affordability**: Balance checks, 5% USDC buffer, 3% ETH buffer, payment method switching
+- **Affordability**: Balance checks, 2% USDC buffer, 3% ETH buffer, payment method switching
 - **Transaction steps**: Step initialization for all 5 payment flows, step ordering
 - **Rewards**: Launchpad vs mining rewards, impact points (emission + vault bonus)
 - **Share URLs**: Twitter intent generation, URL encoding, pluralization

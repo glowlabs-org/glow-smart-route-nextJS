@@ -184,7 +184,7 @@ describe("USDC payment affordability (miners)", () => {
 // ============================================================================
 
 describe("USDC payment affordability (delegation swap)", () => {
-  it("includes 5% buffer for swap", () => {
+  it("includes 2% buffer for swap", () => {
     const result = calculateAffordability(
       createInput({
         activeFraction: createFraction({ step: parseUnits("100", 18).toString() }),
@@ -194,12 +194,12 @@ describe("USDC payment affordability (delegation swap)", () => {
         glwSpotPrice: 1.0, // 100 GLW * $1 = $100 base
       })
     );
-    // $100 * 1.05 = $105 USDC required
-    expect(result.requiredByMethod.USDC).toBe(parseUnits("105", 6));
+    // $100 * 1.02 = $102 USDC required
+    expect(result.requiredByMethod.USDC).toBe(parseUnits("102", 6));
   });
 
   it("cannot submit without buffer", () => {
-    // 100 GLW at $1 = $100 base, need $105 with buffer
+    // 100 GLW at $1 = $100 base, need $102 with buffer
     const result = calculateAffordability(
       createInput({
         activeFraction: createFraction({ step: parseUnits("100", 18).toString() }),
@@ -207,7 +207,7 @@ describe("USDC payment affordability (delegation swap)", () => {
         selectedCurrency: "GLW",
         selectedPaymentMethod: "USDC",
         glwSpotPrice: 1.0,
-        usdcBalance: parseUnits("104", 6), // $104 (insufficient)
+        usdcBalance: parseUnits("101", 6), // $101 (insufficient)
       })
     );
     expect(result.hasEnoughByMethod.USDC).toBe(false);
@@ -222,7 +222,7 @@ describe("USDC payment affordability (delegation swap)", () => {
         selectedCurrency: "GLW",
         selectedPaymentMethod: "USDC",
         glwSpotPrice: 1.0,
-        usdcBalance: parseUnits("105", 6), // $105 (exactly enough)
+        usdcBalance: parseUnits("102", 6), // $102 (exactly enough)
       })
     );
     expect(result.hasEnoughByMethod.USDC).toBe(true);
@@ -254,7 +254,7 @@ describe("USDC payment affordability (delegation swap)", () => {
   });
 
   it("handles realistic GLW price", () => {
-    // 1000 GLW at $0.082 = $82 base, + 5% = $86.10
+    // 1000 GLW at $0.082 = $82 base, + 2% = $83.64
     const result = calculateAffordability(
       createInput({
         activeFraction: createFraction({ step: parseUnits("1000", 18).toString() }),
@@ -265,7 +265,7 @@ describe("USDC payment affordability (delegation swap)", () => {
         usdcBalance: parseUnits("100", 6),
       })
     );
-    // 1000 * 0.082 = 82, * 1.05 = 86.1
+    // 1000 * 0.082 = 82, * 1.02 = 83.64
     expect(result.hasEnoughByMethod.USDC).toBe(true);
     expect(result.canSubmit).toBe(true);
   });
