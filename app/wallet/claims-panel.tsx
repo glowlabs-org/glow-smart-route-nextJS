@@ -1190,17 +1190,20 @@ export function ClaimsPanel({
     [v1ClaimedWeeks, v2ClaimedWeeks]
   );
 
-  // Calculate actual claimable totals excluding claimed weeks
+  // Calculate claimable totals per reward type (avoid counting already-claimed
+  // protocol rewards on weeks where emissions are still unclaimed, and vice versa).
   const actualClaimableTotals = React.useMemo(() => {
     const totals: Record<string, number> = {};
 
     weeklyBreakdown.forEach((weekData) => {
-      const { isClaimed } = getWeekClaimState(weekData);
-
-      // Only include finalized and unclaimed weeks
-      if (!weekData.isFinalized || isClaimed) return;
+      if (!weekData.isFinalized) return;
+      const { glwClaimed, protocolClaimed } = getWeekClaimState(weekData);
 
       weekData.rewards.forEach((reward) => {
+        const isInflation = reward.type === "glowInflation";
+        const isRewardClaimed = isInflation ? glwClaimed : protocolClaimed;
+        if (isRewardClaimed) return;
+
         const amount = parseFloat(reward.amount);
         if (!isNaN(amount)) {
           totals[reward.currency] = (totals[reward.currency] || 0) + amount;
