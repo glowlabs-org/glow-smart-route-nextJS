@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { Zap, LayoutGrid, Sun, Rocket, Gift, Info } from "lucide-react";
+import { Zap, LayoutGrid, Sun, Rocket, Gift } from "lucide-react";
 import { CashMinerIcon, DelegationIcon } from "@/components/impact-icons";
 import Link from "next/link";
 import {
@@ -20,7 +20,6 @@ import {
   useRewardScore,
   useSponsorListings,
   useSplitsActivity,
-  useWalletFarms,
 } from "@/hooks";
 import { useAccount } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
@@ -29,6 +28,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -52,116 +58,114 @@ import {
   attachEstimatedWeeklyMiningCenterRewards,
   deriveLaunchpadSponsorshipsInProgress,
   deriveMiningCenterSponsorshipsInProgress,
-  getAggregatedEstimatedWeeklyGlw,
 } from "@/utils/sponsorships-in-progress";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { trackEvent } from "@/lib/telemetry";
+import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
 
-interface HistoryDataPoint {
+interface AssetHistoryPoint {
   weekNumber: number;
-  week: string;
-  minerReward: number;
-  delegationReward: number;
-  otherReward: number;
-  protocolDepositUsd: number;
-  total: number;
+  dateLabel: string;
+  tooltipDate: string;
+  amount: number;
 }
 
-// Static placeholder data hoisted to module scope to avoid recreation on every render
-const PLACEHOLDER_HISTORY_DATA: HistoryDataPoint[] = [
+const FIRST_V2_WEEK = 97;
+const WEEK_SECONDS = 7 * 86_400;
+const SIX_DECIMAL_ASSETS = new Set(["USDG", "USDC", "GCTL"]);
+
+// Static placeholder data hoisted to module scope to avoid recreation on every render.
+const PLACEHOLDER_ASSET_HISTORY: AssetHistoryPoint[] = [
   {
-    weekNumber: 1,
-    week: "Wk 1",
-    minerReward: 1200,
-    delegationReward: 800,
-    otherReward: 250,
-    protocolDepositUsd: 125,
-    total: 2250,
+    weekNumber: 108,
+    dateLabel: "Jan 3",
+    tooltipDate: "Jan 3, 2026",
+    amount: 1830,
   },
   {
-    weekNumber: 2,
-    week: "Wk 2",
-    minerReward: 900,
-    delegationReward: 1000,
-    otherReward: 200,
-    protocolDepositUsd: 80,
-    total: 2100,
+    weekNumber: 109,
+    dateLabel: "Jan 10",
+    tooltipDate: "Jan 10, 2026",
+    amount: 1950,
   },
   {
-    weekNumber: 3,
-    week: "Wk 3",
-    minerReward: 1400,
-    delegationReward: 700,
-    otherReward: 300,
-    protocolDepositUsd: 140,
-    total: 2400,
+    weekNumber: 110,
+    dateLabel: "Jan 17",
+    tooltipDate: "Jan 17, 2026",
+    amount: 2060,
   },
   {
-    weekNumber: 4,
-    week: "Wk 4",
-    minerReward: 800,
-    delegationReward: 900,
-    otherReward: 150,
-    protocolDepositUsd: 60,
-    total: 1850,
+    weekNumber: 111,
+    dateLabel: "Jan 24",
+    tooltipDate: "Jan 24, 2026",
+    amount: 1885,
   },
   {
-    weekNumber: 5,
-    week: "Wk 5",
-    minerReward: 1500,
-    delegationReward: 1100,
-    otherReward: 400,
-    protocolDepositUsd: 160,
-    total: 3000,
+    weekNumber: 112,
+    dateLabel: "Jan 31",
+    tooltipDate: "Jan 31, 2026",
+    amount: 2140,
   },
   {
-    weekNumber: 6,
-    week: "Wk 6",
-    minerReward: 1100,
-    delegationReward: 950,
-    otherReward: 225,
-    protocolDepositUsd: 95,
-    total: 2275,
+    weekNumber: 113,
+    dateLabel: "Feb 7",
+    tooltipDate: "Feb 7, 2026",
+    amount: 2080,
   },
   {
-    weekNumber: 7,
-    week: "Wk 7",
-    minerReward: 1300,
-    delegationReward: 900,
-    otherReward: 275,
-    protocolDepositUsd: 110,
-    total: 2475,
+    weekNumber: 114,
+    dateLabel: "Feb 14",
+    tooltipDate: "Feb 14, 2026",
+    amount: 2210,
   },
   {
-    weekNumber: 8,
-    week: "Wk 8",
-    minerReward: 1000,
-    delegationReward: 850,
-    otherReward: 180,
-    protocolDepositUsd: 75,
-    total: 2030,
+    weekNumber: 115,
+    dateLabel: "Feb 21",
+    tooltipDate: "Feb 21, 2026",
+    amount: 2305,
   },
   {
-    weekNumber: 9,
-    week: "Wk 9",
-    minerReward: 1600,
-    delegationReward: 900,
-    otherReward: 420,
-    protocolDepositUsd: 190,
-    total: 2920,
+    weekNumber: 116,
+    dateLabel: "Feb 28",
+    tooltipDate: "Feb 28, 2026",
+    amount: 2415,
   },
   {
-    weekNumber: 10,
-    week: "Wk 10",
-    minerReward: 1250,
-    delegationReward: 1050,
-    otherReward: 260,
-    protocolDepositUsd: 105,
-    total: 2560,
+    weekNumber: 117,
+    dateLabel: "Mar 7",
+    tooltipDate: "Mar 7, 2026",
+    amount: 2490,
   },
 ];
 
-function formatGlwCompact(value: number) {
+function weekToDate(weekNumber: number) {
+  const weekTimestamp = GENESIS_TIMESTAMP + (weekNumber + 1) * WEEK_SECONDS;
+  return new Date(weekTimestamp * 1000);
+}
+
+function formatWeekAxisDate(weekNumber: number) {
+  return weekToDate(weekNumber).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatWeekTooltipDate(weekNumber: number) {
+  return weekToDate(weekNumber).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatTokenCompact(value: number) {
+  if (!Number.isFinite(value)) return "—";
+  return value.toLocaleString("en-US", {
+    maximumFractionDigits: 0,
+  });
+}
+
+function formatTokenPrecise(value: number) {
   if (!Number.isFinite(value)) return "—";
   return value.toLocaleString("en-US", {
     maximumFractionDigits: 0,
@@ -169,11 +173,7 @@ function formatGlwCompact(value: number) {
 }
 
 function formatGlwPrecise(value: number) {
-  if (!Number.isFinite(value)) return "—";
-  return value.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return formatTokenPrecise(value);
 }
 
 function formatTrendPercent(params: { current: number; previous: number }) {
@@ -197,20 +197,29 @@ function parseGlwFromWei(value: string) {
   return num / 1e18;
 }
 
-function parseUsdFromBaseUnits(value: string) {
+function parseAssetFromBaseUnits(value: string, asset: string) {
   const num = Number(value);
   if (!Number.isFinite(num)) return 0;
-  return num / 1e6;
+  const symbol = asset.toUpperCase();
+  return num / (SIX_DECIMAL_ASSETS.has(symbol) ? 1e6 : 1e18);
 }
 
-function formatUsdPrecise(value: number) {
-  if (!Number.isFinite(value)) return "—";
-  return value.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+function getAssetBarColor(asset: string) {
+  const normalized = asset.toUpperCase();
+  switch (normalized) {
+    case "GLW":
+      return "var(--color-glow-purple)";
+    case "USDG":
+      return "var(--color-glow-green)";
+    case "SGCTL":
+      return "#22d3ee";
+    case "USDC":
+      return "#2081e2";
+    case "GCTL":
+      return "#22d3ee";
+    default:
+      return "var(--color-glow-green)";
+  }
 }
 
 function SolarFarmSkeleton() {
@@ -230,105 +239,32 @@ function SolarFarmSkeleton() {
 
 // --- SUB-COMPONENTS ---
 
-const CustomTooltip = ({
+const AssetHistoryTooltip = ({
   active,
   payload,
   label,
+  asset,
 }: {
   active?: boolean;
-  payload?: Array<{ dataKey?: string; value?: number }>;
+  payload?: Array<{ dataKey?: string; value?: number | string }>;
   label?: string;
+  asset: string;
 }) => {
   if (active && payload && payload.length) {
-    const minerVal =
-      payload.find((p) => p.dataKey === "minerReward")?.value ?? 0;
-    const delVal =
-      payload.find((p) => p.dataKey === "delegationReward")?.value ?? 0;
-    const otherVal =
-      payload.find((p) => p.dataKey === "otherReward")?.value ?? 0;
-    const pdUsd =
-      payload.find((p) => p.dataKey === "protocolDepositUsd")?.value ?? 0;
-    const total = minerVal + delVal + otherVal;
+    const amountRaw = payload.find((p) => p.dataKey === "amount")?.value ?? 0;
+    const amount =
+      typeof amountRaw === "number" ? amountRaw : Number(amountRaw ?? 0);
+
     return (
-      <div className="bg-popover text-popover-foreground border border-border p-3 rounded-xl shadow-xl min-w-[160px]">
+      <div className="min-w-[160px] rounded-xl border border-border/20 bg-card p-3 text-foreground">
         <p className="text-muted-foreground text-[10px] font-mono uppercase mb-2">
           {label}
         </p>
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <div
-                className="w-2 h-2 rounded-full"
-                style={{ background: "var(--color-miner)" }}
-              />
-              <span className="text-xs text-muted-foreground font-mono">
-                Miners
-              </span>
-            </div>
-            <span className="text-xs font-bold text-foreground font-mono">
-              {formatGlwPrecise(minerVal)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <div
-                className="w-2 h-2 rounded-full"
-                style={{ background: "var(--color-glow-purple)" }}
-              />
-              <span className="text-xs text-muted-foreground font-mono">
-                Delegation
-              </span>
-            </div>
-            <span className="text-xs font-bold text-foreground font-mono">
-              {formatGlwPrecise(delVal)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <div
-                className="w-2 h-2 rounded-full"
-                style={{ background: "var(--color-glow-green)" }}
-              />
-              <span className="text-xs text-muted-foreground font-mono">
-                Other
-              </span>
-            </div>
-            <span className="text-xs font-bold text-foreground font-mono">
-              {formatGlwPrecise(otherVal)}
-            </span>
-          </div>
-          {pdUsd > 0 ? (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <div
-                  className="w-2 h-2 rounded-full"
-                  style={{ background: "var(--color-glow-orange)" }}
-                />
-                <span className="text-xs text-muted-foreground font-mono">
-                  PD Rewards (USDG)
-                </span>
-              </div>
-              <span className="text-xs font-bold text-foreground font-mono">
-                {formatUsdPrecise(pdUsd)}
-              </span>
-            </div>
-          ) : null}
-          <div className="h-px bg-border my-1" />
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground font-mono uppercase">
-              Total
-            </span>
-            <div className="flex flex-col items-end ml-1">
-              <span className="text-sm font-bold text-foreground font-mono">
-                {formatGlwPrecise(total)} GLW
-              </span>
-              {pdUsd > 0 ? (
-                <span className="text-[11px] font-bold text-muted-foreground font-mono">
-                  {formatUsdPrecise(pdUsd)} USDG
-                </span>
-              ) : null}
-            </div>
-          </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-xs font-mono text-muted-foreground">Earned</span>
+          <span className="text-sm font-semibold text-foreground font-mono">
+            {formatTokenPrecise(amount)} {asset}
+          </span>
         </div>
       </div>
     );
@@ -684,21 +620,14 @@ export default function SolarFarmWidget({
   const isWalletConnecting = isConnecting || isReconnecting;
   const isMinimal = variant === "minimal";
   const [isLaunchpadOpen, setIsLaunchpadOpen] = React.useState(false);
+  const [selectedAsset, setSelectedAsset] = React.useState<string>("GLW");
   const [nextBatchAtMs, setNextBatchAtMs] = React.useState(() =>
     getNextTuesdayAt1pmET().getTime()
   );
 
   const { data, isLoading, isError, refetch } = useRewardsBreakdown({
     walletAddress: walletAddress ?? null,
-    enabled: hasWallet,
-  });
-
-  const {
-    farms: purchasedFarms,
-    isLoading: isFarmsLoading,
-    isError: isFarmsError,
-  } = useWalletFarms({
-    walletAddress: walletAddress ?? undefined,
+    startWeek: FIRST_V2_WEEK,
     enabled: hasWallet,
   });
 
@@ -746,10 +675,6 @@ export default function SolarFarmWidget({
     });
   }, [rewardScoreMap, sponsorshipsInProgress]);
 
-  const aggregatedEstimatedWeeklyGlwLaunchpad = React.useMemo(() => {
-    return getAggregatedEstimatedWeeklyGlw(sponsorshipsInProgressWithEstimates);
-  }, [sponsorshipsInProgressWithEstimates]);
-
   const hasMiningCenterSplits = React.useMemo(() => {
     return splitsActivity.some((s) => s.fractionType === "mining-center");
   }, [splitsActivity]);
@@ -784,144 +709,8 @@ export default function SolarFarmWidget({
     });
   }, [miningCenterInProgress, miningScoreMap]);
 
-  const aggregatedEstimatedWeeklyGlwMiningCenter = React.useMemo(() => {
-    return getAggregatedEstimatedWeeklyGlw(miningCenterInProgressWithEstimates);
-  }, [miningCenterInProgressWithEstimates]);
-
-  const rewardedFarmTypeKeys = React.useMemo(() => {
-    if (!data) return new Set<string>();
-    return new Set(
-      data.farmDetails.map(
-        (f) =>
-          `${f.farmId}:${
-            f.type === "launchpad" ? "launchpad" : "mining-center"
-          }`
-      )
-    );
-  }, [data]);
-
-  const pendingStartRows = React.useMemo(() => {
-    if (!splitsActivity.length) return [];
-
-    const byFarm = new Map<
-      string,
-      {
-        farmId: string;
-        farmName: string;
-        fractionType: "launchpad" | "mining-center";
-        totalAmount: bigint;
-      }
-    >();
-
-    for (const evt of splitsActivity) {
-      const fractionType = evt.fractionType;
-      if (!fractionType) continue;
-      const status = (evt.fractionStatus ?? "").toLowerCase();
-
-      const isPendingStart =
-        (fractionType === "launchpad" && status === "filled") ||
-        (fractionType === "mining-center" &&
-          (status === "filled" || status === "expired"));
-      if (!isPendingStart) continue;
-
-      const farmId = evt.farmId ?? evt.applicationId;
-      if (!farmId) continue;
-      const farmTypeKey = `${farmId}:${fractionType}`;
-      if (rewardedFarmTypeKeys.has(farmTypeKey)) continue;
-
-      let amount = BigInt(0);
-      try {
-        amount = BigInt(evt.amount);
-      } catch {
-        amount = BigInt(0);
-      }
-
-      const existing = byFarm.get(farmTypeKey) ?? {
-        farmId,
-        farmName: evt.farmName || `Farm ${farmId.substring(0, 8)}`,
-        fractionType,
-        totalAmount: BigInt(0),
-      };
-      existing.totalAmount += amount;
-      byFarm.set(farmTypeKey, existing);
-    }
-
-    return Array.from(byFarm.values()).map((item) => {
-      const farmData = purchasedFarms.find((f) => f.farmId === item.farmId);
-
-      let estimatedUserWeeklyGlw: number | undefined = undefined;
-      if (farmData?.userWeeklyRewards) {
-        // Use source-specific breakdown if available (prevents double-counting for farms with both delegation + miner)
-        const isMiningCenter = item.fractionType === "mining-center";
-
-        if (
-          isMiningCenter &&
-          farmData.userWeeklyRewards.glwInflationRewardsFromMiner
-        ) {
-          // Miner: only inflation from mining-center splits (no PD recovery)
-          estimatedUserWeeklyGlw = parseGlwFromWei(
-            farmData.userWeeklyRewards.glwInflationRewardsFromMiner
-          );
-        } else if (
-          !isMiningCenter &&
-          farmData.userWeeklyRewards.glwInflationRewardsFromDelegation
-        ) {
-          // Delegation: inflation from delegation splits + PD recovery
-          const delegationInflationGlw = parseGlwFromWei(
-            farmData.userWeeklyRewards.glwInflationRewardsFromDelegation
-          );
-          const pdGlw = parseGlwFromWei(
-            farmData.userWeeklyRewards.protocolDepositRewards
-          );
-          estimatedUserWeeklyGlw = delegationInflationGlw + pdGlw;
-        } else {
-          // Fallback for old API response (no breakdown fields)
-          const inflationGlw = parseGlwFromWei(
-            farmData.userWeeklyRewards.glwInflationRewards
-          );
-          const pdAsset = farmData.userWeeklyRewards.protocolDepositAsset;
-          const isPdGlw = pdAsset === "GLW";
-          const pdGlw = isPdGlw
-            ? parseGlwFromWei(farmData.userWeeklyRewards.protocolDepositRewards)
-            : 0;
-          estimatedUserWeeklyGlw = inflationGlw + pdGlw;
-        }
-      }
-
-      return {
-        ...item,
-        estimatedUserWeeklyGlw,
-      };
-    });
-  }, [purchasedFarms, rewardedFarmTypeKeys, splitsActivity]);
-
-  const inProgressAmountsByAppId = React.useMemo(() => {
-    const map = new Map<string, bigint>();
-
-    for (const evt of splitsActivity) {
-      const status = (evt.fractionStatus ?? "").toLowerCase();
-      if (status !== "committed") continue;
-
-      const appId = evt.applicationId;
-      if (!appId) continue;
-
-      let amount = BigInt(0);
-      try {
-        amount = BigInt(evt.amount);
-      } catch {
-        continue;
-      }
-
-      const existing = map.get(appId) ?? BigInt(0);
-      map.set(appId, existing + amount);
-    }
-
-    return map;
-  }, [splitsActivity]);
-
-  const isWidgetLoading =
-    isLoading || isSplitsActivityLoading || isFarmsLoading;
-  const isWidgetError = isError || isSplitsActivityError || isFarmsError;
+  const isWidgetLoading = isLoading || isSplitsActivityLoading;
+  const isWidgetError = isError || isSplitsActivityError;
 
   const activeDelegationsListingsCount = React.useMemo(() => {
     return countActiveListings(launchpadApplications);
@@ -932,146 +721,130 @@ export default function SolarFarmWidget({
   const activeListingsCount =
     activeDelegationsListingsCount + activeMinersListingsCount;
 
-  const rewardsHistoryData = React.useMemo<HistoryDataPoint[]>(() => {
-    if (!data) return [];
+  const {
+    availableAssets,
+    filledHistoryByAsset,
+    rawHistoryByAsset,
+    hasHistoricalRewards,
+  } = React.useMemo(() => {
+    const amountsByAsset = new Map<string, Map<number, number>>();
+    const currentWeek = Math.max(FIRST_V2_WEEK, getCurrentEpoch() - 1);
 
-    const buckets = new Map<
-      number,
-      {
-        minerReward: number;
-        delegationReward: number;
-        otherReward: number;
-        protocolDepositUsd: number;
+    const addAmount = (assetInput: string | null | undefined, week: number, amount: number) => {
+      if (!Number.isFinite(amount) || amount <= 0) return;
+      if (!Number.isFinite(week) || week < FIRST_V2_WEEK || week > currentWeek) {
+        return;
       }
-    >();
 
-    for (const farm of data.farmDetails) {
-      const isMiner = farm.type === "mining-center";
-      for (const week of farm.weeklyBreakdown) {
-        const prev = buckets.get(week.weekNumber) ?? {
-          minerReward: 0,
-          delegationReward: 0,
-          otherReward: 0,
-          protocolDepositUsd: 0,
-        };
+      const asset = (assetInput ?? "GLW").toUpperCase();
+      const byWeek = amountsByAsset.get(asset) ?? new Map<number, number>();
+      byWeek.set(week, (byWeek.get(week) ?? 0) + amount);
+      amountsByAsset.set(asset, byWeek);
+    };
 
-        const totalGlw = parseGlwFromWei(week.totalRewards);
-        buckets.set(week.weekNumber, {
-          minerReward: prev.minerReward + (isMiner ? totalGlw : 0),
-          delegationReward: prev.delegationReward + (isMiner ? 0 : totalGlw),
-          otherReward: prev.otherReward,
-          protocolDepositUsd: prev.protocolDepositUsd,
-        });
+    if (data) {
+      for (const farm of data.farmDetails) {
+        for (const week of farm.weeklyBreakdown) {
+          addAmount("GLW", week.weekNumber, parseGlwFromWei(week.totalRewards));
+        }
       }
-    }
 
-    for (const farm of data.otherFarmsWithRewards?.farms ?? []) {
-      const asset = farm.asset;
-      const isPdUsdAsset = asset === "USDG";
-      for (const week of farm.weeklyBreakdown) {
-        const prev = buckets.get(week.weekNumber) ?? {
-          minerReward: 0,
-          delegationReward: 0,
-          otherReward: 0,
-          protocolDepositUsd: 0,
-        };
-
-        const inflationGlw = parseGlwFromWei(week.inflationRewards);
-        const pdUsd = isPdUsdAsset
-          ? parseUsdFromBaseUnits(week.protocolDepositRewards)
-          : 0;
-        const pdGlw = !isPdUsdAsset
-          ? parseGlwFromWei(week.protocolDepositRewards)
-          : 0;
-        buckets.set(week.weekNumber, {
-          minerReward: prev.minerReward,
-          delegationReward: prev.delegationReward,
-          otherReward: prev.otherReward + inflationGlw + pdGlw,
-          protocolDepositUsd: prev.protocolDepositUsd + pdUsd,
-        });
+      for (const farm of data.otherFarmsWithRewards?.farms ?? []) {
+        const pdAsset = farm.asset ?? "GLW";
+        for (const week of farm.weeklyBreakdown) {
+          addAmount("GLW", week.weekNumber, parseGlwFromWei(week.inflationRewards));
+          addAmount(
+            pdAsset,
+            week.weekNumber,
+            parseAssetFromBaseUnits(week.protocolDepositRewards, pdAsset)
+          );
+        }
       }
     }
 
-    const points = Array.from(buckets.entries())
-      .sort(([a], [b]) => a - b)
-      .map(([weekNumber, value]) => {
-        const total =
-          value.minerReward + value.delegationReward + value.otherReward;
-        return {
+    const assets = Array.from(amountsByAsset.keys()).sort((a, b) => {
+      if (a === "GLW") return -1;
+      if (b === "GLW") return 1;
+      return a.localeCompare(b);
+    });
+    const availableAssets = assets.length > 0 ? assets : ["GLW"];
+
+    const allWeeks = Array.from(amountsByAsset.values()).flatMap((map) =>
+      Array.from(map.keys())
+    );
+    const latestWeek =
+      allWeeks.length > 0 ? Math.max(...allWeeks, currentWeek) : currentWeek;
+
+    const filledHistoryByAsset = new Map<string, AssetHistoryPoint[]>();
+    const rawHistoryByAsset = new Map<string, AssetHistoryPoint[]>();
+
+    for (const asset of availableAssets) {
+      const byWeek = amountsByAsset.get(asset) ?? new Map<number, number>();
+      const rawPoints = Array.from(byWeek.entries())
+        .sort(([a], [b]) => a - b)
+        .map(([weekNumber, amount]) => ({
           weekNumber,
-          week: `Wk ${weekNumber}`,
-          minerReward: value.minerReward,
-          delegationReward: value.delegationReward,
-          otherReward: value.otherReward,
-          protocolDepositUsd: value.protocolDepositUsd,
-          total,
-        };
-      });
+          dateLabel: formatWeekAxisDate(weekNumber),
+          tooltipDate: formatWeekTooltipDate(weekNumber),
+          amount,
+        }));
+      rawHistoryByAsset.set(asset, rawPoints);
 
-    return points.slice(-10);
+      const filledPoints: AssetHistoryPoint[] = [];
+      for (let week = FIRST_V2_WEEK; week <= latestWeek; week += 1) {
+        filledPoints.push({
+          weekNumber: week,
+          dateLabel: formatWeekAxisDate(week),
+          tooltipDate: formatWeekTooltipDate(week),
+          amount: byWeek.get(week) ?? 0,
+        });
+      }
+      filledHistoryByAsset.set(asset, filledPoints);
+    }
+
+    const hasHistoricalRewards = Array.from(rawHistoryByAsset.values()).some(
+      (points) => points.length > 0
+    );
+
+    return {
+      availableAssets,
+      filledHistoryByAsset,
+      rawHistoryByAsset,
+      hasHistoricalRewards,
+    };
   }, [data]);
 
-  const chartData = React.useMemo<HistoryDataPoint[]>(() => {
-    const base = [...rewardsHistoryData];
-
-    // Only show estimated bar if user has NO historical rewards yet
-    if (base.length > 0) {
-      // Mark the last week as "Current"
-      base[base.length - 1] = {
-        ...base[base.length - 1],
-        week: "Current",
-      };
-      return base;
+  React.useEffect(() => {
+    if (!availableAssets.includes(selectedAsset)) {
+      setSelectedAsset(availableAssets[0] ?? "GLW");
     }
+  }, [availableAssets, selectedAsset]);
 
-    // Aggregate pending farms estimated rewards
-    const totalPendingEstimated = pendingStartRows.reduce((sum, row) => {
-      return sum + (row.estimatedUserWeeklyGlw ?? 0);
-    }, 0);
+  const chartData = React.useMemo<AssetHistoryPoint[]>(() => {
+    return filledHistoryByAsset.get(selectedAsset) ?? [];
+  }, [filledHistoryByAsset, selectedAsset]);
 
-    const pendingMinerEstimated = pendingStartRows
-      .filter((row) => row.fractionType === "mining-center")
-      .reduce((sum, row) => sum + (row.estimatedUserWeeklyGlw ?? 0), 0);
+  const selectedAssetRawHistory = React.useMemo<AssetHistoryPoint[]>(() => {
+    return rawHistoryByAsset.get(selectedAsset) ?? [];
+  }, [rawHistoryByAsset, selectedAsset]);
 
-    const pendingDelegationEstimated = pendingStartRows
-      .filter((row) => row.fractionType === "launchpad")
-      .reduce((sum, row) => sum + (row.estimatedUserWeeklyGlw ?? 0), 0);
+  const chartBarColor = React.useMemo(
+    () => getAssetBarColor(selectedAsset),
+    [selectedAsset]
+  );
 
-    const totalInProgress =
-      aggregatedEstimatedWeeklyGlwLaunchpad +
-      aggregatedEstimatedWeeklyGlwMiningCenter +
-      totalPendingEstimated;
+  const chartMinWidth = React.useMemo(
+    () => Math.max(720, chartData.length * 18),
+    [chartData.length]
+  );
 
-    if (totalInProgress <= 0) return base;
-
-    const nextWeekNumber = (base.at(-1)?.weekNumber ?? 0) + 1;
-    base.push({
-      weekNumber: nextWeekNumber,
-      week: "Estimated",
-      minerReward:
-        aggregatedEstimatedWeeklyGlwMiningCenter + pendingMinerEstimated,
-      delegationReward:
-        aggregatedEstimatedWeeklyGlwLaunchpad + pendingDelegationEstimated,
-      otherReward: 0,
-      protocolDepositUsd: 0,
-      total: totalInProgress,
-    });
-    return base;
-  }, [
-    aggregatedEstimatedWeeklyGlwLaunchpad,
-    aggregatedEstimatedWeeklyGlwMiningCenter,
-    pendingStartRows,
-    rewardsHistoryData,
-  ]);
+  const xAxisInterval = React.useMemo(
+    () => Math.max(0, Math.floor(chartData.length / 8) - 1),
+    [chartData.length]
+  );
 
   const stats = React.useMemo(() => {
-    const last = rewardsHistoryData.at(-1)?.total ?? 0;
-    const prev = rewardsHistoryData.at(-2)?.total ?? 0;
-    const lastPdUsd = rewardsHistoryData.at(-1)?.protocolDepositUsd ?? 0;
-    const trendPercent =
-      Number.isFinite(last) && Number.isFinite(prev) && prev > 0
-        ? ((last - prev) / prev) * 100
-        : null;
+    const last = selectedAssetRawHistory.at(-1)?.amount ?? 0;
 
     const activeMiners = data
       ? data.farmStatistics.minerOnlyFarms + data.farmStatistics.bothTypesFarms
@@ -1083,9 +856,6 @@ export default function SolarFarmWidget({
 
     return {
       weeklyPayout: last,
-      trend: formatTrendPercent({ current: last, previous: prev }),
-      trendPercent,
-      weeklyProtocolDepositUsd: lastPdUsd,
       activeMiners,
       activeDelegations,
       activeOtherRewards:
@@ -1093,7 +863,7 @@ export default function SolarFarmWidget({
         data?.otherFarmsWithRewards?.farms.length ??
         0,
     };
-  }, [data, rewardsHistoryData]);
+  }, [data, selectedAssetRawHistory]);
 
   const visibleStatsItems = React.useMemo(() => {
     const items = [
@@ -1173,7 +943,7 @@ export default function SolarFarmWidget({
     hasWallet &&
     !isWidgetLoading &&
     !isWidgetError &&
-    rewardsHistoryData.length === 0 &&
+    !hasHistoricalRewards &&
     !hasAnyRewardsOrActivity &&
     !hasInProgressSponsorships;
 
@@ -1311,7 +1081,7 @@ export default function SolarFarmWidget({
                   {/* Chart (placeholder) */}
                   <div className="mt-6 h-[190px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={PLACEHOLDER_HISTORY_DATA} barSize={24}>
+                      <BarChart data={PLACEHOLDER_ASSET_HISTORY} barSize={22}>
                         <CartesianGrid
                           strokeDasharray="3 3"
                           vertical={false}
@@ -1319,7 +1089,7 @@ export default function SolarFarmWidget({
                           opacity={0.5}
                         />
                         <XAxis
-                          dataKey="week"
+                          dataKey="dateLabel"
                           axisLine={false}
                           tickLine={false}
                           tick={{
@@ -1330,31 +1100,10 @@ export default function SolarFarmWidget({
                           dy={10}
                         />
                         <Bar
-                          dataKey="minerReward"
-                          stackId="a"
+                          dataKey="amount"
                           fill="var(--color-miner)"
-                          radius={[0, 0, 4, 4]}
-                          animationDuration={1500}
-                        />
-                        <Bar
-                          dataKey="delegationReward"
-                          stackId="a"
-                          fill="var(--color-glow-purple)"
-                          radius={[0, 0, 0, 0]}
-                          animationDuration={1500}
-                        />
-                        <Bar
-                          dataKey="otherReward"
-                          stackId="a"
-                          fill="var(--color-glow-green)"
                           radius={[4, 4, 0, 0]}
-                          animationDuration={1500}
-                        />
-                        <Bar
-                          dataKey="protocolDepositUsd"
-                          fill="var(--color-glow-orange)"
-                          radius={[4, 4, 0, 0]}
-                          animationDuration={1500}
+                          animationDuration={1200}
                         />
                       </BarChart>
                     </ResponsiveContainer>
@@ -1535,31 +1284,45 @@ export default function SolarFarmWidget({
               {/* Dashboard Stats */}
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-10 min-w-0">
-                  {/* KPI: Current weekly payout */}
+                  {/* KPI: Latest weekly earnings */}
                   <div className="flex flex-col gap-1.5 min-w-0">
                     <span className="text-[9px] uppercase text-muted-foreground/50 font-mono tracking-widest">
-                      Current Weekly Payout
+                      Latest Weekly Earnings
                     </span>
                     <div className="flex items-center gap-3 min-w-0">
                       <Sun className="w-5 h-5 text-emerald-500 fill-emerald-500/20" />
                       <div className="flex flex-col leading-none">
                         <div className="flex items-baseline gap-2">
                           <span className="text-4xl font-semibold text-foreground tracking-tight font-mono">
-                            {formatGlwCompact(stats.weeklyPayout)}
+                            {formatTokenCompact(stats.weeklyPayout)}
                           </span>
                           <span className="text-sm font-medium text-muted-foreground/50 font-mono">
-                            GLW
+                            {selectedAsset}
                           </span>
                         </div>
-                        {stats.weeklyProtocolDepositUsd > 0 ? (
-                          <div className="text-[11px] font-bold text-muted-foreground font-mono">
-                            + {formatUsdPrecise(stats.weeklyProtocolDepositUsd)}{" "}
-                            USDG
-                          </div>
-                        ) : null}
                       </div>
                     </div>
                   </div>
+
+                  {availableAssets.length > 1 ? (
+                    <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+                      <span className="text-[9px] uppercase text-muted-foreground/50 font-mono tracking-widest">
+                        Asset
+                      </span>
+                      <Select value={selectedAsset} onValueChange={setSelectedAsset}>
+                        <SelectTrigger className="h-9 w-full sm:w-[132px] rounded-full border-border/20 bg-muted/30 text-xs font-mono">
+                          <SelectValue placeholder="Asset" />
+                        </SelectTrigger>
+                        <SelectContent align="start">
+                          {availableAssets.map((asset) => (
+                            <SelectItem key={asset} value={asset}>
+                              {asset}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : null}
                 </div>
 
                 <DialogTrigger asChild>
@@ -1626,76 +1389,48 @@ export default function SolarFarmWidget({
 
               {/* Chart */}
               <div className="flex-1 w-full min-h-[160px] relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} barSize={24}>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      vertical={false}
-                      stroke="var(--border)"
-                      opacity={0.5}
-                    />
-                    <XAxis
-                      dataKey="week"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={(props: {
-                        x: number;
-                        y: number;
-                        payload: { value: string };
-                      }) => {
-                        const isCurrent = props.payload.value === "Current";
-                        return (
-                          <text
-                            x={props.x}
-                            y={props.y + 10}
-                            textAnchor="middle"
-                            fill={
-                              isCurrent
-                                ? "var(--color-glow-orange)"
-                                : "var(--muted-foreground)"
-                            }
-                            fontSize={10}
-                            fontFamily="monospace"
-                            fontWeight={isCurrent ? 600 : 400}
-                          >
-                            {props.payload.value}
-                          </text>
-                        );
-                      }}
-                    />
-                    <Tooltip
-                      content={<CustomTooltip />}
-                      cursor={{ fill: "var(--muted)", opacity: 0.5 }}
-                    />
-                    <Bar
-                      dataKey="minerReward"
-                      stackId="a"
-                      fill="var(--color-miner)"
-                      radius={[0, 0, 4, 4]}
-                      animationDuration={1500}
-                    />
-                    <Bar
-                      dataKey="delegationReward"
-                      stackId="a"
-                      fill="var(--color-glow-purple)"
-                      radius={[0, 0, 0, 0]}
-                      animationDuration={1500}
-                    />
-                    <Bar
-                      dataKey="otherReward"
-                      stackId="a"
-                      fill="var(--color-glow-green)"
-                      radius={[4, 4, 0, 0]}
-                      animationDuration={1500}
-                    />
-                    <Bar
-                      dataKey="protocolDepositUsd"
-                      fill="var(--color-glow-orange)"
-                      radius={[4, 4, 0, 0]}
-                      animationDuration={1500}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="h-full overflow-x-auto overflow-y-hidden">
+                  <div
+                    className="h-full"
+                    style={{ minWidth: `${chartMinWidth}px` }}
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData} barSize={14}>
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          vertical={false}
+                          stroke="var(--border)"
+                          opacity={0.5}
+                        />
+                        <XAxis
+                          dataKey="dateLabel"
+                          interval={xAxisInterval}
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{
+                            fill: "var(--muted-foreground)",
+                            fontSize: 10,
+                            fontFamily: "monospace",
+                          }}
+                          dy={10}
+                        />
+                        <Tooltip
+                          labelFormatter={(_, payload) =>
+                            payload?.[0]?.payload?.tooltipDate ?? ""
+                          }
+                          content={<AssetHistoryTooltip asset={selectedAsset} />}
+                          cursor={{ fill: "var(--muted)", opacity: 0.35 }}
+                        />
+                        <Bar
+                          dataKey="amount"
+                          fill={chartBarColor}
+                          radius={[4, 4, 0, 0]}
+                          animationDuration={900}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
               </div>
             </>
           )}
