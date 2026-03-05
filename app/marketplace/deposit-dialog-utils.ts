@@ -17,7 +17,21 @@ export interface ActiveFraction {
   totalSteps: number;
   remainingSteps: number | null;
   splitsSold?: number;
+  delegationAsset?: "GLW" | "SGCTL" | null;
+  delegationPhase?: "hidden" | "sgctl" | "glw" | null;
 }
+
+export type DepositSelectedCurrency = "GLW" | "SGCTL" | "USDC";
+export type DepositPaymentMethod = "GLW" | "GCTL" | "USDC" | "ETH";
+export type DepositDialogMode =
+  | "miners"
+  | "glw_delegation"
+  | "sgctl_delegation";
+export type SgctlSourceMode =
+  | "staked"
+  | "wallet_gctl"
+  | "mint_usdc"
+  | "mint_eth";
 
 export interface ContractErrorConfig {
   message: string;
@@ -27,19 +41,21 @@ export interface ContractErrorConfig {
 export interface AffordabilityInput {
   activeFraction: ActiveFraction | null;
   quantity: number;
-  selectedCurrency: "GLW" | "USDC";
-  selectedPaymentMethod: "GLW" | "USDC" | "ETH";
+  selectedCurrency: DepositSelectedCurrency;
+  selectedPaymentMethod: DepositPaymentMethod;
   glwSpotPrice: number;
+  gctlSpotPrice?: number;
   ethSpotPrice: number;
   glwBalance: bigint;
+  gctlBalance?: bigint;
   usdcBalance: bigint;
   ethBalance: bigint;
 }
 
 export interface AffordabilityResult {
-  requiredByMethod: Record<"GLW" | "USDC" | "ETH", bigint | null>;
-  balances: Record<"GLW" | "USDC" | "ETH", bigint>;
-  hasEnoughByMethod: Record<"GLW" | "USDC" | "ETH", boolean>;
+  requiredByMethod: Record<DepositPaymentMethod, bigint | null>;
+  balances: Record<DepositPaymentMethod, bigint>;
+  hasEnoughByMethod: Record<DepositPaymentMethod, boolean>;
   canSubmit: boolean;
 }
 
@@ -119,6 +135,25 @@ export const RPC_INTERNAL_ERROR_MESSAGE =
   "RPC/provider error. Please retry or switch RPC.";
 export const SWAP_VOLATILITY_ERROR_MESSAGE =
   "Swap failed because price/liquidity changed while processing. Please retry. If it keeps failing, try a smaller quantity.";
+
+export function resolveDepositDialogMode(
+  selectedCurrency: "GLW" | "USDC",
+  activeFraction: ActiveFraction | null
+): DepositDialogMode {
+  if (selectedCurrency === "USDC") return "miners";
+  if (activeFraction?.delegationAsset === "SGCTL") return "sgctl_delegation";
+  return "glw_delegation";
+}
+
+export function resolveRuntimeSelectedCurrency(
+  selectedCurrency: "GLW" | "USDC",
+  activeFraction: ActiveFraction | null
+): DepositSelectedCurrency {
+  const mode = resolveDepositDialogMode(selectedCurrency, activeFraction);
+  if (mode === "miners") return "USDC";
+  if (mode === "sgctl_delegation") return "SGCTL";
+  return "GLW";
+}
 
 // ============================================================================
 // Error Handling Functions
@@ -234,11 +269,21 @@ export function calculateCostInGLW(
   return step * quantity;
 }
 
+export function calculateCostInGCTL(
+  quantity: number,
+  activeFraction: ActiveFraction | null
+): number {
+  if (!activeFraction) return 0;
+  const step = parseFloat(formatUnits(BigInt(activeFraction.step), 6));
+  return step * quantity;
+}
+
 export function calculateCostInUSDC(
   quantity: number,
   activeFraction: ActiveFraction | null,
-  selectedCurrency: "GLW" | "USDC",
-  glwSpotPrice: number
+  selectedCurrency: DepositSelectedCurrency,
+  glwSpotPrice: number,
+  gctlSpotPrice?: number
 ): number {
   if (!activeFraction) return 0;
   if (selectedCurrency === "USDC") {
@@ -247,25 +292,32 @@ export function calculateCostInUSDC(
       formatUnits(BigInt(activeFraction.stepPrice), 6)
     );
     return stepPrice * quantity;
-  } else {
-    // Delegation (via swap): GLW cost * spot price
-    const glwCost = calculateCostInGLW(quantity, activeFraction);
-    return glwCost * (glwSpotPrice || 0);
   }
+
+  if (selectedCurrency === "SGCTL") {
+    const gctlCost = calculateCostInGCTL(quantity, activeFraction);
+    return gctlCost * (gctlSpotPrice || 0);
+  }
+
+  // Delegation (via swap): GLW cost * spot price
+  const glwCost = calculateCostInGLW(quantity, activeFraction);
+  return glwCost * (glwSpotPrice || 0);
 }
 
 export function calculateCostInETH(
   quantity: number,
   activeFraction: ActiveFraction | null,
-  selectedCurrency: "GLW" | "USDC",
+  selectedCurrency: DepositSelectedCurrency,
   glwSpotPrice: number,
-  ethSpotPrice: number
+  ethSpotPrice: number,
+  gctlSpotPrice?: number
 ): number {
   const usdcCost = calculateCostInUSDC(
     quantity,
     activeFraction,
     selectedCurrency,
-    glwSpotPrice
+    glwSpotPrice,
+    gctlSpotPrice
   );
   return ethSpotPrice > 0 ? usdcCost / ethSpotPrice : 0;
 }
@@ -283,8 +335,10 @@ export function calculateAffordability(
     selectedCurrency,
     selectedPaymentMethod,
     glwSpotPrice,
+    gctlSpotPrice = 0,
     ethSpotPrice,
     glwBalance,
+    gctlBalance = 0n,
     usdcBalance,
     ethBalance,
   } = input;
@@ -293,12 +347,14 @@ export function calculateAffordability(
 
   const balances = {
     GLW: glwBalance,
+    GCTL: gctlBalance,
     USDC: usdcBalance,
     ETH: ethBalance,
   } as const;
 
-  const requiredByMethod: Record<"GLW" | "USDC" | "ETH", bigint | null> = {
+  const requiredByMethod: Record<DepositPaymentMethod, bigint | null> = {
     GLW: null,
+    GCTL: null,
     USDC: null,
     ETH: null,
   };
@@ -307,19 +363,35 @@ export function calculateAffordability(
     return {
       requiredByMethod,
       balances,
-      hasEnoughByMethod: { GLW: false, USDC: false, ETH: false },
+      hasEnoughByMethod: { GLW: false, GCTL: false, USDC: false, ETH: false },
       canSubmit: false,
     };
   }
 
   // GLW required (delegate directly)
-  requiredByMethod.GLW = BigInt(activeFraction.step) * qty;
+  if (selectedCurrency === "GLW") {
+    requiredByMethod.GLW = BigInt(activeFraction.step) * qty;
+  }
+
+  if (selectedCurrency === "SGCTL") {
+    requiredByMethod.GCTL = BigInt(activeFraction.step) * qty;
+  }
 
   // USDC required:
   // - miners: pay stepPrice
-  // - delegations (swap): buy GLW via USDC with a 2% buffer
+  // - GLW delegations (swap): buy GLW via USDC with a 2% buffer
+  // - SGCTL delegations (mint+stake): buy GCTL via USDC with a 2% buffer
   if (selectedCurrency === "USDC") {
     requiredByMethod.USDC = BigInt(activeFraction.stepPrice) * qty;
+  } else if (selectedCurrency === "SGCTL") {
+    if (Number.isFinite(gctlSpotPrice) && gctlSpotPrice > 0) {
+      const gctlNeeded = BigInt(activeFraction.step) * qty; // 6 decimals
+      const gctlPrice = parseUnits(gctlSpotPrice.toFixed(6), 6); // 6 decimals
+      const rawUsdcCost = (gctlNeeded * gctlPrice) / BigInt(1e6); // 6 decimals
+      requiredByMethod.USDC = (rawUsdcCost * 102n) / 100n; // 2% buffer
+    } else {
+      requiredByMethod.USDC = null;
+    }
   } else {
     if (Number.isFinite(glwSpotPrice) && glwSpotPrice > 0) {
       const glwNeeded = BigInt(activeFraction.step) * qty; // 18 decimals
@@ -356,8 +428,10 @@ export function calculateAffordability(
     requiredByMethod.ETH = null;
   }
 
-  const hasEnoughByMethod: Record<"GLW" | "USDC" | "ETH", boolean> = {
+  const hasEnoughByMethod: Record<DepositPaymentMethod, boolean> = {
     GLW: requiredByMethod.GLW != null && balances.GLW >= requiredByMethod.GLW,
+    GCTL:
+      requiredByMethod.GCTL != null && balances.GCTL >= requiredByMethod.GCTL,
     USDC:
       requiredByMethod.USDC != null && balances.USDC >= requiredByMethod.USDC,
     ETH: requiredByMethod.ETH != null && balances.ETH >= requiredByMethod.ETH,
@@ -373,8 +447,9 @@ export function calculateAffordability(
 // ============================================================================
 
 export function initializeTransactionSteps(
-  selectedCurrency: "GLW" | "USDC",
-  selectedPaymentMethod: "GLW" | "USDC" | "ETH"
+  selectedCurrency: DepositSelectedCurrency,
+  selectedPaymentMethod: DepositPaymentMethod,
+  options?: { sgctlSource?: SgctlSourceMode }
 ): TransactionStep[] {
   const isSwapDelegate =
     selectedCurrency === "GLW" && selectedPaymentMethod !== "GLW";
@@ -390,6 +465,51 @@ export function initializeTransactionSteps(
       tokenTo: "USDC",
       status: "idle",
     });
+  }
+
+  if (selectedCurrency === "SGCTL") {
+    const sgctlSource =
+      options?.sgctlSource ??
+      (selectedPaymentMethod === "ETH"
+        ? "mint_eth"
+        : selectedPaymentMethod === "USDC"
+        ? "mint_usdc"
+        : "wallet_gctl");
+
+    if (sgctlSource === "mint_usdc" || sgctlSource === "mint_eth") {
+      steps.push({
+        id: "MINT_AND_STAKE_GCTL",
+        title: "Mint & Stake GCTL",
+        description: "Minting GCTL and staking it to the selected region",
+        tokenFrom: "USDC",
+        tokenTo: undefined,
+        status: "idle",
+      });
+    }
+
+    if (sgctlSource === "wallet_gctl") {
+      steps.push({
+        id: "STAKE_GCTL",
+        title: "Stake GCTL",
+        description: "Staking existing GCTL to the selected region",
+        status: "idle",
+      });
+    }
+
+    steps.push({
+      id: "DELEGATE_SGCTL",
+      title: "Delegate SGCTL",
+      description: "Submitting the offchain SGCTL delegation",
+      status: "idle",
+    });
+    steps.push({
+      id: "CONFIRM_TX",
+      title: "Confirm Delegation",
+      description: "Waiting for delegation confirmation",
+      status: "idle",
+    });
+
+    return steps;
   }
 
   if (isSwapDelegate) {

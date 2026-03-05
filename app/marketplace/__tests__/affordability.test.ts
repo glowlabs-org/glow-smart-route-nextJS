@@ -35,8 +35,10 @@ function createInput(overrides: Partial<AffordabilityInput> = {}): Affordability
     selectedCurrency: "GLW",
     selectedPaymentMethod: "GLW",
     glwSpotPrice: 1.0,
+    gctlSpotPrice: 0.5,
     ethSpotPrice: 2000,
     glwBalance: parseUnits("1000", 18), // 1000 GLW
+    gctlBalance: parseUnits("1000", 6), // 1000 GCTL
     usdcBalance: parseUnits("1000", 6), // 1000 USDC
     ethBalance: parseUnits("1", 18), // 1 ETH
     ...overrides,
@@ -129,6 +131,37 @@ describe("GLW payment affordability", () => {
     );
     expect(result.hasEnoughByMethod.GLW).toBe(true);
     expect(result.canSubmit).toBe(true);
+  });
+});
+
+describe("GCTL payment affordability (SGCTL delegation)", () => {
+  it("calculates required GCTL correctly", () => {
+    const result = calculateAffordability(
+      createInput({
+        activeFraction: createFraction({ step: parseUnits("25", 6).toString() }),
+        quantity: 4,
+        selectedCurrency: "SGCTL",
+        selectedPaymentMethod: "GCTL",
+      })
+    );
+
+    expect(result.requiredByMethod.GCTL).toBe(parseUnits("100", 6));
+    expect(result.hasEnoughByMethod.GCTL).toBe(true);
+  });
+
+  it("cannot submit with insufficient GCTL balance", () => {
+    const result = calculateAffordability(
+      createInput({
+        activeFraction: createFraction({ step: parseUnits("25", 6).toString() }),
+        quantity: 4,
+        selectedCurrency: "SGCTL",
+        selectedPaymentMethod: "GCTL",
+        gctlBalance: parseUnits("99", 6),
+      })
+    );
+
+    expect(result.hasEnoughByMethod.GCTL).toBe(false);
+    expect(result.canSubmit).toBe(false);
   });
 });
 
@@ -268,6 +301,34 @@ describe("USDC payment affordability (delegation swap)", () => {
     // 1000 * 0.082 = 82, * 1.02 = 83.64
     expect(result.hasEnoughByMethod.USDC).toBe(true);
     expect(result.canSubmit).toBe(true);
+  });
+});
+
+describe("USDC payment affordability (SGCTL mint and stake)", () => {
+  it("includes 2% buffer for SGCTL mint path", () => {
+    const result = calculateAffordability(
+      createInput({
+        activeFraction: createFraction({ step: parseUnits("100", 6).toString() }),
+        selectedCurrency: "SGCTL",
+        selectedPaymentMethod: "USDC",
+        gctlSpotPrice: 0.5,
+      })
+    );
+
+    expect(result.requiredByMethod.USDC).toBe(parseUnits("51", 6));
+  });
+
+  it("returns null USDC requirement when GCTL price is unavailable", () => {
+    const result = calculateAffordability(
+      createInput({
+        selectedCurrency: "SGCTL",
+        selectedPaymentMethod: "USDC",
+        gctlSpotPrice: 0,
+      })
+    );
+
+    expect(result.requiredByMethod.USDC).toBeNull();
+    expect(result.hasEnoughByMethod.USDC).toBe(false);
   });
 });
 

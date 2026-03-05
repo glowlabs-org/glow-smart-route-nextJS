@@ -209,14 +209,73 @@ describe("ETH to GLW delegation steps", () => {
 });
 
 // ============================================================================
+// SGCTL delegation flows
+// ============================================================================
+
+describe("SGCTL delegation steps", () => {
+  it("creates 2 steps for direct staked SGCTL delegation", () => {
+    const steps = initializeTransactionSteps("SGCTL", "GCTL", {
+      sgctlSource: "staked",
+    });
+
+    expect(steps.map((s) => s.id)).toEqual([
+      "DELEGATE_SGCTL",
+      "CONFIRM_TX",
+    ]);
+  });
+
+  it("creates 3 steps for wallet GCTL stake then delegate", () => {
+    const steps = initializeTransactionSteps("SGCTL", "GCTL", {
+      sgctlSource: "wallet_gctl",
+    });
+
+    expect(steps.map((s) => s.id)).toEqual([
+      "STAKE_GCTL",
+      "DELEGATE_SGCTL",
+      "CONFIRM_TX",
+    ]);
+  });
+
+  it("creates 3 steps for USDC mint and stake then delegate", () => {
+    const steps = initializeTransactionSteps("SGCTL", "USDC", {
+      sgctlSource: "mint_usdc",
+    });
+
+    expect(steps.map((s) => s.id)).toEqual([
+      "MINT_AND_STAKE_GCTL",
+      "DELEGATE_SGCTL",
+      "CONFIRM_TX",
+    ]);
+  });
+
+  it("creates 4 steps for ETH mint and stake then delegate", () => {
+    const steps = initializeTransactionSteps("SGCTL", "ETH", {
+      sgctlSource: "mint_eth",
+    });
+
+    expect(steps.map((s) => s.id)).toEqual([
+      "SWAP_ETH_TO_USDC",
+      "MINT_AND_STAKE_GCTL",
+      "DELEGATE_SGCTL",
+      "CONFIRM_TX",
+    ]);
+  });
+});
+
+// ============================================================================
 // Step structure validation
 // ============================================================================
 
 describe("step structure", () => {
-  const allCombinations: Array<["GLW" | "USDC", "GLW" | "USDC" | "ETH"]> = [
+  const allCombinations: Array<
+    ["GLW" | "SGCTL" | "USDC", "GLW" | "GCTL" | "USDC" | "ETH"]
+  > = [
     ["GLW", "GLW"],
     ["GLW", "USDC"],
     ["GLW", "ETH"],
+    ["SGCTL", "GCTL"],
+    ["SGCTL", "USDC"],
+    ["SGCTL", "ETH"],
     ["USDC", "USDC"],
     ["USDC", "ETH"],
   ];

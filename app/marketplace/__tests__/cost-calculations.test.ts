@@ -7,6 +7,7 @@
 import { describe, it, expect } from "vitest";
 import { parseUnits, formatUnits } from "viem";
 import {
+  calculateCostInGCTL,
   calculateCostInGLW,
   calculateCostInUSDC,
   calculateCostInETH,
@@ -79,6 +80,17 @@ describe("calculateCostInGLW", () => {
     const fraction = createFraction({ step: parseUnits("1", 18).toString() });
     // Use a large but reasonable quantity
     expect(calculateCostInGLW(1000000, fraction)).toBe(1000000);
+  });
+});
+
+describe("calculateCostInGCTL", () => {
+  it("returns 0 for null fraction", () => {
+    expect(calculateCostInGCTL(1, null)).toBe(0);
+  });
+
+  it("calculates cost using 6 decimals", () => {
+    const fraction = createFraction({ step: parseUnits("125.5", 6).toString() });
+    expect(calculateCostInGCTL(2, fraction)).toBeCloseTo(251, 6);
   });
 });
 
@@ -156,6 +168,21 @@ describe("calculateCostInUSDC", () => {
       expect(calculateCostInUSDC(10, fraction, "GLW", 0.0823)).toBeCloseTo(823, 1);
     });
   });
+
+  describe("for SGCTL delegation (selectedCurrency=SGCTL)", () => {
+    it("calculates GCTL cost * GCTL spot price", () => {
+      const fraction = createFraction({
+        step: parseUnits("100", 6).toString(),
+      });
+      expect(calculateCostInUSDC(1, fraction, "SGCTL", 0.1, 0.5)).toBe(50);
+      expect(calculateCostInUSDC(2, fraction, "SGCTL", 0.1, 0.75)).toBe(150);
+    });
+
+    it("returns 0 when GCTL spot price is unavailable", () => {
+      const fraction = createFraction({ step: parseUnits("100", 6).toString() });
+      expect(calculateCostInUSDC(1, fraction, "SGCTL", 0.1, 0)).toBe(0);
+    });
+  });
 });
 
 // ============================================================================
@@ -189,6 +216,16 @@ describe("calculateCostInETH", () => {
     // GLW at $0.10, ETH at $2000
     // 1000 GLW * $0.10 = $100 USDC / $2000 = 0.05 ETH
     expect(calculateCostInETH(1, fraction, "GLW", 0.1, 2000)).toBeCloseTo(0.05, 6);
+  });
+
+  it("handles SGCTL delegation path (GCTL -> USDC -> ETH)", () => {
+    const fraction = createFraction({
+      step: parseUnits("100", 6).toString(),
+    });
+    expect(calculateCostInETH(1, fraction, "SGCTL", 0.1, 2000, 0.5)).toBeCloseTo(
+      0.025,
+      6
+    );
   });
 
   it("handles realistic prices", () => {
