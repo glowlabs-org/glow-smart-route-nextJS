@@ -58,6 +58,9 @@ describe("CONTRACT_ERROR_MESSAGES", () => {
       "ZeroSteps",
       "MinStepsToBuyCannotBeZero",
       "InsufficientBalance",
+      "deadline_expired",
+      "signer_mismatch",
+      "signature_failed",
     ];
 
     for (const errorName of noRefreshErrors) {
@@ -113,6 +116,71 @@ describe("findErrorInMessage", () => {
     // Should return InsufficientSharesAvailable (first in iteration order)
     expect(result).toBeDefined();
     expect(result?.shouldRefresh).toBe(true);
+  });
+
+  it("maps Control signature validation reasons to user-friendly messages", () => {
+    expect(findErrorInMessage("deadline_expired")).toEqual(
+      CONTRACT_ERROR_MESSAGES.deadline_expired
+    );
+    expect(findErrorInMessage("deadline_too_far")).toEqual(
+      CONTRACT_ERROR_MESSAGES.deadline_too_far
+    );
+    expect(findErrorInMessage("deadline_is_milliseconds")).toEqual(
+      CONTRACT_ERROR_MESSAGES.deadline_is_milliseconds
+    );
+    expect(findErrorInMessage("signature_failed")).toEqual(
+      CONTRACT_ERROR_MESSAGES.signature_failed
+    );
+    expect(findErrorInMessage("signer_mismatch")).toEqual(
+      CONTRACT_ERROR_MESSAGES.signer_mismatch
+    );
+  });
+
+  it("maps reused nonce errors from Control to a refreshable message", () => {
+    expect(
+      findErrorInMessage("Nonce and wallet keypair insert error (most likely already used)")
+    ).toEqual(CONTRACT_ERROR_MESSAGES["already used"]);
+    expect(findErrorInMessage("Nonce already used or invalid")).toEqual(
+      CONTRACT_ERROR_MESSAGES["Nonce already used"]
+    );
+  });
+
+  it("maps CRM SGCTL validation errors to refreshable messages", () => {
+    expect(
+      findErrorInMessage(
+        "Fraction fraction_1 is not active (status=cancelled)"
+      )
+    ).toEqual(CONTRACT_ERROR_MESSAGES["is not active (status="]);
+    expect(
+      findErrorInMessage(
+        "Delegation paymentDate is after fraction expiration for fraction_1"
+      )
+    ).toEqual(
+      CONTRACT_ERROR_MESSAGES[
+        "Delegation paymentDate is after fraction expiration"
+      ]
+    );
+    expect(
+      findErrorInMessage(
+        "Fraction fraction_1 is not in SGCTL delegation phase at paymentDate"
+      )
+    ).toEqual(
+      CONTRACT_ERROR_MESSAGES["is not in SGCTL delegation phase at paymentDate"]
+    );
+    expect(
+      findErrorInMessage(
+        "Region mismatch for application app_1: expected 7, got 9"
+      )
+    ).toEqual(CONTRACT_ERROR_MESSAGES["Region mismatch for application"]);
+    expect(findErrorInMessage("Zone is not active")).toEqual(
+      CONTRACT_ERROR_MESSAGES["Zone is not active"]
+    );
+    expect(findErrorInMessage("Application not found: app_1")).toEqual(
+      CONTRACT_ERROR_MESSAGES["Application not found"]
+    );
+    expect(
+      findErrorInMessage("Active launchpad fraction not found for application app_1")
+    ).toEqual(CONTRACT_ERROR_MESSAGES["Active launchpad fraction not found"]);
   });
 });
 

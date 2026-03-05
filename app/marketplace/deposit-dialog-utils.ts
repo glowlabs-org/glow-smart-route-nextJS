@@ -130,6 +130,63 @@ export const CONTRACT_ERROR_MESSAGES: Record<string, ContractErrorConfig> = {
   FailedInnerCall: {
     message: "Transaction failed. Please try again.",
   },
+  deadline_expired: {
+    message: "Signature expired. Please try again.",
+  },
+  deadline_too_far: {
+    message: "Signature deadline was invalid. Please refresh and try again.",
+  },
+  deadline_is_milliseconds: {
+    message: "Signature deadline was invalid. Please refresh and try again.",
+  },
+  signer_mismatch: {
+    message:
+      "Signature does not match your connected wallet. Reconnect the correct wallet and try again.",
+  },
+  signature_failed: {
+    message: "Signature verification failed. Please try signing again.",
+  },
+  "already used": {
+    message:
+      "This signature was already used. Please refresh and try again.",
+    shouldRefresh: true,
+  },
+  "Nonce already used": {
+    message:
+      "This signature was already used. Please refresh and try again.",
+    shouldRefresh: true,
+  },
+  "is not active (status=": {
+    message: "This listing is no longer active. Please refresh and try again.",
+    shouldRefresh: true,
+  },
+  "Delegation paymentDate is after fraction expiration": {
+    message:
+      "This SGCTL delegation window has expired. Please refresh and try again.",
+    shouldRefresh: true,
+  },
+  "is not in SGCTL delegation phase at paymentDate": {
+    message:
+      "This listing is not currently in the SGCTL delegation window. Please refresh and try again.",
+    shouldRefresh: true,
+  },
+  "Region mismatch for application": {
+    message:
+      "The selected region no longer matches this listing. Please refresh and try again.",
+    shouldRefresh: true,
+  },
+  "Zone is not active": {
+    message: "This region is not active right now. Please refresh and try again.",
+    shouldRefresh: true,
+  },
+  "Application not found": {
+    message: "This application is no longer available. Please refresh and try again.",
+    shouldRefresh: true,
+  },
+  "Active launchpad fraction not found": {
+    message: "This listing is no longer available. Please refresh and try again.",
+    shouldRefresh: true,
+  },
 };
 
 export const RPC_INTERNAL_ERROR_MESSAGE =
