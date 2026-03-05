@@ -22,19 +22,26 @@ import { formatNumber } from "./utils";
 import { formatUnits, parseUnits } from "viem";
 import {
   DECIMALS_BY_TOKEN,
+  buildDelegateSgctlMessage,
+  delegateSgctlEIP712Types,
+  stakeControlEIP712Domain,
   useOffchainFractions,
 } from "@glowlabs-org/utils/browser";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWalletClient } from "wagmi";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import { useEthPrice } from "@/hooks/useEthPrice";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
 import { useSponsorApplication, type AuctionApplication } from "@/hooks";
+import { useWallets } from "@/hooks/control-wallets";
+import { useGctlPreparationOrchestrator } from "@/hooks/useGctlPreparationOrchestrator";
 import { ConnectButton } from "@/components/connect-button";
 import { trackEvent } from "@/lib/telemetry";
 import * as Sentry from "@sentry/nextjs";
 import { AnimatePresence, motion } from "framer-motion";
+import { getControlRouter } from "@/lib/api/control-routers";
 import { getSmartAccountStatus } from "@/web3/web3/utils/detectSmartAccount";
 import { publicClient } from "@/web3/web3/clients/publicClient";
-import { useWalletClient } from "wagmi";
 import { SmartAccountWarningDialog } from "@/components/wallet/smart-account-warning-dialog";
 import { toast } from "sonner";
 import { useFractionSplits } from "@/hooks";
@@ -55,6 +62,7 @@ import {
   RPC_INTERNAL_ERROR_MESSAGE,
   calculateAffordability,
   calculateCostInETH,
+  calculateCostInGCTL,
   calculateCostInGLW,
   calculateCostInUSDC,
   calculateEstimatedRewards,
@@ -69,10 +77,13 @@ import {
   initializeTransactionSteps,
   isInternalRpcError,
   parseQuantityInput,
+  resolveRuntimeSelectedCurrency,
   withInternalRpcRetry,
+  type DepositPaymentMethod,
+  type DepositSelectedCurrency,
+  type SgctlSourceMode,
   type SuccessMetrics,
 } from "./deposit-dialog-utils";
-import { useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -104,8 +115,6 @@ type DepositDialogProps =
       rewardScore?: MiningCenterScore | null;
       onSuccess?: () => void;
     };
-
-type PaymentMethod = "GLW" | "USDC" | "ETH";
 
 type Phase = "review" | "processing" | "success" | "error";
 
@@ -139,11 +148,54 @@ export function DepositDialog({
     tokenA_address: addresses.usdg,
     tokenB_address: addresses.glow,
   });
+  const runtimeSelectedCurrency = React.useMemo(
+    () =>
+      resolveRuntimeSelectedCurrency(
+        selectedCurrency,
+        application?.activeFraction ?? null
+      ),
+    [application?.activeFraction, selectedCurrency]
+  );
+  const regionId = application?.zone?.id ?? null;
+  const controlChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
+
+  const { walletDetails } = useWallets({
+    walletAddress: address ?? undefined,
+    enabled:
+      open &&
+      runtimeSelectedCurrency === "SGCTL" &&
+      Boolean(address),
+  });
+  const {
+    gctlPriceNumber,
+    gctlBalance,
+    stakeExistingGctlToRegion,
+    mintAndStakeGctlToRegion,
+    invalidateAllQueries: invalidateGctlQueries,
+  } = useGctlPreparationOrchestrator({
+    enabled: open && runtimeSelectedCurrency === "SGCTL",
+  });
+
+  const stakedGctlBalance = React.useMemo(() => {
+    if (runtimeSelectedCurrency !== "SGCTL" || !regionId) return 0n;
+    const rows = (walletDetails as any)?.regions ?? [];
+    const row = rows.find(
+      (item: any) => Number(item?.regionId ?? item?.id) === regionId
+    );
+    if (!row?.totalStaked) return 0n;
+    try {
+      return BigInt(row.totalStaked);
+    } catch {
+      return 0n;
+    }
+  }, [regionId, runtimeSelectedCurrency, walletDetails]);
 
   // State
   const [quantity, setQuantity] = React.useState<number>(1);
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
-    React.useState<PaymentMethod>(selectedCurrency === "GLW" ? "GLW" : "USDC");
+    React.useState<DepositPaymentMethod>(
+      selectedCurrency === "GLW" ? "GLW" : "USDC"
+    );
   const [isSmartAccountWarningOpen, setIsSmartAccountWarningOpen] =
     React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -165,15 +217,27 @@ export function DepositDialog({
     [application?.activeFraction]
   );
 
+  const costInGCTL = React.useCallback(
+    (qty: number) =>
+      calculateCostInGCTL(qty, application?.activeFraction ?? null),
+    [application?.activeFraction]
+  );
+
   const costInUSDC = React.useCallback(
     (qty: number) =>
       calculateCostInUSDC(
         qty,
         application?.activeFraction ?? null,
-        selectedCurrency,
-        glwSpotPrice
+        runtimeSelectedCurrency,
+        glwSpotPrice,
+        gctlPriceNumber
       ),
-    [application?.activeFraction, selectedCurrency, glwSpotPrice]
+    [
+      application?.activeFraction,
+      gctlPriceNumber,
+      glwSpotPrice,
+      runtimeSelectedCurrency,
+    ]
   );
 
   const costInETH = React.useCallback(
@@ -181,17 +245,24 @@ export function DepositDialog({
       calculateCostInETH(
         qty,
         application?.activeFraction ?? null,
-        selectedCurrency,
+        runtimeSelectedCurrency,
         glwSpotPrice,
-        ethSpotPrice
+        ethSpotPrice,
+        gctlPriceNumber
       ),
-    [application?.activeFraction, selectedCurrency, glwSpotPrice, ethSpotPrice]
+    [
+      application?.activeFraction,
+      ethSpotPrice,
+      gctlPriceNumber,
+      glwSpotPrice,
+      runtimeSelectedCurrency,
+    ]
   );
 
   // Smart auto-selection of payment method on open/connect
   React.useEffect(() => {
     if (open && isConnected && application) {
-      if (selectedCurrency === "GLW") {
+      if (runtimeSelectedCurrency === "GLW") {
         // Delegation: Prefer GLW if enough, else USDC, else ETH
         const costGLW = costInGLW(1);
         const glwBalNum = glwBalance
@@ -209,6 +280,19 @@ export function DepositDialog({
           // Default fallback
           setSelectedPaymentMethod("GLW");
         }
+      } else if (runtimeSelectedCurrency === "SGCTL") {
+        const requiredGctl = BigInt(application.activeFraction?.step ?? "0");
+        const availableGctl = (gctlBalance ?? 0n) + stakedGctlBalance;
+
+        if (availableGctl >= requiredGctl) {
+          setSelectedPaymentMethod("GCTL");
+        } else if ((usdcBalance ?? 0n) > 0n) {
+          setSelectedPaymentMethod("USDC");
+        } else if ((ethBalance ?? 0n) > 0n) {
+          setSelectedPaymentMethod("ETH");
+        } else {
+          setSelectedPaymentMethod("GCTL");
+        }
       } else {
         // Miner: Prefer USDC, else ETH
         setSelectedPaymentMethod("USDC");
@@ -217,11 +301,14 @@ export function DepositDialog({
   }, [
     open,
     isConnected,
+    ethBalance,
+    gctlBalance,
     usdcBalance,
     glwBalance,
-    selectedCurrency,
+    runtimeSelectedCurrency,
     application,
     costInGLW,
+    stakedGctlBalance,
   ]);
 
   // Reset on open
@@ -245,13 +332,21 @@ export function DepositDialog({
     USDC: "/images/tokens/usdc.svg",
   } as const;
 
-  function TokenIcon(props: { symbol: "ETH" | "GLW" | "USDC" }) {
+  function TokenIcon(props: { symbol: "ETH" | "GLW" | "USDC" | "GCTL" }) {
     const { symbol } = props;
 
     if (symbol === "GLW") {
       return (
         <div className="h-6 w-6 rounded-full bg-muted border border-border flex items-center justify-center">
           <GlowSymbol className="h-4 w-4" />
+        </div>
+      );
+    }
+
+    if (symbol === "GCTL") {
+      return (
+        <div className="h-6 w-6 rounded-full bg-muted border border-border flex items-center justify-center text-[10px] font-mono font-semibold">
+          G
         </div>
       );
     }
@@ -278,22 +373,28 @@ export function DepositDialog({
       calculateAffordability({
         activeFraction: application?.activeFraction ?? null,
         quantity,
-        selectedCurrency,
+        selectedCurrency: runtimeSelectedCurrency,
         selectedPaymentMethod,
         glwSpotPrice,
+        gctlSpotPrice: gctlPriceNumber,
         ethSpotPrice,
         glwBalance: glwBalance ?? 0n,
+        gctlBalance: gctlBalance ?? 0n,
+        stakedGctlBalance,
         usdcBalance: usdcBalance ?? 0n,
         ethBalance: ethBalance ?? 0n,
       }),
     [
       application?.activeFraction,
-      quantity,
-      selectedCurrency,
-      selectedPaymentMethod,
-      glwSpotPrice,
+      gctlBalance,
+      gctlPriceNumber,
       ethSpotPrice,
       glwBalance,
+      quantity,
+      runtimeSelectedCurrency,
+      selectedPaymentMethod,
+      stakedGctlBalance,
+      glwSpotPrice,
       usdcBalance,
       ethBalance,
     ]
@@ -327,6 +428,12 @@ export function DepositDialog({
         18,
         costInGLW(quantity).toLocaleString()
       )} GLW`,
+      GCTL: `${formatTokenAmount(
+        affordability.requiredByMethod.GCTL,
+        6,
+        costInGCTL(quantity).toLocaleString(),
+        6
+      )} GCTL`,
       USDC: `${formatTokenAmount(
         affordability.requiredByMethod.USDC,
         6,
@@ -341,6 +448,7 @@ export function DepositDialog({
     [
       affordability.requiredByMethod,
       costInETH,
+      costInGCTL,
       costInGLW,
       costInUSDC,
       formatTokenAmount,
@@ -360,24 +468,54 @@ export function DepositDialog({
 
     return {
       GLW: calcShortfall(affordability.requiredByMethod.GLW, glwBalance),
+      GCTL: calcShortfall(
+        affordability.requiredByMethod.GCTL,
+        affordability.balances.GCTL
+      ),
       USDC: calcShortfall(affordability.requiredByMethod.USDC, usdcBalance),
       ETH: calcShortfall(affordability.requiredByMethod.ETH, ethBalance),
     } as const;
-  }, [affordability.requiredByMethod, ethBalance, glwBalance, usdcBalance]);
+  }, [
+    affordability.balances.GCTL,
+    affordability.requiredByMethod,
+    ethBalance,
+    glwBalance,
+    usdcBalance,
+  ]);
 
   const selectedShortfall = shortfallByMethod[selectedPaymentMethod];
-  const showUsdcShortfallInCta =
+  const shortfallDecimals =
+    selectedPaymentMethod === "ETH" || selectedPaymentMethod === "GLW"
+      ? 18
+      : 6;
+  const showShortfallInCta =
     isConnected &&
     !isSubmitting &&
-    selectedPaymentMethod === "USDC" &&
     !affordability.canSubmit &&
     selectedShortfall > 0n;
-  const usdcDisabledCtaLabel = `Need +${formatTokenAmount(
+  const disabledCtaLabel = `Need +${formatTokenAmount(
     selectedShortfall,
-    6,
+    shortfallDecimals,
     "0",
     6
-  )} USDC${selectedCurrency === "GLW" ? " (swap buffer)" : ""}`;
+  )} ${selectedPaymentMethod}${
+    runtimeSelectedCurrency === "GLW" && selectedPaymentMethod === "USDC"
+      ? " (swap buffer)"
+      : ""
+  }`;
+
+  const sgctlRequiredAmount = affordability.requiredByMethod.GCTL ?? 0n;
+  const sgctlShortfall =
+    sgctlRequiredAmount > stakedGctlBalance
+      ? sgctlRequiredAmount - stakedGctlBalance
+      : 0n;
+  const sgctlSourceMode = React.useMemo<SgctlSourceMode | null>(() => {
+    if (runtimeSelectedCurrency !== "SGCTL") return null;
+    if (sgctlShortfall <= 0n) return "staked";
+    if (selectedPaymentMethod === "GCTL") return "wallet_gctl";
+    if (selectedPaymentMethod === "ETH") return "mint_eth";
+    return "mint_usdc";
+  }, [runtimeSelectedCurrency, selectedPaymentMethod, sgctlShortfall]);
 
   const estimatedRewards = React.useMemo(
     () =>
@@ -398,9 +536,16 @@ export function DepositDialog({
         quantity,
         application?.activeFraction ?? null,
         rewardScore ?? null,
-        costInGLW
+        costInGLW,
+        { includeVaultBonus: runtimeSelectedCurrency === "GLW" }
       ),
-    [quantity, application?.activeFraction, rewardScore, costInGLW]
+    [
+      quantity,
+      application?.activeFraction,
+      rewardScore,
+      costInGLW,
+      runtimeSelectedCurrency,
+    ]
   );
 
   const maxQuantity = application?.activeFraction?.remainingSteps ?? 0;
@@ -477,6 +622,67 @@ export function DepositDialog({
     });
   };
 
+  const confirmPurchaseInSplits = React.useCallback(async () => {
+    const initialPurchased = splitsSummary?.totalStepsPurchased || 0;
+    let confirmed = false;
+
+    for (let i = 0; i < 30; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const res = await refetchSplits();
+      if (res.data && res.data.summary.totalStepsPurchased > initialPurchased) {
+        confirmed = true;
+        break;
+      }
+    }
+
+    if (!confirmed) {
+      console.warn(
+        "Purchase confirmation timed out, but transaction was submitted."
+      );
+    }
+  }, [refetchSplits, splitsSummary?.totalStepsPurchased]);
+
+  const invalidatePostSuccessQueries = React.useCallback(
+    async (fractionId: string) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.fractions.rewardsBreakdown({
+            walletAddress: address,
+          }),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.wallets.farms(address),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.fractions.splits(address, fractionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.wallets.rewards(address),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.impact.score(address),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.impact.glowWorth(address),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.impact.scoreBreakdown(address),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.impact.leaderboard(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.balances.tokens(chainId, address),
+        }),
+      ]);
+
+      if (runtimeSelectedCurrency === "SGCTL") {
+        await invalidateGctlQueries();
+      }
+    },
+    [address, chainId, invalidateGctlQueries, queryClient, runtimeSelectedCurrency]
+  );
+
   const handleConfirm = async () => {
     if (!isConnected || !application?.activeFraction) return;
 
@@ -484,9 +690,8 @@ export function DepositDialog({
     const isSafe = await handleSmartAccountCheck();
     if (!isSafe) return;
 
-    // If Delegating with swap (selectedCurrency=GLW, method!=GLW)
     const isSwapDelegate =
-      selectedCurrency === "GLW" && selectedPaymentMethod !== "GLW";
+      runtimeSelectedCurrency === "GLW" && selectedPaymentMethod !== "GLW";
 
     try {
       setIsSubmitting(true);
@@ -496,11 +701,148 @@ export function DepositDialog({
       const { activeFraction } = application;
       const userAddress = address as `0x${string}`;
 
-      // Pre-calculate costs to determine which steps are needed
-      let requiredUsdc = 0n;
+      const steps = initializeTransactionSteps(runtimeSelectedCurrency, selectedPaymentMethod, {
+        sgctlSource: sgctlSourceMode ?? undefined,
+      });
+      stepsRef.current = steps;
+      setTransactionSteps(steps);
 
+      if (runtimeSelectedCurrency === "SGCTL") {
+        if (!signer) {
+          throw new Error("Wallet signer not available");
+        }
+        if (!Number.isFinite(controlChainId)) {
+          throw new Error("NEXT_PUBLIC_CHAIN_ID is not set");
+        }
+        if (!regionId) {
+          throw new Error("Region not available for this application");
+        }
+
+        if (sgctlSourceMode === "wallet_gctl") {
+          await stakeExistingGctlToRegion({
+            regionId,
+            amountAtomic: sgctlShortfall,
+            stepIds: {
+              sign: "STAKE_GCTL",
+              submit: "STAKE_GCTL",
+            },
+            updateStepStatus,
+          });
+        } else if (sgctlSourceMode === "mint_usdc") {
+          const requiredUsdc = affordability.requiredByMethod.USDC;
+          if (requiredUsdc == null || requiredUsdc <= 0n) {
+            throw new Error("Unable to determine the USDC amount required");
+          }
+          await mintAndStakeGctlToRegion({
+            regionId,
+            sourceCurrency: "USDC",
+            amountAtomic: requiredUsdc,
+            stepIds: {
+              checkAllowance: "MINT_AND_STAKE_GCTL",
+              approve: "MINT_AND_STAKE_GCTL",
+              mintAndStake: "MINT_AND_STAKE_GCTL",
+            },
+            updateStepStatus,
+          });
+        } else if (sgctlSourceMode === "mint_eth") {
+          const requiredUsdc = affordability.requiredByMethod.USDC;
+          if (requiredUsdc == null || requiredUsdc <= 0n) {
+            throw new Error("Unable to determine the USDC amount required");
+          }
+          updateStepStatus("SWAP_ETH_TO_USDC", "waiting_signature");
+          await mintAndStakeGctlToRegion({
+            regionId,
+            sourceCurrency: "ETH",
+            targetUsdcAmountAtomic: requiredUsdc,
+            stepIds: {
+              swapEthToUsdc: "SWAP_ETH_TO_USDC",
+              checkAllowance: "MINT_AND_STAKE_GCTL",
+              approve: "MINT_AND_STAKE_GCTL",
+              mintAndStake: "MINT_AND_STAKE_GCTL",
+            },
+            updateStepStatus,
+          });
+          await refetchBalances();
+        }
+
+        updateStepStatus("DELEGATE_SGCTL", "waiting_signature");
+        const latestNonce = await getControlRouter().fetchLastNonce(
+          address as string
+        );
+        const nonce = (Number(latestNonce) + 1).toString();
+        const deadline = Math.floor(Date.now() / 1000 + 3600).toString();
+        const signatureMessage = buildDelegateSgctlMessage({
+          nonce,
+          amount: sgctlRequiredAmount.toString(),
+          applicationId: application.id,
+          fractionId: activeFraction.id,
+          deadline,
+        });
+
+        const delegateTypes =
+          delegateSgctlEIP712Types as unknown as Record<string, any[]>;
+        const signature = await signer.signTypedData(
+          stakeControlEIP712Domain(controlChainId),
+          delegateTypes,
+          signatureMessage
+        );
+
+        if (!signature) {
+          throw new Error("Failed to sign SGCTL delegation");
+        }
+
+        updateStepStatus("DELEGATE_SGCTL", "confirming");
+        const delegationResult = await getControlRouter().delegateSgctl({
+          wallet: address as string,
+          applicationId: application.id,
+          fractionId: activeFraction.id,
+          amount: sgctlRequiredAmount.toString(),
+          signature,
+          deadline,
+          nonce,
+        });
+        updateStepStatus("DELEGATE_SGCTL", "completed");
+        updateStepStatus("CONFIRM_TX", "confirming");
+
+        await confirmPurchaseInSplits();
+        setSuccessMetrics(calculateSuccessMetrics(activeFraction, quantity));
+
+        await sponsorMutation.mutateAsync({
+          applicationId: application.id,
+          amount: sgctlRequiredAmount,
+          currency: runtimeSelectedCurrency,
+          txHash: delegationResult.delegationId,
+          onSuccess: () => {
+            updateStepStatus("CONFIRM_TX", "completed");
+            setPhase("success");
+            setTxHash(null);
+
+            trackEvent("marketplace_deposit_success", {
+              currency: runtimeSelectedCurrency,
+              payment_method: selectedPaymentMethod,
+              listing_type: "delegations",
+              delegation_source: sgctlSourceMode,
+              delegation_id: delegationResult.delegationId,
+              application_id: application.id,
+              fraction_id: activeFraction.id,
+              quantity,
+              tx_hash: null,
+              farm_name: application.farmName ?? null,
+              zone_name: application.zone?.name ?? null,
+            });
+
+            toast.success("Delegation successful!");
+            void invalidatePostSuccessQueries(activeFraction.id);
+            onSuccess?.();
+          },
+        });
+
+        return;
+      }
+
+      let requiredUsdc = 0n;
       if (selectedPaymentMethod === "ETH") {
-        if (selectedCurrency === "USDC") {
+        if (runtimeSelectedCurrency === "USDC") {
           requiredUsdc = BigInt(activeFraction.stepPrice) * BigInt(quantity);
         } else {
           const glwNeeded = BigInt(activeFraction.step) * BigInt(quantity);
@@ -509,13 +851,6 @@ export function DepositDialog({
           requiredUsdc = (rawUsdcCost * 102n) / 100n;
         }
       }
-
-      const steps = initializeTransactionSteps(
-        selectedCurrency,
-        selectedPaymentMethod
-      );
-      stepsRef.current = steps;
-      setTransactionSteps(steps);
 
       // --- 1. ETH Payment Handling (Swap to USDC) ---
       if (selectedPaymentMethod === "ETH") {
@@ -632,49 +967,29 @@ export function DepositDialog({
       updateStepStatus("CONFIRM_TX", "confirming");
       setTxHash(txHash);
 
-      // Poll splits to confirm
-      const initialPurchased = splitsSummary?.totalStepsPurchased || 0;
-      let confirmed = false;
-      for (let i = 0; i < 30; i++) {
-        // 30 attempts * 2s = 60s
-        await new Promise((r) => setTimeout(r, 2000));
-        const res = await refetchSplits();
-        if (
-          res.data &&
-          res.data.summary.totalStepsPurchased > initialPurchased
-        ) {
-          confirmed = true;
-          break;
-        }
-      }
-
-      if (!confirmed) {
-        console.warn(
-          "Purchase confirmation timed out, but transaction was submitted."
-        );
-      }
+      await confirmPurchaseInSplits();
 
       setSuccessMetrics(calculateSuccessMetrics(activeFraction, quantity));
 
       const costBigInt =
-        selectedCurrency === "USDC"
+        runtimeSelectedCurrency === "USDC"
           ? BigInt(activeFraction.stepPrice) * BigInt(quantity)
           : BigInt(activeFraction.step) * BigInt(quantity);
 
       await sponsorMutation.mutateAsync({
         applicationId: application.id,
         amount: costBigInt,
-        currency: selectedCurrency,
+        currency: runtimeSelectedCurrency,
         txHash: txHash,
         onSuccess: () => {
           updateStepStatus("CONFIRM_TX", "completed", { txHash });
           setPhase("success");
 
           trackEvent("marketplace_deposit_success", {
-            currency: selectedCurrency,
+            currency: runtimeSelectedCurrency,
             payment_method: selectedPaymentMethod,
             listing_type:
-              selectedCurrency === "USDC" ? "miners" : "delegations",
+              runtimeSelectedCurrency === "USDC" ? "miners" : "delegations",
             application_id: application.id,
             fraction_id: activeFraction.id,
             quantity,
@@ -684,42 +999,12 @@ export function DepositDialog({
           });
 
           toast.success(
-            selectedCurrency === "USDC"
+            runtimeSelectedCurrency === "USDC"
               ? "Miners purchased!"
               : "Delegation successful!"
           );
 
-          // Invalidate wallet-specific queries to refresh user data
-          queryClient.invalidateQueries({
-            queryKey: QUERY_KEYS.fractions.rewardsBreakdown({
-              walletAddress: address,
-            }),
-          });
-          queryClient.invalidateQueries({
-            queryKey: QUERY_KEYS.wallets.farms(address),
-          });
-          queryClient.invalidateQueries({
-            queryKey: QUERY_KEYS.fractions.splits(address, activeFraction.id),
-          });
-          queryClient.invalidateQueries({
-            queryKey: QUERY_KEYS.wallets.rewards(address),
-          });
-          queryClient.invalidateQueries({
-            queryKey: QUERY_KEYS.impact.score(address),
-          });
-          queryClient.invalidateQueries({
-            queryKey: QUERY_KEYS.impact.glowWorth(address),
-          });
-          queryClient.invalidateQueries({
-            queryKey: QUERY_KEYS.impact.scoreBreakdown(address),
-          });
-          queryClient.invalidateQueries({
-            queryKey: QUERY_KEYS.impact.leaderboard(),
-          });
-          queryClient.invalidateQueries({
-            queryKey: QUERY_KEYS.balances.tokens(chainId, address),
-          });
-
+          void invalidatePostSuccessQueries(activeFraction.id);
           onSuccess?.();
         },
       });
@@ -775,9 +1060,11 @@ export function DepositDialog({
 
       if (!isUserRejected) {
         trackEvent("marketplace_deposit_error", {
-          currency: selectedCurrency,
+          currency: runtimeSelectedCurrency,
           payment_method: selectedPaymentMethod,
-          listing_type: selectedCurrency === "USDC" ? "miners" : "delegations",
+          listing_type:
+            runtimeSelectedCurrency === "USDC" ? "miners" : "delegations",
+          delegation_source: sgctlSourceMode,
           application_id: application?.id ?? null,
           fraction_id: application?.activeFraction?.id ?? null,
           quantity,
@@ -791,8 +1078,9 @@ export function DepositDialog({
         Sentry.captureException(normalizedError, {
           tags: { marketplaceStage: "deposit" },
           extra: {
-            currency: selectedCurrency,
+            currency: runtimeSelectedCurrency,
             paymentMethod: selectedPaymentMethod,
+            delegationSource: sgctlSourceMode,
             applicationId: application?.id,
             fractionId: application?.activeFraction?.id,
             quantity,
@@ -838,12 +1126,12 @@ export function DepositDialog({
   const shareUrl = React.useMemo(
     () =>
       generateShareUrl(
-        selectedCurrency,
+        runtimeSelectedCurrency,
         quantity,
         farmLabelForShare,
         Boolean(successMetrics)
       ),
-    [selectedCurrency, farmLabelForShare, successMetrics, quantity]
+    [runtimeSelectedCurrency, farmLabelForShare, successMetrics, quantity]
   );
 
   const handleShare = async () => {
@@ -859,13 +1147,15 @@ export function DepositDialog({
         : "Glow";
 
       const shareText =
-        selectedCurrency === "USDC"
+        runtimeSelectedCurrency === "USDC"
           ? `I just bought ${quantity} miner${quantity > 1 ? "s" : ""} from ${
               farmLabelForShare ?? "a solar farm"
             } on @glowFND\n\n${APP_DOMAIN_PLAIN_TEXT}`
           : `I just helped fund ${
               farmLabelForShare ?? "a solar farm"
-            } by delegating GLW tokens.\n\nYou can do the same on ${APP_DOMAIN_PLAIN_TEXT}`;
+            } by delegating ${
+              runtimeSelectedCurrency === "SGCTL" ? "SGCTL" : "GLW"
+            } tokens.\n\nYou can do the same on ${APP_DOMAIN_PLAIN_TEXT}`;
 
       const canNativeShare =
         typeof navigator !== "undefined" &&
@@ -873,7 +1163,7 @@ export function DepositDialog({
 
       if (isSmallScreen && canNativeShare) {
         trackEvent("marketplace_deposit_share_native_click", {
-          currency: selectedCurrency,
+          currency: runtimeSelectedCurrency,
           application_id: application?.id ?? null,
           fraction_id: application?.activeFraction?.id ?? null,
           steps_to_buy: quantity,
@@ -917,7 +1207,7 @@ export function DepositDialog({
       }
 
       trackEvent("marketplace_deposit_share_x_click", {
-        currency: selectedCurrency,
+        currency: runtimeSelectedCurrency,
         application_id: application?.id ?? null,
         fraction_id: application?.activeFraction?.id ?? null,
         steps_to_buy: quantity,
@@ -936,9 +1226,14 @@ export function DepositDialog({
   const successDetails: TransactionDetail[] = application?.activeFraction
     ? (() => {
         const totalCost =
-          selectedCurrency === "USDC"
+          runtimeSelectedCurrency === "USDC"
             ? BigInt(application.activeFraction.stepPrice) * BigInt(quantity)
             : BigInt(application.activeFraction.step) * BigInt(quantity);
+
+        const delegatedLabel =
+          runtimeSelectedCurrency === "SGCTL"
+            ? "Total SGCTL Delegated"
+            : "Total GLW Delegated";
 
         return [
           {
@@ -946,20 +1241,17 @@ export function DepositDialog({
             value: quantity.toString(),
           },
           {
-            label:
-              selectedCurrency === "GLW"
-                ? "Total GLW Delegated"
-                : "Total USDC",
+            label: runtimeSelectedCurrency === "USDC" ? "Total USDC" : delegatedLabel,
             value: formatNumber(
               parseFloat(
                 formatUnits(
                   totalCost,
-                  DECIMALS_BY_TOKEN[selectedCurrency]
+                  DECIMALS_BY_TOKEN[runtimeSelectedCurrency]
                 )
               ),
               0
             ),
-            unit: selectedCurrency,
+            unit: runtimeSelectedCurrency,
           },
         ];
       })()
@@ -989,12 +1281,12 @@ export function DepositDialog({
         <div className="px-5 py-6 sm:px-6 sm:py-8 text-center space-y-3 sm:space-y-4">
           <div className="text-center space-y-2">
             <div className="text-xl sm:text-2xl font-bold text-foreground">
-              {selectedCurrency === "USDC"
+              {runtimeSelectedCurrency === "USDC"
                 ? "Purchase Complete!"
                 : "Delegation Complete!"}
             </div>
             <div className="text-xs sm:text-sm text-muted-foreground">
-              {selectedCurrency === "USDC"
+              {runtimeSelectedCurrency === "USDC"
                 ? "You helped accelerate real-world solar deployment."
                 : "You just activated real-world solar rewards."}
             </div>
@@ -1019,12 +1311,14 @@ export function DepositDialog({
                   </span>
                 }
                 otherColor={
-                  selectedCurrency === "USDC"
+                  runtimeSelectedCurrency === "USDC"
                     ? "rgba(32, 129, 226, 0.75)"
                     : "#C084FC"
                 }
                 userColor={
-                  selectedCurrency === "USDC" ? "var(--color-miner)" : "#4ADE80"
+                  runtimeSelectedCurrency === "USDC"
+                    ? "var(--color-miner)"
+                    : "#4ADE80"
                 }
                 className="my-1 sm:my-2"
               />
@@ -1034,7 +1328,7 @@ export function DepositDialog({
                     className="h-2.5 w-2.5 rounded-full"
                     style={{
                       backgroundColor:
-                        selectedCurrency === "USDC"
+                        runtimeSelectedCurrency === "USDC"
                           ? "rgba(32, 129, 226, 0.75)"
                           : "#C084FC",
                     }}
@@ -1046,7 +1340,7 @@ export function DepositDialog({
                     className="h-2.5 w-2.5 rounded-full"
                     style={{
                       backgroundColor:
-                        selectedCurrency === "USDC"
+                        runtimeSelectedCurrency === "USDC"
                           ? "var(--color-miner)"
                           : "#4ADE80",
                     }}
@@ -1062,7 +1356,7 @@ export function DepositDialog({
               <div
                 className={cn(
                   "w-full rounded-2xl p-4 border",
-                  selectedCurrency === "USDC"
+                  runtimeSelectedCurrency === "USDC"
                     ? "bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-blue-500/10 border-blue-500/20"
                     : "bg-gradient-to-r from-green-500/10 via-[#D1FF4D]/10 to-green-500/10 border-green-500/20"
                 )}
@@ -1076,7 +1370,7 @@ export function DepositDialog({
                       <span
                         className={cn(
                           "text-xl sm:text-2xl font-bold font-mono",
-                          selectedCurrency === "USDC"
+                          runtimeSelectedCurrency === "USDC"
                             ? "text-blue-600 dark:text-cyan-400"
                             : "text-green-600 dark:text-[#D1FF4D]"
                         )}
@@ -1088,7 +1382,7 @@ export function DepositDialog({
                       <span
                         className={cn(
                           "text-sm font-medium",
-                          selectedCurrency === "USDC"
+                          runtimeSelectedCurrency === "USDC"
                             ? "text-blue-600/70 dark:text-cyan-400/70"
                             : "text-green-600/70 dark:text-[#D1FF4D]/70"
                         )}
@@ -1172,7 +1466,7 @@ export function DepositDialog({
                   </div>
 
                   {/* Miner bonus note */}
-                  {selectedCurrency === "USDC" ? (
+                  {runtimeSelectedCurrency === "USDC" ? (
                     <div className="mt-3 pt-2 border-t border-amber-500/20 text-[11px] text-muted-foreground/80">
                       <span className="text-[color:var(--color-miner)] font-medium">
                         3× miner bonus
@@ -1339,7 +1633,11 @@ export function DepositDialog({
         <div className="p-6 pb-4">
           <div className="flex items-center justify-between mb-1">
             <DialogTitle className="text-xl font-semibold">
-              {selectedCurrency === "GLW" ? "Delegate GLW" : "Buy Miners"}
+              {runtimeSelectedCurrency === "USDC"
+                ? "Buy Miners"
+                : runtimeSelectedCurrency === "SGCTL"
+                ? "Delegate SGCTL"
+                : "Delegate GLW"}
             </DialogTitle>
           </div>
           <div className="text-sm text-muted-foreground">
@@ -1450,15 +1748,15 @@ export function DepositDialog({
           {/* Payment Method */}
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-foreground/80">
-              {selectedCurrency === "GLW"
-                ? "Delegation Source"
-                : "Select Currency"}
+              {runtimeSelectedCurrency === "USDC"
+                ? "Select Currency"
+                : "Delegation Source"}
             </label>
             <div className="space-y-2">
               {/* Option: GLW */}
-              {(selectedCurrency === "GLW" || selectedCurrency === "USDC") && (
+              {(runtimeSelectedCurrency === "GLW" ||
+                runtimeSelectedCurrency === "USDC") && (
                 <PaymentOption
-                  value="GLW"
                   label="Glow (GLW)"
                   balance={
                     glwBalance
@@ -1470,7 +1768,7 @@ export function DepositDialog({
                   icon={<TokenIcon symbol="GLW" />}
                   selected={selectedPaymentMethod === "GLW"}
                   onSelect={() => setSelectedPaymentMethod("GLW")}
-                  disabled={selectedCurrency === "USDC"} // Can't pay miners with GLW
+                  disabled={runtimeSelectedCurrency === "USDC"}
                   isBalanceInsufficient={
                     isConnected &&
                     selectedPaymentMethod === "GLW" &&
@@ -1479,9 +1777,33 @@ export function DepositDialog({
                   pricePreview={requiredDisplayByMethod.GLW}
                 />
               )}
+              {runtimeSelectedCurrency === "SGCTL" && (
+                <PaymentOption
+                  label="Control (GCTL)"
+                  balance={`${formatTokenAmount(
+                    gctlBalance ?? 0n,
+                    6,
+                    "0",
+                    6
+                  )} wallet • ${formatTokenAmount(
+                    stakedGctlBalance,
+                    6,
+                    "0",
+                    6
+                  )} staked`}
+                  icon={<TokenIcon symbol="GCTL" />}
+                  selected={selectedPaymentMethod === "GCTL"}
+                  onSelect={() => setSelectedPaymentMethod("GCTL")}
+                  isBalanceInsufficient={
+                    isConnected &&
+                    selectedPaymentMethod === "GCTL" &&
+                    !affordability.canSubmit
+                  }
+                  pricePreview={requiredDisplayByMethod.GCTL}
+                />
+              )}
               {/* Option: USDC */}
               <PaymentOption
-                value="USDC"
                 label="USD Coin (USDC)"
                 balance={
                   usdcBalance
@@ -1502,7 +1824,6 @@ export function DepositDialog({
               />
               {/* Option: ETH */}
               <PaymentOption
-                value="ETH"
                 label="Ethereum (ETH)"
                 balance={
                   ethBalance
@@ -1531,6 +1852,7 @@ export function DepositDialog({
             <div className="text-right">
               <div className="text-xl font-bold font-mono">
                 {selectedPaymentMethod === "GLW" && requiredDisplayByMethod.GLW}
+                {selectedPaymentMethod === "GCTL" && requiredDisplayByMethod.GCTL}
                 {selectedPaymentMethod === "USDC" &&
                   `$${formatTokenAmount(
                     affordability.requiredByMethod.USDC,
@@ -1540,9 +1862,9 @@ export function DepositDialog({
                 {selectedPaymentMethod === "ETH" && requiredDisplayByMethod.ETH}
               </div>
               <div className="text-xs text-muted-foreground">
-                {selectedPaymentMethod !== "USDC"
-                  ? `≈ $${costInUSDC(quantity).toLocaleString()}`
-                  : "Stable"}
+                {selectedPaymentMethod === "USDC"
+                  ? "Stable"
+                  : `≈ $${costInUSDC(quantity).toLocaleString()}`}
               </div>
             </div>
           </div>
@@ -1559,9 +1881,15 @@ export function DepositDialog({
                 {isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                {showUsdcShortfallInCta
-                  ? usdcDisabledCtaLabel
-                  : selectedCurrency === "GLW"
+                {showShortfallInCta
+                  ? disabledCtaLabel
+                  : runtimeSelectedCurrency === "SGCTL"
+                  ? sgctlSourceMode === "staked"
+                    ? "Confirm Delegation"
+                    : sgctlSourceMode === "wallet_gctl"
+                    ? "Stake & Delegate"
+                    : "Mint, Stake & Delegate"
+                  : runtimeSelectedCurrency === "GLW"
                   ? selectedPaymentMethod !== "GLW"
                     ? "Swap & Delegate"
                     : "Confirm Delegation"
@@ -1577,7 +1905,7 @@ export function DepositDialog({
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className="md:max-w-md p-0 gap-0 bg-background border-border text-foreground max-h-[90vh] overflow-y-auto overflow-x-hidden shadow-2xl sm:rounded-3xl"
+        className="md:max-w-md p-0 gap-0 bg-background border border-border/20 text-foreground max-h-[90vh] overflow-y-auto overflow-x-hidden sm:rounded-3xl"
         onInteractOutside={(e) => e.preventDefault()}
       >
         {renderContent()}
@@ -1592,7 +1920,6 @@ export function DepositDialog({
 }
 
 function PaymentOption({
-  value,
   label,
   balance,
   icon,
@@ -1602,7 +1929,6 @@ function PaymentOption({
   isBalanceInsufficient,
   pricePreview,
 }: {
-  value: PaymentMethod;
   label: string;
   balance: string;
   icon: React.ReactNode;
@@ -1619,12 +1945,12 @@ function PaymentOption({
       className={cn(
         "flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all duration-200",
         selected
-          ? "bg-glow-orange/5 border-glow-orange/50 "
-          : "bg-transparent border-border hover:bg-glow-orange/5 hover:border-glow-orange/50"
+          ? "bg-glow-orange/5 border-glow-orange/40"
+          : "bg-transparent border-border/20 hover:bg-glow-orange/5 hover:border-glow-orange/40"
       )}
     >
       <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center border border-border">
+        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center border border-border/20">
           {icon}
         </div>
         <div>

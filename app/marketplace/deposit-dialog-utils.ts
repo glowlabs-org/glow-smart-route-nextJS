@@ -48,6 +48,7 @@ export interface AffordabilityInput {
   ethSpotPrice: number;
   glwBalance: bigint;
   gctlBalance?: bigint;
+  stakedGctlBalance?: bigint;
   usdcBalance: bigint;
   ethBalance: bigint;
 }
@@ -137,7 +138,7 @@ export const SWAP_VOLATILITY_ERROR_MESSAGE =
   "Swap failed because price/liquidity changed while processing. Please retry. If it keeps failing, try a smaller quantity.";
 
 export function resolveDepositDialogMode(
-  selectedCurrency: "GLW" | "USDC",
+  selectedCurrency: DepositSelectedCurrency,
   activeFraction: ActiveFraction | null
 ): DepositDialogMode {
   if (selectedCurrency === "USDC") return "miners";
@@ -146,7 +147,7 @@ export function resolveDepositDialogMode(
 }
 
 export function resolveRuntimeSelectedCurrency(
-  selectedCurrency: "GLW" | "USDC",
+  selectedCurrency: DepositSelectedCurrency,
   activeFraction: ActiveFraction | null
 ): DepositSelectedCurrency {
   const mode = resolveDepositDialogMode(selectedCurrency, activeFraction);
@@ -339,6 +340,7 @@ export function calculateAffordability(
     ethSpotPrice,
     glwBalance,
     gctlBalance = 0n,
+    stakedGctlBalance = 0n,
     usdcBalance,
     ethBalance,
   } = input;
@@ -347,7 +349,7 @@ export function calculateAffordability(
 
   const balances = {
     GLW: glwBalance,
-    GCTL: gctlBalance,
+    GCTL: gctlBalance + stakedGctlBalance,
     USDC: usdcBalance,
     ETH: ethBalance,
   } as const;
@@ -373,8 +375,17 @@ export function calculateAffordability(
     requiredByMethod.GLW = BigInt(activeFraction.step) * qty;
   }
 
+  const gctlNeeded =
+    selectedCurrency === "SGCTL" ? BigInt(activeFraction.step) * qty : 0n;
+  const gctlShortfall =
+    selectedCurrency === "SGCTL"
+      ? gctlNeeded > stakedGctlBalance
+        ? gctlNeeded - stakedGctlBalance
+        : 0n
+      : 0n;
+
   if (selectedCurrency === "SGCTL") {
-    requiredByMethod.GCTL = BigInt(activeFraction.step) * qty;
+    requiredByMethod.GCTL = gctlNeeded;
   }
 
   // USDC required:
@@ -385,9 +396,8 @@ export function calculateAffordability(
     requiredByMethod.USDC = BigInt(activeFraction.stepPrice) * qty;
   } else if (selectedCurrency === "SGCTL") {
     if (Number.isFinite(gctlSpotPrice) && gctlSpotPrice > 0) {
-      const gctlNeeded = BigInt(activeFraction.step) * qty; // 6 decimals
       const gctlPrice = parseUnits(gctlSpotPrice.toFixed(6), 6); // 6 decimals
-      const rawUsdcCost = (gctlNeeded * gctlPrice) / BigInt(1e6); // 6 decimals
+      const rawUsdcCost = (gctlShortfall * gctlPrice) / BigInt(1e6); // 6 decimals
       requiredByMethod.USDC = (rawUsdcCost * 102n) / 100n; // 2% buffer
     } else {
       requiredByMethod.USDC = null;
@@ -598,12 +608,14 @@ export function calculateImpactPointsBreakdown(
   quantity: number,
   activeFraction: ActiveFraction | null,
   rewardScore: RewardScore | null,
-  calculateCostInGLWFn: (qty: number) => number
+  calculateCostInGLWFn: (qty: number) => number,
+  options?: { includeVaultBonus?: boolean }
 ): ImpactPointsBreakdown {
   if (!activeFraction || !rewardScore) {
     return { emissionPoints: 0, vaultBonusPoints: 0, total: 0 };
   }
 
+  const includeVaultBonus = options?.includeVaultBonus ?? true;
   const totalShares = activeFraction.totalSteps || 1;
 
   if ("userWeeklyGlwRewards" in rewardScore) {
@@ -615,8 +627,9 @@ export function calculateImpactPointsBreakdown(
     const emissionPoints = emissionPointsPerStep * quantity;
 
     // Vault bonus: +0.005 points per week per GLW delegated
-    const delegatedGlw = calculateCostInGLWFn(quantity);
-    const vaultBonusPoints = delegatedGlw * 0.005;
+    const vaultBonusPoints = includeVaultBonus
+      ? calculateCostInGLWFn(quantity) * 0.005
+      : 0;
 
     return {
       emissionPoints,
@@ -644,7 +657,7 @@ export function calculateImpactPointsBreakdown(
 const APP_DOMAIN_PLAIN_TEXT = "app.\u200Bglow.\u200Borg";
 
 export function generateShareUrl(
-  selectedCurrency: "GLW" | "USDC",
+  selectedCurrency: DepositSelectedCurrency,
   quantity: number,
   farmLabelForShare: string | null,
   hasSuccessMetrics: boolean
@@ -665,8 +678,9 @@ export function generateShareUrl(
     return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
   }
 
+  const delegatedAsset = selectedCurrency === "SGCTL" ? "SGCTL" : "GLW";
   const text = [
-    `I just helped fund ${farmLabelForShare} by delegating GLW tokens.`,
+    `I just helped fund ${farmLabelForShare} by delegating ${delegatedAsset} tokens.`,
     "",
     `You can do the same and start earning GLW weekly for 100 weeks here: ${APP_DOMAIN_PLAIN_TEXT}`,
   ].join("\n");

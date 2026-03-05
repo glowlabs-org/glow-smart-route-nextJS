@@ -86,6 +86,13 @@ Additional tags and context for ToS errors:
 |------|-----------|-------------|
 | `app/marketplace/deposit-dialog.tsx` | `marketplaceStage: "deposit"` | Deposit/purchase transaction failed |
 
+Additional marketplace context:
+- `currency`: `USDC`, `GLW`, or `SGCTL`
+- `paymentMethod`: `USDC`, `ETH`, `GLW`, or `GCTL`
+- `delegationSource`: `staked`, `wallet_gctl`, `mint_usdc`, `mint_eth` for SGCTL flows
+- `applicationId`, `fractionId`, `quantity`, `failedStep`, `errorName`, `errorCode`
+- wallet context: `walletClientChainId`, `walletClientAccount`, `connectorName`, `walletAddress`
+
 ### Wallet Claims
 
 | File | Stage Tag | Description |

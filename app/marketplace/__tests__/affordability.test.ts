@@ -149,6 +149,24 @@ describe("GCTL payment affordability (SGCTL delegation)", () => {
     expect(result.hasEnoughByMethod.GCTL).toBe(true);
   });
 
+  it("allows staking then delegating when wallet + staked GCTL covers the requirement", () => {
+    const result = calculateAffordability(
+      createInput({
+        activeFraction: createFraction({ step: parseUnits("25", 6).toString() }),
+        quantity: 4,
+        selectedCurrency: "SGCTL",
+        selectedPaymentMethod: "GCTL",
+        gctlBalance: parseUnits("40", 6),
+        stakedGctlBalance: parseUnits("60", 6),
+      })
+    );
+
+    expect(result.requiredByMethod.GCTL).toBe(parseUnits("100", 6));
+    expect(result.balances.GCTL).toBe(parseUnits("100", 6));
+    expect(result.hasEnoughByMethod.GCTL).toBe(true);
+    expect(result.canSubmit).toBe(true);
+  });
+
   it("cannot submit with insufficient GCTL balance", () => {
     const result = calculateAffordability(
       createInput({
@@ -316,6 +334,37 @@ describe("USDC payment affordability (SGCTL mint and stake)", () => {
     );
 
     expect(result.requiredByMethod.USDC).toBe(parseUnits("51", 6));
+  });
+
+  it("prices only the unstaked SGCTL shortfall", () => {
+    const result = calculateAffordability(
+      createInput({
+        activeFraction: createFraction({ step: parseUnits("100", 6).toString() }),
+        selectedCurrency: "SGCTL",
+        selectedPaymentMethod: "USDC",
+        gctlSpotPrice: 0.5,
+        stakedGctlBalance: parseUnits("40", 6),
+      })
+    );
+
+    expect(result.requiredByMethod.GCTL).toBe(parseUnits("100", 6));
+    expect(result.requiredByMethod.USDC).toBe(parseUnits("30.6", 6));
+  });
+
+  it("needs no USDC top-up when the region stake already covers the delegation", () => {
+    const result = calculateAffordability(
+      createInput({
+        activeFraction: createFraction({ step: parseUnits("100", 6).toString() }),
+        selectedCurrency: "SGCTL",
+        selectedPaymentMethod: "USDC",
+        gctlSpotPrice: 0.5,
+        stakedGctlBalance: parseUnits("100", 6),
+      })
+    );
+
+    expect(result.requiredByMethod.USDC).toBe(0n);
+    expect(result.hasEnoughByMethod.USDC).toBe(true);
+    expect(result.canSubmit).toBe(true);
   });
 
   it("returns null USDC requirement when GCTL price is unavailable", () => {

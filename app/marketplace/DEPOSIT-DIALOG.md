@@ -1,6 +1,6 @@
 # Deposit Dialog (Product Documentation)
 
-This document describes the user-visible behavior of the **Deposit Dialog** implemented in `app/marketplace/deposit-dialog.tsx`. It covers the UI phases, supported payment paths, and end-to-end flow for **miners purchases** and **GLW delegation**.
+This document describes the user-visible behavior of the **Deposit Dialog** implemented in `app/marketplace/deposit-dialog.tsx`. It covers the UI phases, supported payment paths, and end-to-end flow for **miners purchases**, **GLW delegation**, and **SGCTL delegation**.
 
 ## Overview
 
@@ -8,8 +8,9 @@ The Deposit Dialog is the final "review -> confirm -> processing -> success/erro
 
 - **Buy miners** (Mining Center listings): buy a quantity of "steps" priced in **USDC**.
 - **Delegate GLW** (Launchpad listings): buy a quantity of "steps" priced in **GLW**.
+- **Delegate SGCTL** (Launchpad listings during the SGCTL phase): buy a quantity of "steps" priced in **SGCTL**.
 
-Both actions call `fractions.buyFractions(...)`, but the payment asset and UX differ.
+Miners purchases and GLW delegations call `fractions.buyFractions(...)`. SGCTL delegations use a signed Control API delegation after ensuring the user has enough staked GCTL in the listing region.
 
 ## Entry points (where users open it)
 
@@ -46,6 +47,17 @@ The dialog is typically opened from:
     3. USDG -> GLW
     4. GLW delegation
 
+### SGCTL delegation (`selectedCurrency="GLW"` with `activeFraction.delegationAsset="SGCTL"`)
+
+- **Use existing staked GCTL**:
+  - If the user already has enough GCTL staked in the listing region, the dialog submits a signed SGCTL delegation directly.
+- **Use existing wallet GCTL**:
+  - If the user has enough liquid GCTL but not enough staked in the region, the dialog first stakes the missing amount to the region and then submits the SGCTL delegation.
+- **Pay with USDC**:
+  - The dialog mints and stakes the missing GCTL to the listing region, then submits the SGCTL delegation.
+- **Pay with ETH**:
+  - The dialog swaps ETH -> USDC, mints and stakes the missing GCTL to the listing region, then submits the SGCTL delegation.
+
 ## UI Design & Interaction
 
 - **Quantity Selection**: +/- stepper with max availability.
@@ -56,6 +68,7 @@ The dialog is typically opened from:
 - **Payment Method List**:
   - Label changes based on context: "Delegation Source" vs "Select Currency".
   - Shows balances + estimated cost per currency.
+  - For SGCTL, the GCTL option shows both wallet and already-staked regional balance.
 - **Sticky Footer**: Total + primary CTA.
 
 ## UI phases (what the user sees)
@@ -97,6 +110,26 @@ Shown after confirmation. Displays a vertical stepper with per-step states:
 - "Swap USDG -> GLW"
 - "Delegate GLW"
 - "Confirm Transaction"
+
+**Direct SGCTL delegation**
+- "Delegate SGCTL"
+- "Confirm Delegation"
+
+**Stake existing GCTL then delegate**
+- "Stake GCTL"
+- "Delegate SGCTL"
+- "Confirm Delegation"
+
+**Mint, stake, and delegate SGCTL (USDC)**
+- "Mint & Stake GCTL"
+- "Delegate SGCTL"
+- "Confirm Delegation"
+
+**Mint, stake, and delegate SGCTL (ETH)**
+- "Swap ETH -> USDC"
+- "Mint & Stake GCTL"
+- "Delegate SGCTL"
+- "Confirm Delegation"
 
 ### Phase C -- Success
 
@@ -152,6 +185,8 @@ Deposit Dialog fires telemetry events to track conversion and failures:
 - `marketplace_deposit_share_x_click`
 - `marketplace_deposit_share_native_click`
 - `rpc_internal_error_retry` - fired when an RPC error triggers a retry attempt
+
+For SGCTL delegations, `marketplace_deposit_success` and `marketplace_deposit_error` also include `delegation_source`, and success includes `delegation_id`.
 
 ## Notes / constraints
 
