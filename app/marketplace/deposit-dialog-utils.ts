@@ -213,6 +213,12 @@ export function resolveRuntimeSelectedCurrency(
   return "GLW";
 }
 
+export function requiresSmartAccountCheck(
+  selectedCurrency: DepositSelectedCurrency
+): boolean {
+  return selectedCurrency !== "SGCTL";
+}
+
 // ============================================================================
 // Error Handling Functions
 // ============================================================================

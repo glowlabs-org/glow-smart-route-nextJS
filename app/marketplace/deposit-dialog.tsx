@@ -77,6 +77,7 @@ import {
   initializeTransactionSteps,
   isInternalRpcError,
   parseQuantityInput,
+  requiresSmartAccountCheck,
   resolveRuntimeSelectedCurrency,
   withInternalRpcRetry,
   type DepositPaymentMethod,
@@ -560,6 +561,9 @@ export function DepositDialog({
   };
 
   const handleSmartAccountCheck = async () => {
+    if (!requiresSmartAccountCheck(runtimeSelectedCurrency)) {
+      return true;
+    }
     if (!signer || !walletClient || !address) return true;
     try {
       const status = await getSmartAccountStatus({
