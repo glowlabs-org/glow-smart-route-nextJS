@@ -5,13 +5,7 @@ import Decimal from "decimal.js";
 import { formatUnits, parseUnits } from "viem";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import {
-  useAccount,
-  useBalance,
-  useChainId,
-  usePublicClient,
-  useWalletClient,
-} from "wagmi";
+import { useAccount, useBalance, useChainId } from "wagmi";
 import {
   Sun,
   X,
@@ -24,11 +18,6 @@ import {
 } from "lucide-react";
 import {
   DECIMALS_BY_TOKEN,
-  type Currency,
-  useForwarder,
-  buildStakeMessage,
-  stakeEIP712Types,
-  stakeControlEIP712Domain,
   type PendingTransfer,
 } from "@glowlabs-org/utils/browser";
 
@@ -64,13 +53,12 @@ import { SegmentedCircleProgress } from "@/components/ui/circle-progress";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
 import {
   useActiveRegionsSummary,
-  useGctlApi,
+  useGctlPreparationOrchestrator,
   useRegions,
   useRegionStakeCap,
   useWallets,
 } from "@/hooks";
 import { useEnsNames } from "@/hooks/useEnsNames";
-import { useSwapETHToUSDC } from "@/hooks/useSwapETHToUSDC";
 import { useDebouncedAsync } from "@/hooks/useDebouncedAsync";
 import { trackEvent } from "@/lib/telemetry";
 import { bucketEth, bucketToken, bucketUsd } from "@/lib/telemetry-buckets";
@@ -95,7 +83,6 @@ const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 const STEERING_POINTS_PER_GLW = 3;
 const ETH_DECIMALS = 18;
 const DEFAULT_SLIPPAGE_BPS = 100n; // 1%
-const MAX_UINT256 = (1n << 256n) - 1n;
 
 // --- Helpers ---
 
@@ -352,8 +339,6 @@ export function MintAndStakeGctlDialog({
   const { address, isConnected } = useAccount();
   const { signer } = useEthersSigner();
   const wagmiChainId = useChainId();
-  const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
   const isEthPayEnabled = wagmiChainId === 1 || wagmiChainId === 11155111;
   const addressKey = address?.toLowerCase() ?? null;
   const source = "mint_and_stake_gctl_dialog";
@@ -377,13 +362,14 @@ export function MintAndStakeGctlDialog({
     gctlPriceNumber,
     gctlBalance,
     isGctlBalanceLoading,
-    latestNonce,
-    stakeGctlMutation,
     invalidateAllQueries,
     fetchTransferDetails,
-  } = useGctlApi(address, { enabled: open });
+    estimateEthToUsdc,
+    stakeExistingGctlToRegion,
+    mintAndStakeGctlToRegion,
+    isProcessing,
+  } = useGctlPreparationOrchestrator({ enabled: open });
   const { data: activeSummary } = useActiveRegionsSummary({ enabled: open });
-  const { estimateEthToUsdc, swapEthToUsdc } = useSwapETHToUSDC();
 
   const impactWeekRangeQuery = useQuery({
     queryKey: ["impact-week-range", address?.toLowerCase()],
@@ -436,21 +422,6 @@ export function MintAndStakeGctlDialog({
     }
     return map;
   }, [walletDetails?.regions]);
-
-  const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
-  const {
-    checkTokenAllowance,
-    checkTokenBalance,
-    approveToken,
-    mintGCTLAndStake,
-    isProcessing,
-  } = useForwarder(
-    signer || undefined,
-    chainId,
-    publicClient,
-    walletClient ?? undefined
-  );
-
   const [selectedRegionId, setSelectedRegionId] = React.useState<number | null>(
     null
   );
@@ -842,6 +813,58 @@ export function MintAndStakeGctlDialog({
     []
   );
 
+  const handleStakeFlowStepStatus = React.useCallback(
+    (
+      stepId: string,
+      status: StepStatus,
+      extras?: { errorMessage?: string }
+    ) => {
+      if (stepId === "SIGN_STAKE") {
+        setIsApproving(status === "waiting_signature");
+      }
+      if (stepId === "SUBMIT_STAKE") {
+        setIsSubmitting(status === "confirming");
+      }
+      if (status === "error") {
+        setIsApproving(false);
+        setIsSubmitting(false);
+      }
+      updateStakeStepStatus(stepId, status, extras);
+    },
+    [updateStakeStepStatus]
+  );
+
+  const handleMintFlowStepStatus = React.useCallback(
+    (
+      stepId: string,
+      status: StepStatus,
+      extras?: { errorMessage?: string }
+    ) => {
+      if (stepId === "SWAP_ETH_TO_USDC") {
+        setIsSwappingEth(
+          status === "waiting_signature" || status === "confirming"
+        );
+      }
+      if (stepId === "CHECK_ALLOWANCE" || stepId === "APPROVE") {
+        setIsApproving(
+          status === "waiting_signature" || status === "confirming"
+        );
+      }
+      if (stepId === "MINT_AND_STAKE") {
+        setIsSubmitting(
+          status === "waiting_signature" || status === "confirming"
+        );
+      }
+      if (status === "error") {
+        setIsApproving(false);
+        setIsSubmitting(false);
+        setIsSwappingEth(false);
+      }
+      updateStakeStepStatus(stepId, status, extras);
+    },
+    [updateStakeStepStatus]
+  );
+
   const showStakeCapNotice = stakeCapNoticeVisible && isStakeCapExceeded;
 
   const triggerStakeCapNotice = React.useCallback(() => {
@@ -1178,94 +1201,50 @@ export function MintAndStakeGctlDialog({
       setStakeSteps(steps);
       stakeStepsRef.current = steps;
 
-      setIsApproving(true);
-      const atomicAmount = Math.round(amountNumber * 1_000_000).toString();
-      const nonce = (Number(latestNonce) + 1).toString();
-      const deadline = Math.floor(Date.now() / 1000 + 3600).toString();
-
-      const signatureMessage = buildStakeMessage({
-        nonce,
-        amount: atomicAmount,
-        toZoneId: String(selectedRegionId),
-        deadline,
-      });
-
-      const eip712Types = stakeEIP712Types as unknown as Record<string, any[]>;
-      const signature = await signer.signTypedData(
-        stakeControlEIP712Domain(Number(process.env.NEXT_PUBLIC_CHAIN_ID)),
-        eip712Types,
-        signatureMessage
-      );
-
-      if (!signature) {
-        setIsApproving(false);
-        updateStakeStepStatus("SIGN_STAKE", "error", {
-          errorMessage: "Signature missing",
-        });
-        setStakeUiState("error");
-        setStakeUiErrorMessage("Failed to sign message");
-        toast.error("Failed to sign message");
-        return;
-      }
-
-      setIsApproving(false);
-      updateStakeStepStatus("SIGN_STAKE", "completed");
-      updateStakeStepStatus("SUBMIT_STAKE", "confirming");
-      setIsSubmitting(true);
-
-      const result = await stakeGctlMutation.mutateAsync({
-        wallet: address,
-        amount: atomicAmount,
-        nonce,
-        deadline,
-        signature,
+      await stakeExistingGctlToRegion({
         regionId: selectedRegionId,
+        amountAtomic: toAtomic6(amountNumber),
+        stepIds: {
+          sign: "SIGN_STAKE",
+          submit: "SUBMIT_STAKE",
+          refresh: "REFRESH",
+        },
+        updateStepStatus: handleStakeFlowStepStatus,
       });
 
-      setIsSubmitting(false);
-      updateStakeStepStatus("SUBMIT_STAKE", "completed");
-      updateStakeStepStatus("REFRESH", "confirming");
+      trackGctlEvent("gctl_stake_existing_success", {
+        step,
+        region_id: selectedRegionId,
+        stake_amount_bucket: stakeAmountBucket,
+      });
 
-      if (result) {
-        trackGctlEvent("gctl_stake_existing_success", {
-          step,
-          region_id: selectedRegionId,
-          stake_amount_bucket: stakeAmountBucket,
-        });
+      setSuccessReceipt({
+        regionId: selectedRegionId,
+        regionLabel: selectedRegionLabel || `Region ${selectedRegionId}`,
+        amountGctl: amountNumber,
+        deltaGlwPerWeek: inflationPreview?.deltaGlwPerWeek ?? null,
+        nextRegionSharePercent:
+          inflationPreview?.nextEmissionSharePercent ?? null,
+        scoreBoostPerWeekLabel:
+          steeringImpactQuote?.deltaPerWeekPoints ?? null,
+      });
+      const prevPoints = Math.max(0, Math.round(steeringScoreBefore));
+      const nextPoints = Math.max(0, Math.round(steeringScoreAfterPreview));
+      setSuccessScoreSnapshot({
+        prevSteeringPoints: prevPoints,
+        nextSteeringPoints: nextPoints,
+        deltaSteeringPoints: Math.max(0, nextPoints - prevPoints),
+      });
+      setOptimisticHasGctlByAddress((prev) => {
+        const key = (address as string | undefined)?.toLowerCase();
+        if (!key) return prev;
+        if (prev[key]) return prev;
+        return { ...prev, [key]: true };
+      });
 
-        // SUCCESS: Show the dopamine screen instead of closing
-        setSuccessReceipt({
-          regionId: selectedRegionId,
-          regionLabel: selectedRegionLabel || `Region ${selectedRegionId}`,
-          amountGctl: amountNumber,
-          deltaGlwPerWeek: inflationPreview?.deltaGlwPerWeek ?? null,
-          nextRegionSharePercent:
-            inflationPreview?.nextEmissionSharePercent ?? null,
-          scoreBoostPerWeekLabel:
-            steeringImpactQuote?.deltaPerWeekPoints ?? null,
-        });
-        const prevPoints = Math.max(0, Math.round(steeringScoreBefore));
-        const nextPoints = Math.max(0, Math.round(steeringScoreAfterPreview));
-        setSuccessScoreSnapshot({
-          prevSteeringPoints: prevPoints,
-          nextSteeringPoints: nextPoints,
-          deltaSteeringPoints: Math.max(0, nextPoints - prevPoints),
-        });
-        setOptimisticHasGctlByAddress((prev) => {
-          const key = (address as string | undefined)?.toLowerCase();
-          if (!key) return prev;
-          if (prev[key]) return prev;
-          return { ...prev, [key]: true };
-        });
-
-        await invalidateAllQueries();
-        updateStakeStepStatus("REFRESH", "completed");
-        setStepOverride(4); // Move to success step
-        setIsUnstakeAcknowledged(false);
-        setStakeUiState("review");
-      } else {
-        throw new Error("Stake failed");
-      }
+      setStepOverride(4);
+      setIsUnstakeAcknowledged(false);
+      setStakeUiState("review");
     } catch (error) {
       setIsApproving(false);
       setIsSubmitting(false);
@@ -1303,14 +1282,13 @@ export function MintAndStakeGctlDialog({
   }, [
     address,
     amountNumber,
-    invalidateAllQueries,
+    handleStakeFlowStepStatus,
     isConnected,
     isStakeCapExceeded,
     isUnstakeAcknowledged,
-    latestNonce,
     selectedRegionId,
     signer,
-    stakeGctlMutation,
+    stakeExistingGctlToRegion,
     step,
     trackGctlEvent,
     unstkedGctlBalanceNumber,
@@ -1429,12 +1407,6 @@ export function MintAndStakeGctlDialog({
       toast.error("Please enter a valid amount");
       return;
     }
-    if (!Number.isFinite(chainId)) {
-      toast.error("App misconfigured", {
-        description: "NEXT_PUBLIC_CHAIN_ID is not set",
-      });
-      return;
-    }
     if (!isUnstakeAcknowledged) {
       toast.error("Please acknowledge the terms");
       return;
@@ -1508,77 +1480,28 @@ export function MintAndStakeGctlDialog({
       setStakeSteps(steps);
       stakeStepsRef.current = steps;
 
-      let amountAtomic = toAtomic6(amountNumber);
-      let mintCurrency: Currency = selectedCurrency as unknown as Currency;
+      const amountInWei =
+        selectedCurrency === "ETH"
+          ? parseUnits(trimToDecimals(amountInput, ETH_DECIMALS), ETH_DECIMALS)
+          : undefined;
 
-      if (selectedCurrency === "ETH") {
-        if (!isEthPayEnabled) {
-          toast.error("ETH pay is only supported on mainnet or sepolia.");
-          return;
-        }
+      const mintResult = await mintAndStakeGctlToRegion({
+        regionId: selectedRegionId,
+        sourceCurrency: selectedCurrency,
+        amountAtomic:
+          selectedCurrency === "ETH" ? undefined : toAtomic6(amountNumber),
+        amountInWei,
+        slippageBps: DEFAULT_SLIPPAGE_BPS,
+        stepIds: {
+          swapEthToUsdc: "SWAP_ETH_TO_USDC",
+          checkAllowance: "CHECK_ALLOWANCE",
+          approve: "APPROVE",
+          mintAndStake: "MINT_AND_STAKE",
+        },
+        updateStepStatus: handleMintFlowStepStatus,
+      });
 
-        setIsSwappingEth(true);
-        updateStakeStepStatus("SWAP_ETH_TO_USDC", "confirming");
-        const amountInWei = parseUnits(
-          trimToDecimals(amountInput, ETH_DECIMALS),
-          ETH_DECIMALS
-        );
-        const swapRes = await swapEthToUsdc({
-          amountInWei,
-          slippageBps: DEFAULT_SLIPPAGE_BPS,
-        });
-        setIsSwappingEth(false);
-
-        if (!swapRes.ok) throw new Error(String(swapRes.val));
-        if (swapRes.val.usdcReceived <= 0n)
-          throw new Error("ETH swap returned 0 USDC");
-
-        amountAtomic = swapRes.val.usdcReceived;
-        mintCurrency = "USDC" as Currency;
-        updateStakeStepStatus("SWAP_ETH_TO_USDC", "completed");
-      }
-
-      if (amountAtomic <= 0n) {
-        throw new Error("Please enter a valid amount.");
-      }
-      if (selectedCurrency !== "ETH") {
-        const tokenBalance = await checkTokenBalance(
-          address as string,
-          mintCurrency
-        );
-        if (tokenBalance < amountAtomic) {
-          throw new Error("Insufficient balance to complete this transaction.");
-        }
-      }
-
-      setIsApproving(true);
-      updateStakeStepStatus("CHECK_ALLOWANCE", "confirming");
-      const allowance = await checkTokenAllowance(
-        address as string,
-        mintCurrency
-      );
-      updateStakeStepStatus("CHECK_ALLOWANCE", "completed");
-      if (allowance < amountAtomic) {
-        updateStakeStepStatus("APPROVE", "waiting_signature");
-        await approveToken(MAX_UINT256, mintCurrency);
-        updateStakeStepStatus("APPROVE", "completed");
-        toast.success(`${String(mintCurrency)} approved`);
-      } else {
-        updateStakeStepStatus("APPROVE", "completed");
-      }
-      setIsApproving(false);
-
-      setIsSubmitting(true);
-      updateStakeStepStatus("MINT_AND_STAKE", "waiting_signature");
-      updateStakeStepStatus("MINT_AND_STAKE", "confirming");
-      const txHash = await mintGCTLAndStake(
-        amountAtomic,
-        address as string,
-        selectedRegionId,
-        mintCurrency
-      );
-      setIsSubmitting(false);
-      updateStakeStepStatus("MINT_AND_STAKE", "completed");
+      const { txHash, mintCurrency } = mintResult;
 
       trackGctlEvent("gctl_mint_stake_tx_sent", {
         step,
@@ -1665,24 +1588,20 @@ export function MintAndStakeGctlDialog({
     address,
     amountNumber,
     amountInput,
-    approveToken,
-    chainId,
-    checkTokenAllowance,
-    checkTokenBalance,
     estimatedGctl,
     handleStakeExisting,
+    handleMintFlowStepStatus,
     invalidateAllQueries,
     isConnected,
     isEthPayEnabled,
     isStakeCapExceeded,
     isUnstakeAcknowledged,
-    mintGCTLAndStake,
+    mintAndStakeGctlToRegion,
     selectedCurrency,
     selectedRegionId,
     selectedRegionLabel,
     signer,
     stakeMode,
-    swapEthToUsdc,
     trackGctlEvent,
     step,
     inflationPreview?.deltaGlwPerWeek,
