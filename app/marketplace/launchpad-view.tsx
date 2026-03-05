@@ -1694,6 +1694,7 @@ function LaunchpadMarketplaceWidget({
         }
       | null
     >(null);
+  const rewardScoreFallbackCurrency = "GLW" as PaymentCurrency;
 
   // --- Data Fetching Hooks (Unchanged) ---
   const {
@@ -3398,6 +3399,7 @@ function LaunchpadMarketplaceDialog({
   );
 
   const { zones } = useAvailableZones(allApplications);
+  const rewardScoreFallbackCurrency = "GLW" as PaymentCurrency;
 
   const shouldShowRegionFilter = React.useMemo(() => {
     const activeDelegations = countActiveListings(launchpadApplications);
