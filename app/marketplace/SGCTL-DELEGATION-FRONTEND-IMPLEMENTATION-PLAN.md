@@ -220,3 +220,77 @@ When posting progress on the PR, use:
 - Existing GLW/miner behavior remains intact.
 - Tests and docs are updated.
 - Lint is clean.
+
+## Final Delivery Status
+
+### Status
+- Branch status: implemented and pushed on `feat/multiasset`
+- PR: https://github.com/glowlabs-org/glow-smart-route-nextJS/pull/10
+- Overall state: ready for merge review with one remaining operational caveat called out below
+
+### What Was Done
+1. SGCTL launchpad listings were surfaced in frontend listing types and launchpad queries so SGCTL-phase rows are no longer filtered out before they reach the marketplace UI.
+2. The deposit dialog now derives runtime mode from listing metadata instead of assuming all launchpad rows are GLW, which lets the same dialog support:
+   - direct SGCTL delegation from already staked regional GCTL
+   - stake-then-delegate from wallet GCTL
+   - mint+stake-then-delegate from USDC
+   - mint+stake-then-delegate from ETH
+3. GCTL preparation logic was extracted into a shared orchestrator so marketplace SGCTL flows and the existing mint/stake dialog do not drift over time.
+4. SGCTL signed delegation was wired through the Control flow with typed-data signing, nonce fetching, delegation submission, telemetry, and error normalization.
+5. Smart-account wallets are no longer unnecessarily blocked for SGCTL delegations.
+6. Split confirmation semantics were tightened so success now requires the split count to increase by the requested quantity, not just by any positive amount.
+7. Launchpad reward-score and pricing propagation now resolve per-row currency, so SGCTL rows no longer reuse GLW display/math assumptions in cards, cache keys, or SSR-prefetched reward-score data.
+8. Test coverage was extended for runtime mode resolution, SGCTL affordability/costing, error handling, reward-score currency resolution, and SSR reward-score hydration.
+
+### Why These Choices Were Made
+1. Runtime mode from listing metadata:
+   This avoids adding a parallel SGCTL-specific dialog entry path and keeps the existing marketplace integration points stable.
+2. Shared GCTL preparation orchestrator:
+   Mint/stake logic is stateful and easy to fork incorrectly. Reusing one implementation is lower risk than duplicating marketplace-specific preparation code.
+3. Split polling as a hard gate:
+   The previous behavior could show success after submission without proving the requested quantity was actually reflected in split state. Tightening this closes the most important correctness gap in the PR.
+4. Per-application reward-score currency resolution:
+   SGCTL rows are mixed into the same launchpad surfaces as GLW rows. A single global `GLW` assumption caused wrong card amounts, wrong reward-score request payloads, and cache-key collisions.
+5. Documentation and commit-by-commit PR comments:
+   This work touched listing fetch, UI mode selection, signed offchain delegation, and reward-score SSR hydration. Keeping the review trail explicit reduces merge risk.
+
+### Implemented Commits
+1. `6ed41ed` `feat: surface SGCTL launchpad listings`
+2. `34d96c0` `feat: add SGCTL deposit dialog helpers`
+3. `8792875` `feat: add GCTL preparation orchestrator`
+4. `0dfeb5a` `feat: add SGCTL marketplace delegation flow`
+5. `6244945` `refactor: reuse GCTL preparation orchestrator in mint dialog`
+6. `fc3d878` `feat: add SGCTL error normalization`
+7. `dee13be` `fix: narrow mint dialog source currency types`
+8. `5e9a3e0` `fix: allow SGCTL smart account delegations`
+9. `5b6e39c` `fix: tighten launchpad confirmation and sgctl pricing`
+10. `9fcfe76` `fix: define launchpad reward score fallback scopes`
+
+### What Remains
+1. No known frontend implementation block remains for the SGCTL scope defined in this plan.
+2. The main remaining caveat is operational:
+   split confirmation still depends on hub split-summary consistency arriving within the polling window. The behavior is now correct, but if backend consistency is slower than the timeout, users will get a delayed-confirmation error instead of a false success.
+3. Repo-wide lint warnings unrelated to this PR still exist in other areas of the codebase. They were not introduced by this work.
+
+### Merge Checklist
+- [ ] Review the SGCTL deposit flow in [deposit-dialog.tsx](/Users/julientremblay/Projects/glow/main-repos/glow-smart-route-nextJS/app/marketplace/deposit-dialog.tsx), especially:
+  - runtime mode derivation
+  - SGCTL preparation path selection
+  - signed delegation submission
+  - split confirmation gating
+- [ ] Review the shared GCTL preparation hook in [useGctlPreparationOrchestrator.ts](/Users/julientremblay/Projects/glow/main-repos/glow-smart-route-nextJS/hooks/useGctlPreparationOrchestrator.ts) and confirm the marketplace and mint dialog are intentionally sharing the same orchestration contract.
+- [ ] Review reward-score propagation changes in:
+  - [reward-score.ts](/Users/julientremblay/Projects/glow/main-repos/glow-smart-route-nextJS/lib/reward-score.ts)
+  - [control-farms.ts](/Users/julientremblay/Projects/glow/main-repos/glow-smart-route-nextJS/hooks/control-farms.ts)
+  - [dashboard-launchpad-prefetch.ts](/Users/julientremblay/Projects/glow/main-repos/glow-smart-route-nextJS/lib/server/dashboard-launchpad-prefetch.ts)
+  - [launchpad-view.tsx](/Users/julientremblay/Projects/glow/main-repos/glow-smart-route-nextJS/app/marketplace/launchpad-view.tsx)
+- [ ] Review test additions:
+  - [runtime-mode.test.ts](/Users/julientremblay/Projects/glow/main-repos/glow-smart-route-nextJS/app/marketplace/__tests__/runtime-mode.test.ts)
+  - [reward-score.test.ts](/Users/julientremblay/Projects/glow/main-repos/glow-smart-route-nextJS/lib/__tests__/reward-score.test.ts)
+  - [dashboard-launchpad-prefetch.test.ts](/Users/julientremblay/Projects/glow/main-repos/glow-smart-route-nextJS/lib/server/__tests__/dashboard-launchpad-prefetch.test.ts)
+- [ ] Confirm PR comments match the final code state, especially the last two commits that fixed confirmation semantics and launchpad currency propagation.
+- [ ] Confirm branch head passes:
+  - `pnpm vitest run app/marketplace/__tests__/runtime-mode.test.ts lib/__tests__/reward-score.test.ts lib/server/__tests__/dashboard-launchpad-prefetch.test.ts app/marketplace/__tests__/transaction-steps.test.ts app/marketplace/__tests__/affordability.test.ts app/marketplace/__tests__/cost-calculations.test.ts app/marketplace/__tests__/error-handling.test.ts`
+  - `pnpm lint`
+  - `pnpm next build`
+- [ ] Merge only if the team is comfortable with the current confirmation-timeout behavior for eventual-consistency delays.
