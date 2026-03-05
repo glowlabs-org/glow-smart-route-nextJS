@@ -257,7 +257,7 @@ export default function GlowSoftDashboard({
   } = useLaunchpadStatus();
 
   const { applications: delegationApplications } = useGlowLaunchpad({
-    filters: { paymentCurrency: "GLW" },
+    filters: {},
     enabled: isLaunchpadLive,
   });
   const { applications: minerApplications } = useMiningCenter({

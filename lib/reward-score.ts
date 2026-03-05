@@ -54,6 +54,7 @@ function getAssetPriceQuote(
 ): string | null {
   if (!priceQuotes.length) return null;
   const latestQuote = priceQuotes[0];
+  if (currency === "SGCTL") return latestQuote.prices.GCTL || null;
   return latestQuote.prices[currency] || null;
 }
 

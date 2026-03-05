@@ -82,9 +82,7 @@ export default function GlowLaunchpadPage() {
   // Fetch launchpad applications to check if all are sold out
   const { applications: launchpadApplications, isLoading: isLoadingLaunchpad } =
     useGlowLaunchpad({
-      filters: {
-        paymentCurrency: "GLW",
-      },
+      filters: {},
     });
 
   // Fetch miners applications to check if all are sold out
@@ -333,5 +331,4 @@ export default function GlowLaunchpadPage() {
     </>
   );
 }
-
 

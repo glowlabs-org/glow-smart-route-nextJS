@@ -20,7 +20,7 @@ export function useLaunchpadStatus(): LaunchpadStatus {
     applications: launchpadApplications,
     isLoading: isLaunchpadLoading,
     isError: isLaunchpadError,
-  } = useGlowLaunchpad({ filters: { paymentCurrency: "GLW" } });
+  } = useGlowLaunchpad();
 
   const {
     applications: minersApplications,
@@ -63,5 +63,4 @@ export function useLaunchpadStatus(): LaunchpadStatus {
     isError,
   };
 }
-
 

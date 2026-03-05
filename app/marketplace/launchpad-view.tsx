@@ -347,7 +347,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
 
   const selectedZoneId = zoneParam ? parseInt(zoneParam) : undefined;
   const selectedType = typeParam as "all" | "miners" | "delegations";
-  const selectedCurrency = "GLW" as PaymentCurrency | undefined;
+  const selectedCurrency = "GLW" as PaymentCurrency;
   const selectedSort = sortParam as SortBy;
   const selectedSortOrder = sortOrderParam as SortOrder;
 
@@ -363,7 +363,6 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
       zoneId: selectedZoneId,
       sortBy: selectedSort,
       sortOrder: selectedSortOrder,
-      paymentCurrency: selectedCurrency,
     },
   });
 
@@ -391,7 +390,6 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
     filters: {
       sortBy: selectedSort,
       sortOrder: selectedSortOrder,
-      paymentCurrency: selectedCurrency,
     },
   });
 
@@ -480,7 +478,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
 
   const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
     applications: activeDelegationsForScores,
-    paymentCurrency: selectedCurrency || "GLW",
+    paymentCurrency: selectedCurrency,
     enabled: activeDelegationsForScores.length > 0,
     walletAddress: address || null,
   });
@@ -1700,7 +1698,7 @@ function LaunchpadMarketplaceWidget({
     isError: isErrorLaunchpad,
     error: errorLaunchpad,
   } = useGlowLaunchpad({
-    filters: { paymentCurrency: "GLW", includeFilled: true },
+    filters: { includeFilled: true },
   });
 
   const {
@@ -3361,7 +3359,7 @@ function LaunchpadMarketplaceDialog({
     isError: isErrorLaunchpad,
     error: errorLaunchpad,
   } = useGlowLaunchpad({
-    filters: { paymentCurrency: "GLW" },
+    filters: {},
   });
 
   const {

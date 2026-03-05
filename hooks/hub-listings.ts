@@ -6,7 +6,9 @@ import { hubGet } from "@/lib/api/hub-client";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { QUERY_CONFIG } from "@/hooks/query-config";
 
-export type PaymentCurrency = "USDG" | "USDC" | "GLW" | "GCTL";
+export type PaymentCurrency = "USDG" | "USDC" | "GLW" | "GCTL" | "SGCTL";
+export type DelegationPhase = "hidden" | "sgctl" | "glw" | null;
+export type DelegationAsset = "SGCTL" | "GLW" | null;
 
 export type SortBy =
   | "publishedOnAuctionTimestamp"
@@ -75,6 +77,7 @@ export interface WeeklyCarbonDebt {
 export interface ActiveFraction {
   id: string;
   nonce: number;
+  type?: string;
   status: string;
   sponsorSplitPercent: number;
   createdAt: string;
@@ -89,6 +92,10 @@ export interface ActiveFraction {
   token: string;
   owner: string;
   txHash: string | null;
+  delegationAsset?: DelegationAsset;
+  delegationPhase?: DelegationPhase;
+  marketplaceVisibleAt?: string | null;
+  glwDelegationVisibleAt?: string | null;
   progressPercent: number;
   remainingSteps: number | null;
   amountRaised: string | null;
@@ -235,6 +242,7 @@ export function getAssetPriceQuote(
 ): string | null {
   if (!priceQuotes.length) return null;
   const latestQuote = priceQuotes[0];
+  if (currency === "SGCTL") return latestQuote.prices.GCTL || null;
   return latestQuote.prices[currency] || null;
 }
 
