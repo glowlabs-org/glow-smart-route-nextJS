@@ -12,6 +12,7 @@ import {
   DASHBOARD_SSR_LISTING_FILTERS,
   prefetchDashboardLaunchpadData,
 } from "../dashboard-launchpad-prefetch";
+import { buildRewardScoreCurrencyKey } from "../../reward-score";
 
 function createActiveFraction(
   overrides: Partial<ActiveFraction> = {}
@@ -104,7 +105,7 @@ describe("prefetchDashboardLaunchpadData", () => {
           id: 1,
           prices: {
             GLW: "1",
-            GCTL: "0",
+            GCTL: "5",
             SGCTL: "0",
             USDC: "0",
             USDG: "0",
@@ -121,6 +122,11 @@ describe("prefetchDashboardLaunchpadData", () => {
         netCarbonCreditEarningWeekly: 10,
         solarPanelsQuantity: 1,
       },
+      activeFraction: createActiveFraction({
+        delegationAsset: "SGCTL",
+        delegationPhase: "sgctl",
+        step: parseUnits("100", 6).toString(),
+      }),
     });
     const soldOutMiner = createApplication("sold-out-miner", {
       activeFraction: createActiveFraction({
@@ -137,7 +143,7 @@ describe("prefetchDashboardLaunchpadData", () => {
         if (filters.type === "mining-center") {
           return [activeMiner];
         }
-        if (filters.includeFilled && filters.paymentCurrency === "GLW") {
+        if (filters.includeFilled) {
           return [activeDelegation];
         }
         return [activeDelegation];
@@ -189,6 +195,12 @@ describe("prefetchDashboardLaunchpadData", () => {
     expect(fetchListings).toHaveBeenCalledTimes(4);
     expect(fetchMiningScoresBatch).toHaveBeenCalledTimes(1);
     expect(fetchRewardScoresBatch).toHaveBeenCalledTimes(1);
+    expect(fetchRewardScoresBatch).toHaveBeenCalledWith([
+      expect.objectContaining({
+        paymentCurrency: "SGCTL",
+        protocolDepositAmount: parseUnits("200", 6).toString(),
+      }),
+    ]);
 
     const seededMiningLiveListings = queryClient.getQueryData<AuctionApplication[]>(
       QUERY_KEYS.listings.sponsor(DASHBOARD_SSR_LISTING_FILTERS.miningLive)
@@ -205,8 +217,18 @@ describe("prefetchDashboardLaunchpadData", () => {
       weeklyGlwRewardsUsd: "12.00",
     });
 
+    const rewardScoreCurrencyKey = buildRewardScoreCurrencyKey(
+      [activeDelegation],
+      "GLW"
+    );
+    expect(rewardScoreCurrencyKey).toBe("active-delegation:SGCTL");
+
     const seededRewardScores = queryClient.getQueryData<any[]>(
-      QUERY_KEYS.listings.rewardScores(["active-delegation"], "GLW", null)
+      QUERY_KEYS.listings.rewardScores(
+        ["active-delegation"],
+        rewardScoreCurrencyKey,
+        null
+      )
     );
     expect(seededRewardScores).toHaveLength(1);
     expect(seededRewardScores?.[0]).toMatchObject({

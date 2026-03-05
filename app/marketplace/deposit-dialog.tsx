@@ -70,9 +70,11 @@ import {
   calculateSuccessMetrics,
   clampQuantity,
   findErrorInMessage,
+  getDefaultPaymentMethodForRuntimeCurrency,
   generateShareUrl,
   getErrorCode,
   getErrorMessage,
+  hasConfirmedSplitPurchase,
   getSwapVolatilityErrorMessage,
   initializeTransactionSteps,
   isInternalRpcError,
@@ -195,7 +197,7 @@ export function DepositDialog({
   const [quantity, setQuantity] = React.useState<number>(1);
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
     React.useState<DepositPaymentMethod>(
-      selectedCurrency === "GLW" ? "GLW" : "USDC"
+      getDefaultPaymentMethodForRuntimeCurrency(runtimeSelectedCurrency)
     );
   const [isSmartAccountWarningOpen, setIsSmartAccountWarningOpen] =
     React.useState(false);
@@ -262,7 +264,7 @@ export function DepositDialog({
 
   // Smart auto-selection of payment method on open/connect
   React.useEffect(() => {
-    if (open && isConnected && application) {
+    if (open && application) {
       if (runtimeSelectedCurrency === "GLW") {
         // Delegation: Prefer GLW if enough, else USDC, else ETH
         const costGLW = costInGLW(1);
@@ -301,7 +303,6 @@ export function DepositDialog({
     }
   }, [
     open,
-    isConnected,
     ethBalance,
     gctlBalance,
     usdcBalance,
@@ -316,6 +317,9 @@ export function DepositDialog({
   React.useEffect(() => {
     if (open) {
       setQuantity(1);
+      setSelectedPaymentMethod(
+        getDefaultPaymentMethodForRuntimeCurrency(runtimeSelectedCurrency)
+      );
       setIsSubmitting(false);
       setPhase("review");
       setTransactionSteps([]);
@@ -325,7 +329,7 @@ export function DepositDialog({
       setIsInsufficientSharesError(false);
       setSuccessMetrics(null);
     }
-  }, [open]);
+  }, [open, runtimeSelectedCurrency]);
 
   // Icon Helpers
   const TOKEN_ICON_SRC_BY_SYMBOL = {
@@ -626,25 +630,35 @@ export function DepositDialog({
     });
   };
 
-  const confirmPurchaseInSplits = React.useCallback(async () => {
-    const initialPurchased = splitsSummary?.totalStepsPurchased || 0;
-    let confirmed = false;
+  const confirmPurchaseInSplits = React.useCallback(
+    async (expectedAdditionalSteps: number) => {
+      const initialPurchased = splitsSummary?.totalStepsPurchased || 0;
+      let confirmed = false;
 
-    for (let i = 0; i < 30; i += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      const res = await refetchSplits();
-      if (res.data && res.data.summary.totalStepsPurchased > initialPurchased) {
-        confirmed = true;
-        break;
+      for (let i = 0; i < 30; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const res = await refetchSplits();
+        if (
+          res.data &&
+          hasConfirmedSplitPurchase(
+            initialPurchased,
+            res.data.summary.totalStepsPurchased,
+            expectedAdditionalSteps
+          )
+        ) {
+          confirmed = true;
+          break;
+        }
       }
-    }
 
-    if (!confirmed) {
-      console.warn(
-        "Purchase confirmation timed out, but transaction was submitted."
-      );
-    }
-  }, [refetchSplits, splitsSummary?.totalStepsPurchased]);
+      if (!confirmed) {
+        throw new Error(
+          "Transaction submitted but confirmation is delayed. Please refresh before retrying."
+        );
+      }
+    },
+    [refetchSplits, splitsSummary?.totalStepsPurchased]
+  );
 
   const invalidatePostSuccessQueries = React.useCallback(
     async (fractionId: string) => {
@@ -808,7 +822,7 @@ export function DepositDialog({
         updateStepStatus("DELEGATE_SGCTL", "completed");
         updateStepStatus("CONFIRM_TX", "confirming");
 
-        await confirmPurchaseInSplits();
+        await confirmPurchaseInSplits(quantity);
         setSuccessMetrics(calculateSuccessMetrics(activeFraction, quantity));
 
         await sponsorMutation.mutateAsync({
@@ -971,7 +985,7 @@ export function DepositDialog({
       updateStepStatus("CONFIRM_TX", "confirming");
       setTxHash(txHash);
 
-      await confirmPurchaseInSplits();
+      await confirmPurchaseInSplits(quantity);
 
       setSuccessMetrics(calculateSuccessMetrics(activeFraction, quantity));
 

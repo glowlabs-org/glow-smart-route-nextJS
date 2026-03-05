@@ -24,6 +24,7 @@ import {
   type ApplicationMiningScore,
 } from "@/lib/mining-score";
 import {
+  buildRewardScoreCurrencyKey,
   buildRewardScoreBatchInputs,
   getMissingRewardScoresForApplications,
   mapRewardScoresBatchToApplications,
@@ -257,11 +258,15 @@ export function useRewardScore(params: RewardScoreParams) {
     enabled = true,
     walletAddress,
   } = params;
+  const rewardScoreCurrencyKey = buildRewardScoreCurrencyKey(
+    applications,
+    paymentCurrency
+  );
 
   const query = useQuery({
     queryKey: QUERY_KEYS.listings.rewardScores(
       applications.map((app) => app.id),
-      paymentCurrency,
+      rewardScoreCurrencyKey,
       walletAddress || null
     ),
     enabled: enabled && applications.length > 0,

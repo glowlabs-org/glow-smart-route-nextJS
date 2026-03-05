@@ -35,6 +35,31 @@ interface RewardScoreBatchRequestEntry {
   params: RewardScoreBatchParams;
 }
 
+export function resolveRewardScorePaymentCurrency(
+  application: AuctionApplication,
+  fallbackCurrency: PaymentCurrency
+): PaymentCurrency {
+  if (application.activeFraction?.delegationAsset === "SGCTL") {
+    return "SGCTL";
+  }
+  return fallbackCurrency;
+}
+
+export function buildRewardScoreCurrencyKey(
+  applications: AuctionApplication[],
+  fallbackCurrency: PaymentCurrency
+): string {
+  return applications
+    .map(
+      (application) =>
+        `${application.id}:${resolveRewardScorePaymentCurrency(
+          application,
+          fallbackCurrency
+        )}`
+    )
+    .join("|");
+}
+
 export interface RewardScoresBatchResponse {
   results: Array<
     | {
@@ -113,10 +138,14 @@ export function buildRewardScoreBatchInputs(params: {
 
   const requestList = applications
     .map((application) => {
+      const resolvedPaymentCurrency = resolveRewardScorePaymentCurrency(
+        application,
+        paymentCurrency
+      );
       const protocolDepositAmount = calculateProtocolDepositAmount(
         application.finalProtocolFee,
         application.applicationPriceQuotes,
-        paymentCurrency
+        resolvedPaymentCurrency
       );
 
       if (
@@ -126,7 +155,7 @@ export function buildRewardScoreBatchInputs(params: {
         return null;
       }
 
-      const decimals = DECIMALS_BY_TOKEN[paymentCurrency];
+      const decimals = DECIMALS_BY_TOKEN[resolvedPaymentCurrency];
       const protocolDepositAmountBigInt = (() => {
         const amount = Number(protocolDepositAmount);
         if (!Number.isFinite(amount)) return BigInt(0);
@@ -143,7 +172,7 @@ export function buildRewardScoreBatchInputs(params: {
           userId: addressForEstimation,
           sponsorSplitPercent: application.sponsorSplitPercent,
           protocolDepositAmount: protocolDepositAmountBigInt.toString(),
-          paymentCurrency,
+          paymentCurrency: resolvedPaymentCurrency,
           expectedWeeklyCarbonCredits:
             application.auditFields.netCarbonCreditEarningWeekly,
           regionId: application.zone.id,

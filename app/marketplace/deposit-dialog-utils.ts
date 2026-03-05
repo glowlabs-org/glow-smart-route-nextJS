@@ -219,6 +219,32 @@ export function requiresSmartAccountCheck(
   return selectedCurrency !== "SGCTL";
 }
 
+export function getDefaultPaymentMethodForRuntimeCurrency(
+  selectedCurrency: DepositSelectedCurrency
+): DepositPaymentMethod {
+  if (selectedCurrency === "SGCTL") return "GCTL";
+  if (selectedCurrency === "GLW") return "GLW";
+  return "USDC";
+}
+
+export function hasConfirmedSplitPurchase(
+  initialPurchased: number,
+  currentPurchased: number,
+  expectedAdditionalSteps: number
+): boolean {
+  const safeInitial = Number.isFinite(initialPurchased)
+    ? Math.max(0, Math.floor(initialPurchased))
+    : 0;
+  const safeCurrent = Number.isFinite(currentPurchased)
+    ? Math.max(0, Math.floor(currentPurchased))
+    : 0;
+  const safeExpected = Number.isFinite(expectedAdditionalSteps)
+    ? Math.max(1, Math.floor(expectedAdditionalSteps))
+    : 1;
+
+  return safeCurrent >= safeInitial + safeExpected;
+}
+
 // ============================================================================
 // Error Handling Functions
 // ============================================================================

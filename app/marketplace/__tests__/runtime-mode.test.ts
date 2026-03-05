@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  getDefaultPaymentMethodForRuntimeCurrency,
+  hasConfirmedSplitPurchase,
   requiresSmartAccountCheck,
   resolveDepositDialogMode,
   resolveRuntimeSelectedCurrency,
@@ -83,5 +85,30 @@ describe("requiresSmartAccountCheck", () => {
   it("still requires the smart-account warning for GLW and USDC flows", () => {
     expect(requiresSmartAccountCheck("GLW")).toBe(true);
     expect(requiresSmartAccountCheck("USDC")).toBe(true);
+  });
+});
+
+describe("getDefaultPaymentMethodForRuntimeCurrency", () => {
+  it("defaults SGCTL flows to GCTL payment handling", () => {
+    expect(getDefaultPaymentMethodForRuntimeCurrency("SGCTL")).toBe("GCTL");
+  });
+
+  it("preserves the native default payment method for GLW and USDC flows", () => {
+    expect(getDefaultPaymentMethodForRuntimeCurrency("GLW")).toBe("GLW");
+    expect(getDefaultPaymentMethodForRuntimeCurrency("USDC")).toBe("USDC");
+  });
+});
+
+describe("hasConfirmedSplitPurchase", () => {
+  it("requires the purchased-step delta to meet the requested quantity", () => {
+    expect(hasConfirmedSplitPurchase(5, 5, 1)).toBe(false);
+    expect(hasConfirmedSplitPurchase(5, 6, 1)).toBe(true);
+    expect(hasConfirmedSplitPurchase(5, 6, 2)).toBe(false);
+    expect(hasConfirmedSplitPurchase(5, 7, 2)).toBe(true);
+  });
+
+  it("clamps invalid values to safe minimums", () => {
+    expect(hasConfirmedSplitPurchase(Number.NaN, 1, Number.NaN)).toBe(true);
+    expect(hasConfirmedSplitPurchase(-5, -1, 0)).toBe(false);
   });
 });

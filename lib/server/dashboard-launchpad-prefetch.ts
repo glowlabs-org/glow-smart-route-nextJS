@@ -15,6 +15,7 @@ import {
   mapMiningScoresBatchToApplications,
 } from "../mining-score";
 import {
+  buildRewardScoreCurrencyKey,
   buildRewardScoreBatchInputs,
   filterActiveRewardApplications,
   getMissingRewardScoresForApplications,
@@ -29,9 +30,9 @@ const SPONSOR_LISTINGS_ENDPOINT = "/applications/sponsor-listings-applications";
 const PREFETCH_TIMEOUT_MS = 3_000;
 
 export const DASHBOARD_SSR_LISTING_FILTERS = {
-  launchpadStatus: { paymentCurrency: "GLW" } as const,
+  launchpadStatus: {} as const,
   miningStatus: { paymentCurrency: "USDC", type: "mining-center" } as const,
-  launchpadLive: { paymentCurrency: "GLW", includeFilled: true } as const,
+  launchpadLive: { includeFilled: true } as const,
   miningLive: {
     paymentCurrency: "USDC",
     includeFilled: true,
@@ -151,6 +152,10 @@ export async function prefetchDashboardLaunchpadData(
       paymentCurrency: "GLW",
       walletAddress: null,
     });
+  const rewardScoreCurrencyKey = buildRewardScoreCurrencyKey(
+    activeRewardApplications,
+    "GLW"
+  );
   if (activeRewardApplications.length > 0) {
     if (rewardBatchParams.length > 0) {
       try {
@@ -170,7 +175,7 @@ export async function prefetchDashboardLaunchpadData(
         queryClient.setQueryData(
           QUERY_KEYS.listings.rewardScores(
             activeRewardApplications.map((application) => application.id),
-            "GLW",
+            rewardScoreCurrencyKey,
             null
           ),
           rewardScores
@@ -182,7 +187,7 @@ export async function prefetchDashboardLaunchpadData(
       queryClient.setQueryData(
         QUERY_KEYS.listings.rewardScores(
           activeRewardApplications.map((application) => application.id),
-          "GLW",
+          rewardScoreCurrencyKey,
           null
         ),
         getMissingRewardScoresForApplications(

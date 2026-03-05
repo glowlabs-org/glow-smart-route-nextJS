@@ -56,6 +56,7 @@ import { useGlowSpotPrice } from "@/hooks/useGlowSpotPrice";
 import { useMiningCenter, type MiningCenterFilters } from "@/hooks";
 import { useMiningScore, getMiningScoreForApplication } from "@/hooks";
 import { useEthPrice } from "@/hooks/useEthPrice";
+import { resolveRewardScorePaymentCurrency } from "@/lib/reward-score";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowSymbol } from "@/components/glow-symbol";
@@ -347,7 +348,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
 
   const selectedZoneId = zoneParam ? parseInt(zoneParam) : undefined;
   const selectedType = typeParam as "all" | "miners" | "delegations";
-  const selectedCurrency = "GLW" as PaymentCurrency;
+  const rewardScoreFallbackCurrency = "GLW" as PaymentCurrency;
   const selectedSort = sortParam as SortBy;
   const selectedSortOrder = sortOrderParam as SortOrder;
 
@@ -478,7 +479,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
 
   const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
     applications: activeDelegationsForScores,
-    paymentCurrency: selectedCurrency,
+    paymentCurrency: rewardScoreFallbackCurrency,
     enabled: activeDelegationsForScores.length > 0,
     walletAddress: address || null,
   });
@@ -816,7 +817,10 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
             }
           >
             {applications.map((application) => {
-              const displayCurrency = selectedCurrency || "USDG";
+              const displayCurrency = resolveRewardScorePaymentCurrency(
+                application,
+                rewardScoreFallbackCurrency
+              );
               const depositAmountInCurrency = calculateProtocolDepositAmount(
                 application.finalProtocolFee,
                 application.applicationPriceQuotes,
@@ -1097,7 +1101,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                   parseFloat(
                                     formatUnits(
                                       BigInt(application.activeFraction.step),
-                                      DECIMALS_BY_TOKEN["GLW"]
+                                      DECIMALS_BY_TOKEN[displayCurrency]
                                     )
                                   ),
                                   0
@@ -1109,11 +1113,11 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                     fontWeight: 500,
                                   }}
                                 >
-                                  GLW
+                                  {displayCurrency}
                                 </span>
                               </div>
 
-                              {glwSpotPrice > 0 && (
+                              {displayCurrency === "GLW" && glwSpotPrice > 0 && (
                                 <div
                                   className="text-sm text-muted-foreground mt-2"
                                   style={{
@@ -1126,7 +1130,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                     parseFloat(
                                       formatUnits(
                                         BigInt(application.activeFraction.step),
-                                        DECIMALS_BY_TOKEN["GLW"]
+                                        DECIMALS_BY_TOKEN[displayCurrency]
                                       )
                                     ) * glwSpotPrice,
                                     0
@@ -1735,7 +1739,7 @@ function LaunchpadMarketplaceWidget({
 
   const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
     applications: activeDelegationsForScores,
-    paymentCurrency: "GLW",
+    paymentCurrency: rewardScoreFallbackCurrency,
     enabled: activeDelegationsForScores.length > 0,
     walletAddress: address || null,
   });
@@ -3435,7 +3439,7 @@ function LaunchpadMarketplaceDialog({
 
   const { rewardScoreMap, isLoading: isRewardScoresLoading } = useRewardScore({
     applications: activeDelegationsForScores,
-    paymentCurrency: "GLW",
+    paymentCurrency: rewardScoreFallbackCurrency,
     enabled: activeDelegationsForScores.length > 0,
     walletAddress: address || null,
   });
