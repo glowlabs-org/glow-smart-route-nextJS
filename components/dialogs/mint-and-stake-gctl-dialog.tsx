@@ -1411,6 +1411,10 @@ export function MintAndStakeGctlDialog({
       toast.error("Please acknowledge the terms");
       return;
     }
+    if (selectedCurrency === "GCTL") {
+      toast.error("Select USDC, USDG, or ETH to mint GCTL.");
+      return;
+    }
     if (isStakeCapExceeded) {
       triggerStakeCapNotice();
       return;
@@ -1484,12 +1488,13 @@ export function MintAndStakeGctlDialog({
         selectedCurrency === "ETH"
           ? parseUnits(trimToDecimals(amountInput, ETH_DECIMALS), ETH_DECIMALS)
           : undefined;
+      const mintSourceCurrency = selectedCurrency;
 
       const mintResult = await mintAndStakeGctlToRegion({
         regionId: selectedRegionId,
-        sourceCurrency: selectedCurrency,
+        sourceCurrency: mintSourceCurrency,
         amountAtomic:
-          selectedCurrency === "ETH" ? undefined : toAtomic6(amountNumber),
+          mintSourceCurrency === "ETH" ? undefined : toAtomic6(amountNumber),
         amountInWei,
         slippageBps: DEFAULT_SLIPPAGE_BPS,
         stepIds: {

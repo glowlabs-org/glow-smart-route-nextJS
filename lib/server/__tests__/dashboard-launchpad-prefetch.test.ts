@@ -105,6 +105,7 @@ describe("prefetchDashboardLaunchpadData", () => {
           prices: {
             GLW: "1",
             GCTL: "0",
+            SGCTL: "0",
             USDC: "0",
             USDG: "0",
           },
