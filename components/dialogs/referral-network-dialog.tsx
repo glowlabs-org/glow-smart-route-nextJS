@@ -628,7 +628,7 @@ export function ReferralNetworkDialog({
                     Network Size
                   </div>
                   <div className="text-2xl sm:text-3xl font-mono font-semibold text-foreground">
-                    {resolvedData.referees.length}
+                    {resolvedData.stats.totalReferees ?? resolvedData.referees.length}
                   </div>
                   <div className="text-[8px] sm:text-[9px] text-muted-foreground/60 dark:text-muted-foreground/80 uppercase font-medium">
                     {resolvedData.stats.activeReferees > 0 ? (
