@@ -53,6 +53,8 @@ export interface PolRevenueFarmsResponse {
 export interface PolRevenueRegionRow {
   zone_id?: number | string | null;
   lifetime_lq?: string;
+  lifetime_attributed_lq?: string;
+  lifetime_cgp_adjustment_lq?: string;
   ninety_day_lq?: string;
   farm_count?: number;
   cc_per_week?: number | string | null;
@@ -61,6 +63,23 @@ export interface PolRevenueRegionRow {
 
 export interface PolRevenueRegionsResponse {
   regions?: PolRevenueRegionRow[];
+}
+
+// Some hub responses apply a CGP accounting adjustment that can push the net
+// lifetime value negative even though gross region revenue is non-negative.
+export function resolveDisplayLifetimeLq(
+  row: Pick<PolRevenueRegionRow, "lifetime_lq" | "lifetime_attributed_lq">
+): number | null {
+  const lifetimeLq = parseLqUnits(row.lifetime_lq ?? null);
+  if (lifetimeLq === null) return null;
+  if (lifetimeLq >= 0) return lifetimeLq;
+
+  const attributedLifetimeLq = parseLqUnits(row.lifetime_attributed_lq ?? null);
+  if (attributedLifetimeLq !== null && attributedLifetimeLq >= 0) {
+    return attributedLifetimeLq;
+  }
+
+  return 0;
 }
 
 export function usePolRevenueAggregate(params: { enabled?: boolean } = {}) {
