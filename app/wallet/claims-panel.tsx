@@ -98,6 +98,7 @@ interface ClaimInitiationPayload {
   rewardsToClaim: ClaimableReward[];
   userProof: ReadableLeafReward;
   nonce: bigint;
+  claimStatus: ClaimStatusSummary;
 }
 
 const CLAIM_STAGE_ORDER: ClaimStage[] = ["inflation", "protocolDeposits"];
@@ -199,11 +200,13 @@ type WeekClaimButtonProps = {
   claimDialogStatus: ClaimDialogStatus;
   claimType?: "both" | "v2Only";
   className?: string;
+  glwClaimed: boolean;
   isClaimed: boolean;
   isClaimingAll: boolean;
   isClaimingThisWeek: boolean;
   isConnected: boolean;
   onInitiateClaim: (payload: ClaimInitiationPayload) => void;
+  protocolClaimed: boolean;
   size?: "sm" | "default";
   weekData: WeeklyClaimableRewards;
 };
@@ -213,11 +216,13 @@ function WeekClaimButton({
   claimDialogStatus,
   claimType = "both",
   className,
+  glwClaimed,
   isClaimed,
   isClaimingAll,
   isClaimingThisWeek,
   isConnected,
   onInitiateClaim,
+  protocolClaimed,
   size = "sm",
   weekData,
 }: WeekClaimButtonProps) {
@@ -250,12 +255,14 @@ function WeekClaimButton({
       return;
     }
 
-    let rewardsToClaim: ClaimableReward[] = weekData.rewards;
-    if (claimType === "v2Only") {
-      rewardsToClaim = weekData.rewards.filter(
-        (reward) => reward.type === "protocolDeposit"
-      );
-    }
+    let rewardsToClaim: ClaimableReward[] =
+      claimType === "v2Only"
+        ? weekData.rewards.filter((reward) => reward.type === "protocolDeposit")
+        : weekData.rewards.filter((reward) => {
+            if (reward.type === "glowInflation") return !glwClaimed;
+            if (reward.type === "protocolDeposit") return !protocolClaimed;
+            return true;
+          });
 
     if (rewardsToClaim.length === 0) {
       trackEvent("wallet_claim_week_blocked", {
@@ -277,8 +284,21 @@ function WeekClaimButton({
       rewardsToClaim,
       userProof,
       nonce,
+      claimStatus: {
+        glwClaimed,
+        protocolClaimed,
+      },
     });
-  }, [claimType, isConnected, nonce, onInitiateClaim, userProof, weekData]);
+  }, [
+    claimType,
+    glwClaimed,
+    isConnected,
+    nonce,
+    onInitiateClaim,
+    protocolClaimed,
+    userProof,
+    weekData,
+  ]);
 
   const hasProtocolDeposits = React.useMemo(
     () => weekData.rewards.some((reward) => reward.type === "protocolDeposit"),
@@ -560,11 +580,13 @@ function ClaimButtonsWrapper({
           address={address}
           claimDialogStatus={claimDialogStatus}
           claimType="v2Only"
+          glwClaimed={glwClaimed}
           isClaimed={false}
           isClaimingAll={isClaimingAll}
           isClaimingThisWeek={isClaimingThisWeek}
           isConnected={isConnected}
           onInitiateClaim={onInitiateClaim}
+          protocolClaimed={protocolClaimed}
           size="default"
           weekData={weekData}
         />
@@ -597,11 +619,13 @@ function ClaimButtonsWrapper({
       <WeekClaimButton
         address={address}
         claimDialogStatus={claimDialogStatus}
+        glwClaimed={glwClaimed}
         isClaimed={fullyClaimed}
         isClaimingAll={isClaimingAll}
         isClaimingThisWeek={isClaimingThisWeek}
         isConnected={isConnected}
         onInitiateClaim={onInitiateClaim}
+        protocolClaimed={protocolClaimed}
         size="default"
         weekData={weekData}
       />
@@ -1319,9 +1343,15 @@ export function ClaimsPanel({
       const hasProtocolDepositRewards = payload.weekData.rewards.some(
         (reward) => reward.type === "protocolDeposit"
       );
+      const isInflationIncluded = payload.rewardsToClaim.some(
+        (reward) => reward.type === "glowInflation"
+      );
+      const isProtocolIncluded = payload.rewardsToClaim.some(
+        (reward) => reward.type === "protocolDeposit"
+      );
 
       const inflationStage: ClaimStageState = hasInflationRewards
-        ? payload.claimType === "v2Only"
+        ? payload.claimStatus.glwClaimed || !isInflationIncluded
           ? {
               status: "skipped",
               message: "Emission rewards already claimed.",
@@ -1330,7 +1360,13 @@ export function ClaimsPanel({
         : { status: "skipped", message: "Emission rewards already claimed." };
 
       const protocolStage: ClaimStageState = hasProtocolDepositRewards
-        ? { status: "pending" }
+        ? payload.claimStatus.protocolClaimed || !isProtocolIncluded
+          ? {
+              status: "skipped",
+              message:
+                "Protocol deposit rewards already claimed. Not included in this transaction.",
+            }
+          : { status: "pending" }
         : {
             status: "skipped",
             message: "Protocol deposit rewards already claimed.",
@@ -1697,7 +1733,7 @@ export function ClaimsPanel({
       },
     ];
 
-    const inflationRewards = activeClaim.weekData.rewards.filter(
+    const inflationRewards = activeClaim.rewardsToClaim.filter(
       (reward) => reward.type === "glowInflation"
     );
     if (inflationRewards.length > 0) {
@@ -1711,7 +1747,7 @@ export function ClaimsPanel({
       });
     }
 
-    const protocolRewards = activeClaim.weekData.rewards.filter(
+    const protocolRewards = activeClaim.rewardsToClaim.filter(
       (reward) => reward.type === "protocolDeposit"
     );
     if (protocolRewards.length > 0) {
@@ -1738,7 +1774,7 @@ export function ClaimsPanel({
   const stageList = React.useMemo(() => {
     if (!activeClaim) return null;
 
-    const inflationRewards = activeClaim.weekData.rewards.filter(
+    const inflationRewards = activeClaim.rewardsToClaim.filter(
       (reward) => reward.type === "glowInflation"
     );
     const inflationAmount =
@@ -1748,7 +1784,7 @@ export function ClaimsPanel({
             .toFixed(4)} GLW`
         : null;
 
-    const protocolRewards = activeClaim.weekData.rewards.filter(
+    const protocolRewards = activeClaim.rewardsToClaim.filter(
       (reward) => reward.type === "protocolDeposit"
     );
     const protocolTotals = new Map<string, number>();
