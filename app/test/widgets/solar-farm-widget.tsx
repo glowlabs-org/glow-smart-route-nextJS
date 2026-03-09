@@ -769,12 +769,6 @@ export default function SolarFarmWidget({
     });
     const availableAssets = assets.length > 0 ? assets : ["GLW"];
 
-    const allWeeks = Array.from(amountsByAsset.values()).flatMap((map) =>
-      Array.from(map.keys())
-    );
-    const latestWeek =
-      allWeeks.length > 0 ? Math.max(...allWeeks, currentWeek) : currentWeek;
-
     const filledHistoryByAsset = new Map<string, AssetHistoryPoint[]>();
     const rawHistoryByAsset = new Map<string, AssetHistoryPoint[]>();
 
@@ -791,13 +785,18 @@ export default function SolarFarmWidget({
       rawHistoryByAsset.set(asset, rawPoints);
 
       const filledPoints: AssetHistoryPoint[] = [];
-      for (let week = FIRST_V2_WEEK; week <= latestWeek; week += 1) {
-        filledPoints.push({
-          weekNumber: week,
-          dateLabel: formatWeekAxisDate(week),
-          tooltipDate: formatWeekTooltipDate(week),
-          amount: byWeek.get(week) ?? 0,
-        });
+      if (rawPoints.length > 0) {
+        const firstWeek = rawPoints[0]?.weekNumber ?? FIRST_V2_WEEK;
+        const lastWeek = rawPoints.at(-1)?.weekNumber ?? firstWeek;
+
+        for (let week = firstWeek; week <= lastWeek; week += 1) {
+          filledPoints.push({
+            weekNumber: week,
+            dateLabel: formatWeekAxisDate(week),
+            tooltipDate: formatWeekTooltipDate(week),
+            amount: byWeek.get(week) ?? 0,
+          });
+        }
       }
       filledHistoryByAsset.set(asset, filledPoints);
     }
