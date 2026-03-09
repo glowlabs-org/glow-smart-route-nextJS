@@ -213,6 +213,15 @@ describe("ETH to GLW delegation steps", () => {
 // ============================================================================
 
 describe("SGCTL delegation steps", () => {
+  it("creates 2 steps for explicit SGCTL staked source selection", () => {
+    const steps = initializeTransactionSteps("SGCTL", "SGCTL");
+
+    expect(steps.map((s) => s.id)).toEqual([
+      "DELEGATE_SGCTL",
+      "CONFIRM_TX",
+    ]);
+  });
+
   it("creates 2 steps for direct staked SGCTL delegation", () => {
     const steps = initializeTransactionSteps("SGCTL", "GCTL", {
       sgctlSource: "staked",
@@ -268,11 +277,12 @@ describe("SGCTL delegation steps", () => {
 
 describe("step structure", () => {
   const allCombinations: Array<
-    ["GLW" | "SGCTL" | "USDC", "GLW" | "GCTL" | "USDC" | "ETH"]
+    ["GLW" | "SGCTL" | "USDC", "GLW" | "SGCTL" | "GCTL" | "USDC" | "ETH"]
   > = [
     ["GLW", "GLW"],
     ["GLW", "USDC"],
     ["GLW", "ETH"],
+    ["SGCTL", "SGCTL"],
     ["SGCTL", "GCTL"],
     ["SGCTL", "USDC"],
     ["SGCTL", "ETH"],

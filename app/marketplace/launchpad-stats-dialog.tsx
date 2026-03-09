@@ -8,7 +8,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { type AuctionApplication } from "@/hooks";
+import {
+  calculateProtocolDepositAmount,
+  type AuctionApplication,
+} from "@/hooks";
 import { formatUnits } from "viem";
 import {
   DECIMALS_BY_TOKEN,
@@ -34,7 +37,7 @@ import {
 } from "@/utils/launchpad-rewards";
 
 const regionRouter = RegionRouter(
-  process.env.NEXT_PUBLIC_CONTROL_API_URL || ""
+  process.env.NEXT_PUBLIC_CONTROL_API_URL || "",
 );
 
 interface LaunchpadStatsDialogProps {
@@ -56,6 +59,7 @@ type StatCardConfig = {
   tooltip?: string;
   secondary?: string;
   highlight?: boolean;
+  compactValue?: boolean;
 };
 
 export function LaunchpadStatsDialog({
@@ -94,9 +98,20 @@ export function LaunchpadStatsDialog({
 
   // Total delegation amount per fraction (GLW during GLW phase, SGCTL during SGCTL phase)
   const fractionStep = application?.activeFraction?.step;
-  const totalDelegationPerFraction = fractionStep
-    ? parseDelegationAmountFromBaseUnits(fractionStep, delegationCurrency)
-    : 0;
+  const totalDelegationPerFraction = (() => {
+    if (!application) return 0;
+    const quoteAmount = calculateProtocolDepositAmount(
+      application.finalProtocolFee,
+      application.applicationPriceQuotes,
+      delegationCurrency,
+    );
+    if (quoteAmount) {
+      const parsedQuote = Number.parseFloat(quoteAmount);
+      if (Number.isFinite(parsedQuote) && parsedQuote > 0) return parsedQuote;
+    }
+    if (!fractionStep) return 0;
+    return parseDelegationAmountFromBaseUnits(fractionStep, delegationCurrency);
+  })();
 
   // Weekly CCs from application
   const weeklyCC = application?.auditFields?.netCarbonCreditEarningWeekly ?? 0;
@@ -116,7 +131,7 @@ export function LaunchpadStatsDialog({
       const weeklyImpactAssetsWad = BigInt(Math.floor(weeklyCC * 10 ** 18));
       return calculateFarmEfficiency(
         protocolDepositUsd6,
-        weeklyImpactAssetsWad
+        weeklyImpactAssetsWad,
       );
     } catch {
       return 0;
@@ -136,10 +151,10 @@ export function LaunchpadStatsDialog({
   const totalWeeklyGlw = perShareRewards.totalGlwPerShare;
   const weeklyRewardsUsdValue = perShareRewards.totalUsdPerShare;
   const weeklyGlwFromInflationUsd = Number.parseFloat(
-    String(rewardScore?.userWeeklyGlwValueUsd ?? "0")
+    String(rewardScore?.userWeeklyGlwValueUsd ?? "0"),
   );
   const weeklyPdFromDepositUsd = Number.parseFloat(
-    String(rewardScore?.userWeeklyPdRewardsUsd ?? "0")
+    String(rewardScore?.userWeeklyPdRewardsUsd ?? "0"),
   );
   const weeklyInflationUsdPerFraction =
     Number.isFinite(weeklyGlwFromInflationUsd) && weeklyGlwFromInflationUsd > 0
@@ -152,7 +167,7 @@ export function LaunchpadStatsDialog({
 
   // Find region data
   const regionSummary = activeSummary?.regions.find(
-    (r) => r.id === zoneId || r.name === zoneName
+    (r) => r.id === zoneId || r.name === zoneName,
   );
 
   const region = regions.find((r) => r.id === zoneId || r.name === zoneName);
@@ -170,8 +185,8 @@ export function LaunchpadStatsDialog({
         return parseFloat(
           formatUnits(
             BigInt(application.finalProtocolFee),
-            DECIMALS_BY_TOKEN["USDC"]
-          )
+            DECIMALS_BY_TOKEN["USDC"],
+          ),
         );
       } catch {
         return 0;
@@ -190,9 +205,7 @@ export function LaunchpadStatsDialog({
   const carbonCreditsPerFraction =
     totalFractionSteps > 0 ? totalCCsOver30Years / totalFractionSteps : 0;
   const weeklyRewardsUsd =
-    weeklyRewardsUsdValue > 0
-      ? formatNumber(weeklyRewardsUsdValue, 2)
-      : null;
+    weeklyRewardsUsdValue > 0 ? formatNumber(weeklyRewardsUsdValue, 2) : null;
   const costPerFractionUsd =
     costPerFractionUsdValue > 0
       ? formatNumber(costPerFractionUsdValue, 0)
@@ -219,8 +232,7 @@ export function LaunchpadStatsDialog({
           totalDelegationPerFraction > 0
             ? formatNumber(totalDelegationPerFraction, 0)
             : "N/A",
-        tooltip:
-          `Amount of ${delegationCurrency} required to post as protocol deposit per fraction.`,
+        tooltip: `Amount of ${delegationCurrency} required to post as protocol deposit per fraction.`,
         secondary: costPerFractionUsd
           ? `≈ $${costPerFractionUsd} USD`
           : undefined,
@@ -236,12 +248,12 @@ export function LaunchpadStatsDialog({
             ? weeklyGlwFromInflation > 0 || weeklyPdFromDeposit > 0
               ? `${formatNumber(
                   weeklyGlwFromInflation,
-                  2
+                  2,
                 )} GLW + ${formatNumber(weeklyPdFromDeposit, 2)} SGCTL`
               : "N/A"
             : totalWeeklyGlw > 0
-            ? formatNumber(totalWeeklyGlw, 2)
-            : "N/A",
+              ? formatNumber(totalWeeklyGlw, 2)
+              : "N/A",
         tooltip:
           delegationCurrency === "SGCTL"
             ? "Expected weekly rewards from SGCTL protocol-deposit recovery plus GLW emissions share."
@@ -252,8 +264,9 @@ export function LaunchpadStatsDialog({
               ? `≈ $${weeklyRewardsUsd} USD`
               : undefined
             : weeklyRewardsUsd
-            ? `≈ $${weeklyRewardsUsd} USD`
-            : undefined,
+              ? `≈ $${weeklyRewardsUsd} USD`
+              : undefined,
+        compactValue: delegationCurrency === "SGCTL",
       },
       {
         id: "farm-efficiency",
@@ -297,15 +310,15 @@ export function LaunchpadStatsDialog({
             ? weeklyRewardsUsdValue > 0
               ? `${formatNumber(
                   (weeklyPdUsdPerFraction / weeklyRewardsUsdValue) * 100,
-                  1
+                  1,
                 )}% of total weekly USD rewards`
               : undefined
             : totalWeeklyGlw > 0
-            ? `${formatNumber(
-                (weeklyPdFromDeposit / totalWeeklyGlw) * 100,
-                1
-              )}% of total rewards`
-            : undefined,
+              ? `${formatNumber(
+                  (weeklyPdFromDeposit / totalWeeklyGlw) * 100,
+                  1,
+                )}% of total rewards`
+              : undefined,
       },
       {
         id: "glw-from-inflation",
@@ -317,15 +330,15 @@ export function LaunchpadStatsDialog({
             ? weeklyRewardsUsdValue > 0
               ? `${formatNumber(
                   (weeklyInflationUsdPerFraction / weeklyRewardsUsdValue) * 100,
-                  1
+                  1,
                 )}% of total weekly USD rewards`
               : undefined
             : totalWeeklyGlw > 0
-            ? `${formatNumber(
-                (weeklyGlwFromInflation / totalWeeklyGlw) * 100,
-                1
-              )}% of total rewards`
-            : undefined,
+              ? `${formatNumber(
+                  (weeklyGlwFromInflation / totalWeeklyGlw) * 100,
+                  1,
+                )}% of total rewards`
+              : undefined,
       },
       {
         id: "solar-panels",
@@ -356,7 +369,7 @@ export function LaunchpadStatsDialog({
       weeklyRewardsUsd,
       weeklyRewardsUsdValue,
       delegationCurrency,
-    ]
+    ],
   );
 
   const regionCards = React.useMemo<StatCardConfig[]>(
@@ -398,7 +411,7 @@ export function LaunchpadStatsDialog({
       regionDetails?.solarFarmApplications,
       regionSummary?.glwPerWeek,
       zoneName,
-    ]
+    ],
   );
 
   if (!application) return null;
@@ -466,9 +479,9 @@ export function LaunchpadStatsDialog({
               construction, not actual weekly performance. This protects
               delegators from weather volatility and operational risk while
               focusing competition on maximum climate impact. Actual returns
-              depend on regional competitiveness, market conditions, and
-              network growth. Deposit recovery and GLW emissions continue based
-              on original projections regardless of realized farm output.
+              depend on regional competitiveness, market conditions, and network
+              growth. Deposit recovery and GLW emissions continue based on
+              original projections regardless of realized farm output.
             </div>
           </section>
         </div>
@@ -487,6 +500,7 @@ function StatCard({
   tooltip,
   secondary,
   highlight,
+  compactValue,
   loading,
 }: StatCardProps) {
   const isRegionName = label === "Region";
@@ -541,7 +555,11 @@ function StatCard({
         <div
           className={cn(
             "mt-2 font-semibold text-foreground",
-            isRegionName ? "text-2xl" : "text-3xl"
+            isRegionName
+              ? "text-2xl"
+              : compactValue
+                ? "text-base leading-tight whitespace-nowrap sm:text-lg"
+                : "text-3xl",
           )}
         >
           {value}

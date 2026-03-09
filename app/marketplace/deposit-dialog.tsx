@@ -32,7 +32,11 @@ import { useWalletClient } from "wagmi";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import { useEthPrice } from "@/hooks/useEthPrice";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
-import { useSponsorApplication, type AuctionApplication } from "@/hooks";
+import {
+  calculateProtocolDepositAmount,
+  useSponsorApplication,
+  type AuctionApplication,
+} from "@/hooks";
 import { useWallets } from "@/hooks/control-wallets";
 import { useGctlPreparationOrchestrator } from "@/hooks/useGctlPreparationOrchestrator";
 import { ConnectButton } from "@/components/connect-button";
@@ -61,11 +65,12 @@ import {
   CONTRACT_ERROR_MESSAGES,
   RPC_INTERNAL_ERROR_MESSAGE,
   calculateAffordability,
+  calculateAvailableStakedGctl,
   calculateCostInETH,
   calculateCostInGCTL,
   calculateCostInGLW,
   calculateCostInUSDC,
-  calculateEstimatedRewards,
+  calculateEstimatedRewardsBreakdown,
   calculateShortfall,
   calculateImpactPointsBreakdown,
   calculateSuccessMetrics,
@@ -123,6 +128,22 @@ type DepositDialogProps =
 
 type Phase = "review" | "processing" | "success" | "error";
 
+function toAtomicAmount(value: string, decimals: number): bigint | null {
+  const normalized = value.trim();
+  if (!normalized) return null;
+  const [wholePart, fractionalPart = ""] = normalized.split(".");
+  const truncatedFractional = fractionalPart.slice(0, decimals);
+  const safeValue = truncatedFractional.length
+    ? `${wholePart}.${truncatedFractional}`
+    : wholePart;
+
+  try {
+    return parseUnits(safeValue, decimals);
+  } catch {
+    return null;
+  }
+}
+
 export function DepositDialog({
   open,
   onOpenChange,
@@ -163,8 +184,39 @@ export function DepositDialog({
   );
   const regionId = application?.zone?.id ?? null;
   const controlChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
+  const delegationStepAtomic = React.useMemo(() => {
+    if (!application?.activeFraction || runtimeSelectedCurrency === "USDC") {
+      return null;
+    }
 
-  const { walletDetails } = useWallets({
+    const fallbackStep = (() => {
+      try {
+        return BigInt(application.activeFraction.step);
+      } catch {
+        return null;
+      }
+    })();
+
+    const quoteAmount = calculateProtocolDepositAmount(
+      application.finalProtocolFee ?? null,
+      application.applicationPriceQuotes ?? [],
+      runtimeSelectedCurrency === "SGCTL" ? "SGCTL" : "GLW"
+    );
+    if (!quoteAmount) return fallbackStep;
+
+    const decimals =
+      runtimeSelectedCurrency === "SGCTL"
+        ? DECIMALS_BY_TOKEN.GCTL
+        : DECIMALS_BY_TOKEN.GLW;
+    return toAtomicAmount(quoteAmount, decimals) ?? fallbackStep;
+  }, [
+    application?.activeFraction,
+    application?.applicationPriceQuotes,
+    application?.finalProtocolFee,
+    runtimeSelectedCurrency,
+  ]);
+
+  const { walletDetails, refetchWalletDetails } = useWallets({
     walletAddress: address ?? undefined,
     enabled:
       open &&
@@ -191,12 +243,13 @@ export function DepositDialog({
     const row = rows.find(
       (item: any) => Number(item?.regionId ?? item?.id) === regionId
     );
-    if (!row?.totalStaked) return 0n;
-    try {
-      return BigInt(row.totalStaked);
-    } catch {
-      return 0n;
-    }
+    return calculateAvailableStakedGctl({
+      totalStaked: row?.totalStaked,
+      totalStakedAndNotUsedInProtocolFees:
+        row?.totalStakedAndNotUsedInProtocolFees,
+      pendingUnstake: row?.pendingUnstake,
+      pendingRestakeOut: row?.pendingRestakeOut,
+    });
   }, [regionId, runtimeSelectedCurrency, walletDetails]);
 
   // State
@@ -222,14 +275,22 @@ export function DepositDialog({
 
   const costInGLW = React.useCallback(
     (qty: number) =>
-      calculateCostInGLW(qty, application?.activeFraction ?? null),
-    [application?.activeFraction]
+      calculateCostInGLW(
+        qty,
+        application?.activeFraction ?? null,
+        delegationStepAtomic
+      ),
+    [application?.activeFraction, delegationStepAtomic]
   );
 
   const costInGCTL = React.useCallback(
     (qty: number) =>
-      calculateCostInGCTL(qty, application?.activeFraction ?? null),
-    [application?.activeFraction]
+      calculateCostInGCTL(
+        qty,
+        application?.activeFraction ?? null,
+        delegationStepAtomic
+      ),
+    [application?.activeFraction, delegationStepAtomic]
   );
 
   const costInUSDC = React.useCallback(
@@ -239,10 +300,12 @@ export function DepositDialog({
         application?.activeFraction ?? null,
         runtimeSelectedCurrency,
         glwSpotPrice,
-        gctlPriceNumber
+        gctlPriceNumber,
+        delegationStepAtomic
       ),
     [
       application?.activeFraction,
+      delegationStepAtomic,
       gctlPriceNumber,
       glwSpotPrice,
       runtimeSelectedCurrency,
@@ -257,10 +320,12 @@ export function DepositDialog({
         runtimeSelectedCurrency,
         glwSpotPrice,
         ethSpotPrice,
-        gctlPriceNumber
+        gctlPriceNumber,
+        delegationStepAtomic
       ),
     [
       application?.activeFraction,
+      delegationStepAtomic,
       ethSpotPrice,
       gctlPriceNumber,
       glwSpotPrice,
@@ -290,10 +355,12 @@ export function DepositDialog({
           setSelectedPaymentMethod("GLW");
         }
       } else if (runtimeSelectedCurrency === "SGCTL") {
-        const requiredGctl = BigInt(application.activeFraction?.step ?? "0");
-        const availableGctl = gctlWalletBalance + stakedGctlBalance;
+        const requiredGctl = delegationStepAtomic ?? 0n;
+        const totalAvailableGctl = gctlWalletBalance + stakedGctlBalance;
 
-        if (availableGctl >= requiredGctl) {
+        if (stakedGctlBalance >= requiredGctl) {
+          setSelectedPaymentMethod("SGCTL");
+        } else if (totalAvailableGctl >= requiredGctl) {
           setSelectedPaymentMethod("GCTL");
         } else if ((usdcBalance ?? 0n) > 0n) {
           setSelectedPaymentMethod("USDC");
@@ -317,6 +384,7 @@ export function DepositDialog({
     application,
     costInGLW,
     stakedGctlBalance,
+    delegationStepAtomic,
   ]);
 
   // Reset on open
@@ -386,6 +454,7 @@ export function DepositDialog({
         quantity,
         selectedCurrency: runtimeSelectedCurrency,
         selectedPaymentMethod,
+        delegationStepAtomic,
         glwSpotPrice,
         gctlSpotPrice: gctlPriceNumber,
         ethSpotPrice,
@@ -397,6 +466,7 @@ export function DepositDialog({
       }),
     [
       application?.activeFraction,
+      delegationStepAtomic,
       gctlWalletBalance,
       gctlPriceNumber,
       ethSpotPrice,
@@ -439,6 +509,12 @@ export function DepositDialog({
         18,
         costInGLW(quantity).toLocaleString()
       )} GLW`,
+      SGCTL: `${formatTokenAmount(
+        affordability.requiredByMethod.SGCTL,
+        6,
+        costInGCTL(quantity).toLocaleString(),
+        6
+      )} SGCTL`,
       GCTL: `${formatTokenAmount(
         affordability.requiredByMethod.GCTL,
         6,
@@ -470,6 +546,10 @@ export function DepositDialog({
   const shortfallByMethod = React.useMemo(() => {
     return {
       GLW: calculateShortfall(affordability.requiredByMethod.GLW, glwBalance),
+      SGCTL: calculateShortfall(
+        affordability.requiredByMethod.SGCTL,
+        stakedGctlBalance
+      ),
       GCTL: calculateShortfall(
         affordability.requiredByMethod.GCTL,
         affordability.balances.GCTL
@@ -482,6 +562,7 @@ export function DepositDialog({
     affordability.requiredByMethod,
     ethBalance,
     glwBalance,
+    stakedGctlBalance,
     usdcBalance,
   ]);
 
@@ -506,28 +587,55 @@ export function DepositDialog({
       : ""
   }`;
 
-  const sgctlRequiredAmount = affordability.requiredByMethod.GCTL ?? 0n;
+  const sgctlRequiredAmount = affordability.requiredByMethod.SGCTL ?? 0n;
   const sgctlShortfall =
     sgctlRequiredAmount > stakedGctlBalance
       ? sgctlRequiredAmount - stakedGctlBalance
       : 0n;
+  const showStakedSgctlOption =
+    runtimeSelectedCurrency === "SGCTL" &&
+    sgctlRequiredAmount > 0n &&
+    stakedGctlBalance >= sgctlRequiredAmount;
   const sgctlSourceMode = React.useMemo<SgctlSourceMode | null>(() => {
     if (runtimeSelectedCurrency !== "SGCTL") return null;
+    if (selectedPaymentMethod === "SGCTL") return "staked";
     if (sgctlShortfall <= 0n) return "staked";
     if (selectedPaymentMethod === "GCTL") return "wallet_gctl";
     if (selectedPaymentMethod === "ETH") return "mint_eth";
     return "mint_usdc";
   }, [runtimeSelectedCurrency, selectedPaymentMethod, sgctlShortfall]);
 
-  const estimatedRewards = React.useMemo(
+  React.useEffect(() => {
+    if (runtimeSelectedCurrency !== "SGCTL") return;
+    if (showStakedSgctlOption && selectedPaymentMethod === "GCTL") {
+      setSelectedPaymentMethod("SGCTL");
+    }
+    if (!showStakedSgctlOption && selectedPaymentMethod === "SGCTL") {
+      setSelectedPaymentMethod("GCTL");
+    }
+  }, [runtimeSelectedCurrency, selectedPaymentMethod, showStakedSgctlOption]);
+
+  const estimatedRewardsBreakdown = React.useMemo(
     () =>
-      calculateEstimatedRewards(
+      calculateEstimatedRewardsBreakdown(
         quantity,
         application?.activeFraction ?? null,
         rewardScore ?? null
       ),
     [quantity, application?.activeFraction, rewardScore]
   );
+  const estimatedRewards = estimatedRewardsBreakdown.totalGlwEquivalent;
+  const isMultiAssetEstimatedRewards =
+    estimatedRewardsBreakdown.pdSymbol === "SGCTL" &&
+    estimatedRewardsBreakdown.pd > 0;
+  const hasAnyEstimatedRewards =
+    estimatedRewardsBreakdown.glw > 0 || estimatedRewardsBreakdown.pd > 0;
+  const estimatedRewardsUsdValue =
+    estimatedRewardsBreakdown.glw * (glwSpotPrice || 0) +
+    estimatedRewardsBreakdown.pd *
+      (estimatedRewardsBreakdown.pdSymbol === "SGCTL"
+        ? gctlPriceNumber || 0
+        : glwSpotPrice || 0);
 
   // Estimated weekly impact points based on GLOW-IMPACT-SCORE.md rules:
   // - Emissions: +1 point per GLW earned in emission rewards
@@ -657,6 +765,89 @@ export function DepositDialog({
     [refetchSplits, splitsSummary?.totalStepsPurchased]
   );
 
+  const fetchFreshRegionStake = React.useCallback(async () => {
+    if (!address || !regionId) return null;
+    const controlApiUrl = process.env.NEXT_PUBLIC_CONTROL_API_URL;
+    if (!controlApiUrl) return null;
+
+    const response = await fetch(
+      `${controlApiUrl}/wallet/${encodeURIComponent(
+        address
+      )}/region/${regionId}/stake?_=${Date.now()}`,
+      {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to refresh staked GCTL state");
+    }
+
+    const payload = (await response.json()) as Record<string, unknown>;
+    return calculateAvailableStakedGctl({
+      totalStaked:
+        (payload.totalStaked as string | undefined) ??
+        (payload.currentGctlStake as string | undefined),
+      totalStakedAndNotUsedInProtocolFees: payload
+        .totalStakedAndNotUsedInProtocolFees as string | undefined,
+      pendingUnstake: payload.pendingUnstake as string | undefined,
+      pendingRestakeOut: payload.pendingRestakeOut as string | undefined,
+    });
+  }, [address, regionId]);
+
+  const waitForStakeSyncBeforeDelegation = React.useCallback(
+    async (requiredAmount: bigint) => {
+      if (
+        runtimeSelectedCurrency !== "SGCTL" ||
+        !address ||
+        !regionId ||
+        requiredAmount <= 0n
+      ) {
+        return;
+      }
+
+      const maxAttempts = 8;
+      const delayMs = 1500;
+
+      await invalidateGctlQueries();
+      await queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.wallets.details(address),
+      });
+
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const [freshRegionStake] = await Promise.all([
+          fetchFreshRegionStake(),
+          refetchWalletDetails(),
+        ]);
+
+        if (freshRegionStake != null && freshRegionStake >= requiredAmount) {
+          return;
+        }
+
+        if (attempt < maxAttempts - 1) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+      }
+
+      throw new Error(
+        "Your recent stake is still syncing. Please wait a few seconds and retry."
+      );
+    },
+    [
+      address,
+      fetchFreshRegionStake,
+      invalidateGctlQueries,
+      queryClient,
+      refetchWalletDetails,
+      regionId,
+      runtimeSelectedCurrency,
+    ]
+  );
+
   const invalidatePostSuccessQueries = React.useCallback(
     async (fractionId: string) => {
       await Promise.all([
@@ -780,6 +971,10 @@ export function DepositDialog({
           await refetchBalances();
         }
 
+        if (sgctlSourceMode !== "staked") {
+          await waitForStakeSyncBeforeDelegation(sgctlRequiredAmount);
+        }
+
         updateStepStatus("DELEGATE_SGCTL", "waiting_signature");
         const latestNonce = await getControlRouter().fetchLastNonce(
           address as string
@@ -860,7 +1055,7 @@ export function DepositDialog({
         if (runtimeSelectedCurrency === "USDC") {
           requiredUsdc = BigInt(activeFraction.stepPrice) * BigInt(quantity);
         } else {
-          const glwNeeded = BigInt(activeFraction.step) * BigInt(quantity);
+          const glwNeeded = (delegationStepAtomic ?? 0n) * BigInt(quantity);
           const glwPrice = parseUnits(glwSpotPrice.toFixed(6), 6);
           const rawUsdcCost = (glwNeeded * glwPrice) / BigInt(1e18);
           requiredUsdc = (rawUsdcCost * 102n) / 100n;
@@ -914,7 +1109,7 @@ export function DepositDialog({
       // --- 2. Swap USDC to GLW (if delegating via swap) ---
       if (isSwapDelegate) {
         // Calculate needed GLW
-        const glwNeeded = BigInt(activeFraction.step) * BigInt(quantity);
+        const glwNeeded = (delegationStepAtomic ?? 0n) * BigInt(quantity);
         // Estimate USDC needed: GLW * Price * 1.02 (2% buffer)
         const glwPrice = parseUnits(glwSpotPrice.toFixed(6), 6);
         const usdcNeeded =
@@ -989,7 +1184,7 @@ export function DepositDialog({
       const costBigInt =
         runtimeSelectedCurrency === "USDC"
           ? BigInt(activeFraction.stepPrice) * BigInt(quantity)
-          : BigInt(activeFraction.step) * BigInt(quantity);
+          : (delegationStepAtomic ?? 0n) * BigInt(quantity);
 
       await sponsorMutation.mutateAsync({
         applicationId: application.id,
@@ -1243,7 +1438,7 @@ export function DepositDialog({
         const totalCost =
           runtimeSelectedCurrency === "USDC"
             ? BigInt(application.activeFraction.stepPrice) * BigInt(quantity)
-            : BigInt(application.activeFraction.step) * BigInt(quantity);
+            : (delegationStepAtomic ?? 0n) * BigInt(quantity);
 
         const delegatedLabel =
           runtimeSelectedCurrency === "SGCTL"
@@ -1366,7 +1561,7 @@ export function DepositDialog({
             </div>
           ) : null}
 
-          {estimatedRewards > 0 ? (
+          {hasAnyEstimatedRewards ? (
             <div className="space-y-3">
               <div
                 className={cn(
@@ -1381,29 +1576,86 @@ export function DepositDialog({
                     <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
                       Projected Weekly Rewards
                     </div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span
-                        className={cn(
-                          "text-xl sm:text-2xl font-bold font-mono",
-                          runtimeSelectedCurrency === "USDC"
-                            ? "text-blue-600 dark:text-cyan-400"
-                            : "text-green-600 dark:text-[#D1FF4D]"
-                        )}
-                      >
-                        {estimatedRewards.toLocaleString(undefined, {
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>
-                      <span
-                        className={cn(
-                          "text-sm font-medium",
-                          runtimeSelectedCurrency === "USDC"
-                            ? "text-blue-600/70 dark:text-cyan-400/70"
-                            : "text-green-600/70 dark:text-[#D1FF4D]/70"
-                        )}
-                      >
-                        GLW
-                      </span>
+                    <div className="flex items-baseline gap-1.5 flex-wrap">
+                      {isMultiAssetEstimatedRewards ? (
+                        <>
+                          <span
+                            className={cn(
+                              "text-xl sm:text-2xl font-bold font-mono",
+                              runtimeSelectedCurrency === "USDC"
+                                ? "text-blue-600 dark:text-cyan-400"
+                                : "text-green-600 dark:text-[#D1FF4D]"
+                            )}
+                          >
+                            {estimatedRewardsBreakdown.glw.toLocaleString(
+                              undefined,
+                              {
+                                maximumFractionDigits: 2,
+                              }
+                            )}
+                          </span>
+                          <span
+                            className={cn(
+                              "text-sm font-medium",
+                              runtimeSelectedCurrency === "USDC"
+                                ? "text-blue-600/70 dark:text-cyan-400/70"
+                                : "text-green-600/70 dark:text-[#D1FF4D]/70"
+                            )}
+                          >
+                            GLW +
+                          </span>
+                          <span
+                            className={cn(
+                              "text-lg sm:text-xl font-bold font-mono",
+                              runtimeSelectedCurrency === "USDC"
+                                ? "text-blue-600 dark:text-cyan-400"
+                                : "text-green-600 dark:text-[#D1FF4D]"
+                            )}
+                          >
+                            {estimatedRewardsBreakdown.pd.toLocaleString(
+                              undefined,
+                              {
+                                maximumFractionDigits: 2,
+                              }
+                            )}
+                          </span>
+                          <span
+                            className={cn(
+                              "text-sm font-medium",
+                              runtimeSelectedCurrency === "USDC"
+                                ? "text-blue-600/70 dark:text-cyan-400/70"
+                                : "text-green-600/70 dark:text-[#D1FF4D]/70"
+                            )}
+                          >
+                            SGCTL
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span
+                            className={cn(
+                              "text-xl sm:text-2xl font-bold font-mono",
+                              runtimeSelectedCurrency === "USDC"
+                                ? "text-blue-600 dark:text-cyan-400"
+                                : "text-green-600 dark:text-[#D1FF4D]"
+                            )}
+                          >
+                            {estimatedRewards.toLocaleString(undefined, {
+                              maximumFractionDigits: 2,
+                            })}
+                          </span>
+                          <span
+                            className={cn(
+                              "text-sm font-medium",
+                              runtimeSelectedCurrency === "USDC"
+                                ? "text-blue-600/70 dark:text-cyan-400/70"
+                                : "text-green-600/70 dark:text-[#D1FF4D]/70"
+                            )}
+                          >
+                            GLW
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">
@@ -1412,7 +1664,7 @@ export function DepositDialog({
                     </div>
                     <div className="text-sm text-foreground/80 font-mono">
                       $
-                      {(estimatedRewards * (glwSpotPrice || 0)).toLocaleString(
+                      {estimatedRewardsUsdValue.toLocaleString(
                         undefined,
                         { maximumFractionDigits: 2 }
                       )}
@@ -1726,23 +1978,38 @@ export function DepositDialog({
                 <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
                   Est. Weekly Rewards
                 </div>
-                <div className="flex items-baseline gap-1.5">
+                <div className="flex items-baseline gap-1.5 flex-wrap">
                   <AnimatePresence mode="popLayout">
                     <motion.span
-                      key={estimatedRewards}
+                      key={`${estimatedRewardsBreakdown.glw}-${estimatedRewardsBreakdown.pd}`}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                       className="text-lg md:text-2xl font-bold font-mono text-green-600 dark:text-[#D1FF4D]" // Glow Green-ish
                     >
-                      {estimatedRewards.toLocaleString(undefined, {
+                      {(isMultiAssetEstimatedRewards
+                        ? estimatedRewardsBreakdown.glw
+                        : estimatedRewards
+                      ).toLocaleString(undefined, {
                         maximumFractionDigits: 2,
                       })}
                     </motion.span>
                   </AnimatePresence>
                   <span className="text-sm text-green-600/70 dark:text-[#D1FF4D]/70 font-medium">
-                    GLW
+                    {isMultiAssetEstimatedRewards ? "GLW +" : "GLW"}
                   </span>
+                  {isMultiAssetEstimatedRewards ? (
+                    <>
+                      <span className="text-lg md:text-xl font-bold font-mono text-green-600 dark:text-[#D1FF4D]">
+                        {estimatedRewardsBreakdown.pd.toLocaleString(undefined, {
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                      <span className="text-sm text-green-600/70 dark:text-[#D1FF4D]/70 font-medium">
+                        SGCTL
+                      </span>
+                    </>
+                  ) : null}
                 </div>
               </div>
               <div className="text-right">
@@ -1751,7 +2018,7 @@ export function DepositDialog({
                 </div>
                 <div className="text-sm text-foreground/80 font-mono">
                   ≈ $
-                  {(estimatedRewards * (glwSpotPrice || 0)).toLocaleString(
+                  {estimatedRewardsUsdValue.toLocaleString(
                     undefined,
                     { maximumFractionDigits: 2 }
                   )}
@@ -1792,20 +2059,31 @@ export function DepositDialog({
                   pricePreview={requiredDisplayByMethod.GLW}
                 />
               )}
-              {runtimeSelectedCurrency === "SGCTL" && (
+              {runtimeSelectedCurrency === "SGCTL" && showStakedSgctlOption && (
                 <PaymentOption
-                  label="Control (GCTL)"
+                  label="Staked (SGCTL)"
                   balance={`${formatTokenAmount(
-                    gctlWalletBalance,
-                    6,
-                    "0",
-                    6
-                  )} wallet • ${formatTokenAmount(
                     stakedGctlBalance,
                     6,
                     "0",
                     6
-                  )} staked`}
+                  )} SGCTL in region`}
+                  icon={<TokenIcon symbol="GCTL" />}
+                  selected={selectedPaymentMethod === "SGCTL"}
+                  onSelect={() => setSelectedPaymentMethod("SGCTL")}
+                  isBalanceInsufficient={
+                    isConnected &&
+                    selectedPaymentMethod === "SGCTL" &&
+                    !affordability.canSubmit
+                  }
+                  pricePreview={requiredDisplayByMethod.SGCTL}
+                />
+              )}
+              {runtimeSelectedCurrency === "SGCTL" &&
+                !showStakedSgctlOption && (
+                <PaymentOption
+                  label="Control (GCTL)"
+                  balance={`${formatTokenAmount(gctlWalletBalance, 6, "0", 6)} wallet`}
                   icon={<TokenIcon symbol="GCTL" />}
                   selected={selectedPaymentMethod === "GCTL"}
                   onSelect={() => setSelectedPaymentMethod("GCTL")}
@@ -1816,7 +2094,7 @@ export function DepositDialog({
                   }
                   pricePreview={requiredDisplayByMethod.GCTL}
                 />
-              )}
+                )}
               {/* Option: USDC */}
               <PaymentOption
                 label="USD Coin (USDC)"
@@ -1867,6 +2145,7 @@ export function DepositDialog({
             <div className="text-right">
               <div className="text-xl font-bold font-mono">
                 {selectedPaymentMethod === "GLW" && requiredDisplayByMethod.GLW}
+                {selectedPaymentMethod === "SGCTL" && requiredDisplayByMethod.SGCTL}
                 {selectedPaymentMethod === "GCTL" && requiredDisplayByMethod.GCTL}
                 {selectedPaymentMethod === "USDC" &&
                   `$${formatTokenAmount(

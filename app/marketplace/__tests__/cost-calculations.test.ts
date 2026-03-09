@@ -92,6 +92,13 @@ describe("calculateCostInGCTL", () => {
     const fraction = createFraction({ step: parseUnits("125.5", 6).toString() });
     expect(calculateCostInGCTL(2, fraction)).toBeCloseTo(251, 6);
   });
+
+  it("uses delegation override amount when provided", () => {
+    const fraction = createFraction({ step: parseUnits("999999", 6).toString() });
+    const overrideStep = parseUnits("28.152", 6);
+    expect(calculateCostInGCTL(1, fraction, overrideStep)).toBeCloseTo(28.152, 6);
+    expect(calculateCostInGCTL(2, fraction, overrideStep)).toBeCloseTo(56.304, 6);
+  });
 });
 
 // ============================================================================
@@ -181,6 +188,14 @@ describe("calculateCostInUSDC", () => {
     it("returns 0 when GCTL spot price is unavailable", () => {
       const fraction = createFraction({ step: parseUnits("100", 6).toString() });
       expect(calculateCostInUSDC(1, fraction, "SGCTL", 0.1, 0)).toBe(0);
+    });
+
+    it("uses delegation override amount for SGCTL pricing", () => {
+      const fraction = createFraction({ step: parseUnits("999999", 6).toString() });
+      const overrideStep = parseUnits("28.152", 6);
+      expect(
+        calculateCostInUSDC(1, fraction, "SGCTL", 0.1, 0.5, overrideStep)
+      ).toBeCloseTo(14.076, 6);
     });
   });
 });

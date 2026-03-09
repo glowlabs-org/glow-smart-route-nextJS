@@ -8,6 +8,7 @@ import { describe, it, expect } from "vitest";
 import { parseUnits } from "viem";
 import {
   calculateEstimatedRewards,
+  calculateEstimatedRewardsBreakdown,
   calculateImpactPointsBreakdown,
   calculateCostInGLW,
   type ActiveFraction,
@@ -127,6 +128,23 @@ describe("calculateEstimatedRewards", () => {
 
       // SGCTL PD recovery is a different token, so GLW estimate is emission-only.
       expect(calculateEstimatedRewards(1, fraction, score)).toBe(10);
+    });
+
+    it("returns SGCTL PD amount in rewards breakdown for multi-asset listings", () => {
+      const fraction = createFraction({
+        totalSteps: 10,
+        delegationAsset: "SGCTL",
+      });
+      const score = createLaunchpadScore({
+        userWeeklyGlwRewards: parseUnits("100", 18).toString(), // 100 GLW emissions
+        userWeeklyPdRewards: parseUnits("50", 6).toString(), // 50 SGCTL PD recovery
+      });
+
+      const breakdown = calculateEstimatedRewardsBreakdown(1, fraction, score);
+      expect(breakdown.glw).toBe(10);
+      expect(breakdown.pd).toBe(5);
+      expect(breakdown.pdSymbol).toBe("SGCTL");
+      expect(breakdown.totalGlwEquivalent).toBe(10);
     });
 
     it("avoids division by zero with totalSteps=0", () => {

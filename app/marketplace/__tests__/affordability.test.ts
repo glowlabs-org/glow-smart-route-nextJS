@@ -7,6 +7,7 @@
 import { describe, it, expect } from "vitest";
 import { parseUnits } from "viem";
 import {
+  calculateAvailableStakedGctl,
   calculateShortfall,
   calculateAffordability,
   coerceToBigInt,
@@ -89,6 +90,25 @@ describe("affordability edge cases", () => {
     expect(result.canSubmit).toBe(false);
   });
 
+  it("derives available staked GCTL by removing pending unstake/restake amounts", () => {
+    expect(
+      calculateAvailableStakedGctl({
+        totalStaked: parseUnits("100", 6),
+        pendingUnstake: parseUnits("10", 6),
+        pendingRestakeOut: parseUnits("2.5", 6),
+      })
+    ).toBe(parseUnits("87.5", 6));
+  });
+
+  it("supports already-adjusted stake snapshots from backend", () => {
+    expect(
+      calculateAvailableStakedGctl({
+        totalStakedAndNotUsedInProtocolFees: parseUnits("28.15244", 6),
+        pendingUnstake: parseUnits("1000", 6),
+      })
+    ).toBe(parseUnits("28.15244", 6));
+  });
+
   it("handles fractional quantity by flooring", () => {
     // 1.9 should be treated as 1
     const result = calculateAffordability(createInput({ quantity: 1.9 }));
@@ -154,6 +174,40 @@ describe("GLW payment affordability", () => {
 });
 
 describe("GCTL payment affordability (SGCTL delegation)", () => {
+  it("supports explicit SGCTL staked payment method", () => {
+    const result = calculateAffordability(
+      createInput({
+        activeFraction: createFraction({ step: parseUnits("25", 6).toString() }),
+        quantity: 4,
+        selectedCurrency: "SGCTL",
+        selectedPaymentMethod: "SGCTL",
+        stakedGctlBalance: parseUnits("100", 6),
+        gctlBalance: 0n,
+      })
+    );
+
+    expect(result.requiredByMethod.SGCTL).toBe(parseUnits("100", 6));
+    expect(result.hasEnoughByMethod.SGCTL).toBe(true);
+    expect(result.canSubmit).toBe(true);
+  });
+
+  it("fails explicit SGCTL staked payment when regional stake is insufficient", () => {
+    const result = calculateAffordability(
+      createInput({
+        activeFraction: createFraction({ step: parseUnits("25", 6).toString() }),
+        quantity: 4,
+        selectedCurrency: "SGCTL",
+        selectedPaymentMethod: "SGCTL",
+        stakedGctlBalance: parseUnits("20", 6),
+        gctlBalance: parseUnits("1000", 6),
+      })
+    );
+
+    expect(result.requiredByMethod.SGCTL).toBe(parseUnits("100", 6));
+    expect(result.hasEnoughByMethod.SGCTL).toBe(false);
+    expect(result.canSubmit).toBe(false);
+  });
+
   it("calculates required GCTL correctly", () => {
     const result = calculateAffordability(
       createInput({
@@ -199,6 +253,20 @@ describe("GCTL payment affordability (SGCTL delegation)", () => {
 
     expect(result.hasEnoughByMethod.GCTL).toBe(false);
     expect(result.canSubmit).toBe(false);
+  });
+
+  it("uses delegation step override for SGCTL requirements", () => {
+    const result = calculateAffordability(
+      createInput({
+        activeFraction: createFraction({ step: parseUnits("999999", 6).toString() }),
+        delegationStepAtomic: parseUnits("28.152", 6),
+        quantity: 1,
+        selectedCurrency: "SGCTL",
+        selectedPaymentMethod: "GCTL",
+      })
+    );
+
+    expect(result.requiredByMethod.GCTL).toBe(parseUnits("28.152", 6));
   });
 });
 
@@ -397,6 +465,21 @@ describe("USDC payment affordability (SGCTL mint and stake)", () => {
 
     expect(result.requiredByMethod.USDC).toBeNull();
     expect(result.hasEnoughByMethod.USDC).toBe(false);
+  });
+
+  it("uses delegation step override when pricing SGCTL shortfall", () => {
+    const result = calculateAffordability(
+      createInput({
+        activeFraction: createFraction({ step: parseUnits("999999", 6).toString() }),
+        delegationStepAtomic: parseUnits("28.152", 6),
+        selectedCurrency: "SGCTL",
+        selectedPaymentMethod: "USDC",
+        gctlSpotPrice: 0.5,
+      })
+    );
+
+    expect(result.requiredByMethod.GCTL).toBe(parseUnits("28.152", 6));
+    expect(result.requiredByMethod.USDC).toBe(parseUnits("14.35752", 6));
   });
 });
 

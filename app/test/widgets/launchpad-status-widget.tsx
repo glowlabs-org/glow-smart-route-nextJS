@@ -120,7 +120,9 @@ function getDelegationPaymentCurrency(
   return "GLW";
 }
 
-function getPaymentCurrencyDecimals(currency: "USDC" | "GLW" | "SGCTL"): number {
+function getPaymentCurrencyDecimals(
+  currency: "USDC" | "GLW" | "SGCTL",
+): number {
   if (currency === "SGCTL") return DECIMALS_BY_TOKEN.GCTL;
   return DECIMALS_BY_TOKEN[currency];
 }
@@ -188,6 +190,7 @@ interface ListingRow {
   scoreData: LaunchpadRewardScore | MiningCenterScore | null;
   cost: number;
   weeklyYield: number;
+  weeklyPdYield: number;
   weeklyYieldUsd: number;
   totalAmountNeeded: number;
   rewardScore: number | null;
@@ -399,6 +402,22 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           return 0;
         }
       })();
+      const weeklyPdYield = (() => {
+        try {
+          if (application._type === "miners") return 0;
+          const totalShares = application.activeFraction?.totalSteps || 0;
+          if (!reward || !totalShares) return 0;
+          const pdRewards = parseFloat(
+            formatUnits(
+              BigInt(reward.userWeeklyPdRewards || "0"),
+              getPaymentCurrencyDecimals(delegationCurrency || "GLW"),
+            ),
+          );
+          return pdRewards / totalShares;
+        } catch {
+          return 0;
+        }
+      })();
 
       const totalAmountNeeded = (() => {
         if (!application.activeFraction) return 0;
@@ -432,7 +451,8 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           String(reward.userWeeklyPdRewardsUsd || "0"),
         );
         const totalUsd = glwRewardsUsd + pdRewardsUsd;
-        if (!Number.isFinite(totalUsd)) return weeklyYield * (glwSpotPrice || 0);
+        if (!Number.isFinite(totalUsd))
+          return weeklyYield * (glwSpotPrice || 0);
         return totalUsd / totalShares;
       })();
 
@@ -449,6 +469,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
         scoreData,
         cost,
         weeklyYield,
+        weeklyPdYield,
         weeklyYieldUsd,
         totalAmountNeeded,
         rewardScore,
@@ -547,6 +568,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
       availability,
       cost,
       weeklyYield,
+      weeklyPdYield,
       weeklyYieldUsd,
       totalAmountNeeded,
       rewardScore,
@@ -734,7 +756,10 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                 <Skeleton className="h-5 w-16 sm:w-20 mb-1" />
                 <Skeleton className="h-3 w-12 sm:w-16" />
               </div>
-            ) : weeklyYield > 0 ? (
+            ) : weeklyYield > 0 ||
+              (!isMiner &&
+                delegationCurrency === "SGCTL" &&
+                weeklyPdYield > 0) ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex flex-col p-2 sm:p-3 rounded-lg bg-muted/30 dark:bg-muted/50 cursor-help">
@@ -745,14 +770,23 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                       <HelpCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-muted-foreground/60" />
                     </div>
                     <div className="flex items-baseline gap-0.5 sm:gap-1 flex-wrap">
-                      <span className="text-base sm:text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
-                        +{formatNumber(weeklyYield, 1)}
-                      </span>
-                      <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
-                        GLW
-                        {weeklyYieldUsd > 0 &&
-                          ` · $${formatNumber(weeklyYieldUsd, 2)}`}
-                      </span>
+                      {isMiner || delegationCurrency !== "SGCTL" ? (
+                        <>
+                          <span className="text-base sm:text-lg font-bold text-foreground font-mono tabular-nums leading-tight">
+                            +{formatNumber(weeklyYield, 1)}
+                          </span>
+                          <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
+                            GLW
+                            {weeklyYieldUsd > 0 &&
+                              ` · $${formatNumber(weeklyYieldUsd, 2)}`}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-base font-bold text-foreground font-mono tabular-nums leading-tight">
+                          +{formatNumber(weeklyYield, 1)} GLW +{" "}
+                          {formatNumber(weeklyPdYield, 1)} SGCTL
+                        </span>
+                      )}
                     </div>
                     <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
                       {`for ${isMiner ? "99" : "100"} weeks`}

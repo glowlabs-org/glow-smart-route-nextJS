@@ -408,6 +408,9 @@ export function useGctlApi(
         queryKey: QUERY_KEYS.gctlBalance(walletAddress),
       });
       await queryClient.invalidateQueries({
+        queryKey: APP_QUERY_KEYS.wallets.details(walletAddress),
+      });
+      await queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.regionStake(regionId),
       });
       await queryClient.invalidateQueries({
@@ -444,6 +447,9 @@ export function useGctlApi(
         queryKey: QUERY_KEYS.gctlBalance(walletAddress),
       });
       await queryClient.invalidateQueries({
+        queryKey: APP_QUERY_KEYS.wallets.details(walletAddress),
+      });
+      await queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.regionStake(regionId),
       });
       await queryClient.invalidateQueries({
@@ -478,6 +484,9 @@ export function useGctlApi(
     onSuccess: async (_res, { fromZoneId, toZoneId }) => {
       await queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.gctlBalance(walletAddress),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: APP_QUERY_KEYS.wallets.details(walletAddress),
       });
       await queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.regionStake(fromZoneId),

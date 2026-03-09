@@ -22,7 +22,7 @@ export interface ActiveFraction {
 }
 
 export type DepositSelectedCurrency = "GLW" | "SGCTL" | "USDC";
-export type DepositPaymentMethod = "GLW" | "GCTL" | "USDC" | "ETH";
+export type DepositPaymentMethod = "GLW" | "SGCTL" | "GCTL" | "USDC" | "ETH";
 export type DepositDialogMode =
   | "miners"
   | "glw_delegation"
@@ -40,6 +40,7 @@ export interface ContractErrorConfig {
 
 export interface AffordabilityInput {
   activeFraction: ActiveFraction | null;
+  delegationStepAtomic?: bigint | null;
   quantity: number;
   selectedCurrency: DepositSelectedCurrency;
   selectedPaymentMethod: DepositPaymentMethod;
@@ -61,6 +62,12 @@ export interface AffordabilityResult {
 }
 
 export type BigintLike = bigint | string | number | null | undefined;
+export interface WalletRegionStakeSnapshot {
+  totalStaked?: BigintLike;
+  totalStakedAndNotUsedInProtocolFees?: BigintLike;
+  pendingUnstake?: BigintLike;
+  pendingRestakeOut?: BigintLike;
+}
 
 export interface TransactionStep {
   id: string;
@@ -91,6 +98,13 @@ export interface ImpactPointsBreakdown {
   emissionPoints: number;
   vaultBonusPoints: number;
   total: number;
+}
+
+export interface EstimatedRewardsBreakdown {
+  glw: number;
+  pd: number;
+  pdSymbol: "GLW" | "SGCTL" | null;
+  totalGlwEquivalent: number;
 }
 
 // ============================================================================
@@ -354,19 +368,37 @@ export async function withInternalRpcRetry<T>(
 
 export function calculateCostInGLW(
   quantity: number,
-  activeFraction: ActiveFraction | null
+  activeFraction: ActiveFraction | null,
+  delegationStepAtomic?: bigint | null
 ): number {
   if (!activeFraction) return 0;
-  const step = parseFloat(formatUnits(BigInt(activeFraction.step), 18));
+  const fallbackStep = (() => {
+    try {
+      return BigInt(activeFraction.step);
+    } catch {
+      return 0n;
+    }
+  })();
+  const stepAtomic = delegationStepAtomic ?? fallbackStep;
+  const step = parseFloat(formatUnits(stepAtomic, 18));
   return step * quantity;
 }
 
 export function calculateCostInGCTL(
   quantity: number,
-  activeFraction: ActiveFraction | null
+  activeFraction: ActiveFraction | null,
+  delegationStepAtomic?: bigint | null
 ): number {
   if (!activeFraction) return 0;
-  const step = parseFloat(formatUnits(BigInt(activeFraction.step), 6));
+  const fallbackStep = (() => {
+    try {
+      return BigInt(activeFraction.step);
+    } catch {
+      return 0n;
+    }
+  })();
+  const stepAtomic = delegationStepAtomic ?? fallbackStep;
+  const step = parseFloat(formatUnits(stepAtomic, 6));
   return step * quantity;
 }
 
@@ -375,7 +407,8 @@ export function calculateCostInUSDC(
   activeFraction: ActiveFraction | null,
   selectedCurrency: DepositSelectedCurrency,
   glwSpotPrice: number,
-  gctlSpotPrice?: number
+  gctlSpotPrice?: number,
+  delegationStepAtomic?: bigint | null
 ): number {
   if (!activeFraction) return 0;
   if (selectedCurrency === "USDC") {
@@ -387,12 +420,20 @@ export function calculateCostInUSDC(
   }
 
   if (selectedCurrency === "SGCTL") {
-    const gctlCost = calculateCostInGCTL(quantity, activeFraction);
+    const gctlCost = calculateCostInGCTL(
+      quantity,
+      activeFraction,
+      delegationStepAtomic
+    );
     return gctlCost * (gctlSpotPrice || 0);
   }
 
   // Delegation (via swap): GLW cost * spot price
-  const glwCost = calculateCostInGLW(quantity, activeFraction);
+  const glwCost = calculateCostInGLW(
+    quantity,
+    activeFraction,
+    delegationStepAtomic
+  );
   return glwCost * (glwSpotPrice || 0);
 }
 
@@ -402,14 +443,16 @@ export function calculateCostInETH(
   selectedCurrency: DepositSelectedCurrency,
   glwSpotPrice: number,
   ethSpotPrice: number,
-  gctlSpotPrice?: number
+  gctlSpotPrice?: number,
+  delegationStepAtomic?: bigint | null
 ): number {
   const usdcCost = calculateCostInUSDC(
     quantity,
     activeFraction,
     selectedCurrency,
     glwSpotPrice,
-    gctlSpotPrice
+    gctlSpotPrice,
+    delegationStepAtomic
   );
   return ethSpotPrice > 0 ? usdcCost / ethSpotPrice : 0;
 }
@@ -436,6 +479,23 @@ export function coerceToBigInt(value: BigintLike): bigint {
   return 0n;
 }
 
+export function calculateAvailableStakedGctl(
+  snapshot?: WalletRegionStakeSnapshot | null
+): bigint {
+  if (!snapshot) return 0n;
+
+  if (snapshot.totalStakedAndNotUsedInProtocolFees != null) {
+    return coerceToBigInt(snapshot.totalStakedAndNotUsedInProtocolFees);
+  }
+
+  const totalStaked = coerceToBigInt(snapshot.totalStaked);
+  const pendingUnstake = coerceToBigInt(snapshot.pendingUnstake);
+  const pendingRestakeOut = coerceToBigInt(snapshot.pendingRestakeOut);
+  const unavailable = pendingUnstake + pendingRestakeOut;
+
+  return totalStaked > unavailable ? totalStaked - unavailable : 0n;
+}
+
 export function calculateShortfall(
   required: bigint | null,
   balance: BigintLike
@@ -450,6 +510,7 @@ export function calculateAffordability(
 ): AffordabilityResult {
   const {
     activeFraction,
+    delegationStepAtomic,
     quantity,
     selectedCurrency,
     selectedPaymentMethod,
@@ -464,9 +525,20 @@ export function calculateAffordability(
   } = input;
 
   const qty = BigInt(Math.max(0, Math.floor(quantity)));
+  const fallbackDelegationStepAtomic = (() => {
+    if (!activeFraction) return 0n;
+    try {
+      return BigInt(activeFraction.step);
+    } catch {
+      return 0n;
+    }
+  })();
+  const resolvedDelegationStepAtomic =
+    delegationStepAtomic ?? fallbackDelegationStepAtomic;
 
   const balances = {
     GLW: glwBalance,
+    SGCTL: stakedGctlBalance,
     GCTL: gctlBalance + stakedGctlBalance,
     USDC: usdcBalance,
     ETH: ethBalance,
@@ -474,6 +546,7 @@ export function calculateAffordability(
 
   const requiredByMethod: Record<DepositPaymentMethod, bigint | null> = {
     GLW: null,
+    SGCTL: null,
     GCTL: null,
     USDC: null,
     ETH: null,
@@ -483,18 +556,24 @@ export function calculateAffordability(
     return {
       requiredByMethod,
       balances,
-      hasEnoughByMethod: { GLW: false, GCTL: false, USDC: false, ETH: false },
+      hasEnoughByMethod: {
+        GLW: false,
+        SGCTL: false,
+        GCTL: false,
+        USDC: false,
+        ETH: false,
+      },
       canSubmit: false,
     };
   }
 
   // GLW required (delegate directly)
   if (selectedCurrency === "GLW") {
-    requiredByMethod.GLW = BigInt(activeFraction.step) * qty;
+    requiredByMethod.GLW = resolvedDelegationStepAtomic * qty;
   }
 
   const gctlNeeded =
-    selectedCurrency === "SGCTL" ? BigInt(activeFraction.step) * qty : 0n;
+    selectedCurrency === "SGCTL" ? resolvedDelegationStepAtomic * qty : 0n;
   const gctlShortfall =
     selectedCurrency === "SGCTL"
       ? gctlNeeded > stakedGctlBalance
@@ -503,6 +582,7 @@ export function calculateAffordability(
       : 0n;
 
   if (selectedCurrency === "SGCTL") {
+    requiredByMethod.SGCTL = gctlNeeded;
     requiredByMethod.GCTL = gctlNeeded;
   }
 
@@ -522,7 +602,7 @@ export function calculateAffordability(
     }
   } else {
     if (Number.isFinite(glwSpotPrice) && glwSpotPrice > 0) {
-      const glwNeeded = BigInt(activeFraction.step) * qty; // 18 decimals
+      const glwNeeded = resolvedDelegationStepAtomic * qty; // 18 decimals
       const glwPrice = parseUnits(glwSpotPrice.toFixed(6), 6); // USDC price (6 decimals)
       const rawUsdcCost = (glwNeeded * glwPrice) / BigInt(1e18); // 6 decimals
       requiredByMethod.USDC = (rawUsdcCost * 102n) / 100n; // 2% buffer
@@ -558,6 +638,9 @@ export function calculateAffordability(
 
   const hasEnoughByMethod: Record<DepositPaymentMethod, boolean> = {
     GLW: requiredByMethod.GLW != null && balances.GLW >= requiredByMethod.GLW,
+    SGCTL:
+      requiredByMethod.SGCTL != null &&
+      balances.SGCTL >= requiredByMethod.SGCTL,
     GCTL:
       requiredByMethod.GCTL != null && balances.GCTL >= requiredByMethod.GCTL,
     USDC:
@@ -602,6 +685,8 @@ export function initializeTransactionSteps(
         ? "mint_eth"
         : selectedPaymentMethod === "USDC"
         ? "mint_usdc"
+        : selectedPaymentMethod === "SGCTL"
+        ? "staked"
         : "wallet_gctl");
 
     if (sgctlSource === "mint_usdc" || sgctlSource === "mint_eth") {
@@ -696,9 +781,24 @@ export function calculateEstimatedRewards(
   activeFraction: ActiveFraction | null,
   rewardScore: RewardScore | null
 ): number {
-  if (!activeFraction || !rewardScore) return 0;
+  return calculateEstimatedRewardsBreakdown(
+    quantity,
+    activeFraction,
+    rewardScore
+  ).totalGlwEquivalent;
+}
 
+export function calculateEstimatedRewardsBreakdown(
+  quantity: number,
+  activeFraction: ActiveFraction | null,
+  rewardScore: RewardScore | null
+): EstimatedRewardsBreakdown {
+  if (!activeFraction || !rewardScore) {
+    return { glw: 0, pd: 0, pdSymbol: null, totalGlwEquivalent: 0 };
+  }
   let weeklyGlw = 0;
+  let weeklyPd = 0;
+  let pdSymbol: "GLW" | "SGCTL" | null = null;
   const totalShares = activeFraction.totalSteps || 1; // avoid div 0
 
   if ("userWeeklyGlwRewards" in rewardScore) {
@@ -710,10 +810,9 @@ export function calculateEstimatedRewards(
     const pd = parseFloat(
       formatUnits(BigInt(rewardScore.userWeeklyPdRewards), pdDecimals)
     );
-    // SGCTL-phase PD recovery is denominated in SGCTL, so keep GLW totals emission-only.
-    weeklyGlw =
-      (glw + (activeFraction?.delegationAsset === "SGCTL" ? 0 : pd)) /
-      totalShares;
+    weeklyGlw = glw / totalShares;
+    weeklyPd = pd / totalShares;
+    pdSymbol = activeFraction?.delegationAsset === "SGCTL" ? "SGCTL" : "GLW";
   } else if ("miningScore" in rewardScore) {
     // Mining
     if (rewardScore.weeklyGlwRewards) {
@@ -722,8 +821,17 @@ export function calculateEstimatedRewards(
       );
     }
   }
+  const glwAmount = weeklyGlw * quantity;
+  const pdAmount = weeklyPd * quantity;
+  const totalGlwEquivalent =
+    glwAmount + (pdSymbol === "GLW" ? pdAmount : 0);
 
-  return weeklyGlw * quantity;
+  return {
+    glw: glwAmount,
+    pd: pdAmount,
+    pdSymbol,
+    totalGlwEquivalent,
+  };
 }
 
 export function calculateImpactPointsBreakdown(

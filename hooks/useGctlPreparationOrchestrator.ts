@@ -323,6 +323,7 @@ export function useGctlPreparationOrchestrator(options?: {
         params.stepIds?.mintAndStake,
         "completed"
       );
+      await invalidateAllQueries();
 
       return {
         txHash,
@@ -337,6 +338,7 @@ export function useGctlPreparationOrchestrator(options?: {
       checkTokenAllowance,
       checkTokenBalance,
       estimateEthForUsdcTarget,
+      invalidateAllQueries,
       isConnected,
       mintGCTLAndStake,
       signer,
