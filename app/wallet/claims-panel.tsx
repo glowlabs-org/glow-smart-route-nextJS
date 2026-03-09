@@ -1164,10 +1164,6 @@ export function ClaimsPanel({
     });
   const claimStageStatusesRef = React.useRef<ClaimStageMap>(claimStageStatuses);
   const [isPreparingClaimAll, setIsPreparingClaimAll] = React.useState(false);
-  const [emissionsBatchProgress, setEmissionsBatchProgress] = React.useState<{
-    current: number;
-    total: number;
-  } | null>(null);
 
   const trackedStageUpdatesRef = React.useRef<Set<string>>(new Set());
   const trackedStageTxRef = React.useRef<Set<string>>(new Set());
@@ -1312,25 +1308,6 @@ export function ClaimsPanel({
 
       const { protocolClaimed } = getWeekClaimState(weekData);
       return !protocolClaimed;
-    });
-  }, [weeklyBreakdown, getWeekClaimState]);
-
-  const claimableInflationWeeks = React.useMemo(() => {
-    const currentEpoch = getCurrentEpoch();
-
-    return weeklyBreakdown.filter((weekData) => {
-      const hasInflationRewards = weekData.rewards.some(
-        (reward) => reward.type === "glowInflation"
-      );
-      if (!hasInflationRewards) return false;
-      const hasProtocolRewards = weekData.rewards.some(
-        (reward) => reward.type === "protocolDeposit"
-      );
-      const emissionsUnlockOffset = hasProtocolRewards ? 4 : 3;
-      if (weekData.week > currentEpoch - emissionsUnlockOffset) return false;
-
-      const { glwClaimed } = getWeekClaimState(weekData);
-      return !glwClaimed;
     });
   }, [weeklyBreakdown, getWeekClaimState]);
 
@@ -1706,154 +1683,6 @@ export function ClaimsPanel({
     claimableProtocolWeeks,
     checkSmartAccount,
     claimAllProtocolDepositsInOneTx,
-    refetch,
-    onClaimSuccess,
-  ]);
-
-  const handleClaimAllEmissions = React.useCallback(async () => {
-    if (!address || !isConnected) {
-      toast.info("Connect your wallet to claim rewards.");
-      return;
-    }
-
-    if (claimableInflationWeeks.length === 0) {
-      toast.info("No emission rewards available to claim.");
-      return;
-    }
-
-    const isSmartAccount = await checkSmartAccount();
-    if (isSmartAccount) {
-      setShowSmartAccountWarning(true);
-      setTriggerSmartAccountCheck(true);
-      return;
-    }
-
-    const totalWeeks = claimableInflationWeeks.length;
-    setEmissionsBatchProgress({ current: 0, total: totalWeeks });
-
-    const hotWalletAddress = getHotWalletAddress();
-    const lowerAddress = address.toLowerCase();
-    let claimedCount = 0;
-    const failedWeeks: number[] = [];
-    const skippedWeeks: number[] = [];
-    let cancelledByUser = false;
-
-    try {
-      for (let index = 0; index < totalWeeks; index += 1) {
-        const weekData = claimableInflationWeeks[index];
-        setEmissionsBatchProgress({ current: index, total: totalWeeks });
-
-        try {
-          const report = await fetchWeeklyReportData(weekData.week);
-          const userProof =
-            report.readableLeaves.find(
-              (leaf) => leaf.user.toLowerCase() === lowerAddress
-            ) ?? null;
-
-          if (!userProof || !userProof.glowInflationEarnedLeafWeight) {
-            skippedWeeks.push(weekData.week);
-            continue;
-          }
-
-          const inflationRewards = weekData.rewards.filter(
-            (reward) => reward.type === "glowInflation"
-          );
-          if (inflationRewards.length === 0) {
-            skippedWeeks.push(weekData.week);
-            continue;
-          }
-
-          const txHash = await claimWeekRewards(
-            weekData.week,
-            inflationRewards,
-            weekToNonce(weekData.week),
-            userProof.v1MerkleProof.map((p) => p as `0x${string}`),
-            userProof.v2MerkleProof.map((p) => p as `0x${string}`),
-            hotWalletAddress,
-            userProof.glowInflationEarnedLeafWeight,
-            undefined,
-            {
-              suppressWeekSuccessToast: true,
-              throwOnUserRejected: true,
-            }
-          );
-
-          if (txHash) {
-            claimedCount += 1;
-            setV1ClaimedWeeks((prev) => {
-              const next = new Set(prev);
-              next.add(weekData.week);
-              return next;
-            });
-          } else {
-            skippedWeeks.push(weekData.week);
-          }
-        } catch (error) {
-          if (isUserRejectedClaimError(error)) {
-            cancelledByUser = true;
-            break;
-          }
-
-          console.error(
-            `Failed to claim emission rewards for week ${weekData.week}:`,
-            error
-          );
-          failedWeeks.push(weekData.week);
-        } finally {
-          setEmissionsBatchProgress({
-            current: index + 1,
-            total: totalWeeks,
-          });
-        }
-      }
-
-      if (cancelledByUser) {
-        const summaryParts: string[] = [];
-        if (claimedCount > 0) {
-          summaryParts.push(`${claimedCount} week(s) claimed`);
-        }
-        if (failedWeeks.length > 0) {
-          summaryParts.push(`${failedWeeks.length} failed`);
-        }
-        if (skippedWeeks.length > 0) {
-          summaryParts.push(`${skippedWeeks.length} skipped`);
-        }
-      } else if (claimedCount > 0 && failedWeeks.length === 0) {
-        const skippedDescription =
-          skippedWeeks.length > 0
-            ? `${skippedWeeks.length} week(s) were skipped (already claimed or unavailable).`
-            : undefined;
-        toast.success(`Claimed emissions from ${claimedCount} week(s)`, {
-          description: skippedDescription,
-        });
-      } else if (claimedCount > 0 && failedWeeks.length > 0) {
-        toast.warning(
-          `Claimed emissions for ${claimedCount} week(s), ${failedWeeks.length} failed`,
-          {
-            description: `Failed weeks: ${failedWeeks.join(", ")}`,
-          }
-        );
-      } else if (failedWeeks.length > 0) {
-        toast.error("Failed to claim emission rewards", {
-          description: `Failed weeks: ${failedWeeks.join(", ")}`,
-        });
-      } else {
-        toast.info("All emission rewards are already claimed or unavailable.");
-      }
-
-      refetch();
-      if (claimedCount > 0 && onClaimSuccess) {
-        onClaimSuccess();
-      }
-    } finally {
-      setEmissionsBatchProgress(null);
-    }
-  }, [
-    address,
-    isConnected,
-    claimableInflationWeeks,
-    checkSmartAccount,
-    claimWeekRewards,
     refetch,
     onClaimSuccess,
   ]);
@@ -2254,13 +2083,10 @@ export function ClaimsPanel({
       : `${totalClaimedWeeks} weeks`;
 
   const isEverythingClaimed = totalClaimableWeeks === 0;
-  const isBulkClaiming =
-    isClaimingAll || isPreparingClaimAll || emissionsBatchProgress !== null;
+  const isBulkClaiming = isClaimingAll || isPreparingClaimAll;
   const isBulkClaimBusy = isBulkClaiming || claimDialogStatus === "processing";
   const isClaimAllProtocolDisabled =
     claimableProtocolWeeks.length === 0 || isBulkClaimBusy;
-  const isClaimAllEmissionsDisabled =
-    claimableInflationWeeks.length === 0 || isBulkClaimBusy;
 
   // Don't show panel if not connected
   if (!isConnected || !address) {
@@ -2275,27 +2101,6 @@ export function ClaimsPanel({
   const content = (
     <div className={cn("space-y-6", isDialog && "pr-4")}>
       <div className="flex flex-wrap justify-end gap-2">
-        <Button
-          onClick={handleClaimAllEmissions}
-          disabled={isClaimAllEmissionsDisabled}
-          className="w-full sm:w-auto"
-          variant="outline"
-        >
-          {emissionsBatchProgress ? (
-            <>
-              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              Claiming Emissions {emissionsBatchProgress.current}/
-              {emissionsBatchProgress.total}
-            </>
-          ) : (
-            <>
-              Claim All Emissions
-              <Badge variant="secondary" className="ml-2 font-mono text-xs">
-                {claimableInflationWeeks.length}
-              </Badge>
-            </>
-          )}
-        </Button>
         <Button
           onClick={handleClaimAllProtocolDeposits}
           disabled={isClaimAllProtocolDisabled}
