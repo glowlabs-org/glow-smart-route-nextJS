@@ -54,6 +54,7 @@ import { usePolLiquidity } from "@/hooks/usePolLiquidity";
 import { usePolSummary } from "@/hooks/usePolSummary";
 import {
   parseLqUnits,
+  resolveDisplayLifetimeLq,
   usePolRevenueAggregate,
   usePolRevenueFarms,
   usePolRevenueRegions,
@@ -4740,7 +4741,7 @@ export function PolDashboardView() {
 
       return {
         region: regionName,
-        lifetimeLq: parseLqUnits(r.lifetime_lq ?? null),
+        lifetimeLq: resolveDisplayLifetimeLq(r),
         ninetyDayLq: parseLqUnits(r.ninety_day_lq ?? null),
         farms:
           (r as any).farm_count ??
