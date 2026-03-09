@@ -1328,11 +1328,9 @@ export default function MyFarmsGridSection({
   }, [rewardsBreakdown]);
 
   const unsortedFarmCards = React.useMemo<FarmCardData[]>(() => {
-    if (!rewardsBreakdown) return [];
-
     const cards: FarmCardData[] = [];
 
-    rewardsBreakdown.farmDetails.forEach((farm) => {
+    (rewardsBreakdown?.farmDetails ?? []).forEach((farm) => {
       const farmMetadata = purchasedFarms.find((f) => f.farmId === farm.farmId);
       const regionName = (() => {
         if (!farmMetadata) return "—";
@@ -1411,7 +1409,7 @@ export default function MyFarmsGridSection({
       }
     });
 
-    (rewardsBreakdown.otherFarmsWithRewards?.farms ?? []).forEach((farm) => {
+    (rewardsBreakdown?.otherFarmsWithRewards?.farms ?? []).forEach((farm) => {
       const displayName =
         farm.farmName || `Farm ${farm.farmId.substring(0, 8)}`;
 

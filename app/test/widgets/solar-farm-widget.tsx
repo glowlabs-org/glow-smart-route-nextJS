@@ -59,6 +59,10 @@ import {
   deriveLaunchpadSponsorshipsInProgress,
   deriveMiningCenterSponsorshipsInProgress,
 } from "@/utils/sponsorships-in-progress";
+import {
+  calculateLaunchpadPerShareRewards,
+  resolveDelegationCurrency,
+} from "@/utils/launchpad-rewards";
 import { QUERY_KEYS } from "@/hooks/query-keys";
 import { trackEvent } from "@/lib/telemetry";
 import { GENESIS_TIMESTAMP, getCurrentEpoch } from "@/utils/getCurrentEpoch";
@@ -719,6 +723,48 @@ export default function SolarFarmWidget({
   const activeListingsCount =
     activeDelegationsListingsCount + activeMinersListingsCount;
 
+  const inProgressEstimatedByAsset = React.useMemo(() => {
+    const totals = new Map<string, number>();
+
+    const add = (assetInput: string, amount: number) => {
+      if (!Number.isFinite(amount) || amount <= 0) return;
+      const asset = assetInput.toUpperCase();
+      totals.set(asset, (totals.get(asset) ?? 0) + amount);
+    };
+
+    for (const item of sponsorshipsInProgressWithEstimates) {
+      add("GLW", item.estimatedUserWeeklyGlw ?? 0);
+    }
+    for (const item of miningCenterInProgressWithEstimates) {
+      add("GLW", item.estimatedUserWeeklyGlw ?? 0);
+    }
+
+    for (const item of sponsorshipsInProgress) {
+      const delegationCurrency = resolveDelegationCurrency(item.application);
+      if (delegationCurrency !== "SGCTL") continue;
+
+      const totalSteps = item.application?.activeFraction?.totalSteps ?? null;
+      const rewardScore = rewardScoreMap.get(item.applicationId) ?? null;
+      if (!rewardScore) continue;
+      if (typeof totalSteps !== "number" || totalSteps <= 0) continue;
+      if (!item.userSteps || item.userSteps <= 0) continue;
+
+      const perShare = calculateLaunchpadPerShareRewards({
+        reward: rewardScore,
+        totalShares: totalSteps,
+        delegationCurrency: "SGCTL",
+      });
+      add("SGCTL", perShare.pdPerShare * item.userSteps);
+    }
+
+    return totals;
+  }, [
+    miningCenterInProgressWithEstimates,
+    rewardScoreMap,
+    sponsorshipsInProgress,
+    sponsorshipsInProgressWithEstimates,
+  ]);
+
   const {
     availableAssets,
     filledHistoryByAsset,
@@ -760,7 +806,9 @@ export default function SolarFarmWidget({
       }
     }
 
-    const assets = Array.from(amountsByAsset.keys()).sort((a, b) => {
+    const assets = Array.from(
+      new Set([...amountsByAsset.keys(), ...inProgressEstimatedByAsset.keys()])
+    ).sort((a, b) => {
       if (a === "GLW") return -1;
       if (b === "GLW") return 1;
       return a.localeCompare(b);
@@ -809,7 +857,7 @@ export default function SolarFarmWidget({
       rawHistoryByAsset,
       hasHistoricalRewards,
     };
-  }, [data]);
+  }, [data, inProgressEstimatedByAsset]);
 
   React.useEffect(() => {
     if (!availableAssets.includes(selectedAsset)) {
@@ -824,6 +872,10 @@ export default function SolarFarmWidget({
   const selectedAssetRawHistory = React.useMemo<AssetHistoryPoint[]>(() => {
     return rawHistoryByAsset.get(selectedAsset) ?? [];
   }, [rawHistoryByAsset, selectedAsset]);
+
+  const selectedAssetEstimatedInProgress = React.useMemo(() => {
+    return inProgressEstimatedByAsset.get(selectedAsset) ?? 0;
+  }, [inProgressEstimatedByAsset, selectedAsset]);
 
   const chartBarColor = React.useMemo(
     () => getAssetBarColor(selectedAsset),
@@ -841,7 +893,12 @@ export default function SolarFarmWidget({
   );
 
   const stats = React.useMemo(() => {
-    const last = selectedAssetRawHistory.at(-1)?.amount ?? 0;
+    const historicalLast = selectedAssetRawHistory.at(-1)?.amount ?? 0;
+    const isEstimatedWeeklyPayout =
+      historicalLast <= 0 && selectedAssetEstimatedInProgress > 0;
+    const weeklyPayout = isEstimatedWeeklyPayout
+      ? selectedAssetEstimatedInProgress
+      : historicalLast;
 
     const activeMiners = data
       ? data.farmStatistics.minerOnlyFarms + data.farmStatistics.bothTypesFarms
@@ -852,7 +909,8 @@ export default function SolarFarmWidget({
       : 0;
 
     return {
-      weeklyPayout: last,
+      weeklyPayout,
+      isEstimatedWeeklyPayout,
       activeMiners,
       activeDelegations,
       activeOtherRewards:
@@ -860,7 +918,7 @@ export default function SolarFarmWidget({
         data?.otherFarmsWithRewards?.farms.length ??
         0,
     };
-  }, [data, selectedAssetRawHistory]);
+  }, [data, selectedAssetEstimatedInProgress, selectedAssetRawHistory]);
 
   const visibleStatsItems = React.useMemo(() => {
     const items = [
@@ -1284,13 +1342,16 @@ export default function SolarFarmWidget({
                   {/* KPI: Latest weekly earnings */}
                   <div className="flex flex-col gap-1.5 min-w-0">
                     <span className="text-[9px] uppercase text-muted-foreground/50 font-mono tracking-widest">
-                      Latest Weekly Earnings
+                      {stats.isEstimatedWeeklyPayout
+                        ? "Est. Weekly Rewards"
+                        : "Latest Weekly Earnings"}
                     </span>
                     <div className="flex items-center gap-3 min-w-0">
                       <Sun className="w-5 h-5 text-emerald-500 fill-emerald-500/20" />
                       <div className="flex flex-col leading-none">
                         <div className="flex items-baseline gap-2">
                           <span className="text-4xl font-semibold text-foreground tracking-tight font-mono">
+                            {stats.isEstimatedWeeklyPayout ? "~" : ""}
                             {formatTokenCompact(stats.weeklyPayout)}
                           </span>
                           <span className="text-sm font-medium text-muted-foreground/50 font-mono">
