@@ -233,8 +233,11 @@ export function LaunchpadStatsDialog({
             : "Estimated GLW / Week",
         value:
           delegationCurrency === "SGCTL"
-            ? weeklyRewardsUsd
-              ? `$${weeklyRewardsUsd}`
+            ? weeklyGlwFromInflation > 0 || weeklyPdFromDeposit > 0
+              ? `${formatNumber(
+                  weeklyGlwFromInflation,
+                  2
+                )} GLW + ${formatNumber(weeklyPdFromDeposit, 2)} SGCTL`
               : "N/A"
             : totalWeeklyGlw > 0
             ? formatNumber(totalWeeklyGlw, 2)
@@ -245,10 +248,9 @@ export function LaunchpadStatsDialog({
             : "Expected weekly rewards from deposit recovery and GLW emission rewards share.",
         secondary:
           delegationCurrency === "SGCTL"
-            ? `${formatNumber(
-                weeklyGlwFromInflation,
-                2
-              )} GLW + ${formatNumber(weeklyPdFromDeposit, 2)} SGCTL`
+            ? weeklyRewardsUsd
+              ? `≈ $${weeklyRewardsUsd} USD`
+              : undefined
             : weeklyRewardsUsd
             ? `≈ $${weeklyRewardsUsd} USD`
             : undefined,

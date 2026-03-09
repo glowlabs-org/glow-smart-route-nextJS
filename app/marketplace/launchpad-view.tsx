@@ -1270,26 +1270,47 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                             delegationCurrency,
                                             glwSpotPrice,
                                           });
-                                        return perShareRewards.totalGlwPerShare.toLocaleString(
+                                        const emissionGlwLabel =
+                                          perShareRewards.emissionGlwPerShare.toLocaleString(
+                                            undefined,
+                                            {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                            }
+                                          );
+                                        const pdLabel =
+                                          perShareRewards.pdPerShare.toLocaleString(
+                                            undefined,
+                                            {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                            }
+                                          );
+                                        if (delegationCurrency === "SGCTL") {
+                                          return `${emissionGlwLabel} GLW + ${pdLabel} SGCTL`;
+                                        }
+                                        return `${perShareRewards.totalGlwPerShare.toLocaleString(
                                           undefined,
                                           {
                                             minimumFractionDigits: 2,
                                             maximumFractionDigits: 2,
                                           }
-                                        );
+                                        )} GLW`;
                                       })()
                                     : isRewardScoresLoading
                                     ? "..."
                                     : "0"}
-                                  <span
-                                    className="text-base text-muted-foreground ml-1"
-                                    style={{
-                                      fontFamily: "Söhne, sans-serif",
-                                      fontWeight: 500,
-                                    }}
-                                  >
-                                    GLW
-                                  </span>
+                                  {application._type === "miners" && (
+                                    <span
+                                      className="text-base text-muted-foreground ml-1"
+                                      style={{
+                                        fontFamily: "Söhne, sans-serif",
+                                        fontWeight: 500,
+                                      }}
+                                    >
+                                      GLW
+                                    </span>
+                                  )}
                                 </div>
 
                                 {application._type === "miners" ? (
@@ -1328,36 +1349,40 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                 ) : rewardScore?.userWeeklyGlwRewards &&
                                   rewardScore?.userWeeklyPdRewards &&
                                   application.activeFraction?.totalSteps ? (
-                                  <div
-                                    className="text-sm text-muted-foreground mt-2"
-                                    style={{
-                                      fontFamily: "Söhne, sans-serif",
-                                      fontWeight: 400,
-                                    }}
-                                  >
-                                    ≈ $
-                                    {(() => {
-                                      const delegationCurrency =
-                                        resolveDelegationCurrency(application);
-                                      const perShareRewards =
-                                        calculateLaunchpadPerShareRewards({
-                                          reward: rewardScore,
-                                          totalShares:
-                                            application.activeFraction
-                                              .totalSteps,
-                                          delegationCurrency,
-                                          glwSpotPrice,
-                                        });
-                                      return perShareRewards.totalUsdPerShare.toLocaleString(
-                                        undefined,
-                                        {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                        }
-                                      );
-                                    })()}{" "}
-                                    USD per week
-                                  </div>
+                                  (() => {
+                                    const delegationCurrency =
+                                      resolveDelegationCurrency(application);
+                                    if (delegationCurrency === "SGCTL") {
+                                      return null;
+                                    }
+                                    const perShareRewards =
+                                      calculateLaunchpadPerShareRewards({
+                                        reward: rewardScore,
+                                        totalShares:
+                                          application.activeFraction.totalSteps,
+                                        delegationCurrency,
+                                        glwSpotPrice,
+                                      });
+                                    return (
+                                      <div
+                                        className="text-sm text-muted-foreground mt-2"
+                                        style={{
+                                          fontFamily: "Söhne, sans-serif",
+                                          fontWeight: 400,
+                                        }}
+                                      >
+                                        ≈ $
+                                        {perShareRewards.totalUsdPerShare.toLocaleString(
+                                          undefined,
+                                          {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          }
+                                        )}{" "}
+                                        USD per week
+                                      </div>
+                                    );
+                                  })()
                                 ) : null}
                                 <div
                                   className="text-[10px] text-muted-foreground italic mt-3"
@@ -3132,12 +3157,48 @@ function LaunchpadWidgetHeroCarouselCard({
     return Math.max(0, Math.min(100, (remaining / total) * 100));
   }, [availability.remaining, availability.total, isSoldOut]);
 
+  const delegationRewardsBreakdown = React.useMemo(() => {
+    if (!isDelegation) return null;
+    if (!application.activeFraction?.totalSteps) return null;
+    if (!scoreData || !("userWeeklyGlwRewards" in scoreData)) return null;
+    try {
+      const perShareRewards = calculateLaunchpadPerShareRewards({
+        reward: scoreData,
+        totalShares: application.activeFraction.totalSteps,
+        delegationCurrency,
+        glwSpotPrice,
+      });
+      return {
+        emissionGlwPerShare: perShareRewards.emissionGlwPerShare,
+        pdPerShare: perShareRewards.pdPerShare,
+      };
+    } catch {
+      return null;
+    }
+  }, [
+    application.activeFraction?.totalSteps,
+    delegationCurrency,
+    glwSpotPrice,
+    isDelegation,
+    scoreData,
+  ]);
+
   const rewardsMain =
     isScoresLoading && weeklyYield === 0
       ? "…"
+      : isDelegation &&
+        delegationCurrency === "SGCTL" &&
+        delegationRewardsBreakdown
+      ? `+${formatSignedCompactNumber(
+          delegationRewardsBreakdown.emissionGlwPerShare
+        )} GLW + ${formatSignedCompactNumber(
+          delegationRewardsBreakdown.pdPerShare
+        )} SGCTL / wk`
       : `+${formatSignedCompactNumber(weeklyYield)} GLW / wk`;
   const rewardsSub =
-    glwSpotPrice > 0 && weeklyYield > 0
+    isDelegation && delegationCurrency === "SGCTL"
+      ? null
+      : glwSpotPrice > 0 && weeklyYield > 0
       ? `≈ $${formatSignedCompactNumber(weeklyYield * glwSpotPrice)} USD / wk`
       : null;
 
