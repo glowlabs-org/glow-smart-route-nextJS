@@ -35,6 +35,10 @@ import {
 } from "@/lib/fractions";
 import { useToast } from "@/hooks/use-toast";
 import { MiniCountdown } from "./mini-countdown";
+import {
+  getDelegationCurrencyDecimals,
+  resolveDelegationCurrency,
+} from "@/utils/launchpad-rewards";
 
 export interface ProtocolEventRowProps {
   id: string;
@@ -380,7 +384,7 @@ export function ProtocolActivity({
     isError: summaryError,
   } = useFractionsSummary({ enabled: shouldLoad });
 
-  // Fetch launchpad applications (GLW delegations)
+  // Fetch launchpad applications (GLW + SGCTL delegations)
   const {
     applications: launchpadApplications,
     isLoading: launchpadLoading,
@@ -389,7 +393,6 @@ export function ProtocolActivity({
     filters: {
       sortBy: "publishedOnAuctionTimestamp",
       sortOrder: "desc",
-      paymentCurrency: "GLW",
     },
     enabled: shouldLoad,
   });
@@ -472,6 +475,9 @@ export function ProtocolActivity({
         const remainingSteps = fraction.remainingSteps || 0;
         const totalSteps = fraction.totalSteps;
         const splitsSold = fraction.splitsSold || 0;
+        const delegationCurrency = resolveDelegationCurrency(app);
+        const delegationDecimals =
+          getDelegationCurrencyDecimals(delegationCurrency);
 
         // Calculate remaining value
         const stepPriceBigInt = BigInt(fraction.step);
@@ -479,7 +485,7 @@ export function ProtocolActivity({
 
         const remainingValueFormatted = formatNumber(
           parseFloat(
-            formatUnits(remainingValueBigInt, DECIMALS_BY_TOKEN["GLW"]),
+            formatUnits(remainingValueBigInt, delegationDecimals),
           ),
           0,
         );
@@ -488,7 +494,7 @@ export function ProtocolActivity({
         const totalDelegatedBigInt = stepPriceBigInt * BigInt(splitsSold);
         const totalDelegatedFormatted = formatNumber(
           parseFloat(
-            formatUnits(totalDelegatedBigInt, DECIMALS_BY_TOKEN["GLW"]),
+            formatUnits(totalDelegatedBigInt, delegationDecimals),
           ),
           0,
         );
@@ -501,21 +507,21 @@ export function ProtocolActivity({
         return {
           id: fraction.id,
           applicationId: app.id,
-          token: "GLW",
+          token: delegationCurrency,
           remainingStepsFormatted: remainingSteps.toLocaleString(),
-          remainingValueFormatted: `${remainingValueFormatted} GLW`,
+          remainingValueFormatted: `${remainingValueFormatted} ${delegationCurrency}`,
           remainingPercentFormatted: `${Math.round(
             (remainingSteps / totalSteps) * 100,
           )}%`,
           stepPriceFormatted: `${formatNumber(
-            parseFloat(formatUnits(stepPriceBigInt, DECIMALS_BY_TOKEN["GLW"])),
+            parseFloat(formatUnits(stepPriceBigInt, delegationDecimals)),
             0,
-          )} GLW`,
+          )} ${delegationCurrency}`,
           type: "launchpad" as const,
           rewardScore: rewardScore?.rewardScore || null,
           imageUrl: app.afterInstallPictures?.[0]?.url || undefined,
           zoneName: app.zone?.name || undefined,
-          totalDelegatedFormatted: `${totalDelegatedFormatted} GLW`,
+          totalDelegatedFormatted: `${totalDelegatedFormatted} ${delegationCurrency}`,
         };
       });
   }, [launchpadApplications, rewardScoreMap]);
@@ -670,7 +676,7 @@ export function ProtocolActivity({
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-semibold text-foreground">
-                      GLW Farm Delegation
+                      Launchpad Delegation
                     </h3>
                     <p className="mt-0.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
                       Community-backed solar farms

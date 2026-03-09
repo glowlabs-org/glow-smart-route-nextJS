@@ -1,7 +1,11 @@
-import { formatUnits } from "viem";
 import type { AuctionApplication, SplitActivity } from "@/hooks/hub-listings";
 import type { ApplicationRewardScore } from "@/hooks/control-farms";
 import type { ApplicationMiningScore } from "@/lib/mining-score";
+import {
+  calculateLaunchpadPerShareRewards,
+  parseTokenAmountFromBaseUnits,
+  resolveDelegationCurrency,
+} from "@/utils/launchpad-rewards";
 
 export interface SponsorshipInProgress {
   applicationId: string;
@@ -14,14 +18,8 @@ export interface SponsorshipInProgress {
 export interface SponsorshipInProgressWithEstimate
   extends SponsorshipInProgress {
   estimatedUserWeeklyGlw: number;
-}
-
-function safeParseGlwFromWeiString(value: string): number {
-  try {
-    return Number.parseFloat(formatUnits(BigInt(value), 18));
-  } catch {
-    return 0;
-  }
+  estimatedUserWeeklyUsd?: number;
+  delegationCurrency?: "GLW" | "SGCTL";
 }
 
 function deriveInProgress(params: {
@@ -89,30 +87,42 @@ export function attachEstimatedWeeklyLaunchpadRewards(params: {
   return sponsorshipsInProgress.map((item) => {
     const totalSteps = item.application?.activeFraction?.totalSteps ?? null;
     const rewardScore = rewardScoreMap.get(item.applicationId) ?? null;
+    const delegationCurrency = resolveDelegationCurrency(item.application);
 
-    const estimatedUserWeeklyGlw = (() => {
-      if (!rewardScore) return 0;
-      if (typeof totalSteps !== "number" || totalSteps <= 0) return 0;
-      if (!item.userSteps || item.userSteps <= 0) return 0;
+    const { estimatedUserWeeklyGlw, estimatedUserWeeklyUsd } = (() => {
+      if (!rewardScore) {
+        return { estimatedUserWeeklyGlw: 0, estimatedUserWeeklyUsd: 0 };
+      }
+      if (typeof totalSteps !== "number" || totalSteps <= 0) {
+        return { estimatedUserWeeklyGlw: 0, estimatedUserWeeklyUsd: 0 };
+      }
+      if (!item.userSteps || item.userSteps <= 0) {
+        return { estimatedUserWeeklyGlw: 0, estimatedUserWeeklyUsd: 0 };
+      }
 
-      const glwRewards = safeParseGlwFromWeiString(
-        rewardScore.userWeeklyGlwRewards
-      );
-      const pdRewards = safeParseGlwFromWeiString(
-        rewardScore.userWeeklyPdRewards
-      );
-      const totalRewards = glwRewards + pdRewards;
-      if (!Number.isFinite(totalRewards) || totalRewards <= 0) return 0;
+      const perShare = calculateLaunchpadPerShareRewards({
+        reward: rewardScore,
+        totalShares: totalSteps,
+        delegationCurrency,
+      });
 
-      const rewardsPerShare = totalRewards / totalSteps;
-      if (!Number.isFinite(rewardsPerShare) || rewardsPerShare <= 0) return 0;
+      const estimatedGlw = perShare.totalGlwPerShare * item.userSteps;
+      const estimatedUsd = perShare.totalUsdPerShare * item.userSteps;
 
-      const estimated = rewardsPerShare * item.userSteps;
-      if (!Number.isFinite(estimated) || estimated <= 0) return 0;
-      return estimated;
+      return {
+        estimatedUserWeeklyGlw:
+          Number.isFinite(estimatedGlw) && estimatedGlw > 0 ? estimatedGlw : 0,
+        estimatedUserWeeklyUsd:
+          Number.isFinite(estimatedUsd) && estimatedUsd > 0 ? estimatedUsd : 0,
+      };
     })();
 
-    return { ...item, estimatedUserWeeklyGlw };
+    return {
+      ...item,
+      estimatedUserWeeklyGlw,
+      estimatedUserWeeklyUsd,
+      delegationCurrency,
+    };
   });
 }
 
@@ -134,8 +144,9 @@ export function attachEstimatedWeeklyMiningCenterRewards(params: {
       if (!miningScore?.weeklyGlwRewards) return 0;
       if (!item.userSteps || item.userSteps <= 0) return 0;
 
-      const rewardsPerMiner = safeParseGlwFromWeiString(
-        miningScore.weeklyGlwRewards
+      const rewardsPerMiner = parseTokenAmountFromBaseUnits(
+        miningScore.weeklyGlwRewards,
+        18
       );
       if (!Number.isFinite(rewardsPerMiner) || rewardsPerMiner <= 0) return 0;
 

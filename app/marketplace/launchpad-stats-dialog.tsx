@@ -27,6 +27,11 @@ import { HelpCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { RegionRouter } from "@glowlabs-org/utils/browser";
 import { cn } from "@/lib/utils";
+import {
+  calculateLaunchpadPerShareRewards,
+  parseDelegationAmountFromBaseUnits,
+  resolveDelegationCurrency,
+} from "@/utils/launchpad-rewards";
 
 const regionRouter = RegionRouter(
   process.env.NEXT_PUBLIC_CONTROL_API_URL || ""
@@ -39,6 +44,8 @@ interface LaunchpadStatsDialogProps {
   rewardScore?: {
     userWeeklyGlwRewards: string;
     userWeeklyPdRewards: string;
+    userWeeklyGlwValueUsd?: string;
+    userWeeklyPdRewardsUsd?: string;
   } | null;
 }
 
@@ -83,11 +90,12 @@ export function LaunchpadStatsDialog({
   const yearsForCCs = 30;
   const weeksPerYear = 52;
   const totalWeeksForCCs = yearsForCCs * weeksPerYear;
+  const delegationCurrency = resolveDelegationCurrency(application);
 
-  // Total GLW to delegate (one fraction)
+  // Total delegation amount per fraction (GLW during GLW phase, SGCTL during SGCTL phase)
   const fractionStep = application?.activeFraction?.step;
-  const totalGlwPerFraction = fractionStep
-    ? parseFloat(formatUnits(BigInt(fractionStep), DECIMALS_BY_TOKEN["GLW"]))
+  const totalDelegationPerFraction = fractionStep
+    ? parseDelegationAmountFromBaseUnits(fractionStep, delegationCurrency)
     : 0;
 
   // Weekly CCs from application
@@ -115,30 +123,32 @@ export function LaunchpadStatsDialog({
     }
   }, [application?.finalProtocolFee, weeklyCC]);
 
-  // Weekly GLW rewards breakdown
-  const weeklyGlwFromDeposit = rewardScore?.userWeeklyPdRewards
-    ? parseFloat(
-        formatUnits(
-          BigInt(rewardScore.userWeeklyPdRewards),
-          DECIMALS_BY_TOKEN["GLW"]
-        )
-      )
-    : 0;
-
-  const weeklyGlwFromInflation = rewardScore?.userWeeklyGlwRewards
-    ? parseFloat(
-        formatUnits(
-          BigInt(rewardScore.userWeeklyGlwRewards),
-          DECIMALS_BY_TOKEN["GLW"]
-        )
-      )
-    : 0;
-
   const totalFractionSteps = application?.activeFraction?.totalSteps ?? 0;
   const stepsForMath = totalFractionSteps > 0 ? totalFractionSteps : 1;
-
-  const totalWeeklyGlw =
-    (weeklyGlwFromDeposit + weeklyGlwFromInflation) / stepsForMath;
+  const perShareRewards = calculateLaunchpadPerShareRewards({
+    reward: rewardScore,
+    totalShares: stepsForMath,
+    delegationCurrency,
+    glwSpotPrice,
+  });
+  const weeklyGlwFromInflation = perShareRewards.emissionGlwPerShare;
+  const weeklyPdFromDeposit = perShareRewards.pdPerShare;
+  const totalWeeklyGlw = perShareRewards.totalGlwPerShare;
+  const weeklyRewardsUsdValue = perShareRewards.totalUsdPerShare;
+  const weeklyGlwFromInflationUsd = Number.parseFloat(
+    String(rewardScore?.userWeeklyGlwValueUsd ?? "0")
+  );
+  const weeklyPdFromDepositUsd = Number.parseFloat(
+    String(rewardScore?.userWeeklyPdRewardsUsd ?? "0")
+  );
+  const weeklyInflationUsdPerFraction =
+    Number.isFinite(weeklyGlwFromInflationUsd) && weeklyGlwFromInflationUsd > 0
+      ? weeklyGlwFromInflationUsd / stepsForMath
+      : 0;
+  const weeklyPdUsdPerFraction =
+    Number.isFinite(weeklyPdFromDepositUsd) && weeklyPdFromDepositUsd > 0
+      ? weeklyPdFromDepositUsd / stepsForMath
+      : 0;
 
   // Find region data
   const regionSummary = activeSummary?.regions.find(
@@ -154,25 +164,38 @@ export function LaunchpadStatsDialog({
   const farmsOnDeck = regionDetails?.solarFarmApplications?.length || 0;
 
   // Calculate APY (Annual Percentage Yield)
-  const costPerFraction = totalGlwPerFraction * glwSpotPrice;
+  const costPerFractionUsdValue = (() => {
+    if (application?.finalProtocolFee) {
+      try {
+        return parseFloat(
+          formatUnits(
+            BigInt(application.finalProtocolFee),
+            DECIMALS_BY_TOKEN["USDC"]
+          )
+        );
+      } catch {
+        return 0;
+      }
+    }
+    if (delegationCurrency === "GLW" && glwSpotPrice > 0) {
+      return totalDelegationPerFraction * glwSpotPrice;
+    }
+    return 0;
+  })();
   const apy =
-    totalGlwPerFraction > 0
-      ? (totalWeeklyGlw * weeksPerYear * 100) / totalGlwPerFraction
+    costPerFractionUsdValue > 0 && weeklyRewardsUsdValue > 0
+      ? (weeklyRewardsUsdValue * weeksPerYear * 100) / costPerFractionUsdValue
       : 0;
 
   const carbonCreditsPerFraction =
     totalFractionSteps > 0 ? totalCCsOver30Years / totalFractionSteps : 0;
-  const weeklyPdPerFraction =
-    totalFractionSteps > 0 ? weeklyGlwFromDeposit / totalFractionSteps : 0;
-  const weeklyInflationPerFraction =
-    totalFractionSteps > 0 ? weeklyGlwFromInflation / totalFractionSteps : 0;
   const weeklyRewardsUsd =
-    totalWeeklyGlw > 0 && glwSpotPrice > 0
-      ? formatNumber(totalWeeklyGlw * glwSpotPrice, 2)
+    weeklyRewardsUsdValue > 0
+      ? formatNumber(weeklyRewardsUsdValue, 2)
       : null;
   const costPerFractionUsd =
-    totalGlwPerFraction > 0 && glwSpotPrice > 0
-      ? formatNumber(costPerFraction, 0)
+    costPerFractionUsdValue > 0
+      ? formatNumber(costPerFractionUsdValue, 0)
       : null;
 
   // Calculate weekly CCs per fraction
@@ -191,24 +214,44 @@ export function LaunchpadStatsDialog({
     () => [
       {
         id: "delegated-glw",
-        label: "Delegated GLW",
+        label: `Delegated ${delegationCurrency}`,
         value:
-          totalGlwPerFraction > 0
-            ? formatNumber(totalGlwPerFraction, 0)
+          totalDelegationPerFraction > 0
+            ? formatNumber(totalDelegationPerFraction, 0)
             : "N/A",
         tooltip:
-          "Amount of GLW required to post as protocol deposit per fraction.",
+          `Amount of ${delegationCurrency} required to post as protocol deposit per fraction.`,
         secondary: costPerFractionUsd
           ? `≈ $${costPerFractionUsd} USD`
           : undefined,
       },
       {
         id: "weekly-glw",
-        label: "Estimated GLW Per Week",
-        value: totalWeeklyGlw > 0 ? formatNumber(totalWeeklyGlw, 2) : "N/A",
+        label:
+          delegationCurrency === "SGCTL"
+            ? "Estimated Rewards / Week"
+            : "Estimated GLW / Week",
+        value:
+          delegationCurrency === "SGCTL"
+            ? weeklyRewardsUsd
+              ? `$${weeklyRewardsUsd}`
+              : "N/A"
+            : totalWeeklyGlw > 0
+            ? formatNumber(totalWeeklyGlw, 2)
+            : "N/A",
         tooltip:
-          "Expected weekly rewards from deposit recovery and GLW emission rewards share.",
-        secondary: weeklyRewardsUsd ? `≈ $${weeklyRewardsUsd} USD` : undefined,
+          delegationCurrency === "SGCTL"
+            ? "Expected weekly rewards from SGCTL protocol-deposit recovery plus GLW emissions share."
+            : "Expected weekly rewards from deposit recovery and GLW emission rewards share.",
+        secondary:
+          delegationCurrency === "SGCTL"
+            ? `${formatNumber(
+                weeklyGlwFromInflation,
+                2
+              )} GLW + ${formatNumber(weeklyPdFromDeposit, 2)} SGCTL`
+            : weeklyRewardsUsd
+            ? `≈ $${weeklyRewardsUsd} USD`
+            : undefined,
       },
       {
         id: "farm-efficiency",
@@ -240,14 +283,24 @@ export function LaunchpadStatsDialog({
       },
       {
         id: "glw-from-ccs",
-        label: "GLW From CCs",
-        value: formatNumber(weeklyPdPerFraction, 2),
+        label:
+          delegationCurrency === "SGCTL" ? "SGCTL From CCs" : "GLW From CCs",
+        value: formatNumber(weeklyPdFromDeposit, 2),
         tooltip:
-          "Weekly GLW rewards from deposit recovery based on carbon credit generation.",
+          delegationCurrency === "SGCTL"
+            ? "Weekly SGCTL rewards from protocol-deposit recovery based on carbon credit generation."
+            : "Weekly GLW rewards from deposit recovery based on carbon credit generation.",
         secondary:
-          totalWeeklyGlw > 0
+          delegationCurrency === "SGCTL"
+            ? weeklyRewardsUsdValue > 0
+              ? `${formatNumber(
+                  (weeklyPdUsdPerFraction / weeklyRewardsUsdValue) * 100,
+                  1
+                )}% of total weekly USD rewards`
+              : undefined
+            : totalWeeklyGlw > 0
             ? `${formatNumber(
-                (weeklyPdPerFraction / totalWeeklyGlw) * 100,
+                (weeklyPdFromDeposit / totalWeeklyGlw) * 100,
                 1
               )}% of total rewards`
             : undefined,
@@ -255,12 +308,19 @@ export function LaunchpadStatsDialog({
       {
         id: "glw-from-inflation",
         label: "GLW from Emissions",
-        value: formatNumber(weeklyInflationPerFraction, 2),
+        value: formatNumber(weeklyGlwFromInflation, 2),
         tooltip: "Weekly GLW rewards from protocol emissions share.",
         secondary:
-          totalWeeklyGlw > 0
+          delegationCurrency === "SGCTL"
+            ? weeklyRewardsUsdValue > 0
+              ? `${formatNumber(
+                  (weeklyInflationUsdPerFraction / weeklyRewardsUsdValue) * 100,
+                  1
+                )}% of total weekly USD rewards`
+              : undefined
+            : totalWeeklyGlw > 0
             ? `${formatNumber(
-                (weeklyInflationPerFraction / totalWeeklyGlw) * 100,
+                (weeklyGlwFromInflation / totalWeeklyGlw) * 100,
                 1
               )}% of total rewards`
             : undefined,
@@ -284,12 +344,16 @@ export function LaunchpadStatsDialog({
       region,
       regionalEfficiency,
       solarPanelsQuantity,
-      totalGlwPerFraction,
+      totalDelegationPerFraction,
       totalWeeklyGlw,
       weeklyCCPerFraction,
-      weeklyInflationPerFraction,
-      weeklyPdPerFraction,
+      weeklyGlwFromInflation,
+      weeklyInflationUsdPerFraction,
+      weeklyPdFromDeposit,
+      weeklyPdUsdPerFraction,
       weeklyRewardsUsd,
+      weeklyRewardsUsdValue,
+      delegationCurrency,
     ]
   );
 
@@ -331,7 +395,6 @@ export function LaunchpadStatsDialog({
       region,
       regionDetails?.solarFarmApplications,
       regionSummary?.glwPerWeek,
-      regionalEfficiency,
       zoneName,
     ]
   );
@@ -401,9 +464,9 @@ export function LaunchpadStatsDialog({
               construction, not actual weekly performance. This protects
               delegators from weather volatility and operational risk while
               focusing competition on maximum climate impact. Actual returns
-              depend on regional competitiveness, GLW price appreciation, and
-              network growth. Deposit recovery and GLW rewards continue based on
-              original projections regardless of realized farm output.
+              depend on regional competitiveness, market conditions, and
+              network growth. Deposit recovery and GLW emissions continue based
+              on original projections regardless of realized farm output.
             </div>
           </section>
         </div>

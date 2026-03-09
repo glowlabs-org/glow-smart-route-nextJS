@@ -73,6 +73,11 @@ import {
   deriveLaunchpadSponsorshipsInProgress,
   deriveMiningCenterSponsorshipsInProgress,
 } from "@/utils/sponsorships-in-progress";
+import {
+  normalizeDelegationCurrency,
+  parseDelegationAmountFromBaseUnits,
+  resolveDelegationCurrency,
+} from "@/utils/launchpad-rewards";
 
 const fmtGlw = (n: number) =>
   new Intl.NumberFormat("en-US", {
@@ -108,8 +113,38 @@ function parsePdRewardsUsd(params: { value: string; asset: string | null }) {
   const num = Number(value);
   if (!Number.isFinite(num)) return 0;
 
-  const is6Decimals = asset === "USDG" || asset === "USDC" || asset === "GCTL";
+  const is6Decimals = asset === "USDG" || asset === "USDC";
   return num / (is6Decimals ? 1e6 : 1e18);
+}
+
+function formatProtocolDepositAsset(asset: string | null | undefined): string {
+  if (!asset) return "GLW";
+  const normalized = asset.toUpperCase();
+  if (normalized === "GCTL") return "SGCTL";
+  return normalized;
+}
+
+function parseProtocolDepositTokenAmount(
+  value: string,
+  asset: string | null | undefined
+): number {
+  const delegationCurrency = normalizeDelegationCurrency(asset);
+  return parseDelegationAmountFromBaseUnits(value, delegationCurrency);
+}
+
+function getFarmEarnedLabel(farm: FarmCardData): string {
+  const protocolDepositAsset = formatProtocolDepositAsset(
+    farm.protocolDepositAsset
+  );
+  if (farm.isProtocolDepositUsd) {
+    return `${fmtGlw(farm.inflationGlw)} GLW + ${fmtUsdAmount(
+      farm.recovered
+    )} ${protocolDepositAsset}`;
+  }
+  if (protocolDepositAsset !== "GLW") {
+    return `${fmtGlw(farm.inflationGlw)} GLW + ${fmtGlw(farm.recovered)} ${protocolDepositAsset}`;
+  }
+  return `${fmtGlw(farm.recovered + farm.inflationGlw)} GLW`;
 }
 
 function getAuditUrl(params: { id: string | null | undefined }) {
@@ -142,6 +177,7 @@ interface FarmCardData {
   lastWeekRewardsGlw?: number;
   inProgressPercent?: number;
   estimatedUserWeeklyGlw?: number;
+  estimatedUserWeeklyUsd?: number;
   isPendingStart?: boolean;
 }
 
@@ -472,9 +508,12 @@ function FarmCard({
                 >
                   {isPendingStart
                     ? farm.estimatedUserWeeklyGlw
-                      ? `~${fmtGlw(farm.estimatedUserWeeklyGlw)} GLW/wk`
+                      ? farm.estimatedUserWeeklyUsd &&
+                        farm.estimatedUserWeeklyUsd > 0
+                        ? `~$${fmtUsdAmount(farm.estimatedUserWeeklyUsd)}/wk`
+                        : `~${fmtGlw(farm.estimatedUserWeeklyGlw)} GLW/wk`
                       : "Pending"
-                    : `${fmtGlw(farm.recovered + farm.inflationGlw)} GLW`}
+                    : getFarmEarnedLabel(farm)}
                 </div>
                 {isCompact && !isPendingStart && (
                   <div
@@ -504,7 +543,9 @@ function FarmCard({
                     ? `${farm.weeksActive} / ${farm.totalWeeks} wks`
                     : isMiner
                       ? fmtUsd(farm.initialCost)
-                      : `${fmtGlw(farm.initialCost)} GLW`}
+                      : `${fmtGlw(farm.initialCost)} ${formatProtocolDepositAsset(
+                          farm.protocolDepositAsset
+                        )}`}
                 </span>
                 <span
                   className={cn(
@@ -577,26 +618,24 @@ function FarmDetailDialog({
   const isPendingStart = Boolean(farm.isPendingStart);
 
   const totalEarned = farm.recovered + farm.inflation;
-  const totalEarnedGlw = farm.recovered + farm.inflationGlw;
+  const protocolDepositAsset = formatProtocolDepositAsset(
+    farm.protocolDepositAsset
+  );
 
   const investedLabel = (() => {
     if (isInProgress) return "—";
     if (isMiner) return fmtUsd(farm.initialCost);
     if (isOther) return "—";
-    return `${fmtGlw(farm.initialCost)} GLW`;
+    return `${fmtGlw(farm.initialCost)} ${protocolDepositAsset}`;
   })();
 
   const earnedLabel = (() => {
     if (isInProgress || isPendingStart)
-      return `~${fmtGlw(farm.estimatedUserWeeklyGlw ?? 0)} GLW/wk`;
+      return farm.estimatedUserWeeklyUsd && farm.estimatedUserWeeklyUsd > 0
+        ? `~$${fmtUsdAmount(farm.estimatedUserWeeklyUsd)}/wk`
+        : `~${fmtGlw(farm.estimatedUserWeeklyGlw ?? 0)} GLW/wk`;
     if (isMiner) return `${fmtGlw(farm.inflationGlw)} GLW`;
-    if (isOther && farm.isProtocolDepositUsd) {
-      const asset = farm.protocolDepositAsset ?? "USD";
-      return `${fmtGlw(farm.inflationGlw)} GLW + ${fmtUsdAmount(
-        farm.recovered,
-      )} ${asset}`;
-    }
-    return `${fmtGlw(totalEarnedGlw)} GLW`;
+    return getFarmEarnedLabel(farm);
   })();
 
   const progressPercent = Math.min(
@@ -947,18 +986,22 @@ function FarmDetailDialog({
                             <div className="text-xs text-muted-foreground">
                               {isOther
                                 ? `Recovered in ${
-                                    farm.protocolDepositAsset ?? "—"
+                                    formatProtocolDepositAsset(
+                                      farm.protocolDepositAsset
+                                    ) ?? "—"
                                   }`
                                 : "Recovered capital"}
                             </div>
                           </div>
                         </div>
                         <div className="text-right font-mono font-bold text-delegation-purple">
-                          {isOther && farm.isProtocolDepositUsd
-                            ? `${fmtUsdAmount(farm.recovered)} ${
+                          {farm.isProtocolDepositUsd
+                            ? `${fmtUsdAmount(farm.recovered)} ${formatProtocolDepositAsset(
                                 farm.protocolDepositAsset
-                              }`
-                            : `${fmtGlw(farm.recovered)} GLW`}
+                              )}`
+                            : `${fmtGlw(farm.recovered)} ${formatProtocolDepositAsset(
+                                farm.protocolDepositAsset
+                              )}`}
                         </div>
                       </div>
                     )}
@@ -1025,15 +1068,22 @@ function FarmDetailDialog({
                             .slice()
                             .reverse()
                             .map((week) => {
-                              const pdGlw = parseGlwFromWei(
-                                week.protocolDepositRewards,
-                              );
+                              const pdAmount = farm.isProtocolDepositUsd
+                                ? parsePdRewardsUsd({
+                                    value: week.protocolDepositRewards,
+                                    asset: farm.protocolDepositAsset ?? null,
+                                  })
+                                : parseProtocolDepositTokenAmount(
+                                    week.protocolDepositRewards,
+                                    protocolDepositAsset,
+                                  );
                               const inflationGlw = parseGlwFromWei(
                                 week.inflationRewards,
                               );
-                              const totalGlw = parseGlwFromWei(
-                                week.totalRewards,
-                              );
+                              const totalGlw =
+                                protocolDepositAsset === "GLW"
+                                  ? parseGlwFromWei(week.totalRewards)
+                                  : null;
 
                               return (
                                 <tr
@@ -1045,9 +1095,11 @@ function FarmDetailDialog({
                                   </td>
                                   {!isMiner && (
                                     <td className="py-3.5 px-6 text-right font-mono text-delegation-purple text-sm tabular-nums">
-                                      {fmtGlw(pdGlw)}
+                                      {farm.isProtocolDepositUsd
+                                        ? fmtUsdAmount(pdAmount)
+                                        : fmtGlw(pdAmount)}
                                       <span className="text-[10px] font-normal text-muted-foreground ml-1">
-                                        GLW
+                                        {protocolDepositAsset}
                                       </span>
                                     </td>
                                   )}
@@ -1058,10 +1110,22 @@ function FarmDetailDialog({
                                     </span>
                                   </td>
                                   <td className="py-3.5 px-6 text-right font-mono font-bold text-sm tabular-nums text-foreground">
-                                    {fmtGlw(totalGlw)}
-                                    <span className="text-[10px] font-normal text-muted-foreground ml-1">
-                                      GLW
-                                    </span>
+                                    {totalGlw != null ? (
+                                      <>
+                                        {fmtGlw(totalGlw)}
+                                        <span className="text-[10px] font-normal text-muted-foreground ml-1">
+                                          GLW
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        {fmtGlw(inflationGlw)} GLW +{" "}
+                                        {farm.isProtocolDepositUsd
+                                          ? fmtUsdAmount(pdAmount)
+                                          : fmtGlw(pdAmount)}{" "}
+                                        {protocolDepositAsset}
+                                      </>
+                                    )}
                                   </td>
                                 </tr>
                               );
@@ -1176,7 +1240,6 @@ export default function MyFarmsGridSection({
 
   const { applications: sponsorListings, isLoading: isSponsorListingsLoading } =
     useGlowLaunchpad({
-      filters: { paymentCurrency: "GLW" },
       enabled: shouldLoadInProgress,
     });
 
@@ -1289,8 +1352,17 @@ export default function MyFarmsGridSection({
       }
 
       if (farm.type === "launchpad") {
-        const initialCost = parseGlwFromWei(farm.amountInvested);
-        const recovered = parseGlwFromWei(farm.totalProtocolDepositRewards);
+        const protocolDepositAsset = formatProtocolDepositAsset(
+          farmMetadata?.userWeeklyRewards?.protocolDepositAsset ?? "GLW"
+        );
+        const initialCost = parseProtocolDepositTokenAmount(
+          farm.amountInvested,
+          protocolDepositAsset
+        );
+        const recovered = parseProtocolDepositTokenAmount(
+          farm.totalProtocolDepositRewards,
+          protocolDepositAsset
+        );
         const inflation = parseGlwFromWei(farm.totalInflationRewards);
         cards.push({
           farmKey: `${farm.farmId}:delegation`,
@@ -1303,7 +1375,7 @@ export default function MyFarmsGridSection({
           recovered,
           inflation,
           inflationGlw: inflation,
-          protocolDepositAsset: "GLW",
+          protocolDepositAsset,
           isProtocolDepositUsd: false,
           weeksActive: farm.totalWeeksEarned,
           totalWeeks: 100,
@@ -1352,14 +1424,16 @@ export default function MyFarmsGridSection({
         imageUrls.push("/images/sections/residential.jpg");
       }
 
-      const isProtocolDepositUsd =
-        farm.asset === "USDG" || farm.asset === "USDC" || farm.asset === "GCTL";
+      const isProtocolDepositUsd = farm.asset === "USDG" || farm.asset === "USDC";
       const recovered = isProtocolDepositUsd
         ? parsePdRewardsUsd({
             value: farm.totalProtocolDepositRewards,
             asset: farm.asset,
           })
-        : parseGlwFromWei(farm.totalProtocolDepositRewards);
+        : parseProtocolDepositTokenAmount(
+            farm.totalProtocolDepositRewards,
+            farm.asset
+          );
       const inflationGlw = parseGlwFromWei(farm.totalInflationRewards);
       const inflation = isProtocolDepositUsd
         ? Number.isFinite(glwSpotPriceUsd ?? NaN) && (glwSpotPriceUsd ?? 0) > 0
@@ -1483,20 +1557,30 @@ export default function MyFarmsGridSection({
           const delegationInflationGlw = parseGlwFromWei(
             farmMetadata.userWeeklyRewards.glwInflationRewardsFromDelegation,
           );
-          const pdGlw = parseGlwFromWei(
-            farmMetadata.userWeeklyRewards.protocolDepositRewards,
+          const pdAsset = formatProtocolDepositAsset(
+            farmMetadata.userWeeklyRewards.protocolDepositAsset
           );
+          const pdGlw =
+            pdAsset === "GLW"
+              ? parseProtocolDepositTokenAmount(
+                  farmMetadata.userWeeklyRewards.protocolDepositRewards,
+                  pdAsset
+                )
+              : 0;
           estimatedUserWeeklyGlw = delegationInflationGlw + pdGlw;
         } else {
           // Fallback for old API response (no breakdown fields)
           const inflationGlw = parseGlwFromWei(
             farmMetadata.userWeeklyRewards.glwInflationRewards,
           );
-          const pdAsset = farmMetadata.userWeeklyRewards.protocolDepositAsset;
+          const pdAsset = formatProtocolDepositAsset(
+            farmMetadata.userWeeklyRewards.protocolDepositAsset
+          );
           const isPdGlw = pdAsset === "GLW";
           const pdGlw = isPdGlw
-            ? parseGlwFromWei(
+            ? parseProtocolDepositTokenAmount(
                 farmMetadata.userWeeklyRewards.protocolDepositRewards,
+                pdAsset
               )
             : 0;
           estimatedUserWeeklyGlw = inflationGlw + pdGlw;
@@ -1504,7 +1588,12 @@ export default function MyFarmsGridSection({
       }
 
       if (item.fractionType === "launchpad") {
-        const initialCost = parseGlwFromWei(item.totalAmount.toString());
+        const launchpadApp = sponsorListings?.find((a) => a.id === item.farmId);
+        const launchpadCurrency = resolveDelegationCurrency(launchpadApp);
+        const initialCost = parseDelegationAmountFromBaseUnits(
+          item.totalAmount.toString(),
+          launchpadCurrency
+        );
         cards.push({
           farmKey: `${item.farmId}:delegation:pending-start`,
           farmId: item.farmId,
@@ -1517,7 +1606,7 @@ export default function MyFarmsGridSection({
           recovered: 0,
           inflation: 0,
           inflationGlw: 0,
-          protocolDepositAsset: "GLW",
+          protocolDepositAsset: launchpadCurrency,
           isProtocolDepositUsd: false,
           weeksActive: 0,
           totalWeeks: 100,
@@ -1558,6 +1647,10 @@ export default function MyFarmsGridSection({
     ].forEach((item) => {
       const app = item.application;
       const zoneName = app?.zone?.name || "Launchpad";
+      const launchpadCurrency =
+        item.fractionType === "launchpad"
+          ? resolveDelegationCurrency(app)
+          : "USDC";
       const displayName =
         app?.farmName || `Farm ${item.applicationId.substring(0, 8)}`;
       const imageUrls = app?.afterInstallPictures?.map((p) => p.url) || [];
@@ -1577,13 +1670,14 @@ export default function MyFarmsGridSection({
         recovered: 0,
         inflation: 0,
         inflationGlw: 0,
-        protocolDepositAsset: "GLW",
-        isProtocolDepositUsd: false,
+        protocolDepositAsset: launchpadCurrency,
+        isProtocolDepositUsd: item.fractionType === "mining-center",
         weeksActive: 0,
         totalWeeks: 1,
         weeklyBreakdown: [],
         inProgressPercent: item.progressPercent ?? 0,
         estimatedUserWeeklyGlw: item.estimatedUserWeeklyGlw ?? 0,
+        estimatedUserWeeklyUsd: item.estimatedUserWeeklyUsd ?? 0,
         lastWeekRewardsGlw: 0,
       });
     });
@@ -1593,6 +1687,7 @@ export default function MyFarmsGridSection({
     farmNameByFarmId,
     glwSpotPriceUsd,
     miningCenterInProgressWithEstimates,
+    otherFarmsMap,
     purchasedFarms,
     regions,
     rewardsBreakdown,
@@ -1932,12 +2027,17 @@ export default function MyFarmsGridSection({
                         ? "—"
                         : isMiner
                           ? fmtUsd(farm.initialCost)
-                          : `${fmtGlw(farm.initialCost)} GLW`}
+                          : `${fmtGlw(farm.initialCost)} ${formatProtocolDepositAsset(
+                              farm.protocolDepositAsset
+                            )}`}
                     </TableCell>
                     <TableCell className="text-right">
                       {isInProgress ? (
                         <span className="font-mono text-xs tabular-nums font-bold text-muted-foreground">
-                          ~{fmtGlw(farm.estimatedUserWeeklyGlw ?? 0)} GLW/wk
+                          {farm.estimatedUserWeeklyUsd &&
+                          farm.estimatedUserWeeklyUsd > 0
+                            ? `~$${fmtUsdAmount(farm.estimatedUserWeeklyUsd)}/wk`
+                            : `~${fmtGlw(farm.estimatedUserWeeklyGlw ?? 0)} GLW/wk`}
                         </span>
                       ) : (
                         <span
@@ -1954,11 +2054,12 @@ export default function MyFarmsGridSection({
                         >
                           {isPendingStart
                             ? farm.estimatedUserWeeklyGlw
-                              ? `~${fmtGlw(farm.estimatedUserWeeklyGlw)} GLW/wk`
+                              ? farm.estimatedUserWeeklyUsd &&
+                                farm.estimatedUserWeeklyUsd > 0
+                                ? `~$${fmtUsdAmount(farm.estimatedUserWeeklyUsd)}/wk`
+                                : `~${fmtGlw(farm.estimatedUserWeeklyGlw)} GLW/wk`
                               : "Pending"
-                            : `${fmtGlw(
-                                farm.recovered + farm.inflationGlw,
-                              )} GLW`}
+                            : getFarmEarnedLabel(farm)}
                         </span>
                       )}
                     </TableCell>

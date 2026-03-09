@@ -69,6 +69,10 @@ import Image from "next/image";
 import { ConnectButton } from "@/components/connect-button";
 import { DiscordLogoIcon } from "@radix-ui/react-icons";
 import { trackEvent } from "@/lib/telemetry";
+import {
+  calculateLaunchpadPerShareRewards,
+  resolveDelegationCurrency,
+} from "@/utils/launchpad-rewards";
 
 // Lazy-load RecentActivity to defer its network work off the critical path
 const RecentActivity = dynamic(
@@ -1388,34 +1392,56 @@ export default function View() {
                                     }
 
                                     try {
-                                      const glwRewards = parseFloat(
-                                        formatUnitsViem(
-                                          BigInt(
-                                            rewardScore.userWeeklyGlwRewards,
-                                          ),
-                                          DECIMALS_BY_TOKEN["GLW"],
-                                        ),
-                                      );
+                                      const delegationCurrency =
+                                        resolveDelegationCurrency(app);
+                                      const perShareRewards =
+                                        calculateLaunchpadPerShareRewards({
+                                          reward: rewardScore,
+                                          totalShares:
+                                            app.activeFraction.totalSteps,
+                                          delegationCurrency,
+                                          glwSpotPrice: glowSpotPrice || 0,
+                                        });
+                                      const userGlwRewards =
+                                        perShareRewards.totalGlwPerShare *
+                                        item.userSteps;
+                                      const userPdRewards =
+                                        perShareRewards.pdPerShare *
+                                        item.userSteps;
+                                      const userWeeklyUsd =
+                                        perShareRewards.totalUsdPerShare *
+                                        item.userSteps;
 
-                                      const pdRewards = parseFloat(
-                                        formatUnitsViem(
-                                          BigInt(
-                                            rewardScore.userWeeklyPdRewards,
-                                          ),
-                                          DECIMALS_BY_TOKEN["GLW"],
-                                        ),
-                                      );
+                                      if (delegationCurrency === "SGCTL") {
+                                        if (
+                                          Number.isFinite(userWeeklyUsd) &&
+                                          userWeeklyUsd > 0
+                                        ) {
+                                          return `~$${userWeeklyUsd.toLocaleString(
+                                            undefined,
+                                            {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                            },
+                                          )} / wk`;
+                                        }
 
-                                      const totalRewards =
-                                        glwRewards + pdRewards;
-                                      const totalShares =
-                                        app.activeFraction.totalSteps;
-                                      const rewardsPerShare =
-                                        totalRewards / totalShares;
-                                      const userRewards =
-                                        rewardsPerShare * item.userSteps;
+                                        return `${userGlwRewards.toLocaleString(
+                                          undefined,
+                                          {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          },
+                                        )} GLW + ${userPdRewards.toLocaleString(
+                                          undefined,
+                                          {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          },
+                                        )} SGCTL`;
+                                      }
 
-                                      return `${userRewards.toLocaleString(
+                                      return `${userGlwRewards.toLocaleString(
                                         undefined,
                                         {
                                           minimumFractionDigits: 2,

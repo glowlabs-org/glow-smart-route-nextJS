@@ -7,7 +7,9 @@
 import { describe, it, expect } from "vitest";
 import { parseUnits } from "viem";
 import {
+  calculateShortfall,
   calculateAffordability,
+  coerceToBigInt,
   type ActiveFraction,
   type AffordabilityInput,
 } from "../deposit-dialog-utils";
@@ -50,6 +52,23 @@ function createInput(overrides: Partial<AffordabilityInput> = {}): Affordability
 // ============================================================================
 
 describe("affordability edge cases", () => {
+  it("coerces mixed bigint inputs safely", () => {
+    expect(coerceToBigInt(parseUnits("5", 6))).toBe(parseUnits("5", 6));
+    expect(coerceToBigInt(parseUnits("7", 6).toString())).toBe(
+      parseUnits("7", 6)
+    );
+    expect(coerceToBigInt("invalid")).toBe(0n);
+    expect(coerceToBigInt(null)).toBe(0n);
+  });
+
+  it("calculates shortfall safely when balance comes as a string", () => {
+    const required = parseUnits("100", 6);
+    const walletBalanceAsString = parseUnits("40", 6).toString();
+    expect(calculateShortfall(required, walletBalanceAsString)).toBe(
+      parseUnits("60", 6)
+    );
+  });
+
   it("returns cannot submit when fraction is null", () => {
     const result = calculateAffordability(
       createInput({ activeFraction: null })

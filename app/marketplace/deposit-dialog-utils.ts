@@ -60,6 +60,8 @@ export interface AffordabilityResult {
   canSubmit: boolean;
 }
 
+export type BigintLike = bigint | string | number | null | undefined;
+
 export interface TransactionStep {
   id: string;
   title: string;
@@ -416,6 +418,33 @@ export function calculateCostInETH(
 // Affordability Calculation
 // ============================================================================
 
+export function coerceToBigInt(value: BigintLike): bigint {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return 0n;
+    return BigInt(Math.trunc(value));
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return 0n;
+    try {
+      return BigInt(trimmed);
+    } catch {
+      return 0n;
+    }
+  }
+  return 0n;
+}
+
+export function calculateShortfall(
+  required: bigint | null,
+  balance: BigintLike
+): bigint {
+  if (required == null) return 0n;
+  const safeBalance = coerceToBigInt(balance);
+  return safeBalance >= required ? 0n : required - safeBalance;
+}
+
 export function calculateAffordability(
   input: AffordabilityInput
 ): AffordabilityResult {
@@ -677,10 +706,14 @@ export function calculateEstimatedRewards(
     const glw = parseFloat(
       formatUnits(BigInt(rewardScore.userWeeklyGlwRewards), 18)
     );
+    const pdDecimals = activeFraction?.delegationAsset === "SGCTL" ? 6 : 18;
     const pd = parseFloat(
-      formatUnits(BigInt(rewardScore.userWeeklyPdRewards), 18)
+      formatUnits(BigInt(rewardScore.userWeeklyPdRewards), pdDecimals)
     );
-    weeklyGlw = (glw + pd) / totalShares;
+    // SGCTL-phase PD recovery is denominated in SGCTL, so keep GLW totals emission-only.
+    weeklyGlw =
+      (glw + (activeFraction?.delegationAsset === "SGCTL" ? 0 : pd)) /
+      totalShares;
   } else if ("miningScore" in rewardScore) {
     // Mining
     if (rewardScore.weeklyGlwRewards) {

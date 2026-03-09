@@ -115,6 +115,20 @@ describe("calculateEstimatedRewards", () => {
       expect(calculateEstimatedRewards(1, fraction, score)).toBe(10);
     });
 
+    it("keeps SGCTL PD rewards out of GLW totals", () => {
+      const fraction = createFraction({
+        totalSteps: 10,
+        delegationAsset: "SGCTL",
+      });
+      const score = createLaunchpadScore({
+        userWeeklyGlwRewards: parseUnits("100", 18).toString(), // 100 GLW emissions
+        userWeeklyPdRewards: parseUnits("50", 6).toString(), // 50 SGCTL PD recovery
+      });
+
+      // SGCTL PD recovery is a different token, so GLW estimate is emission-only.
+      expect(calculateEstimatedRewards(1, fraction, score)).toBe(10);
+    });
+
     it("avoids division by zero with totalSteps=0", () => {
       const fraction = createFraction({ totalSteps: 0 });
       const score = createLaunchpadScore();

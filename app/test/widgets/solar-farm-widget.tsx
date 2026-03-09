@@ -631,9 +631,7 @@ export default function SolarFarmWidget({
     enabled: hasWallet,
   });
 
-  const { applications: launchpadApplications } = useGlowLaunchpad({
-    filters: { paymentCurrency: "GLW" },
-  });
+  const { applications: launchpadApplications } = useGlowLaunchpad();
   const { applications: minersApplications } = useSponsorListings({
     filters: { paymentCurrency: "USDC", type: "mining-center" },
   });

@@ -66,9 +66,11 @@ import {
   calculateCostInGLW,
   calculateCostInUSDC,
   calculateEstimatedRewards,
+  calculateShortfall,
   calculateImpactPointsBreakdown,
   calculateSuccessMetrics,
   clampQuantity,
+  coerceToBigInt,
   findErrorInMessage,
   getDefaultPaymentMethodForRuntimeCurrency,
   generateShareUrl,
@@ -178,6 +180,10 @@ export function DepositDialog({
   } = useGctlPreparationOrchestrator({
     enabled: open && runtimeSelectedCurrency === "SGCTL",
   });
+  const gctlWalletBalance = React.useMemo(
+    () => coerceToBigInt(gctlBalance),
+    [gctlBalance]
+  );
 
   const stakedGctlBalance = React.useMemo(() => {
     if (runtimeSelectedCurrency !== "SGCTL" || !regionId) return 0n;
@@ -285,7 +291,7 @@ export function DepositDialog({
         }
       } else if (runtimeSelectedCurrency === "SGCTL") {
         const requiredGctl = BigInt(application.activeFraction?.step ?? "0");
-        const availableGctl = (gctlBalance ?? 0n) + stakedGctlBalance;
+        const availableGctl = gctlWalletBalance + stakedGctlBalance;
 
         if (availableGctl >= requiredGctl) {
           setSelectedPaymentMethod("GCTL");
@@ -304,7 +310,7 @@ export function DepositDialog({
   }, [
     open,
     ethBalance,
-    gctlBalance,
+    gctlWalletBalance,
     usdcBalance,
     glwBalance,
     runtimeSelectedCurrency,
@@ -384,14 +390,14 @@ export function DepositDialog({
         gctlSpotPrice: gctlPriceNumber,
         ethSpotPrice,
         glwBalance: glwBalance ?? 0n,
-        gctlBalance: gctlBalance ?? 0n,
+        gctlBalance: gctlWalletBalance,
         stakedGctlBalance,
         usdcBalance: usdcBalance ?? 0n,
         ethBalance: ethBalance ?? 0n,
       }),
     [
       application?.activeFraction,
-      gctlBalance,
+      gctlWalletBalance,
       gctlPriceNumber,
       ethSpotPrice,
       glwBalance,
@@ -462,23 +468,14 @@ export function DepositDialog({
   );
 
   const shortfallByMethod = React.useMemo(() => {
-    const calcShortfall = (
-      required: bigint | null,
-      balance: bigint | null | undefined
-    ) => {
-      if (required == null) return 0n;
-      const safeBalance = balance ?? 0n;
-      return safeBalance >= required ? 0n : required - safeBalance;
-    };
-
     return {
-      GLW: calcShortfall(affordability.requiredByMethod.GLW, glwBalance),
-      GCTL: calcShortfall(
+      GLW: calculateShortfall(affordability.requiredByMethod.GLW, glwBalance),
+      GCTL: calculateShortfall(
         affordability.requiredByMethod.GCTL,
         affordability.balances.GCTL
       ),
-      USDC: calcShortfall(affordability.requiredByMethod.USDC, usdcBalance),
-      ETH: calcShortfall(affordability.requiredByMethod.ETH, ethBalance),
+      USDC: calculateShortfall(affordability.requiredByMethod.USDC, usdcBalance),
+      ETH: calculateShortfall(affordability.requiredByMethod.ETH, ethBalance),
     } as const;
   }, [
     affordability.balances.GCTL,
@@ -1799,7 +1796,7 @@ export function DepositDialog({
                 <PaymentOption
                   label="Control (GCTL)"
                   balance={`${formatTokenAmount(
-                    gctlBalance ?? 0n,
+                    gctlWalletBalance,
                     6,
                     "0",
                     6

@@ -57,6 +57,12 @@ import { useMiningCenter, type MiningCenterFilters } from "@/hooks";
 import { useMiningScore, getMiningScoreForApplication } from "@/hooks";
 import { useEthPrice } from "@/hooks/useEthPrice";
 import { resolveRewardScorePaymentCurrency } from "@/lib/reward-score";
+import {
+  calculateLaunchpadPerShareRewards,
+  getDelegationCurrencyDecimals,
+  parseDelegationAmountFromBaseUnits,
+  resolveDelegationCurrency,
+} from "@/utils/launchpad-rewards";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { GlowSymbol } from "@/components/glow-symbol";
@@ -1251,29 +1257,20 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                       rewardScore?.userWeeklyPdRewards &&
                                       application.activeFraction?.totalSteps
                                     ? (() => {
-                                        const glwRewards = parseFloat(
-                                          formatUnits(
-                                            BigInt(
-                                              rewardScore.userWeeklyGlwRewards
-                                            ),
-                                            DECIMALS_BY_TOKEN["GLW"]
-                                          )
-                                        );
-                                        const pdRewards = parseFloat(
-                                          formatUnits(
-                                            BigInt(
-                                              rewardScore.userWeeklyPdRewards
-                                            ),
-                                            DECIMALS_BY_TOKEN["GLW"]
-                                          )
-                                        );
-                                        const totalRewards =
-                                          glwRewards + pdRewards;
-                                        const totalShares =
-                                          application.activeFraction.totalSteps;
-                                        const rewardsPerShare =
-                                          totalRewards / totalShares;
-                                        return rewardsPerShare.toLocaleString(
+                                        const delegationCurrency =
+                                          resolveDelegationCurrency(
+                                            application
+                                          );
+                                        const perShareRewards =
+                                          calculateLaunchpadPerShareRewards({
+                                            reward: rewardScore,
+                                            totalShares:
+                                              application.activeFraction
+                                                .totalSteps,
+                                            delegationCurrency,
+                                            glwSpotPrice,
+                                          });
+                                        return perShareRewards.totalGlwPerShare.toLocaleString(
                                           undefined,
                                           {
                                             minimumFractionDigits: 2,
@@ -1330,8 +1327,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                   ) : null
                                 ) : rewardScore?.userWeeklyGlwRewards &&
                                   rewardScore?.userWeeklyPdRewards &&
-                                  application.activeFraction?.totalSteps &&
-                                  glwSpotPrice > 0 ? (
+                                  application.activeFraction?.totalSteps ? (
                                   <div
                                     className="text-sm text-muted-foreground mt-2"
                                     style={{
@@ -1341,31 +1337,18 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                   >
                                     ≈ $
                                     {(() => {
-                                      const glwRewards = parseFloat(
-                                        formatUnits(
-                                          BigInt(
-                                            rewardScore.userWeeklyGlwRewards
-                                          ),
-                                          DECIMALS_BY_TOKEN["GLW"]
-                                        )
-                                      );
-                                      const pdRewards = parseFloat(
-                                        formatUnits(
-                                          BigInt(
-                                            rewardScore.userWeeklyPdRewards
-                                          ),
-                                          DECIMALS_BY_TOKEN["GLW"]
-                                        )
-                                      );
-                                      const totalRewards =
-                                        glwRewards + pdRewards;
-                                      const totalShares =
-                                        application.activeFraction.totalSteps;
-                                      const rewardsPerShare =
-                                        totalRewards / totalShares;
-                                      const cashPerShare =
-                                        rewardsPerShare * glwSpotPrice;
-                                      return cashPerShare.toLocaleString(
+                                      const delegationCurrency =
+                                        resolveDelegationCurrency(application);
+                                      const perShareRewards =
+                                        calculateLaunchpadPerShareRewards({
+                                          reward: rewardScore,
+                                          totalShares:
+                                            application.activeFraction
+                                              .totalSteps,
+                                          delegationCurrency,
+                                          glwSpotPrice,
+                                        });
+                                      return perShareRewards.totalUsdPerShare.toLocaleString(
                                         undefined,
                                         {
                                           minimumFractionDigits: 2,
@@ -1412,6 +1395,12 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                 rewardScore?.userWeeklyPdRewards &&
                                 application.activeFraction?.totalSteps
                                   ? (() => {
+                                      const delegationCurrency =
+                                        resolveDelegationCurrency(application);
+                                      const pdDecimals =
+                                        getDelegationCurrencyDecimals(
+                                          delegationCurrency
+                                        );
                                       const glwRewards = parseFloat(
                                         formatUnits(
                                           BigInt(
@@ -1425,7 +1414,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                           BigInt(
                                             rewardScore.userWeeklyPdRewards
                                           ),
-                                          DECIMALS_BY_TOKEN["GLW"]
+                                          pdDecimals
                                         )
                                       );
                                       const totalShares =
@@ -1464,7 +1453,7 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                                                   maximumFractionDigits: 1,
                                                 }
                                               )}{" "}
-                                              GLW
+                                              {delegationCurrency}
                                             </span>
                                           </div>
                                         </div>
@@ -1524,6 +1513,9 @@ function LaunchpadViewContent({ onPayDeposit, variant }: LaunchpadViewProps) {
                               ? "None Available"
                               : application._type === "miners"
                               ? "Buy Miners"
+                              : resolveDelegationCurrency(application) ===
+                                "SGCTL"
+                              ? "Delegate SGCTL"
                               : "Delegate GLW"}
                           </span>
                         </Button>
@@ -1800,6 +1792,20 @@ function LaunchpadMarketplaceWidget({
               weeklyGlwRewardsUsd: mining.weeklyGlwRewardsUsd,
             }
           : null;
+      const delegationCurrency =
+        application._type === "delegations"
+          ? resolveDelegationCurrency(application)
+          : null;
+      const totalShares = application.activeFraction?.totalSteps || 0;
+      const delegationPerShareRewards =
+        application._type === "delegations"
+          ? calculateLaunchpadPerShareRewards({
+              reward,
+              totalShares,
+              delegationCurrency: delegationCurrency || "GLW",
+              glwSpotPrice,
+            })
+          : null;
 
       const cost = (() => {
         try {
@@ -1812,11 +1818,9 @@ function LaunchpadMarketplaceWidget({
               )
             );
           }
-          return parseFloat(
-            formatUnits(
-              BigInt(application.activeFraction.step || "0"),
-              DECIMALS_BY_TOKEN.GLW
-            )
+          return parseDelegationAmountFromBaseUnits(
+            application.activeFraction.step || "0",
+            delegationCurrency || "GLW"
           );
         } catch {
           return 0;
@@ -1834,27 +1838,18 @@ function LaunchpadMarketplaceWidget({
               )
             );
           }
-          const totalShares = application.activeFraction?.totalSteps || 0;
-          if (!reward || !totalShares) return 0;
-          const glwRewards = parseFloat(
-            formatUnits(
-              BigInt(reward.userWeeklyGlwRewards || "0"),
-              DECIMALS_BY_TOKEN.GLW
-            )
-          );
-          const pdRewards = parseFloat(
-            formatUnits(
-              BigInt(reward.userWeeklyPdRewards || "0"),
-              DECIMALS_BY_TOKEN.GLW
-            )
-          );
-          return (glwRewards + pdRewards) / totalShares;
+          return delegationPerShareRewards?.totalGlwPerShare ?? 0;
         } catch {
           return 0;
         }
       })();
 
-      const yieldUsdPerWeek = glwSpotPrice > 0 ? weeklyYield * glwSpotPrice : 0;
+      const yieldUsdPerWeek =
+        application._type === "delegations"
+          ? delegationPerShareRewards?.totalUsdPerShare ?? 0
+          : glwSpotPrice > 0
+          ? weeklyYield * glwSpotPrice
+          : 0;
       const yieldPer1000Usd =
         application._type === "miners" && cost > 0 && yieldUsdPerWeek > 0
           ? (yieldUsdPerWeek / cost) * 1000
@@ -1866,7 +1861,7 @@ function LaunchpadMarketplaceWidget({
               BigInt(application.activeFraction.amountRaised),
               application._type === "miners"
                 ? DECIMALS_BY_TOKEN.USDC
-                : DECIMALS_BY_TOKEN.GLW
+                : getDelegationCurrencyDecimals(delegationCurrency || "GLW")
             )
           )
         : 0;
@@ -1877,7 +1872,7 @@ function LaunchpadMarketplaceWidget({
               BigInt(application.activeFraction.totalAmountNeeded),
               application._type === "miners"
                 ? DECIMALS_BY_TOKEN.USDC
-                : DECIMALS_BY_TOKEN.GLW
+                : getDelegationCurrencyDecimals(delegationCurrency || "GLW")
             )
           )
         : 0;
@@ -2140,29 +2135,27 @@ function LaunchpadMarketplaceWidget({
     const { application, score, cost, weeklyYield, availability, scoreData } =
       row;
     const isMiner = application._type === "miners";
-    const currency = isMiner ? "USDC" : "GLW";
+    const delegationCurrency = isMiner
+      ? null
+      : resolveDelegationCurrency(application);
+    const currency = isMiner ? "USDC" : delegationCurrency || "GLW";
 
     const rewardsBreakdown = (() => {
       if (isMiner) return null;
       if (!application.activeFraction?.totalSteps) return null;
       if (!scoreData || !("userWeeklyGlwRewards" in scoreData)) return null;
       try {
-        const totalShares = application.activeFraction.totalSteps;
-        const glwRewards = parseFloat(
-          formatUnits(
-            BigInt(scoreData.userWeeklyGlwRewards || "0"),
-            DECIMALS_BY_TOKEN.GLW
-          )
-        );
-        const pdRewards = parseFloat(
-          formatUnits(
-            BigInt(scoreData.userWeeklyPdRewards || "0"),
-            DECIMALS_BY_TOKEN.GLW
-          )
-        );
+        const totalShares = application.activeFraction.totalSteps || 0;
+        const perShareRewards = calculateLaunchpadPerShareRewards({
+          reward: scoreData,
+          totalShares,
+          delegationCurrency: delegationCurrency || "GLW",
+          glwSpotPrice,
+        });
         return {
-          inflationPerShare: totalShares > 0 ? glwRewards / totalShares : 0,
-          pdPerShare: totalShares > 0 ? pdRewards / totalShares : 0,
+          inflationPerShare: perShareRewards.emissionGlwPerShare,
+          pdPerShare: perShareRewards.pdPerShare,
+          pdCurrency: delegationCurrency || "GLW",
         };
       } catch {
         return null;
@@ -2368,7 +2361,7 @@ function LaunchpadMarketplaceWidget({
                             <div className="h-px bg-primary-foreground/15 my-2" />
                             <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-[11px]">
                               <div className="text-primary-foreground/80">
-                                GLW from PDs
+                                {rewardsBreakdown.pdCurrency} from PDs
                               </div>
                               <div className="font-mono tabular-nums text-primary-foreground">
                                 {rewardsBreakdown.pdPerShare.toLocaleString(
@@ -2378,6 +2371,8 @@ function LaunchpadMarketplaceWidget({
                                     maximumFractionDigits: 2,
                                   }
                                 )}
+                                {" "}
+                                {rewardsBreakdown.pdCurrency}
                               </div>
                               <div className="text-primary-foreground/80">
                                 GLW from Inflation
@@ -2417,11 +2412,13 @@ function LaunchpadMarketplaceWidget({
                     "dark:bg-gradient-to-b dark:from-white/20 dark:to-white/5 dark:hover:from-white/30 dark:hover:to-white/10 dark:text-white dark:border-white/10"
                   )}
                 >
-                  {availability.isSoldOut
-                    ? "Sold Out"
-                    : isMiner
-                    ? "Buy Miners"
-                    : "Delegate GLW"}
+                    {availability.isSoldOut
+                      ? "Sold Out"
+                      : isMiner
+                      ? "Buy Miners"
+                      : resolveDelegationCurrency(application) === "SGCTL"
+                      ? "Delegate SGCTL"
+                      : "Delegate GLW"}
                 </Button>
               </div>
             </div>
@@ -2677,6 +2674,9 @@ function LaunchpadWidgetAssetCard({
 }) {
   const { application, availability, scoreData, cost, weeklyYield } = row;
   const isDelegation = application._type === "delegations";
+  const delegationCurrency = isDelegation
+    ? resolveDelegationCurrency(application)
+    : "GLW";
   const isSoldOut = availability.isSoldOut;
   const remainingPct = React.useMemo(() => {
     const total = availability.total || 0;
@@ -2698,16 +2698,16 @@ function LaunchpadWidgetAssetCard({
 
   const costMain = isSoldOut
     ? isDelegation
-      ? `${Math.round(row.totalAmountNeeded).toLocaleString()} GLW`
+      ? `${Math.round(row.totalAmountNeeded).toLocaleString()} ${delegationCurrency}`
       : `$${Math.round(row.totalAmountNeeded).toLocaleString()} USDC`
     : isDelegation
-    ? `${Math.round(cost).toLocaleString()} GLW`
+    ? `${Math.round(cost).toLocaleString()} ${delegationCurrency}`
     : `$${cost.toLocaleString(undefined, { maximumFractionDigits: 0 })} USDC`;
 
   const costSub = isSoldOut
     ? null
     : isDelegation
-    ? glwSpotPrice > 0
+    ? delegationCurrency === "GLW" && glwSpotPrice > 0
       ? `≈ $${Math.round(cost * glwSpotPrice).toLocaleString()} USD`
       : "—"
     : ethPrice > 0
@@ -2733,30 +2733,28 @@ function LaunchpadWidgetAssetCard({
 
     try {
       const totalShares = application.activeFraction.totalSteps;
-      const glwRewards = parseFloat(
-        formatUnits(
-          BigInt(scoreData.userWeeklyGlwRewards || "0"),
-          DECIMALS_BY_TOKEN.GLW
-        )
-      );
-      const pdRewards = parseFloat(
-        formatUnits(
-          BigInt(scoreData.userWeeklyPdRewards || "0"),
-          DECIMALS_BY_TOKEN.GLW
-        )
-      );
-
-      const inflationPerShare = totalShares > 0 ? glwRewards / totalShares : 0;
-      const pdPerShare = totalShares > 0 ? pdRewards / totalShares : 0;
+      const perShareRewards = calculateLaunchpadPerShareRewards({
+        reward: scoreData,
+        totalShares,
+        delegationCurrency,
+        glwSpotPrice,
+      });
 
       return {
-        inflationPerShare,
-        pdPerShare,
+        inflationPerShare: perShareRewards.emissionGlwPerShare,
+        pdPerShare: perShareRewards.pdPerShare,
+        pdCurrency: delegationCurrency,
       };
     } catch {
       return null;
     }
-  }, [application.activeFraction?.totalSteps, isDelegation, scoreData]);
+  }, [
+    application.activeFraction?.totalSteps,
+    delegationCurrency,
+    glwSpotPrice,
+    isDelegation,
+    scoreData,
+  ]);
 
   const delegationScoreLabel = React.useMemo(() => {
     if (!isDelegation) return null;
@@ -2862,7 +2860,9 @@ function LaunchpadWidgetAssetCard({
                 {isSoldOut
                   ? "Waitlist"
                   : isDelegation
-                  ? "Delegate GLW"
+                  ? resolveDelegationCurrency(application) === "SGCTL"
+                    ? "Delegate SGCTL"
+                    : "Delegate GLW"
                   : "Buy Miners"}
               </Button>
               {!isSoldOut && (
@@ -2919,7 +2919,7 @@ function LaunchpadWidgetAssetCard({
                       {delegationRewardsBreakdown ? (
                         <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-[11px]">
                           <div className="text-primary-foreground/80">
-                            GLW from PDs
+                            {delegationRewardsBreakdown.pdCurrency} from PDs
                           </div>
                           <div className="font-mono tabular-nums text-primary-foreground">
                             {delegationRewardsBreakdown.pdPerShare.toLocaleString(
@@ -2928,7 +2928,8 @@ function LaunchpadWidgetAssetCard({
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               }
-                            )}
+                            )}{" "}
+                            {delegationRewardsBreakdown.pdCurrency}
                           </div>
                           <div className="text-primary-foreground/80">
                             GLW from Inflation
@@ -3087,6 +3088,9 @@ function LaunchpadWidgetHeroCarouselCard({
 }) {
   const { application, availability, scoreData, cost, weeklyYield } = row;
   const isDelegation = application._type === "delegations";
+  const delegationCurrency = isDelegation
+    ? resolveDelegationCurrency(application)
+    : "GLW";
   const isSoldOut = availability.isSoldOut;
 
   const title = application.farmName || "Unnamed Farm";
@@ -3094,16 +3098,16 @@ function LaunchpadWidgetHeroCarouselCard({
 
   const priceValue = isSoldOut
     ? isDelegation
-      ? `${Math.round(row.totalAmountNeeded).toLocaleString()} GLW`
+      ? `${Math.round(row.totalAmountNeeded).toLocaleString()} ${delegationCurrency}`
       : `$${Math.round(row.totalAmountNeeded).toLocaleString()} USDC`
     : isDelegation
-    ? `${Math.round(cost).toLocaleString()} GLW`
+    ? `${Math.round(cost).toLocaleString()} ${delegationCurrency}`
     : `$${Math.round(cost).toLocaleString()} USDC`;
 
   const priceSubValue = isSoldOut
     ? null
     : isDelegation
-    ? glwSpotPrice > 0
+    ? delegationCurrency === "GLW" && glwSpotPrice > 0
       ? `≈ $${Math.round(cost * glwSpotPrice).toLocaleString()} USD`
       : "—"
     : ethPrice > 0
@@ -3310,7 +3314,9 @@ function LaunchpadWidgetHeroCarouselCard({
               {isSoldOut
                 ? "Waitlist"
                 : isDelegation
-                ? "Delegate GLW"
+                ? resolveDelegationCurrency(application) === "SGCTL"
+                  ? "Delegate SGCTL"
+                  : "Delegate GLW"
                 : "Buy Miners"}
             </Button>
           </div>
@@ -3531,6 +3537,20 @@ function LaunchpadMarketplaceDialog({
               weeklyGlwRewardsUsd: mining.weeklyGlwRewardsUsd,
             }
           : null;
+      const delegationCurrency =
+        application._type === "delegations"
+          ? resolveDelegationCurrency(application)
+          : null;
+      const totalShares = application.activeFraction?.totalSteps || 0;
+      const delegationPerShareRewards =
+        application._type === "delegations"
+          ? calculateLaunchpadPerShareRewards({
+              reward: rewardScore,
+              totalShares,
+              delegationCurrency: delegationCurrency || "GLW",
+              glwSpotPrice,
+            })
+          : null;
 
       const cost = (() => {
         try {
@@ -3543,11 +3563,9 @@ function LaunchpadMarketplaceDialog({
               )
             );
           }
-          return parseFloat(
-            formatUnits(
-              BigInt(application.activeFraction.step || "0"),
-              DECIMALS_BY_TOKEN.GLW
-            )
+          return parseDelegationAmountFromBaseUnits(
+            application.activeFraction.step || "0",
+            delegationCurrency || "GLW"
           );
         } catch {
           return 0;
@@ -3565,27 +3583,18 @@ function LaunchpadMarketplaceDialog({
               )
             );
           }
-          const totalShares = application.activeFraction?.totalSteps || 0;
-          if (!rewardScore || !totalShares) return 0;
-          const glwRewards = parseFloat(
-            formatUnits(
-              BigInt(rewardScore.userWeeklyGlwRewards || "0"),
-              DECIMALS_BY_TOKEN.GLW
-            )
-          );
-          const pdRewards = parseFloat(
-            formatUnits(
-              BigInt(rewardScore.userWeeklyPdRewards || "0"),
-              DECIMALS_BY_TOKEN.GLW
-            )
-          );
-          return (glwRewards + pdRewards) / totalShares;
+          return delegationPerShareRewards?.totalGlwPerShare ?? 0;
         } catch {
           return 0;
         }
       })();
 
-      const yieldUsdPerWeek = glwSpotPrice > 0 ? weeklyYield * glwSpotPrice : 0;
+      const yieldUsdPerWeek =
+        application._type === "delegations"
+          ? delegationPerShareRewards?.totalUsdPerShare ?? 0
+          : glwSpotPrice > 0
+          ? weeklyYield * glwSpotPrice
+          : 0;
       const yieldPer1000Usd =
         application._type === "miners" && cost > 0 && yieldUsdPerWeek > 0
           ? (yieldUsdPerWeek / cost) * 1000
@@ -3597,7 +3606,7 @@ function LaunchpadMarketplaceDialog({
               BigInt(application.activeFraction.amountRaised),
               application._type === "miners"
                 ? DECIMALS_BY_TOKEN.USDC
-                : DECIMALS_BY_TOKEN.GLW
+                : getDelegationCurrencyDecimals(delegationCurrency || "GLW")
             )
           )
         : 0;
@@ -3608,7 +3617,7 @@ function LaunchpadMarketplaceDialog({
               BigInt(application.activeFraction.totalAmountNeeded),
               application._type === "miners"
                 ? DECIMALS_BY_TOKEN.USDC
-                : DECIMALS_BY_TOKEN.GLW
+                : getDelegationCurrencyDecimals(delegationCurrency || "GLW")
             )
           )
         : 0;
@@ -3950,7 +3959,7 @@ function LaunchpadMarketplaceDialogContent({
                   : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/30"
               )}
             >
-              Delegations (GLW) ({tabCounts.delegations})
+              Delegations ({tabCounts.delegations})
             </button>
             <button
               type="button"
@@ -4129,6 +4138,9 @@ function LaunchpadAssetCard({
 }) {
   const { application, availability, scoreData, cost, weeklyYield } = row;
   const isDelegation = application._type === "delegations";
+  const delegationCurrency = isDelegation
+    ? resolveDelegationCurrency(application)
+    : "GLW";
   const isSoldOut = availability.isSoldOut;
   const remainingPct = React.useMemo(() => {
     const total = availability.total || 0;
@@ -4166,16 +4178,16 @@ function LaunchpadAssetCard({
 
   const costMain = isSoldOut
     ? isDelegation
-      ? `${Math.round(row.totalAmountNeeded).toLocaleString()} GLW`
+      ? `${Math.round(row.totalAmountNeeded).toLocaleString()} ${delegationCurrency}`
       : `$${Math.round(row.totalAmountNeeded).toLocaleString()} USDC`
     : isDelegation
-    ? `${Math.round(cost).toLocaleString()} GLW`
+    ? `${Math.round(cost).toLocaleString()} ${delegationCurrency}`
     : `$${cost.toLocaleString(undefined, { maximumFractionDigits: 0 })} USDC`;
 
   const costSub = isSoldOut
     ? null
     : isDelegation
-    ? glwSpotPrice > 0
+    ? delegationCurrency === "GLW" && glwSpotPrice > 0
       ? `≈ $${Math.round(cost * glwSpotPrice).toLocaleString()} USD`
       : "—"
     : "Stable Price";
@@ -4364,7 +4376,9 @@ function LaunchpadAssetCard({
             {isSoldOut
               ? "Waitlist"
               : isDelegation
-              ? "Delegate GLW"
+              ? resolveDelegationCurrency(application) === "SGCTL"
+                ? "Delegate SGCTL"
+                : "Delegate GLW"
               : "Buy Miners"}
           </Button>
 

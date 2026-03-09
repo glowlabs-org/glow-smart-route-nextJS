@@ -43,6 +43,7 @@ import {
   useMiningScore,
   getRewardScoreForApplication,
   getMiningScoreForApplication,
+  calculateProtocolDepositAmount,
   type AuctionApplication,
 } from "@/hooks";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -108,6 +109,20 @@ function getActiveFractionAvailability(application: AuctionApplication) {
   const filled = total - remaining;
   const percentFilled = total > 0 ? Math.round((filled / total) * 100) : 0;
   return { remaining, total, isSoldOut, percentFilled };
+}
+
+function getDelegationPaymentCurrency(
+  application: AuctionApplication,
+): "SGCTL" | "GLW" {
+  const asset = application.activeFraction?.delegationAsset;
+  if (asset === "SGCTL" || asset === "GLW") return asset;
+  if (application.paymentCurrency === "SGCTL") return "SGCTL";
+  return "GLW";
+}
+
+function getPaymentCurrencyDecimals(currency: "USDC" | "GLW" | "SGCTL"): number {
+  if (currency === "SGCTL") return DECIMALS_BY_TOKEN.GCTL;
+  return DECIMALS_BY_TOKEN[currency];
 }
 
 // Helper: Format number with appropriate precision
@@ -212,7 +227,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
     applications: delegationApplications,
     isLoading: isDelegationsLoading,
   } = useGlowLaunchpad({
-    filters: { paymentCurrency: "GLW", includeFilled: true },
+    filters: { includeFilled: true },
   });
 
   // Fetch miners
@@ -284,6 +299,10 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
 
     return allApplications.map((application) => {
       const availability = getActiveFractionAvailability(application);
+      const delegationCurrency =
+        application._type === "delegations"
+          ? getDelegationPaymentCurrency(application)
+          : null;
 
       const reward = getRewardScoreForApplication(
         rewardScoreMap,
@@ -326,10 +345,19 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
               ),
             );
           }
+          const protocolDeposit = calculateProtocolDepositAmount(
+            application.finalProtocolFee,
+            application.applicationPriceQuotes,
+            delegationCurrency || "GLW",
+          );
+          if (protocolDeposit) {
+            const parsed = Number(protocolDeposit);
+            if (Number.isFinite(parsed)) return parsed;
+          }
           return parseFloat(
             formatUnits(
               BigInt(application.activeFraction.step || "0"),
-              DECIMALS_BY_TOKEN.GLW,
+              getPaymentCurrencyDecimals(delegationCurrency || "GLW"),
             ),
           );
         } catch {
@@ -359,28 +387,54 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
           const pdRewards = parseFloat(
             formatUnits(
               BigInt(reward.userWeeklyPdRewards || "0"),
-              DECIMALS_BY_TOKEN.GLW,
+              getPaymentCurrencyDecimals(delegationCurrency || "GLW"),
             ),
           );
+          // SGCTL-phase PD recovery is denominated in SGCTL, so don't add it to GLW units.
+          if (delegationCurrency === "SGCTL") {
+            return glwRewards / totalShares;
+          }
           return (glwRewards + pdRewards) / totalShares;
         } catch {
           return 0;
         }
       })();
 
-      const totalAmountNeeded = application.activeFraction?.totalAmountNeeded
-        ? parseFloat(
-            formatUnits(
-              BigInt(application.activeFraction.totalAmountNeeded),
-              application._type === "miners"
-                ? DECIMALS_BY_TOKEN.USDC
-                : DECIMALS_BY_TOKEN.GLW,
-            ),
-          )
-        : 0;
+      const totalAmountNeeded = (() => {
+        if (!application.activeFraction) return 0;
+        if (application._type === "delegations") {
+          const totalSteps = application.activeFraction.totalSteps ?? 0;
+          if (!Number.isFinite(cost) || cost <= 0 || totalSteps <= 0) return 0;
+          return cost * totalSteps;
+        }
+        if (!application.activeFraction.totalAmountNeeded) return 0;
+        return parseFloat(
+          formatUnits(
+            BigInt(application.activeFraction.totalAmountNeeded),
+            DECIMALS_BY_TOKEN.USDC,
+          ),
+        );
+      })();
 
-      // Calculate USD value for weekly yield
-      const weeklyYieldUsd = weeklyYield * (glwSpotPrice || 0);
+      // Calculate USD value per delegation, including PD recovery USD for SGCTL phase.
+      const weeklyYieldUsd = (() => {
+        if (application._type === "miners") {
+          return weeklyYield * (glwSpotPrice || 0);
+        }
+        const totalShares = application.activeFraction?.totalSteps || 0;
+        if (!reward || totalShares <= 0) {
+          return weeklyYield * (glwSpotPrice || 0);
+        }
+        const glwRewardsUsd = Number.parseFloat(
+          String(reward.userWeeklyGlwValueUsd || "0"),
+        );
+        const pdRewardsUsd = Number.parseFloat(
+          String(reward.userWeeklyPdRewardsUsd || "0"),
+        );
+        const totalUsd = glwRewardsUsd + pdRewardsUsd;
+        if (!Number.isFinite(totalUsd)) return weeklyYield * (glwSpotPrice || 0);
+        return totalUsd / totalShares;
+      })();
 
       // Get reward score for delegations
       const rewardScore =
@@ -501,7 +555,10 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
     const isRowScoreLoading = isMiner
       ? isMiningScoresLoading
       : isRewardScoresLoading;
-    const currency = isMiner ? "USDC" : "GLW";
+    const currency = isMiner
+      ? "USDC"
+      : getDelegationPaymentCurrency(application);
+    const delegationCurrency = currency === "SGCTL" ? "SGCTL" : "GLW";
     const imageUrl = application.afterInstallPictures?.[0]?.url;
     // Some datasets include the same application id for both listing types.
     // Include type + fraction identity to prevent React key collisions.
@@ -734,7 +791,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                                 BigInt(
                                   row.scoreData.userWeeklyPdRewards || "0",
                                 ),
-                                DECIMALS_BY_TOKEN.GLW,
+                                getPaymentCurrencyDecimals(delegationCurrency),
                               ),
                             );
                             const glwPerShare =
@@ -765,7 +822,7 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                                     {pdPerShare.toLocaleString(undefined, {
                                       maximumFractionDigits: 1,
                                     })}{" "}
-                                    GLW
+                                    {delegationCurrency}
                                   </span>
                                 </div>
                               </div>
@@ -878,7 +935,8 @@ function FullRowLaunchpadGrid({ onPayDeposit }: FullRowLaunchpadGridProps) {
                   handleCardClick(row);
                 }}
               >
-                Delegate Glow <ArrowUpRight className="ml-1.5 w-4 h-4" />
+                {`Delegate ${currency}`}{" "}
+                <ArrowUpRight className="ml-1.5 w-4 h-4" />
               </Button>
             )}
           </div>
@@ -1128,7 +1186,7 @@ export default function LaunchpadStatusWidget({
     applications: delegationApplications,
     isLoading: isDelegationsLoading,
   } = useGlowLaunchpad({
-    filters: { paymentCurrency: "GLW", includeFilled: true },
+    filters: { includeFilled: true },
     enabled: delegationsEnabled,
   });
   const { applications: minerApplications, isLoading: isMinersLoading } =
