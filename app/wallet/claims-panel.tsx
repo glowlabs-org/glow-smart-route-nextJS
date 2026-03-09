@@ -285,7 +285,8 @@ function WeekClaimButton({
     [weekData.rewards]
   );
 
-  const weeksToWait = hasProtocolDeposits ? 4 : 3;
+  const weeksToWait =
+    claimType === "v2Only" || hasProtocolDeposits ? 4 : 3;
   const targetTimestampMs = React.useMemo(() => {
     const weekSeconds = 7 * 86_400;
     return (
@@ -361,7 +362,9 @@ function WeekClaimButton({
       return (
         <>
           <Clock className="w-4 h-4 mr-2" />
-          Claim in {countdownLabel}
+          {claimType === "v2Only"
+            ? `PD in ${countdownLabel}`
+            : `Claim in ${countdownLabel}`}
         </>
       );
     }
@@ -635,6 +638,29 @@ function WeekRewardsContent({
   const [claimingRewardType, setClaimingRewardType] = React.useState<
     "inflation" | "protocolDeposit" | null
   >(null);
+  const currentEpoch = getCurrentEpoch();
+  const hasInflationRewards = React.useMemo(
+    () => weekData.rewards.some((reward) => reward.type === "glowInflation"),
+    [weekData.rewards]
+  );
+  const hasProtocolRewards = React.useMemo(
+    () => weekData.rewards.some((reward) => reward.type === "protocolDeposit"),
+    [weekData.rewards]
+  );
+  const isGlwFinalized = weekData.week <= currentEpoch - 3;
+  const isPdFinalized = weekData.week <= currentEpoch - 4;
+  const isWeekFullyUnlocked =
+    (!hasInflationRewards || isGlwFinalized) &&
+    (!hasProtocolRewards || isPdFinalized);
+  const protocolUnlockDateLabel = React.useMemo(() => {
+    const weekSeconds = 7 * 86_400;
+    const claimableTimestamp =
+      (GENESIS_TIMESTAMP + (weekData.week + 4) * weekSeconds) * 1000;
+    return new Date(claimableTimestamp).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  }, [weekData.week]);
 
   const handleClaimReward = React.useCallback(
     async (reward: ClaimableReward, isInflation: boolean) => {
@@ -740,6 +766,15 @@ function WeekRewardsContent({
 
   return (
     <div className="space-y-3 border-t border-border/20 dark:border-border/40 pt-3 md:pt-4">
+      {glwClaimed &&
+        !protocolClaimed &&
+        hasProtocolRewards &&
+        !isPdFinalized && (
+          <div className="rounded-xl border border-border/20 bg-muted/30 px-3 py-2 text-xs text-muted-foreground dark:border-border/40 dark:bg-muted/50">
+            Emissions for this week are already claimed. Protocol deposits
+            unlock on {protocolUnlockDateLabel}.
+          </div>
+        )}
       {weekData.rewards.map((reward, idx) => {
         const config = CURRENCY_CONFIG[reward.currency as CurrencyKey] || {
           icon: <Coins className="w-4 h-4" />,
@@ -749,7 +784,9 @@ function WeekRewardsContent({
         };
 
         const isInflation = reward.type === "glowInflation";
-        const canClaim = isInflation ? !glwClaimed : !protocolClaimed;
+        const canClaim = isInflation
+          ? !glwClaimed && isWeekFullyUnlocked
+          : !protocolClaimed && isWeekFullyUnlocked;
         const rewardLabel = isInflation
           ? "Emission Rewards"
           : "Protocol Deposit";
@@ -1286,7 +1323,11 @@ export function ClaimsPanel({
         (reward) => reward.type === "glowInflation"
       );
       if (!hasInflationRewards) return false;
-      if (weekData.week > currentEpoch - 3) return false;
+      const hasProtocolRewards = weekData.rewards.some(
+        (reward) => reward.type === "protocolDeposit"
+      );
+      const emissionsUnlockOffset = hasProtocolRewards ? 4 : 3;
+      if (weekData.week > currentEpoch - emissionsUnlockOffset) return false;
 
       const { glwClaimed } = getWeekClaimState(weekData);
       return !glwClaimed;
@@ -2302,6 +2343,18 @@ export function ClaimsPanel({
           {weeklyBreakdown.map((weekData) => {
             const { isClaimed, glwClaimed, protocolClaimed } =
               getWeekClaimState(weekData);
+            const currentEpoch = getCurrentEpoch();
+            const hasGlwRewards = weekData.rewards.some(
+              (reward) => reward.type === "glowInflation"
+            );
+            const hasProtocolRewards = weekData.rewards.some(
+              (reward) => reward.type === "protocolDeposit"
+            );
+            const isGlwFinalized = weekData.week <= currentEpoch - 3;
+            const isPdFinalized = weekData.week <= currentEpoch - 4;
+            const isWeekFullyUnlocked =
+              (!hasGlwRewards || isGlwFinalized) &&
+              (!hasProtocolRewards || isPdFinalized);
 
             const isClaimable = !isClaimed && weekData.isFinalized;
 
@@ -2335,7 +2388,7 @@ export function ClaimsPanel({
                         variant={
                           isClaimed
                             ? "secondary"
-                            : weekData.isFinalized
+                            : isWeekFullyUnlocked
                             ? "default"
                             : "outline"
                         }
@@ -2346,7 +2399,15 @@ export function ClaimsPanel({
                             <CheckCircle className="mr-1 h-3 w-3" />
                             Claimed
                           </>
-                        ) : weekData.isFinalized ? (
+                        ) : glwClaimed &&
+                          !protocolClaimed &&
+                          hasProtocolRewards &&
+                          !isPdFinalized ? (
+                          <>
+                            <Sparkles className="mr-1 h-3 w-3" />
+                            Emissions Claimed
+                          </>
+                        ) : isWeekFullyUnlocked ? (
                           <>
                             <Sparkles className="mr-1 h-3 w-3" />
                             Ready to Claim
