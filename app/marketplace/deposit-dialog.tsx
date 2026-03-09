@@ -762,10 +762,6 @@ export function DepositDialog({
       )}/region/${regionId}/stake?_=${Date.now()}`,
       {
         cache: "no-store",
-        headers: {
-          "Cache-Control": "no-cache",
-          Pragma: "no-cache",
-        },
       }
     );
 
