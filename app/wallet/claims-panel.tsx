@@ -1262,20 +1262,21 @@ export function ClaimsPanel({
     return week.isFinalized && !isClaimed;
   }).length;
 
-  const claimableProtocolWeeks = React.useMemo(
-    () =>
-      weeklyBreakdown.filter((weekData) => {
-        if (!weekData.isFinalized) return false;
-        const hasProtocolRewards = weekData.rewards.some(
-          (reward) => reward.type === "protocolDeposit"
-        );
-        if (!hasProtocolRewards) return false;
+  const claimableProtocolWeeks = React.useMemo(() => {
+    const currentEpoch = getCurrentEpoch();
 
-        const { protocolClaimed } = getWeekClaimState(weekData);
-        return !protocolClaimed;
-      }),
-    [weeklyBreakdown, getWeekClaimState]
-  );
+    return weeklyBreakdown.filter((weekData) => {
+      const isPdFinalized = weekData.week <= currentEpoch - 4;
+      if (!isPdFinalized) return false;
+      const hasProtocolRewards = weekData.rewards.some(
+        (reward) => reward.type === "protocolDeposit"
+      );
+      if (!hasProtocolRewards) return false;
+
+      const { protocolClaimed } = getWeekClaimState(weekData);
+      return !protocolClaimed;
+    });
+  }, [weeklyBreakdown, getWeekClaimState]);
 
   const claimableInflationWeeks = React.useMemo(() => {
     const currentEpoch = getCurrentEpoch();
