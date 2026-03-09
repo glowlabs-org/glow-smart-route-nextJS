@@ -69,6 +69,12 @@ export interface WalletRegionStakeSnapshot {
   pendingRestakeOut?: BigintLike;
 }
 
+export interface SgctlStepDerivationInput {
+  glwStepAtomic: bigint;
+  glwPriceMicros: bigint;
+  gctlPriceMicros: bigint;
+}
+
 export interface TransactionStep {
   id: string;
   title: string;
@@ -496,6 +502,23 @@ export function calculateAvailableStakedGctl(
   return totalStaked > unavailable ? totalStaked - unavailable : 0n;
 }
 
+export function calculateSgctlStepAtomicFromGlwStep(
+  input: SgctlStepDerivationInput
+): bigint | null {
+  const { glwStepAtomic, glwPriceMicros, gctlPriceMicros } = input;
+  if (glwStepAtomic <= 0n || glwPriceMicros <= 0n || gctlPriceMicros <= 0n) {
+    return null;
+  }
+
+  const glwBase = 10n ** 18n;
+  const microUsdBase = 10n ** 6n;
+  const usdMicrosPerStep = (glwStepAtomic * glwPriceMicros) / glwBase;
+  if (usdMicrosPerStep <= 0n) return null;
+
+  const sgctlStepAtomic = (usdMicrosPerStep * microUsdBase) / gctlPriceMicros;
+  return sgctlStepAtomic > 0n ? sgctlStepAtomic : null;
+}
+
 export function calculateShortfall(
   required: bigint | null,
   balance: BigintLike
@@ -533,8 +556,15 @@ export function calculateAffordability(
       return 0n;
     }
   })();
+  const fallbackSgctlStepAtomic =
+    fallbackDelegationStepAtomic > 0n && fallbackDelegationStepAtomic < 10n ** 15n
+      ? fallbackDelegationStepAtomic
+      : null;
   const resolvedDelegationStepAtomic =
-    delegationStepAtomic ?? fallbackDelegationStepAtomic;
+    delegationStepAtomic ??
+    (selectedCurrency === "SGCTL"
+      ? fallbackSgctlStepAtomic ?? 0n
+      : fallbackDelegationStepAtomic);
 
   const balances = {
     GLW: glwBalance,

@@ -7,6 +7,7 @@
 import { describe, it, expect } from "vitest";
 import { parseUnits, formatUnits } from "viem";
 import {
+  calculateSgctlStepAtomicFromGlwStep,
   calculateCostInGCTL,
   calculateCostInGLW,
   calculateCostInUSDC,
@@ -98,6 +99,28 @@ describe("calculateCostInGCTL", () => {
     const overrideStep = parseUnits("28.152", 6);
     expect(calculateCostInGCTL(1, fraction, overrideStep)).toBeCloseTo(28.152, 6);
     expect(calculateCostInGCTL(2, fraction, overrideStep)).toBeCloseTo(56.304, 6);
+  });
+});
+
+describe("calculateSgctlStepAtomicFromGlwStep", () => {
+  it("derives SGCTL step from GLW step and USD quotes", () => {
+    const step = calculateSgctlStepAtomicFromGlwStep({
+      glwStepAtomic: BigInt("2777466552125199400504"),
+      glwPriceMicros: BigInt("1013333"),
+      gctlPriceMicros: BigInt("100000"),
+    });
+
+    expect(step).toBe(BigInt("28144985130"));
+  });
+
+  it("returns null for invalid inputs", () => {
+    expect(
+      calculateSgctlStepAtomicFromGlwStep({
+        glwStepAtomic: 0n,
+        glwPriceMicros: 1n,
+        gctlPriceMicros: 1n,
+      })
+    ).toBeNull();
   });
 });
 

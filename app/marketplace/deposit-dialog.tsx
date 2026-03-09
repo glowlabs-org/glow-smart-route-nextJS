@@ -32,11 +32,7 @@ import { useWalletClient } from "wagmi";
 import { useGlowSpotPriceSummary } from "@/hooks/useGlowSpotPriceSummary";
 import { useEthPrice } from "@/hooks/useEthPrice";
 import { useWalletTokenBalances } from "@/hooks/useWalletTokenBalances";
-import {
-  calculateProtocolDepositAmount,
-  useSponsorApplication,
-  type AuctionApplication,
-} from "@/hooks";
+import { useSponsorApplication, type AuctionApplication } from "@/hooks";
 import { useWallets } from "@/hooks/control-wallets";
 import { useGctlPreparationOrchestrator } from "@/hooks/useGctlPreparationOrchestrator";
 import { ConnectButton } from "@/components/connect-button";
@@ -66,6 +62,7 @@ import {
   RPC_INTERNAL_ERROR_MESSAGE,
   calculateAffordability,
   calculateAvailableStakedGctl,
+  calculateSgctlStepAtomicFromGlwStep,
   calculateCostInETH,
   calculateCostInGCTL,
   calculateCostInGLW,
@@ -128,22 +125,6 @@ type DepositDialogProps =
 
 type Phase = "review" | "processing" | "success" | "error";
 
-function toAtomicAmount(value: string, decimals: number): bigint | null {
-  const normalized = value.trim();
-  if (!normalized) return null;
-  const [wholePart, fractionalPart = ""] = normalized.split(".");
-  const truncatedFractional = fractionalPart.slice(0, decimals);
-  const safeValue = truncatedFractional.length
-    ? `${wholePart}.${truncatedFractional}`
-    : wholePart;
-
-  try {
-    return parseUnits(safeValue, decimals);
-  } catch {
-    return null;
-  }
-}
-
 export function DepositDialog({
   open,
   onOpenChange,
@@ -189,30 +170,35 @@ export function DepositDialog({
       return null;
     }
 
-    const fallbackStep = (() => {
+    const glwStepAtomic = (() => {
       try {
         return BigInt(application.activeFraction.step);
       } catch {
         return null;
       }
     })();
+    if (glwStepAtomic == null || glwStepAtomic <= 0n) return null;
+    if (runtimeSelectedCurrency === "GLW") return glwStepAtomic;
 
-    const quoteAmount = calculateProtocolDepositAmount(
-      application.finalProtocolFee ?? null,
-      application.applicationPriceQuotes ?? [],
-      runtimeSelectedCurrency === "SGCTL" ? "SGCTL" : "GLW"
-    );
-    if (!quoteAmount) return fallbackStep;
+    const latestQuote = application.applicationPriceQuotes?.[0];
+    const glwPriceRaw = latestQuote?.prices?.GLW;
+    const gctlPriceRaw = latestQuote?.prices?.GCTL;
+    if (!glwPriceRaw || !gctlPriceRaw) return null;
 
-    const decimals =
-      runtimeSelectedCurrency === "SGCTL"
-        ? DECIMALS_BY_TOKEN.GCTL
-        : DECIMALS_BY_TOKEN.GLW;
-    return toAtomicAmount(quoteAmount, decimals) ?? fallbackStep;
+    try {
+      const glwPriceMicros = BigInt(glwPriceRaw);
+      const gctlPriceMicros = BigInt(gctlPriceRaw);
+      return calculateSgctlStepAtomicFromGlwStep({
+        glwStepAtomic,
+        glwPriceMicros,
+        gctlPriceMicros,
+      });
+    } catch {
+      return null;
+    }
   }, [
     application?.activeFraction,
     application?.applicationPriceQuotes,
-    application?.finalProtocolFee,
     runtimeSelectedCurrency,
   ]);
 
