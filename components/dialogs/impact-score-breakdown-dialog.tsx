@@ -491,13 +491,13 @@ export function ImpactScoreBreakdownDialogContent(
     safePointsNumber(impactScore?.composition?.referralPoints) > 0;
   const showReferralNetwork =
     isReferralLive && (isOwnWallet || hasReferrals || hasReferralPoints);
-  const referralSubValue = hasReferrals
-    ? pendingReferees > 0
-      ? `${activeReferees} active · ${pendingReferees} pending`
-      : `${activeReferees} active referrals`
-    : isOwnWallet
-      ? "No referrals yet"
-      : "0 active referrals";
+  const referralSubValue = isOwnWallet
+    ? hasReferrals
+      ? pendingReferees > 0
+        ? `${activeReferees} active · ${pendingReferees} pending`
+        : `${activeReferees} active referrals`
+      : "No referrals yet"
+    : "Private referral data";
   const referralCtaLabel = isOwnWallet
     ? hasReferrals || hasReferralPoints
       ? "Manage"

@@ -221,6 +221,29 @@ export function ReferralNetworkDialog({
     );
   }, [resolvedData]);
 
+  const activeRefereesForList = React.useMemo(() => {
+    if (!resolvedData) return [];
+    return resolvedData.referees.filter((ref) => ref.status === "active");
+  }, [resolvedData]);
+
+  const totalNetworkCount = React.useMemo(() => {
+    if (!resolvedData) return 0;
+    return (
+      (resolvedData.stats.activeReferees ?? 0) +
+      (resolvedData.stats.pendingReferees ?? 0)
+    );
+  }, [resolvedData]);
+
+  const hiddenPendingCount = React.useMemo(() => {
+    if (!resolvedData) return 0;
+    if (typeof resolvedData.stats.pendingReferees === "number") {
+      return resolvedData.stats.pendingReferees;
+    }
+    return resolvedData.referees.filter(
+      (ref) => ref.status === "pending" || ref.activationPending,
+    ).length;
+  }, [resolvedData]);
+
   // Track dialog open
   const hasTrackedOpenRef = React.useRef(false);
   React.useEffect(() => {
@@ -984,12 +1007,12 @@ export function ReferralNetworkDialog({
                     Your Network
                   </h3>
                   <div className="text-[10px] font-medium text-muted-foreground">
-                    {resolvedData.referees.length} Total
+                    {totalNetworkCount} Total
                   </div>
                 </div>
 
                 {/* Activation explainer when there are pending referees but no active ones */}
-                {resolvedData.referees.length > 0 &&
+                {totalNetworkCount > 0 &&
                   resolvedData.stats.activeReferees === 0 && (
                     <div className="rounded-xl bg-amber-500/5 dark:bg-amber-400/5 border border-amber-500/20 dark:border-amber-400/20 p-4 space-y-2">
                       <div className="flex items-start gap-3">
@@ -1014,7 +1037,7 @@ export function ReferralNetworkDialog({
                     </div>
                   )}
 
-                {resolvedData.referees.length === 0 ? (
+                {totalNetworkCount === 0 ? (
                   <div className="rounded-2xl border border-dashed p-10 text-center bg-muted/10">
                     <div className="inline-flex p-4 rounded-2xl bg-muted/50 mb-4">
                       <Users className="w-8 h-8 text-muted-foreground/30" />
@@ -1077,8 +1100,28 @@ export function ReferralNetworkDialog({
                       </Button>
                     </div>
                   </div>
+                ) : activeRefereesForList.length === 0 ? (
+                  <div className="rounded-2xl border border-border/20 dark:border-border/40 p-6 text-center bg-muted/20 dark:bg-muted/40">
+                    <p className="text-sm font-semibold text-foreground">
+                      No active referrals yet
+                    </p>
+                    {hiddenPendingCount > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {hiddenPendingCount} pending referral
+                        {hiddenPendingCount > 1 ? "s are" : " is"} not shown.
+                      </p>
+                    )}
+                  </div>
                 ) : (
                   <div className="rounded-2xl border border-border/20 dark:border-border/40 overflow-hidden bg-muted/30 dark:bg-muted/50">
+                    {hiddenPendingCount > 0 && (
+                      <div className="px-4 py-2 border-b border-border/20 dark:border-border/40 bg-muted/40 dark:bg-muted/60">
+                        <p className="text-[11px] text-muted-foreground">
+                          {hiddenPendingCount} pending referral
+                          {hiddenPendingCount > 1 ? "s are" : " is"} not shown.
+                        </p>
+                      </div>
+                    )}
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader className="bg-muted/50 dark:bg-muted/60">
@@ -1095,7 +1138,7 @@ export function ReferralNetworkDialog({
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {resolvedData.referees.map((ref) => (
+                          {activeRefereesForList.map((ref) => (
                             <TableRow
                               key={ref.refereeWallet}
                               className="group hover:bg-muted/40 dark:hover:bg-muted/60 border-b border-border/20 dark:border-border/40 last:border-0"

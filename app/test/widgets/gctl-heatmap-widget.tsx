@@ -279,7 +279,7 @@ export default function GctlControlWidget({
   const cardClasses = cn(
     "overflow-hidden flex flex-col pt-0 w-full transition-all duration-300",
     isMinimal
-      ? "bg-transparent border-transparent h-full"
+      ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl h-full"
       : isFlow
       ? "bg-card/30 border-border/20 min-h-[380px]"
       : "h-full lg:max-h-[380px] bg-card dark:bg-card border-border/20"

@@ -333,7 +333,7 @@ export default function WeeklyActivityWidget({
     }
 
     return cells;
-  }, [hasWallet, minerPurchases, minerWeeks, weekRange, weeklyDelegations]);
+  }, [hasWallet, minerPurchases, weekRange, weeklyDelegations]);
 
   const activeWeeks = React.useMemo(
     () => weekCells.filter((w) => w.status !== "missed").length,
@@ -401,7 +401,7 @@ export default function WeeklyActivityWidget({
       className={cn(
         "overflow-hidden w-full pt-6 pb-0",
         isMinimal
-          ? "bg-transparent border-transparent h-full"
+          ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl h-full"
           : isFlow
           ? "bg-card/30 border-border/20 min-h-[280px]"
           : "h-full lg:max-h-[280px] bg-card dark:bg-card border-border/20"
