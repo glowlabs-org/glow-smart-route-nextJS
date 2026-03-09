@@ -1208,7 +1208,7 @@ export default function LaunchpadStatusWidget({
           : isFlow
             ? "bg-card/30 border-foreground/5 min-h-[380px]"
             : isFullRow
-              ? "bg-transparent border-transparent"
+              ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl"
               : cn(
                   "bg-card dark:bg-muted/20 border-foreground/5 dark:border-border",
                   isMobile ? "min-h-[620px]" : "h-full",
