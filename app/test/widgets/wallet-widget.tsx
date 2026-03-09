@@ -174,7 +174,7 @@ export default function WalletWidget({
         className={cn(
           "flex flex-col w-full h-full overflow-hidden pt-6 pb-0",
           isMinimal
-            ? "bg-transparent border-transparent"
+            ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl"
             : "bg-card dark:bg-card border-border/20"
         )}
       >

@@ -1204,7 +1204,7 @@ export default function LaunchpadStatusWidget({
       className={cn(
         "flex flex-col overflow-hidden min-w-0 gap-2 py-0 w-full",
         isMinimal
-          ? "bg-transparent border-transparent h-full"
+          ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl h-full"
           : isFlow
             ? "bg-card/30 border-foreground/5 min-h-[380px]"
             : isFullRow

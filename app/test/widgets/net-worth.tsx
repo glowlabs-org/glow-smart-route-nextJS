@@ -126,7 +126,7 @@ function GlowWorthChartTooltip({
 
 function NetWorthSkeleton() {
   return (
-    <Card className="h-full overflow-hidden flex flex-col gap-2 bg-transparent border-transparent pt-6 pb-0 w-full">
+    <Card className="h-full overflow-hidden flex flex-col gap-2 bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl pt-6 pb-0 w-full">
       <CardHeader className="py-0 px-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm md:text-lg font-semibold tracking-tight text-foreground">
@@ -141,7 +141,7 @@ function NetWorthSkeleton() {
 
       <CardContent className="flex flex-col flex-1 min-h-0 p-0">
         <div className="flex flex-1 min-h-[300px] max-h-[300px] lg:min-h-0 lg:max-h-[400px]">
-          <div className="px-4 flex-1 min-h-0">
+          <div className="px-6 flex-1 min-h-0">
             <div className="relative h-full w-full">
               {/* Grid pattern background */}
               <div
@@ -304,7 +304,7 @@ export default function NetWorthWidget({
       className={cn(
         "overflow-hidden flex flex-col gap-3 pt-6 pb-0 w-full",
         isMinimal
-          ? "bg-transparent border-transparent h-full max-h-[540px]"
+          ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl h-full max-h-[540px]"
           : "h-full bg-card dark:bg-card border-border/20",
       )}
     >
@@ -362,7 +362,7 @@ export default function NetWorthWidget({
               <div
                 className={cn(
                   "flex-1 min-h-0",
-                  isMinimal ? "px-0 lg:pr-1" : "px-4 lg:pr-1",
+                  isMinimal ? "px-6" : "px-4 lg:pr-1",
                   hasWallet ? "pb-1" : "",
                 )}
               >
@@ -511,7 +511,7 @@ export default function NetWorthWidget({
         </div>
 
         {!hasWallet ? (
-          <div className="px-4 pb-4">
+          <div className="px-6 pb-6">
             <div className="rounded-xl border border-border bg-muted/20 p-3 text-center max-w-xs mx-auto">
               <div className="mt-1 text-sm text-muted-foreground">
                 Connect your wallet to Begin.

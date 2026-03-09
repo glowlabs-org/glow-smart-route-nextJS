@@ -968,7 +968,7 @@ export default function SolarFarmWidget({
         className={cn(
           "flex flex-col overflow-hidden pt-0 gap-3 w-full",
           isMinimal
-            ? "bg-transparent border-transparent h-full"
+            ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl h-full"
             : "h-full lg:max-h-[380px] bg-card dark:bg-card border-border/20"
         )}
       >

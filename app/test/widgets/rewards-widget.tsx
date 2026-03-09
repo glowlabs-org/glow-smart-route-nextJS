@@ -331,7 +331,7 @@ export default function RewardsWidget({
       className={cn(
         "flex flex-col overflow-hidden pt-0 gap-3 w-full",
         isMinimal
-          ? "bg-transparent border-transparent h-full"
+          ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl h-full"
           : "h-full bg-card dark:bg-card border-border/20",
       )}
     >
@@ -341,7 +341,7 @@ export default function RewardsWidget({
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="flex flex-col flex-1 min-h-0 px-4 py-0 pt-2 sm:px-6 gap-6">
+      <CardContent className="flex flex-col flex-1 min-h-0 px-6 py-0 pt-2 gap-6">
         {/* Countdown Area */}
         {hasWallet &&
           !isWalletConnecting &&

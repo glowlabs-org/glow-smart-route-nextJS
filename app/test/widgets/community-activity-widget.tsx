@@ -232,12 +232,12 @@ export default function CommunityActivityWidget({
         className={cn(
           "relative flex h-full flex-col overflow-hidden",
           isMinimal
-            ? "bg-transparent border-transparent"
+            ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl"
             : "bg-card dark:bg-card border-border/20",
           className
         )}
       >
-        <CardHeader className={cn("pb-3", isMinimal && "px-0 pt-0")}>
+        <CardHeader className={cn("pb-3", isMinimal && "px-6 pt-0")}>
           <div className="flex items-center justify-between">
             <CardTitle className="tracking-tight text-lg">
               Recently Funded Farms
@@ -257,7 +257,7 @@ export default function CommunityActivityWidget({
         <CardContent
           className={cn(
             "min-h-0 flex-1 flex flex-col gap-3 pt-0",
-            isMinimal && "px-0"
+            isMinimal && "px-6"
           )}
         >
           {isLoading ? (

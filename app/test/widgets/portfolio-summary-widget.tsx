@@ -114,7 +114,7 @@ export default function PortfolioSummaryWidget({
       className={cn(
         "overflow-hidden w-full flex flex-col pt-6 pb-0",
         isMinimal
-          ? "bg-transparent border-transparent h-full"
+          ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl h-full"
           : "h-full bg-card dark:bg-card border-border/30 dark:border-border/40"
       )}
     >

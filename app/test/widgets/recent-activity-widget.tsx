@@ -47,7 +47,7 @@ export default function RecentActivityWidget({
       className={cn(
         "w-full",
         isMinimal
-          ? "bg-transparent border-transparent h-full"
+          ? "bg-muted/20 dark:bg-muted/30 border border-border/10 dark:border-border/20 rounded-2xl h-full"
           : isFlow
           ? "bg-card/30 border-border/20"
           : "bg-card dark:bg-card border-border/20"
