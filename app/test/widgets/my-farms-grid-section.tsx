@@ -1858,10 +1858,11 @@ export default function MyFarmsGridSection({
     ].forEach((item) => {
       const app = item.application;
       const zoneName = app?.zone?.name || "Launchpad";
-      const launchpadCurrency =
+      const launchpadDelegationCurrency =
         item.fractionType === "launchpad"
           ? resolveDelegationCurrency(app)
-          : "USDC";
+          : null;
+      const launchpadCurrency = launchpadDelegationCurrency ?? "USDC";
       const displayName =
         app?.farmName || `Farm ${item.applicationId.substring(0, 8)}`;
       const imageUrls = app?.afterInstallPictures?.map((p) => p.url) || [];
@@ -1874,10 +1875,10 @@ export default function MyFarmsGridSection({
           `${item.applicationId}:${item.fractionType}`
         ) ?? 0n;
       const initialCost =
-        item.fractionType === "launchpad"
+        launchpadDelegationCurrency
           ? parseDelegationAmountFromBaseUnits(
               amountAtomic.toString(),
-              launchpadCurrency
+              launchpadDelegationCurrency
             )
           : parseUsdcFromBaseUnits(amountAtomic.toString());
       const pdEstimate =
