@@ -74,6 +74,7 @@ import {
   deriveMiningCenterSponsorshipsInProgress,
 } from "@/utils/sponsorships-in-progress";
 import {
+  calculateLaunchpadPerShareRewards,
   normalizeDelegationCurrency,
   parseDelegationAmountFromBaseUnits,
   resolveDelegationCurrency,
@@ -132,6 +133,62 @@ function parseProtocolDepositTokenAmount(
   return parseDelegationAmountFromBaseUnits(value, delegationCurrency);
 }
 
+function formatTokenAmountByAsset(
+  value: number,
+  asset: string | null | undefined
+): string {
+  if (!Number.isFinite(value)) return "—";
+  const normalized = formatProtocolDepositAsset(asset);
+  const maximumFractionDigits =
+    normalized === "SGCTL" || normalized === "USDC" || normalized === "USDG"
+      ? 2
+      : 0;
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits,
+  });
+}
+
+function formatEstimatedWeeklyRewards(params: {
+  estimatedUserWeeklyGlw?: number;
+  estimatedUserWeeklyUsd?: number;
+  estimatedUserWeeklyPd?: number;
+  estimatedUserWeeklyPdAsset?: string | null;
+}): string | null {
+  const {
+    estimatedUserWeeklyGlw,
+    estimatedUserWeeklyUsd,
+    estimatedUserWeeklyPd,
+    estimatedUserWeeklyPdAsset,
+  } = params;
+
+  const pdAsset = formatProtocolDepositAsset(estimatedUserWeeklyPdAsset);
+  if (
+    pdAsset !== "GLW" &&
+    (estimatedUserWeeklyPd ?? 0) > 0 &&
+    Number.isFinite(estimatedUserWeeklyPd)
+  ) {
+    const parts: string[] = [];
+    if ((estimatedUserWeeklyGlw ?? 0) > 0 && Number.isFinite(estimatedUserWeeklyGlw)) {
+      parts.push(`${fmtGlw(estimatedUserWeeklyGlw ?? 0)} GLW`);
+    }
+    parts.push(
+      `${formatTokenAmountByAsset(estimatedUserWeeklyPd ?? 0, pdAsset)} ${pdAsset}`
+    );
+    return `~${parts.join(" + ")}/wk`;
+  }
+
+  if ((estimatedUserWeeklyUsd ?? 0) > 0 && Number.isFinite(estimatedUserWeeklyUsd)) {
+    return `~$${fmtUsdAmount(estimatedUserWeeklyUsd ?? 0)}/wk`;
+  }
+
+  if ((estimatedUserWeeklyGlw ?? 0) > 0 && Number.isFinite(estimatedUserWeeklyGlw)) {
+    return `~${fmtGlw(estimatedUserWeeklyGlw ?? 0)} GLW/wk`;
+  }
+
+  return null;
+}
+
 function getFarmEarnedLabel(farm: FarmCardData): string {
   const protocolDepositAsset = formatProtocolDepositAsset(
     farm.protocolDepositAsset
@@ -142,7 +199,10 @@ function getFarmEarnedLabel(farm: FarmCardData): string {
     )} ${protocolDepositAsset}`;
   }
   if (protocolDepositAsset !== "GLW") {
-    return `${fmtGlw(farm.inflationGlw)} GLW + ${fmtGlw(farm.recovered)} ${protocolDepositAsset}`;
+    return `${fmtGlw(farm.inflationGlw)} GLW + ${formatTokenAmountByAsset(
+      farm.recovered,
+      protocolDepositAsset
+    )} ${protocolDepositAsset}`;
   }
   return `${fmtGlw(farm.recovered + farm.inflationGlw)} GLW`;
 }
@@ -178,6 +238,8 @@ interface FarmCardData {
   inProgressPercent?: number;
   estimatedUserWeeklyGlw?: number;
   estimatedUserWeeklyUsd?: number;
+  estimatedUserWeeklyPd?: number;
+  estimatedUserWeeklyPdAsset?: string | null;
   isPendingStart?: boolean;
 }
 
@@ -255,6 +317,23 @@ function FarmCard({
   const isPendingStart = Boolean(farm.isPendingStart);
   const inProgressIsMiningCenter =
     isInProgress && farm.inProgressKind === "mining-center";
+  const protocolDepositAssetLabel = formatProtocolDepositAsset(
+    farm.protocolDepositAsset
+  );
+  const delegatedOrCostLabel =
+    isMiner || inProgressIsMiningCenter
+      ? fmtUsd(farm.initialCost)
+      : `${formatTokenAmountByAsset(
+          farm.initialCost,
+          protocolDepositAssetLabel
+        )} ${protocolDepositAssetLabel}`;
+  const estimatedWeeklyLabel = formatEstimatedWeeklyRewards({
+    estimatedUserWeeklyGlw: farm.estimatedUserWeeklyGlw,
+    estimatedUserWeeklyUsd: farm.estimatedUserWeeklyUsd,
+    estimatedUserWeeklyPd: farm.estimatedUserWeeklyPd,
+    estimatedUserWeeklyPdAsset:
+      farm.estimatedUserWeeklyPdAsset ?? farm.protocolDepositAsset,
+  });
   const auditUrl = showAuditButton ? getAuditUrl({ id: farm.farmId }) : null;
 
   const totalValue = farm.recovered + farm.inflation;
@@ -291,7 +370,7 @@ function FarmCard({
           ) : (
             <DelegationIcon className={"w-5 h-5"} />
           )}
-          In Progress
+          {inProgressIsMiningCenter ? "Miner" : "Delegation"}
         </div>
       );
     }
@@ -418,7 +497,7 @@ function FarmCard({
       </div>
       <div className={cn(isCompact ? "p-3" : "p-5")}>
         {isInProgress ? (
-          <div className={cn("space-y-3", isCompact && "space-y-2")}>
+          <div className={cn("space-y-4", isCompact && "space-y-2.5")}>
             <div
               className={cn(
                 "flex items-center justify-between",
@@ -436,6 +515,61 @@ function FarmCard({
               value={Math.max(0, Math.min(100, farm.inProgressPercent ?? 0))}
               className={cn(isCompact ? "h-1" : "h-1.5", "bg-muted")}
             />
+            <div className={cn("grid grid-cols-2 gap-2", !isCompact && "gap-4")}>
+              <div>
+                <div
+                  className={cn(
+                    "uppercase tracking-wider text-muted-foreground font-semibold mb-1",
+                    isCompact ? "text-[9px]" : "text-[10px]",
+                  )}
+                >
+                  {inProgressIsMiningCenter ? "Cost" : "Delegated"}
+                </div>
+                <div className={cn("font-mono font-bold", isCompact ? "text-xs" : "text-sm")}>
+                  {delegatedOrCostLabel}
+                </div>
+              </div>
+              <div className="text-right">
+                <div
+                  className={cn(
+                    "uppercase tracking-wider text-muted-foreground font-semibold mb-1",
+                    isCompact ? "text-[9px]" : "text-[10px]",
+                  )}
+                >
+                  Est. Weekly
+                </div>
+                <div
+                  className={cn(
+                    "font-mono font-bold",
+                    isCompact ? "text-xs" : "text-sm",
+                    inProgressIsMiningCenter
+                      ? "text-[color:var(--color-miner-contrast)]"
+                      : "text-delegation-purple",
+                  )}
+                >
+                  {estimatedWeeklyLabel ?? "—"}
+                </div>
+              </div>
+            </div>
+            <div
+              className={cn(
+                "border-t border-border/20 dark:border-border/40 flex justify-between items-center",
+                isCompact ? "pt-1.5" : "pt-2",
+              )}
+            >
+              {getTypeBadge()}
+              <div
+                className={cn(
+                  "font-medium text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform",
+                  isCompact ? "text-[10px]" : "text-xs",
+                )}
+              >
+                {!isCompact && "View Details"}{" "}
+                <ChevronRight
+                  className={cn(isCompact ? "w-2.5 h-2.5" : "w-3 h-3")}
+                />
+              </div>
+            </div>
           </div>
         ) : (
           <div className={cn("space-y-4", isCompact && "space-y-2.5")}>
@@ -489,9 +623,7 @@ function FarmCard({
                     isCompact ? "text-[9px]" : "text-[10px]",
                   )}
                 >
-                  {isPendingStart && farm.estimatedUserWeeklyGlw
-                    ? "Est. Weekly"
-                    : "Earned"}
+                  {isPendingStart ? "Est. Weekly" : "Earned"}
                 </div>
                 <div
                   className={cn(
@@ -507,12 +639,7 @@ function FarmCard({
                   )}
                 >
                   {isPendingStart
-                    ? farm.estimatedUserWeeklyGlw
-                      ? farm.estimatedUserWeeklyUsd &&
-                        farm.estimatedUserWeeklyUsd > 0
-                        ? `~$${fmtUsdAmount(farm.estimatedUserWeeklyUsd)}/wk`
-                        : `~${fmtGlw(farm.estimatedUserWeeklyGlw)} GLW/wk`
-                      : "Pending"
+                    ? estimatedWeeklyLabel ?? "Pending"
                     : getFarmEarnedLabel(farm)}
                 </div>
                 {isCompact && !isPendingStart && (
@@ -543,9 +670,10 @@ function FarmCard({
                     ? `${farm.weeksActive} / ${farm.totalWeeks} wks`
                     : isMiner
                       ? fmtUsd(farm.initialCost)
-                      : `${fmtGlw(farm.initialCost)} ${formatProtocolDepositAsset(
+                      : `${formatTokenAmountByAsset(
+                          farm.initialCost,
                           farm.protocolDepositAsset
-                        )}`}
+                        )} ${formatProtocolDepositAsset(farm.protocolDepositAsset)}`}
                 </span>
                 <span
                   className={cn(
@@ -616,6 +744,8 @@ function FarmDetailDialog({
   const isMiner = farm.type === "miner";
   const isOther = farm.type === "other";
   const isPendingStart = Boolean(farm.isPendingStart);
+  const inProgressIsMiningCenter =
+    isInProgress && farm.inProgressKind === "mining-center";
 
   const totalEarned = farm.recovered + farm.inflation;
   const protocolDepositAsset = formatProtocolDepositAsset(
@@ -623,17 +753,33 @@ function FarmDetailDialog({
   );
 
   const investedLabel = (() => {
-    if (isInProgress) return "—";
+    if (isInProgress) {
+      if (inProgressIsMiningCenter) return fmtUsd(farm.initialCost);
+      return `${formatTokenAmountByAsset(
+        farm.initialCost,
+        protocolDepositAsset
+      )} ${protocolDepositAsset}`;
+    }
     if (isMiner) return fmtUsd(farm.initialCost);
     if (isOther) return "—";
-    return `${fmtGlw(farm.initialCost)} ${protocolDepositAsset}`;
+    return `${formatTokenAmountByAsset(
+      farm.initialCost,
+      protocolDepositAsset
+    )} ${protocolDepositAsset}`;
   })();
 
   const earnedLabel = (() => {
-    if (isInProgress || isPendingStart)
-      return farm.estimatedUserWeeklyUsd && farm.estimatedUserWeeklyUsd > 0
-        ? `~$${fmtUsdAmount(farm.estimatedUserWeeklyUsd)}/wk`
-        : `~${fmtGlw(farm.estimatedUserWeeklyGlw ?? 0)} GLW/wk`;
+    if (isInProgress || isPendingStart) {
+      return (
+        formatEstimatedWeeklyRewards({
+          estimatedUserWeeklyGlw: farm.estimatedUserWeeklyGlw,
+          estimatedUserWeeklyUsd: farm.estimatedUserWeeklyUsd,
+          estimatedUserWeeklyPd: farm.estimatedUserWeeklyPd,
+          estimatedUserWeeklyPdAsset:
+            farm.estimatedUserWeeklyPdAsset ?? farm.protocolDepositAsset,
+        }) ?? "Pending"
+      );
+    }
     if (isMiner) return `${fmtGlw(farm.inflationGlw)} GLW`;
     return getFarmEarnedLabel(farm);
   })();
@@ -781,26 +927,28 @@ function FarmDetailDialog({
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Invested / Delegated */}
-              {!isInProgress && !isPendingStart && !isOther && (
+              {!isOther && (
                 <Card className="bg-muted/30 border-border/20">
                   <CardContent className="p-6 flex flex-col h-full justify-between gap-4">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <div
                         className={cn(
                           "p-1.5 rounded-lg",
-                          isMiner
+                          isMiner || inProgressIsMiningCenter
                             ? "bg-[color:var(--color-miner)]/10 text-[color:var(--color-miner)]"
                             : "bg-delegation-purple/10 text-delegation-purple",
                         )}
                       >
-                        {isMiner ? (
+                        {isMiner || inProgressIsMiningCenter ? (
                           <CashMinerIcon className="w-5 h-5" />
                         ) : (
                           <DelegationIcon className="w-5 h-5" />
                         )}
                       </div>
                       <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
-                        {isMiner ? "Initial Cost" : "Total Delegated"}
+                        {isMiner || inProgressIsMiningCenter
+                          ? "Initial Cost"
+                          : "Total Delegated"}
                       </div>
                     </div>
                     <div className="text-3xl font-semibold font-mono tracking-tight text-foreground">
@@ -999,7 +1147,10 @@ function FarmDetailDialog({
                             ? `${fmtUsdAmount(farm.recovered)} ${formatProtocolDepositAsset(
                                 farm.protocolDepositAsset
                               )}`
-                            : `${fmtGlw(farm.recovered)} ${formatProtocolDepositAsset(
+                            : `${formatTokenAmountByAsset(
+                                farm.recovered,
+                                farm.protocolDepositAsset
+                              )} ${formatProtocolDepositAsset(
                                 farm.protocolDepositAsset
                               )}`}
                         </div>
@@ -1097,7 +1248,10 @@ function FarmDetailDialog({
                                     <td className="py-3.5 px-6 text-right font-mono text-delegation-purple text-sm tabular-nums">
                                       {farm.isProtocolDepositUsd
                                         ? fmtUsdAmount(pdAmount)
-                                        : fmtGlw(pdAmount)}
+                                        : formatTokenAmountByAsset(
+                                            pdAmount,
+                                            protocolDepositAsset
+                                          )}
                                       <span className="text-[10px] font-normal text-muted-foreground ml-1">
                                         {protocolDepositAsset}
                                       </span>
@@ -1122,7 +1276,10 @@ function FarmDetailDialog({
                                         {fmtGlw(inflationGlw)} GLW +{" "}
                                         {farm.isProtocolDepositUsd
                                           ? fmtUsdAmount(pdAmount)
-                                          : fmtGlw(pdAmount)}{" "}
+                                          : formatTokenAmountByAsset(
+                                              pdAmount,
+                                              protocolDepositAsset
+                                            )}{" "}
                                         {protocolDepositAsset}
                                       </>
                                     )}
@@ -1302,6 +1459,52 @@ export default function MyFarmsGridSection({
       miningScoreMap,
     });
   }, [miningCenterInProgress, miningScoreMap]);
+
+  const inProgressAmountByApplicationType = React.useMemo(() => {
+    const amounts = new Map<string, bigint>();
+    for (const evt of splitsActivity) {
+      const applicationId = evt.applicationId;
+      const fractionType = evt.fractionType;
+      const status = (evt.fractionStatus ?? "").toLowerCase();
+      if (!applicationId || !fractionType || status !== "committed") continue;
+      try {
+        const amount = BigInt(evt.amount);
+        const key = `${applicationId}:${fractionType}`;
+        amounts.set(key, (amounts.get(key) ?? 0n) + amount);
+      } catch {}
+    }
+    return amounts;
+  }, [splitsActivity]);
+
+  const inProgressLaunchpadPdByApplication = React.useMemo(() => {
+    const pdMap = new Map<
+      string,
+      { amount: number; asset: "GLW" | "SGCTL" | null }
+    >();
+
+    for (const item of sponsorshipsInProgress) {
+      const delegationCurrency = resolveDelegationCurrency(item.application);
+      const totalSteps = item.application?.activeFraction?.totalSteps ?? null;
+      const rewardScore = rewardScoreMap.get(item.applicationId) ?? null;
+
+      if (!rewardScore) continue;
+      if (typeof totalSteps !== "number" || totalSteps <= 0) continue;
+      if (!item.userSteps || item.userSteps <= 0) continue;
+
+      const perShare = calculateLaunchpadPerShareRewards({
+        reward: rewardScore,
+        totalShares: totalSteps,
+        delegationCurrency,
+      });
+      const pdAmount = perShare.pdPerShare * item.userSteps;
+      pdMap.set(item.applicationId, {
+        amount: Number.isFinite(pdAmount) && pdAmount > 0 ? pdAmount : 0,
+        asset: delegationCurrency,
+      });
+    }
+
+    return pdMap;
+  }, [rewardScoreMap, sponsorshipsInProgress]);
 
   const farmNameByFarmId = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -1535,6 +1738,8 @@ export default function MyFarmsGridSection({
       }
 
       let estimatedUserWeeklyGlw: number | undefined = undefined;
+      let estimatedUserWeeklyPd: number | undefined = undefined;
+      let estimatedUserWeeklyPdAsset: string | null | undefined = undefined;
       if (farmMetadata?.userWeeklyRewards) {
         // Use source-specific breakdown if available (prevents double-counting for farms with both delegation + miner)
         const isMiningCenter = item.fractionType === "mining-center";
@@ -1558,13 +1763,15 @@ export default function MyFarmsGridSection({
           const pdAsset = formatProtocolDepositAsset(
             farmMetadata.userWeeklyRewards.protocolDepositAsset
           );
-          const pdGlw =
-            pdAsset === "GLW"
-              ? parseProtocolDepositTokenAmount(
-                  farmMetadata.userWeeklyRewards.protocolDepositRewards,
-                  pdAsset
-                )
-              : 0;
+          const pdAmount = parseProtocolDepositTokenAmount(
+            farmMetadata.userWeeklyRewards.protocolDepositRewards,
+            pdAsset
+          );
+          const pdGlw = pdAsset === "GLW" ? pdAmount : 0;
+          if (pdAsset !== "GLW" && pdAmount > 0) {
+            estimatedUserWeeklyPd = pdAmount;
+            estimatedUserWeeklyPdAsset = pdAsset;
+          }
           estimatedUserWeeklyGlw = delegationInflationGlw + pdGlw;
         } else {
           // Fallback for old API response (no breakdown fields)
@@ -1574,13 +1781,15 @@ export default function MyFarmsGridSection({
           const pdAsset = formatProtocolDepositAsset(
             farmMetadata.userWeeklyRewards.protocolDepositAsset
           );
-          const isPdGlw = pdAsset === "GLW";
-          const pdGlw = isPdGlw
-            ? parseProtocolDepositTokenAmount(
-                farmMetadata.userWeeklyRewards.protocolDepositRewards,
-                pdAsset
-              )
-            : 0;
+          const pdAmount = parseProtocolDepositTokenAmount(
+            farmMetadata.userWeeklyRewards.protocolDepositRewards,
+            pdAsset
+          );
+          const pdGlw = pdAsset === "GLW" ? pdAmount : 0;
+          if (pdAsset !== "GLW" && pdAmount > 0) {
+            estimatedUserWeeklyPd = pdAmount;
+            estimatedUserWeeklyPdAsset = pdAsset;
+          }
           estimatedUserWeeklyGlw = inflationGlw + pdGlw;
         }
       }
@@ -1611,6 +1820,8 @@ export default function MyFarmsGridSection({
           weeklyBreakdown: [],
           lastWeekRewardsGlw: 0,
           estimatedUserWeeklyGlw,
+          estimatedUserWeeklyPd,
+          estimatedUserWeeklyPdAsset,
         });
       } else {
         const initialCostUsd = parseUsdcFromBaseUnits(
@@ -1635,6 +1846,8 @@ export default function MyFarmsGridSection({
           weeklyBreakdown: [],
           lastWeekRewardsGlw: 0,
           estimatedUserWeeklyGlw,
+          estimatedUserWeeklyPd,
+          estimatedUserWeeklyPdAsset,
         });
       }
     });
@@ -1656,6 +1869,22 @@ export default function MyFarmsGridSection({
         imageUrls.push("/images/sections/residential.jpg");
       }
 
+      const amountAtomic =
+        inProgressAmountByApplicationType.get(
+          `${item.applicationId}:${item.fractionType}`
+        ) ?? 0n;
+      const initialCost =
+        item.fractionType === "launchpad"
+          ? parseDelegationAmountFromBaseUnits(
+              amountAtomic.toString(),
+              launchpadCurrency
+            )
+          : parseUsdcFromBaseUnits(amountAtomic.toString());
+      const pdEstimate =
+        item.fractionType === "launchpad"
+          ? inProgressLaunchpadPdByApplication.get(item.applicationId)
+          : undefined;
+
       cards.push({
         farmKey: `${item.applicationId}:in-progress:${item.fractionType}`,
         farmId: item.applicationId,
@@ -1664,7 +1893,7 @@ export default function MyFarmsGridSection({
         imageUrls,
         type: "in-progress",
         inProgressKind: item.fractionType,
-        initialCost: 0,
+        initialCost,
         recovered: 0,
         inflation: 0,
         inflationGlw: 0,
@@ -1676,6 +1905,8 @@ export default function MyFarmsGridSection({
         inProgressPercent: item.progressPercent ?? 0,
         estimatedUserWeeklyGlw: item.estimatedUserWeeklyGlw ?? 0,
         estimatedUserWeeklyUsd: item.estimatedUserWeeklyUsd ?? 0,
+        estimatedUserWeeklyPd: pdEstimate?.amount ?? 0,
+        estimatedUserWeeklyPdAsset: pdEstimate?.asset ?? null,
         lastWeekRewardsGlw: 0,
       });
     });
@@ -1691,6 +1922,8 @@ export default function MyFarmsGridSection({
     rewardsBreakdown,
     rewardedFarmTypeKeys,
     splitsActivity,
+    inProgressAmountByApplicationType,
+    inProgressLaunchpadPdByApplication,
     sponsorListings,
     miningCenterListings,
     sponsorshipsInProgressWithEstimates,
@@ -1702,13 +1935,19 @@ export default function MyFarmsGridSection({
     const getSize = (f: FarmCardData) => {
       const price = glwSpotPriceUsd || 0;
       // If miner, initialCost is USD
-      if (f.type === "miner") {
+      if (
+        f.type === "miner" ||
+        f.protocolDepositAsset === "USDC" ||
+        f.protocolDepositAsset === "USDG"
+      ) {
         return f.initialCost;
       }
-      // Delegation/Pending Launchpad is GLW
-      // Convert GLW to USD for comparison if price exists, else treat as raw number
-      // (This assumes parity if price is 0 which is wrong but safe fallback)
-      return f.initialCost * (price > 0 ? price : 0);
+      // GLW-denominated delegations can be converted to USD for size sorting.
+      if (formatProtocolDepositAsset(f.protocolDepositAsset) === "GLW") {
+        return f.initialCost * (price > 0 ? price : 0);
+      }
+      // Non-USD/Non-GLW assets (e.g. SGCTL): keep native magnitude for sort.
+      return f.initialCost;
     };
 
     switch (sortBy) {
@@ -2022,20 +2261,30 @@ export default function MyFarmsGridSection({
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
                       {isInProgress
-                        ? "—"
+                        ? inProgressIsMiningCenter
+                          ? fmtUsd(farm.initialCost)
+                          : `${formatTokenAmountByAsset(
+                              farm.initialCost,
+                              farm.protocolDepositAsset
+                            )} ${formatProtocolDepositAsset(farm.protocolDepositAsset)}`
                         : isMiner
                           ? fmtUsd(farm.initialCost)
-                          : `${fmtGlw(farm.initialCost)} ${formatProtocolDepositAsset(
+                          : `${formatTokenAmountByAsset(
+                              farm.initialCost,
                               farm.protocolDepositAsset
-                            )}`}
+                            )} ${formatProtocolDepositAsset(farm.protocolDepositAsset)}`}
                     </TableCell>
                     <TableCell className="text-right">
                       {isInProgress ? (
                         <span className="font-mono text-xs tabular-nums font-bold text-muted-foreground">
-                          {farm.estimatedUserWeeklyUsd &&
-                          farm.estimatedUserWeeklyUsd > 0
-                            ? `~$${fmtUsdAmount(farm.estimatedUserWeeklyUsd)}/wk`
-                            : `~${fmtGlw(farm.estimatedUserWeeklyGlw ?? 0)} GLW/wk`}
+                          {formatEstimatedWeeklyRewards({
+                            estimatedUserWeeklyGlw: farm.estimatedUserWeeklyGlw,
+                            estimatedUserWeeklyUsd: farm.estimatedUserWeeklyUsd,
+                            estimatedUserWeeklyPd: farm.estimatedUserWeeklyPd,
+                            estimatedUserWeeklyPdAsset:
+                              farm.estimatedUserWeeklyPdAsset ??
+                              farm.protocolDepositAsset,
+                          }) ?? "—"}
                         </span>
                       ) : (
                         <span
@@ -2051,12 +2300,14 @@ export default function MyFarmsGridSection({
                           )}
                         >
                           {isPendingStart
-                            ? farm.estimatedUserWeeklyGlw
-                              ? farm.estimatedUserWeeklyUsd &&
-                                farm.estimatedUserWeeklyUsd > 0
-                                ? `~$${fmtUsdAmount(farm.estimatedUserWeeklyUsd)}/wk`
-                                : `~${fmtGlw(farm.estimatedUserWeeklyGlw)} GLW/wk`
-                              : "Pending"
+                            ? formatEstimatedWeeklyRewards({
+                                estimatedUserWeeklyGlw: farm.estimatedUserWeeklyGlw,
+                                estimatedUserWeeklyUsd: farm.estimatedUserWeeklyUsd,
+                                estimatedUserWeeklyPd: farm.estimatedUserWeeklyPd,
+                                estimatedUserWeeklyPdAsset:
+                                  farm.estimatedUserWeeklyPdAsset ??
+                                  farm.protocolDepositAsset,
+                              }) ?? "Pending"
                             : getFarmEarnedLabel(farm)}
                         </span>
                       )}
