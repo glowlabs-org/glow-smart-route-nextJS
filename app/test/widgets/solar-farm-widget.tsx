@@ -865,10 +865,6 @@ export default function SolarFarmWidget({
     }
   }, [availableAssets, selectedAsset]);
 
-  const chartData = React.useMemo<AssetHistoryPoint[]>(() => {
-    return filledHistoryByAsset.get(selectedAsset) ?? [];
-  }, [filledHistoryByAsset, selectedAsset]);
-
   const selectedAssetRawHistory = React.useMemo<AssetHistoryPoint[]>(() => {
     return rawHistoryByAsset.get(selectedAsset) ?? [];
   }, [rawHistoryByAsset, selectedAsset]);
@@ -876,6 +872,27 @@ export default function SolarFarmWidget({
   const selectedAssetEstimatedInProgress = React.useMemo(() => {
     return inProgressEstimatedByAsset.get(selectedAsset) ?? 0;
   }, [inProgressEstimatedByAsset, selectedAsset]);
+
+  const estimatedOnlyChartData = React.useMemo<AssetHistoryPoint[]>(() => {
+    if (selectedAssetRawHistory.length > 0) return [];
+    if (selectedAssetEstimatedInProgress <= 0) return [];
+
+    const estimateWeek = Math.max(FIRST_V2_WEEK, getCurrentEpoch());
+    return [
+      {
+        weekNumber: estimateWeek,
+        dateLabel: "Est.",
+        tooltipDate: "Estimated in-progress rewards",
+        amount: selectedAssetEstimatedInProgress,
+      },
+    ];
+  }, [selectedAssetEstimatedInProgress, selectedAssetRawHistory]);
+
+  const chartData = React.useMemo<AssetHistoryPoint[]>(() => {
+    const historical = filledHistoryByAsset.get(selectedAsset) ?? [];
+    if (historical.length > 0) return historical;
+    return estimatedOnlyChartData;
+  }, [estimatedOnlyChartData, filledHistoryByAsset, selectedAsset]);
 
   const chartBarColor = React.useMemo(
     () => getAssetBarColor(selectedAsset),
