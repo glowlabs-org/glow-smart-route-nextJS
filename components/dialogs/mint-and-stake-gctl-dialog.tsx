@@ -121,7 +121,7 @@ function getWeeksInRange(weekRange: { startWeek: number; endWeek: number }) {
 
 function formatTokenAmount(
   amount: number,
-  options?: { maximumFractionDigits?: number }
+  options?: { maximumFractionDigits?: number },
 ) {
   if (!Number.isFinite(amount) || amount <= 0) return "0";
   return amount.toLocaleString(undefined, {
@@ -132,7 +132,7 @@ function formatTokenAmount(
 
 function formatCompact(
   value: number,
-  options?: { maximumFractionDigits?: number }
+  options?: { maximumFractionDigits?: number },
 ) {
   if (!Number.isFinite(value)) return "—";
   const maximumFractionDigits = options?.maximumFractionDigits ?? 2;
@@ -141,7 +141,7 @@ function formatCompact(
   if (abs >= 1e6) return `${(value / 1e6).toFixed(maximumFractionDigits)}M`;
   if (abs >= 1e3) return `${(value / 1e3).toFixed(maximumFractionDigits)}K`;
   return value.toFixed(
-    abs >= 10 ? maximumFractionDigits : Math.min(4, maximumFractionDigits)
+    abs >= 10 ? maximumFractionDigits : Math.min(4, maximumFractionDigits),
   );
 }
 
@@ -352,7 +352,7 @@ export function MintAndStakeGctlDialog({
         ...(data || {}),
       });
     },
-    [addressKey, isConnected, wagmiChainId]
+    [addressKey, isConnected, wagmiChainId],
   );
   const [optimisticHasGctlByAddress, setOptimisticHasGctlByAddress] =
     React.useState<Record<string, boolean>>({});
@@ -408,7 +408,7 @@ export function MintAndStakeGctlDialog({
     addresses: address ? [address] : [],
     enabled: open && Boolean(address),
   });
-  const walletEnsName = address ? ensNames[address] ?? null : null;
+  const walletEnsName = address ? (ensNames[address] ?? null) : null;
 
   const userStakedGctlByRegionId = React.useMemo(() => {
     const map = new Map<number, number>();
@@ -423,7 +423,7 @@ export function MintAndStakeGctlDialog({
     return map;
   }, [walletDetails?.regions]);
   const [selectedRegionId, setSelectedRegionId] = React.useState<number | null>(
-    null
+    null,
   );
   const selectedRegionLabel = React.useMemo(() => {
     const r = regions.find((reg: any) => reg.id === selectedRegionId);
@@ -441,19 +441,19 @@ export function MintAndStakeGctlDialog({
     React.useState(false);
   const [isUnstakingModalOpen, setIsUnstakingModalOpen] = React.useState(false);
   const [ethUsdcQuoteWei, setEthUsdcQuoteWei] = React.useState<bigint | null>(
-    null
+    null,
   );
   const [isSwappingEth, setIsSwappingEth] = React.useState(false);
 
   // Step 4 is the new SUCCESS State
   const [stepOverride, setStepOverride] = React.useState<1 | 2 | 3 | 4 | null>(
-    null
+    null,
   );
 
   const unstkedGctlBalanceNumber = React.useMemo(() => {
     try {
       return Number(
-        formatUnits(BigInt(gctlBalance ?? "0"), DECIMALS_BY_TOKEN.GCTL)
+        formatUnits(BigInt(gctlBalance ?? "0"), DECIMALS_BY_TOKEN.GCTL),
       );
     } catch {
       return 0;
@@ -499,10 +499,10 @@ export function MintAndStakeGctlDialog({
       unstkedGctlBalanceNumber > 0
         ? "GCTL"
         : usdcBalance && usdcBalance > 0n
-        ? "USDC"
-        : usdgBalance && usdgBalance > 0n
-        ? "USDG"
-        : "ETH";
+          ? "USDC"
+          : usdgBalance && usdgBalance > 0n
+            ? "USDG"
+            : "ETH";
     if (selectedCurrency !== defaultCurrency) {
       setSelectedCurrency(defaultCurrency);
       setAmountInput("");
@@ -519,7 +519,7 @@ export function MintAndStakeGctlDialog({
       open ? "gctl_mint_stake_dialog_open" : "gctl_mint_stake_dialog_close",
       {
         step,
-      }
+      },
     );
   }, [open, step, trackGctlEvent]);
 
@@ -527,7 +527,7 @@ export function MintAndStakeGctlDialog({
     address,
     query: {
       enabled: Boolean(
-        open && address && selectedCurrency === "ETH" && isEthPayEnabled
+        open && address && selectedCurrency === "ETH" && isEthPayEnabled,
       ),
     },
   });
@@ -555,8 +555,8 @@ export function MintAndStakeGctlDialog({
           BigInt(bal),
           selectedCurrency === "USDC"
             ? DECIMALS_BY_TOKEN.USDC
-            : DECIMALS_BY_TOKEN.USDG
-        )
+            : DECIMALS_BY_TOKEN.USDG,
+        ),
       ).toNumber();
     } catch {
       return 0;
@@ -581,7 +581,7 @@ export function MintAndStakeGctlDialog({
         const balWei = ethBalanceQuery.data?.value ?? 0n;
         const inputWei = parseUnits(
           trimToDecimals(amountInput, ETH_DECIMALS),
-          ETH_DECIMALS
+          ETH_DECIMALS,
         );
         return inputWei > balWei;
       } catch {
@@ -629,6 +629,18 @@ export function MintAndStakeGctlDialog({
     selectedCurrency,
     stakeMode,
   ]);
+
+  const estimatedUsdcOutFromEth = React.useMemo(() => {
+    if (selectedCurrency !== "ETH") return null;
+    if (!ethUsdcQuoteWei || ethUsdcQuoteWei <= 0n) return null;
+    try {
+      const usdcOut = new Decimal(formatUnits(ethUsdcQuoteWei, 6)).toNumber();
+      if (!Number.isFinite(usdcOut) || usdcOut <= 0) return null;
+      return usdcOut;
+    } catch {
+      return null;
+    }
+  }, [ethUsdcQuoteWei, selectedCurrency]);
 
   const stakeCapRemainingGctl = React.useMemo(() => {
     const remaining = gctlFromAtomic(stakeCap?.remaining);
@@ -729,7 +741,7 @@ export function MintAndStakeGctlDialog({
           .mul(STEERING_POINTS_PER_GLW)
           .mul(1_000_000)
           .floor()
-          .toFixed(0)
+          .toFixed(0),
       );
 
       const weekRange = impactWeekRangeQuery.data;
@@ -753,7 +765,7 @@ export function MintAndStakeGctlDialog({
     if (!amountNumber || amountNumber <= 0) return 0;
     return Math.max(
       0,
-      Math.min(100, Math.round((amountNumber / maxAmountNumber) * 100))
+      Math.min(100, Math.round((amountNumber / maxAmountNumber) * 100)),
     );
   }, [amountNumber, maxAmountNumber]);
 
@@ -791,7 +803,7 @@ export function MintAndStakeGctlDialog({
     (
       stepId: string,
       status: StepStatus,
-      extras?: { errorMessage?: string }
+      extras?: { errorMessage?: string },
     ) => {
       setStakeSteps((prev) => {
         const updated = prev.map((s) => {
@@ -801,7 +813,7 @@ export function MintAndStakeGctlDialog({
             status,
             startedAt:
               status === "waiting_signature" || status === "confirming"
-                ? s.startedAt ?? Date.now()
+                ? (s.startedAt ?? Date.now())
                 : s.startedAt,
             errorMessage: extras?.errorMessage ?? s.errorMessage,
           };
@@ -810,14 +822,14 @@ export function MintAndStakeGctlDialog({
         return updated;
       });
     },
-    []
+    [],
   );
 
   const handleStakeFlowStepStatus = React.useCallback(
     (
       stepId: string,
       status: StepStatus,
-      extras?: { errorMessage?: string }
+      extras?: { errorMessage?: string },
     ) => {
       if (stepId === "SIGN_STAKE") {
         setIsApproving(status === "waiting_signature");
@@ -831,28 +843,28 @@ export function MintAndStakeGctlDialog({
       }
       updateStakeStepStatus(stepId, status, extras);
     },
-    [updateStakeStepStatus]
+    [updateStakeStepStatus],
   );
 
   const handleMintFlowStepStatus = React.useCallback(
     (
       stepId: string,
       status: StepStatus,
-      extras?: { errorMessage?: string }
+      extras?: { errorMessage?: string },
     ) => {
       if (stepId === "SWAP_ETH_TO_USDC") {
         setIsSwappingEth(
-          status === "waiting_signature" || status === "confirming"
+          status === "waiting_signature" || status === "confirming",
         );
       }
       if (stepId === "CHECK_ALLOWANCE" || stepId === "APPROVE") {
         setIsApproving(
-          status === "waiting_signature" || status === "confirming"
+          status === "waiting_signature" || status === "confirming",
         );
       }
       if (stepId === "MINT_AND_STAKE") {
         setIsSubmitting(
-          status === "waiting_signature" || status === "confirming"
+          status === "waiting_signature" || status === "confirming",
         );
       }
       if (status === "error") {
@@ -862,7 +874,7 @@ export function MintAndStakeGctlDialog({
       }
       updateStakeStepStatus(stepId, status, extras);
     },
-    [updateStakeStepStatus]
+    [updateStakeStepStatus],
   );
 
   const showStakeCapNotice = stakeCapNoticeVisible && isStakeCapExceeded;
@@ -882,7 +894,7 @@ export function MintAndStakeGctlDialog({
   }, [isStakeCapExceeded, selectedRegionId]);
 
   const [trackingTxHash, setTrackingTxHash] = React.useState<string | null>(
-    null
+    null,
   );
   const [hasPerformedAction, setHasPerformedAction] = React.useState(false);
   const [successReceipt, setSuccessReceipt] = React.useState<{
@@ -1046,7 +1058,7 @@ export function MintAndStakeGctlDialog({
       try {
         const amountInWei = parseUnits(
           trimToDecimals(value, ETH_DECIMALS),
-          ETH_DECIMALS
+          ETH_DECIMALS,
         );
         const quoteRes = await estimateEthToUsdc({
           amountInWei,
@@ -1059,7 +1071,7 @@ export function MintAndStakeGctlDialog({
         return null;
       }
     },
-    [estimateEthToUsdc, isEthPayEnabled]
+    [estimateEthToUsdc, isEthPayEnabled],
   );
 
   const { run: runEthUsdcQuote, isRunning: isEthQuoteRunning } =
@@ -1084,7 +1096,7 @@ export function MintAndStakeGctlDialog({
 
       if (selectedCurrency === "ETH") runEthUsdcQuote(nextInput);
     },
-    [maxAmountNumber, runEthUsdcQuote, selectedCurrency]
+    [maxAmountNumber, runEthUsdcQuote, selectedCurrency],
   );
 
   const isBusy =
@@ -1136,7 +1148,7 @@ export function MintAndStakeGctlDialog({
       onOpenChange,
       resetTransferPolling,
       stopTransferPolling,
-    ]
+    ],
   );
 
   // Snapshot of balance before transaction
@@ -1225,8 +1237,7 @@ export function MintAndStakeGctlDialog({
         deltaGlwPerWeek: inflationPreview?.deltaGlwPerWeek ?? null,
         nextRegionSharePercent:
           inflationPreview?.nextEmissionSharePercent ?? null,
-        scoreBoostPerWeekLabel:
-          steeringImpactQuote?.deltaPerWeekPoints ?? null,
+        scoreBoostPerWeekLabel: steeringImpactQuote?.deltaPerWeekPoints ?? null,
       });
       const prevPoints = Math.max(0, Math.round(steeringScoreBefore));
       const nextPoints = Math.max(0, Math.round(steeringScoreAfterPreview));
@@ -1253,7 +1264,7 @@ export function MintAndStakeGctlDialog({
       setStakeUiErrorMessage(msg);
       const currentSteps = stakeStepsRef.current;
       const activeStep = currentSteps.find(
-        (s) => s.status === "waiting_signature" || s.status === "confirming"
+        (s) => s.status === "waiting_signature" || s.status === "confirming",
       );
       if (activeStep)
         updateStakeStepStatus(activeStep.id, "error", { errorMessage: msg });
@@ -1366,7 +1377,7 @@ export function MintAndStakeGctlDialog({
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         setStakeCapContactError(
-          data?.error || "Failed to send notification. Please try again."
+          data?.error || "Failed to send notification. Please try again.",
         );
         return;
       }
@@ -1478,7 +1489,7 @@ export function MintAndStakeGctlDialog({
           title: "Finalize",
           description: "Waiting for confirmation",
           status: "idle",
-        }
+        },
       );
 
       setStakeSteps(steps);
@@ -1556,7 +1567,7 @@ export function MintAndStakeGctlDialog({
       setStakeUiErrorMessage(msg);
       const currentSteps = stakeStepsRef.current;
       const activeStep = currentSteps.find(
-        (s) => s.status === "waiting_signature" || s.status === "confirming"
+        (s) => s.status === "waiting_signature" || s.status === "confirming",
       );
       if (activeStep)
         updateStakeStepStatus(activeStep.id, "error", { errorMessage: msg });
@@ -1637,7 +1648,7 @@ export function MintAndStakeGctlDialog({
       }));
 
       const sorted = [...enriched].sort(
-        (a, b) => (b.sharePercent ?? 0) - (a.sharePercent ?? 0)
+        (a, b) => (b.sharePercent ?? 0) - (a.sharePercent ?? 0),
       );
       const mostActiveId = sorted[0]?.id ?? null;
       return { regions: sorted, mostActiveId };
@@ -1863,8 +1874,7 @@ export function MintAndStakeGctlDialog({
                       Number.isFinite(glwPerWeek) && glwPerWeek > 0
                         ? `${formatCompact(glwPerWeek, { maximumFractionDigits: 1 })} GLW/wk`
                         : null;
-                    const isCgp =
-                      r.name?.toLowerCase().includes("clean grid");
+                    const isCgp = r.name?.toLowerCase().includes("clean grid");
 
                     return (
                       <button
@@ -1875,7 +1885,7 @@ export function MintAndStakeGctlDialog({
                           "relative w-full rounded-xl border px-4 py-3.5 text-left transition-all",
                           isSelected
                             ? "border-[#22D3EE]/50 bg-muted/50 dark:bg-muted/60 ring-1 ring-[#22D3EE]/30"
-                            : "border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 hover:bg-muted/40 dark:hover:bg-muted/60 hover:border-border/30"
+                            : "border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 hover:bg-muted/40 dark:hover:bg-muted/60 hover:border-border/30",
                         )}
                       >
                         <div className="flex items-center justify-between">
@@ -2024,8 +2034,8 @@ export function MintAndStakeGctlDialog({
                                 selectedCurrency === "ETH"
                                   ? ETH_DECIMALS
                                   : selectedCurrency === "GCTL"
-                                  ? DECIMALS_BY_TOKEN.GCTL
-                                  : 6;
+                                    ? DECIMALS_BY_TOKEN.GCTL
+                                    : 6;
                               const normalized = trimToDecimals(v, decimals);
                               setAmountInput(normalized);
                               if (
@@ -2092,7 +2102,7 @@ export function MintAndStakeGctlDialog({
                                   "text-[10px] font-medium text-muted-foreground hover:text-foreground px-1.5 py-1 rounded hover:bg-muted/50 transition-colors sm:absolute sm:top-0",
                                   p === 100
                                     ? "sm:-translate-x-full"
-                                    : "sm:-translate-x-1/2"
+                                    : "sm:-translate-x-1/2",
                                 )}
                               >
                                 {p}%
@@ -2102,6 +2112,79 @@ export function MintAndStakeGctlDialog({
                         </div>
                       </div>
                     </div>
+
+                    {stakeMode === "mint" ? (
+                      <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-4 space-y-2">
+                        <div className="text-[10px] font-mono text-muted-foreground/60 dark:text-muted-foreground/80 uppercase tracking-widest">
+                          Mint Estimate
+                        </div>
+                        {amountNumber <= 0 ? (
+                          <div className="text-xs text-muted-foreground">
+                            Enter an amount to preview minted GCTL.
+                          </div>
+                        ) : selectedCurrency === "ETH" &&
+                          isEthQuoteRunning &&
+                          !estimatedUsdcOutFromEth ? (
+                          <div className="text-xs text-muted-foreground">
+                            Estimating ETH quote...
+                          </div>
+                        ) : estimatedGctl && estimatedGctl > 0 ? (
+                          <div className="space-y-1">
+                            <div className="text-sm font-mono tabular-nums text-foreground">
+                              {selectedCurrency === "ETH" ? (
+                                <>
+                                  {formatTokenAmount(amountNumber, {
+                                    maximumFractionDigits: 6,
+                                  })}{" "}
+                                  ETH
+                                  {estimatedUsdcOutFromEth ? (
+                                    <>
+                                      {" -> "}
+                                      {formatTokenAmount(
+                                        estimatedUsdcOutFromEth,
+                                        {
+                                          maximumFractionDigits: 2,
+                                        },
+                                      )}{" "}
+                                      USDC
+                                    </>
+                                  ) : null}
+                                  {" -> "}
+                                  <span className="font-semibold">
+                                    {formatTokenAmount(estimatedGctl, {
+                                      maximumFractionDigits: 0,
+                                    })}{" "}
+                                    GCTL
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  {formatTokenAmount(amountNumber, {
+                                    maximumFractionDigits: 2,
+                                  })}{" "}
+                                  {selectedCurrency}
+                                  {" -> "}
+                                  <span className="font-semibold">
+                                    {formatTokenAmount(estimatedGctl, {
+                                      maximumFractionDigits: 0,
+                                    })}{" "}
+                                    GCTL
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              Estimated output based on current quote and token
+                              prices.
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-muted-foreground">
+                            Unable to estimate minted GCTL right now.
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
 
                     {showStakeCapNotice ? (
                       <div className="rounded-xl border border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 p-5 space-y-4">
@@ -2224,7 +2307,7 @@ export function MintAndStakeGctlDialog({
                                 <>
                                   +
                                   {formatCompact(
-                                    inflationPreview.deltaGlwPerWeek
+                                    inflationPreview.deltaGlwPerWeek,
                                   )}
                                 </>
                               ) : (
@@ -2261,7 +2344,7 @@ export function MintAndStakeGctlDialog({
                               {inflationPreview ? (
                                 <>
                                   {formatPercent1(
-                                    inflationPreview.nextEmissionSharePercent
+                                    inflationPreview.nextEmissionSharePercent,
                                   )}
                                   %
                                 </>
@@ -2285,7 +2368,7 @@ export function MintAndStakeGctlDialog({
                           "w-full rounded-xl border p-4 text-left transition-all mb-4",
                           isUnstakeAcknowledged
                             ? "border-border/40 bg-muted/50 dark:bg-muted/60"
-                            : "border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 hover:border-border/30"
+                            : "border-border/20 dark:border-border/40 bg-muted/30 dark:bg-muted/50 hover:border-border/30",
                         )}
                       >
                         <div className="flex items-start gap-3">
@@ -2301,7 +2384,7 @@ export function MintAndStakeGctlDialog({
                               "mt-0.5",
                               isUnstakeAcknowledged
                                 ? ""
-                                : "border-destructive data-[state=unchecked]:border-destructive"
+                                : "border-destructive data-[state=unchecked]:border-destructive",
                             )}
                           />
                           <div className="space-y-2">
@@ -2349,18 +2432,18 @@ export function MintAndStakeGctlDialog({
                         {isSwappingEth
                           ? "Swapping ETH..."
                           : isApproving
-                          ? stakeMode === "stake"
-                            ? "Signing..."
-                            : "Approving..."
-                          : isSubmitting
-                          ? stakeMode === "stake"
-                            ? "Confirming..."
-                            : "Minting..."
-                          : isProcessing
-                          ? "Finalizing..."
-                          : stakeMode === "stake"
-                          ? "Confirm Stake"
-                          : "Confirm Mint & Stake"}
+                            ? stakeMode === "stake"
+                              ? "Signing..."
+                              : "Approving..."
+                            : isSubmitting
+                              ? stakeMode === "stake"
+                                ? "Confirming..."
+                                : "Minting..."
+                              : isProcessing
+                                ? "Finalizing..."
+                                : stakeMode === "stake"
+                                  ? "Confirm Stake"
+                                  : "Confirm Mint & Stake"}
                       </Button>
                     </div>
                   </>
